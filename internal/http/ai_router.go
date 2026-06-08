@@ -17,7 +17,7 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 
 	r.Use(middleware.RequestID)
 	r.Use(requestIDPropagationMiddleware)
-	r.Use(traceContextPropagationMiddleware)
+	r.Use(TraceContextPropagationMiddleware)
 	r.Use(bimw.RealIP)
 	r.Use(requestLoggerMiddleware)
 	r.Use(middleware.Recoverer)
@@ -53,7 +53,7 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 		r.Get("/health", internalHandler.Health)
 	})
 
-	return r
+	return OTELHTTPHandler("biqly-ai", r)
 }
 
 func aiServiceRequestTimeout(deps *app.Dependencies) time.Duration {

@@ -19,6 +19,7 @@ import (
 	"github.com/biqly/biqly/internal/auth/mfa"
 	"github.com/biqly/biqly/internal/auth/rbac"
 	"github.com/biqly/biqly/internal/auth/workspace"
+	bihttp "github.com/biqly/biqly/internal/http"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/mail"
 	"github.com/biqly/biqly/internal/platform/observability"
@@ -190,7 +191,7 @@ func runAuthHTTPServer(cfg *biqauth.Config, runtime *authRuntime) {
 	router := newRouter(state, runtime.authHandler, runtime.rbacHandler, runtime.limiter, cfg)
 	server := &http.Server{
 		Addr:         cfg.HTTPAddr(),
-		Handler:      router,
+		Handler:      bihttp.OTELHTTPHandler("biqly-auth", router),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -273,6 +274,7 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(propagateRequestID)
+	r.Use(bihttp.TraceContextPropagationMiddleware)
 	r.Use(bimw.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)

@@ -14,6 +14,7 @@ import (
 	"github.com/biqly/biqly/internal/config"
 	httprouter "github.com/biqly/biqly/internal/http"
 	"github.com/biqly/biqly/internal/platform/logger"
+	"github.com/biqly/biqly/internal/platform/observability"
 )
 
 func main() {
@@ -28,6 +29,15 @@ func main() {
 	}))
 
 	ctx := context.Background()
+	shutdownTracing, tracErr := observability.SetupTracing(ctx, "query")
+	if tracErr != nil {
+		slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)
+	}
+	defer func() {
+		if err := shutdownTracing(context.Background()); err != nil {
+			slog.Warn("trace provider shutdown error", "error", err)
+		}
+	}()
 	deps, err := app.NewQueryDependencies(ctx, cfg)
 	if err != nil {
 		slog.Error("failed to initialize query dependencies", "error", err)

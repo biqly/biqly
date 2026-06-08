@@ -17,7 +17,7 @@ func QueryRouter(deps *app.Dependencies) http.Handler {
 
 	r.Use(middleware.RequestID)
 	r.Use(requestIDPropagationMiddleware)
-	r.Use(traceContextPropagationMiddleware)
+	r.Use(TraceContextPropagationMiddleware)
 	r.Use(bimw.RealIP)
 	r.Use(requestLoggerMiddleware)
 	r.Use(middleware.Recoverer)
@@ -49,7 +49,7 @@ func QueryRouter(deps *app.Dependencies) http.Handler {
 		registerQueryInternalRoutes(r, deps.QueryDeps())
 	})
 
-	return r
+	return OTELHTTPHandler("biqly-query", r)
 }
 
 func registerQueryAPIRoutes(r chi.Router, deps *app.QueryDeps) {

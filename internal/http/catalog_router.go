@@ -17,7 +17,7 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 
 	r.Use(middleware.RequestID)
 	r.Use(requestIDPropagationMiddleware)
-	r.Use(traceContextPropagationMiddleware)
+	r.Use(TraceContextPropagationMiddleware)
 	r.Use(bimw.RealIP)
 	r.Use(requestLoggerMiddleware)
 	r.Use(middleware.Recoverer)
@@ -52,7 +52,7 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 		registerCatalogInternalRoutes(r, deps.CatalogDeps(), "biqly-catalog")
 	})
 
-	return r
+	return OTELHTTPHandler("biqly-catalog", r)
 }
 
 func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
