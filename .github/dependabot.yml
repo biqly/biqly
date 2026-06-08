@@ -13,6 +13,18 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    groups:
+      eslint:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+          - "typescript-eslint"
+    ignore:
+      # eslint-plugin-jsx-a11y@6.x peers eslint ^9 only; bump eslint + @eslint/js together after a11y adds ^10.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
