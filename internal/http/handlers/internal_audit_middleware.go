@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/audit"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/pkg/common/requestid"
-	"github.com/biqly/biqly/pkg/common/tracecontext"
 )
 
 // InternalAuditMiddleware writes one audit event for each /internal/* request.
@@ -19,17 +19,19 @@ func InternalAuditMiddleware(logger *audit.Logger) func(http.Handler) http.Handl
 			if logger == nil {
 				return
 			}
+			traceID, spanID := observability.SpanIDs(r.Context())
 			logger.Log(r.Context(), audit.Event{
 				UserID:    internalCallerFromRequest(r),
 				EventType: audit.EventInternalRequest,
 				Details: map[string]any{
-					"source":      "service",
-					"caller":      internalCallerFromRequest(r),
-					"method":      r.Method,
-					"path":        r.URL.Path,
-					"status":      rec.status,
-					"request_id":  requestid.FromContext(r.Context()),
-					"traceparent": tracecontext.TraceparentFromContext(r.Context()),
+					"source":     "service",
+					"caller":     internalCallerFromRequest(r),
+					"method":     r.Method,
+					"path":       r.URL.Path,
+					"status":     rec.status,
+					"request_id": requestid.FromContext(r.Context()),
+					"trace_id":   traceID,
+					"span_id":    spanID,
 				},
 				Timestamp: time.Now().UTC(),
 			})

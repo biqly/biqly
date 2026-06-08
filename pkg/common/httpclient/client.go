@@ -5,12 +5,19 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // NewServiceClient returns an HTTP client tuned for internal service traffic.
+//
+// The transport is wrapped with otelhttp so every outbound call emits a client
+// span and injects the active trace context (W3C traceparent + baggage) via the
+// global propagator. When no TracerProvider is configured the wrapper is inert,
+// so callers pay nothing extra in traces-disabled deployments.
 func NewServiceClient() *http.Client {
 	return &http.Client{
-		Transport: NewServiceTransport(),
+		Transport: otelhttp.NewTransport(NewServiceTransport()),
 	}
 }
 

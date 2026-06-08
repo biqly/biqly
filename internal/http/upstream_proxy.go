@@ -9,15 +9,16 @@ import (
 	"strings"
 
 	"github.com/biqly/biqly/pkg/common/requestid"
-	"github.com/biqly/biqly/pkg/common/tracecontext"
 	"github.com/biqly/biqly/pkg/internalapi"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 const maxUpstreamProxyBodyBytes = 1 << 20 // 1 MiB
 
 // newUpstreamProxy returns a ReverseProxy that forwards to targetURL, copying
-// request-id and traceparent into outgoing requests and emitting a 502 JSON
-// error envelope on connection failure.
+// the request-id into outgoing requests and emitting a 502 JSON error envelope
+// on connection failure. Trace context is propagated (and a client span
+// emitted) by the otelhttp transport from the inbound request's active span.
 //
 // envVarName is the name of the environment variable that supplied the URL,
 // logged when the URL fails to parse so operators can find the misconfigured
@@ -56,10 +57,8 @@ func newUpstreamProxy(targetURL, envVarName, serviceLabel string) (http.Handler,
 			if id := requestid.FromContext(pr.In.Context()); id != "" {
 				pr.Out.Header.Set("X-Request-ID", id)
 			}
-			if traceparent := tracecontext.TraceparentFromContext(pr.In.Context()); traceparent != "" {
-				pr.Out.Header.Set("traceparent", traceparent)
-			}
 		},
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			slog.ErrorContext(r.Context(), logTag, "error", err, "path", r.URL.Path)
 			w.Header().Set("Content-Type", "application/json")

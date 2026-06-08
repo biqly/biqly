@@ -13,7 +13,6 @@ import (
 
 	"github.com/biqly/biqly/pkg/common/httpclient"
 	"github.com/biqly/biqly/pkg/common/requestid"
-	"github.com/biqly/biqly/pkg/common/tracecontext"
 	"github.com/biqly/biqly/pkg/internalapi"
 )
 
@@ -195,9 +194,8 @@ func (c *Client) setHeaders(ctx context.Context, req *http.Request, hasBody bool
 	if id := requestid.FromContext(ctx); id != "" {
 		req.Header.Set("X-Request-ID", id)
 	}
-	if traceparent := tracecontext.TraceparentFromContext(ctx); traceparent != "" {
-		req.Header.Set("traceparent", traceparent)
-	}
+	// Trace context (W3C traceparent + baggage) is injected by the otelhttp
+	// transport from the active span — see httpclient.NewServiceClient.
 }
 
 // decodeErrorResponse reads the response body, attempts to parse it as an

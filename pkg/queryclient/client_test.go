@@ -12,7 +12,6 @@ import (
 
 	"github.com/biqly/biqly/pkg/common/httpclient"
 	"github.com/biqly/biqly/pkg/common/requestid"
-	"github.com/biqly/biqly/pkg/common/tracecontext"
 	"github.com/biqly/biqly/pkg/internalapi"
 	"github.com/biqly/biqly/pkg/logicalquery"
 	pkgquery "github.com/biqly/biqly/pkg/query"
@@ -135,23 +134,17 @@ func TestRequestIDPropagation(t *testing.T) {
 		if got := r.Header.Get("X-Request-ID"); got != "req-123" {
 			t.Fatalf("X-Request-ID: got %q, want req-123", got)
 		}
-		if got := r.Header.Get("traceparent"); got != sampleTraceparent {
-			t.Fatalf("traceparent: got %q, want %q", got, sampleTraceparent)
-		}
 		if err := sonic.ConfigStd.NewEncoder(w).Encode(internalapi.CompileResponse{SQL: "SELECT 1"}); err != nil {
 			t.Fatalf("encode response: %v", err)
 		}
 	})
 
 	ctx := requestid.WithRequestID(context.Background(), "req-123")
-	ctx = tracecontext.WithTraceparent(ctx, sampleTraceparent)
 	_, err := c.Compile(ctx, sampleLQ())
 	if err != nil {
 		t.Fatalf("Compile() error: %v", err)
 	}
 }
-
-const sampleTraceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
 
 func TestRun_PassesOverrides(t *testing.T) {
 	c := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {

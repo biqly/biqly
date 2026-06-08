@@ -29,7 +29,6 @@ func Router(deps *app.Dependencies) http.Handler {
 	// Middleware
 	r.Use(middleware.RequestID)
 	r.Use(requestIDPropagationMiddleware)
-	r.Use(TraceContextPropagationMiddleware)
 	r.Use(requestLoggerMiddleware)
 	r.Use(bimw.RealIP)
 	r.Use(middleware.Logger)

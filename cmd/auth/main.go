@@ -274,7 +274,6 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(propagateRequestID)
-	r.Use(bihttp.TraceContextPropagationMiddleware)
 	r.Use(bimw.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)

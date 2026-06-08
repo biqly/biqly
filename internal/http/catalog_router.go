@@ -17,7 +17,6 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 
 	r.Use(middleware.RequestID)
 	r.Use(requestIDPropagationMiddleware)
-	r.Use(TraceContextPropagationMiddleware)
 	r.Use(bimw.RealIP)
 	r.Use(requestLoggerMiddleware)
 	r.Use(middleware.Recoverer)

@@ -21,6 +21,17 @@ func Tracer(name string) trace.Tracer {
 	return otel.GetTracerProvider().Tracer(name)
 }
 
+// SpanIDs returns the active trace and span IDs from ctx for log/audit
+// correlation. Both are empty when ctx carries no valid span context (e.g.
+// tracing disabled or a request that never entered an instrumented handler).
+func SpanIDs(ctx context.Context) (traceID, spanID string) {
+	sc := trace.SpanContextFromContext(ctx)
+	if !sc.IsValid() {
+		return "", ""
+	}
+	return sc.TraceID().String(), sc.SpanID().String()
+}
+
 const defaultServiceName = "biqly"
 
 // ServiceName returns OTEL_SERVICE_NAME when set, otherwise fallback (or biqly).

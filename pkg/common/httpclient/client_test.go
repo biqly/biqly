@@ -5,17 +5,31 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-func TestNewServiceClientUsesServiceTransport(t *testing.T) {
+func TestMain(m *testing.M) {
+	// Mirror SetupTracing: a W3C propagator and a recording provider so the
+	// otelhttp transport injects trace context on outbound requests.
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.AlwaysSample()))
+	otel.SetTracerProvider(tp)
+	code := m.Run()
+	_ = tp.Shutdown(context.Background())
+	os.Exit(code)
+}
+
+func TestNewServiceTransportTuning(t *testing.T) {
 	t.Parallel()
-	client := NewServiceClient()
-	transport, ok := client.Transport.(*http.Transport)
-	if !ok {
-		t.Fatalf("transport type: got %T, want *http.Transport", client.Transport)
-	}
+	transport := NewServiceTransport()
 	if transport.MaxIdleConns != 100 {
 		t.Fatalf("MaxIdleConns: got %d, want 100", transport.MaxIdleConns)
 	}
@@ -27,6 +41,38 @@ func TestNewServiceClientUsesServiceTransport(t *testing.T) {
 	}
 	if transport.ResponseHeaderTimeout != 30*time.Second {
 		t.Fatalf("ResponseHeaderTimeout: got %s, want 30s", transport.ResponseHeaderTimeout)
+	}
+}
+
+func TestNewServiceClientPropagatesTraceContext(t *testing.T) {
+	t.Parallel()
+	const traceID = "4bf92f3577b34da6a3ce929d0e0e4736"
+
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("traceparent")
+	}))
+	defer srv.Close()
+
+	// Simulate an inbound request that already carries a trace; the outbound
+	// call must continue the same trace (same trace-id, fresh client span-id).
+	ctx := propagation.TraceContext{}.Extract(context.Background(),
+		propagation.MapCarrier{"traceparent": "00-" + traceID + "-00f067aa0ba902b7-01"})
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, http.NoBody)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	resp, err := NewServiceClient().Do(req)
+	if err != nil {
+		t.Fatalf("Do(): %v", err)
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("close body: %v", err)
+	}
+
+	if !strings.HasPrefix(got, "00-"+traceID+"-") {
+		t.Fatalf("traceparent: got %q, want trace-id %s propagated", got, traceID)
 	}
 }
 

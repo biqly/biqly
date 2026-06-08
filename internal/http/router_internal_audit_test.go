@@ -59,8 +59,14 @@ func TestRouter_InternalRoutesWriteAuditLog(t *testing.T) {
 	if entry.Details["request_id"] == "" {
 		t.Fatalf("request_id should be recorded: %+v", entry.Details)
 	}
-	if entry.Details["traceparent"] != sampleAuditTraceparent {
-		t.Fatalf("traceparent: got %#v, want %q", entry.Details["traceparent"], sampleAuditTraceparent)
+	// /internal/health is intentionally excluded from HTTP tracing
+	// (otelRouteFilter), so no active span exists and trace context is empty —
+	// the audit middleware still records the keys for a consistent schema.
+	if _, ok := entry.Details["trace_id"]; !ok {
+		t.Fatalf("trace_id key should be present: %+v", entry.Details)
+	}
+	if _, ok := entry.Details["span_id"]; !ok {
+		t.Fatalf("span_id key should be present: %+v", entry.Details)
 	}
 }
 

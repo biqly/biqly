@@ -6,6 +6,7 @@ import (
 	"github.com/bytedance/sonic"
 	stdhttp "net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -101,8 +102,11 @@ func newTraceUpstream(t *testing.T, service string) *traceUpstream {
 		if r.Header.Get("X-Request-ID") == "" {
 			t.Errorf("%s: X-Request-ID should be propagated", service)
 		}
-		if got := r.Header.Get("traceparent"); got != sampleTraceparent {
-			t.Errorf("%s: traceparent got %q, want %q", service, got, sampleTraceparent)
+		// otelhttp continues the inbound trace and emits a fresh client span,
+		// so the downstream traceparent shares the trace-id but carries a new
+		// span-id — assert trace-id continuity rather than byte equality.
+		if got := r.Header.Get("traceparent"); !strings.HasPrefix(got, "00-"+sampleTraceID+"-") {
+			t.Errorf("%s: traceparent got %q, want trace-id %s propagated", service, got, sampleTraceID)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if err := sonic.ConfigStd.NewEncoder(w).Encode(map[string]string{"service": service}); err != nil {
@@ -112,7 +116,10 @@ func newTraceUpstream(t *testing.T, service string) *traceUpstream {
 	return up
 }
 
-const sampleTraceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+const (
+	sampleTraceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+	sampleTraceID     = "4bf92f3577b34da6a3ce929d0e0e4736"
+)
 
 func (u *traceUpstream) assertRequests(t *testing.T, want []string) {
 	t.Helper()

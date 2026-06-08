@@ -11,7 +11,6 @@ import (
 
 	"github.com/biqly/biqly/pkg/aiclient"
 	"github.com/biqly/biqly/pkg/common/requestid"
-	"github.com/biqly/biqly/pkg/common/tracecontext"
 	"github.com/biqly/biqly/pkg/internalapi"
 	"github.com/biqly/biqly/pkg/logicalquery"
 	pkgquery "github.com/biqly/biqly/pkg/query"
@@ -53,21 +52,15 @@ func TestRequestIDPropagation(t *testing.T) {
 		if got := r.Header.Get("X-Request-ID"); got != "req-123" {
 			t.Fatalf("X-Request-ID: got %q, want req-123", got)
 		}
-		if got := r.Header.Get("traceparent"); got != sampleTraceparent {
-			t.Fatalf("traceparent: got %q, want %q", got, sampleTraceparent)
-		}
 		_ = sonic.ConfigStd.NewEncoder(w).Encode(aiclient.SettingsResponse{Provider: "openai"})
 	})
 
 	ctx := requestid.WithRequestID(context.Background(), "req-123")
-	ctx = tracecontext.WithTraceparent(ctx, sampleTraceparent)
 	_, err := c.Settings(ctx)
 	if err != nil {
 		t.Fatalf("Settings() error: %v", err)
 	}
 }
-
-const sampleTraceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
 
 func TestQuery_RoundTrip(t *testing.T) {
 	wantLQ := logicalquery.LogicalQuery{
