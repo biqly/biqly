@@ -1,0 +1,201 @@
+{{- $it := .Values.global.observability.infraTelemetry -}}
+{{- if and $it $it.enabled -}}
+{{- $tracing := .Values.global.observability.tracing -}}
+{{- $endpoint := $it.otlpEndpoint | default $tracing.otlpEndpoint -}}
+{{- $secretName := $it.otlpHeadersSecret.name | default $tracing.otlpHeadersSecret.name -}}
+{{- $secretKey := $it.otlpHeadersSecret.key | default $tracing.otlpHeadersSecret.key -}}
+{{- $recv := list -}}
+{{- if $it.postgresql.enabled }}{{- $recv = append $recv "postgresql" -}}{{- end }}
+{{- if or $it.dragonfly.enabled $it.nats.enabled }}{{- $recv = append $recv "prometheus" -}}{{- end }}
+{{- if not $recv }}{{- fail "global.observability.infraTelemetry.enabled is true but every source is disabled" }}{{- end }}
+{{- if not $endpoint }}{{- fail "infraTelemetry needs an OTLP endpoint (set infraTelemetry.otlpEndpoint or observability.tracing.otlpEndpoint)" }}{{- end }}
+{{- if not $secretName }}{{- fail "infraTelemetry needs the OTLP headers secret (set infraTelemetry.otlpHeadersSecret or observability.tracing.otlpHeadersSecret)" }}{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: biqly-otel-infra-collector
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-infra-collector
+data:
+  config.yaml: |
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+      # Token is extracted (Authorization=Bearer <t> -> <t>) by the init
+      # container from the shared app OTLP secret; the extension re-adds Bearer.
+      bearertokenauth:
+        scheme: Bearer
+        filename: /etc/otel/auth/token
+    receivers:
+      {{- if $it.postgresql.enabled }}
+      postgresql:
+        endpoint: {{ printf "%s:%v" $it.postgresql.service $it.postgresql.port | quote }}
+        username: {{ $it.postgresql.username | quote }}
+        password: ${env:POSTGRES_PASSWORD}
+        collection_interval: {{ $it.collectionInterval }}
+        tls:
+          insecure: true
+      {{- end }}
+      {{- if or $it.dragonfly.enabled $it.nats.enabled }}
+      prometheus:
+        config:
+          scrape_configs:
+            {{- if $it.dragonfly.enabled }}
+            - job_name: biqly-dragonfly
+              scrape_interval: {{ $it.collectionInterval }}
+              static_configs:
+                - targets: [{{ $it.dragonfly.target | quote }}]
+            {{- end }}
+            {{- if $it.nats.enabled }}
+            - job_name: biqly-nats
+              scrape_interval: {{ $it.collectionInterval }}
+              static_configs:
+                - targets: [{{ printf "biqly-nats-exporter:%v" $it.nats.exporterPort | quote }}]
+            {{- end }}
+      {{- end }}
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 192
+      resource:
+        attributes:
+          - key: service.namespace
+            value: biqly
+            action: upsert
+          - key: service.name
+            value: biqly-infra
+            action: upsert
+      batch: {}
+    exporters:
+      otlphttp:
+        endpoint: {{ $endpoint | quote }}
+        auth:
+          authenticator: bearertokenauth
+    service:
+      extensions: [health_check, bearertokenauth]
+      pipelines:
+        metrics:
+          receivers: [{{ join ", " $recv }}]
+          processors: [memory_limiter, resource, batch]
+          exporters: [otlphttp]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: biqly-otel-infra-collector
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-infra-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: biqly-otel-infra-collector
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: biqly-otel-infra-collector
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: biqly
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/component: otel-infra-collector
+      annotations:
+        checksum/config: {{ $it | toYaml | sha256sum }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: extract-token
+          image: busybox:1.37
+          command: ["sh", "-c"]
+          args:
+            - |
+              v=$(cat "/etc/otel/secret/{{ $secretKey }}")
+              v=${v#Authorization=}
+              v=${v#Bearer }
+              printf '%s' "$v" | tr -d '\r\n' > /etc/otel/auth/token
+          volumeMounts:
+            - name: otel-secret
+              mountPath: /etc/otel/secret
+              readOnly: true
+            - name: auth
+              mountPath: /etc/otel/auth
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+      containers:
+        - name: otel-collector
+          image: {{ $it.image | quote }}
+          args:
+            - --config=/conf/config.yaml
+          {{- if $it.postgresql.enabled }}
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $it.postgresql.passwordSecret.name | quote }}
+                  key: {{ $it.postgresql.passwordSecret.key | quote }}
+          {{- end }}
+          ports:
+            - name: health
+              containerPort: 13133
+          livenessProbe:
+            httpGet:
+              path: /
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /conf
+              readOnly: true
+            - name: auth
+              mountPath: /etc/otel/auth
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            {{- toYaml $it.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: biqly-otel-infra-collector
+        - name: otel-secret
+          secret:
+            secretName: {{ $secretName | quote }}
+        - name: auth
+          emptyDir: {}
+{{- end }}

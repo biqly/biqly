@@ -214,6 +214,45 @@ global:
       jaeger:
         enabled: true
         image: jaegertracing/all-in-one:1.76.0
+    # Infra telemetry: an in-namespace OTel Collector that forwards METRICS from
+    # the bundled data stores (PostgreSQL, Dragonfly, NATS) to the same OTLP
+    # backend the apps export traces to (reuses tracing.otlpEndpoint and the
+    # tracing.otlpHeadersSecret bearer token). These stores emit metrics, not
+    # spans, so this is a metrics pipeline. Toggle the whole feature with
+    # `enabled`; toggle each source independently.
+    infraTelemetry:
+      enabled: true
+      image: otel/opentelemetry-collector-contrib:0.153.0
+      collectionInterval: 30s
+      # OTLP target. Empty string falls back to observability.tracing.otlpEndpoint.
+      otlpEndpoint: ""
+      # Bearer token source. Empty falls back to tracing.otlpHeadersSecret.
+      otlpHeadersSecret:
+        name: ""
+        key: ""
+      resources:
+        requests:
+          cpu: 50m
+          memory: 96Mi
+        limits:
+          cpu: 300m
+          memory: 256Mi
+      postgresql:
+        enabled: true
+        service: biqly-postgresql
+        port: 5432
+        username: postgres
+        passwordSecret:
+          name: biqly-postgresql-auth
+          key: postgres-password
+      dragonfly:
+        enabled: true
+        target: biqly-dragonfly:6379
+      nats:
+        enabled: true
+        monitorURL: http://biqly-nats:8222
+        exporterImage: natsio/prometheus-nats-exporter:0.17.3
+        exporterPort: 7777
     alertmanager:
       enabled: false
       webhookURLSecret:
