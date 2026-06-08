@@ -334,7 +334,7 @@ func (p *Parser) parseOr() (pkgsemantic.ExprNode, error) {
 		if err != nil {
 			return nil, err
 		}
-		left = pkgsemantic.BinaryExpr{Op: pkgsemantic.OpOr, Left: left, Right: right}
+		left = &pkgsemantic.BinaryExpr{Op: pkgsemantic.OpOr, Left: left, Right: right}
 	}
 	return left, nil
 }
@@ -350,7 +350,7 @@ func (p *Parser) parseAnd() (pkgsemantic.ExprNode, error) {
 		if err != nil {
 			return nil, err
 		}
-		left = pkgsemantic.BinaryExpr{Op: pkgsemantic.OpAnd, Left: left, Right: right}
+		left = &pkgsemantic.BinaryExpr{Op: pkgsemantic.OpAnd, Left: left, Right: right}
 	}
 	return left, nil
 }
@@ -361,12 +361,11 @@ func (p *Parser) parseNot() (pkgsemantic.ExprNode, error) {
 		if err != nil {
 			return nil, err
 		}
-		return pkgsemantic.UnaryExpr{Op: pkgsemantic.OpNot, Expr: expr}, nil
+		return &pkgsemantic.UnaryExpr{Op: pkgsemantic.OpNot, Expr: expr}, nil
 	}
 	return p.parseComparison()
 }
 
-//nolint:gocognit
 func (p *Parser) parseComparison() (pkgsemantic.ExprNode, error) {
 	left, err := p.parseArithmetic()
 	if err != nil {
@@ -381,89 +380,106 @@ func (p *Parser) parseComparison() (pkgsemantic.ExprNode, error) {
 		if err != nil {
 			return nil, err
 		}
-		return pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}, nil
+		return &pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}, nil
 	}
 
-	if tok.Type == TokenKeyword { //nolint:nestif
-		switch tok.Value {
-		case "LIKE", "ILIKE":
-			op := tok.Value
-			p.next()
-			right, err := p.parseArithmetic()
-			if err != nil {
-				return nil, err
-			}
-			return pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}, nil
-
-		case "IN":
-			p.next()
-			if !p.match(TokenParenOpen) {
-				return nil, errors.New("expected '(' after IN")
-			}
-			var list []pkgsemantic.ExprNode
-			if p.current().Type != TokenParenClose {
-				for {
-					item, err := p.parseOr()
-					if err != nil {
-						return nil, err
-					}
-					list = append(list, item)
-					if p.match(TokenComma) {
-						continue
-					}
-					break
-				}
-			}
-			if !p.match(TokenParenClose) {
-				return nil, errors.New("expected ')' after IN list")
-			}
-			return pkgsemantic.BinaryExpr{
-				Op:    pkgsemantic.BinaryOp("in"),
-				Left:  left,
-				Right: pkgsemantic.FunctionCallExpr{Name: "IN_LIST", Args: list},
-			}, nil
-
-		case "IS":
-			p.next()
-			not := false
-			if p.matchKeyword("NOT") {
-				not = true
-			}
-			if !p.matchKeyword("NULL") {
-				return nil, errors.New("expected 'NULL' after 'IS' / 'IS NOT'")
-			}
-			op := "IS NULL"
-			if not {
-				op = "IS NOT NULL"
-			}
-			return pkgsemantic.UnaryExpr{Op: unaryOpFromToken(op), Expr: left}, nil
-
-		case "BETWEEN":
-			p.next()
-			start, err := p.parseArithmetic()
-			if err != nil {
-				return nil, err
-			}
-			if !p.matchKeyword("AND") {
-				return nil, errors.New("expected 'AND' in BETWEEN expression")
-			}
-			end, err := p.parseArithmetic()
-			if err != nil {
-				return nil, err
-			}
-			return pkgsemantic.BinaryExpr{
-				Op:   pkgsemantic.BinaryOp("between"),
-				Left: left,
-				Right: pkgsemantic.BinaryExpr{
-					Op:    pkgsemantic.OpAnd,
-					Left:  start,
-					Right: end,
-				},
-			}, nil
+	if tok.Type == TokenKeyword {
+		if expr, ok, err := p.parseKeywordComparison(left, tok.Value); err != nil {
+			return nil, err
+		} else if ok {
+			return expr, nil
 		}
 	}
 
 	return left, nil
+}
+
+func (p *Parser) parseKeywordComparison(left pkgsemantic.ExprNode, keyword string) (pkgsemantic.ExprNode, bool, error) {
+	switch keyword {
+	case "LIKE", "ILIKE":
+		p.next()
+		right, err := p.parseArithmetic()
+		if err != nil {
+			return nil, false, err
+		}
+		return &pkgsemantic.BinaryExpr{Op: binaryOpFromToken(keyword), Left: left, Right: right}, true, nil
+
+	case "IN":
+		return p.parseInComparison(left)
+
+	case "IS":
+		return p.parseIsComparison(left)
+
+	case "BETWEEN":
+		return p.parseBetweenComparison(left)
+	}
+	return nil, false, nil
+}
+
+func (p *Parser) parseInComparison(left pkgsemantic.ExprNode) (pkgsemantic.ExprNode, bool, error) {
+	p.next()
+	if !p.match(TokenParenOpen) {
+		return nil, false, errors.New("expected '(' after IN")
+	}
+	var list []pkgsemantic.ExprNode
+	if p.current().Type != TokenParenClose {
+		for {
+			item, err := p.parseOr()
+			if err != nil {
+				return nil, false, err
+			}
+			list = append(list, item)
+			if p.match(TokenComma) {
+				continue
+			}
+			break
+		}
+	}
+	if !p.match(TokenParenClose) {
+		return nil, false, errors.New("expected ')' after IN list")
+	}
+	return &pkgsemantic.BinaryExpr{
+		Op:    pkgsemantic.BinaryOp("in"),
+		Left:  left,
+		Right: &pkgsemantic.FunctionCallExpr{Name: "IN_LIST", Args: list},
+	}, true, nil
+}
+
+func (p *Parser) parseIsComparison(left pkgsemantic.ExprNode) (pkgsemantic.ExprNode, bool, error) {
+	p.next()
+	not := p.matchKeyword("NOT")
+	if !p.matchKeyword("NULL") {
+		return nil, false, errors.New("expected 'NULL' after 'IS' / 'IS NOT'")
+	}
+	op := "IS NULL"
+	if not {
+		op = "IS NOT NULL"
+	}
+	return &pkgsemantic.UnaryExpr{Op: unaryOpFromToken(op), Expr: left}, true, nil
+}
+
+func (p *Parser) parseBetweenComparison(left pkgsemantic.ExprNode) (pkgsemantic.ExprNode, bool, error) {
+	p.next()
+	start, err := p.parseArithmetic()
+	if err != nil {
+		return nil, false, err
+	}
+	if !p.matchKeyword("AND") {
+		return nil, false, errors.New("expected 'AND' in BETWEEN expression")
+	}
+	end, err := p.parseArithmetic()
+	if err != nil {
+		return nil, false, err
+	}
+	return &pkgsemantic.BinaryExpr{
+		Op:   pkgsemantic.BinaryOp("between"),
+		Left: left,
+		Right: &pkgsemantic.BinaryExpr{
+			Op:    pkgsemantic.OpAnd,
+			Left:  start,
+			Right: end,
+		},
+	}, true, nil
 }
 
 func (p *Parser) parseLeftAssociative(
@@ -485,7 +501,7 @@ func (p *Parser) parseLeftAssociative(
 		if err != nil {
 			return nil, err
 		}
-		left = pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}
+		left = &pkgsemantic.BinaryExpr{Op: binaryOpFromToken(op), Left: left, Right: right}
 	}
 	return left, nil
 }
@@ -498,100 +514,120 @@ func (p *Parser) parseFactor() (pkgsemantic.ExprNode, error) {
 	return p.parseLeftAssociative(p.parsePrimary, "*", "/", "%")
 }
 
-//nolint:gocognit
 func (p *Parser) parsePrimary() (pkgsemantic.ExprNode, error) {
 	tok := p.current()
 
-	// Numbers
 	if tok.Type == TokenNumber {
-		p.next()
-		val, err := parseNumberLiteral(tok.Value)
-		if err != nil {
-			return nil, err
-		}
-		return pkgsemantic.LiteralExpr{Value: val}, nil
+		return p.parseNumberPrimary(tok)
 	}
-
-	// Strings
 	if tok.Type == TokenString {
 		p.next()
-		return pkgsemantic.LiteralExpr{Value: parseStringLiteral(tok.Value)}, nil
+		return &pkgsemantic.LiteralExpr{Value: parseStringLiteral(tok.Value)}, nil
 	}
-
-	// Identifiers and function calls
-	if tok.Type == TokenIdentifier { //nolint:nestif
-		name := tok.Value
-		p.next()
-		if p.match(TokenParenOpen) {
-			var args []pkgsemantic.ExprNode
-			if p.current().Type != TokenParenClose {
-				for {
-					arg, err := p.parseOr()
-					if err != nil {
-						return nil, err
-					}
-					args = append(args, arg)
-					if p.match(TokenComma) {
-						continue
-					}
-					break
-				}
-			}
-			if !p.match(TokenParenClose) {
-				return nil, fmt.Errorf("expected closing parenthesis in function call %s", name)
-			}
-			return pkgsemantic.FunctionCallExpr{Name: strings.ToUpper(name), Args: args}, nil
-		}
-		return identifierExpr(name), nil
+	if tok.Type == TokenIdentifier {
+		return p.parseIdentifierPrimary(tok.Value)
 	}
-
-	// Parenthesized expressions
 	if p.match(TokenParenOpen) {
-		expr, err := p.parseOr()
-		if err != nil {
-			return nil, err
-		}
-		if !p.match(TokenParenClose) {
-			return nil, errors.New("expected closing parenthesis")
-		}
-		return expr, nil
+		return p.parseParenthesizedPrimary()
 	}
-
-	// CASE expression
-	if p.matchKeyword("CASE") { //nolint:nestif
-		var conditions []pkgsemantic.CaseWhen
-		for p.matchKeyword("WHEN") {
-			whenExpr, err := p.parseOr()
-			if err != nil {
-				return nil, err
-			}
-			if !p.matchKeyword("THEN") {
-				return nil, errors.New("expected 'THEN' in CASE expression")
-			}
-			thenExpr, err := p.parseOr()
-			if err != nil {
-				return nil, err
-			}
-			conditions = append(conditions, pkgsemantic.CaseWhen{When: whenExpr, Then: thenExpr})
-		}
-		if len(conditions) == 0 {
-			return nil, errors.New("CASE expression must have at least one WHEN condition")
-		}
-		var elseExpr pkgsemantic.ExprNode
-		if p.matchKeyword("ELSE") {
-			var err error
-			elseExpr, err = p.parseOr()
-			if err != nil {
-				return nil, err
-			}
-		}
-		if !p.matchKeyword("END") {
-			return nil, errors.New("expected 'END' at the end of CASE expression")
-		}
-		return pkgsemantic.CaseExpr{Conditions: conditions, ElseExpr: elseExpr}, nil
+	if p.matchKeyword("CASE") {
+		return p.parseCasePrimary()
 	}
 
 	return nil, fmt.Errorf("unexpected token: %q", tok.Value)
+}
+
+func (p *Parser) parseNumberPrimary(tok Token) (pkgsemantic.ExprNode, error) {
+	p.next()
+	val, err := parseNumberLiteral(tok.Value)
+	if err != nil {
+		return nil, err
+	}
+	return &pkgsemantic.LiteralExpr{Value: val}, nil
+}
+
+func (p *Parser) parseIdentifierPrimary(name string) (pkgsemantic.ExprNode, error) {
+	p.next()
+	if !p.match(TokenParenOpen) {
+		return identifierExpr(name), nil
+	}
+	args, err := p.parseCallArgs(name)
+	if err != nil {
+		return nil, err
+	}
+	return &pkgsemantic.FunctionCallExpr{Name: strings.ToUpper(name), Args: args}, nil
+}
+
+func (p *Parser) parseCallArgs(name string) ([]pkgsemantic.ExprNode, error) {
+	var args []pkgsemantic.ExprNode
+	if p.current().Type != TokenParenClose {
+		for {
+			arg, err := p.parseOr()
+			if err != nil {
+				return nil, err
+			}
+			args = append(args, arg)
+			if p.match(TokenComma) {
+				continue
+			}
+			break
+		}
+	}
+	if !p.match(TokenParenClose) {
+		return nil, fmt.Errorf("expected closing parenthesis in function call %s", name)
+	}
+	return args, nil
+}
+
+func (p *Parser) parseParenthesizedPrimary() (pkgsemantic.ExprNode, error) {
+	expr, err := p.parseOr()
+	if err != nil {
+		return nil, err
+	}
+	if !p.match(TokenParenClose) {
+		return nil, errors.New("expected closing parenthesis")
+	}
+	return expr, nil
+}
+
+func (p *Parser) parseCasePrimary() (pkgsemantic.ExprNode, error) {
+	conditions, err := p.parseCaseWhenClauses()
+	if err != nil {
+		return nil, err
+	}
+	var elseExpr pkgsemantic.ExprNode
+	if p.matchKeyword("ELSE") {
+		elseExpr, err = p.parseOr()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !p.matchKeyword("END") {
+		return nil, errors.New("expected 'END' at the end of CASE expression")
+	}
+	return &pkgsemantic.CaseExpr{Conditions: conditions, ElseExpr: elseExpr}, nil
+}
+
+func (p *Parser) parseCaseWhenClauses() ([]pkgsemantic.CaseWhen, error) {
+	var conditions []pkgsemantic.CaseWhen
+	for p.matchKeyword("WHEN") {
+		whenExpr, err := p.parseOr()
+		if err != nil {
+			return nil, err
+		}
+		if !p.matchKeyword("THEN") {
+			return nil, errors.New("expected 'THEN' in CASE expression")
+		}
+		thenExpr, err := p.parseOr()
+		if err != nil {
+			return nil, err
+		}
+		conditions = append(conditions, pkgsemantic.CaseWhen{When: whenExpr, Then: thenExpr})
+	}
+	if len(conditions) == 0 {
+		return nil, errors.New("CASE expression must have at least one WHEN condition")
+	}
+	return conditions, nil
 }
 
 func binaryOpFromToken(op string) pkgsemantic.BinaryOp {
@@ -667,12 +703,12 @@ func parseStringLiteral(value string) string {
 
 func identifierExpr(name string) pkgsemantic.ExprNode {
 	if strings.HasPrefix(name, "[") && strings.HasSuffix(name, "]") {
-		return pkgsemantic.MetricRefExpr{Name: strings.TrimSuffix(strings.TrimPrefix(name, "["), "]")}
+		return &pkgsemantic.MetricRefExpr{Name: strings.TrimSuffix(strings.TrimPrefix(name, "["), "]")}
 	}
 	if table, column, ok := strings.Cut(name, "."); ok {
-		return pkgsemantic.ColumnRefExpr{Table: table, Column: column}
+		return &pkgsemantic.ColumnRefExpr{Table: table, Column: column}
 	}
-	return pkgsemantic.ColumnRefExpr{Column: name}
+	return &pkgsemantic.ColumnRefExpr{Column: name}
 }
 
 // ParseExpression parses a calculated expression into the canonical semantic AST.

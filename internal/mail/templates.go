@@ -492,17 +492,7 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 	},
 }
 
-// wrapHTML embeds a template's HTML body into a responsive, premium card layout.
-// It also provides BCP-47 localized footers for Turkish and English environments.
-//
-//nolint:funlen
-func wrapHTML(bodyHTML, subject, locale string) string {
-	footerText := "This is an automated email, please do not reply. To secure your ABI account, never share these links with anyone."
-	if strings.HasPrefix(strings.ToLower(locale), "tr") {
-		footerText = "Bu otomatik bir e-postadır, lütfen yanıtlamayın. ABI hesabınızın güvenliğini sağlamak için bu bağlantıları kimseyle paylaşmayın."
-	}
-
-	return fmt.Sprintf(`<!DOCTYPE html>
+const htmlEmailShell = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -647,5 +637,15 @@ func wrapHTML(bodyHTML, subject, locale string) string {
   </div>
 </div>
 </body>
-</html>`, subject, subject, bodyHTML, footerText)
+</html>`
+
+// wrapHTML embeds a template's HTML body into a responsive, premium card layout.
+// It also provides BCP-47 localized footers for Turkish and English environments.
+func wrapHTML(bodyHTML, subject, locale string) string {
+	footerText := "This is an automated email, please do not reply. To secure your ABI account, never share these links with anyone."
+	if strings.HasPrefix(strings.ToLower(locale), "tr") {
+		footerText = "Bu otomatik bir e-postadır, lütfen yanıtlamayın. ABI hesabınızın güvenliğini sağlamak için bu bağlantıları kimseyle paylaşmayın."
+	}
+
+	return fmt.Sprintf(htmlEmailShell, subject, subject, bodyHTML, footerText)
 }

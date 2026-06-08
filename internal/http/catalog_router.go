@@ -55,8 +55,16 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 	return r
 }
 
-//nolint:funlen
 func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
+	registerCatalogDatasourceRoutes(r, deps, authClient)
+	registerCatalogSemanticRoutes(r, deps)
+	registerCatalogCompositeRoutes(r, deps)
+	registerCatalogMetadataRoutes(r, deps, authClient)
+	registerCatalogPermissionRoutes(r, deps, authClient)
+	registerCatalogDashboardRoutes(r, deps)
+}
+
+func registerCatalogDatasourceRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
 	dsHandler := handlers.NewDatasourceHandler(deps)
 	r.Post("/datasources", dsHandler.Create)
 	r.Get("/datasources", dsHandler.List)
@@ -70,7 +78,9 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 	piiHandler := handlers.NewPIIHandler(deps)
 	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Post("/datasources/{id}/scan-pii", piiHandler.Scan)
 	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Get("/datasources/{id}/pii-columns", piiHandler.ListColumns)
+}
 
+func registerCatalogSemanticRoutes(r chi.Router, deps *app.CatalogDeps) {
 	semHandler := handlers.NewSemanticHandler(deps)
 	semHandler.SetCatalogMetricsRecorder(GetMetrics())
 	r.Post("/semantic/models", semHandler.CreateModel)
@@ -104,7 +114,9 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 	r.Get("/semantic/models/{id}/drift", driftHandler.ListForModel)
 	r.Get("/datasources/{id}/drift", driftHandler.ListForDatasource)
 	r.Post("/drift/{id}/resolve", driftHandler.Resolve)
+}
 
+func registerCatalogCompositeRoutes(r chi.Router, deps *app.CatalogDeps) {
 	compHandler := handlers.NewCompositeHandler(deps)
 	r.Post("/semantic/composites", compHandler.CreateComposite)
 	r.Get("/semantic/composites", compHandler.ListComposites)
@@ -122,8 +134,11 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 	r.Post("/semantic/composites/{id}/publish", compHandler.PublishComposite)
 	r.Post("/semantic/composites/{id}/rollback", compHandler.RollbackComposite)
 	r.Get("/semantic/composites/{id}/suggested-joins", compHandler.SuggestedJoins)
+}
 
+func registerCatalogMetadataRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
 	metaHandler := handlers.NewMetadataHandler(deps)
+	piiHandler := handlers.NewPIIHandler(deps)
 	r.Get("/datasources/{id}/tables", metaHandler.ListTables)
 	r.Get("/datasources/{id}/columns", metaHandler.ListColumns)
 	r.Get("/metadata/columns/search", metaHandler.SearchColumns)
@@ -137,7 +152,9 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 	r.With(bimw.RequirePermission(authClient, "admin:roles")).Patch("/metadata/columns/{id}/pii", piiHandler.UpdateColumn)
 	r.With(bimw.RequirePermission(authClient, "admin:roles")).Delete("/metadata/columns/{id}/pii", piiHandler.DeleteColumn)
 	r.With(bimw.RequirePermission(authClient, "admin:roles")).Get("/compliance/pii-summary", piiHandler.ComplianceSummary)
+}
 
+func registerCatalogPermissionRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
 	permHandler := handlers.NewPermissionHandler(deps)
 	r.With(bimw.RequirePermission(authClient, "admin:roles")).Route("/permissions", func(r chi.Router) {
 		r.Get("/", permHandler.List)
@@ -146,7 +163,9 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 		r.Delete("/{id}", permHandler.Delete)
 		r.Delete("/keys", permHandler.DeleteByKeys)
 	})
+}
 
+func registerCatalogDashboardRoutes(r chi.Router, deps *app.CatalogDeps) {
 	dashHandler := handlers.NewDashboardHandler(deps.DashboardRepo)
 	r.Route("/dashboards", func(r chi.Router) {
 		r.Post("/", dashHandler.Create)

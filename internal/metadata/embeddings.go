@@ -40,22 +40,33 @@ func baseEmbeddingModel(modelName string) string {
 	return modelName
 }
 
+func parseExistingEmbeddingPayload(existing []byte, existingModel *string, modelName string) (multiLocaleEmbeddingPayload, error) {
+	store := multiLocaleEmbeddingPayload{Locales: make(map[string]localeStoredEmbedding)}
+	if err := sonic.ConfigStd.Unmarshal(existing, &store); err == nil && len(store.Locales) > 0 {
+		return store, nil
+	}
+	vec, err := decodeEmbedding(existing)
+	if err == nil && len(vec) > 0 {
+		legacyModel := strings.TrimSpace(modelName)
+		if existingModel != nil && strings.TrimSpace(*existingModel) != "" {
+			legacyModel = strings.TrimSpace(*existingModel)
+		}
+		store.Locales[localeKeyFromEmbeddingModel(legacyModel)] = localeStoredEmbedding{
+			Model: legacyModel,
+			V:     vec,
+		}
+		return store, nil
+	}
+	return multiLocaleEmbeddingPayload{}, errCorruptEmbedding
+}
+
 func mergeEmbeddingPayload(existing []byte, existingModel *string, modelName string, embedding []float32) (string, string, error) {
 	store := multiLocaleEmbeddingPayload{Locales: make(map[string]localeStoredEmbedding)}
-	if len(existing) > 0 { //nolint:nestif // supports legacy single-vector and multi-locale payloads
-		if err := sonic.ConfigStd.Unmarshal(existing, &store); err == nil && len(store.Locales) > 0 {
-			// multi-locale payload
-		} else if vec, err := decodeEmbedding(existing); err == nil && len(vec) > 0 {
-			legacyModel := strings.TrimSpace(modelName)
-			if existingModel != nil && strings.TrimSpace(*existingModel) != "" {
-				legacyModel = strings.TrimSpace(*existingModel)
-			}
-			store.Locales[localeKeyFromEmbeddingModel(legacyModel)] = localeStoredEmbedding{
-				Model: legacyModel,
-				V:     vec,
-			}
-		} else {
-			return "", "", errCorruptEmbedding
+	if len(existing) > 0 {
+		var err error
+		store, err = parseExistingEmbeddingPayload(existing, existingModel, modelName)
+		if err != nil {
+			return "", "", err
 		}
 	}
 	loc := localeKeyFromEmbeddingModel(modelName)

@@ -29,91 +29,111 @@ func NewGitHubProvider(clientID, clientSecret, redirectURL string) *GitHubProvid
 	}
 }
 
-//nolint:gocognit // profile fetch plus optional secondary emails API when primary email is private
 func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (*auth.OAuthUserInfo, error) {
 	client := p.oauthCfg.Client(ctx, token)
-
-	// Fetch primary user profile
-	reqProfile, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/user", http.NoBody)
+	profile, err := fetchGitHubUserProfile(ctx, client)
 	if err != nil {
 		return nil, err
 	}
+
+	email := profile.Email
+	if email == "" {
+		email, err = fetchGitHubPrimaryEmail(ctx, client)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if email == "" {
+		return nil, errors.New("could not retrieve any email address from github account")
+	}
+
+	name := profile.Name
+	if name == "" {
+		name = profile.Login
+	}
+
+	return &auth.OAuthUserInfo{
+		Sub:       strconv.FormatInt(profile.ID, 10),
+		Email:     email,
+		Name:      name,
+		AvatarURL: profile.AvatarURL,
+	}, nil
+}
+
+type githubUserProfile struct {
+	ID        int64
+	Login     string
+	Name      string
+	AvatarURL string
+	Email     string
+}
+
+func fetchGitHubUserProfile(ctx context.Context, client *http.Client) (githubUserProfile, error) {
+	reqProfile, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/user", http.NoBody)
+	if err != nil {
+		return githubUserProfile{}, err
+	}
 	respProfile, err := client.Do(reqProfile)
 	if err != nil {
-		return nil, fmt.Errorf("fetch github user profile: %w", err)
+		return githubUserProfile{}, fmt.Errorf("fetch github user profile: %w", err)
 	}
 	defer func() {
 		if closeErr := respProfile.Body.Close(); closeErr != nil {
 			_ = closeErr
 		}
 	}()
-
 	if respProfile.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("github API profile returned status: %d", respProfile.StatusCode)
+		return githubUserProfile{}, fmt.Errorf("github API profile returned status: %d", respProfile.StatusCode)
 	}
 
-	var rawProfile struct {
+	var raw struct {
 		ID        int64  `json:"id"`
 		Login     string `json:"login"`
 		Name      string `json:"name"`
 		AvatarURL string `json:"avatar_url"`
 		Email     string `json:"email"`
 	}
-	if err := sonic.ConfigStd.NewDecoder(respProfile.Body).Decode(&rawProfile); err != nil {
-		return nil, fmt.Errorf("decode github user profile: %w", err)
+	if err := sonic.ConfigStd.NewDecoder(respProfile.Body).Decode(&raw); err != nil {
+		return githubUserProfile{}, fmt.Errorf("decode github user profile: %w", err)
 	}
-
-	email := rawProfile.Email
-
-	// If email is empty (private email setting), fetch user emails list
-	if email == "" { //nolint:nestif // secondary emails lookup only when profile payload omits email
-		reqEmails, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/user/emails", http.NoBody)
-		if err != nil {
-			return nil, err
-		}
-		respEmails, err := client.Do(reqEmails)
-		if err != nil {
-			return nil, fmt.Errorf("fetch github emails: %w", err)
-		}
-		defer func() {
-			if closeErr := respEmails.Body.Close(); closeErr != nil {
-				_ = closeErr
-			}
-		}()
-
-		if respEmails.StatusCode == http.StatusOK {
-			var rawEmails []struct {
-				Email    string `json:"email"`
-				Primary  bool   `json:"primary"`
-				Verified bool   `json:"verified"`
-			}
-			if err := sonic.ConfigStd.NewDecoder(respEmails.Body).Decode(&rawEmails); err == nil {
-				for _, e := range rawEmails {
-					if e.Primary && e.Verified {
-						email = e.Email
-						break
-					}
-				}
-				if email == "" && len(rawEmails) > 0 {
-					email = rawEmails[0].Email
-				}
-			}
-		}
-	}
-
-	if email == "" {
-		return nil, errors.New("could not retrieve any email address from github account")
-	}
-
-	name := rawProfile.Name
-	if name == "" {
-		name = rawProfile.Login
-	}
-
-	return &auth.OAuthUserInfo{
-		Sub:       strconv.FormatInt(rawProfile.ID, 10),
-		Email:     email,
-		Name:      name,
-		AvatarURL: rawProfile.AvatarURL,
+	return githubUserProfile{
+		ID: raw.ID, Login: raw.Login, Name: raw.Name, AvatarURL: raw.AvatarURL, Email: raw.Email,
 	}, nil
+}
+
+func fetchGitHubPrimaryEmail(ctx context.Context, client *http.Client) (string, error) {
+	reqEmails, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/user/emails", http.NoBody)
+	if err != nil {
+		return "", err
+	}
+	respEmails, err := client.Do(reqEmails)
+	if err != nil {
+		return "", fmt.Errorf("fetch github emails: %w", err)
+	}
+	defer func() {
+		if closeErr := respEmails.Body.Close(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
+	if respEmails.StatusCode != http.StatusOK {
+		return "", nil
+	}
+
+	var rawEmails []struct {
+		Email    string `json:"email"`
+		Primary  bool   `json:"primary"`
+		Verified bool   `json:"verified"`
+	}
+	if err := sonic.ConfigStd.NewDecoder(respEmails.Body).Decode(&rawEmails); err != nil {
+		return "", nil
+	}
+	for _, e := range rawEmails {
+		if e.Primary && e.Verified {
+			return e.Email, nil
+		}
+	}
+	if len(rawEmails) > 0 {
+		return rawEmails[0].Email, nil
+	}
+	return "", nil
 }

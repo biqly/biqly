@@ -149,8 +149,6 @@ func shortestPathFromSet(adj map[string][]string, from map[string]struct{}, to s
 
 // expandSelectedWithJoinBridges inserts intermediate tables on shortest FK paths so high-scoring
 // picks that were disconnected (e.g. sales header + production productcategory) become one component.
-//
-//nolint:gocognit
 func expandSelectedWithJoinBridges(
 	selected []tableBundle,
 	relations []metadata.Relation,
@@ -161,64 +159,77 @@ func expandSelectedWithJoinBridges(
 		return nil
 	}
 	adj := relationAdjacency(relations)
-	keyOf := func(t metadata.Table) string { return tableKey(t.SchemaName, t.TableName) }
-
-	included := make(map[string]tableBundle)
-	list := make([]tableBundle, 0, maxTables)
-
-	put := func(b tableBundle) {
-		k := keyOf(b.table)
-		if existing, ok := included[k]; ok {
-			if b.score > existing.score {
-				for i := range list {
-					if keyOf(list[i].table) == k {
-						list[i] = b
-						break
-					}
-				}
-				included[k] = b
-			}
-			return
-		}
-		if len(list) >= maxTables {
-			return
-		}
-		included[k] = b
-		list = append(list, b)
-	}
-
-	put(selected[0])
+	state := newJoinBridgeState(maxTables)
+	state.put(selected[0])
 	for i := 1; i < len(selected); i++ {
-		tb := selected[i]
-		tkey := keyOf(tb.table)
-		from := make(map[string]struct{}, len(list))
-		for _, b := range list {
-			from[keyOf(b.table)] = struct{}{}
-		}
-		if _, ok := from[tkey]; ok {
-			put(tb)
-			continue
-		}
-		path := shortestPathFromSet(adj, from, tkey)
-		if path == nil {
-			continue
-		}
-		for _, pkey := range path {
-			if len(list) >= maxTables {
-				break
-			}
-			tbl, ok := idx.byFullName[pkey]
-			if !ok {
-				continue
-			}
-			bundle := tableBundle{table: tbl, score: 0}
-			if pkey == tkey {
-				bundle = tb
-			}
-			put(bundle)
-		}
+		state.bridgeSelected(selected[i], adj, idx)
 	}
-	return list
+	return state.list
+}
+
+type joinBridgeState struct {
+	included map[string]tableBundle
+	list     []tableBundle
+	max      int
+}
+
+func newJoinBridgeState(maxTables int) *joinBridgeState {
+	return &joinBridgeState{
+		included: make(map[string]tableBundle),
+		list:     make([]tableBundle, 0, maxTables),
+		max:      maxTables,
+	}
+}
+
+func (s *joinBridgeState) put(b tableBundle) {
+	k := tableKey(b.table.SchemaName, b.table.TableName)
+	if existing, ok := s.included[k]; ok {
+		if b.score > existing.score {
+			for i := range s.list {
+				if tableKey(s.list[i].table.SchemaName, s.list[i].table.TableName) == k {
+					s.list[i] = b
+					break
+				}
+			}
+			s.included[k] = b
+		}
+		return
+	}
+	if len(s.list) >= s.max {
+		return
+	}
+	s.included[k] = b
+	s.list = append(s.list, b)
+}
+
+func (s *joinBridgeState) bridgeSelected(tb tableBundle, adj map[string][]string, idx tableIndex) {
+	tkey := tableKey(tb.table.SchemaName, tb.table.TableName)
+	from := make(map[string]struct{}, len(s.list))
+	for _, b := range s.list {
+		from[tableKey(b.table.SchemaName, b.table.TableName)] = struct{}{}
+	}
+	if _, ok := from[tkey]; ok {
+		s.put(tb)
+		return
+	}
+	path := shortestPathFromSet(adj, from, tkey)
+	if path == nil {
+		return
+	}
+	for _, pkey := range path {
+		if len(s.list) >= s.max {
+			break
+		}
+		tbl, ok := idx.byFullName[pkey]
+		if !ok {
+			continue
+		}
+		bundle := tableBundle{table: tbl, score: 0}
+		if pkey == tkey {
+			bundle = tb
+		}
+		s.put(bundle)
+	}
 }
 
 func directRelation(

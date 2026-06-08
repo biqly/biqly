@@ -120,7 +120,6 @@ func (s *EmbedMetadataService) EmbedForTables(ctx context.Context, datasourceID 
 	return s.embedForFilter(ctx, datasourceID, allowed)
 }
 
-//nolint:gocognit
 func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID string, allowed map[string]bool) (results []EmbedTableResult, err error) {
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.EmbedMetadata")
 	defer func() {
@@ -135,48 +134,12 @@ func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID 
 		attribute.String("ai.embedding.model", s.embedder.Model()),
 	)
 
-	tables, err := s.writer.ListTables(ctx, datasourceID, "")
+	tables, cols, err := s.loadMetadataForEmbedding(ctx, datasourceID)
 	if err != nil {
-		return nil, fmt.Errorf("list tables: %w", err)
+		return nil, err
 	}
-	cols, err := s.writer.ListColumns(ctx, datasourceID, "", "")
-	if err != nil {
-		return nil, fmt.Errorf("list columns: %w", err)
-	}
-	if allowed != nil {
-		filteredTables := make([]metadata.Table, 0, len(tables))
-		for i := range tables {
-			t := tables[i]
-			if allowed[t.SchemaName+"."+t.TableName] {
-				filteredTables = append(filteredTables, t)
-			}
-		}
-		tables = filteredTables
-		filteredCols := make([]metadata.Column, 0, len(cols))
-		for _, c := range cols {
-			if allowed[c.SchemaName+"."+c.TableName] {
-				filteredCols = append(filteredCols, c)
-			}
-		}
-		cols = filteredCols
-	}
-	if len(s.denySchemas) > 0 || len(s.denyTables) > 0 {
-		filteredTables := make([]metadata.Table, 0, len(tables))
-		for i := range tables {
-			t := tables[i]
-			if !s.isDeniedTable(t.SchemaName, t.TableName) {
-				filteredTables = append(filteredTables, t)
-			}
-		}
-		tables = filteredTables
-		filteredCols := make([]metadata.Column, 0, len(cols))
-		for _, c := range cols {
-			if !s.isDeniedTable(c.SchemaName, c.TableName) {
-				filteredCols = append(filteredCols, c)
-			}
-		}
-		cols = filteredCols
-	}
+	tables, cols = filterMetadataByAllowed(tables, cols, allowed)
+	tables, cols = s.filterDeniedMetadata(tables, cols)
 	if len(tables) == 0 {
 		return nil, nil
 	}
@@ -184,30 +147,11 @@ func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID 
 	locales := embeddingLocalesWritten()
 	results = make([]EmbedTableResult, 0, (len(tables)+len(cols))*len(locales))
 	for _, loc := range locales {
-		locTables := tables
-		locCols := cols
-		profile, _ := i18n.LocaleProfileFor(loc)
-		if profile.UsesMetadataTranslations {
-			locTables = append([]metadata.Table(nil), tables...)
-			locCols = append([]metadata.Column(nil), cols...)
-			if err := s.writer.ApplyTableTranslations(ctx, locTables, loc); err != nil {
-				return nil, fmt.Errorf("apply table translations (%s): %w", loc, err)
-			}
-			if err := s.writer.ApplyColumnTranslations(ctx, locCols, loc); err != nil {
-				return nil, fmt.Errorf("apply column translations (%s): %w", loc, err)
-			}
-		}
-		locColsByTable := groupColumnsByTableKey(locCols)
-		if tableResults, err := s.embedTables(ctx, locTables, locColsByTable, loc); err != nil {
+		locResults, err := s.embedMetadataLocale(ctx, tables, cols, loc)
+		if err != nil {
 			return nil, err
-		} else {
-			results = append(results, tableResults...)
 		}
-		if columnResults, err := s.embedColumns(ctx, locCols, loc); err != nil {
-			return nil, err
-		} else {
-			results = append(results, columnResults...)
-		}
+		results = append(results, locResults...)
 	}
 	span.SetAttributes(
 		attribute.Int("db.table_count", len(tables)),
@@ -215,6 +159,84 @@ func (s *EmbedMetadataService) embedForFilter(ctx context.Context, datasourceID 
 		attribute.Int("ai.embedding.results", len(results)),
 	)
 	return results, nil
+}
+
+func (s *EmbedMetadataService) loadMetadataForEmbedding(ctx context.Context, datasourceID string) ([]metadata.Table, []metadata.Column, error) {
+	tables, err := s.writer.ListTables(ctx, datasourceID, "")
+	if err != nil {
+		return nil, nil, fmt.Errorf("list tables: %w", err)
+	}
+	cols, err := s.writer.ListColumns(ctx, datasourceID, "", "")
+	if err != nil {
+		return nil, nil, fmt.Errorf("list columns: %w", err)
+	}
+	return tables, cols, nil
+}
+
+func filterMetadataByAllowed(tables []metadata.Table, cols []metadata.Column, allowed map[string]bool) ([]metadata.Table, []metadata.Column) {
+	if allowed == nil {
+		return tables, cols
+	}
+	filteredTables := make([]metadata.Table, 0, len(tables))
+	for i := range tables {
+		t := tables[i]
+		if allowed[t.SchemaName+"."+t.TableName] {
+			filteredTables = append(filteredTables, t)
+		}
+	}
+	filteredCols := make([]metadata.Column, 0, len(cols))
+	for _, c := range cols {
+		if allowed[c.SchemaName+"."+c.TableName] {
+			filteredCols = append(filteredCols, c)
+		}
+	}
+	return filteredTables, filteredCols
+}
+
+func (s *EmbedMetadataService) filterDeniedMetadata(tables []metadata.Table, cols []metadata.Column) ([]metadata.Table, []metadata.Column) {
+	if len(s.denySchemas) == 0 && len(s.denyTables) == 0 {
+		return tables, cols
+	}
+	filteredTables := make([]metadata.Table, 0, len(tables))
+	for i := range tables {
+		t := tables[i]
+		if !s.isDeniedTable(t.SchemaName, t.TableName) {
+			filteredTables = append(filteredTables, t)
+		}
+	}
+	filteredCols := make([]metadata.Column, 0, len(cols))
+	for _, c := range cols {
+		if !s.isDeniedTable(c.SchemaName, c.TableName) {
+			filteredCols = append(filteredCols, c)
+		}
+	}
+	return filteredTables, filteredCols
+}
+
+func (s *EmbedMetadataService) embedMetadataLocale(ctx context.Context, tables []metadata.Table, cols []metadata.Column, loc i18n.Locale) ([]EmbedTableResult, error) {
+	locTables := tables
+	locCols := cols
+	profile, _ := i18n.LocaleProfileFor(loc)
+	if profile.UsesMetadataTranslations {
+		locTables = append([]metadata.Table(nil), tables...)
+		locCols = append([]metadata.Column(nil), cols...)
+		if err := s.writer.ApplyTableTranslations(ctx, locTables, loc); err != nil {
+			return nil, fmt.Errorf("apply table translations (%s): %w", loc, err)
+		}
+		if err := s.writer.ApplyColumnTranslations(ctx, locCols, loc); err != nil {
+			return nil, fmt.Errorf("apply column translations (%s): %w", loc, err)
+		}
+	}
+	locColsByTable := groupColumnsByTableKey(locCols)
+	tableResults, err := s.embedTables(ctx, locTables, locColsByTable, loc)
+	if err != nil {
+		return nil, err
+	}
+	columnResults, err := s.embedColumns(ctx, locCols, loc)
+	if err != nil {
+		return nil, err
+	}
+	return append(tableResults, columnResults...), nil
 }
 
 func (s *EmbedMetadataService) embedTables(ctx context.Context, tables []metadata.Table, colsByTable map[string][]metadata.Column, loc i18n.Locale) ([]EmbedTableResult, error) {

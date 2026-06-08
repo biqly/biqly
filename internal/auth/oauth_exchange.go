@@ -64,6 +64,27 @@ func (s *Service) IssueOAuthCallbackCode(ctx context.Context, resp *TokenRespons
 	return code, nil
 }
 
+func (s *Service) loadOAuthCallbackPayload(ctx context.Context, key, usedKey string) ([]byte, error) {
+	raw, err := s.redisClient.GetDel(ctx, key).Bytes()
+	if err == nil {
+		if setErr := s.redisClient.Set(ctx, usedKey, raw, oauthCallbackGraceTTL).Err(); setErr != nil {
+			_ = setErr
+		}
+		return raw, nil
+	}
+	if !errors.Is(err, redis.Nil) {
+		return nil, fmt.Errorf("redeem oauth callback code: %w", err)
+	}
+	raw, err = s.redisClient.Get(ctx, usedKey).Bytes()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return nil, ErrInvalidOAuthCallbackCode
+		}
+		return nil, fmt.Errorf("read oauth callback grace cache: %w", err)
+	}
+	return raw, nil
+}
+
 func (s *Service) RedeemOAuthCallbackCode(ctx context.Context, code string) (*TokenResponse, error) {
 	if s.redisClient == nil {
 		return nil, ErrOAuthExchangeUnavailable
@@ -75,25 +96,9 @@ func (s *Service) RedeemOAuthCallbackCode(ctx context.Context, code string) (*To
 	key := oauthCallbackKeyPrefix + code
 	usedKey := oauthCallbackUsedKeyPrefix + code
 
-	raw, err := s.redisClient.GetDel(ctx, key).Bytes()
-	if err != nil { //nolint:nestif
-		if !errors.Is(err, redis.Nil) {
-			return nil, fmt.Errorf("redeem oauth callback code: %w", err)
-		}
-		// Single-use already consumed; tolerate retries within the grace TTL.
-		raw, err = s.redisClient.Get(ctx, usedKey).Bytes()
-		if err != nil {
-			if errors.Is(err, redis.Nil) {
-				return nil, ErrInvalidOAuthCallbackCode
-			}
-			return nil, fmt.Errorf("read oauth callback grace cache: %w", err)
-		}
-	} else {
-		// Backup the response for the grace window so concurrent or rapid
-		// retries from the same browser get identical tokens.
-		if err := s.redisClient.Set(ctx, usedKey, raw, oauthCallbackGraceTTL).Err(); err != nil {
-			_ = err
-		}
+	raw, err := s.loadOAuthCallbackPayload(ctx, key, usedKey)
+	if err != nil {
+		return nil, err
 	}
 
 	var resp TokenResponse

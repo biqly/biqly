@@ -74,24 +74,14 @@ func (h *AIHandler) executeAIQueryPhase(
 
 	var resolved *app.ResolvedDatasource
 	var processOpts []ai.ProcessOption
-	if phase == aiPhaseRun { //nolint:nestif
-		if h.deps.QueryClient != nil {
-			processOpts = []ai.ProcessOption{
-				ai.WithSQLValidator(newQueryClientDryRunValidator(h.deps.QueryClient)),
-				ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
-				ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
-			}
-		} else {
-			var resolveErr error
-			resolved, resolveErr = h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
-			if resolveErr != nil {
-				return nil, resolveErr
-			}
+	if phase == aiPhaseRun {
+		var resolveErr error
+		resolved, processOpts, resolveErr = h.resolveRunPhaseForJob(ctx, req, model)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		if resolved != nil {
 			defer closeResolvedDatasource(ctx, resolved)
-			processOpts, resolveErr = h.localRunProcessOptions(ctx, req, model, resolved)
-			if resolveErr != nil {
-				return nil, resolveErr
-			}
 		}
 	} else {
 		processOpts = h.standardProcessOptions(ctx, req, model)
@@ -327,7 +317,6 @@ func (h *AIHandler) isAIJobCancelled(ctx context.Context, jobID string) bool {
 	return job.Status == metadata.AIJobStatusCancelled
 }
 
-//nolint:gocognit
 func (h *AIHandler) executeMetadataDescribeBatchJob(
 	ctx context.Context,
 	jobID string,
@@ -338,22 +327,14 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 		return nil, errors.New("datasource_id and tables are required")
 	}
 
-	existingDesc := map[string]bool{}
-	if req.SkipExisting && h.deps.MetaRepo != nil {
-		tables, err := h.deps.MetaRepo.ListTables(ctx, req.DatasourceID, "")
-		if err != nil {
-			return nil, err
-		}
-		for _, t := range tables {
-			if t.Description != nil && strings.TrimSpace(*t.Description) != "" {
-				existingDesc[t.SchemaName+"."+t.TableName] = true
-			}
-		}
+	existingDesc, err := h.loadDescribedTableKeys(ctx, req)
+	if err != nil {
+		return nil, err
 	}
 
 	out := &ai.DescribeBatchResult{Entries: make([]ai.DescribeBatchEntryResult, 0, len(req.Tables))}
 	total := len(req.Tables)
-	var completedKeys []string
+	completedKeys := make([]string, 0, total)
 	for i, target := range req.Tables {
 		if h.isAIJobCancelled(ctx, jobID) {
 			return out, errors.New("job cancelled")
@@ -378,67 +359,15 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 			continue
 		}
 
-		denom := total
-		if denom < 1 {
-			denom = 1
-		}
-		pct := 5 + (i * 90 / denom)
-		if report != nil {
-			nextPreview := make([]string, 0, 5)
-			for j := i + 1; j < len(req.Tables) && len(nextPreview) < 5; j++ {
-				ns := strings.TrimSpace(req.Tables[j].Schema)
-				nt := strings.TrimSpace(req.Tables[j].Table)
-				if ns == "" || nt == "" {
-					continue
-				}
-				nextPreview = append(nextPreview, ai.DescribeBatchTableKey(ns, nt))
-			}
-			detail, err := sonic.ConfigStd.Marshal(ai.DescribeBatchJobProgress{
-				Total:          total,
-				Index:          i,
-				CurrentSchema:  schema,
-				CurrentTable:   table,
-				Completed:      append([]string(nil), completedKeys...),
-				PendingPreview: nextPreview,
-			})
-			if err != nil {
-				detail = nil
-			}
-			report(AIJobProgress{
-				Phase:    "generating",
-				Message:  "describing " + key,
-				Progress: pct,
-				Status:   metadata.AIJobStatusRunning,
-				Detail:   detail,
-			})
-		}
-
-		single := ai.DescribeRequest{
-			DatasourceID: req.DatasourceID,
-			Schema:       schema,
-			Table:        table,
-			SampleSize:   req.SampleSize,
-			AutoApply:    req.AutoApply,
-		}
-		result, err := h.executeMetadataDescribeJob(ctx, single, nil)
-		if err != nil {
-			out.Entries = append(out.Entries, ai.DescribeBatchEntryResult{
-				Schema: schema, Table: table, Status: "error", Message: err.Error(),
-			})
+		reportDescribeBatchProgress(report, req.Tables, total, i, schema, table, key, completedKeys)
+		entry := h.runDescribeBatchTable(ctx, req, schema, table)
+		out.Entries = append(out.Entries, entry)
+		switch entry.Status {
+		case "error":
 			out.Error++
-			completedKeys = append(completedKeys, key)
-			continue
+		case "ok":
+			out.OK++
 		}
-		cols := 0
-		if result != nil {
-			cols = len(result.Columns)
-		}
-		out.Entries = append(out.Entries, ai.DescribeBatchEntryResult{
-			Schema: schema, Table: table, Status: "ok",
-			Message: fmt.Sprintf("%d columns described", cols),
-			Result:  result,
-		})
-		out.OK++
 		completedKeys = append(completedKeys, key)
 	}
 
@@ -446,6 +375,87 @@ func (h *AIHandler) executeMetadataDescribeBatchJob(
 		report(AIJobProgress{Phase: "applying", Message: "batch complete", Progress: 100, Status: metadata.AIJobStatusRunning})
 	}
 	return out, nil
+}
+
+func (h *AIHandler) loadDescribedTableKeys(ctx context.Context, req ai.DescribeBatchRequest) (map[string]bool, error) {
+	existingDesc := map[string]bool{}
+	if !req.SkipExisting || h.deps.MetaRepo == nil {
+		return existingDesc, nil
+	}
+	tables, err := h.deps.MetaRepo.ListTables(ctx, req.DatasourceID, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range tables {
+		if t.Description != nil && strings.TrimSpace(*t.Description) != "" {
+			existingDesc[t.SchemaName+"."+t.TableName] = true
+		}
+	}
+	return existingDesc, nil
+}
+
+func (h *AIHandler) runDescribeBatchTable(ctx context.Context, req ai.DescribeBatchRequest, schema, table string) ai.DescribeBatchEntryResult {
+	single := ai.DescribeRequest{
+		DatasourceID: req.DatasourceID,
+		Schema:       schema,
+		Table:        table,
+		SampleSize:   req.SampleSize,
+		AutoApply:    req.AutoApply,
+	}
+	result, err := h.executeMetadataDescribeJob(ctx, single, nil)
+	if err != nil {
+		return ai.DescribeBatchEntryResult{
+			Schema: schema, Table: table, Status: "error", Message: err.Error(),
+		}
+	}
+	cols := 0
+	if result != nil {
+		cols = len(result.Columns)
+	}
+	return ai.DescribeBatchEntryResult{
+		Schema: schema, Table: table, Status: "ok",
+		Message: fmt.Sprintf("%d columns described", cols),
+		Result:  result,
+	}
+}
+
+func reportDescribeBatchProgress(report AIJobProgressFunc, tables []ai.DescribeBatchTable, total, index int, schema, table, key string, completedKeys []string) {
+	if report == nil {
+		return
+	}
+	denom := max(total, 1)
+	pct := 5 + (index * 90 / denom)
+	detail, err := sonic.ConfigStd.Marshal(ai.DescribeBatchJobProgress{
+		Total:          total,
+		Index:          index,
+		CurrentSchema:  schema,
+		CurrentTable:   table,
+		Completed:      append([]string(nil), completedKeys...),
+		PendingPreview: describeBatchPendingPreview(tables, index),
+	})
+	if err != nil {
+		detail = nil
+	}
+	report(AIJobProgress{
+		Phase:    "generating",
+		Message:  "describing " + key,
+		Progress: pct,
+		Status:   metadata.AIJobStatusRunning,
+		Detail:   detail,
+	})
+}
+
+func describeBatchPendingPreview(tables []ai.DescribeBatchTable, fromIndex int) []string {
+	nextPreview := make([]string, 0, 5)
+	for j := fromIndex + 1; j < len(tables) && len(nextPreview) < 5; j++ {
+		ns := strings.TrimSpace(tables[j].Schema)
+		nt := strings.TrimSpace(tables[j].Table)
+		if ns == "" || nt == "" {
+			continue
+		}
+		nextPreview = append(nextPreview, ai.DescribeBatchTableKey(ns, nt))
+	}
+	return nextPreview
 }
 
 func (h *AIHandler) executeEmbedMetadataJob(

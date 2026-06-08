@@ -28,10 +28,10 @@ func TestDimensionFromRequestParsesExpressionString(t *testing.T) {
 		if expr != "revenue - cost" {
 			t.Fatalf("unexpected expression: %q", expr)
 		}
-		return pkgsemantic.BinaryExpr{
+		return &pkgsemantic.BinaryExpr{
 			Op:    pkgsemantic.OpSubtract,
-			Left:  pkgsemantic.ColumnRefExpr{Column: "revenue"},
-			Right: pkgsemantic.ColumnRefExpr{Column: "cost"},
+			Left:  &pkgsemantic.ColumnRefExpr{Column: "revenue"},
+			Right: &pkgsemantic.ColumnRefExpr{Column: "cost"},
 		}, nil
 	})
 
@@ -151,7 +151,7 @@ func TestSemanticExpressionAPIResponseIncludesASTFields(t *testing.T) {
 		Name:           "margin",
 		ColumnRef:      "orders.revenue",
 		Type:           "number",
-		CalculatedExpr: pkgsemantic.ColumnRefExpr{Column: "revenue"},
+		CalculatedExpr: &pkgsemantic.ColumnRefExpr{Column: "revenue"},
 	})
 	if err != nil {
 		t.Fatalf("marshal dimension: %v", err)
@@ -166,7 +166,7 @@ func TestSemanticExpressionAPIResponseIncludesASTFields(t *testing.T) {
 		Name:        "net_revenue",
 		Expression:  "revenue",
 		Aggregation: "sum",
-		Expr:        pkgsemantic.ColumnRefExpr{Column: "revenue"},
+		Expr:        &pkgsemantic.ColumnRefExpr{Column: "revenue"},
 	})
 	if err != nil {
 		t.Fatalf("marshal metric: %v", err)
@@ -187,7 +187,7 @@ func restoreExpressionParser(t *testing.T, parser func(string) (pkgsemantic.Expr
 
 func assertBinarySubtractExpr(t *testing.T, expr pkgsemantic.ExprNode) {
 	t.Helper()
-	binary, ok := expr.(pkgsemantic.BinaryExpr)
+	binary, ok := expr.(*pkgsemantic.BinaryExpr)
 	if !ok {
 		t.Fatalf("expr = %#v, want BinaryExpr", expr)
 	}
@@ -304,12 +304,17 @@ func TestGetModelLineage(t *testing.T) {
 	}
 }
 
-//nolint:funlen
-func TestCompileExpression(t *testing.T) {
+type compileExpressionFixture struct {
+	ctx     context.Context
+	handler *SemanticHandler
+	modelID string
+}
+
+func setupCompileExpressionFixture(t *testing.T) compileExpressionFixture {
+	t.Helper()
 	db := openTestDB(t)
 	ctx := context.Background()
 
-	// Seed datasource & model
 	datasourceID := uuid.NewString()
 	modelID := uuid.NewString()
 
@@ -319,9 +324,9 @@ func TestCompileExpression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to seed datasource: %v", err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		_, _ = db.ExecContext(context.Background(), `DELETE FROM datasources WHERE id = $1`, datasourceID)
-	}()
+	})
 
 	_, err = db.ExecContext(ctx,
 		`INSERT INTO semantic_models (id, datasource_id, name, base_schema, base_table) VALUES ($1, $2, $3, 'public', $4)`,
@@ -329,26 +334,63 @@ func TestCompileExpression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to seed model: %v", err)
 	}
-	defer func() {
+	t.Cleanup(func() {
 		_, _ = db.ExecContext(context.Background(), `DELETE FROM semantic_models WHERE id = $1`, modelID)
-	}()
+	})
 
-	// Register drivers
 	reg := datasource.NewRegistry()
 	reg.Register(postgres.NewDriver())
 
-	// Build handler
-	cfg := &config.Config{}
 	deps := &app.CatalogDeps{
-		Config:       cfg,
+		Config:       &config.Config{},
 		DriverReg:    reg,
 		SemanticRepo: internalsemantic.NewRepository(db),
 		MetaRepo:     metadata.NewRepository(db),
 	}
-	handler := NewSemanticHandler(deps)
+
+	return compileExpressionFixture{
+		ctx:     ctx,
+		handler: NewSemanticHandler(deps),
+		modelID: modelID,
+	}
+}
+
+func postCompileExpression(t *testing.T, fx compileExpressionFixture, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequestWithContext(fx.ctx, http.MethodPost, "/api/semantic/models/"+fx.modelID+"/compile-expression", strings.NewReader(body))
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", fx.modelID)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	rec := httptest.NewRecorder()
+	fx.handler.CompileExpression(rec, req)
+	return rec
+}
+
+func assertCompileExpressionSQL(t *testing.T, rec *httptest.ResponseRecorder, wantStatus int, wantSQL string) {
+	t.Helper()
+	if rec.Code != wantStatus {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, wantStatus, rec.Body.String())
+	}
+	if wantSQL == "" {
+		return
+	}
+	var resp struct {
+		SQL string `json:"sql"`
+	}
+	if err := sonic.ConfigStd.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.SQL != wantSQL {
+		t.Fatalf("expected SQL %q, got %q", wantSQL, resp.SQL)
+	}
+}
+
+func TestCompileExpression(t *testing.T) {
+	fx := setupCompileExpressionFixture(t)
+	expectedSQL := `("revenue" - "cost")`
 
 	t.Run("compile JSON AST successfully", func(t *testing.T) {
-		body := strings.NewReader(`{
+		rec := postCompileExpression(t, fx, `{
 			"expr": {
 				"type": "binary",
 				"op": "subtract",
@@ -356,33 +398,7 @@ func TestCompileExpression(t *testing.T) {
 				"right": {"type": "column_ref", "column": "cost"}
 			}
 		}`)
-		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/semantic/models/"+modelID+"/compile-expression", body)
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("id", modelID)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx)) //nolint:contextcheck // chi route context in tests //nolint:contextcheck // chi route context in tests
-		rec := httptest.NewRecorder()
-
-		handler.CompileExpression(rec, req)
-
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
-		}
-
-		// Decode only the asserted field: compileExpressionResponse carries an
-		// interface-typed Expr that cannot be unmarshalled into directly.
-		var resp struct {
-			SQL string `json:"sql"`
-		}
-		if err := sonic.ConfigStd.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-			t.Fatalf("failed to decode response: %v", err)
-		}
-
-		// Bare column refs compile unqualified: the resolver only qualifies
-		// table-prefixed refs (joined models must not get a forced base table).
-		expected := `("revenue" - "cost")`
-		if resp.SQL != expected {
-			t.Fatalf("expected SQL %q, got %q", expected, resp.SQL)
-		}
+		assertCompileExpressionSQL(t, rec, http.StatusOK, expectedSQL)
 	})
 
 	t.Run("compile expression string successfully", func(t *testing.T) {
@@ -390,59 +406,19 @@ func TestCompileExpression(t *testing.T) {
 			if expr != "revenue - cost" {
 				t.Fatalf("unexpected expression: %q", expr)
 			}
-			return pkgsemantic.BinaryExpr{
+			return &pkgsemantic.BinaryExpr{
 				Op:    pkgsemantic.OpSubtract,
-				Left:  pkgsemantic.ColumnRefExpr{Column: "revenue"},
-				Right: pkgsemantic.ColumnRefExpr{Column: "cost"},
+				Left:  &pkgsemantic.ColumnRefExpr{Column: "revenue"},
+				Right: &pkgsemantic.ColumnRefExpr{Column: "cost"},
 			}, nil
 		})
 
-		body := strings.NewReader(`{
-			"expression": "revenue - cost"
-		}`)
-		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/semantic/models/"+modelID+"/compile-expression", body)
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("id", modelID)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx)) //nolint:contextcheck // chi route context in tests //nolint:contextcheck // chi route context in tests
-		rec := httptest.NewRecorder()
-
-		handler.CompileExpression(rec, req)
-
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
-		}
-
-		// Decode only the asserted field: compileExpressionResponse carries an
-		// interface-typed Expr that cannot be unmarshalled into directly.
-		var resp struct {
-			SQL string `json:"sql"`
-		}
-		if err := sonic.ConfigStd.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-			t.Fatalf("failed to decode response: %v", err)
-		}
-
-		// Bare column refs compile unqualified: the resolver only qualifies
-		// table-prefixed refs (joined models must not get a forced base table).
-		expected := `("revenue" - "cost")`
-		if resp.SQL != expected {
-			t.Fatalf("expected SQL %q, got %q", expected, resp.SQL)
-		}
+		rec := postCompileExpression(t, fx, `{"expression": "revenue - cost"}`)
+		assertCompileExpressionSQL(t, rec, http.StatusOK, expectedSQL)
 	})
 
 	t.Run("returns bad request for invalid expression", func(t *testing.T) {
-		body := strings.NewReader(`{
-			"expr": {"type": "unknown"}
-		}`)
-		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/semantic/models/"+modelID+"/compile-expression", body)
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("id", modelID)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx)) //nolint:contextcheck // chi route context in tests //nolint:contextcheck // chi route context in tests
-		rec := httptest.NewRecorder()
-
-		handler.CompileExpression(rec, req)
-
-		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
-		}
+		rec := postCompileExpression(t, fx, `{"expr": {"type": "unknown"}}`)
+		assertCompileExpressionSQL(t, rec, http.StatusBadRequest, "")
 	})
 }

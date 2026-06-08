@@ -36,6 +36,45 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
+func newJWTManagerFromKeyFiles(privatePath, publicPath string, accessTTL time.Duration, issuer, audience string) (*JWTManager, error) {
+	//nolint:gosec // JWT key paths come from operator config
+	privBytes, err := os.ReadFile(privatePath)
+	if err != nil {
+		return nil, fmt.Errorf("read private key: %w", err)
+	}
+	privKey, err := parseRSAPrivateKeyFromConfig(string(privBytes))
+	if err != nil {
+		return nil, fmt.Errorf("parse private key: %w", err)
+	}
+	pubKey := &privKey.PublicKey
+	if publicPath != "" {
+		pubKey, err = readJWTPublicKeyFromFile(publicPath)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &JWTManager{
+		privateKey: privKey,
+		publicKey:  pubKey,
+		accessTTL:  accessTTL,
+		issuer:     issuer,
+		audience:   audience,
+	}, nil
+}
+
+func readJWTPublicKeyFromFile(publicPath string) (*rsa.PublicKey, error) {
+	//nolint:gosec // JWT key paths come from operator config
+	pubBytes, err := os.ReadFile(publicPath)
+	if err != nil {
+		return nil, fmt.Errorf("read public key: %w", err)
+	}
+	pubKey, err := jwt.ParseRSAPublicKeyFromPEM(pubBytes)
+	if err != nil {
+		return nil, fmt.Errorf("parse public key: %w", err)
+	}
+	return pubKey, nil
+}
+
 type JWTManager struct {
 	privateKey *rsa.PrivateKey
 	publicKey  *rsa.PublicKey
@@ -68,36 +107,8 @@ func NewJWTManager(privatePath, publicPath string, accessTTL time.Duration) (*JW
 		}, nil
 	}
 
-	if privatePath != "" { //nolint:nestif // optional public key file overrides derived key
-		//nolint:gosec // JWT key paths come from operator config
-		privBytes, err := os.ReadFile(privatePath)
-		if err != nil {
-			return nil, fmt.Errorf("read private key: %w", err)
-		}
-		privKey, err := parseRSAPrivateKeyFromConfig(string(privBytes))
-		if err != nil {
-			return nil, fmt.Errorf("parse private key: %w", err)
-		}
-		pubKey := &privKey.PublicKey
-		if publicPath != "" {
-			//nolint:gosec // JWT key paths come from operator config
-			pubBytes, err := os.ReadFile(publicPath)
-			if err != nil {
-				return nil, fmt.Errorf("read public key: %w", err)
-			}
-			pubKey, err = jwt.ParseRSAPublicKeyFromPEM(pubBytes)
-			if err != nil {
-				return nil, fmt.Errorf("parse public key: %w", err)
-			}
-		}
-
-		return &JWTManager{
-			privateKey: privKey,
-			publicKey:  pubKey,
-			accessTTL:  accessTTL,
-			issuer:     issuer,
-			audience:   audience,
-		}, nil
+	if privatePath != "" {
+		return newJWTManagerFromKeyFiles(privatePath, publicPath, accessTTL, issuer, audience)
 	}
 
 	if env.IsProduction() {

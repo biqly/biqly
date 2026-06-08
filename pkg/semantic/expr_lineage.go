@@ -14,9 +14,9 @@ func ExprDependencies(node ExprNode) ([]ColumnRefExpr, []string, []string) {
 		switch e := n.(type) {
 		case nil:
 			return
-		case LiteralExpr:
+		case *LiteralExpr:
 			// Literals carry no dependencies
-		case ColumnRefExpr:
+		case *ColumnRefExpr:
 			dup := false
 			for _, c := range cols {
 				if c.Table == e.Table && c.Column == e.Column {
@@ -25,28 +25,28 @@ func ExprDependencies(node ExprNode) ([]ColumnRefExpr, []string, []string) {
 				}
 			}
 			if !dup {
-				cols = append(cols, e)
+				cols = append(cols, *e)
 			}
-		case MetricRefExpr:
+		case *MetricRefExpr:
 			dup := slices.Contains(mets, e.Name)
 			if !dup {
 				mets = append(mets, e.Name)
 			}
-		case DimensionRefExpr:
+		case *DimensionRefExpr:
 			dup := slices.Contains(dims, e.Name)
 			if !dup {
 				dims = append(dims, e.Name)
 			}
-		case BinaryExpr:
+		case *BinaryExpr:
 			collect(e.Left)
 			collect(e.Right)
-		case UnaryExpr:
+		case *UnaryExpr:
 			collect(e.Expr)
-		case FunctionCallExpr:
+		case *FunctionCallExpr:
 			for _, arg := range e.Args {
 				collect(arg)
 			}
-		case CaseExpr:
+		case *CaseExpr:
 			for _, cond := range e.Conditions {
 				collect(cond.When)
 				collect(cond.Then)

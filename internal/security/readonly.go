@@ -93,58 +93,61 @@ func hasMultipleStatements(cleaned string) bool {
 // remaining text can be safely scanned for keywords and statement separators.
 // String/identifier content is replaced with empty placeholders that preserve
 // surrounding token boundaries.
-//
-//nolint:gocognit
 func writeStrippedSQLLiteralsAndComments(sql string, out *strings.Builder) error {
 	i := 0
 	n := len(sql)
 	for i < n {
-		c := sql[i]
-
-		if c == '-' && i+1 < n && sql[i+1] == '-' {
-			for i < n && sql[i] != '\n' {
-				i++
-			}
-			continue
-		}
-
-		if c == '/' && i+1 < n && sql[i+1] == '*' {
-			i += 2
-			for i+1 < n && (sql[i] != '*' || sql[i+1] != '/') {
-				i++
-			}
-			if i+1 < n {
-				i += 2
-			} else {
-				i = n
-			}
-			continue
-		}
-
-		if c == '\'' {
+		switch {
+		case readonlyLineCommentAt(sql, i, n):
+			i = skipReadonlyLineComment(sql, i, n)
+		case readonlyBlockCommentAt(sql, i, n):
+			i = skipReadonlyBlockComment(sql, i, n)
+		case sql[i] == '\'':
 			var err error
 			i, err = skipStringLiteral(sql, i, n, '\'', out)
 			if err != nil {
 				return err
 			}
-			continue
-		}
-
-		if c == '"' {
+		case sql[i] == '"':
 			var err error
 			i, err = skipStringLiteral(sql, i, n, '"', out)
 			if err != nil {
 				return err
 			}
-			continue
+		default:
+			if err := writeBuilderByte(out, sql[i]); err != nil {
+				return err
+			}
+			i++
 		}
-
-		if err := writeBuilderByte(out, c); err != nil {
-			return err
-		}
-		i++
 	}
 	return nil
+}
+
+func readonlyLineCommentAt(sql string, i, n int) bool {
+	return sql[i] == '-' && i+1 < n && sql[i+1] == '-'
+}
+
+func skipReadonlyLineComment(sql string, i, n int) int {
+	for i < n && sql[i] != '\n' {
+		i++
+	}
+	return i
+}
+
+func readonlyBlockCommentAt(sql string, i, n int) bool {
+	return sql[i] == '/' && i+1 < n && sql[i+1] == '*'
+}
+
+func skipReadonlyBlockComment(sql string, i, n int) int {
+	i += 2
+	for i+1 < n && (sql[i] != '*' || sql[i+1] != '/') {
+		i++
+	}
+	if i+1 < n {
+		return i + 2
+	}
+	return n
 }
 
 func skipStringLiteral(sql string, i, n int, quote byte, out *strings.Builder) (int, error) {

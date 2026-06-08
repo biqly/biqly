@@ -36,19 +36,7 @@ func (n *Notifier) NotifyOwner(ctx context.Context, report *DriftReport, modelNa
 		return nil
 	}
 
-	var recipientEmail string
-	if createdBy != nil && *createdBy != "" { //nolint:nestif
-		if n.authClient != nil {
-			email, err := n.authClient.GetUserEmail(ctx, *createdBy)
-			if err != nil {
-				slog.Warn("failed to resolve owner email address", "user_id", *createdBy, "err", err)
-			} else {
-				recipientEmail = email
-			}
-		} else if strings.Contains(*createdBy, "@") {
-			recipientEmail = *createdBy
-		}
-	}
+	recipientEmail := n.resolveDriftRecipientEmail(ctx, createdBy)
 
 	if recipientEmail == "" {
 		slog.Warn("cannot resolve recipient email for drift alert", "model_id", report.ModelID, "created_by", createdBy)
@@ -89,4 +77,22 @@ func (n *Notifier) NotifyOwner(ctx context.Context, report *DriftReport, modelNa
 	}
 
 	return nil
+}
+
+func (n *Notifier) resolveDriftRecipientEmail(ctx context.Context, createdBy *string) string {
+	if createdBy == nil || *createdBy == "" {
+		return ""
+	}
+	if n.authClient != nil {
+		email, err := n.authClient.GetUserEmail(ctx, *createdBy)
+		if err != nil {
+			slog.Warn("failed to resolve owner email address", "user_id", *createdBy, "err", err)
+			return ""
+		}
+		return email
+	}
+	if strings.Contains(*createdBy, "@") {
+		return *createdBy
+	}
+	return ""
 }

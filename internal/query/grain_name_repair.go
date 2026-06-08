@@ -12,7 +12,6 @@ var calendarGrainSuffixes = []string{
 // created_at_month when the model only defines created_at_ts_month).
 // It only rewrites when the original name is absent and exactly one injected
 // candidate exists in knownDimensions.
-//nolint:gocognit
 func RepairMisnamedCalendarGrainDimensions(lq *LogicalQuery, knownDimensions []string) {
 	if lq == nil || len(knownDimensions) == 0 {
 		return
@@ -21,11 +20,14 @@ func RepairMisnamedCalendarGrainDimensions(lq *LogicalQuery, knownDimensions []s
 	for _, n := range knownDimensions {
 		dimSet[n] = true
 	}
-
-	repair := func(s string) string {
-		return repairOneGrainFieldName(s, dimSet)
+	repair := func(s string) string { return repairOneGrainFieldName(s, dimSet) }
+	repairLogicalQueryFields(lq, repair)
+	for ci := range lq.CTEs {
+		repairCTEFields(&lq.CTEs[ci], repair)
 	}
+}
 
+func repairLogicalQueryFields(lq *LogicalQuery, repair func(string) string) {
 	for i := range lq.Filters {
 		lq.Filters[i].Field = repair(lq.Filters[i].Field)
 	}
@@ -39,41 +41,35 @@ func RepairMisnamedCalendarGrainDimensions(lq *LogicalQuery, knownDimensions []s
 		lq.Having[i].Field = repair(lq.Having[i].Field)
 	}
 	for i := range lq.Select {
-		if lq.Select[i].Type == SelectTypeDimension {
-			lq.Select[i].Name = repair(lq.Select[i].Name)
-		}
-		if w := lq.Select[i].Window; w != nil {
-			for j := range w.PartitionBy {
-				w.PartitionBy[j] = repair(w.PartitionBy[j])
-			}
-			for j := range w.OrderBy {
-				w.OrderBy[j].Field = repair(w.OrderBy[j].Field)
-			}
-		}
+		repairSelectItemFields(&lq.Select[i], repair)
 	}
-	for ci := range lq.CTEs {
-		cte := &lq.CTEs[ci]
-		for i := range cte.Filters {
-			cte.Filters[i].Field = repair(cte.Filters[i].Field)
+}
+
+func repairCTEFields(cte *CTE, repair func(string) string) {
+	for i := range cte.Filters {
+		cte.Filters[i].Field = repair(cte.Filters[i].Field)
+	}
+	for i := range cte.GroupBy {
+		cte.GroupBy[i].Field = repair(cte.GroupBy[i].Field)
+	}
+	for i := range cte.OrderBy {
+		cte.OrderBy[i].Field = repair(cte.OrderBy[i].Field)
+	}
+	for i := range cte.Select {
+		repairSelectItemFields(&cte.Select[i], repair)
+	}
+}
+
+func repairSelectItemFields(item *SelectItem, repair func(string) string) {
+	if item.Type == SelectTypeDimension {
+		item.Name = repair(item.Name)
+	}
+	if w := item.Window; w != nil {
+		for j := range w.PartitionBy {
+			w.PartitionBy[j] = repair(w.PartitionBy[j])
 		}
-		for i := range cte.GroupBy {
-			cte.GroupBy[i].Field = repair(cte.GroupBy[i].Field)
-		}
-		for i := range cte.OrderBy {
-			cte.OrderBy[i].Field = repair(cte.OrderBy[i].Field)
-		}
-		for i := range cte.Select {
-			if cte.Select[i].Type == SelectTypeDimension {
-				cte.Select[i].Name = repair(cte.Select[i].Name)
-			}
-			if w := cte.Select[i].Window; w != nil {
-				for j := range w.PartitionBy {
-					w.PartitionBy[j] = repair(w.PartitionBy[j])
-				}
-				for j := range w.OrderBy {
-					w.OrderBy[j].Field = repair(w.OrderBy[j].Field)
-				}
-			}
+		for j := range w.OrderBy {
+			w.OrderBy[j].Field = repair(w.OrderBy[j].Field)
 		}
 	}
 }

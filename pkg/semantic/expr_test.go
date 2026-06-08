@@ -1,9 +1,10 @@
 package semantic
 
 import (
-	"github.com/bytedance/sonic"
 	"strings"
 	"testing"
+
+	"github.com/bytedance/sonic"
 )
 
 func TestExprNodeJSONRoundTrip(t *testing.T) {
@@ -13,59 +14,59 @@ func TestExprNodeJSONRoundTrip(t *testing.T) {
 	}{
 		{
 			name: "literal",
-			node: LiteralExpr{Value: "paid"},
+			node: &LiteralExpr{Value: "paid"},
 		},
 		{
 			name: "column ref",
-			node: ColumnRefExpr{Table: "orders", Column: "total_amount"},
+			node: &ColumnRefExpr{Table: "orders", Column: "total_amount"},
 		},
 		{
 			name: "metric ref",
-			node: MetricRefExpr{Name: "gross_revenue"},
+			node: &MetricRefExpr{Name: "gross_revenue"},
 		},
 		{
 			name: "dimension ref",
-			node: DimensionRefExpr{Name: "customer_country"},
+			node: &DimensionRefExpr{Name: "customer_country"},
 		},
 		{
 			name: "binary",
-			node: BinaryExpr{
+			node: &BinaryExpr{
 				Op:    OpSubtract,
-				Left:  MetricRefExpr{Name: "gross_revenue"},
-				Right: MetricRefExpr{Name: "discount_amount"},
+				Left:  &MetricRefExpr{Name: "gross_revenue"},
+				Right: &MetricRefExpr{Name: "discount_amount"},
 			},
 		},
 		{
 			name: "unary",
-			node: UnaryExpr{
+			node: &UnaryExpr{
 				Op:   OpNegate,
-				Expr: ColumnRefExpr{Column: "discount_amount"},
+				Expr: &ColumnRefExpr{Column: "discount_amount"},
 			},
 		},
 		{
 			name: "function call",
-			node: FunctionCallExpr{
+			node: &FunctionCallExpr{
 				Name: "COALESCE",
 				Args: []ExprNode{
-					ColumnRefExpr{Column: "email"},
-					LiteralExpr{Value: "N/A"},
+					&ColumnRefExpr{Column: "email"},
+					&LiteralExpr{Value: "N/A"},
 				},
 			},
 		},
 		{
 			name: "case",
-			node: CaseExpr{
+			node: &CaseExpr{
 				Conditions: []CaseWhen{
 					{
-						When: BinaryExpr{
+						When: &BinaryExpr{
 							Op:    OpGt,
-							Left:  ColumnRefExpr{Column: "total_amount"},
-							Right: LiteralExpr{Value: float64(0)},
+							Left:  &ColumnRefExpr{Column: "total_amount"},
+							Right: &LiteralExpr{Value: float64(0)},
 						},
-						Then: LiteralExpr{Value: "positive"},
+						Then: &LiteralExpr{Value: "positive"},
 					},
 				},
-				ElseExpr: LiteralExpr{Value: "negative"},
+				ElseExpr: &LiteralExpr{Value: "negative"},
 			},
 		},
 	}

@@ -7,10 +7,10 @@ import (
 )
 
 func TestExpressionASTStorageRoundTrip(t *testing.T) {
-	expr := pkgsemantic.BinaryExpr{
+	expr := &pkgsemantic.BinaryExpr{
 		Op:    pkgsemantic.OpSubtract,
-		Left:  pkgsemantic.ColumnRefExpr{Table: "orders", Column: "revenue"},
-		Right: pkgsemantic.ColumnRefExpr{Table: "orders", Column: "cost"},
+		Left:  &pkgsemantic.ColumnRefExpr{Table: "orders", Column: "revenue"},
+		Right: &pkgsemantic.ColumnRefExpr{Table: "orders", Column: "cost"},
 	}
 
 	encoded, err := encodeExprNodeJSON(expr)
@@ -25,8 +25,8 @@ func TestExpressionASTStorageRoundTrip(t *testing.T) {
 	if decoded == nil {
 		t.Fatal("decodeExprNodeJSON() returned nil")
 	}
-	if _, ok := decoded.(pkgsemantic.BinaryExpr); !ok {
-		t.Fatalf("decodeExprNodeJSON() = %T, want semantic.BinaryExpr", decoded)
+	if _, ok := decoded.(*pkgsemantic.BinaryExpr); !ok {
+		t.Fatalf("decodeExprNodeJSON() = %T, want *semantic.BinaryExpr", decoded)
 	}
 }
 

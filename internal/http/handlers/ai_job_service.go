@@ -32,7 +32,7 @@ type createAIJobRequest struct {
 	Request         json.RawMessage `json:"request"`
 }
 
-func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID string, req json.RawMessage) (*metadata.AIJob, error) { //nolint:gocognit // validates multiple job kinds before one enqueue path.
+func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID string, req json.RawMessage) (*metadata.AIJob, error) {
 	if sessionID == "" {
 		return nil, errors.New("client_session_id is required")
 	}
@@ -42,56 +42,9 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 	if len(req) == 0 {
 		req = []byte("{}")
 	}
-	var datasourceID *string
-	scopeSchemas := []string{}
-	if kind == "describe_batch" { //nolint:nestif
-		var batchReq ai.DescribeBatchRequest
-		if err := sonic.ConfigStd.Unmarshal(req, &batchReq); err != nil {
-			return nil, errors.New("invalid request payload")
-		}
-		ds := strings.TrimSpace(batchReq.DatasourceID)
-		if ds == "" {
-			return nil, errors.New("datasource_id is required")
-		}
-		datasourceID = new(strings.TrimSpace(batchReq.DatasourceID))
-		scopeSchemas = ai.DescribeBatchScopeSchemas(batchReq.Tables)
-		if len(scopeSchemas) == 0 {
-			return nil, errors.New("tables must include at least one schema")
-		}
-		existing, err := s.repo.FindConflictingDescribeBatch(ctx, ds, scopeSchemas)
-		if err != nil {
-			return nil, err
-		}
-		if existing != nil {
-			return nil, &AIJobConflictError{
-				Message:    "metadata describe batch already running for overlapping schema(s)",
-				ExistingID: existing.ID,
-				Existing:   existing,
-			}
-		}
-	}
-	if kind == "embed_metadata" {
-		var er embedMetadataRequest
-		if err := sonic.ConfigStd.Unmarshal(req, &er); err != nil {
-			return nil, errors.New("invalid request payload")
-		}
-		ds := strings.TrimSpace(er.DatasourceID)
-		if ds == "" {
-			return nil, errors.New(core.MsgDatasourceIDRequired)
-		}
-		datasourceID = new(strings.TrimSpace(er.DatasourceID))
-		model := strings.TrimSpace(er.ModelID)
-		existing, err := s.repo.FindConflictingEmbedMetadata(ctx, ds, model)
-		if err != nil {
-			return nil, err
-		}
-		if existing != nil {
-			return nil, &AIJobConflictError{
-				Message:    "embedding refresh already running for the same scope",
-				ExistingID: existing.ID,
-				Existing:   existing,
-			}
-		}
+	datasourceID, scopeSchemas, err := s.enqueueJobScope(ctx, kind, req)
+	if err != nil {
+		return nil, err
 	}
 	var userIDPtr *string
 	if strings.TrimSpace(userID) != "" {
@@ -122,6 +75,68 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 		}
 	}
 	return job, nil
+}
+
+func (s *AIJobService) enqueueJobScope(ctx context.Context, kind string, req json.RawMessage) (*string, []string, error) {
+	switch kind {
+	case "describe_batch":
+		return s.describeBatchEnqueueScope(ctx, req)
+	case "embed_metadata":
+		return s.embedMetadataEnqueueScope(ctx, req)
+	default:
+		return nil, []string{}, nil
+	}
+}
+
+func (s *AIJobService) describeBatchEnqueueScope(ctx context.Context, req json.RawMessage) (*string, []string, error) {
+	var batchReq ai.DescribeBatchRequest
+	if err := sonic.ConfigStd.Unmarshal(req, &batchReq); err != nil {
+		return nil, nil, errors.New("invalid request payload")
+	}
+	ds := strings.TrimSpace(batchReq.DatasourceID)
+	if ds == "" {
+		return nil, nil, errors.New("datasource_id is required")
+	}
+	scopeSchemas := ai.DescribeBatchScopeSchemas(batchReq.Tables)
+	if len(scopeSchemas) == 0 {
+		return nil, nil, errors.New("tables must include at least one schema")
+	}
+	existing, err := s.repo.FindConflictingDescribeBatch(ctx, ds, scopeSchemas)
+	if err != nil {
+		return nil, nil, err
+	}
+	if existing != nil {
+		return nil, nil, &AIJobConflictError{
+			Message:    "metadata describe batch already running for overlapping schema(s)",
+			ExistingID: existing.ID,
+			Existing:   existing,
+		}
+	}
+	return new(ds), scopeSchemas, nil
+}
+
+func (s *AIJobService) embedMetadataEnqueueScope(ctx context.Context, req json.RawMessage) (*string, []string, error) {
+	var er embedMetadataRequest
+	if err := sonic.ConfigStd.Unmarshal(req, &er); err != nil {
+		return nil, nil, errors.New("invalid request payload")
+	}
+	ds := strings.TrimSpace(er.DatasourceID)
+	if ds == "" {
+		return nil, nil, errors.New(core.MsgDatasourceIDRequired)
+	}
+	model := strings.TrimSpace(er.ModelID)
+	existing, err := s.repo.FindConflictingEmbedMetadata(ctx, ds, model)
+	if err != nil {
+		return nil, nil, err
+	}
+	if existing != nil {
+		return nil, nil, &AIJobConflictError{
+			Message:    "embedding refresh already running for the same scope",
+			ExistingID: existing.ID,
+			Existing:   existing,
+		}
+	}
+	return new(ds), []string{}, nil
 }
 
 func validateAIJobRequest(kind string, raw json.RawMessage) error {

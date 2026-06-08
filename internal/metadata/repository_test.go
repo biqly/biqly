@@ -871,84 +871,29 @@ func TestQueryAndAIHistory(t *testing.T) {
 	assert.Equal(t, "aqh-123", aiHistoryList[0].ID)
 }
 
-//nolint:funlen
-func TestTimeGrains_PromptTemplates_And_BusinessGlossary(t *testing.T) {
+func TestTimeGrains(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := NewRepository(db)
 	ctx := context.Background()
-
 	now := time.Now()
 
 	state.execs = []execMock{
 		{Pattern: "UPDATE ai_time_grains", RowsAffected: 1},
 		{Pattern: "INSERT INTO ai_time_grains", RowsAffected: 1},
-		{Pattern: "UPDATE ai_prompt_templates", RowsAffected: 1},
-		{Pattern: "INSERT INTO ai_prompt_templates", RowsAffected: 1},
-		{Pattern: "DELETE FROM ai_prompt_templates", RowsAffected: 1},
-		{Pattern: "UPDATE business_glossary_terms", RowsAffected: 1},
-		{Pattern: "DELETE FROM business_glossary_terms", RowsAffected: 1},
 	}
-
 	state.queries = []queryMock{
 		{
 			Pattern: "SELECT COUNT(*) FROM ai_time_grains",
 			Cols:    []string{"count"},
-			Rows: [][]driver.Value{
-				{int64(4)},
-			},
+			Rows:    [][]driver.Value{{int64(4)}},
 		},
 		{
 			Pattern: "SELECT grain, suffix, requires_time, synonyms, created_at, updated_at FROM ai_time_grains",
 			Cols:    []string{"grain", "suffix", "requires_time", "synonyms", "created_at", "updated_at"},
-			Rows: [][]driver.Value{
-				{"day", "_day", false, `{gün,gül}`, now, now},
-			},
-		},
-		{
-			Pattern: "SELECT COUNT(*) FROM ai_prompt_templates",
-			Cols:    []string{"count"},
-			Rows: [][]driver.Value{
-				{int64(2)},
-			},
-		},
-		{
-			Pattern: "SELECT content, version FROM ai_prompt_templates",
-			Cols:    []string{"content", "version"},
-			Rows: [][]driver.Value{
-				{"prompt context value", int64(1)},
-			},
-		},
-		{
-			Pattern: "SELECT COALESCE(MAX(version), 0) + 1 FROM ai_prompt_templates",
-			Cols:    []string{"next_version"},
-			Rows: [][]driver.Value{
-				{int64(2)},
-			},
-		},
-		{
-			Pattern: "SELECT name, locale, version, content, is_active, created_at, updated_at FROM ai_prompt_templates",
-			Cols:    []string{"name", "locale", "version", "content", "is_active", "created_at", "updated_at"},
-			Rows: [][]driver.Value{
-				{"system_prompt", "en", int64(1), "prompt content context", true, now, now},
-			},
-		},
-		{
-			Pattern: "SELECT id::text, datasource_id::text, COALESCE(model_id::text, ''), term, COALESCE(definition, ''), maps_to_type, maps_to_name, COALESCE(aliases, '{}'), is_active, created_at, updated_at FROM business_glossary_terms",
-			Cols:    []string{"id", "datasource_id", "model_id", "term", "definition", "maps_to_type", "maps_to_name", "aliases", "is_active", "created_at", "updated_at"},
-			Rows: [][]driver.Value{
-				{"bg-1", "ds-1", "m-1", "musteri", "user accounts table", "table", "users", `{customer,client}`, true, now, now},
-			},
-		},
-		{
-			Pattern: "INSERT INTO business_glossary_terms",
-			Cols:    []string{"id"},
-			Rows: [][]driver.Value{
-				{"bg-1"},
-			},
+			Rows:    [][]driver.Value{{"day", "_day", false, `{gün,gül}`, now, now}},
 		},
 	}
 
-	// --- 1. Time Grains ---
 	tgCount, err := repo.CountTimeGrains(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 4, tgCount)
@@ -964,8 +909,42 @@ func TestTimeGrains_PromptTemplates_And_BusinessGlossary(t *testing.T) {
 
 	err = repo.UpsertTimeGrain(ctx, TimeGrain{Grain: "day", Suffix: "_day", RequiresTime: false, Synonyms: []string{"gün", "gül"}})
 	assert.NoError(t, err)
+}
 
-	// --- 2. Prompt Templates ---
+func TestPromptTemplates(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+	now := time.Now()
+
+	state.execs = []execMock{
+		{Pattern: "UPDATE ai_prompt_templates", RowsAffected: 1},
+		{Pattern: "INSERT INTO ai_prompt_templates", RowsAffected: 1},
+		{Pattern: "DELETE FROM ai_prompt_templates", RowsAffected: 1},
+	}
+	state.queries = []queryMock{
+		{
+			Pattern: "SELECT COUNT(*) FROM ai_prompt_templates",
+			Cols:    []string{"count"},
+			Rows:    [][]driver.Value{{int64(2)}},
+		},
+		{
+			Pattern: "SELECT content, version FROM ai_prompt_templates",
+			Cols:    []string{"content", "version"},
+			Rows:    [][]driver.Value{{"prompt context value", int64(1)}},
+		},
+		{
+			Pattern: "SELECT COALESCE(MAX(version), 0) + 1 FROM ai_prompt_templates",
+			Cols:    []string{"next_version"},
+			Rows:    [][]driver.Value{{int64(2)}},
+		},
+		{
+			Pattern: "SELECT name, locale, version, content, is_active, created_at, updated_at FROM ai_prompt_templates",
+			Cols:    []string{"name", "locale", "version", "content", "is_active", "created_at", "updated_at"},
+			Rows:    [][]driver.Value{{"system_prompt", "en", int64(1), "prompt content context", true, now, now}},
+		},
+	}
+
 	ptCount, err := repo.CountPromptTemplates(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, ptCount)
@@ -984,8 +963,31 @@ func TestTimeGrains_PromptTemplates_And_BusinessGlossary(t *testing.T) {
 
 	err = repo.DeleteAllPromptTemplates(ctx)
 	assert.NoError(t, err)
+}
 
-	// --- 3. Business Glossary ---
+func TestBusinessGlossary(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+	now := time.Now()
+
+	state.execs = []execMock{
+		{Pattern: "UPDATE business_glossary_terms", RowsAffected: 1},
+		{Pattern: "DELETE FROM business_glossary_terms", RowsAffected: 1},
+	}
+	state.queries = []queryMock{
+		{
+			Pattern: "SELECT id::text, datasource_id::text, COALESCE(model_id::text, ''), term, COALESCE(definition, ''), maps_to_type, maps_to_name, COALESCE(aliases, '{}'), is_active, created_at, updated_at FROM business_glossary_terms",
+			Cols:    []string{"id", "datasource_id", "model_id", "term", "definition", "maps_to_type", "maps_to_name", "aliases", "is_active", "created_at", "updated_at"},
+			Rows:    [][]driver.Value{{"bg-1", "ds-1", "m-1", "musteri", "user accounts table", "table", "users", `{customer,client}`, true, now, now}},
+		},
+		{
+			Pattern: "INSERT INTO business_glossary_terms",
+			Cols:    []string{"id"},
+			Rows:    [][]driver.Value{{"bg-1"}},
+		},
+	}
+
 	bgList, err := repo.ListBusinessGlossary(ctx, "ds-1", "m-1")
 	assert.NoError(t, err)
 	assert.Len(t, bgList, 1)
@@ -1019,86 +1021,23 @@ func TestTimeGrains_PromptTemplates_And_BusinessGlossary(t *testing.T) {
 	assert.True(t, ok)
 }
 
-//nolint:funlen
-func TestCuratedAI(t *testing.T) {
-	db, state := setupMockDB(t)
-	repo := NewRepository(db)
-	ctx := context.Background()
+func fewShotExampleRow(now time.Time) []driver.Value {
+	return []driver.Value{"fe-1", "ds-1", "m-1", "how long?", []byte(`{}`), `{tag1}`, "postgres", "en", "admin", now, now, "How Long Example", "desc", true, true}
+}
 
-	now := time.Now()
+func testFewShotCuratedRepository(ctx context.Context, t *testing.T, repo *Repository) {
+	t.Helper()
 
-	state.execs = []execMock{
-		{Pattern: "DELETE FROM few_shot_examples WHERE id", RowsAffected: 1},
-		{Pattern: "UPDATE few_shot_examples SET", RowsAffected: 1},
-		{Pattern: "INSERT INTO ai_feedback", RowsAffected: 1},
-		{Pattern: "UPDATE ai_query_history SET user_rating =", RowsAffected: 1},
-	}
-
-	state.queries = []queryMock{
-		{
-			Pattern: "WHERE is_favorite",
-			Cols:    []string{"id", "datasource_id", "model_id", "question", "logical_query", "tags", "dialect", "locale", "created_by", "created_at", "updated_at", "name", "description", "is_few_shot", "is_favorite"},
-			Rows: [][]driver.Value{
-				{"fe-1", "ds-1", "m-1", "how long?", []byte(`{}`), `{tag1}`, "postgres", "en", "admin", now, now, "How Long Example", "desc", true, true},
-			},
-		},
-		{
-			Pattern: "SELECT id::text FROM few_shot_examples WHERE",
-			Cols:    []string{"id"},
-			Rows: [][]driver.Value{
-				{"fe-1"},
-			},
-		},
-		{
-			Pattern: "SELECT id::text, datasource_id::text",
-			Cols:    []string{"id", "datasource_id", "model_id", "question", "logical_query", "tags", "dialect", "locale", "created_by", "created_at", "updated_at", "name", "description", "is_few_shot", "is_favorite"},
-			Rows: [][]driver.Value{
-				{"fe-1", "ds-1", "m-1", "how long?", []byte(`{}`), `{tag1}`, "postgres", "en", "admin", now, now, "How Long Example", "desc", true, true},
-			},
-		},
-		{
-			Pattern: "INSERT INTO few_shot_examples",
-			Cols:    []string{"id"},
-			Rows: [][]driver.Value{
-				{"fe-1"},
-			},
-		},
-		{
-			Pattern: "SELECT COALESCE(h.model_id::text, 'unknown')",
-			Cols:    []string{"model_id", "total_queries", "success_count", "failure_count", "avg_confidence", "avg_latency_ms", "positive_count", "negative_count"},
-			Rows: [][]driver.Value{
-				{"gpt-4", int64(10), int64(8), int64(2), 0.9, 150.0, int64(5), int64(1)},
-			},
-		},
-		{
-			Pattern: "SELECT DATE(created_at) AS usage_date, COUNT(*)",
-			Cols:    []string{"usage_date", "count", "positive", "negative", "avg_latency", "total_cost", "total_tokens"},
-			Rows: [][]driver.Value{
-				{now, int64(10), int64(5), int64(1), 120.0, 0.05, int64(1500)},
-			},
-		},
-		{
-			Pattern: "SELECT COUNT(*), COALESCE(AVG(CASE WHEN user_rating IS NULL THEN 0.5",
-			Cols:    []string{"count", "success_rate", "avg_latency_ms", "total_cost"},
-			Rows: [][]driver.Value{
-				{int64(10), 0.8, 120.0, 0.05},
-			},
-		},
-	}
-
-	// 1. ListFewShotCurated
 	curatedList, err := repo.ListFewShotCurated(ctx, "ds-1", "m-1")
 	assert.NoError(t, err)
 	assert.Len(t, curatedList, 1)
 	assert.Equal(t, "fe-1", curatedList[0].ID)
 
-	// 2. ListFavoriteExamples
 	favList, err := repo.ListFavoriteExamples(ctx, 10)
 	assert.NoError(t, err)
 	assert.Len(t, favList, 1)
 	assert.Equal(t, "fe-1", favList[0].ID)
 
-	// 3. InsertFewShotCurated
 	feID, err := repo.InsertFewShotCurated(ctx, FewShotCuratedInsert{
 		DatasourceID: "ds-1",
 		ModelID:      "m-1",
@@ -1115,7 +1054,6 @@ func TestCuratedAI(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "fe-1", feID)
 
-	// 4. UpdateFewShotCurated
 	err = repo.UpdateFewShotCurated(ctx, "fe-1", FewShotCuratedUpdate{
 		Question:     "how long active?",
 		LogicalQuery: json.RawMessage(`{}`),
@@ -1129,44 +1067,186 @@ func TestCuratedAI(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	// 5. DeleteFewShotCurated
 	deleted, err := repo.DeleteFewShotCurated(ctx, "fe-1")
 	assert.NoError(t, err)
 	assert.True(t, deleted)
 
-	// 6. InsertAIFeedback
-	err = repo.InsertAIFeedback(ctx, "how long?", "ds-1", "positive", []string{"speed"}, "very fast")
-	assert.NoError(t, err)
-
-	// 7. UpdateLatestAIQueryHistoryRating
-	err = repo.UpdateLatestAIQueryHistoryRating(ctx, "ds-1", "positive", "user-1", "how long?")
-	assert.NoError(t, err)
-
-	// 8. ListModelSuccessRates
-	rates, err := repo.ListModelSuccessRates(ctx, "30")
-	assert.NoError(t, err)
-	assert.Len(t, rates, 1)
-	assert.Equal(t, "gpt-4", rates[0].ModelID)
-
-	// 9. GetAIUsageLast30Days
-	daily, summary, err := repo.GetAIUsageLast30Days(ctx)
-	assert.NoError(t, err)
-	assert.Len(t, daily, 1)
-	assert.Equal(t, 10, summary.TotalQueries)
-
-	// 10. ListFewShotExampleIDs
 	ids, err := repo.ListFewShotExampleIDs(ctx, "ds-1", "m-1", 5)
 	assert.NoError(t, err)
 	assert.Len(t, ids, 1)
 	assert.Equal(t, "fe-1", ids[0])
 }
 
-//nolint:funlen
-func TestAIJobs_And_AIMetrics(t *testing.T) {
+func testAIFeedbackAndUsageRepository(ctx context.Context, t *testing.T, repo *Repository) {
+	t.Helper()
+
+	err := repo.InsertAIFeedback(ctx, "how long?", "ds-1", "positive", []string{"speed"}, "very fast")
+	assert.NoError(t, err)
+
+	err = repo.UpdateLatestAIQueryHistoryRating(ctx, "ds-1", "positive", "user-1", "how long?")
+	assert.NoError(t, err)
+
+	rates, err := repo.ListModelSuccessRates(ctx, "30")
+	assert.NoError(t, err)
+	assert.Len(t, rates, 1)
+	assert.Equal(t, "gpt-4", rates[0].ModelID)
+
+	daily, summary, err := repo.GetAIUsageLast30Days(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, daily, 1)
+	assert.Equal(t, 10, summary.TotalQueries)
+}
+
+func TestFewShotCuratedRepository(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := NewRepository(db)
 	ctx := context.Background()
+	now := time.Now()
 
+	state.execs = []execMock{
+		{Pattern: "DELETE FROM few_shot_examples WHERE id", RowsAffected: 1},
+		{Pattern: "UPDATE few_shot_examples SET", RowsAffected: 1},
+	}
+	state.queries = []queryMock{
+		{
+			Pattern: "WHERE is_favorite",
+			Cols:    []string{"id", "datasource_id", "model_id", "question", "logical_query", "tags", "dialect", "locale", "created_by", "created_at", "updated_at", "name", "description", "is_few_shot", "is_favorite"},
+			Rows:    [][]driver.Value{fewShotExampleRow(now)},
+		},
+		{
+			Pattern: "SELECT id::text FROM few_shot_examples WHERE",
+			Cols:    []string{"id"},
+			Rows:    [][]driver.Value{{"fe-1"}},
+		},
+		{
+			Pattern: "SELECT id::text, datasource_id::text",
+			Cols:    []string{"id", "datasource_id", "model_id", "question", "logical_query", "tags", "dialect", "locale", "created_by", "created_at", "updated_at", "name", "description", "is_few_shot", "is_favorite"},
+			Rows:    [][]driver.Value{fewShotExampleRow(now)},
+		},
+		{
+			Pattern: "INSERT INTO few_shot_examples",
+			Cols:    []string{"id"},
+			Rows:    [][]driver.Value{{"fe-1"}},
+		},
+	}
+
+	testFewShotCuratedRepository(ctx, t, repo)
+}
+
+func TestAIFeedbackAndUsageRepository(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+	now := time.Now()
+
+	state.execs = []execMock{
+		{Pattern: "INSERT INTO ai_feedback", RowsAffected: 1},
+		{Pattern: "UPDATE ai_query_history SET user_rating =", RowsAffected: 1},
+	}
+	state.queries = []queryMock{
+		{
+			Pattern: "SELECT COALESCE(h.model_id::text, 'unknown')",
+			Cols:    []string{"model_id", "total_queries", "success_count", "failure_count", "avg_confidence", "avg_latency_ms", "positive_count", "negative_count"},
+			Rows:    [][]driver.Value{{"gpt-4", int64(10), int64(8), int64(2), 0.9, 150.0, int64(5), int64(1)}},
+		},
+		{
+			Pattern: "SELECT DATE(created_at) AS usage_date, COUNT(*)",
+			Cols:    []string{"usage_date", "count", "positive", "negative", "avg_latency", "total_cost", "total_tokens"},
+			Rows:    [][]driver.Value{{now, int64(10), int64(5), int64(1), 120.0, 0.05, int64(1500)}},
+		},
+		{
+			Pattern: "SELECT COUNT(*), COALESCE(AVG(CASE WHEN user_rating IS NULL THEN 0.5",
+			Cols:    []string{"count", "success_rate", "avg_latency_ms", "total_cost"},
+			Rows:    [][]driver.Value{{int64(10), 0.8, 120.0, 0.05}},
+		},
+	}
+
+	testAIFeedbackAndUsageRepository(ctx, t, repo)
+}
+
+func aiJobRow(now time.Time) []driver.Value {
+	return []driver.Value{"job-1", "sess-1", "describe", "pending", "routing", "", 5, "ds-1", "{schema1}", []byte(`{}`), []byte(`{}`), []byte(`{}`), "", now, now, now, now, nil}
+}
+
+func testAIJobLifecycle(ctx context.Context, t *testing.T, repo *Repository, dsID string) {
+	t.Helper()
+
+	job := &AIJob{
+		ID:              "job-1",
+		ClientSessionID: "sess-1",
+		Kind:            "describe",
+		Status:          "pending",
+		Phase:           "routing",
+		ProgressPct:     5,
+		DatasourceID:    &dsID,
+		ScopeSchemas:    []string{"schema1"},
+		RequestJSON:     json.RawMessage(`{}`),
+	}
+	err := repo.CreateAIJob(ctx, job)
+	assert.NoError(t, err)
+
+	gotJob, err := repo.GetAIJob(ctx, "job-1")
+	assert.NoError(t, err)
+	assert.Equal(t, "job-1", gotJob.ID)
+
+	jobs, err := repo.ListAIJobsBySession(ctx, "sess-1", true, 10)
+	assert.NoError(t, err)
+	assert.Len(t, jobs, 1)
+
+	err = repo.UpdateAIJobProgress(ctx, "job-1", "running", "routing", "routing update", 50)
+	assert.NoError(t, err)
+
+	err = repo.UpdateAIJobProgressDetail(ctx, "job-1", "running", "indexing", "indexing table products", 60, json.RawMessage(`{}`))
+	assert.NoError(t, err)
+
+	conf, err := repo.FindConflictingDescribeBatch(ctx, "ds-1", []string{"schema1"})
+	assert.NoError(t, err)
+	assert.NotNil(t, conf)
+	assert.Equal(t, "job-1", conf.ID)
+
+	err = repo.MarkAIJobRunning(ctx, "job-1")
+	assert.NoError(t, err)
+
+	err = repo.CompleteAIJob(ctx, "job-1", json.RawMessage(`{}`))
+	assert.NoError(t, err)
+
+	err = repo.FailAIJob(ctx, "job-1", "something went wrong")
+	assert.NoError(t, err)
+
+	cancelled, err := repo.CancelAIJob(ctx, "job-1")
+	assert.NoError(t, err)
+	assert.True(t, cancelled)
+}
+
+func testAIJobQueueOperations(ctx context.Context, t *testing.T, repo *Repository) {
+	t.Helper()
+
+	stale, err := repo.ListStaleAIJobs(ctx, "sess-1", time.Minute, 10)
+	assert.NoError(t, err)
+	assert.Len(t, stale, 1)
+
+	numCancelled, err := repo.CancelAIJobs(ctx, []string{"job-stale"})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, numCancelled)
+
+	numCancelledSess, err := repo.CancelActiveAIJobsBySession(ctx, "sess-1")
+	assert.NoError(t, err)
+	assert.Equal(t, 1, numCancelledSess)
+
+	qStatus, err := repo.GetAIQueueStatus(ctx, "sess-1")
+	assert.NoError(t, err)
+	assert.Equal(t, 2, qStatus.TotalPending)
+	assert.Equal(t, 1, *qStatus.MyPosition)
+
+	ok, err := repo.TryMarkAIJobRunning(ctx, "job-1")
+	assert.NoError(t, err)
+	assert.True(t, ok)
+}
+
+func TestAIJobRepository(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
 	now := time.Now()
 	dsID := "ds-1"
 
@@ -1178,138 +1258,54 @@ func TestAIJobs_And_AIMetrics(t *testing.T) {
 		{Pattern: "UPDATE ai_jobs SET status = 'failed'", RowsAffected: 1},
 		{Pattern: "UPDATE ai_jobs SET status = 'cancelled'", RowsAffected: 1},
 		{Pattern: "UPDATE ai_jobs SET status = 'succeeded'", RowsAffected: 1},
-		{Pattern: "UPDATE ai_jobs SET status = $2", RowsAffected: 1}, // TryMarkAIJobRunning
+		{Pattern: "UPDATE ai_jobs SET status = $2", RowsAffected: 1},
 	}
-
 	state.queries = []queryMock{
 		{
 			Pattern: "SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct",
 			Cols:    []string{"id", "client_session_id", "kind", "status", "phase", "phase_message", "progress_pct", "datasource_id", "scope_schemas", "progress_json", "request_json", "result_json", "error_message", "created_at", "updated_at", "started_at", "finished_at", "user_id"},
-			Rows: [][]driver.Value{
-				{"job-1", "sess-1", "describe", "pending", "routing", "", 5, "ds-1", "{schema1}", []byte(`{}`), []byte(`{}`), []byte(`{}`), "", now, now, now, now, nil},
-			},
+			Rows:    [][]driver.Value{aiJobRow(now)},
 		},
 		{
 			Pattern: "SELECT id FROM ai_jobs WHERE datasource_id = $1::uuid AND status = 'running'",
 			Cols:    []string{"id"},
-			Rows: [][]driver.Value{
-				{"job-conflict"},
-			},
+			Rows:    [][]driver.Value{{"job-conflict"}},
 		},
 		{
-			Pattern: "SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct", // ListStaleAIJobs
+			Pattern: "SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct",
 			Cols:    []string{"id", "client_session_id", "kind", "status", "phase", "phase_message", "progress_pct", "datasource_id", "scope_schemas", "progress_json", "request_json", "result_json", "error_message", "created_at", "updated_at", "started_at", "finished_at", "user_id"},
-			Rows: [][]driver.Value{
-				{"job-stale", "sess-1", "describe", "pending", "routing", "", 5, "ds-1", "{schema1}", []byte(`{}`), []byte(`{}`), []byte(`{}`), "", now, now, now, now, nil},
-			},
+			Rows:    [][]driver.Value{{"job-stale", "sess-1", "describe", "pending", "routing", "", 5, "ds-1", "{schema1}", []byte(`{}`), []byte(`{}`), []byte(`{}`), "", now, now, now, now, nil}},
 		},
 		{
-			Pattern: "WITH my_job AS", // GetAIQueueStatus
+			Pattern: "WITH my_job AS",
 			Cols:    []string{"total_pending", "id", "status", "position"},
-			Rows: [][]driver.Value{
-				{int64(2), "job-1", "pending", int64(1)},
-			},
+			Rows:    [][]driver.Value{{int64(2), "job-1", "pending", int64(1)}},
 		},
+	}
+
+	testAIJobLifecycle(ctx, t, repo, dsID)
+	testAIJobQueueOperations(ctx, t, repo)
+}
+
+func TestAIMetricsDashboardRepository(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+	now := time.Now()
+
+	state.queries = []queryMock{
 		{
-			Pattern: "SELECT DATE(created_at)", // Dashboard daily rows
+			Pattern: "SELECT DATE(created_at)",
 			Cols:    []string{"date", "total", "success", "failed", "partial", "clarification", "avg_retry", "avg_latency", "sum_cost", "sum_tokens"},
-			Rows: [][]driver.Value{
-				{now, 10, 8, 1, 1, 0, 1.2, 180.0, 0.05, 1200},
-			},
+			Rows:    [][]driver.Value{{now, 10, 8, 1, 1, 0, 1.2, 180.0, 0.05, 1200}},
 		},
 		{
-			Pattern: "SELECT COUNT(*), COUNT(*) FILTER (WHERE outcome_status = 'success')", // Dashboard summary row
+			Pattern: "SELECT COUNT(*), COUNT(*) FILTER (WHERE outcome_status = 'success')",
 			Cols:    []string{"total", "success", "failed", "partial", "clarification", "avg_retry", "avg_latency", "sum_cost", "sum_tokens", "pos_feed", "neg_feed"},
-			Rows: [][]driver.Value{
-				{10, 8, 1, 1, 0, 1.2, 180.0, 0.05, 1200, 4, 1},
-			},
+			Rows:    [][]driver.Value{{10, 8, 1, 1, 0, 1.2, 180.0, 0.05, 1200, 4, 1}},
 		},
 	}
 
-	// 1. CreateAIJob
-	job := &AIJob{
-		ID:              "job-1",
-		ClientSessionID: "sess-1",
-		Kind:            "describe",
-		Status:          "pending",
-		Phase:           "routing",
-		PhaseMessage:    "",
-		ProgressPct:     5,
-		DatasourceID:    &dsID,
-		ScopeSchemas:    []string{"schema1"},
-		RequestJSON:     json.RawMessage(`{}`),
-	}
-	err := repo.CreateAIJob(ctx, job)
-	assert.NoError(t, err)
-
-	// 2. GetAIJob
-	gotJob, err := repo.GetAIJob(ctx, "job-1")
-	assert.NoError(t, err)
-	assert.Equal(t, "job-1", gotJob.ID)
-
-	// 3. ListAIJobsBySession
-	jobs, err := repo.ListAIJobsBySession(ctx, "sess-1", true, 10)
-	assert.NoError(t, err)
-	assert.Len(t, jobs, 1)
-
-	// 4. UpdateAIJobProgress
-	err = repo.UpdateAIJobProgress(ctx, "job-1", "running", "routing", "routing update", 50)
-	assert.NoError(t, err)
-
-	// 5. UpdateAIJobProgressDetail
-	err = repo.UpdateAIJobProgressDetail(ctx, "job-1", "running", "indexing", "indexing table products", 60, json.RawMessage(`{}`))
-	assert.NoError(t, err)
-
-	// 6. FindConflictingDescribeBatch
-	conf, err := repo.FindConflictingDescribeBatch(ctx, "ds-1", []string{"schema1"})
-	assert.NoError(t, err)
-	assert.NotNil(t, conf)
-	assert.Equal(t, "job-1", conf.ID)
-
-	// 7. MarkAIJobRunning
-	err = repo.MarkAIJobRunning(ctx, "job-1")
-	assert.NoError(t, err)
-
-	// 8. CompleteAIJob
-	err = repo.CompleteAIJob(ctx, "job-1", json.RawMessage(`{}`))
-	assert.NoError(t, err)
-
-	// 9. FailAIJob
-	err = repo.FailAIJob(ctx, "job-1", "something went wrong")
-	assert.NoError(t, err)
-
-	// 10. CancelAIJob
-	cancelled, err := repo.CancelAIJob(ctx, "job-1")
-	assert.NoError(t, err)
-	assert.True(t, cancelled)
-
-	// 11. ListStaleAIJobs
-	stale, err := repo.ListStaleAIJobs(ctx, "sess-1", time.Minute, 10)
-	assert.NoError(t, err)
-	assert.Len(t, stale, 1)
-
-	// 12. CancelAIJobs
-	numCancelled, err := repo.CancelAIJobs(ctx, []string{"job-stale"})
-	assert.NoError(t, err)
-	assert.Equal(t, 1, numCancelled)
-
-	// 13. CancelActiveAIJobsBySession
-	numCancelledSess, err := repo.CancelActiveAIJobsBySession(ctx, "sess-1")
-	assert.NoError(t, err)
-	assert.Equal(t, 1, numCancelledSess)
-
-	// 14. GetAIQueueStatus
-	qStatus, err := repo.GetAIQueueStatus(ctx, "sess-1")
-	assert.NoError(t, err)
-	assert.Equal(t, 2, qStatus.TotalPending)
-	assert.Equal(t, 1, *qStatus.MyPosition)
-
-	// 15. TryMarkAIJobRunning
-	ok, err := repo.TryMarkAIJobRunning(ctx, "job-1")
-	assert.NoError(t, err)
-	assert.True(t, ok)
-
-	// 16. GetAIMetricsDashboard
 	summary, daily, err := repo.GetAIMetricsDashboard(ctx, 30)
 	assert.NoError(t, err)
 	assert.Len(t, daily, 1)

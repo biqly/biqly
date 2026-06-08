@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	aisvc "github.com/biqly/biqly/internal/ai"
 	ai "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -239,39 +240,17 @@ func (h *AIHandler) EvalRun(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
-func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) { //nolint:funlen,gocognit
+func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) {
 	if err := h.evalAIConfigured(); err != nil {
 		writeInternalError(r.Context(), w, http.StatusServiceUnavailable, "AI eval is not configured", err)
 		return
 	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-
-	flusher, ok := w.(http.Flusher)
+	send, ok := newEvalSSESender(r.Context(), w)
 	if !ok {
 		writeError(w, http.StatusInternalServerError, "streaming unsupported")
 		return
 	}
-
 	ctx := r.Context()
-	send := func(line string) {
-		// SSE stream (text/event-stream), not HTML: EventSource delivers payloads
-		// to JS as strings and never renders them as markup. CR/LF are stripped to
-		// keep SSE framing intact, and the global SecurityHeaders middleware sets
-		// X-Content-Type-Options: nosniff so the response cannot be MIME-sniffed as
-		// HTML. The XSS rule therefore does not apply here.
-		safe := strings.ReplaceAll(strings.ReplaceAll(line, "\r", " "), "\n", " ")
-		// nosemgrep: go.lang.security.audit.xss.no-fprintf-to-responsewriter.no-fprintf-to-responsewriter
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", safe); err != nil {
-			slog.ErrorContext(ctx, "eval stream write", "error", err)
-			return
-		}
-		flusher.Flush()
-	}
-
 	modes, _, modesLabel, cases, err := h.evalModesFromRequest(ctx, r)
 	if err != nil {
 		send(fmt.Sprintf("Failed to load suite: %v", err))
@@ -281,101 +260,137 @@ func (h *AIHandler) EvalRunStream(w http.ResponseWriter, r *http.Request) { //no
 	if modes&ai.ModeJudge != 0 {
 		opts.Judge = h.service.LLMProvider()
 	}
-	exec := ai.MemoryResultExecutor{}
-
 	send(fmt.Sprintf("Starting eval (%d cases, modes=%s)…", len(cases), modesLabel))
+	counts := h.streamEvalCases(ctx, send, cases, opts)
+	sendEvalStreamSummary(send, len(cases), counts)
+	send("[DONE]")
+}
 
-	passed, logicalPassed, execPassed, judgePassed := 0, 0, 0, 0
+type evalStreamCounts struct {
+	passed, logicalPassed, execPassed, judgePassed int
+}
 
+type evalSSESender func(string)
+
+func newEvalSSESender(ctx context.Context, w http.ResponseWriter) (evalSSESender, bool) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		return nil, false
+	}
+	return func(line string) {
+		safe := strings.ReplaceAll(strings.ReplaceAll(line, "\r", " "), "\n", " ")
+		// nosemgrep: go.lang.security.audit.xss.no-fprintf-to-responsewriter.no-fprintf-to-responsewriter
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", safe); err != nil {
+			slog.ErrorContext(ctx, "eval stream write", "error", err)
+			return
+		}
+		flusher.Flush()
+	}, true
+}
+
+func (h *AIHandler) streamEvalCases(ctx context.Context, send evalSSESender, cases []ai.GoldenCase, opts ai.SuiteOptions) evalStreamCounts {
+	exec := ai.MemoryResultExecutor{}
+	var counts evalStreamCounts
 	for i, c := range cases {
 		if ctx.Err() != nil {
 			send("Cancelled.")
-			return
+			return counts
 		}
 		send(fmt.Sprintf("[%d/%d] %s — %s", i+1, len(cases), c.ID, c.Question))
-
-		resp, err := h.service.ProcessQuestion(ctx, c.Question, c.Model)
-		if err != nil {
-			slog.ErrorContext(ctx, "eval case failed", "case_id", c.ID, "error", err)
-			send(fmt.Sprintf("[%d/%d] ERROR: processing failed", i+1, len(cases)))
+		cr, confidence, ok := h.runEvalStreamCase(ctx, send, i, len(cases), c)
+		if !ok {
 			continue
 		}
-
-		var respLQ *query.LogicalQuery
-		var confidence float64
-		if resp.Result != nil {
-			respLQ = resp.Result.LogicalQuery
-			confidence = resp.Result.Confidence
-		}
-		var templateVersions map[string]int
-		var bundleVersion int
-		if resp.Metadata != nil {
-			templateVersions = resp.Metadata.PromptTemplateVersions
-			bundleVersion = resp.Metadata.PromptTemplateBundleVersion
-		}
-
-		cr := ai.CaseResult{
-			Case:                        c,
-			Got:                         respLQ,
-			Confidence:                  confidence,
-			PromptTemplateVersions:      templateVersions,
-			PromptTemplateBundleVersion: bundleVersion,
-		}
-		if resp.Metadata != nil && resp.Metadata.TokenUsage != nil {
-			cr.TokenCount = resp.Metadata.TokenUsage.Total
-		}
-		if modes&ai.ModeLogical != 0 {
-			cr.LogicalMatch, cr.LogicalReason = ai.LogicalQueryEqual(respLQ, &c.Expected)
-			if cr.LogicalMatch {
-				logicalPassed++
-			}
-		} else {
-			cr.LogicalMatch = true
-			logicalPassed++
-		}
-		if modes&ai.ModeExecution != 0 {
-			cr.ExecutionMatch, cr.ExecutionReason = ai.CompareExecutionResults(ctx, exec, c.Model, &c.Expected, respLQ)
-			if cr.ExecutionMatch {
-				execPassed++
-			}
-		} else {
-			cr.ExecutionMatch = true
-			execPassed++
-		}
-		if modes&ai.ModeJudge != 0 && opts.Judge != nil { //nolint:nestif
-			ok, rationale, jerr := ai.JudgeLogicalQuery(ctx, opts.Judge, c.Question, c.Model, &c.Expected, respLQ)
-			if jerr != nil {
-				cr.JudgeMatch = false
-				cr.JudgeReason = jerr.Error()
-			} else {
-				cr.JudgeMatch = ok
-				cr.JudgeReason = rationale
-				if ok {
-					judgePassed++
-				}
-			}
-		} else {
-			cr.JudgeMatch = true
-			judgePassed++
-		}
-
+		counts.logicalPassed += scoreEvalLogicalMode(&cr, opts)
+		counts.execPassed += scoreEvalExecutionMode(ctx, &cr, opts, exec)
+		counts.judgePassed += ai.ApplyJudgeToCaseResult(ctx, &cr, opts)
 		if cr.Pass(opts) {
-			passed++
+			counts.passed++
 			send(fmt.Sprintf("[%d/%d] PASS logical=%v exec=%v judge=%v conf=%.2f",
 				i+1, len(cases), cr.LogicalMatch, cr.ExecutionMatch, cr.JudgeMatch, confidence))
 		} else {
 			send(fmt.Sprintf("[%d/%d] FAIL: %s", i+1, len(cases), firstNonEmpty(cr.LogicalReason, cr.ExecutionReason, cr.JudgeReason)))
 		}
 	}
+	return counts
+}
 
-	total := len(cases)
+func (h *AIHandler) runEvalStreamCase(
+	ctx context.Context,
+	send evalSSESender,
+	index, total int,
+	c ai.GoldenCase,
+) (ai.CaseResult, float64, bool) {
+	resp, err := h.service.ProcessQuestion(ctx, c.Question, c.Model)
+	if err != nil {
+		slog.ErrorContext(ctx, "eval case failed", "case_id", c.ID, "error", err)
+		send(fmt.Sprintf("[%d/%d] ERROR: processing failed", index+1, total))
+		return ai.CaseResult{}, 0, false
+	}
+	return evalCaseResultFromAIResponse(c, resp), evalCaseConfidence(resp), true
+}
+
+func evalCaseResultFromAIResponse(c ai.GoldenCase, resp *aisvc.Response) ai.CaseResult {
+	cr := ai.CaseResult{Case: c}
+	if resp == nil {
+		return cr
+	}
+	if resp.Result != nil {
+		cr.Got = resp.Result.LogicalQuery
+		cr.Confidence = resp.Result.Confidence
+	}
+	if resp.Metadata != nil {
+		cr.PromptTemplateVersions = resp.Metadata.PromptTemplateVersions
+		cr.PromptTemplateBundleVersion = resp.Metadata.PromptTemplateBundleVersion
+		if resp.Metadata.TokenUsage != nil {
+			cr.TokenCount = resp.Metadata.TokenUsage.Total
+		}
+	}
+	return cr
+}
+
+func evalCaseConfidence(resp *aisvc.Response) float64 {
+	if resp != nil && resp.Result != nil {
+		return resp.Result.Confidence
+	}
+	return 0
+}
+
+func scoreEvalLogicalMode(cr *ai.CaseResult, opts ai.SuiteOptions) int {
+	if opts.Modes&ai.ModeLogical != 0 {
+		cr.LogicalMatch, cr.LogicalReason = ai.LogicalQueryEqual(cr.Got, &cr.Case.Expected)
+		if cr.LogicalMatch {
+			return 1
+		}
+		return 0
+	}
+	cr.LogicalMatch = true
+	return 1
+}
+
+func scoreEvalExecutionMode(ctx context.Context, cr *ai.CaseResult, opts ai.SuiteOptions, exec ai.ResultExecutor) int {
+	if opts.Modes&ai.ModeExecution != 0 {
+		cr.ExecutionMatch, cr.ExecutionReason = ai.CompareExecutionResults(ctx, exec, cr.Case.Model, &cr.Case.Expected, cr.Got)
+		if cr.ExecutionMatch {
+			return 1
+		}
+		return 0
+	}
+	cr.ExecutionMatch = true
+	return 1
+}
+
+func sendEvalStreamSummary(send evalSSESender, total int, counts evalStreamCounts) {
 	passRate := 0.0
 	if total > 0 {
-		passRate = float64(passed) / float64(total)
+		passRate = float64(counts.passed) / float64(total)
 	}
 	send(fmt.Sprintf("Summary: %d/%d passed (%.0f%%) logical=%d exec=%d judge=%d",
-		passed, total, passRate*100, logicalPassed, execPassed, judgePassed))
-	send("[DONE]")
+		counts.passed, total, passRate*100, counts.logicalPassed, counts.execPassed, counts.judgePassed))
 }
 
 func (h *AIHandler) EvalListRuns(w http.ResponseWriter, r *http.Request) {

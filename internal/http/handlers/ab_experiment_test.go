@@ -17,16 +17,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//nolint:funlen
-func TestABExperimentHandler(t *testing.T) {
+type abExperimentFixture struct {
+	router chi.Router
+	state  *mockDBState
+	now    time.Time
+}
+
+func setupABExperimentFixture(t *testing.T) abExperimentFixture {
+	t.Helper()
 	db, state := setupMockDB(t)
-	metaRepo := metadata.NewRepository(db)
-
-	deps := &app.AIDeps{
-		MetaRepo: metaRepo,
-	}
-
-	handler := NewABExperimentHandler(deps)
+	handler := NewABExperimentHandler(&app.AIDeps{MetaRepo: metadata.NewRepository(db)})
 	router := chi.NewRouter()
 	router.Post("/api/ai/ab-experiments", handler.Create)
 	router.Get("/api/ai/ab-experiments", handler.List)
@@ -34,16 +34,19 @@ func TestABExperimentHandler(t *testing.T) {
 	router.Put("/api/ai/ab-experiments/{id}", handler.Update)
 	router.Put("/api/ai/ab-experiments/{id}/status", handler.UpdateStatus)
 	router.Post("/api/ai/ab-experiments/{id}/variants", handler.AddVariant)
+	return abExperimentFixture{router: router, state: state, now: time.Now()}
+}
 
-	now := time.Now()
+func TestABExperimentHandler(t *testing.T) {
+	fx := setupABExperimentFixture(t)
 
 	t.Run("Create Experiment", func(t *testing.T) {
-		state.queries = []queryMock{
+		fx.state.queries = []queryMock{
 			{
 				Pattern: "INSERT INTO ab_experiments",
 				Cols:    []string{"id", "created_at", "updated_at"},
 				Rows: [][]driver.Value{
-					{"exp-123", now, now},
+					{"exp-123", fx.now, fx.now},
 				},
 			},
 		}
@@ -51,7 +54,7 @@ func TestABExperimentHandler(t *testing.T) {
 		body := `{"name":"Clarification Test","description":"Comparing system prompts","template_name":"clarification","locale":"en"}`
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/ai/ab-experiments", strings.NewReader(body))
 		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, req)
+		fx.router.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusCreated, rec.Code)
 		var resp abtest.Experiment
@@ -62,19 +65,19 @@ func TestABExperimentHandler(t *testing.T) {
 	})
 
 	t.Run("List Experiments", func(t *testing.T) {
-		state.queries = []queryMock{
+		fx.state.queries = []queryMock{
 			{
 				Pattern: "SELECT id, name, description, template_name, locale, status",
 				Cols:    []string{"id", "name", "description", "template_name", "locale", "status", "started_at", "ended_at", "created_by", "created_at", "updated_at"},
 				Rows: [][]driver.Value{
-					{"exp-123", "Clarification Test", "desc", "clarification", "en", "draft", nil, nil, nil, now, now},
+					{"exp-123", "Clarification Test", "desc", "clarification", "en", "draft", nil, nil, nil, fx.now, fx.now},
 				},
 			},
 		}
 
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ai/ab-experiments?status=draft", nil)
 		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, req)
+		fx.router.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusOK, rec.Code)
 		var resp []abtest.Experiment
@@ -85,12 +88,12 @@ func TestABExperimentHandler(t *testing.T) {
 	})
 
 	t.Run("Get Experiment Detail", func(t *testing.T) {
-		state.queries = []queryMock{
+		fx.state.queries = []queryMock{
 			{
 				Pattern: "FROM ab_experiments WHERE id = $1",
 				Cols:    []string{"id", "name", "description", "template_name", "locale", "status", "started_at", "ended_at", "created_by", "created_at", "updated_at"},
 				Rows: [][]driver.Value{
-					{"exp-123", "Clarification Test", "desc", "clarification", "en", "draft", nil, nil, nil, now, now},
+					{"exp-123", "Clarification Test", "desc", "clarification", "en", "draft", nil, nil, nil, fx.now, fx.now},
 				},
 			},
 			{
@@ -105,7 +108,7 @@ func TestABExperimentHandler(t *testing.T) {
 
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ai/ab-experiments/exp-123", nil)
 		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, req)
+		fx.router.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusOK, rec.Code)
 		var resp abExperimentDetailResponse
@@ -117,12 +120,12 @@ func TestABExperimentHandler(t *testing.T) {
 	})
 
 	t.Run("Update Experiment Status to Running Validates splits", func(t *testing.T) {
-		state.queries = []queryMock{
+		fx.state.queries = []queryMock{
 			{
 				Pattern: "FROM ab_experiments WHERE id = $1",
 				Cols:    []string{"id", "name", "description", "template_name", "locale", "status", "started_at", "ended_at", "created_by", "created_at", "updated_at"},
 				Rows: [][]driver.Value{
-					{"exp-123", "Clarification Test", "desc", "clarification", "en", "draft", nil, nil, nil, now, now},
+					{"exp-123", "Clarification Test", "desc", "clarification", "en", "draft", nil, nil, nil, fx.now, fx.now},
 				},
 			},
 			{
@@ -138,7 +141,7 @@ func TestABExperimentHandler(t *testing.T) {
 		body := `{"status":"running"}`
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/ai/ab-experiments/exp-123/status", strings.NewReader(body))
 		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, req)
+		fx.router.ServeHTTP(rec, req)
 
 		// Expected 400 Bad Request because traffic sum = 90% (not 100%)
 		assert.Equal(t, http.StatusBadRequest, rec.Code)

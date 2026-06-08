@@ -9,8 +9,7 @@
 - [x] **AIConfig erişim metotlarını/çağrı fan-out'unu azalt.** 13 erişim metodu → 5 exported metot (`ResolvedQuery`, `ResolvedEmbedding`, `ResolvedTranslation`, `HTTPTimeout`, `RequestTimeout`) + 3 view tipi (`AIQueryView`, `AIEmbeddingView`, `AITranslationView`). Dış çağrı: 93 → 58. `make lint-go` temiz.
   - **Dosyalar**: `internal/config/config.go`, `internal/ai/service.go`, `internal/ai/provider/*.go`, `internal/app/dependencies.go`, `internal/http/handlers/ai.go` + testler.
 
-- [ ] **TableRouter.Route'u dallanmadan arındır.** `Route` fonksiyonu ~136 satır, `//nolint:funlen` ile bastırılmış, 21 dallanma noktası (`internal/ai/routing/router.go:184-318`). Karmaşıklık hâlâ yüksek (~27).
-  - **Kabul kriteri**: `Route` ≤80 satır, `funlen`/`gocyclo`/`gocognit` nolint kaldırılmış, davranış testleri (`internal/ai/routing/table_router_test.go`) geçiyor.
+- [x] **TableRouter.Route'u dallanmadan arındır.** `Route` 61 satıra indirildi; `funlen` nolint kaldırıldı; mantık `routeLoadAndFilter`, `routePrepareSelection`, `routeAnnotateResult`, `routeExpandSelection`, `routeFinalize` helper'larına taşındı. `go test ./internal/ai/routing/...` geçiyor.
   - **Dosyalar**: `internal/ai/routing/router.go` + mevcut test dosyaları.
 
 ### Düşük öncelik

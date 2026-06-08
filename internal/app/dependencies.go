@@ -447,21 +447,7 @@ func setupAI(
 		return aiBundle{}, fmt.Errorf("seed time grains: %w", err)
 	}
 
-	var responseCache ai.ResponseCache
-	if cfg.Redis.DSN != "" { //nolint:nestif
-		opt, err := redis.ParseURL(cfg.Redis.DSN)
-		if err == nil {
-			redisClient := redis.NewClient(opt)
-			if pingErr := redisClient.Ping(ctx).Err(); pingErr == nil {
-				responseCache = ai.NewRedisResponseCache(redisClient)
-				slog.Info("LLM Response Cache initialized with Redis", "dsn", cfg.Redis.DSN)
-			} else {
-				slog.Warn("LLM Response Cache Redis ping failed; cache disabled", "error", pingErr)
-			}
-		} else {
-			slog.Warn("LLM Response Cache Redis DSN parse failed; cache disabled", "error", err)
-		}
-	}
+	responseCache := newRedisResponseCache(ctx, cfg.Redis.DSN)
 
 	return aiBundle{
 		client:        client,
@@ -477,6 +463,24 @@ func setupAI(
 		responseCache: responseCache,
 		abRouter:      abRouter,
 	}, nil
+}
+
+func newRedisResponseCache(ctx context.Context, dsn string) ai.ResponseCache {
+	if dsn == "" {
+		return nil
+	}
+	opt, err := redis.ParseURL(dsn)
+	if err != nil {
+		slog.Warn("LLM Response Cache Redis DSN parse failed; cache disabled", "error", err)
+		return nil
+	}
+	redisClient := redis.NewClient(opt)
+	if pingErr := redisClient.Ping(ctx).Err(); pingErr != nil {
+		slog.Warn("LLM Response Cache Redis ping failed; cache disabled", "error", pingErr)
+		return nil
+	}
+	slog.Info("LLM Response Cache initialized with Redis", "dsn", dsn)
+	return ai.NewRedisResponseCache(redisClient)
 }
 
 // WireAIUserResolver attaches per-user model selection when auth is enabled.

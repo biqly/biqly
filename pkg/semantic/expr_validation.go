@@ -24,13 +24,13 @@ func ValidateExprStrict(
 	}
 
 	switch e := node.(type) {
-	case LiteralExpr:
+	case *LiteralExpr:
 		return nil
 
-	case ColumnRefExpr:
-		return validateColumnRefExpr(e, allowedColumns)
+	case *ColumnRefExpr:
+		return validateColumnRefExpr(*e, allowedColumns)
 
-	case MetricRefExpr:
+	case *MetricRefExpr:
 		if !allowMetrics {
 			return fmt.Errorf("metric reference not allowed in this context: %s", e.Name)
 		}
@@ -40,27 +40,27 @@ func ValidateExprStrict(
 		}
 		return nil
 
-	case DimensionRefExpr:
+	case *DimensionRefExpr:
 		nameLower := strings.ToLower(e.Name)
 		if !allowedDimensions[nameLower] {
 			return fmt.Errorf("unknown dimension reference: %s", e.Name)
 		}
 		return nil
 
-	case BinaryExpr:
+	case *BinaryExpr:
 		if err := ValidateExprStrict(e.Left, allowedColumns, allowedMetrics, allowedDimensions, allowMetrics, depth+1); err != nil {
 			return err
 		}
 		return ValidateExprStrict(e.Right, allowedColumns, allowedMetrics, allowedDimensions, allowMetrics, depth+1)
 
-	case UnaryExpr:
+	case *UnaryExpr:
 		return ValidateExprStrict(e.Expr, allowedColumns, allowedMetrics, allowedDimensions, allowMetrics, depth+1)
 
-	case FunctionCallExpr:
-		return validateFunctionCallExpr(e, allowedColumns, allowedMetrics, allowedDimensions, allowMetrics, depth)
+	case *FunctionCallExpr:
+		return validateFunctionCallExpr(*e, allowedColumns, allowedMetrics, allowedDimensions, allowMetrics, depth)
 
-	case CaseExpr:
-		return validateCaseExpr(e, allowedColumns, allowedMetrics, allowedDimensions, allowMetrics, depth)
+	case *CaseExpr:
+		return validateCaseExpr(*e, allowedColumns, allowedMetrics, allowedDimensions, allowMetrics, depth)
 
 	default:
 		return fmt.Errorf("unknown expression node type: %T", node)
@@ -72,24 +72,23 @@ func validateColumnRefExpr(e ColumnRefExpr, allowedColumns map[string]bool) erro
 	if e.Table != "" {
 		key = strings.ToLower(e.Table + "." + e.Column)
 	}
-	if !allowedColumns[key] { //nolint:nestif // allow unqualified column fallback when table is omitted
-		// Fallback: check unqualified column if allowedColumns has table.column format
-		if e.Table == "" {
-			found := false
-			for col := range allowedColumns {
-				parts := strings.Split(col, ".")
-				if len(parts) == 2 && parts[1] == key {
-					found = true
-					break
-				}
-			}
-			if found {
-				return nil
-			}
-		}
-		return fmt.Errorf("unknown column reference: %s", key)
+	if allowedColumns[key] {
+		return nil
 	}
-	return nil
+	if e.Table == "" && unqualifiedColumnAllowed(key, allowedColumns) {
+		return nil
+	}
+	return fmt.Errorf("unknown column reference: %s", key)
+}
+
+func unqualifiedColumnAllowed(column string, allowedColumns map[string]bool) bool {
+	for col := range allowedColumns {
+		parts := strings.Split(col, ".")
+		if len(parts) == 2 && parts[1] == column {
+			return true
+		}
+	}
+	return false
 }
 
 func validateFunctionCallExpr(

@@ -97,6 +97,25 @@ func SetPromptTemplateStore(store TemplateStore) {
 	activePromptStore.Store(promptStoreWrapper{store: store})
 }
 
+func shouldSeedPromptTemplate(ctx context.Context, repo promptTemplateRepo, existingCount int, loc i18n.Locale, name string) (bool, error) {
+	if existingCount == 0 {
+		return true, nil
+	}
+	existing, err := repo.GetPromptTemplate(ctx, name, loc)
+	if err != nil {
+		return false, err
+	}
+	if existing == "" {
+		return true, nil
+	}
+	enFallback := promptTemplateFromEmbed(i18n.DefaultLocale, name)
+	locSpecific := promptTemplateFromEmbed(loc, name)
+	if loc != i18n.DefaultLocale && existing == enFallback && locSpecific != enFallback {
+		return true, nil
+	}
+	return false, nil
+}
+
 // SeedPromptTemplatesFromEmbed copies embedded defaults into the DB when the
 // table is empty. Safe to call on every startup.
 func SeedPromptTemplatesFromEmbed(ctx context.Context, repo promptTemplateRepo) error {
@@ -109,23 +128,12 @@ func SeedPromptTemplatesFromEmbed(ctx context.Context, repo promptTemplateRepo) 
 	}
 	for _, loc := range i18n.SupportedLocales {
 		for _, name := range KnownPromptTemplateNames() {
-			if n > 0 { //nolint:nestif
-				existing, err := repo.GetPromptTemplate(ctx, name, loc)
-				if err != nil {
-					return err
-				}
-				if existing != "" {
-					// If the existing database template matches the default English fallback,
-					// but a locale-specific translation is now available in the embed,
-					// we should update it to the new locale-specific translation.
-					enFallback := promptTemplateFromEmbed(i18n.DefaultLocale, name)
-					locSpecific := promptTemplateFromEmbed(loc, name)
-					if loc != i18n.DefaultLocale && existing == enFallback && locSpecific != enFallback {
-						// Proceed to seed the locale-specific template
-					} else {
-						continue
-					}
-				}
+			seed, err := shouldSeedPromptTemplate(ctx, repo, n, loc, name)
+			if err != nil {
+				return err
+			}
+			if !seed {
+				continue
 			}
 			body := promptTemplateFromEmbed(loc, name)
 			if body == "" {

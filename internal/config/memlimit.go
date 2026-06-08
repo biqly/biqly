@@ -52,16 +52,21 @@ func readCgroupMemoryLimit() int64 {
 			}
 		}
 	}
-	// Try cgroup v1
-	if limitBytes, err := os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes"); err == nil { //nolint:nestif // cgroup v1 limit parsing has multiple early exits
-		limitStr := strings.TrimSpace(string(limitBytes))
-		if limitStr != "" {
-			if v, err := strconv.ParseInt(limitStr, 10, 64); err == nil {
-				if v > 0 && v < 9223372036854771712 {
-					return v
-				}
-			}
-		}
+	return readCgroupV1MemoryLimit()
+}
+
+func readCgroupV1MemoryLimit() int64 {
+	limitBytes, err := os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+	if err != nil {
+		return 0
 	}
-	return 0
+	limitStr := strings.TrimSpace(string(limitBytes))
+	if limitStr == "" {
+		return 0
+	}
+	v, err := strconv.ParseInt(limitStr, 10, 64)
+	if err != nil || v <= 0 || v >= 9223372036854771712 {
+		return 0
+	}
+	return v
 }

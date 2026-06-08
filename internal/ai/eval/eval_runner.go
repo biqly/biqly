@@ -95,8 +95,6 @@ type SuiteResult struct {
 }
 
 // RunGoldenSuite runs each case through the AI service and optional checks.
-//
-//nolint:gocognit
 func RunGoldenSuite(ctx context.Context, processor QuestionProcessor, opts SuiteOptions) *SuiteResult {
 	cases := opts.Cases
 	if len(cases) == 0 {
@@ -114,64 +112,19 @@ func RunGoldenSuite(ctx context.Context, processor QuestionProcessor, opts Suite
 	var confN int
 
 	for _, c := range cases {
-		cr := CaseResult{Case: c}
-		start := time.Now()
-
-		resp, err := processor.EvaluateQuestion(ctx, c.Question, c.Model)
-		cr.LatencyMs = time.Since(start).Milliseconds()
-		if err != nil {
-			cr.Err = err
-			cr.LogicalReason = err.Error()
+		cr, confidence, ok := evaluateGoldenCase(ctx, c, processor)
+		if !ok {
 			out.Cases = append(out.Cases, cr)
 			out.Failed++
 			continue
 		}
-		cr.Got = resp.LogicalQuery
-		if resp.Confidence > 0 {
-			cr.Confidence = resp.Confidence
-			confSum += resp.Confidence
+		if confidence > 0 {
+			confSum += confidence
 			confN++
 		}
-		if resp.TokenUsage != nil {
-			cr.TokenCount = resp.TokenUsage.Total
-		}
-		cr.PromptTemplateVersions = resp.PromptTemplateVersions
-		cr.PromptTemplateBundleVersion = resp.PromptTemplateBundleVersion
-
-		if opts.Modes&ModeLogical != 0 {
-			cr.LogicalMatch, cr.LogicalReason = LogicalQueryEqual(resp.LogicalQuery, &c.Expected)
-			if cr.LogicalMatch {
-				out.LogicalPassed++
-			}
-		} else {
-			cr.LogicalMatch = true
-		}
-
-		if opts.Modes&ModeExecution != 0 && opts.Executor != nil {
-			cr.ExecutionMatch, cr.ExecutionReason = compareExecution(ctx, opts.Executor, c.Model, &c.Expected, resp.LogicalQuery)
-			if cr.ExecutionMatch {
-				out.ExecutionPassed++
-			}
-		} else {
-			cr.ExecutionMatch = true
-		}
-
-		if opts.Modes&ModeJudge != 0 && opts.Judge != nil { //nolint:nestif
-			ok, rationale, jerr := JudgeLogicalQuery(ctx, opts.Judge, c.Question, c.Model, &c.Expected, resp.LogicalQuery)
-			if jerr != nil {
-				cr.JudgeMatch = false
-				cr.JudgeReason = jerr.Error()
-			} else {
-				cr.JudgeMatch = ok
-				cr.JudgeReason = rationale
-				if ok {
-					out.JudgePassed++
-				}
-			}
-		} else {
-			cr.JudgeMatch = true
-		}
-
+		out.LogicalPassed += scoreGoldenLogicalMode(&cr, opts)
+		out.ExecutionPassed += scoreGoldenExecutionMode(ctx, &cr, opts)
+		out.JudgePassed += ApplyJudgeToCaseResult(ctx, &cr, opts)
 		if cr.Pass(opts) {
 			out.Passed++
 		} else {
@@ -187,6 +140,70 @@ func RunGoldenSuite(ctx context.Context, processor QuestionProcessor, opts Suite
 		out.AvgConfidence = confSum / float64(confN)
 	}
 	return out
+}
+
+func evaluateGoldenCase(ctx context.Context, c GoldenCase, processor QuestionProcessor) (CaseResult, float64, bool) {
+	cr := CaseResult{Case: c}
+	start := time.Now()
+	resp, err := processor.EvaluateQuestion(ctx, c.Question, c.Model)
+	cr.LatencyMs = time.Since(start).Milliseconds()
+	if err != nil {
+		cr.Err = err
+		cr.LogicalReason = err.Error()
+		return cr, 0, false
+	}
+	cr.Got = resp.LogicalQuery
+	cr.Confidence = resp.Confidence
+	if resp.TokenUsage != nil {
+		cr.TokenCount = resp.TokenUsage.Total
+	}
+	cr.PromptTemplateVersions = resp.PromptTemplateVersions
+	cr.PromptTemplateBundleVersion = resp.PromptTemplateBundleVersion
+	return cr, resp.Confidence, true
+}
+
+func scoreGoldenLogicalMode(cr *CaseResult, opts SuiteOptions) int {
+	if opts.Modes&ModeLogical != 0 {
+		cr.LogicalMatch, cr.LogicalReason = LogicalQueryEqual(cr.Got, &cr.Case.Expected)
+		if cr.LogicalMatch {
+			return 1
+		}
+		return 0
+	}
+	cr.LogicalMatch = true
+	return 0
+}
+
+func scoreGoldenExecutionMode(ctx context.Context, cr *CaseResult, opts SuiteOptions) int {
+	if opts.Modes&ModeExecution != 0 && opts.Executor != nil {
+		cr.ExecutionMatch, cr.ExecutionReason = compareExecution(ctx, opts.Executor, cr.Case.Model, &cr.Case.Expected, cr.Got)
+		if cr.ExecutionMatch {
+			return 1
+		}
+		return 0
+	}
+	cr.ExecutionMatch = true
+	return 0
+}
+
+// ApplyJudgeToCaseResult scores judge mode when enabled and returns 1 when judge passed.
+func ApplyJudgeToCaseResult(ctx context.Context, cr *CaseResult, opts SuiteOptions) int {
+	if opts.Modes&ModeJudge == 0 || opts.Judge == nil {
+		cr.JudgeMatch = true
+		return 1
+	}
+	ok, rationale, jerr := JudgeLogicalQuery(ctx, opts.Judge, cr.Case.Question, cr.Case.Model, &cr.Case.Expected, cr.Got)
+	if jerr != nil {
+		cr.JudgeMatch = false
+		cr.JudgeReason = jerr.Error()
+		return 0
+	}
+	cr.JudgeMatch = ok
+	cr.JudgeReason = rationale
+	if ok {
+		return 1
+	}
+	return 0
 }
 
 // CompareExecutionResults runs expected and got LogicalQueries and compares result sets.

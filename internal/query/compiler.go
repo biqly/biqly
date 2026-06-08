@@ -217,7 +217,6 @@ func addTableForField(
 	}
 }
 
-//nolint:gocognit // table extraction walks select, filters, joins, and CTEs
 func tablesReferencedInLogicalQuery(
 	lq *LogicalQuery,
 	model *semantic.SemanticModel,
@@ -228,7 +227,23 @@ func tablesReferencedInLogicalQuery(
 	tables := make(map[string]struct{}, len(lq.Select)+len(lq.Filters)+1)
 	tables[TableKey(model.BaseSchema, model.BaseTable)] = struct{}{}
 
-	for _, item := range lq.Select {
+	addTablesFromSelectItems(tables, lq.Select, dimMap, metricMap, resolver)
+	addTablesFromHaving(tables, lq.Having, metricMap, resolver)
+	addTablesFromFilters(tables, lq.Filters, dimMap, metricMap, resolver)
+	addTablesFromGroupBy(tables, lq.GroupBy, dimMap, resolver)
+	addTablesFromOrderBy(tables, lq.OrderBy, dimMap, metricMap, resolver)
+
+	return tables
+}
+
+func addTablesFromSelectItems(
+	tables map[string]struct{},
+	items []SelectItem,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	resolver *SchemaResolver,
+) {
+	for _, item := range items {
 		switch item.Type {
 		case SelectTypeDimension:
 			if dim, ok := dimMap[item.Name]; ok {
@@ -239,49 +254,87 @@ func tablesReferencedInLogicalQuery(
 				addTableFromColumnRef(tables, m.Expression, resolver)
 			}
 		case SelectTypeWindow:
-			if item.Window == nil {
-				continue
-			}
-			if mname := item.Window.Metric; mname != "" {
-				if m, ok := metricMap[mname]; ok {
-					addTableFromColumnRef(tables, m.Expression, resolver)
-				}
-			}
-			if expr := item.Window.Expression; expr != "" {
-				addTableFromColumnRef(tables, expr, resolver)
-			}
-			for _, p := range item.Window.PartitionBy {
-				if dim, ok := dimMap[p]; ok {
-					addTableFromColumnRef(tables, dim.ColumnRef, resolver)
-				}
-			}
-			for _, ob := range item.Window.OrderBy {
-				addTableForField(tables, ob.Field, dimMap, metricMap, resolver)
-			}
+			addTablesFromWindowSelect(tables, item.Window, dimMap, metricMap, resolver)
 		}
 	}
+}
 
-	for _, f := range lq.Having {
+func addTablesFromWindowSelect(
+	tables map[string]struct{},
+	w *WindowSpec,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	resolver *SchemaResolver,
+) {
+	if w == nil {
+		return
+	}
+	if mname := w.Metric; mname != "" {
+		if m, ok := metricMap[mname]; ok {
+			addTableFromColumnRef(tables, m.Expression, resolver)
+		}
+	}
+	if expr := w.Expression; expr != "" {
+		addTableFromColumnRef(tables, expr, resolver)
+	}
+	for _, p := range w.PartitionBy {
+		if dim, ok := dimMap[p]; ok {
+			addTableFromColumnRef(tables, dim.ColumnRef, resolver)
+		}
+	}
+	for _, ob := range w.OrderBy {
+		addTableForField(tables, ob.Field, dimMap, metricMap, resolver)
+	}
+}
+
+func addTablesFromHaving(
+	tables map[string]struct{},
+	having []Filter,
+	metricMap map[string]*semantic.Metric,
+	resolver *SchemaResolver,
+) {
+	for _, f := range having {
 		if m, ok := metricMap[f.Field]; ok {
 			addTableFromColumnRef(tables, m.Expression, resolver)
 		}
 	}
+}
 
-	for _, f := range lq.Filters {
+func addTablesFromFilters(
+	tables map[string]struct{},
+	filters []Filter,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	resolver *SchemaResolver,
+) {
+	for _, f := range filters {
 		addTableForField(tables, f.Field, dimMap, metricMap, resolver)
 	}
+}
 
-	for _, gb := range lq.GroupBy {
+func addTablesFromGroupBy(
+	tables map[string]struct{},
+	groupBy []GroupBy,
+	dimMap map[string]*semantic.Dimension,
+	resolver *SchemaResolver,
+) {
+	for _, gb := range groupBy {
 		if dim, ok := dimMap[gb.Field]; ok {
 			addTableFromColumnRef(tables, dim.ColumnRef, resolver)
 		}
 	}
+}
 
-	for _, ob := range lq.OrderBy {
+func addTablesFromOrderBy(
+	tables map[string]struct{},
+	orderBy []OrderBy,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	resolver *SchemaResolver,
+) {
+	for _, ob := range orderBy {
 		addTableForField(tables, ob.Field, dimMap, metricMap, resolver)
 	}
-
-	return tables
 }
 
 type joinNeighbor struct {
@@ -568,77 +621,118 @@ func (c *Compiler) qualifyMetricExpression(
 	return c.dialect.QuoteIdent(expr)
 }
 
-//nolint:gocognit
 func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.Dimension, metricMap map[string]*semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver, args *[]any) ([]string, error) {
 	parts := make([]string, 0, len(items))
 	for _, item := range items {
-		switch item.Type {
-		case SelectTypeDimension:
-			dim, ok := dimMap[item.Name]
-			if !ok {
-				dimKeys := make([]string, 0, len(dimMap))
-				for k := range dimMap {
-					dimKeys = append(dimKeys, k)
-				}
-				return nil, validationErrWithCode("select", errmsg.UnknownDimensionMsg(item.Name), errmsg.CodeUnknownDimension, item.Name, suggestAlternatives(item.Name, dimKeys))
-			}
-			col := c.dimensionOutputSQL(dim, resolver)
-			alias := item.Alias
-			if alias == "" {
-				alias = dim.Name
-			}
-			quotedAlias := c.dialect.QuoteIdent(alias)
-			parts = append(parts, col+" AS "+quotedAlias)
-
-		case SelectTypeMetric:
-			metric, ok := metricMap[item.Name]
-			if !ok {
-				var metricKeys []string
-				for k := range metricMap {
-					metricKeys = append(metricKeys, k)
-				}
-				return nil, validationErrWithCode("select", errmsg.UnknownMetricMsg(item.Name), errmsg.CodeUnknownMetric, item.Name, suggestAlternatives(item.Name, metricKeys))
-			}
-			agg := c.metricAggregate(metric, resolver, dimMap, metricMap, model)
-			if c.err != nil {
-				return nil, c.err
-			}
-			alias := item.Alias
-			if alias == "" {
-				alias = metric.Name
-			}
-			quotedAlias := c.dialect.QuoteIdent(alias)
-			parts = append(parts, agg+" AS "+quotedAlias)
-
-		case SelectTypeWindow:
-			windowSQL, err := c.buildWindowExpr(item, dimMap, metricMap, model, resolver)
-			if err != nil {
-				return nil, err
-			}
-			alias := item.Alias
-			if alias == "" {
-				alias = item.Name
-			}
-			quotedAlias := c.dialect.QuoteIdent(alias)
-			parts = append(parts, windowSQL+" AS "+quotedAlias)
-
-		case SelectTypeCase:
-			caseSQL, err := c.buildCaseExpr(item, dimMap, metricMap, model, resolver, args)
-			if err != nil {
-				return nil, err
-			}
-			alias := item.Alias
-			if alias == "" {
-				alias = item.Name
-			}
-			if alias == "" {
-				return nil, errors.New("case select item requires name or alias")
-			}
-			quotedAlias := c.dialect.QuoteIdent(alias)
-			parts = append(parts, caseSQL+" AS "+quotedAlias)
+		part, err := c.buildSelectItem(item, dimMap, metricMap, model, resolver, args)
+		if err != nil {
+			return nil, err
+		}
+		if part != "" {
+			parts = append(parts, part)
 		}
 	}
 	return parts, nil
+}
+
+func (c *Compiler) buildSelectItem(
+	item SelectItem,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	model *semantic.SemanticModel,
+	resolver *SchemaResolver,
+	args *[]any,
+) (string, error) {
+	switch item.Type {
+	case SelectTypeDimension:
+		return c.buildSelectDimension(item, dimMap, resolver)
+	case SelectTypeMetric:
+		return c.buildSelectMetric(item, dimMap, metricMap, model, resolver)
+	case SelectTypeWindow:
+		return c.buildSelectWindow(item, dimMap, metricMap, model, resolver)
+	case SelectTypeCase:
+		return c.buildSelectCase(item, dimMap, metricMap, model, resolver, args)
+	default:
+		return "", nil
+	}
+}
+
+func (c *Compiler) buildSelectDimension(item SelectItem, dimMap map[string]*semantic.Dimension, resolver *SchemaResolver) (string, error) {
+	dim, ok := dimMap[item.Name]
+	if !ok {
+		dimKeys := make([]string, 0, len(dimMap))
+		for k := range dimMap {
+			dimKeys = append(dimKeys, k)
+		}
+		return "", validationErrWithCode("select", errmsg.UnknownDimensionMsg(item.Name), errmsg.CodeUnknownDimension, item.Name, suggestAlternatives(item.Name, dimKeys))
+	}
+	return selectItemSQL(c.dimensionOutputSQL(dim, resolver), selectItemAlias(item.Alias, dim.Name), c.dialect), nil
+}
+
+func (c *Compiler) buildSelectMetric(
+	item SelectItem,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	model *semantic.SemanticModel,
+	resolver *SchemaResolver,
+) (string, error) {
+	metric, ok := metricMap[item.Name]
+	if !ok {
+		metricKeys := make([]string, 0, len(metricMap))
+		for k := range metricMap {
+			metricKeys = append(metricKeys, k)
+		}
+		return "", validationErrWithCode("select", errmsg.UnknownMetricMsg(item.Name), errmsg.CodeUnknownMetric, item.Name, suggestAlternatives(item.Name, metricKeys))
+	}
+	agg := c.metricAggregate(metric, resolver, dimMap, metricMap, model)
+	if c.err != nil {
+		return "", c.err
+	}
+	return selectItemSQL(agg, selectItemAlias(item.Alias, metric.Name), c.dialect), nil
+}
+
+func (c *Compiler) buildSelectWindow(
+	item SelectItem,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	model *semantic.SemanticModel,
+	resolver *SchemaResolver,
+) (string, error) {
+	windowSQL, err := c.buildWindowExpr(item, dimMap, metricMap, model, resolver)
+	if err != nil {
+		return "", err
+	}
+	return selectItemSQL(windowSQL, selectItemAlias(item.Alias, item.Name), c.dialect), nil
+}
+
+func (c *Compiler) buildSelectCase(
+	item SelectItem,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	model *semantic.SemanticModel,
+	resolver *SchemaResolver,
+	args *[]any,
+) (string, error) {
+	caseSQL, err := c.buildCaseExpr(item, dimMap, metricMap, model, resolver, args)
+	if err != nil {
+		return "", err
+	}
+	alias := selectItemAlias(item.Alias, item.Name)
+	if alias == "" {
+		return "", errors.New("case select item requires name or alias")
+	}
+	return selectItemSQL(caseSQL, alias, c.dialect), nil
+}
+
+func selectItemAlias(alias, fallback string) string {
+	if alias != "" {
+		return alias
+	}
+	return fallback
+}
+
+func selectItemSQL(expr, alias string, d dialect.Dialect) string {
+	return expr + " AS " + d.QuoteIdent(alias)
 }
 
 // buildWindowExpr renders a window/analytic expression:
@@ -648,8 +742,6 @@ func (c *Compiler) buildSelect(items []SelectItem, dimMap map[string]*semantic.D
 // Aggregation/Expression are sourced from the SelectItem.Window or, when
 // Window.Metric is set, inherited from the named metric in the semantic model.
 // Ranking functions (row_number, rank, dense_rank, ntile) ignore Expression.
-//
-//nolint:gocognit
 func (c *Compiler) buildWindowExpr(
 	item SelectItem,
 	dimMap map[string]*semantic.Dimension,
@@ -674,27 +766,10 @@ func (c *Compiler) buildWindowExpr(
 		exprFromAST = true
 	}
 
-	// Inherit aggregation+expression from a named metric when requested.
-	if mname := strings.TrimSpace(w.Metric); mname != "" { //nolint:nestif
-		m, ok := metricMap[mname]
-		if !ok {
-			return "", fmt.Errorf("window metric not found: %s", mname)
-		}
-		if agg == "" {
-			agg = strings.ToLower(m.Aggregation)
-		}
-		if expr == "" {
-			if m.Expr != nil {
-				var err error
-				expr, err = CompileExpr(m.Expr, c.dialect, resolver, nil, c.pii)
-				if err != nil {
-					return "", err
-				}
-				exprFromAST = true
-			} else {
-				expr = m.Expression
-			}
-		}
+	var err error
+	agg, expr, exprFromAST, err = c.inheritWindowMetricFields(w.Metric, agg, expr, exprFromAST, metricMap, resolver)
+	if err != nil {
+		return "", err
 	}
 	if expr != "" && expr != "*" && !exprFromAST {
 		expr = c.metricExpressionRef(nil, expr, resolver, dimMap, metricMap, model)
@@ -742,6 +817,36 @@ func (c *Compiler) buildWindowExpr(
 		clauses = append(clauses, frame)
 	}
 	return head + " OVER (" + strings.Join(clauses, " ") + ")", nil
+}
+
+func (c *Compiler) inheritWindowMetricFields(
+	metricName, agg, expr string,
+	exprFromAST bool,
+	metricMap map[string]*semantic.Metric,
+	resolver *SchemaResolver,
+) (string, string, bool, error) {
+	mname := strings.TrimSpace(metricName)
+	if mname == "" {
+		return agg, expr, exprFromAST, nil
+	}
+	m, ok := metricMap[mname]
+	if !ok {
+		return "", "", false, fmt.Errorf("window metric not found: %s", mname)
+	}
+	if agg == "" {
+		agg = strings.ToLower(m.Aggregation)
+	}
+	if expr != "" {
+		return agg, expr, exprFromAST, nil
+	}
+	if m.Expr != nil {
+		compiled, err := CompileExpr(m.Expr, c.dialect, resolver, nil, c.pii)
+		if err != nil {
+			return "", "", false, err
+		}
+		return agg, compiled, true, nil
+	}
+	return agg, m.Expression, exprFromAST, nil
 }
 
 func (c *Compiler) buildWindowPartitionBy(
@@ -1079,36 +1184,59 @@ func (c *Compiler) buildOrderBy(orderBy []OrderBy, dimMap map[string]*semantic.D
 
 	parts := make([]string, 0, len(orderBy))
 	for _, ob := range orderBy {
-		if dim, ok := dimMap[ob.Field]; ok { //nolint:nestif
-			if c.dimensionFullyHidden(dim, resolver) {
-				return "", validationErrWithCode("order_by", errmsg.HiddenPIIFieldMsg(ob.Field), errmsg.CodeHiddenPIIField, ob.Field, nil)
-			}
-			dir := strings.ToUpper(ob.Direction)
-			if dir == "" {
-				dir = "ASC"
-			}
-			dimSQL := c.dimensionOutputSQL(dim, resolver)
-			parts = append(parts, dimSQL+" "+dir)
-		} else if metric, ok := metricMap[ob.Field]; ok {
-			dir := strings.ToUpper(ob.Direction)
-			if dir == "" {
-				dir = "ASC"
-			}
-			quotedName := c.dialect.QuoteIdent(metric.Name)
-			parts = append(parts, quotedName+" "+dir)
-		} else {
-			var fieldKeys []string
-			for k := range dimMap {
-				fieldKeys = append(fieldKeys, k)
-			}
-			for k := range metricMap {
-				fieldKeys = append(fieldKeys, k)
-			}
-			return "", validationErrWithCode("order_by", errmsg.UnknownFieldMsg(ob.Field), errmsg.CodeUnknownField, ob.Field, suggestAlternatives(ob.Field, fieldKeys))
+		part, err := c.buildOrderByField(ob, dimMap, metricMap, resolver)
+		if err != nil {
+			return "", err
 		}
+		parts = append(parts, part)
 	}
 
 	return strings.Join(parts, ", "), nil
+}
+
+func (c *Compiler) buildOrderByField(
+	ob OrderBy,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	resolver *SchemaResolver,
+) (string, error) {
+	if dim, ok := dimMap[ob.Field]; ok {
+		return c.buildOrderByDimension(dim, ob, resolver)
+	}
+	if metric, ok := metricMap[ob.Field]; ok {
+		return orderByMetricSQL(metric.Name, ob.Direction, c.dialect), nil
+	}
+	var fieldKeys []string
+	for k := range dimMap {
+		fieldKeys = append(fieldKeys, k)
+	}
+	for k := range metricMap {
+		fieldKeys = append(fieldKeys, k)
+	}
+	return "", validationErrWithCode("order_by", errmsg.UnknownFieldMsg(ob.Field), errmsg.CodeUnknownField, ob.Field, suggestAlternatives(ob.Field, fieldKeys))
+}
+
+func (c *Compiler) buildOrderByDimension(dim *semantic.Dimension, ob OrderBy, resolver *SchemaResolver) (string, error) {
+	if c.dimensionFullyHidden(dim, resolver) {
+		return "", validationErrWithCode("order_by", errmsg.HiddenPIIFieldMsg(ob.Field), errmsg.CodeHiddenPIIField, ob.Field, nil)
+	}
+	return orderByDimensionSQL(c.dimensionOutputSQL(dim, resolver), ob.Direction), nil
+}
+
+func orderByDirection(direction string) string {
+	dir := strings.ToUpper(direction)
+	if dir == "" {
+		return "ASC"
+	}
+	return dir
+}
+
+func orderByDimensionSQL(dimSQL, direction string) string {
+	return dimSQL + " " + orderByDirection(direction)
+}
+
+func orderByMetricSQL(metricName, direction string, d dialect.Dialect) string {
+	return d.QuoteIdent(metricName) + " " + orderByDirection(direction)
 }
 
 var validFramePattern = regexp.MustCompile(`(?i)^\s*(ROWS|RANGE|GROUPS)\s+BETWEEN\s+(UNBOUNDED\s+PRECEDING|\d+\s+PRECEDING|CURRENT\s+ROW)\s+AND\s+(UNBOUNDED\s+FOLLOWING|\d+\s+PRECEDING|\d+\s+FOLLOWING|CURRENT\s+ROW)\s*$`)

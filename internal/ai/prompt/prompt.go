@@ -143,30 +143,104 @@ type ConversationTurn struct {
 	Note         string // e.g. "executed", "user rejected, asked to refine"
 }
 
-// Build creates the full prompt for the AI.
-//
-//nolint:funlen // prompt assembly spans many optional sections with shared budget logic
-func (b *Builder) Build(ctx context.Context, question string, model *semantic.SemanticModel, cfg Config) string {
-	maxPromptRunes := cfg.MaxRunes
-	if maxPromptRunes <= 0 {
-		maxPromptRunes = 80000
-	}
-	locale := LocaleForQuestion(question, cfg.Locale)
-	targetDialect := cfg.Dialect
-	examples := cfg.Examples
-	samples := cfg.Samples
-	priorTurns := cfg.PriorTurns
-	deniedFields := cfg.DeniedFields
-	glossary := cfg.Glossary
+type promptCatalogSections struct {
+	dimensions string
+	metrics    string
+	note       string
+	joins      string
+}
 
-	// Build set of denied field names for fast lookup
+func deniedFieldSet(deniedFields []string) map[string]bool {
 	deniedSet := make(map[string]bool, len(deniedFields))
 	for _, f := range deniedFields {
 		deniedSet[strings.ToLower(f)] = true
 	}
+	return deniedSet
+}
 
+func filterAllowedDimensions(model *semantic.SemanticModel, denied map[string]bool) []semantic.Dimension {
+	allowed := make([]semantic.Dimension, 0, len(model.Dimensions))
+	for _, d := range model.Dimensions {
+		if !denied[strings.ToLower(d.ColumnRef)] && !denied[strings.ToLower(d.Name)] {
+			allowed = append(allowed, d)
+		}
+	}
+	return allowed
+}
+
+func filterAllowedMetrics(model *semantic.SemanticModel, denied map[string]bool) []semantic.Metric {
+	allowed := make([]semantic.Metric, 0, len(model.Metrics))
+	for _, m := range model.Metrics {
+		if !denied[strings.ToLower(m.Expression)] && !denied[strings.ToLower(m.Name)] {
+			allowed = append(allowed, m)
+		}
+	}
+	return allowed
+}
+
+func filterAllowedJoins(model *semantic.SemanticModel, denied map[string]bool) []semantic.Join {
+	allowed := make([]semantic.Join, 0, len(model.Joins))
+	for _, j := range model.Joins {
+		if !denied[strings.ToLower(j.FromTable+"."+j.FromColumn)] && !denied[strings.ToLower(j.ToTable+"."+j.ToColumn)] {
+			allowed = append(allowed, j)
+		}
+	}
+	return allowed
+}
+
+func (b *Builder) buildPromptCatalogSections(
+	model *semantic.SemanticModel,
+	deniedSet map[string]bool,
+	headRunes, maxPromptRunes int,
+) promptCatalogSections {
+	remaining := maxPromptRunes - headRunes - promptStaticReserveRunes
+	if remaining < 16000 {
+		remaining = 16000
+	}
+
+	allowedDims := filterAllowedDimensions(model, deniedSet)
+	var omittedDims int
+	dimensionsStr := withPooledBuffer(func(buf *bytes.Buffer) {
+		omittedDims = b.writeDimensions(buf, allowedDims, remaining/2)
+	})
+
+	metricsBudget := maxPromptRunes - (headRunes + utf8.RuneCountInString(dimensionsStr)) - promptStaticReserveRunes/2
+	if metricsBudget < 4000 {
+		metricsBudget = 4000
+	}
+	allowedMetrics := filterAllowedMetrics(model, deniedSet)
+	var omittedMetrics int
+	metricsStr := withPooledBuffer(func(buf *bytes.Buffer) {
+		omittedMetrics = b.writeMetrics(buf, allowedMetrics, metricsBudget)
+	})
+
+	var noteStr string
+	if omittedDims > 0 || omittedMetrics > 0 {
+		noteStr = fmt.Sprintf("## Note\nSome catalog entries were omitted to fit the model context window (%d dimensions, %d metrics skipped). Narrow **Tables** scope in the UI or define a smaller semantic model if a field is missing.\n\n",
+			omittedDims, omittedMetrics)
+	}
+
+	allowedJoins := filterAllowedJoins(model, deniedSet)
+	var joinsStr string
+	if len(allowedJoins) > 0 {
+		joinsStr = withPooledBuffer(func(buf *bytes.Buffer) {
+			for _, j := range allowedJoins {
+				writePromptf(buf, "- %s: %s.%s → %s.%s (%s, %s)\n",
+					j.Name, j.FromTable, j.FromColumn, j.ToTable, j.ToColumn, j.JoinType, j.Relationship)
+			}
+		})
+	}
+
+	return promptCatalogSections{
+		dimensions: dimensionsStr,
+		metrics:    metricsStr,
+		note:       noteStr,
+		joins:      joinsStr,
+	}
+}
+
+func promptHeadRunes(ctx context.Context, locale i18n.Locale, model *semantic.SemanticModel) int {
 	rules := promptTemplate(ctx, locale, "system_rules")
-
 	headBuf := new(bytes.Buffer)
 	writePromptf(headBuf, "## Current Date/Time: %s\n\n", time.Now().Format("2006-01-02 15:04:05 UTC"))
 	writePromptf(headBuf, "## Semantic Model: %s\n", model.Name)
@@ -180,96 +254,41 @@ func (b *Builder) Build(ctx context.Context, question string, model *semantic.Se
 	if len(model.Synonyms) > 0 {
 		writePromptf(headBuf, "Model synonyms: %s\n\n", strings.Join(model.Synonyms, ", "))
 	}
+	return utf8.RuneCountInString(rules) + utf8.RuneCount(headBuf.Bytes())
+}
 
-	headRunes := utf8.RuneCountInString(rules) + utf8.RuneCount(headBuf.Bytes())
-	remaining := maxPromptRunes - headRunes - promptStaticReserveRunes
-	if remaining < 16000 {
-		remaining = 16000
-	}
-
-	// Filter out denied fields from dimensions
-	allowedDims := make([]semantic.Dimension, 0, len(model.Dimensions))
-	for _, d := range model.Dimensions {
-		if !deniedSet[strings.ToLower(d.ColumnRef)] && !deniedSet[strings.ToLower(d.Name)] {
-			allowedDims = append(allowedDims, d)
-		}
-	}
-
-	// Filter out denied fields from metrics
-	allowedMetrics := make([]semantic.Metric, 0, len(model.Metrics))
-	for _, m := range model.Metrics {
-		if !deniedSet[strings.ToLower(m.Expression)] && !deniedSet[strings.ToLower(m.Name)] {
-			allowedMetrics = append(allowedMetrics, m)
-		}
-	}
-
-	var omittedDims int
-	dimensionsStr := withPooledBuffer(func(buf *bytes.Buffer) {
-		omittedDims = b.writeDimensions(buf, allowedDims, remaining/2)
-	})
-
-	metricsBudget := maxPromptRunes - (headRunes + utf8.RuneCountInString(dimensionsStr)) - promptStaticReserveRunes/2
-	if metricsBudget < 4000 {
-		metricsBudget = 4000
-	}
-	var omittedMetrics int
-	metricsStr := withPooledBuffer(func(buf *bytes.Buffer) {
-		omittedMetrics = b.writeMetrics(buf, allowedMetrics, metricsBudget)
-	})
-
-	var noteStr string
-	if omittedDims > 0 || omittedMetrics > 0 {
-		noteStr = fmt.Sprintf("## Note\nSome catalog entries were omitted to fit the model context window (%d dimensions, %d metrics skipped). Narrow **Tables** scope in the UI or define a smaller semantic model if a field is missing.\n\n",
-			omittedDims, omittedMetrics)
-	}
-
-	// Filter out denied fields from joins
-	allowedJoins := make([]semantic.Join, 0, len(model.Joins))
-	for _, j := range model.Joins {
-		if !deniedSet[strings.ToLower(j.FromTable+"."+j.FromColumn)] && !deniedSet[strings.ToLower(j.ToTable+"."+j.ToColumn)] {
-			allowedJoins = append(allowedJoins, j)
-		}
-	}
-
-	var joinsStr string
-	if len(allowedJoins) > 0 {
-		joinsStr = withPooledBuffer(func(buf *bytes.Buffer) {
-			for _, j := range allowedJoins {
-				writePromptf(buf, "- %s: %s.%s → %s.%s (%s, %s)\n",
-					j.Name, j.FromTable, j.FromColumn, j.ToTable, j.ToColumn, j.JoinType, j.Relationship)
-			}
-		})
-	}
-
-	filterOpsStr := "eq, neq, gt, gte, lt, lte, in, not_in, contains, starts_with, ends_with, between, is_null, is_not_null\n\n"
-
-	glossaryStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeBusinessGlossary(buf, glossary) })
-	dialectStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeDialectCompilationGuide(buf, targetDialect) })
-	failureStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeFailureExamples(buf) })
-	planningStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writePlanningSteps(buf) })
-
+func (b *Builder) buildPromptTemplateData(
+	ctx context.Context,
+	question string,
+	model *semantic.SemanticModel,
+	cfg Config,
+	catalog promptCatalogSections,
+) map[string]any {
+	locale := LocaleForQuestion(question, cfg.Locale)
+	rules := promptTemplate(ctx, locale, "system_rules")
 	outputFmt := promptTemplate(ctx, locale, "output_format")
 
-	sampleStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeSampleData(buf, samples) })
-	exampleStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeFewShotExamples(buf, examples, locale) })
-	priorStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writePriorTurns(buf, priorTurns) })
+	glossaryStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeBusinessGlossary(buf, cfg.Glossary) })
+	dialectStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeDialectCompilationGuide(buf, cfg.Dialect) })
+	failureStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeFailureExamples(buf) })
+	planningStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writePlanningSteps(buf) })
+	sampleStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeSampleData(buf, cfg.Samples) })
+	exampleStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeFewShotExamples(buf, cfg.Examples, locale) })
+	priorStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writePriorTurns(buf, cfg.PriorTurns) })
+	compositeStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeCompositeContext(buf, cfg.Composite) })
 
-	var labelStr string
+	var labelStr, descStr, modelSynonymsStr string
 	if model.Label != nil {
 		labelStr = *model.Label
 	}
-	var descStr string
 	if model.Description != nil {
 		descStr = *model.Description
 	}
-	var modelSynonymsStr string
 	if len(model.Synonyms) > 0 {
 		modelSynonymsStr = strings.Join(model.Synonyms, ", ")
 	}
 
-	compositeStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeCompositeContext(buf, cfg.Composite) })
-
-	data := map[string]any{
+	return map[string]any{
 		"SystemRules":      rules,
 		"CurrentDateTime":  time.Now().Format("2006-01-02 15:04:05 UTC"),
 		"ModelName":        model.Name,
@@ -278,11 +297,11 @@ func (b *Builder) Build(ctx context.Context, question string, model *semantic.Se
 		"BaseTable":        fmt.Sprintf("%s.%s", model.BaseSchema, model.BaseTable),
 		"ModelSynonyms":    modelSynonymsStr,
 		"CompositeContext": compositeStr,
-		"Dimensions":       dimensionsStr,
-		"Metrics":          metricsStr,
-		"Note":             noteStr,
-		"Joins":            joinsStr,
-		"FilterOperators":  filterOpsStr,
+		"Dimensions":       catalog.dimensions,
+		"Metrics":          catalog.metrics,
+		"Note":             catalog.note,
+		"Joins":            catalog.joins,
+		"FilterOperators":  "eq, neq, gt, gte, lt, lte, in, not_in, contains, starts_with, ends_with, between, is_null, is_not_null\n\n",
 		"Glossary":         glossaryStr,
 		"DialectGuide":     dialectStr,
 		"FailureExamples":  failureStr,
@@ -293,12 +312,24 @@ func (b *Builder) Build(ctx context.Context, question string, model *semantic.Se
 		"Examples":         exampleStr,
 		"PriorTurns":       priorStr,
 	}
+}
+
+// Build creates the full prompt for the AI.
+func (b *Builder) Build(ctx context.Context, question string, model *semantic.SemanticModel, cfg Config) string {
+	maxPromptRunes := cfg.MaxRunes
+	if maxPromptRunes <= 0 {
+		maxPromptRunes = 80000
+	}
+	locale := LocaleForQuestion(question, cfg.Locale)
+	deniedSet := deniedFieldSet(cfg.DeniedFields)
+	headRunes := promptHeadRunes(ctx, locale, model)
+	catalog := b.buildPromptCatalogSections(model, deniedSet, headRunes, maxPromptRunes)
+	data := b.buildPromptTemplateData(ctx, question, model, cfg, catalog)
 
 	layoutTmpl := promptTemplate(ctx, locale, "prompt_layout")
 	if layoutTmpl == "" {
 		layoutTmpl = defaultLayout
 	}
-
 	return renderPromptTemplate(layoutTmpl, data)
 }
 

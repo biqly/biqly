@@ -2,6 +2,34 @@ package jsonextract
 
 import "strings"
 
+func stripMarkdownJSONFence(s string) string {
+	if idx := strings.Index(s, "```json"); idx >= 0 {
+		return trimCodeFenceContent(s[idx+len("```json"):])
+	}
+	if idx := strings.Index(s, "```"); idx >= 0 {
+		return trimGenericCodeFenceContent(s[idx+3:])
+	}
+	return s
+}
+
+func trimCodeFenceContent(s string) string {
+	if end := strings.Index(s, "```"); end >= 0 {
+		s = s[:end]
+	}
+	return strings.TrimSpace(s)
+}
+
+func trimGenericCodeFenceContent(s string) string {
+	s = strings.TrimSpace(s)
+	if nl := strings.IndexByte(s, '\n'); nl > 0 && nl < 24 {
+		first := strings.TrimSpace(s[:nl])
+		if strings.EqualFold(first, "json") {
+			s = strings.TrimSpace(s[nl+1:])
+		}
+	}
+	return trimCodeFenceContent(s)
+}
+
 // stripReasoningPreamble removes an optional "## Reasoning" block emitted before the JSON object.
 func stripReasoningPreamble(s string) string {
 	const marker = "## Reasoning"
@@ -26,24 +54,7 @@ func CleanAIResponseForJSON(raw string) string {
 	s = strings.TrimPrefix(s, "\ufeff")
 	s = stripReasoningPreamble(s)
 
-	if idx := strings.Index(s, "```json"); idx >= 0 { //nolint:nestif // fenced JSON may include preamble and closing fence
-		s = s[idx+len("```json"):]
-		if end := strings.Index(s, "```"); end >= 0 {
-			s = s[:end]
-		}
-	} else if idx := strings.Index(s, "```"); idx >= 0 {
-		s = s[idx+3:]
-		s = strings.TrimSpace(s)
-		if nl := strings.IndexByte(s, '\n'); nl > 0 && nl < 24 {
-			first := strings.TrimSpace(s[:nl])
-			if strings.EqualFold(first, "json") {
-				s = strings.TrimSpace(s[nl+1:])
-			}
-		}
-		if end := strings.Index(s, "```"); end >= 0 {
-			s = s[:end]
-		}
-	}
+	s = stripMarkdownJSONFence(s)
 
 	return strings.TrimSpace(s)
 }

@@ -900,67 +900,91 @@ func (r *UserRepository) CreateEmailChangeRequest(
 	return req, nil
 }
 
-//nolint:gocognit
 func (r *UserRepository) ConfirmEmailChangeToken(ctx context.Context, token string, now time.Time) (*EmailChangeRequest, error) {
 	var req *EmailChangeRequest
 	err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
-		query := `
-			SELECT id, user_id, old_email, new_email, old_email_token, new_email_token,
-			       old_email_confirmed_at, new_email_confirmed_at, requested_at,
-			       not_before, expires_at, completed_at
-			FROM email_change_requests
-			WHERE old_email_token = $1 OR new_email_token = $1
-			FOR UPDATE
-		`
 		var err error
-		req, err = scanEmailChangeRequest(tx.QueryRowContext(ctx, query, token))
-		if errors.Is(err, sql.ErrNoRows) {
-			return errors.New("invalid email change token")
-		} else if err != nil {
+		req, err = loadEmailChangeRequestForToken(ctx, tx, token)
+		if err != nil {
 			return err
 		}
-
-		if req.CompletedAt != nil {
-			return errors.New("email change already completed")
+		if err := validateEmailChangeRequest(req, now); err != nil {
+			return err
 		}
-		if now.After(req.ExpiresAt) {
-			return errors.New("email change token expired")
+		if err := recordEmailChangeTokenConfirmation(ctx, tx, token, req, now); err != nil {
+			return err
 		}
-
-		switch token {
-		case req.OldEmailToken:
-			if _, err := tx.ExecContext(ctx, "UPDATE email_change_requests SET old_email_confirmed_at = COALESCE(old_email_confirmed_at, $1) WHERE id = $2", now, req.ID); err != nil {
-				return err
-			}
-			if req.OldEmailConfirmedAt == nil {
-				req.OldEmailConfirmedAt = new(now)
-			}
-		case req.NewEmailToken:
-			if _, err := tx.ExecContext(ctx, "UPDATE email_change_requests SET new_email_confirmed_at = COALESCE(new_email_confirmed_at, $1) WHERE id = $2", now, req.ID); err != nil {
-				return err
-			}
-			if req.NewEmailConfirmedAt == nil {
-				req.NewEmailConfirmedAt = new(now)
-			}
-		default:
-			return errors.New("invalid email change token")
-		}
-
-		if req.OldEmailConfirmedAt != nil && req.NewEmailConfirmedAt != nil && !now.Before(req.NotBefore) {
-			if _, err := tx.ExecContext(ctx, "UPDATE users SET email = $1, email_verified = TRUE, updated_at = NOW() WHERE id = $2", req.NewEmail, req.UserID); err != nil {
-				return err
-			}
-			if _, err := tx.ExecContext(ctx, "UPDATE email_change_requests SET completed_at = $1 WHERE id = $2", now, req.ID); err != nil {
-				return err
-			}
-			req.CompletedAt = new(now)
-		}
-		return nil
+		return finalizeEmailChangeIfReady(ctx, tx, req, now)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return req, nil
+}
+
+func loadEmailChangeRequestForToken(ctx context.Context, tx *sql.Tx, token string) (*EmailChangeRequest, error) {
+	query := `
+		SELECT id, user_id, old_email, new_email, old_email_token, new_email_token,
+		       old_email_confirmed_at, new_email_confirmed_at, requested_at,
+		       not_before, expires_at, completed_at
+		FROM email_change_requests
+		WHERE old_email_token = $1 OR new_email_token = $1
+		FOR UPDATE
+	`
+	req, err := scanEmailChangeRequest(tx.QueryRowContext(ctx, query, token))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, errors.New("invalid email change token")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+func validateEmailChangeRequest(req *EmailChangeRequest, now time.Time) error {
+	if req.CompletedAt != nil {
+		return errors.New("email change already completed")
+	}
+	if now.After(req.ExpiresAt) {
+		return errors.New("email change token expired")
+	}
+	return nil
+}
+
+func recordEmailChangeTokenConfirmation(ctx context.Context, tx *sql.Tx, token string, req *EmailChangeRequest, now time.Time) error {
+	switch token {
+	case req.OldEmailToken:
+		if _, err := tx.ExecContext(ctx, "UPDATE email_change_requests SET old_email_confirmed_at = COALESCE(old_email_confirmed_at, $1) WHERE id = $2", now, req.ID); err != nil {
+			return err
+		}
+		if req.OldEmailConfirmedAt == nil {
+			req.OldEmailConfirmedAt = new(now)
+		}
+	case req.NewEmailToken:
+		if _, err := tx.ExecContext(ctx, "UPDATE email_change_requests SET new_email_confirmed_at = COALESCE(new_email_confirmed_at, $1) WHERE id = $2", now, req.ID); err != nil {
+			return err
+		}
+		if req.NewEmailConfirmedAt == nil {
+			req.NewEmailConfirmedAt = new(now)
+		}
+	default:
+		return errors.New("invalid email change token")
+	}
+	return nil
+}
+
+func finalizeEmailChangeIfReady(ctx context.Context, tx *sql.Tx, req *EmailChangeRequest, now time.Time) error {
+	if req.OldEmailConfirmedAt == nil || req.NewEmailConfirmedAt == nil || now.Before(req.NotBefore) {
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx, "UPDATE users SET email = $1, email_verified = TRUE, updated_at = NOW() WHERE id = $2", req.NewEmail, req.UserID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, "UPDATE email_change_requests SET completed_at = $1 WHERE id = $2", now, req.ID); err != nil {
+		return err
+	}
+	req.CompletedAt = new(now)
+	return nil
 }
 
 type scanner interface {

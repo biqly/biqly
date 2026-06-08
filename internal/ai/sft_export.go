@@ -82,8 +82,13 @@ type sftWorkItem struct {
 	build    func() (userPrompt string, assistant string, err error)
 }
 
-// Export writes train.jsonl, validation.jsonl, and hard_eval.jsonl under OutDir.
-func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTExportResult, error) { //nolint:gocognit,funlen // export flow is linear file setup, split accounting, and close-error handling.
+type sftExportWriters struct {
+	train *os.File
+	val   *os.File
+	hard  *os.File
+}
+
+func normalizeSFTExportOptions(opts *SFTExportOptions) {
 	if opts.OutDir == "" {
 		opts.OutDir = "data/biqly-gemma4"
 	}
@@ -96,57 +101,74 @@ func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTEx
 	if opts.MaxPromptRunes <= 0 {
 		opts.MaxPromptRunes = defaultMaxPromptRunes
 	}
-	if err := os.MkdirAll(opts.OutDir, 0o750); err != nil {
-		return nil, fmt.Errorf("create output dir: %w", err)
+}
+
+func sftExportFilePath(outDir, name string) (string, error) {
+	cleanDir := filepath.Clean(outDir)
+	path := filepath.Clean(filepath.Join(cleanDir, name))
+	rel, err := filepath.Rel(cleanDir, path)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("invalid export path %q", name)
 	}
+	return path, nil
+}
 
-	items, skipped, errs := e.collectItems(ctx, opts)
-	result := &SFTExportResult{Skipped: skipped, Errors: errs}
-
-	trainPath := filepath.Join(opts.OutDir, "train.jsonl")
-	valPath := filepath.Join(opts.OutDir, "validation.jsonl")
-	hardPath := filepath.Join(opts.OutDir, "hard_eval.jsonl")
-
-	trainW, err := os.Create(trainPath) //nolint:gosec // output path is under the caller-provided export directory
+func openSFTExportWriters(outDir string) (*sftExportWriters, error) {
+	trainPath, err := sftExportFilePath(outDir, "train.jsonl")
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if trainW != nil {
-			_ = trainW.Close()
-		}
-	}()
-	valW, err := os.Create(valPath) //nolint:gosec // output path is under the caller-provided export directory
+	valPath, err := sftExportFilePath(outDir, "validation.jsonl")
 	if err != nil {
-		if closeErr := trainW.Close(); closeErr != nil {
-			return nil, fmt.Errorf("close train export after validation file create failed: %w", closeErr)
-		}
-		trainW = nil
 		return nil, err
 	}
-	defer func() {
-		if valW != nil {
-			_ = valW.Close()
-		}
-	}()
-	hardW, err := os.Create(hardPath) //nolint:gosec // output path is under the caller-provided export directory
+	hardPath, err := sftExportFilePath(outDir, "hard_eval.jsonl")
 	if err != nil {
-		if closeErr := trainW.Close(); closeErr != nil {
-			return nil, fmt.Errorf("close train export after hard eval file create failed: %w", closeErr)
-		}
-		trainW = nil
-		if closeErr := valW.Close(); closeErr != nil {
-			return nil, fmt.Errorf("close validation export after hard eval file create failed: %w", closeErr)
-		}
-		valW = nil
 		return nil, err
 	}
-	defer func() {
-		if hardW != nil {
-			_ = hardW.Close()
-		}
-	}()
 
+	trainW, err := createSFTExportFile(trainPath)
+	if err != nil {
+		return nil, err
+	}
+	valW, err := createSFTExportFile(valPath)
+	if err != nil {
+		_ = trainW.Close()
+		return nil, err
+	}
+	hardW, err := createSFTExportFile(hardPath)
+	if err != nil {
+		_ = trainW.Close()
+		_ = valW.Close()
+		return nil, err
+	}
+	return &sftExportWriters{train: trainW, val: valW, hard: hardW}, nil
+}
+
+func createSFTExportFile(path string) (*os.File, error) {
+	return os.Create(path) //nolint:gosec // G304: path sanitized by sftExportFilePath
+}
+
+func (w *sftExportWriters) close() error {
+	var first error
+	for _, f := range []*os.File{w.train, w.val, w.hard} {
+		if f == nil {
+			continue
+		}
+		if err := f.Close(); err != nil && first == nil {
+			first = err
+		}
+	}
+	w.train, w.val, w.hard = nil, nil, nil
+	return first
+}
+
+func writeSFTItems(
+	items []sftWorkItem,
+	opts SFTExportOptions,
+	writers *sftExportWriters,
+	result *SFTExportResult,
+) error {
 	for _, item := range items {
 		user, assistant, err := item.build()
 		if err != nil {
@@ -171,31 +193,44 @@ func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTEx
 		var w io.Writer
 		switch split {
 		case "train":
-			w = trainW
+			w = writers.train
 			result.TrainCount++
 		case "validation":
-			w = valW
+			w = writers.val
 			result.ValidationCount++
 		default:
-			w = hardW
+			w = writers.hard
 			result.HardEvalCount++
 		}
 		if _, err := w.Write(append(line, '\n')); err != nil {
-			return nil, fmt.Errorf("write %s: %w", split, err)
+			return fmt.Errorf("write %s: %w", split, err)
 		}
 	}
-	if err := trainW.Close(); err != nil {
-		return nil, fmt.Errorf("close train export: %w", err)
+	return nil
+}
+
+// Export writes train.jsonl, validation.jsonl, and hard_eval.jsonl under OutDir.
+func (e *SFTExporter) Export(ctx context.Context, opts SFTExportOptions) (*SFTExportResult, error) {
+	normalizeSFTExportOptions(&opts)
+	if err := os.MkdirAll(opts.OutDir, 0o750); err != nil {
+		return nil, fmt.Errorf("create output dir: %w", err)
 	}
-	trainW = nil
-	if err := valW.Close(); err != nil {
-		return nil, fmt.Errorf("close validation export: %w", err)
+
+	items, skipped, errs := e.collectItems(ctx, opts)
+	result := &SFTExportResult{Skipped: skipped, Errors: errs}
+
+	writers, err := openSFTExportWriters(opts.OutDir)
+	if err != nil {
+		return nil, err
 	}
-	valW = nil
-	if err := hardW.Close(); err != nil {
-		return nil, fmt.Errorf("close hard eval export: %w", err)
+	defer func() { _ = writers.close() }()
+
+	if err := writeSFTItems(items, opts, writers, result); err != nil {
+		return nil, err
 	}
-	hardW = nil
+	if err := writers.close(); err != nil {
+		return nil, fmt.Errorf("close export files: %w", err)
+	}
 	return result, nil
 }
 

@@ -835,10 +835,10 @@ func TestCompiler_WindowFunctionUsesASTExpression(t *testing.T) {
 				Alias: "running_margin",
 				Window: &WindowSpec{
 					Aggregation: "sum",
-					Expr: pkgsemantic.BinaryExpr{
+					Expr: &pkgsemantic.BinaryExpr{
 						Op:    pkgsemantic.OpSubtract,
-						Left:  pkgsemantic.ColumnRefExpr{Table: "orders", Column: "revenue"},
-						Right: pkgsemantic.ColumnRefExpr{Table: "orders", Column: "cost"},
+						Left:  &pkgsemantic.ColumnRefExpr{Table: "orders", Column: "revenue"},
+						Right: &pkgsemantic.ColumnRefExpr{Table: "orders", Column: "cost"},
 					},
 					PartitionBy: []string{"country"},
 					OrderBy:     []OrderBy{{Field: "created_at", Direction: "asc"}},
@@ -966,10 +966,10 @@ func TestCompiler_CalculatedDimensionUsesAST(t *testing.T) {
 		Dimensions: []semantic.Dimension{
 			{
 				Name: "total_with_tax",
-				CalculatedExpr: pkgsemantic.BinaryExpr{
+				CalculatedExpr: &pkgsemantic.BinaryExpr{
 					Op:    pkgsemantic.OpMultiply,
-					Left:  pkgsemantic.ColumnRefExpr{Table: "orders", Column: "total_amount"},
-					Right: pkgsemantic.LiteralExpr{Value: 1.18},
+					Left:  &pkgsemantic.ColumnRefExpr{Table: "orders", Column: "total_amount"},
+					Right: &pkgsemantic.LiteralExpr{Value: 1.18},
 				},
 				Type: "number",
 			},
@@ -997,10 +997,10 @@ func TestCompiler_MetricUsesASTExpression(t *testing.T) {
 			{
 				Name:        "gross_margin",
 				Aggregation: "sum",
-				Expr: pkgsemantic.BinaryExpr{
+				Expr: &pkgsemantic.BinaryExpr{
 					Op:    pkgsemantic.OpSubtract,
-					Left:  pkgsemantic.ColumnRefExpr{Table: "orders", Column: "revenue"},
-					Right: pkgsemantic.ColumnRefExpr{Table: "orders", Column: "cost"},
+					Left:  &pkgsemantic.ColumnRefExpr{Table: "orders", Column: "revenue"},
+					Right: &pkgsemantic.ColumnRefExpr{Table: "orders", Column: "cost"},
 				},
 			},
 		},

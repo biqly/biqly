@@ -781,13 +781,19 @@ func buildClarification(question, reason, source string) *Clarification {
 	}
 }
 
+type multiCandidate struct {
+	idx      int
+	lq       *query.LogicalQuery
+	gen      providerpkg.GenerationResult
+	warnings []string
+	fp       string
+}
+
 // tryMultiCandidate draws s.multiCandidateCount completions at stepped
 // temperatures and votes on a structurally-equivalent LogicalQuery. A strict
 // majority returns immediately; ties or no successful candidates fall through
 // to the standard single-shot + retry path. Best-effort: any provider error
 // falls back rather than aborting the whole request.
-//
-//nolint:gocognit,funlen
 func (s *Service) tryMultiCandidate(
 	ctx context.Context,
 	question string,
@@ -813,79 +819,89 @@ func (s *Service) tryMultiCandidate(
 		span.SetAttributes(attribute.String("model.id", model.ID))
 	}
 
-	type candidate struct {
-		idx      int
-		lq       *query.LogicalQuery
-		gen      providerpkg.GenerationResult
-		warnings []string
-		fp       string
+	results := s.runMultiCandidateWorkers(ctx, prompt, model, options, n)
+	winner, winnerCount, ok := pickMultiCandidateWinner(results)
+	if !ok {
+		return nil, false
 	}
 
-	// Run all N candidate generations concurrently. Each call talks to an
-	// LLM API which is typically several hundred ms — running them serially
-	// multiplied total latency by N. Errors and validation failures are
-	// best-effort and do not cancel siblings.
-	results := make([]*candidate, n)
+	if inheritNotes := ApplyFilterSession(winner.lq, filterSess, followIntent); len(inheritNotes) > 0 {
+		winner.warnings = append(winner.warnings, inheritNotes...)
+	}
+
+	return buildMultiCandidateResponse(ctx, question, prompt, stats, winner, winnerCount, n), true
+}
+
+func (s *Service) runMultiCandidateWorkers(
+	ctx context.Context,
+	prompt string,
+	model *semantic.SemanticModel,
+	options *processOptions,
+	n int,
+) []*multiCandidate {
+	results := make([]*multiCandidate, n)
 	var wg sync.WaitGroup
 	wg.Add(n)
 	for i := range n {
 		idx := i
 		go func() {
 			defer wg.Done()
-			temp := min(s.baseTemperature+0.2*float64(idx), 1)
-
-			type genResult struct {
-				gen providerpkg.GenerationResult
-				err error
-			}
-			ch := make(chan genResult, 1)
-			go func() {
-				g, err := s.generateAtWithSpan(ctx, prompt, temp, idx)
-				ch <- genResult{g, err}
-			}()
-
-			var res genResult
-			select {
-			case <-ctx.Done():
-				return
-			case res = <-ch:
-			}
-
-			if res.err != nil {
-				return
-			}
-			gen := res.gen
-
-			if ctx.Err() != nil {
-				return
-			}
-
-			lq, warnings, validationErrCount, _, parseErr := s.parseAndValidate(gen.Content, model)
-			if parseErr != nil || validationErrCount > 0 || lq == nil {
-				return
-			}
-
-			if ctx.Err() != nil {
-				return
-			}
-
-			if options.sqlValidator != nil {
-				if err := options.sqlValidator(ctx, lq); err != nil {
-					return
-				}
-			}
-			results[idx] = &candidate{
-				idx:      idx,
-				lq:       lq,
-				gen:      gen,
-				warnings: warnings,
-				fp:       logicalQueryFingerprint(lq),
-			}
+			results[idx] = s.generateMultiCandidate(ctx, prompt, model, options, idx)
 		}()
 	}
 	wg.Wait()
+	return results
+}
 
-	groups := make(map[string][]candidate)
+func (s *Service) generateMultiCandidate(
+	ctx context.Context,
+	prompt string,
+	model *semantic.SemanticModel,
+	options *processOptions,
+	idx int,
+) *multiCandidate {
+	temp := min(s.baseTemperature+0.2*float64(idx), 1)
+
+	type genResult struct {
+		gen providerpkg.GenerationResult
+		err error
+	}
+	ch := make(chan genResult, 1)
+	go func() {
+		g, err := s.generateAtWithSpan(ctx, prompt, temp, idx)
+		ch <- genResult{g, err}
+	}()
+
+	var res genResult
+	select {
+	case <-ctx.Done():
+		return nil
+	case res = <-ch:
+	}
+	if res.err != nil || ctx.Err() != nil {
+		return nil
+	}
+
+	lq, warnings, validationErrCount, _, parseErr := s.parseAndValidate(res.gen.Content, model)
+	if parseErr != nil || validationErrCount > 0 || lq == nil || ctx.Err() != nil {
+		return nil
+	}
+	if options.sqlValidator != nil {
+		if err := options.sqlValidator(ctx, lq); err != nil {
+			return nil
+		}
+	}
+	return &multiCandidate{
+		idx:      idx,
+		lq:       lq,
+		gen:      res.gen,
+		warnings: warnings,
+		fp:       logicalQueryFingerprint(lq),
+	}
+}
+
+func pickMultiCandidateWinner(results []*multiCandidate) (multiCandidate, int, bool) {
+	groups := make(map[string][]multiCandidate)
 	successCount := 0
 	for _, c := range results {
 		if c == nil {
@@ -894,9 +910,8 @@ func (s *Service) tryMultiCandidate(
 		groups[c.fp] = append(groups[c.fp], *c)
 		successCount++
 	}
-
 	if successCount == 0 {
-		return nil, false
+		return multiCandidate{}, 0, false
 	}
 
 	var winnerKey string
@@ -909,13 +924,18 @@ func (s *Service) tryMultiCandidate(
 	}
 	// Strict majority among successful samples.
 	if winnerCount*2 <= successCount {
-		return nil, false
+		return multiCandidate{}, 0, false
 	}
-	winner := groups[winnerKey][0]
-	if inheritNotes := ApplyFilterSession(winner.lq, filterSess, followIntent); len(inheritNotes) > 0 {
-		winner.warnings = append(winner.warnings, inheritNotes...)
-	}
+	return groups[winnerKey][0], winnerCount, true
+}
 
+func buildMultiCandidateResponse(
+	ctx context.Context,
+	question, prompt string,
+	stats *promptpkg.Stats,
+	winner multiCandidate,
+	winnerCount, n int,
+) *AIResponse {
 	confidence := float64(winnerCount) / float64(n)
 	if confidence > 1 {
 		confidence = 1
@@ -939,7 +959,7 @@ func (s *Service) tryMultiCandidate(
 			PromptTemplateVersions:      templateVersions,
 			PromptTemplateBundleVersion: bundleVersion,
 		},
-	}, true
+	}
 }
 
 // logicalQueryFingerprint returns a canonical string identifying the structure

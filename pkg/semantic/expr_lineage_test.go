@@ -22,17 +22,17 @@ func TestExprDependencies(t *testing.T) {
 		},
 		{
 			name:     "literal only",
-			expr:     LiteralExpr{Value: 42},
+			expr:     &LiteralExpr{Value: 42},
 			wantCols: nil,
 			wantMets: nil,
 			wantDims: nil,
 		},
 		{
 			name: "flat references",
-			expr: BinaryExpr{
+			expr: &BinaryExpr{
 				Op:    OpAdd,
-				Left:  ColumnRefExpr{Table: "t1", Column: "c1"},
-				Right: MetricRefExpr{Name: "m1"},
+				Left:  &ColumnRefExpr{Table: "t1", Column: "c1"},
+				Right: &MetricRefExpr{Name: "m1"},
 			},
 			wantCols: []ColumnRefExpr{{Table: "t1", Column: "c1"}},
 			wantMets: []string{"m1"},
@@ -40,19 +40,19 @@ func TestExprDependencies(t *testing.T) {
 		},
 		{
 			name: "nested with deduplication",
-			expr: BinaryExpr{
+			expr: &BinaryExpr{
 				Op: OpMultiply,
-				Left: FunctionCallExpr{
+				Left: &FunctionCallExpr{
 					Name: "COALESCE",
 					Args: []ExprNode{
-						ColumnRefExpr{Table: "t1", Column: "c1"},
-						DimensionRefExpr{Name: "d1"},
+						&ColumnRefExpr{Table: "t1", Column: "c1"},
+						&DimensionRefExpr{Name: "d1"},
 					},
 				},
-				Right: BinaryExpr{
+				Right: &BinaryExpr{
 					Op:    OpSubtract,
-					Left:  MetricRefExpr{Name: "m1"},
-					Right: ColumnRefExpr{Table: "t1", Column: "c1"}, // duplicate column ref
+					Left:  &MetricRefExpr{Name: "m1"},
+					Right: &ColumnRefExpr{Table: "t1", Column: "c1"}, // duplicate column ref
 				},
 			},
 			wantCols: []ColumnRefExpr{{Table: "t1", Column: "c1"}},
@@ -61,18 +61,18 @@ func TestExprDependencies(t *testing.T) {
 		},
 		{
 			name: "case expression dependencies",
-			expr: CaseExpr{
+			expr: &CaseExpr{
 				Conditions: []CaseWhen{
 					{
-						When: BinaryExpr{
+						When: &BinaryExpr{
 							Op:    OpGt,
-							Left:  ColumnRefExpr{Table: "t1", Column: "c2"},
-							Right: LiteralExpr{Value: 0},
+							Left:  &ColumnRefExpr{Table: "t1", Column: "c2"},
+							Right: &LiteralExpr{Value: 0},
 						},
-						Then: DimensionRefExpr{Name: "d2"},
+						Then: &DimensionRefExpr{Name: "d2"},
 					},
 				},
-				ElseExpr: MetricRefExpr{Name: "m2"},
+				ElseExpr: &MetricRefExpr{Name: "m2"},
 			},
 			wantCols: []ColumnRefExpr{{Table: "t1", Column: "c2"}},
 			wantMets: []string{"m2"},

@@ -304,7 +304,6 @@ func truncateStringRunes(s string, maxRunes int) string {
 	return string(runes[:maxRunes]) + "…"
 }
 
-//nolint:gocognit
 func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, result *DescribeResult) error {
 	colByName := make(map[string]metadata.Column, len(cols))
 	for i := range cols {
@@ -318,12 +317,25 @@ func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, res
 		columnDescriptions = result.originalColumns
 	}
 
-	if tableDescription != "" && len(cols) > 0 { // Apply to the first matching table_id (all sampled cols share the same table).
+	if err := s.applyDescribeDescriptions(ctx, cols, colByName, tableDescription, columnDescriptions); err != nil {
+		return err
+	}
+	s.upsertDescribeTranslations(ctx, cols, colByName, result)
+	return nil
+}
+
+func (s *DescribeService) applyDescribeDescriptions(
+	ctx context.Context,
+	cols []metadata.Column,
+	colByName map[string]metadata.Column,
+	tableDescription string,
+	columnDescriptions []ColumnDescription,
+) error {
+	if tableDescription != "" && len(cols) > 0 {
 		if err := s.metaRepo.UpdateTableDescription(ctx, cols[0].TableID, new(tableDescription)); err != nil {
 			return fmt.Errorf("update table description: %w", err)
 		}
 	}
-
 	for _, cd := range columnDescriptions {
 		if cd.Description == "" {
 			continue
@@ -336,72 +348,57 @@ func (s *DescribeService) apply(ctx context.Context, cols []metadata.Column, res
 			return fmt.Errorf("update column %s: %w", cd.Name, err)
 		}
 	}
+	return nil
+}
 
-	if result.originalLang != "" && result.TranslationApplied && len(cols) > 0 { //nolint:nestif
-		if result.originalDescription != "" {
-			if err := s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
-				EntityType: metadata.EntityTypeTable,
-				EntityID:   cols[0].TableID,
-				Lang:       result.originalLang,
-				Field:      metadata.TranslationFieldDescription,
-				Value:      result.originalDescription,
-			}); err != nil {
-				slog.Warn("upsert original table translation", "table_id", cols[0].TableID, "lang", result.originalLang, "err", err)
-			}
-		}
-		for _, cd := range result.originalColumns {
-			if cd.Description == "" {
-				continue
-			}
-			col, ok := colByName[cd.Name]
-			if !ok {
-				continue
-			}
-			if err := s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
-				EntityType: metadata.EntityTypeColumn,
-				EntityID:   col.ID,
-				Lang:       result.originalLang,
-				Field:      metadata.TranslationFieldDescription,
-				Value:      cd.Description,
-			}); err != nil {
-				slog.Warn("upsert original column translation", "column_id", col.ID, "lang", result.originalLang, "err", err)
-			}
-		}
+func (s *DescribeService) upsertDescribeTranslations(ctx context.Context, cols []metadata.Column, colByName map[string]metadata.Column, result *DescribeResult) {
+	if result.originalLang == "" || !result.TranslationApplied || len(cols) == 0 {
+		return
+	}
+	s.upsertDescribeTableTranslation(ctx, cols[0].TableID, result.originalLang, result.originalDescription, "original table translation")
+	s.upsertDescribeTranslationColumns(ctx, colByName, result.originalLang, result.originalColumns)
+	targetLang := s.translator.TargetCode()
+	if targetLang == "" {
+		return
+	}
+	s.upsertDescribeTableTranslation(ctx, cols[0].TableID, targetLang, result.Description, "translated table description")
+	s.upsertDescribeTranslationColumns(ctx, colByName, targetLang, result.Columns)
+}
 
-		targetLang := s.translator.TargetCode()
-		if targetLang != "" {
-			if result.Description != "" {
-				if err := s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
-					EntityType: metadata.EntityTypeTable,
-					EntityID:   cols[0].TableID,
-					Lang:       targetLang,
-					Field:      metadata.TranslationFieldDescription,
-					Value:      result.Description,
-				}); err != nil {
-					slog.Warn("upsert translated table description", "table_id", cols[0].TableID, "lang", targetLang, "err", err)
-				}
-			}
-			for _, cd := range result.Columns {
-				if cd.Description == "" {
-					continue
-				}
-				col, ok := colByName[cd.Name]
-				if !ok {
-					continue
-				}
-				if err := s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
-					EntityType: metadata.EntityTypeColumn,
-					EntityID:   col.ID,
-					Lang:       targetLang,
-					Field:      metadata.TranslationFieldDescription,
-					Value:      cd.Description,
-				}); err != nil {
-					slog.Warn("upsert translated column description", "column_id", col.ID, "lang", targetLang, "err", err)
-				}
-			}
+func (s *DescribeService) upsertDescribeTranslationColumns(ctx context.Context, colByName map[string]metadata.Column, lang string, columns []ColumnDescription) {
+	for _, cd := range columns {
+		if cd.Description == "" {
+			continue
+		}
+		col, ok := colByName[cd.Name]
+		if !ok {
+			continue
+		}
+		if err := s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
+			EntityType: metadata.EntityTypeColumn,
+			EntityID:   col.ID,
+			Lang:       lang,
+			Field:      metadata.TranslationFieldDescription,
+			Value:      cd.Description,
+		}); err != nil {
+			slog.Warn("upsert column translation", "column_id", col.ID, "lang", lang, "err", err)
 		}
 	}
-	return nil
+}
+
+func (s *DescribeService) upsertDescribeTableTranslation(ctx context.Context, tableID, lang, value, logLabel string) {
+	if value == "" {
+		return
+	}
+	if err := s.metaRepo.UpsertTranslation(ctx, metadata.Translation{
+		EntityType: metadata.EntityTypeTable,
+		EntityID:   tableID,
+		Lang:       lang,
+		Field:      metadata.TranslationFieldDescription,
+		Value:      value,
+	}); err != nil {
+		slog.Warn("upsert "+logLabel, "table_id", tableID, "lang", lang, "err", err)
+	}
 }
 
 func buildDescribePrompt(schema, table string, cols []metadata.Column, sample []map[string]any) string {

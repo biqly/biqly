@@ -8,7 +8,6 @@ import (
 	"github.com/biqly/biqly/internal/metadata"
 )
 
-//nolint:gocognit
 func appendQuestionEntityTables(
 	selected []tableBundle,
 	tables []metadata.Table,
@@ -33,52 +32,63 @@ func appendQuestionEntityTables(
 
 	for _, t := range tables {
 		key := tableKey(t.SchemaName, t.TableName)
-		if _, ok := selectedKeys[key]; ok {
-			continue
-		}
-		nameTokens := tokenSet(t.TableName)
-		matched := false
-		for tok := range nameTokens {
-			// Ignore generic tokens that match too eagerly across schemas
-			// (e.g. table called "data" or column-name leftover).
-			if len(tok) < 3 {
-				continue
-			}
-			if _, ok := tokens[tok]; ok {
-				matched = true
-				break
-			}
-		}
-		if !matched {
+		if _, ok := selectedKeys[key]; ok || !tableMatchesQuestionTokens(t, tokens) {
 			continue
 		}
 		path := shortestPathFromSet(adj, from, key)
 		if path == nil || len(path) > maxHops+1 {
 			continue
 		}
-		for i := 1; i < len(path); i++ {
-			if len(selected) >= maxN {
-				return selected
-			}
-			pkey := path[i]
-			if _, ok := selectedKeys[pkey]; ok {
-				continue
-			}
-			pt, ok := idx.byFullName[pkey]
-			if !ok {
-				continue
-			}
-			w := activeRoutingWeights()
-			score := w.EntityPathBridgeScore
-			if pkey == key {
-				score = w.EntityPathTargetScore
-			}
-			selected = append(selected, tableBundle{table: pt, score: score})
-			selectedKeys[pkey] = struct{}{}
-			from[pkey] = struct{}{}
+		selected, selectedKeys, from = appendEntityPathTables(selected, selectedKeys, from, idx, path, key, maxN)
+		if len(selected) >= maxN {
+			return selected
 		}
 	}
 	return selected
+}
+
+func tableMatchesQuestionTokens(t metadata.Table, tokens map[string]struct{}) bool {
+	for tok := range tokenSet(t.TableName) {
+		if len(tok) < 3 {
+			continue
+		}
+		if _, ok := tokens[tok]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func appendEntityPathTables(
+	selected []tableBundle,
+	selectedKeys, from map[string]struct{},
+	idx tableIndex,
+	path []string,
+	targetKey string,
+	maxN int,
+) ([]tableBundle, map[string]struct{}, map[string]struct{}) {
+	w := activeRoutingWeights()
+	for i := 1; i < len(path); i++ {
+		if len(selected) >= maxN {
+			return selected, selectedKeys, from
+		}
+		pkey := path[i]
+		if _, ok := selectedKeys[pkey]; ok {
+			continue
+		}
+		pt, ok := idx.byFullName[pkey]
+		if !ok {
+			continue
+		}
+		score := w.EntityPathBridgeScore
+		if pkey == targetKey {
+			score = w.EntityPathTargetScore
+		}
+		selected = append(selected, tableBundle{table: pt, score: score})
+		selectedKeys[pkey] = struct{}{}
+		from[pkey] = struct{}{}
+	}
+	return selected, selectedKeys, from
 }
 
 // appendEntityResolverTables ensures questions like "<entity> name" can be

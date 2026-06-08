@@ -6,26 +6,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//nolint:funlen // table-driven normalization cases cover many provider formats
-func TestNormalize(t *testing.T) {
-	tests := []struct {
-		name    string
-		email   string
-		want    string
-		wantErr bool
-	}{
-		{
-			name:    "empty email",
-			email:   "",
-			want:    "",
-			wantErr: true,
-		},
-		{
-			name:    "spaces only",
-			email:   "   ",
-			want:    "",
-			wantErr: true,
-		},
+type normalizeTestCase struct {
+	name    string
+	email   string
+	want    string
+	wantErr bool
+}
+
+func normalizeValidTestCases() []normalizeTestCase {
+	return []normalizeTestCase{
 		{
 			name:    "valid standard email",
 			email:   "user@example.com",
@@ -86,6 +75,23 @@ func TestNormalize(t *testing.T) {
 			want:    "f.o.o@example.com",
 			wantErr: false,
 		},
+	}
+}
+
+func normalizeInvalidTestCases() []normalizeTestCase {
+	return []normalizeTestCase{
+		{
+			name:    "empty email",
+			email:   "",
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "spaces only",
+			email:   "   ",
+			want:    "",
+			wantErr: true,
+		},
 		{
 			name:    "invalid email - missing @",
 			email:   "example.com",
@@ -129,7 +135,10 @@ func TestNormalize(t *testing.T) {
 			wantErr: true,
 		},
 	}
+}
 
+func TestNormalize(t *testing.T) {
+	tests := append(normalizeValidTestCases(), normalizeInvalidTestCases()...)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := Normalize(tt.email)

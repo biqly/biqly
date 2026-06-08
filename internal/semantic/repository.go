@@ -110,77 +110,99 @@ func (r *Repository) DeleteModel(ctx context.Context, id string) error {
 // BulkInsertModelChildren inserts many dimensions, metrics, and joins for a
 // model inside a single transaction with prepared statements. Used when
 // generating a model from metadata to avoid one round-trip per row.
-//
-//nolint:gocognit
 func (r *Repository) BulkInsertModelChildren(ctx context.Context, modelID string, dims []Dimension, mets []Metric, joins []Join) error {
 	if len(dims) == 0 && len(mets) == 0 && len(joins) == 0 {
 		return nil
 	}
 	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) (err error) {
-		if len(dims) > 0 {
-			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, time_grain, synonyms, description, is_active, calculated_expression, calculated_expr_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`)
-			if err != nil {
-				return fmt.Errorf("prepare dimensions: %w", err)
-			}
-			defer func() {
-				if closeErr := stmt.Close(); closeErr != nil && err == nil {
-					err = fmt.Errorf("close dimensions statement: %w", closeErr)
-				}
-			}()
-			for i := range dims {
-				d := &dims[i]
-				calculatedExprJSON, err := encodeExprNodeJSON(d.CalculatedExpr)
-				if err != nil {
-					return fmt.Errorf("encode dimension expression %q: %w", d.Name, err)
-				}
-				if _, err := stmt.ExecContext(ctx, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, platformdb.NullIfEmpty(d.TimeGrain), d.Synonyms, d.Description, d.IsActive, platformdb.NullIfEmpty(d.CalculatedExpression), calculatedExprJSON); err != nil {
-					return fmt.Errorf("insert dimension %q: %w", d.Name, err)
-				}
-			}
+		if err := bulkInsertDimensions(ctx, tx, dims); err != nil {
+			return err
 		}
-		if len(mets) > 0 {
-			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active, expr_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`)
-			if err != nil {
-				return fmt.Errorf("prepare metrics: %w", err)
-			}
-			defer func() {
-				if closeErr := stmt.Close(); closeErr != nil && err == nil {
-					err = fmt.Errorf("close metrics statement: %w", closeErr)
-				}
-			}()
-			for i := range mets {
-				m := &mets[i]
-				exprJSON, err := encodeExprNodeJSON(m.Expr)
-				if err != nil {
-					return fmt.Errorf("encode metric expression %q: %w", m.Name, err)
-				}
-				if _, err := stmt.ExecContext(ctx, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, exprJSON); err != nil {
-					return fmt.Errorf("insert metric %q: %w", m.Name, err)
-				}
-			}
+		if err := bulkInsertMetrics(ctx, tx, mets); err != nil {
+			return err
 		}
-		if len(joins) > 0 {
-			stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_joins (id, model_id, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`)
-			if err != nil {
-				return fmt.Errorf("prepare joins: %w", err)
-			}
-			defer func() {
-				if closeErr := stmt.Close(); closeErr != nil && err == nil {
-					err = fmt.Errorf("close joins statement: %w", closeErr)
-				}
-			}()
-			for i := range joins {
-				j := &joins[i]
-				if _, err := stmt.ExecContext(ctx, j.ID, j.ModelID, j.Name, j.FromSchema, j.FromTable, j.FromColumn, j.ToSchema, j.ToTable, j.ToColumn, j.JoinType, j.Relationship, j.IsActive); err != nil {
-					return fmt.Errorf("insert join %q: %w", j.Name, err)
-				}
-			}
+		if err := bulkInsertJoins(ctx, tx, joins); err != nil {
+			return err
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE semantic_models SET status = 'draft', draft_updated_at = now(), updated_at = now() WHERE id = $1::uuid`, modelID); err != nil {
 			return fmt.Errorf("mark model draft: %w", err)
 		}
 		return nil
 	})
+}
+
+func bulkInsertDimensions(ctx context.Context, tx *sql.Tx, dims []Dimension) (err error) {
+	if len(dims) == 0 {
+		return nil
+	}
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_dimensions (id, model_id, name, label, column_ref, type, time_grain, synonyms, description, is_active, calculated_expression, calculated_expr_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`)
+	if err != nil {
+		return fmt.Errorf("prepare dimensions: %w", err)
+	}
+	defer func() {
+		if closeErr := stmt.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close dimensions statement: %w", closeErr)
+		}
+	}()
+	for i := range dims {
+		d := &dims[i]
+		calculatedExprJSON, err := encodeExprNodeJSON(d.CalculatedExpr)
+		if err != nil {
+			return fmt.Errorf("encode dimension expression %q: %w", d.Name, err)
+		}
+		if _, err := stmt.ExecContext(ctx, d.ID, d.ModelID, d.Name, d.Label, d.ColumnRef, d.Type, platformdb.NullIfEmpty(d.TimeGrain), d.Synonyms, d.Description, d.IsActive, platformdb.NullIfEmpty(d.CalculatedExpression), calculatedExprJSON); err != nil {
+			return fmt.Errorf("insert dimension %q: %w", d.Name, err)
+		}
+	}
+	return nil
+}
+
+func bulkInsertMetrics(ctx context.Context, tx *sql.Tx, mets []Metric) (err error) {
+	if len(mets) == 0 {
+		return nil
+	}
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active, expr_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`)
+	if err != nil {
+		return fmt.Errorf("prepare metrics: %w", err)
+	}
+	defer func() {
+		if closeErr := stmt.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close metrics statement: %w", closeErr)
+		}
+	}()
+	for i := range mets {
+		m := &mets[i]
+		exprJSON, err := encodeExprNodeJSON(m.Expr)
+		if err != nil {
+			return fmt.Errorf("encode metric expression %q: %w", m.Name, err)
+		}
+		if _, err := stmt.ExecContext(ctx, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, exprJSON); err != nil {
+			return fmt.Errorf("insert metric %q: %w", m.Name, err)
+		}
+	}
+	return nil
+}
+
+func bulkInsertJoins(ctx context.Context, tx *sql.Tx, joins []Join) (err error) {
+	if len(joins) == 0 {
+		return nil
+	}
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_joins (id, model_id, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`)
+	if err != nil {
+		return fmt.Errorf("prepare joins: %w", err)
+	}
+	defer func() {
+		if closeErr := stmt.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close joins statement: %w", closeErr)
+		}
+	}()
+	for i := range joins {
+		j := &joins[i]
+		if _, err := stmt.ExecContext(ctx, j.ID, j.ModelID, j.Name, j.FromSchema, j.FromTable, j.FromColumn, j.ToSchema, j.ToTable, j.ToColumn, j.JoinType, j.Relationship, j.IsActive); err != nil {
+			return fmt.Errorf("insert join %q: %w", j.Name, err)
+		}
+	}
+	return nil
 }
 
 // Dimension operations

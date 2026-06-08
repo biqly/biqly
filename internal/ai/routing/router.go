@@ -179,8 +179,6 @@ type embeddingSignals struct {
 // Route selects tables for a question and returns a semantic model over them.
 // includeBaseTables / includeViews restrict which metadata objects participate in routing
 // (BASE TABLE vs VIEW). When both are true, behavior matches an unscoped datasource.
-//
-//nolint:funlen
 func (r *TableRouter) Route(
 	ctx context.Context,
 	datasourceID string,
@@ -202,44 +200,22 @@ func (r *TableRouter) Route(
 		attribute.Bool("ai.embedding_enabled", r.embedder != nil && r.embeddingReader != nil && r.embeddingWeight > 0),
 	)
 
-	if !includeBaseTables && !includeViews {
-		return nil, nil, ErrTypeScopeEmpty
+	tables, columns, relations, early, err := r.routeLoadAndFilter(ctx, datasourceID, tableScope, includeBaseTables, includeViews)
+	if err != nil {
+		if early != nil {
+			return nil, early, err
+		}
+		return nil, nil, err
+	}
+	if early != nil {
+		return nil, early, nil
 	}
 
-	// Tables, columns, and relations come from three independent metadata DB
-	// queries, fetched concurrently inside loadRoutingMetadata.
-	tables, columns, relations, err := r.loadRoutingMetadata(ctx, datasourceID)
+	tables, loc, columnsByTable, embedSignals, schemaPartitions, err := r.routePrepareSelection(
+		ctx, datasourceID, question, tables, columns, relations, tableScope,
+	)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	if err := validateManualScopeAgainstTypeScope(indexTables(tables), tableScope, includeBaseTables, includeViews); err != nil {
-		return nil, &TableRoutingResult{Manual: true, NeedsClarification: true}, err
-	}
-
-	tables = filterTablesByTypeScope(tables, includeBaseTables, includeViews)
-	columns = filterColumnsForTables(columns, tables)
-	if len(tables) == 0 {
-		return nil, &TableRoutingResult{
-			NeedsClarification: true,
-			Confidence:         0,
-		}, nil
-	}
-
-	questionLocale := lingua.DetectQuestionLocale(question)
-	if err := r.applyTranslations(ctx, tables, columns, questionLocale); err != nil {
-		return nil, nil, err
-	}
-	columnsByTable := groupColumnsByTable(columns, len(tables))
-
-	// Hybrid boost from precomputed embeddings, when configured. Skipped
-	// silently on any error so a transient embedding-API failure or missing
-	// vectors falls back cleanly to keyword scoring.
-	embedSignals := r.embeddingSignals(ctx, datasourceID, question, questionLocale)
-
-	var schemaPartitions []string
-	if len(nonEmptyScope(tableScope)) == 0 {
-		tables, schemaPartitions = filterTablesBySchemaCluster(tables, columnsByTable, relations, question, embedSignals.tableBoost)
 	}
 
 	selected, result, err := r.selectTables(tables, columnsByTable, question, tableScope, embedSignals.tableBoost)
@@ -249,34 +225,119 @@ func (r *TableRouter) Route(
 	if result == nil {
 		return nil, nil, errors.New("select tables: missing routing result")
 	}
-	result.ensureDebug().QuestionLocale = string(questionLocale)
-	if len(schemaPartitions) > 0 {
-		result.ensureDebug().SchemaPartitions = schemaPartitions
-	}
-	if result.RankingMethod == "" {
-		switch {
-		case result.Manual:
-			result.RankingMethod = "manual"
-		case len(embedSignals.tableBoost) > 0:
-			result.RankingMethod = "hybrid"
-		default:
-			result.RankingMethod = "keyword"
-		}
-	}
+	r.routeAnnotateResult(result, loc, schemaPartitions, embedSignals)
 	if result.NeedsClarification {
 		return nil, result, nil
 	}
 
+	selected = r.routeExpandSelection(selected, tables, columnsByTable, relations, question, tableScope, result)
+	model, result, err = r.routeFinalize(ctx, datasourceID, selected, relations, columnsByTable, question, embedSignals, result)
+	if result != nil {
+		span.SetAttributes(
+			attribute.Float64("ai.route.confidence", result.Confidence),
+			attribute.String("ai.ranking_method", result.RankingMethod),
+		)
+	}
+	return model, result, err
+}
+
+func (r *TableRouter) routeLoadAndFilter(
+	ctx context.Context,
+	datasourceID string,
+	tableScope []string,
+	includeBaseTables bool,
+	includeViews bool,
+) (tables []metadata.Table, columns []metadata.Column, relations []metadata.Relation, early *TableRoutingResult, err error) {
+	if !includeBaseTables && !includeViews {
+		return nil, nil, nil, nil, ErrTypeScopeEmpty
+	}
+	tables, columns, relations, err = r.loadRoutingMetadata(ctx, datasourceID)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if err := validateManualScopeAgainstTypeScope(indexTables(tables), tableScope, includeBaseTables, includeViews); err != nil {
+		return nil, nil, nil, &TableRoutingResult{Manual: true, NeedsClarification: true}, err
+	}
+	tables = filterTablesByTypeScope(tables, includeBaseTables, includeViews)
+	columns = filterColumnsForTables(columns, tables)
+	if len(tables) == 0 {
+		return nil, nil, nil, &TableRoutingResult{NeedsClarification: true, Confidence: 0}, nil
+	}
+	return tables, columns, relations, nil, nil
+}
+
+func (r *TableRouter) routePrepareSelection(
+	ctx context.Context,
+	datasourceID string,
+	question string,
+	tables []metadata.Table,
+	columns []metadata.Column,
+	relations []metadata.Relation,
+	tableScope []string,
+) (filteredTables []metadata.Table, loc i18n.Locale, columnsByTable map[string][]metadata.Column, embedSignals embeddingSignals, schemaPartitions []string, err error) {
+	loc = lingua.DetectQuestionLocale(question)
+	if err := r.applyTranslations(ctx, tables, columns, loc); err != nil {
+		return nil, "", nil, embeddingSignals{}, nil, err
+	}
+	columnsByTable = groupColumnsByTable(columns, len(tables))
+	embedSignals = r.embeddingSignals(ctx, datasourceID, question, loc)
+	filteredTables = tables
+	if len(nonEmptyScope(tableScope)) == 0 {
+		filteredTables, schemaPartitions = filterTablesBySchemaCluster(tables, columnsByTable, relations, question, embedSignals.tableBoost)
+	}
+	return filteredTables, loc, columnsByTable, embedSignals, schemaPartitions, nil
+}
+
+func (*TableRouter) routeAnnotateResult(result *TableRoutingResult, loc i18n.Locale, schemaPartitions []string, embedSignals embeddingSignals) {
+	result.ensureDebug().QuestionLocale = string(loc)
+	if len(schemaPartitions) > 0 {
+		result.ensureDebug().SchemaPartitions = schemaPartitions
+	}
+	if result.RankingMethod != "" {
+		return
+	}
+	switch {
+	case result.Manual:
+		result.RankingMethod = "manual"
+	case len(embedSignals.tableBoost) > 0:
+		result.RankingMethod = "hybrid"
+	default:
+		result.RankingMethod = "keyword"
+	}
+}
+
+func (*TableRouter) routeExpandSelection(
+	selected []tableBundle,
+	tables []metadata.Table,
+	columnsByTable map[string][]metadata.Column,
+	relations []metadata.Relation,
+	question string,
+	tableScope []string,
+	result *TableRoutingResult,
+) []tableBundle {
+	if len(selected) == 0 || result.Manual || len(nonEmptyScope(tableScope)) > 0 {
+		return selected
+	}
 	questionTokens := tokenSet(question)
 	tblIdx := indexTables(tables)
-	if len(selected) > 0 && !result.Manual && len(nonEmptyScope(tableScope)) == 0 {
-		selected = appendEntityResolverTables(selected, columnsByTable, relations, tblIdx, questionTokens, maxExpandedAutoTables, nameResolverMaxHops)
-		selected = appendQuestionEntityTables(selected, tables, relations, tblIdx, questionTokens, maxExpandedAutoTables, nameResolverMaxHops)
-		beforeBridge := bundleKeySet(selected)
-		selected = expandSelectedWithJoinBridges(selected, relations, tblIdx, maxExpandedAutoTables)
-		result.ensureDebug().BridgeTables = addedBundleLabels(beforeBridge, selected)
-	}
+	selected = appendEntityResolverTables(selected, columnsByTable, relations, tblIdx, questionTokens, maxExpandedAutoTables, nameResolverMaxHops)
+	selected = appendQuestionEntityTables(selected, tables, relations, tblIdx, questionTokens, maxExpandedAutoTables, nameResolverMaxHops)
+	beforeBridge := bundleKeySet(selected)
+	selected = expandSelectedWithJoinBridges(selected, relations, tblIdx, maxExpandedAutoTables)
+	result.ensureDebug().BridgeTables = addedBundleLabels(beforeBridge, selected)
+	return selected
+}
 
+func (r *TableRouter) routeFinalize(
+	ctx context.Context,
+	datasourceID string,
+	selected []tableBundle,
+	relations []metadata.Relation,
+	columnsByTable map[string][]metadata.Column,
+	question string,
+	embedSignals embeddingSignals,
+	result *TableRoutingResult,
+) (*semantic.SemanticModel, *TableRoutingResult, error) {
 	connected, joinPaths := connectSelectedTables(selected, relations)
 	if result.Manual && len(connected) != len(selected) {
 		result.NeedsClarification = true
@@ -293,9 +354,9 @@ func (r *TableRouter) Route(
 	result.ensureDebug().EliminatedCandidates = eliminatedCandidateLabels(result.Candidates)
 
 	limits := r.limits.withDefaults()
+	questionTokens := tokenSet(question)
 	columnsForModel := rankColumnsForSemanticModel(connected, columnsByTable, relations, questionTokens, embedSignals.columnScores, limits.MaxColumnsPerTable)
-	timeGrains := r.loadTimeGrains(ctx)
-	model = buildSemanticModel(datasourceID, connected, columnsForModel, relations, limits, timeGrains)
+	model := buildSemanticModel(datasourceID, connected, columnsForModel, relations, limits, r.loadTimeGrains(ctx))
 	if !result.Manual {
 		pruneAutoSemanticModel(model, question, limits, embedSignals.columnScores)
 	}
@@ -304,12 +365,6 @@ func (r *TableRouter) Route(
 		contextSource = "manual"
 	}
 	applyModelContextToRouting(result, model, contextSource, nil)
-	if result != nil {
-		span.SetAttributes(
-			attribute.Float64("ai.route.confidence", result.Confidence),
-			attribute.String("ai.ranking_method", result.RankingMethod),
-		)
-	}
 	return model, result, nil
 }
 

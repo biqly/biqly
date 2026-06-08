@@ -238,85 +238,67 @@ func (s *WebAuthnService) FinishLogin(ctx context.Context, session *webauthn.Ses
 		request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	}
 
-	if uid == nil { //nolint:nestif // discoverable assertion resolves user from credential id
-		handler := func(rawID, _ []byte) (webauthn.User, error) {
-			discoveredUID, err := s.repo.GetUserIDByCredentialID(ctx, rawID)
-			if err != nil {
-				return nil, errors.New("no user found for passkey")
-			}
-
-			user, err := s.repo.GetUserByID(ctx, discoveredUID)
-			if err != nil {
-				return nil, err
-			}
-
-			creds, err := s.repo.GetPasskeysByUserID(ctx, user.ID)
-			if err != nil {
-				return nil, err
-			}
-			applyAssertionBackupFlags(creds, bodyBytes)
-
-			return &WebAuthnUser{
-				User:        user,
-				Credentials: creds,
-			}, nil
-		}
-
-		waUser, cred, err := s.webAuthn.FinishPasskeyLogin(handler, *session, request)
-		if err != nil {
-			return nil, err
-		}
-
-		user, ok := waUser.(*WebAuthnUser)
-		if !ok {
-			return nil, errors.New("invalid passkey user")
-		}
-
-		err = s.repo.UpdatePasskeySignCount(ctx, cred.ID, cred.Authenticator.SignCount)
-		if err != nil {
-			return nil, err
-		}
-
-		err = s.repo.UpdateLastLogin(ctx, user.User.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		return user.User, nil
+	if uid == nil {
+		return s.finishDiscoverablePasskeyLogin(ctx, session, request, bodyBytes)
 	}
+	return s.finishKnownUserPasskeyLogin(ctx, uid, session, request, bodyBytes)
+}
 
+func (s *WebAuthnService) finishDiscoverablePasskeyLogin(ctx context.Context, session *webauthn.SessionData, request *http.Request, bodyBytes []byte) (*auth.User, error) {
+	handler := func(rawID, _ []byte) (webauthn.User, error) {
+		discoveredUID, err := s.repo.GetUserIDByCredentialID(ctx, rawID)
+		if err != nil {
+			return nil, errors.New("no user found for passkey")
+		}
+		user, err := s.repo.GetUserByID(ctx, discoveredUID)
+		if err != nil {
+			return nil, err
+		}
+		creds, err := s.repo.GetPasskeysByUserID(ctx, user.ID)
+		if err != nil {
+			return nil, err
+		}
+		applyAssertionBackupFlags(creds, bodyBytes)
+		return &WebAuthnUser{User: user, Credentials: creds}, nil
+	}
+	waUser, cred, err := s.webAuthn.FinishPasskeyLogin(handler, *session, request)
+	if err != nil {
+		return nil, err
+	}
+	user, ok := waUser.(*WebAuthnUser)
+	if !ok {
+		return nil, errors.New("invalid passkey user")
+	}
+	if err := s.repo.UpdatePasskeySignCount(ctx, cred.ID, cred.Authenticator.SignCount); err != nil {
+		return nil, err
+	}
+	if err := s.repo.UpdateLastLogin(ctx, user.User.ID); err != nil {
+		return nil, err
+	}
+	return user.User, nil
+}
+
+func (s *WebAuthnService) finishKnownUserPasskeyLogin(ctx context.Context, uid *string, session *webauthn.SessionData, request *http.Request, bodyBytes []byte) (*auth.User, error) {
 	user, err := s.repo.GetUserByID(ctx, *uid)
 	if err != nil {
 		return nil, err
 	}
-
 	creds, err := s.repo.GetPasskeysByUserID(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
-
 	applyAssertionBackupFlags(creds, bodyBytes)
-
-	waUser := &WebAuthnUser{
-		User:        user,
-		Credentials: creds,
-	}
-
+	waUser := &WebAuthnUser{User: user, Credentials: creds}
 	cred, err := s.webAuthn.FinishLogin(waUser, *session, request)
 	if err != nil {
 		return nil, err
 	}
-
-	err = s.repo.UpdatePasskeySignCount(ctx, cred.ID, cred.Authenticator.SignCount)
-	if err != nil {
+	if err := s.repo.UpdatePasskeySignCount(ctx, cred.ID, cred.Authenticator.SignCount); err != nil {
 		return nil, err
 	}
-
-	err = s.repo.UpdateLastLogin(ctx, user.ID)
-	if err != nil {
+	if err := s.repo.UpdateLastLogin(ctx, user.ID); err != nil {
 		return nil, err
 	}
-
 	return user, nil
 }
 
@@ -333,24 +315,34 @@ func applyAssertionBackupFlags(creds []webauthn.Credential, bodyBytes []byte) {
 }
 
 func AssertionBackupFlags(bodyBytes []byte) (backupEligible bool, backupState bool, ok bool) {
-	if len(bodyBytes) > 0 { //nolint:nestif // backup flags are optional in assertion payload
-		var reqPayload struct {
-			Response struct {
-				AuthenticatorData string `json:"authenticatorData"`
-			} `json:"response"`
-		}
-		if err := sonic.ConfigStd.Unmarshal(bodyBytes, &reqPayload); err == nil && reqPayload.Response.AuthenticatorData != "" {
-			authData, err := base64.RawURLEncoding.DecodeString(reqPayload.Response.AuthenticatorData)
-			if err != nil {
-				authData, err = base64.URLEncoding.DecodeString(reqPayload.Response.AuthenticatorData)
-			}
-			if err == nil && len(authData) > 32 {
-				flags := protocol.AuthenticatorFlags(authData[32])
-				return flags.HasBackupEligible(), flags.HasBackupState(), true
-			}
-		}
+	authData, ok := authenticatorDataFromAssertion(bodyBytes)
+	if !ok {
+		return false, false, false
 	}
-	return false, false, false
+	flags := protocol.AuthenticatorFlags(authData[32])
+	return flags.HasBackupEligible(), flags.HasBackupState(), true
+}
+
+func authenticatorDataFromAssertion(bodyBytes []byte) ([]byte, bool) {
+	if len(bodyBytes) == 0 {
+		return nil, false
+	}
+	var reqPayload struct {
+		Response struct {
+			AuthenticatorData string `json:"authenticatorData"`
+		} `json:"response"`
+	}
+	if err := sonic.ConfigStd.Unmarshal(bodyBytes, &reqPayload); err != nil || reqPayload.Response.AuthenticatorData == "" {
+		return nil, false
+	}
+	authData, err := base64.RawURLEncoding.DecodeString(reqPayload.Response.AuthenticatorData)
+	if err != nil {
+		authData, err = base64.URLEncoding.DecodeString(reqPayload.Response.AuthenticatorData)
+	}
+	if err != nil || len(authData) <= 32 {
+		return nil, false
+	}
+	return authData, true
 }
 
 func (s *WebAuthnService) GetUserPasskeys(ctx context.Context, userID string) ([]auth.PasskeyInfo, error) {

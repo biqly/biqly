@@ -40,56 +40,99 @@ type appState struct {
 	serviceName string
 }
 
-//nolint:funlen // single entrypoint wires config, LDAP, HTTP routes, and metrics
 func main() {
 	cfg, err := biqauth.LoadConfig()
 	if err != nil {
 		slog.Error("load config", "err", err)
 		os.Exit(1)
 	}
-
-	// Structured JSON logging (defaults: info level, JSON format) so auth logs
-	// are machine-parseable and correlatable by request_id in aggregation.
-	observability.SetupLogging(os.Getenv("BI_AUTH_LOG_LEVEL"), os.Getenv("BI_AUTH_LOG_FORMAT"))
-
-	{
-		shutdownTracing, tracErr := observability.SetupTracing(context.Background(), "biqly-auth")
-		if tracErr != nil {
-			slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)
-		}
-		defer func() { _ = shutdownTracing(context.Background()) }()
-	}
-
-	db, err := sql.Open("pgx", cfg.DBDSN)
+	shutdownTracing := setupAuthObservability()
+	defer func() { _ = shutdownTracing(context.Background()) }()
+	runtime, err := newAuthRuntime(cfg)
 	if err != nil {
-		slog.Error("open database", "err", err)
+		slog.Error("initialize auth runtime", "err", err)
 		os.Exit(1)
 	}
-	defer func() { _ = db.Close() }()
+	defer runtime.close()
+	runAuthHTTPServer(cfg, runtime)
+}
+
+func setupAuthObservability() func(context.Context) error {
+	observability.SetupLogging(os.Getenv("BI_AUTH_LOG_LEVEL"), os.Getenv("BI_AUTH_LOG_FORMAT"))
+	shutdownTracing, tracErr := observability.SetupTracing(context.Background(), "biqly-auth")
+	if tracErr != nil {
+		slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)
+	}
+	return shutdownTracing
+}
+
+type authRuntime struct {
+	db          *sql.DB
+	redis       *redis.Client
+	authHandler *handlers.AuthHandler
+	rbacHandler *handlers.RBACHandler
+	limiter     *biqauth.RateLimiter
+	startedAt   time.Time
+}
+
+func (r *authRuntime) close() {
+	if r.redis != nil {
+		_ = r.redis.Close()
+	}
+	if r.db != nil {
+		_ = r.db.Close()
+	}
+}
+
+func newAuthRuntime(cfg *biqauth.Config) (*authRuntime, error) {
+	db, err := sql.Open("pgx", cfg.DBDSN)
+	if err != nil {
+		return nil, err
+	}
 	configureDB(db)
 	registerSessionGauge(db)
 
 	redisClient, err := newRedisClient(cfg.RedisDSN)
 	if err != nil {
-		slog.Error("configure redis", "err", err)
-		os.Exit(1)
+		_ = db.Close()
+		return nil, err
 	}
-	defer func() { _ = redisClient.Close() }()
 
 	jwtMgr, err := biqauth.NewJWTManager(cfg.JWTPrivateKeyPath, cfg.JWTPublicKeyPath, cfg.JWTAccessTTL)
 	if err != nil {
-		slog.Error("initialize jwt manager", "err", err)
-		os.Exit(1)
+		_ = redisClient.Close()
+		_ = db.Close()
+		return nil, err
 	}
 
 	var tokenEnc *security.Encryption
 	if cfg.EncryptionKey != "" {
 		tokenEnc, err = security.NewEncryptionFromBase64(cfg.EncryptionKey)
 		if err != nil {
-			slog.Error("initialize oauth token encryption", "err", err)
-			os.Exit(1)
+			_ = redisClient.Close()
+			_ = db.Close()
+			return nil, err
 		}
 	}
+
+	authHandler, rbacHandler, limiter, err := buildAuthHandlers(cfg, db, redisClient, jwtMgr, tokenEnc)
+	if err != nil {
+		_ = redisClient.Close()
+		_ = db.Close()
+		return nil, err
+	}
+
+	return &authRuntime{
+		db:          db,
+		redis:       redisClient,
+		authHandler: authHandler,
+		rbacHandler: rbacHandler,
+		limiter:     limiter,
+		startedAt:   time.Now().UTC(),
+	}, nil
+}
+
+func buildAuthHandlers(cfg *biqauth.Config, db *sql.DB, redisClient *redis.Client, jwtMgr *biqauth.JWTManager, tokenEnc *security.Encryption) (*handlers.AuthHandler, *handlers.RBACHandler, *biqauth.RateLimiter, error) {
 	userRepo := biqauth.NewUserRepository(db, tokenEnc)
 	rbacRepo := rbac.NewRBACRepository(db)
 	sessionMgr := biqauth.NewSessionManager(db)
@@ -109,8 +152,7 @@ func main() {
 	authSvc.SetLDAP(ldapConfigRepo, ldap.New())
 	webAuthnSvc, err := mfa.NewWebAuthnService(cfg, userRepo)
 	if err != nil {
-		slog.Error("initialize webauthn", "err", err)
-		os.Exit(1)
+		return nil, nil, nil, err
 	}
 	rbacSvc := rbac.NewRBACService(rbacRepo)
 	dsAccessSvc := rbac.NewDatasourceAccessService(db, redisClient, rbacSvc)
@@ -135,14 +177,17 @@ func main() {
 	authHandler.SetGDPRExporter(gdprExporter)
 	authHandler.SetAuditService(auditSvc)
 	rbacHandler := handlers.NewRBACHandler(rbacSvc, rbacRepo, userRepo, dsAccessSvc, aiModelAccessSvc, workspaceSvc, sharingSvc, auditSvc, jwtMgr, cfg)
+	return authHandler, rbacHandler, limiter, nil
+}
 
+func runAuthHTTPServer(cfg *biqauth.Config, runtime *authRuntime) {
 	state := &appState{
-		db:          db,
-		redis:       redisClient,
-		startedAt:   time.Now().UTC(),
+		db:          runtime.db,
+		redis:       runtime.redis,
+		startedAt:   runtime.startedAt,
 		serviceName: "auth",
 	}
-	router := newRouter(state, authHandler, rbacHandler, limiter, cfg)
+	router := newRouter(state, runtime.authHandler, runtime.rbacHandler, runtime.limiter, cfg)
 	server := &http.Server{
 		Addr:         cfg.HTTPAddr(),
 		Handler:      router,

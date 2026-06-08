@@ -19,6 +19,42 @@ type selectableModelSummary struct {
 	ProviderType string `json:"provider_type"`
 }
 
+func applyUserAIModelAccess(
+	ctx context.Context,
+	store *ai.ProviderStore,
+	auth *bimw.AuthClient,
+	userID string,
+	candidateIDs []string,
+	preferences map[string]string,
+) ([]string, map[string]string, bool, error) {
+	if userID == "" || auth == nil {
+		return candidateIDs, preferences, false, nil
+	}
+	access, err := auth.UserAIAccess(ctx, userID)
+	if err != nil {
+		return candidateIDs, preferences, false, err
+	}
+	if access == nil {
+		return candidateIDs, preferences, false, nil
+	}
+	for purpose, modelID := range access.Preferences {
+		preferences[purpose] = modelID
+	}
+	if !access.Restricted {
+		return candidateIDs, preferences, access.Restricted, nil
+	}
+	providerModels, err := store.ActiveModelUUIDsByProviders(ctx, access.ProviderIDs)
+	if err != nil {
+		return candidateIDs, preferences, access.Restricted, err
+	}
+	rbacAccess := &rbac.UserAIAccess{
+		Restricted:  true,
+		ModelIDs:    access.ModelIDs,
+		ProviderIDs: access.ProviderIDs,
+	}
+	return rbac.FilterAllowedModelIDs(rbacAccess, providerModels, candidateIDs), preferences, access.Restricted, nil
+}
+
 func userSelectableModels(
 	ctx context.Context,
 	store *ai.ProviderStore,
@@ -37,29 +73,10 @@ func userSelectableModels(
 	for _, m := range rows {
 		candidateIDs = append(candidateIDs, m.ID)
 	}
-	if userID != "" && auth != nil { //nolint:nestif
-		access, aerr := auth.UserAIAccess(ctx, userID)
-		if aerr != nil {
-			return nil, preferences, false, aerr
-		}
-		if access != nil {
-			restricted = access.Restricted
-			for purpose, modelID := range access.Preferences {
-				preferences[purpose] = modelID
-			}
-			if access.Restricted {
-				providerModels, perr := store.ActiveModelUUIDsByProviders(ctx, access.ProviderIDs)
-				if perr != nil {
-					return nil, preferences, restricted, perr
-				}
-				rbacAccess := &rbac.UserAIAccess{
-					Restricted:  true,
-					ModelIDs:    access.ModelIDs,
-					ProviderIDs: access.ProviderIDs,
-				}
-				candidateIDs = rbac.FilterAllowedModelIDs(rbacAccess, providerModels, candidateIDs)
-			}
-		}
+	var aerr error
+	candidateIDs, preferences, restricted, aerr = applyUserAIModelAccess(ctx, store, auth, userID, candidateIDs, preferences)
+	if aerr != nil {
+		return nil, preferences, restricted, aerr
 	}
 	allowed := make(map[string]struct{}, len(candidateIDs))
 	for _, id := range candidateIDs {

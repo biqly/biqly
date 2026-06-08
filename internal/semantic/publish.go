@@ -349,69 +349,68 @@ func containsDMLKeyword(expr string) (string, bool) {
 // identifiers, line comments (--), and block comments (/* */) from a SQL
 // fragment so the remainder can be scanned for DML keywords without false
 // positives from values or comment text.
-//
-//nolint:gocognit
 func stripCalcExprLiteralsAndComments(sql string) string {
 	var out strings.Builder
 	out.Grow(len(sql))
 	i := 0
 	n := len(sql)
 	for i < n {
-		c := sql[i]
-		if c == '-' && i+1 < n && sql[i+1] == '-' {
-			for i < n && sql[i] != '\n' {
-				i++
-			}
-			continue
+		switch {
+		case calcExprLineCommentAt(sql, i, n):
+			i = skipCalcExprLineComment(sql, i, n)
+		case calcExprBlockCommentAt(sql, i, n):
+			i = skipCalcExprBlockComment(sql, i, n)
+		case sql[i] == '\'':
+			i = skipCalcExprQuoted(sql, i, n, '\'')
+		case sql[i] == '"':
+			i = skipCalcExprQuoted(sql, i, n, '"')
+		default:
+			_ = out.WriteByte(sql[i])
+			i++
 		}
-		if c == '/' && i+1 < n && sql[i+1] == '*' {
-			i += 2
-			for i+1 < n && (sql[i] != '*' || sql[i+1] != '/') {
-				i++
-			}
-			if i+1 < n {
+	}
+	return out.String()
+}
+
+func calcExprLineCommentAt(sql string, i, n int) bool {
+	return sql[i] == '-' && i+1 < n && sql[i+1] == '-'
+}
+
+func skipCalcExprLineComment(sql string, i, n int) int {
+	for i < n && sql[i] != '\n' {
+		i++
+	}
+	return i
+}
+
+func calcExprBlockCommentAt(sql string, i, n int) bool {
+	return sql[i] == '/' && i+1 < n && sql[i+1] == '*'
+}
+
+func skipCalcExprBlockComment(sql string, i, n int) int {
+	i += 2
+	for i+1 < n && (sql[i] != '*' || sql[i+1] != '/') {
+		i++
+	}
+	if i+1 < n {
+		return i + 2
+	}
+	return n
+}
+
+func skipCalcExprQuoted(sql string, i, n int, quote byte) int {
+	i++
+	for i < n {
+		if sql[i] == quote {
+			if i+1 < n && sql[i+1] == quote {
 				i += 2
-			} else {
-				i = n
+				continue
 			}
-			continue
-		}
-		if c == '\'' {
-			i++
-			for i < n {
-				if sql[i] == '\'' {
-					if i+1 < n && sql[i+1] == '\'' {
-						i += 2
-						continue
-					}
-					i++
-					break
-				}
-				i++
-			}
-			continue
-		}
-		if c == '"' {
-			i++
-			for i < n {
-				if sql[i] == '"' {
-					if i+1 < n && sql[i+1] == '"' {
-						i += 2
-						continue
-					}
-					i++
-					break
-				}
-				i++
-			}
-			continue
-		}
-		if err := out.WriteByte(c); err != nil {
-			_ = err
+			return i + 1
 		}
 		i++
 	}
-	return out.String()
+	return i
 }
 
 // isSQLLiteral returns true if s looks like a SQL literal (number, string, NULL, etc.).
@@ -437,41 +436,39 @@ func isSQLLiteral(s string) bool {
 	return true
 }
 
-//nolint:gocognit
 func checkCircularDependencies(model SemanticModel) []string {
-	var errs []string
+	return findCalcExprCycles(buildCalcExprDependencyAdj(model))
+}
+
+func buildCalcExprDependencyAdj(model SemanticModel) map[string][]string {
 	adj := make(map[string][]string)
-
 	for _, d := range model.Dimensions {
-		expr := getOrParseExpr(d.CalculatedExpression, d.CalculatedExpr)
-		if expr != nil {
-			_, mets, dims := pkgsemantic.ExprDependencies(expr)
-			nodeKey := "dim:" + strings.ToLower(d.Name)
-			for _, depDim := range dims {
-				adj[nodeKey] = append(adj[nodeKey], "dim:"+strings.ToLower(depDim))
-			}
-			for _, depMet := range mets {
-				adj[nodeKey] = append(adj[nodeKey], "met:"+strings.ToLower(depMet))
-			}
-		}
+		addCalcExprDeps(adj, "dim:"+strings.ToLower(d.Name), d.CalculatedExpression, d.CalculatedExpr)
 	}
-
 	for _, m := range model.Metrics {
-		expr := getOrParseExpr(m.Expression, m.Expr)
-		if expr != nil {
-			_, mets, dims := pkgsemantic.ExprDependencies(expr)
-			nodeKey := "met:" + strings.ToLower(m.Name)
-			for _, depDim := range dims {
-				adj[nodeKey] = append(adj[nodeKey], "dim:"+strings.ToLower(depDim))
-			}
-			for _, depMet := range mets {
-				adj[nodeKey] = append(adj[nodeKey], "met:"+strings.ToLower(depMet))
-			}
-		}
+		addCalcExprDeps(adj, "met:"+strings.ToLower(m.Name), m.Expression, m.Expr)
 	}
+	return adj
+}
 
-	visited := make(map[string]int) // 0 = unvisited, 1 = visiting, 2 = visited
-	var path []string
+func addCalcExprDeps(adj map[string][]string, nodeKey, exprStr string, ast pkgsemantic.ExprNode) {
+	expr := getOrParseExpr(exprStr, ast)
+	if expr == nil {
+		return
+	}
+	_, mets, dims := pkgsemantic.ExprDependencies(expr)
+	for _, depDim := range dims {
+		adj[nodeKey] = append(adj[nodeKey], "dim:"+strings.ToLower(depDim))
+	}
+	for _, depMet := range mets {
+		adj[nodeKey] = append(adj[nodeKey], "met:"+strings.ToLower(depMet))
+	}
+}
+
+func findCalcExprCycles(adj map[string][]string) []string {
+	visited := make(map[string]int)
+	path := make([]string, 0, len(adj))
+	errs := make([]string, 0)
 
 	var dfs func(u string)
 	dfs = func(u string) {
@@ -479,23 +476,12 @@ func checkCircularDependencies(model SemanticModel) []string {
 		path = append(path, u)
 
 		for _, v := range adj[u] {
-			if visited[v] == 1 {
-				cycleStartIdx := -1
-				for i, p := range path {
-					if p == v {
-						cycleStartIdx = i
-						break
-					}
+			switch visited[v] {
+			case 1:
+				if cycle := formatCalcExprCycle(path, v); cycle != "" {
+					errs = append(errs, cycle)
 				}
-				if cycleStartIdx != -1 {
-					cycle := make([]string, 0, len(path)-cycleStartIdx+1)
-					for _, p := range path[cycleStartIdx:] {
-						cycle = append(cycle, cleanNodeName(p))
-					}
-					cycle = append(cycle, cleanNodeName(v))
-					errs = append(errs, "circular dependency detected: "+strings.Join(cycle, " -> "))
-				}
-			} else if visited[v] == 0 {
+			case 0:
 				dfs(v)
 			}
 		}
@@ -509,8 +495,26 @@ func checkCircularDependencies(model SemanticModel) []string {
 			dfs(k)
 		}
 	}
-
 	return errs
+}
+
+func formatCalcExprCycle(path []string, repeat string) string {
+	cycleStartIdx := -1
+	for i, p := range path {
+		if p == repeat {
+			cycleStartIdx = i
+			break
+		}
+	}
+	if cycleStartIdx == -1 {
+		return ""
+	}
+	cycle := make([]string, 0, len(path)-cycleStartIdx+1)
+	for _, p := range path[cycleStartIdx:] {
+		cycle = append(cycle, cleanNodeName(p))
+	}
+	cycle = append(cycle, cleanNodeName(repeat))
+	return "circular dependency detected: " + strings.Join(cycle, " -> ")
 }
 
 func getOrParseExpr(exprStr string, ast pkgsemantic.ExprNode) pkgsemantic.ExprNode {

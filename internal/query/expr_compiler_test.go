@@ -9,18 +9,17 @@ import (
 	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
 )
 
-//nolint:funlen
-func TestCompileExprAcrossDialects(t *testing.T) {
-	resolver := NewSchemaResolver(&semantic.SemanticModel{BaseSchema: "public"}, nil)
+type compileExprDialectCase struct {
+	name string
+	expr pkgsemantic.ExprNode
+	want map[string]string
+}
 
-	tests := []struct {
-		name string
-		expr pkgsemantic.ExprNode
-		want map[string]string
-	}{
+func compileExprAcrossDialectsBasicCases() []compileExprDialectCase {
+	return []compileExprDialectCase{
 		{
 			name: "literal string",
-			expr: pkgsemantic.LiteralExpr{Value: "paid"},
+			expr: &pkgsemantic.LiteralExpr{Value: "paid"},
 			want: map[string]string{
 				"postgres":   "'paid'",
 				"mysql":      "'paid'",
@@ -30,7 +29,7 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 		},
 		{
 			name: "column ref",
-			expr: pkgsemantic.ColumnRefExpr{Table: "orders", Column: "total_amount"},
+			expr: &pkgsemantic.ColumnRefExpr{Table: "orders", Column: "total_amount"},
 			want: map[string]string{
 				"postgres":   `"orders"."total_amount"`,
 				"mysql":      "`orders`.`total_amount`",
@@ -40,14 +39,14 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 		},
 		{
 			name: "nested arithmetic",
-			expr: pkgsemantic.BinaryExpr{
+			expr: &pkgsemantic.BinaryExpr{
 				Op: pkgsemantic.OpMultiply,
-				Left: pkgsemantic.BinaryExpr{
+				Left: &pkgsemantic.BinaryExpr{
 					Op:    pkgsemantic.OpSubtract,
-					Left:  pkgsemantic.ColumnRefExpr{Column: "revenue"},
-					Right: pkgsemantic.ColumnRefExpr{Column: "cost"},
+					Left:  &pkgsemantic.ColumnRefExpr{Column: "revenue"},
+					Right: &pkgsemantic.ColumnRefExpr{Column: "cost"},
 				},
-				Right: pkgsemantic.ColumnRefExpr{Column: "tax_rate"},
+				Right: &pkgsemantic.ColumnRefExpr{Column: "tax_rate"},
 			},
 			want: map[string]string{
 				"postgres":   `(("revenue" - "cost") * "tax_rate")`,
@@ -58,10 +57,10 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 		},
 		{
 			name: "concat override",
-			expr: pkgsemantic.BinaryExpr{
+			expr: &pkgsemantic.BinaryExpr{
 				Op:    pkgsemantic.OpConcat,
-				Left:  pkgsemantic.ColumnRefExpr{Column: "first_name"},
-				Right: pkgsemantic.ColumnRefExpr{Column: "last_name"},
+				Left:  &pkgsemantic.ColumnRefExpr{Column: "first_name"},
+				Right: &pkgsemantic.ColumnRefExpr{Column: "last_name"},
 			},
 			want: map[string]string{
 				"postgres":   `("first_name" || "last_name")`,
@@ -72,9 +71,9 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 		},
 		{
 			name: "unary not",
-			expr: pkgsemantic.UnaryExpr{
+			expr: &pkgsemantic.UnaryExpr{
 				Op:   pkgsemantic.OpNot,
-				Expr: pkgsemantic.ColumnRefExpr{Column: "is_active"},
+				Expr: &pkgsemantic.ColumnRefExpr{Column: "is_active"},
 			},
 			want: map[string]string{
 				"postgres":   `(NOT "is_active")`,
@@ -83,17 +82,22 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 				"clickhouse": "(NOT `is_active`)",
 			},
 		},
+	}
+}
+
+func compileExprAcrossDialectsAdvancedCases() []compileExprDialectCase {
+	return []compileExprDialectCase{
 		{
 			name: "function call",
-			expr: pkgsemantic.FunctionCallExpr{
+			expr: &pkgsemantic.FunctionCallExpr{
 				Name: "ROUND",
 				Args: []pkgsemantic.ExprNode{
-					pkgsemantic.BinaryExpr{
+					&pkgsemantic.BinaryExpr{
 						Op:    pkgsemantic.OpDivide,
-						Left:  pkgsemantic.ColumnRefExpr{Column: "revenue"},
-						Right: pkgsemantic.FunctionCallExpr{Name: "NULLIF", Args: []pkgsemantic.ExprNode{pkgsemantic.ColumnRefExpr{Column: "quantity"}, pkgsemantic.LiteralExpr{Value: int64(0)}}},
+						Left:  &pkgsemantic.ColumnRefExpr{Column: "revenue"},
+						Right: &pkgsemantic.FunctionCallExpr{Name: "NULLIF", Args: []pkgsemantic.ExprNode{&pkgsemantic.ColumnRefExpr{Column: "quantity"}, &pkgsemantic.LiteralExpr{Value: int64(0)}}},
 					},
-					pkgsemantic.LiteralExpr{Value: int64(2)},
+					&pkgsemantic.LiteralExpr{Value: int64(2)},
 				},
 			},
 			want: map[string]string{
@@ -105,11 +109,11 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 		},
 		{
 			name: "date trunc",
-			expr: pkgsemantic.FunctionCallExpr{
+			expr: &pkgsemantic.FunctionCallExpr{
 				Name: "DATE_TRUNC",
 				Args: []pkgsemantic.ExprNode{
-					pkgsemantic.LiteralExpr{Value: "month"},
-					pkgsemantic.ColumnRefExpr{Column: "created_at"},
+					&pkgsemantic.LiteralExpr{Value: "month"},
+					&pkgsemantic.ColumnRefExpr{Column: "created_at"},
 				},
 			},
 			want: map[string]string{
@@ -121,18 +125,18 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 		},
 		{
 			name: "case expression",
-			expr: pkgsemantic.CaseExpr{
+			expr: &pkgsemantic.CaseExpr{
 				Conditions: []pkgsemantic.CaseWhen{
 					{
-						When: pkgsemantic.BinaryExpr{
+						When: &pkgsemantic.BinaryExpr{
 							Op:    pkgsemantic.OpGt,
-							Left:  pkgsemantic.ColumnRefExpr{Column: "total_amount"},
-							Right: pkgsemantic.LiteralExpr{Value: int64(0)},
+							Left:  &pkgsemantic.ColumnRefExpr{Column: "total_amount"},
+							Right: &pkgsemantic.LiteralExpr{Value: int64(0)},
 						},
-						Then: pkgsemantic.LiteralExpr{Value: "positive"},
+						Then: &pkgsemantic.LiteralExpr{Value: "positive"},
 					},
 				},
-				ElseExpr: pkgsemantic.LiteralExpr{Value: "negative"},
+				ElseExpr: &pkgsemantic.LiteralExpr{Value: "negative"},
 			},
 			want: map[string]string{
 				"postgres":   `CASE WHEN ("total_amount" > 0) THEN 'positive' ELSE 'negative' END`,
@@ -142,6 +146,11 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 			},
 		},
 	}
+}
+
+func TestCompileExprAcrossDialects(t *testing.T) {
+	resolver := NewSchemaResolver(&semantic.SemanticModel{BaseSchema: "public"}, nil)
+	tests := append(compileExprAcrossDialectsBasicCases(), compileExprAcrossDialectsAdvancedCases()...)
 
 	dialects := []dialect.Dialect{
 		dialect.PostgresDialect{},
@@ -165,7 +174,7 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 }
 
 func TestCompileExprSafetyNet(t *testing.T) {
-	expr := pkgsemantic.ColumnRefExpr{Column: "1; DROP TABLE users"}
+	expr := &pkgsemantic.ColumnRefExpr{Column: "1; DROP TABLE users"}
 	got, err := CompileExpr(expr, dialect.SQLServerDialect{}, nil, nil, nil)
 	if err == nil {
 		t.Fatalf("expected CompileExpr to return error for unsafe SQL")
@@ -176,10 +185,10 @@ func TestCompileExprSafetyNet(t *testing.T) {
 }
 
 func TestCompileExprParameterization(t *testing.T) {
-	expr := pkgsemantic.BinaryExpr{
+	expr := &pkgsemantic.BinaryExpr{
 		Op:    pkgsemantic.OpEq,
-		Left:  pkgsemantic.ColumnRefExpr{Column: "status"},
-		Right: pkgsemantic.LiteralExpr{Value: "active"},
+		Left:  &pkgsemantic.ColumnRefExpr{Column: "status"},
+		Right: &pkgsemantic.LiteralExpr{Value: "active"},
 	}
 	args := []any{}
 	got, err := CompileExpr(expr, dialect.Postgres, nil, &args, nil)
@@ -196,7 +205,7 @@ func TestCompileExprParameterization(t *testing.T) {
 }
 
 func TestCompileExprPIIMasking(t *testing.T) {
-	expr := pkgsemantic.ColumnRefExpr{Column: "email"}
+	expr := &pkgsemantic.ColumnRefExpr{Column: "email"}
 	piiConfig := &PIIMaskingConfig{
 		ColumnAccess: map[string]string{
 			"email": "masked",

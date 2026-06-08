@@ -24,37 +24,27 @@ const (
 )
 
 // LiteralExpr represents a scalar literal value.
-//
-//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type LiteralExpr struct {
 	Value any `json:"value"`
 }
 
 // ColumnRefExpr represents a physical column reference.
-//
-//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type ColumnRefExpr struct {
 	Table  string `json:"table,omitempty"`
 	Column string `json:"column"`
 }
 
 // MetricRefExpr references another semantic metric by name.
-//
-//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type MetricRefExpr struct {
 	Name string `json:"name"`
 }
 
 // DimensionRefExpr references another semantic dimension by name.
-//
-//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type DimensionRefExpr struct {
 	Name string `json:"name"`
 }
 
 // BinaryExpr combines two expressions with a binary operator.
-//
-//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type BinaryExpr struct {
 	Op    BinaryOp `json:"op"`
 	Left  ExprNode `json:"left"`
@@ -62,24 +52,18 @@ type BinaryExpr struct {
 }
 
 // UnaryExpr applies a unary operator to an expression.
-//
-//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type UnaryExpr struct {
 	Op   UnaryOp  `json:"op"`
 	Expr ExprNode `json:"expr"`
 }
 
 // FunctionCallExpr calls a whitelisted SQL function.
-//
-//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type FunctionCallExpr struct {
 	Name string     `json:"name"`
 	Args []ExprNode `json:"args,omitempty"`
 }
 
 // CaseExpr represents a SQL CASE expression.
-//
-//nolint:recvcheck // UnmarshalJSON uses pointer receiver; marshal/sealed use value receiver
 type CaseExpr struct {
 	Conditions []CaseWhen `json:"conditions,omitempty"`
 	ElseExpr   ExprNode   `json:"else,omitempty"`
@@ -143,21 +127,21 @@ var AllowedFunctions = map[string]int{
 	"RIGHT":      2,
 }
 
-func (LiteralExpr) exprSealed()      {}
-func (ColumnRefExpr) exprSealed()    {}
-func (MetricRefExpr) exprSealed()    {}
-func (DimensionRefExpr) exprSealed() {}
-func (BinaryExpr) exprSealed()       {}
-func (UnaryExpr) exprSealed()        {}
-func (FunctionCallExpr) exprSealed() {}
-func (CaseExpr) exprSealed()         {}
+func (*LiteralExpr) exprSealed()      {}
+func (*ColumnRefExpr) exprSealed()    {}
+func (*MetricRefExpr) exprSealed()    {}
+func (*DimensionRefExpr) exprSealed() {}
+func (*BinaryExpr) exprSealed()       {}
+func (*UnaryExpr) exprSealed()        {}
+func (*FunctionCallExpr) exprSealed() {}
+func (*CaseExpr) exprSealed()         {}
 
-func (e LiteralExpr) MarshalJSON() ([]byte, error) {
+func (e *LiteralExpr) MarshalJSON() ([]byte, error) {
 	type literalExpr LiteralExpr
 	return sonic.ConfigStd.Marshal(struct {
 		Type string `json:"type"`
 		literalExpr
-	}{Type: exprTypeLiteral, literalExpr: literalExpr(e)})
+	}{Type: exprTypeLiteral, literalExpr: literalExpr(*e)})
 }
 
 func (e *LiteralExpr) UnmarshalJSON(data []byte) error {
@@ -176,12 +160,12 @@ func (e *LiteralExpr) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (e ColumnRefExpr) MarshalJSON() ([]byte, error) {
+func (e *ColumnRefExpr) MarshalJSON() ([]byte, error) {
 	type columnRefExpr ColumnRefExpr
 	return sonic.ConfigStd.Marshal(struct {
 		Type string `json:"type"`
 		columnRefExpr
-	}{Type: exprTypeColumnRef, columnRefExpr: columnRefExpr(e)})
+	}{Type: exprTypeColumnRef, columnRefExpr: columnRefExpr(*e)})
 }
 
 func (e *ColumnRefExpr) UnmarshalJSON(data []byte) error {
@@ -200,12 +184,12 @@ func (e *ColumnRefExpr) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (e MetricRefExpr) MarshalJSON() ([]byte, error) {
+func (e *MetricRefExpr) MarshalJSON() ([]byte, error) {
 	type metricRefExpr MetricRefExpr
 	return sonic.ConfigStd.Marshal(struct {
 		Type string `json:"type"`
 		metricRefExpr
-	}{Type: exprTypeMetricRef, metricRefExpr: metricRefExpr(e)})
+	}{Type: exprTypeMetricRef, metricRefExpr: metricRefExpr(*e)})
 }
 
 func (e *MetricRefExpr) UnmarshalJSON(data []byte) error {
@@ -224,12 +208,12 @@ func (e *MetricRefExpr) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (e DimensionRefExpr) MarshalJSON() ([]byte, error) {
+func (e *DimensionRefExpr) MarshalJSON() ([]byte, error) {
 	type dimensionRefExpr DimensionRefExpr
 	return sonic.ConfigStd.Marshal(struct {
 		Type string `json:"type"`
 		dimensionRefExpr
-	}{Type: exprTypeDimensionRef, dimensionRefExpr: dimensionRefExpr(e)})
+	}{Type: exprTypeDimensionRef, dimensionRefExpr: dimensionRefExpr(*e)})
 }
 
 func (e *DimensionRefExpr) UnmarshalJSON(data []byte) error {
@@ -248,12 +232,12 @@ func (e *DimensionRefExpr) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (e BinaryExpr) MarshalJSON() ([]byte, error) {
+func (e *BinaryExpr) MarshalJSON() ([]byte, error) {
 	type binaryExpr BinaryExpr
 	return sonic.ConfigStd.Marshal(struct {
 		Type string `json:"type"`
 		binaryExpr
-	}{Type: exprTypeBinary, binaryExpr: binaryExpr(e)})
+	}{Type: exprTypeBinary, binaryExpr: binaryExpr(*e)})
 }
 
 func (e *BinaryExpr) UnmarshalJSON(data []byte) error {
@@ -281,12 +265,12 @@ func (e *BinaryExpr) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (e UnaryExpr) MarshalJSON() ([]byte, error) {
+func (e *UnaryExpr) MarshalJSON() ([]byte, error) {
 	type unaryExpr UnaryExpr
 	return sonic.ConfigStd.Marshal(struct {
 		Type string `json:"type"`
 		unaryExpr
-	}{Type: exprTypeUnary, unaryExpr: unaryExpr(e)})
+	}{Type: exprTypeUnary, unaryExpr: unaryExpr(*e)})
 }
 
 func (e *UnaryExpr) UnmarshalJSON(data []byte) error {
@@ -309,12 +293,12 @@ func (e *UnaryExpr) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (e FunctionCallExpr) MarshalJSON() ([]byte, error) {
+func (e *FunctionCallExpr) MarshalJSON() ([]byte, error) {
 	type functionCallExpr FunctionCallExpr
 	return sonic.ConfigStd.Marshal(struct {
 		Type string `json:"type"`
 		functionCallExpr
-	}{Type: exprTypeFunctionCall, functionCallExpr: functionCallExpr(e)})
+	}{Type: exprTypeFunctionCall, functionCallExpr: functionCallExpr(*e)})
 }
 
 func (e *FunctionCallExpr) UnmarshalJSON(data []byte) error {
@@ -341,12 +325,12 @@ func (e *FunctionCallExpr) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (e CaseExpr) MarshalJSON() ([]byte, error) {
+func (e *CaseExpr) MarshalJSON() ([]byte, error) {
 	type caseExpr CaseExpr
 	return sonic.ConfigStd.Marshal(struct {
 		Type string `json:"type"`
 		caseExpr
-	}{Type: exprTypeCase, caseExpr: caseExpr(e)})
+	}{Type: exprTypeCase, caseExpr: caseExpr(*e)})
 }
 
 func (e *CaseExpr) UnmarshalJSON(data []byte) error {
@@ -422,49 +406,49 @@ func UnmarshalExprNode(data []byte) (ExprNode, error) {
 		if err := sonic.ConfigStd.Unmarshal(data, &expr); err != nil {
 			return nil, err
 		}
-		return expr, nil
+		return &expr, nil
 	case exprTypeColumnRef:
 		var expr ColumnRefExpr
 		if err := sonic.ConfigStd.Unmarshal(data, &expr); err != nil {
 			return nil, err
 		}
-		return expr, nil
+		return &expr, nil
 	case exprTypeMetricRef:
 		var expr MetricRefExpr
 		if err := sonic.ConfigStd.Unmarshal(data, &expr); err != nil {
 			return nil, err
 		}
-		return expr, nil
+		return &expr, nil
 	case exprTypeDimensionRef:
 		var expr DimensionRefExpr
 		if err := sonic.ConfigStd.Unmarshal(data, &expr); err != nil {
 			return nil, err
 		}
-		return expr, nil
+		return &expr, nil
 	case exprTypeBinary:
 		var expr BinaryExpr
 		if err := sonic.ConfigStd.Unmarshal(data, &expr); err != nil {
 			return nil, err
 		}
-		return expr, nil
+		return &expr, nil
 	case exprTypeUnary:
 		var expr UnaryExpr
 		if err := sonic.ConfigStd.Unmarshal(data, &expr); err != nil {
 			return nil, err
 		}
-		return expr, nil
+		return &expr, nil
 	case exprTypeFunctionCall:
 		var expr FunctionCallExpr
 		if err := sonic.ConfigStd.Unmarshal(data, &expr); err != nil {
 			return nil, err
 		}
-		return expr, nil
+		return &expr, nil
 	case exprTypeCase:
 		var expr CaseExpr
 		if err := sonic.ConfigStd.Unmarshal(data, &expr); err != nil {
 			return nil, err
 		}
-		return expr, nil
+		return &expr, nil
 	default:
 		return nil, fmt.Errorf("unknown expression node type %q", header.Type)
 	}

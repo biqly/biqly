@@ -364,10 +364,16 @@ func (v AITranslationView) Configured() bool {
 }
 
 // Load reads configuration from environment variables.
-//
-//nolint:funlen
 func Load() (*Config, error) {
-	cfg := &Config{
+	cfg := loadConfigFromEnv()
+	if err := validateLoadedConfig(cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func loadConfigFromEnv() *Config {
+	return &Config{
 		Drift: DriftConfig{
 			CheckInterval: getEnvAsDuration("BI_DRIFT_CHECK_INTERVAL", 6*time.Hour),
 		},
@@ -411,61 +417,7 @@ func Load() (*Config, error) {
 			QueryURL:   strings.TrimRight(getEnv("BI_QUERY_SERVICE_URL", ""), "/"),
 			AIURL:      strings.TrimRight(getEnv("BI_AI_SERVICE_URL", ""), "/"),
 		},
-		AI: AIConfig{
-			// Connection/model selection is intentionally NOT read from the environment —
-			// it comes only from ai_providers / ai_models via ProviderStore.
-			Connection: AIConnectionConfig{
-				HTTPTimeoutSeconds: getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 300),
-				RateLimitPerMinute: getEnvAsInt("BI_AI_RATE_LIMIT_PER_MINUTE", 20),
-			},
-			Generation: AIGenerationConfig{
-				MaxPromptInputRunes: getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
-				MaxRetries:          getEnvAsInt("BI_AI_MAX_RETRIES", 2),
-				MultiCandidateCount: getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
-			},
-			Describe: AIDescribeConfig{
-				MaxCellRunes:  getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),
-				MaxSampleRows: getEnvAsInt("BI_AI_DESCRIBE_MAX_SAMPLE_ROWS", 12),
-			},
-			Cache: AICacheConfig{
-				ResponseTTLSeconds: getEnvAsInt("BI_AI_RESPONSE_CACHE_TTL", 3600),
-			},
-			Translation: TranslationConfig{
-				TargetLanguage: getEnv(
-					"BI_AI_TRANSLATION_TARGET_LANGUAGE",
-					"Turkish",
-				),
-				TargetCode:         getEnv("BI_AI_TRANSLATION_TARGET_CODE", "tr"),
-				HTTPTimeoutSeconds: getEnvAsInt("BI_AI_TRANSLATION_HTTP_TIMEOUT_SECONDS", 120),
-			},
-			Embedding: EmbeddingConfig{
-				HTTPTimeoutSeconds: getEnvAsInt(
-					"BI_AI_EMBEDDING_HTTP_TIMEOUT_SECONDS",
-					getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 600),
-				),
-				Weight:      getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
-				DenySchemas: splitCSV(getEnv("BI_AI_EMBEDDING_DENY_SCHEMAS", "")),
-				DenyTables:  splitCSV(getEnv("BI_AI_EMBEDDING_DENY_TABLES", "")),
-			},
-			Routing: RoutingConfig{
-				LexiconPath:        getEnv("BI_AI_ROUTING_LEXICON_PATH", ""),
-				WeightsPath:        getEnv("BI_AI_ROUTING_WEIGHTS_PATH", ""),
-				MaxDimensions:      getEnvAsInt("BI_AI_ROUTE_MAX_DIMENSIONS", 0),
-				MaxMetrics:         getEnvAsInt("BI_AI_ROUTE_MAX_METRICS", 0),
-				MaxColumnsPerTable: getEnvAsInt("BI_AI_ROUTE_MAX_COLUMNS_PER_TABLE", 0),
-				MaxDateGrainExtras: getEnvAsInt("BI_AI_ROUTE_MAX_DATE_GRAIN_EXTRAS", 0),
-				SlimNumericMetrics: getEnvAsBool("BI_AI_ROUTE_SLIM_NUMERIC_METRICS", true),
-			},
-			Ambiguity: AmbiguityConfig{
-				CheckEnabled: getEnvAsBool("BI_AI_AMBIGUITY_CHECK_ENABLED", true),
-				ConfidenceThreshold: getEnvAsFloat(
-					"BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD",
-					0.70,
-				),
-				MaxOptions: getEnvAsInt("BI_AI_AMBIGUITY_MAX_OPTIONS", 5),
-				LLMEnabled: getEnvAsBool("BI_AI_AMBIGUITY_LLM_ENABLED", false),
-			},
-		},
+		AI: loadAIConfigFromEnv(),
 		NATS: NATSConfig{
 			URL:           getEnv("BI_NATS_URL", ""),
 			Stream:        getEnv("BI_NATS_STREAM", "BIQLY_AI_JOBS"),
@@ -493,30 +445,89 @@ func Load() (*Config, error) {
 			DefaultMaskingStrategy: getEnv("BI_PII_DEFAULT_MASKING_STRATEGY", "partial"),
 		},
 	}
+}
 
+func loadAIConfigFromEnv() AIConfig {
+	return AIConfig{
+		// Connection/model selection is intentionally NOT read from the environment —
+		// it comes only from ai_providers / ai_models via ProviderStore.
+		Connection: AIConnectionConfig{
+			HTTPTimeoutSeconds: getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 300),
+			RateLimitPerMinute: getEnvAsInt("BI_AI_RATE_LIMIT_PER_MINUTE", 20),
+		},
+		Generation: AIGenerationConfig{
+			MaxPromptInputRunes: getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
+			MaxRetries:          getEnvAsInt("BI_AI_MAX_RETRIES", 2),
+			MultiCandidateCount: getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
+		},
+		Describe: AIDescribeConfig{
+			MaxCellRunes:  getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),
+			MaxSampleRows: getEnvAsInt("BI_AI_DESCRIBE_MAX_SAMPLE_ROWS", 12),
+		},
+		Cache: AICacheConfig{
+			ResponseTTLSeconds: getEnvAsInt("BI_AI_RESPONSE_CACHE_TTL", 3600),
+		},
+		Translation: TranslationConfig{
+			TargetLanguage: getEnv(
+				"BI_AI_TRANSLATION_TARGET_LANGUAGE",
+				"Turkish",
+			),
+			TargetCode:         getEnv("BI_AI_TRANSLATION_TARGET_CODE", "tr"),
+			HTTPTimeoutSeconds: getEnvAsInt("BI_AI_TRANSLATION_HTTP_TIMEOUT_SECONDS", 120),
+		},
+		Embedding: EmbeddingConfig{
+			HTTPTimeoutSeconds: getEnvAsInt(
+				"BI_AI_EMBEDDING_HTTP_TIMEOUT_SECONDS",
+				getEnvAsInt("BI_AI_HTTP_TIMEOUT_SECONDS", 600),
+			),
+			Weight:      getEnvAsFloat("BI_AI_EMBEDDING_WEIGHT", 30.0),
+			DenySchemas: splitCSV(getEnv("BI_AI_EMBEDDING_DENY_SCHEMAS", "")),
+			DenyTables:  splitCSV(getEnv("BI_AI_EMBEDDING_DENY_TABLES", "")),
+		},
+		Routing: RoutingConfig{
+			LexiconPath:        getEnv("BI_AI_ROUTING_LEXICON_PATH", ""),
+			WeightsPath:        getEnv("BI_AI_ROUTING_WEIGHTS_PATH", ""),
+			MaxDimensions:      getEnvAsInt("BI_AI_ROUTE_MAX_DIMENSIONS", 0),
+			MaxMetrics:         getEnvAsInt("BI_AI_ROUTE_MAX_METRICS", 0),
+			MaxColumnsPerTable: getEnvAsInt("BI_AI_ROUTE_MAX_COLUMNS_PER_TABLE", 0),
+			MaxDateGrainExtras: getEnvAsInt("BI_AI_ROUTE_MAX_DATE_GRAIN_EXTRAS", 0),
+			SlimNumericMetrics: getEnvAsBool("BI_AI_ROUTE_SLIM_NUMERIC_METRICS", true),
+		},
+		Ambiguity: AmbiguityConfig{
+			CheckEnabled: getEnvAsBool("BI_AI_AMBIGUITY_CHECK_ENABLED", true),
+			ConfidenceThreshold: getEnvAsFloat(
+				"BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD",
+				0.70,
+			),
+			MaxOptions: getEnvAsInt("BI_AI_AMBIGUITY_MAX_OPTIONS", 5),
+			LLMEnabled: getEnvAsBool("BI_AI_AMBIGUITY_LLM_ENABLED", false),
+		},
+	}
+}
+
+func validateLoadedConfig(cfg *Config) error {
 	if cfg.Metadata.DSN == "" {
-		return nil, errors.New("BI_METADATA_DB_DSN is required")
+		return errors.New("BI_METADATA_DB_DSN is required")
 	}
 	if cfg.Security.EncryptionKey == "" {
-		return nil, errors.New("BI_ENCRYPTION_KEY is required")
+		return errors.New("BI_ENCRYPTION_KEY is required")
 	}
 	if cfg.Security.EncryptionKey == "change-this-to-a-secure-32-byte-key!!" {
-		return nil, errors.New("BI_ENCRYPTION_KEY must be changed from its default value")
+		return errors.New("BI_ENCRYPTION_KEY must be changed from its default value")
 	}
 	if err := validateFloatRange("BI_PII_DETECTION_THRESHOLD", cfg.PII.DetectionThreshold, 0, 1); err != nil {
-		return nil, err
+		return err
 	}
 	if err := validateFloatRange("BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD", cfg.AI.Ambiguity.ConfidenceThreshold, 0, 1); err != nil {
-		return nil, err
+		return err
 	}
 	if err := validateFloatRange("BI_AI_EMBEDDING_WEIGHT", cfg.AI.Embedding.Weight, 0, 100); err != nil {
-		return nil, err
+		return err
 	}
 	if env.IsProduction() && !cfg.Auth.Enabled {
-		return nil, errors.New("BI_AUTH_ENABLED must be true in production")
+		return errors.New("BI_AUTH_ENABLED must be true in production")
 	}
-
-	return cfg, nil
+	return nil
 }
 
 // HTTPTimeout returns the base provider HTTP timeout.

@@ -292,27 +292,14 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 
 	var resolved *app.ResolvedDatasource
 	var processOpts []ai.ProcessOption
-	if phase == aiPhaseRun { //nolint:nestif
-		if h.deps.QueryClient != nil {
-			processOpts = []ai.ProcessOption{
-				ai.WithSQLValidator(newQueryClientDryRunValidator(h.deps.QueryClient)),
-				ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
-				ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
-			}
-		} else {
-			var err error
-			resolved, err = h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
-			if err != nil {
-				writeCoreServiceError(ctx, w, err)
-				return
-			}
+	if phase == aiPhaseRun {
+		var ok bool
+		resolved, processOpts, ok = h.applyRunPhaseForHTTP(ctx, w, req, model)
+		if !ok {
+			return
+		}
+		if resolved != nil {
 			defer closeResolvedDatasource(ctx, resolved)
-
-			processOpts, err = h.localRunProcessOptions(ctx, req, model, resolved)
-			if err != nil {
-				writeInternalError(ctx, w, http.StatusInternalServerError, "datasource not resolved", err)
-				return
-			}
 		}
 	}
 
@@ -343,6 +330,59 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 		}
 		h.finishAIRun(ctx, w, model, resp, runDatasource)
 	}
+}
+
+func (h *AIHandler) applyRunPhaseForHTTP(
+	ctx context.Context,
+	w http.ResponseWriter,
+	req aiQueryRequest,
+	model *semantic.SemanticModel,
+) (*app.ResolvedDatasource, []ai.ProcessOption, bool) {
+	resolved, processOpts, err := h.resolveRunPhaseProcessOptions(ctx, req, model)
+	if err == nil {
+		return resolved, processOpts, true
+	}
+	if resolved != nil {
+		closeResolvedDatasource(ctx, resolved)
+		writeInternalError(ctx, w, http.StatusInternalServerError, "datasource not resolved", err)
+		return nil, nil, false
+	}
+	writeCoreServiceError(ctx, w, err)
+	return nil, nil, false
+}
+
+func (h *AIHandler) resolveRunPhaseProcessOptions(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel) (*app.ResolvedDatasource, []ai.ProcessOption, error) {
+	if h.deps.QueryClient != nil {
+		return nil, []ai.ProcessOption{
+			ai.WithSQLValidator(newQueryClientDryRunValidator(h.deps.QueryClient)),
+			ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
+			ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
+		}, nil
+	}
+	resolved, err := h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
+	if err != nil {
+		return nil, nil, err
+	}
+	processOpts, err := h.localRunProcessOptions(ctx, req, model, resolved)
+	if err != nil {
+		return resolved, nil, err
+	}
+	return resolved, processOpts, nil
+}
+
+func (h *AIHandler) resolveRunPhaseForJob(
+	ctx context.Context,
+	req aiQueryRequest,
+	model *semantic.SemanticModel,
+) (*app.ResolvedDatasource, []ai.ProcessOption, error) {
+	resolved, processOpts, err := h.resolveRunPhaseProcessOptions(ctx, req, model)
+	if err == nil {
+		return resolved, processOpts, nil
+	}
+	if resolved != nil {
+		closeResolvedDatasource(ctx, resolved)
+	}
+	return nil, nil, err
 }
 
 func closeResolvedDatasource(ctx context.Context, resolved *app.ResolvedDatasource) {
@@ -592,38 +632,8 @@ func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 
-	if req.ClientSessionID != "" { //nolint:nestif
-		b, err := sonic.ConfigStd.Marshal(req)
-		if err != nil {
-			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to marshal job request", err)
-			return
-		}
-		job := &metadata.AIJob{
-			ID:              uuid.NewString(),
-			ClientSessionID: req.ClientSessionID,
-			Kind:            "embed_metadata",
-			Status:          metadata.AIJobStatusQueued,
-			Phase:           "queued",
-			PhaseMessage:    "waiting in queue",
-			ProgressPct:     0,
-			DatasourceID:    &req.DatasourceID,
-			ScopeSchemas:    []string{},
-			RequestJSON:     b,
-		}
-		if err := h.deps.MetaRepo.CreateAIJob(ctx, job); err != nil {
-			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to create job", err)
-			return
-		}
-		if h.deps.AIJobQueue != nil {
-			if err := h.deps.AIJobQueue.Publish(ctx, job.ID); err != nil {
-				if failErr := h.deps.MetaRepo.FailAIJob(ctx, job.ID, err.Error()); failErr != nil {
-					slog.WarnContext(ctx, "mark async AI job failed", "job_id", job.ID, "err", failErr)
-				}
-				writeInternalError(ctx, w, http.StatusInternalServerError, "failed to publish job to queue", err)
-				return
-			}
-		}
-		writeJSON(w, http.StatusAccepted, job)
+	if req.ClientSessionID != "" {
+		h.enqueueEmbedMetadataJob(ctx, w, req)
 		return
 	}
 
@@ -662,6 +672,40 @@ func (h *AIHandler) EmbedMetadata(w http.ResponseWriter, r *http.Request) {
 		Skipped:      skipped,
 		Results:      results,
 	})
+}
+
+func (h *AIHandler) enqueueEmbedMetadataJob(ctx context.Context, w http.ResponseWriter, req *embedMetadataRequest) {
+	b, err := sonic.ConfigStd.Marshal(req)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to marshal job request", err)
+		return
+	}
+	job := &metadata.AIJob{
+		ID:              uuid.NewString(),
+		ClientSessionID: req.ClientSessionID,
+		Kind:            "embed_metadata",
+		Status:          metadata.AIJobStatusQueued,
+		Phase:           "queued",
+		PhaseMessage:    "waiting in queue",
+		ProgressPct:     0,
+		DatasourceID:    &req.DatasourceID,
+		ScopeSchemas:    []string{},
+		RequestJSON:     b,
+	}
+	if err := h.deps.MetaRepo.CreateAIJob(ctx, job); err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to create job", err)
+		return
+	}
+	if h.deps.AIJobQueue != nil {
+		if err := h.deps.AIJobQueue.Publish(ctx, job.ID); err != nil {
+			if failErr := h.deps.MetaRepo.FailAIJob(ctx, job.ID, err.Error()); failErr != nil {
+				slog.WarnContext(ctx, "mark async AI job failed", "job_id", job.ID, "err", failErr)
+			}
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to publish job to queue", err)
+			return
+		}
+	}
+	writeJSON(w, http.StatusAccepted, job)
 }
 
 func tablesForModel(model *semantic.SemanticModel) map[string]bool {

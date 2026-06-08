@@ -28,7 +28,6 @@ type GeneratedModel struct {
 	Warnings []string                `json:"warnings,omitempty"`
 }
 
-//nolint:gocognit // semantic model synthesis walks tables, columns, and relations together
 func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Column, relations []metadata.Relation, opts GenerateModelOptions) (*GeneratedModel, error) {
 	if opts.DatasourceID == "" {
 		return nil, errors.New("datasource_id is required")
@@ -36,6 +35,30 @@ func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Colum
 	if len(tables) == 0 {
 		return nil, errors.New("metadata has no tables; sync metadata first")
 	}
+	opts = normalizeGenerateModelOptions(opts)
+
+	base, ok := chooseBaseTable(tables, relations, opts.BaseSchema, opts.BaseTable)
+	if !ok {
+		return nil, errors.New("base table not found")
+	}
+
+	model, dimNames, metricNames := newGeneratedSemanticModel(base, opts)
+	selectedTables := selectedTableKeys(tables)
+	warnings := make([]string, 0, 4)
+	baseCols := filterColumns(columns, base.SchemaName, base.TableName)
+
+	warnings = appendBaseDimensions(model, dimNames, baseCols, base.SchemaName, opts, warnings)
+	warnings = appendRelatedDimensions(model, dimNames, columns, base, selectedTables, opts, warnings)
+	model.Metrics = appendGeneratedMetrics(model.Metrics, metricNames, baseCols, base.SchemaName, model.ID, opts, &warnings)
+	model.Joins = joinsFromRelations(model.ID, relations, selectedTables)
+
+	if len(model.Dimensions) == 0 {
+		warnings = append(warnings, "no dimensions could be inferred from metadata")
+	}
+	return &GeneratedModel{Model: model, Warnings: warnings}, nil
+}
+
+func normalizeGenerateModelOptions(opts GenerateModelOptions) GenerateModelOptions {
 	if opts.MaxDimensions <= 0 {
 		opts.MaxDimensions = 512
 	}
@@ -45,12 +68,10 @@ func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Colum
 	if opts.MaxRelatedDims <= 0 {
 		opts.MaxRelatedDims = 512
 	}
+	return opts
+}
 
-	base, ok := chooseBaseTable(tables, relations, opts.BaseSchema, opts.BaseTable)
-	if !ok {
-		return nil, errors.New("base table not found")
-	}
-
+func newGeneratedSemanticModel(base metadata.Table, opts GenerateModelOptions) (*semantic.SemanticModel, map[string]bool, map[string]bool) {
 	modelID := uuid.New().String()
 	baseNameForModel := strings.TrimSpace(opts.DatasourceName)
 	if baseNameForModel == "" {
@@ -58,7 +79,7 @@ func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Colum
 	}
 	modelName := uniqueModelName(normalizeName(baseNameForModel), opts.ExistingNames)
 	label := humanLabel(baseNameForModel)
-	model := &semantic.SemanticModel{
+	return &semantic.SemanticModel{
 		ID:           modelID,
 		DatasourceID: opts.DatasourceID,
 		Name:         modelName,
@@ -71,32 +92,34 @@ func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Colum
 		Status:       semantic.ModelStatusDraft,
 		Dimensions:   make([]semantic.Dimension, 0, opts.MaxDimensions),
 		Metrics:      make([]semantic.Metric, 0, opts.MaxMetrics),
-		Joins:        make([]semantic.Join, 0, len(relations)),
-	}
+		Joins:        make([]semantic.Join, 0),
+	}, map[string]bool{}, map[string]bool{}
+}
 
+func selectedTableKeys(tables []metadata.Table) map[string]bool {
 	selectedTables := make(map[string]bool, len(tables))
 	for _, t := range tables {
 		selectedTables[tableKey(t.SchemaName, t.TableName)] = true
 	}
+	return selectedTables
+}
 
-	warnings := make([]string, 0, 4)
-	dimNames := map[string]bool{}
-	metricNames := map[string]bool{}
-	baseCols := filterColumns(columns, base.SchemaName, base.TableName)
-
+func appendBaseDimensions(model *semantic.SemanticModel, dimNames map[string]bool, baseCols []metadata.Column, baseSchema string, opts GenerateModelOptions, warnings []string) []string {
 	for _, col := range baseCols {
 		if len(model.Dimensions) >= opts.MaxDimensions {
-			warnings = append(warnings, "dimension limit reached; some base columns were skipped")
-			break
+			return append(warnings, "dimension limit reached; some base columns were skipped")
 		}
 		if shouldSkipDimension(col) {
 			continue
 		}
-		dim := dimensionFromColumn(modelID, col, base.SchemaName, dimNames, false)
+		dim := dimensionFromColumn(model.ID, col, baseSchema, dimNames, false)
 		model.Dimensions = append(model.Dimensions, dim)
-		model.Dimensions = appendDateGrainDimensions(model.Dimensions, modelID, col, dim, dimNames, opts.MaxDimensions)
+		model.Dimensions = appendDateGrainDimensions(model.Dimensions, model.ID, col, dim, dimNames, opts.MaxDimensions)
 	}
+	return warnings
+}
 
+func appendRelatedDimensions(model *semantic.SemanticModel, dimNames map[string]bool, columns []metadata.Column, base metadata.Table, selectedTables map[string]bool, opts GenerateModelOptions, warnings []string) []string {
 	relatedAdded := 0
 	for _, col := range columns {
 		if relatedAdded >= opts.MaxRelatedDims || len(model.Dimensions) >= opts.MaxDimensions {
@@ -108,35 +131,38 @@ func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Colum
 		if !selectedTables[tableKey(col.SchemaName, col.TableName)] || shouldSkipRelatedDimension(col) {
 			continue
 		}
-		dim := dimensionFromColumn(modelID, col, base.SchemaName, dimNames, true)
+		dim := dimensionFromColumn(model.ID, col, base.SchemaName, dimNames, true)
 		model.Dimensions = append(model.Dimensions, dim)
-		model.Dimensions = appendDateGrainDimensions(model.Dimensions, modelID, col, dim, dimNames, opts.MaxDimensions)
+		model.Dimensions = appendDateGrainDimensions(model.Dimensions, model.ID, col, dim, dimNames, opts.MaxDimensions)
 		relatedAdded++
 	}
+	return warnings
+}
 
-	model.Metrics = append(model.Metrics, countMetric(modelID, metricNames))
+func appendGeneratedMetrics(metrics []semantic.Metric, metricNames map[string]bool, baseCols []metadata.Column, baseSchema, modelID string, opts GenerateModelOptions, warnings *[]string) []semantic.Metric {
+	metrics = append(metrics, countMetric(modelID, metricNames))
 	for _, col := range baseCols {
-		if len(model.Metrics) >= opts.MaxMetrics {
-			warnings = append(warnings, "metric limit reached; some numeric columns were skipped")
+		if len(metrics) >= opts.MaxMetrics {
+			*warnings = append(*warnings, "metric limit reached; some numeric columns were skipped")
 			break
 		}
 		if !isNumericType(col.DataType) || col.IsPrimaryKey || col.IsForeignKey {
 			continue
 		}
-		model.Metrics = append(model.Metrics, metricsFromNumericColumn(modelID, col, base.SchemaName, metricNames)...)
+		metrics = append(metrics, metricsFromNumericColumn(modelID, col, baseSchema, metricNames)...)
 	}
+	return metrics
+}
 
+func joinsFromRelations(modelID string, relations []metadata.Relation, selectedTables map[string]bool) []semantic.Join {
 	joinNames := map[string]bool{}
+	joins := make([]semantic.Join, 0, len(relations))
 	for _, rel := range relations {
 		if selectedTables[tableKey(rel.FromSchema, rel.FromTable)] && selectedTables[tableKey(rel.ToSchema, rel.ToTable)] {
-			model.Joins = append(model.Joins, joinFromRelation(modelID, rel, joinNames))
+			joins = append(joins, joinFromRelation(modelID, rel, joinNames))
 		}
 	}
-
-	if len(model.Dimensions) == 0 {
-		warnings = append(warnings, "no dimensions could be inferred from metadata")
-	}
-	return &GeneratedModel{Model: model, Warnings: warnings}, nil
+	return joins
 }
 
 func chooseBaseTable(tables []metadata.Table, relations []metadata.Relation, schemaName, tableName string) (metadata.Table, bool) {

@@ -30,102 +30,85 @@ type TableNode struct {
 }
 
 // Plan analyzes a LogicalQuery and returns a plan.
-//nolint:gocognit
 func (p *Planner) Plan(lq *LogicalQuery, model *semantic.SemanticModel) (*PlanResult, error) {
-	warnings := make([]string, 0, 4)
-	requiredJoins := make([]string, 0, len(model.Joins))
+	dimMap, metricMap := buildSemanticFieldMaps(model)
+	tables := collectRequiredTables(lq, model, dimMap, metricMap)
+	requiredJoins := requiredJoinNames(model, tables)
 
-	// Build dimension map
+	warnings := make([]string, 0, 4)
+	warnings = append(warnings, p.checkFanout(model, tables)...)
+	warnings = append(warnings, p.checkAggregations(lq)...)
+
+	return &PlanResult{
+		RequiredJoins: requiredJoins,
+		Warnings:      warnings,
+		TableGraph:    buildTableGraph(model.BaseTable, tables),
+	}, nil
+}
+
+func buildSemanticFieldMaps(model *semantic.SemanticModel) (map[string]*semantic.Dimension, map[string]*semantic.Metric) {
 	dimMap := make(map[string]*semantic.Dimension, len(model.Dimensions))
 	for i := range model.Dimensions {
 		dimMap[model.Dimensions[i].Name] = &model.Dimensions[i]
 	}
-
-	// Build metric map
 	metricMap := make(map[string]*semantic.Metric, len(model.Metrics))
 	for i := range model.Metrics {
 		metricMap[model.Metrics[i].Name] = &model.Metrics[i]
 	}
+	return dimMap, metricMap
+}
 
-	// Determine which tables are needed
+func collectRequiredTables(lq *LogicalQuery, model *semantic.SemanticModel, dimMap map[string]*semantic.Dimension, metricMap map[string]*semantic.Metric) map[string]bool {
 	tables := make(map[string]bool, len(model.Joins)+1)
-	tables[model.BaseTable] = true // Always include base table
-
-	// Check select items
+	tables[model.BaseTable] = true
+	markTableFromDimension := func(field string) {
+		if dim, ok := dimMap[field]; ok {
+			markNonBaseTable(tables, extractTable(dim.ColumnRef, model.BaseSchema), model.BaseTable)
+		}
+	}
 	for _, item := range lq.Select {
 		switch item.Type {
 		case SelectTypeDimension:
-			if dim, ok := dimMap[item.Name]; ok {
-				table := extractTable(dim.ColumnRef, model.BaseSchema)
-				if table != "" && table != model.BaseTable {
-					tables[table] = true
-				}
-			}
+			markTableFromDimension(item.Name)
 		case SelectTypeMetric:
 			if metric, ok := metricMap[item.Name]; ok {
-				table := extractTable(metric.Expression, model.BaseSchema)
-				if table != "" && table != model.BaseTable {
-					tables[table] = true
-				}
+				markNonBaseTable(tables, extractTable(metric.Expression, model.BaseSchema), model.BaseTable)
 			}
 		}
 	}
-
-	// Check filters
 	for _, f := range lq.Filters {
-		if dim, ok := dimMap[f.Field]; ok {
-			table := extractTable(dim.ColumnRef, model.BaseSchema)
-			if table != "" && table != model.BaseTable {
-				tables[table] = true
-			}
-		}
+		markTableFromDimension(f.Field)
 	}
-
-	// Check group by
 	for _, gb := range lq.GroupBy {
-		if dim, ok := dimMap[gb.Field]; ok {
-			table := extractTable(dim.ColumnRef, model.BaseSchema)
-			if table != "" && table != model.BaseTable {
-				tables[table] = true
-			}
-		}
+		markTableFromDimension(gb.Field)
 	}
+	return tables
+}
 
-	// Determine required joins
+func markNonBaseTable(tables map[string]bool, table, baseTable string) {
+	if table != "" && table != baseTable {
+		tables[table] = true
+	}
+}
+
+func requiredJoinNames(model *semantic.SemanticModel, tables map[string]bool) []string {
+	requiredJoins := make([]string, 0, len(model.Joins))
 	for _, join := range model.Joins {
 		if tables[join.FromTable] || tables[join.ToTable] {
 			requiredJoins = append(requiredJoins, join.Name)
 		}
 	}
+	return requiredJoins
+}
 
-	// Validate cardinality and detect fanout risks
-	fanoutWarnings := p.checkFanout(model, tables)
-	warnings = append(warnings, fanoutWarnings...)
-
-	// Check for invalid metric/dimension combinations
-	aggWarnings := p.checkAggregations(lq)
-	warnings = append(warnings, aggWarnings...)
-
-	// Build table graph
-	var tableGraph []TableNode
-	tableGraph = append(tableGraph, TableNode{
-		Name:        model.BaseTable,
-		IsBaseTable: true,
-	})
+func buildTableGraph(baseTable string, tables map[string]bool) []TableNode {
+	tableGraph := []TableNode{{Name: baseTable, IsBaseTable: true}}
 	for table := range tables {
-		if table != model.BaseTable {
-			tableGraph = append(tableGraph, TableNode{
-				Name:        table,
-				IsBaseTable: false,
-			})
+		if table != baseTable {
+			tableGraph = append(tableGraph, TableNode{Name: table, IsBaseTable: false})
 		}
 	}
-
-	return &PlanResult{
-		RequiredJoins: requiredJoins,
-		Warnings:      warnings,
-		TableGraph:    tableGraph,
-	}, nil
+	return tableGraph
 }
 
 // checkFanout detects potential fanout issues from many-to-many or multiple many-to-one joins.

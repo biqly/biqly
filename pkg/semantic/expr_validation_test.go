@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-//nolint:funlen // table-driven expression validation matrix
-func TestValidateExprStrict(t *testing.T) {
+func validateExprStrictAllowedMaps() (map[string]bool, map[string]bool, map[string]bool) {
 	allowedCols := map[string]bool{
 		"orders.revenue":      true,
 		"orders.cost":         true,
@@ -23,115 +22,125 @@ func TestValidateExprStrict(t *testing.T) {
 		"customer_region": true,
 		"order_date":      true,
 	}
+	return allowedCols, allowedMets, allowedDims
+}
 
-	tests := []struct {
-		name         string
-		expr         ExprNode
-		allowMetrics bool
-		wantErr      string
-	}{
+type validateExprStrictCase struct {
+	name         string
+	expr         ExprNode
+	allowMetrics bool
+	wantErr      string
+}
+
+func validateExprStrictRefCases() []validateExprStrictCase {
+	return []validateExprStrictCase{
 		{
 			name:         "valid literal",
-			expr:         LiteralExpr{Value: 42.5},
+			expr:         &LiteralExpr{Value: 42.5},
 			allowMetrics: false,
 			wantErr:      "",
 		},
 		{
 			name:         "valid column ref table qualified",
-			expr:         ColumnRefExpr{Table: "orders", Column: "revenue"},
+			expr:         &ColumnRefExpr{Table: "orders", Column: "revenue"},
 			allowMetrics: false,
 			wantErr:      "",
 		},
 		{
 			name:         "valid column ref unqualified",
-			expr:         ColumnRefExpr{Column: "revenue"},
+			expr:         &ColumnRefExpr{Column: "revenue"},
 			allowMetrics: false,
 			wantErr:      "",
 		},
 		{
 			name:         "invalid column ref",
-			expr:         ColumnRefExpr{Column: "missing_column"},
+			expr:         &ColumnRefExpr{Column: "missing_column"},
 			allowMetrics: false,
 			wantErr:      "unknown column reference: missing_column",
 		},
 		{
 			name:         "valid dimension ref",
-			expr:         DimensionRefExpr{Name: "customer_region"},
+			expr:         &DimensionRefExpr{Name: "customer_region"},
 			allowMetrics: false,
 			wantErr:      "",
 		},
 		{
 			name:         "invalid dimension ref",
-			expr:         DimensionRefExpr{Name: "missing_dimension"},
+			expr:         &DimensionRefExpr{Name: "missing_dimension"},
 			allowMetrics: false,
 			wantErr:      "unknown dimension reference: missing_dimension",
 		},
 		{
 			name:         "metric ref allowed",
-			expr:         MetricRefExpr{Name: "total_revenue"},
+			expr:         &MetricRefExpr{Name: "total_revenue"},
 			allowMetrics: true,
 			wantErr:      "",
 		},
 		{
 			name:         "metric ref forbidden",
-			expr:         MetricRefExpr{Name: "total_revenue"},
+			expr:         &MetricRefExpr{Name: "total_revenue"},
 			allowMetrics: false,
 			wantErr:      "metric reference not allowed in this context: total_revenue",
 		},
 		{
 			name:         "invalid metric ref",
-			expr:         MetricRefExpr{Name: "missing_metric"},
+			expr:         &MetricRefExpr{Name: "missing_metric"},
 			allowMetrics: true,
 			wantErr:      "unknown metric reference: missing_metric",
 		},
+	}
+}
+
+func validateExprStrictFunctionCases() []validateExprStrictCase {
+	return []validateExprStrictCase{
 		{
 			name: "disallowed function",
-			expr: FunctionCallExpr{
+			expr: &FunctionCallExpr{
 				Name: "DROP_DATABASE",
-				Args: []ExprNode{LiteralExpr{Value: "db"}},
+				Args: []ExprNode{&LiteralExpr{Value: "db"}},
 			},
 			allowMetrics: false,
 			wantErr:      "disallowed function call: DROP_DATABASE",
 		},
 		{
 			name: "valid function call UPPER",
-			expr: FunctionCallExpr{
+			expr: &FunctionCallExpr{
 				Name: "UPPER",
-				Args: []ExprNode{ColumnRefExpr{Column: "revenue"}},
+				Args: []ExprNode{&ColumnRefExpr{Column: "revenue"}},
 			},
 			allowMetrics: false,
 			wantErr:      "",
 		},
 		{
 			name: "invalid function call UPPER arity",
-			expr: FunctionCallExpr{
+			expr: &FunctionCallExpr{
 				Name: "UPPER",
-				Args: []ExprNode{ColumnRefExpr{Column: "revenue"}, ColumnRefExpr{Column: "cost"}},
+				Args: []ExprNode{&ColumnRefExpr{Column: "revenue"}, &ColumnRefExpr{Column: "cost"}},
 			},
 			allowMetrics: false,
 			wantErr:      "function UPPER requires exactly 1 arguments, got 2",
 		},
 		{
 			name: "valid function call ROUND 1 arg",
-			expr: FunctionCallExpr{
+			expr: &FunctionCallExpr{
 				Name: "ROUND",
-				Args: []ExprNode{ColumnRefExpr{Column: "revenue"}},
+				Args: []ExprNode{&ColumnRefExpr{Column: "revenue"}},
 			},
 			allowMetrics: false,
 			wantErr:      "",
 		},
 		{
 			name: "valid function call ROUND 2 args",
-			expr: FunctionCallExpr{
+			expr: &FunctionCallExpr{
 				Name: "ROUND",
-				Args: []ExprNode{ColumnRefExpr{Column: "revenue"}, LiteralExpr{Value: 2}},
+				Args: []ExprNode{&ColumnRefExpr{Column: "revenue"}, &LiteralExpr{Value: 2}},
 			},
 			allowMetrics: false,
 			wantErr:      "",
 		},
 		{
 			name: "invalid function call ROUND arity",
-			expr: FunctionCallExpr{
+			expr: &FunctionCallExpr{
 				Name: "ROUND",
 				Args: []ExprNode{},
 			},
@@ -140,16 +149,16 @@ func TestValidateExprStrict(t *testing.T) {
 		},
 		{
 			name: "valid variadic function call COALESCE",
-			expr: FunctionCallExpr{
+			expr: &FunctionCallExpr{
 				Name: "COALESCE",
-				Args: []ExprNode{ColumnRefExpr{Column: "revenue"}, ColumnRefExpr{Column: "cost"}, LiteralExpr{Value: 0}},
+				Args: []ExprNode{&ColumnRefExpr{Column: "revenue"}, &ColumnRefExpr{Column: "cost"}, &LiteralExpr{Value: 0}},
 			},
 			allowMetrics: false,
 			wantErr:      "",
 		},
 		{
 			name: "invalid variadic function call COALESCE empty",
-			expr: FunctionCallExpr{
+			expr: &FunctionCallExpr{
 				Name: "COALESCE",
 				Args: []ExprNode{},
 			},
@@ -163,6 +172,11 @@ func TestValidateExprStrict(t *testing.T) {
 			wantErr:      "expression nesting depth exceeds limit of 10",
 		},
 	}
+}
+
+func TestValidateExprStrict(t *testing.T) {
+	allowedCols, allowedMets, allowedDims := validateExprStrictAllowedMaps()
+	tests := append(validateExprStrictRefCases(), validateExprStrictFunctionCases()...)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -184,9 +198,9 @@ func TestValidateExprStrict(t *testing.T) {
 
 func buildDeepExpr(depth int) ExprNode {
 	if depth <= 0 {
-		return LiteralExpr{Value: 1}
+		return &LiteralExpr{Value: 1}
 	}
-	return UnaryExpr{
+	return &UnaryExpr{
 		Op:   OpNegate,
 		Expr: buildDeepExpr(depth - 1),
 	}

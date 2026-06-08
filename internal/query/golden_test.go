@@ -511,7 +511,47 @@ func getGoldenTestCases() []goldenTestCase {
 	}
 }
 
-//nolint:gocognit
+func assertGoldenSQL(t *testing.T, d dialect.Dialect, tc goldenTestCase, updateGolden bool) {
+	t.Helper()
+	fixture := tc.fixture(t)
+	compiler := NewCompiler(d)
+	var cq *CompiledQuery
+	var err error
+	if len(tc.rowFilters) > 0 {
+		cq, err = compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, tc.rowFilters, nil)
+	} else {
+		cq, err = compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
+	}
+	if err != nil {
+		t.Fatalf("compilation failed: %v", err)
+	}
+
+	goldenDir := filepath.Join("..", "..", "testdata", "sql", d.Name())
+	goldenPath := filepath.Join(goldenDir, tc.name+".sql")
+
+	if updateGolden {
+		if err := os.MkdirAll(goldenDir, 0750); err != nil {
+			t.Fatalf("failed to create golden directory: %v", err)
+		}
+		if err := os.WriteFile(goldenPath, []byte(cq.SQL), 0600); err != nil {
+			t.Fatalf("failed to write golden file: %v", err)
+		}
+	}
+
+	// #nosec G304
+	goldenBytes, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("failed to read golden file: %v", err)
+	}
+
+	expected := normalizeSQL(string(goldenBytes))
+	actual := normalizeSQL(cq.SQL)
+
+	if expected != actual {
+		t.Errorf("SQL mismatch for %s/%s.\nExpected:\n%s\n\nGot:\n%s", d.Name(), tc.name, expected, actual)
+	}
+}
+
 func TestGoldenAcrossDialects(t *testing.T) {
 	dialects := []dialect.Dialect{
 		dialect.PostgresDialect{},
@@ -525,43 +565,7 @@ func TestGoldenAcrossDialects(t *testing.T) {
 		t.Run(d.Name(), func(t *testing.T) {
 			for _, tc := range getGoldenTestCases() {
 				t.Run(tc.name, func(t *testing.T) {
-					fixture := tc.fixture(t)
-					compiler := NewCompiler(d)
-					var cq *CompiledQuery
-					var err error
-					if len(tc.rowFilters) > 0 {
-						cq, err = compiler.CompileWithPermissions(context.Background(), &fixture.LogicalQuery, fixture.Model, tc.rowFilters, nil)
-					} else {
-						cq, err = compiler.Compile(context.Background(), &fixture.LogicalQuery, fixture.Model)
-					}
-					if err != nil {
-						t.Fatalf("compilation failed: %v", err)
-					}
-
-					goldenDir := filepath.Join("..", "..", "testdata", "sql", d.Name())
-					goldenPath := filepath.Join(goldenDir, tc.name+".sql")
-
-					if updateGolden {
-						if err := os.MkdirAll(goldenDir, 0750); err != nil {
-							t.Fatalf("failed to create golden directory: %v", err)
-						}
-						if err := os.WriteFile(goldenPath, []byte(cq.SQL), 0600); err != nil {
-							t.Fatalf("failed to write golden file: %v", err)
-						}
-					}
-
-					// #nosec G304
-					goldenBytes, err := os.ReadFile(goldenPath)
-					if err != nil {
-						t.Fatalf("failed to read golden file: %v", err)
-					}
-
-					expected := normalizeSQL(string(goldenBytes))
-					actual := normalizeSQL(cq.SQL)
-
-					if expected != actual {
-						t.Errorf("SQL mismatch for %s/%s.\nExpected:\n%s\n\nGot:\n%s", d.Name(), tc.name, expected, actual)
-					}
+					assertGoldenSQL(t, d, tc, updateGolden)
 				})
 			}
 		})

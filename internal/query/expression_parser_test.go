@@ -63,121 +63,113 @@ func TestValidateExpression(t *testing.T) {
 	}
 }
 
-//nolint:gocognit
-func TestParseExpressionProducesSemanticAST(t *testing.T) {
-	tests := []struct {
+func assertParsedMetricSubtract(t *testing.T, got pkgsemantic.ExprNode) {
+	t.Helper()
+	bin, ok := got.(*pkgsemantic.BinaryExpr)
+	if !ok {
+		t.Fatalf("ParseExpression() = %T, want semantic.BinaryExpr", got)
+	}
+	if bin.Op != pkgsemantic.OpSubtract {
+		t.Fatalf("ParseExpression() op = %q, want %q", bin.Op, pkgsemantic.OpSubtract)
+	}
+	left, ok := bin.Left.(*pkgsemantic.MetricRefExpr)
+	if !ok || left.Name != "gross_revenue" {
+		t.Fatalf("ParseExpression() left = %#v, want MetricRefExpr gross_revenue", bin.Left)
+	}
+	right, ok := bin.Right.(*pkgsemantic.MetricRefExpr)
+	if !ok || right.Name != "discount_amount" {
+		t.Fatalf("ParseExpression() right = %#v, want MetricRefExpr discount_amount", bin.Right)
+	}
+}
+
+func assertParsedColumnSubtract(t *testing.T, got pkgsemantic.ExprNode) {
+	t.Helper()
+	bin, ok := got.(*pkgsemantic.BinaryExpr)
+	if !ok {
+		t.Fatalf("ParseExpression() = %T, want semantic.BinaryExpr", got)
+	}
+	if bin.Op != pkgsemantic.OpSubtract {
+		t.Fatalf("ParseExpression() op = %q, want %q", bin.Op, pkgsemantic.OpSubtract)
+	}
+	left, ok := bin.Left.(*pkgsemantic.ColumnRefExpr)
+	if !ok || left.Column != "revenue" || left.Table != "" {
+		t.Fatalf("ParseExpression() left = %#v, want bare ColumnRefExpr revenue", bin.Left)
+	}
+	right, ok := bin.Right.(*pkgsemantic.ColumnRefExpr)
+	if !ok || right.Column != "cost" || right.Table != "" {
+		t.Fatalf("ParseExpression() right = %#v, want bare ColumnRefExpr cost", bin.Right)
+	}
+}
+
+func assertParsedCoalesceCall(t *testing.T, got pkgsemantic.ExprNode) {
+	t.Helper()
+	call, ok := got.(*pkgsemantic.FunctionCallExpr)
+	if !ok {
+		t.Fatalf("ParseExpression() = %T, want semantic.FunctionCallExpr", got)
+	}
+	if call.Name != "COALESCE" || len(call.Args) != 2 {
+		t.Fatalf("ParseExpression() call = %#v, want COALESCE with 2 args", call)
+	}
+}
+
+func assertParsedCaseExpr(t *testing.T, got pkgsemantic.ExprNode) {
+	t.Helper()
+	caseExpr, ok := got.(*pkgsemantic.CaseExpr)
+	if !ok {
+		t.Fatalf("ParseExpression() = %T, want semantic.CaseExpr", got)
+	}
+	if len(caseExpr.Conditions) != 1 || caseExpr.ElseExpr == nil {
+		t.Fatalf("ParseExpression() case = %#v, want one condition and else", caseExpr)
+	}
+}
+
+func assertParsedQualifiedColumnRef(t *testing.T, got pkgsemantic.ExprNode) {
+	t.Helper()
+	ref, ok := got.(*pkgsemantic.ColumnRefExpr)
+	if !ok {
+		t.Fatalf("ParseExpression() = %T, want semantic.ColumnRefExpr", got)
+	}
+	if ref.Table != "orders" || ref.Column != "total_amount" {
+		t.Fatalf("ParseExpression() ref = %#v, want orders.total_amount", ref)
+	}
+}
+
+func assertParsedConcatChain(t *testing.T, got pkgsemantic.ExprNode) {
+	t.Helper()
+	bin, ok := got.(*pkgsemantic.BinaryExpr)
+	if !ok {
+		t.Fatalf("ParseExpression() = %T, want semantic.BinaryExpr", got)
+	}
+	if bin.Op != pkgsemantic.OpConcat {
+		t.Fatalf("ParseExpression() op = %q, want %q", bin.Op, pkgsemantic.OpConcat)
+	}
+	left, ok := bin.Left.(*pkgsemantic.BinaryExpr)
+	if !ok || left.Op != pkgsemantic.OpConcat {
+		t.Fatalf("ParseExpression() left = %T, want concat BinaryExpr", bin.Left)
+	}
+}
+
+func parseExpressionASTCases() []struct {
+	name   string
+	expr   string
+	assert func(t *testing.T, got pkgsemantic.ExprNode)
+} {
+	return []struct {
 		name   string
 		expr   string
 		assert func(t *testing.T, got pkgsemantic.ExprNode)
 	}{
-		{
-			name: "metric refs in brackets",
-			expr: "[gross_revenue] - [discount_amount]",
-			assert: func(t *testing.T, got pkgsemantic.ExprNode) {
-				t.Helper()
-				bin, ok := got.(pkgsemantic.BinaryExpr)
-				if !ok {
-					t.Fatalf("ParseExpression() = %T, want semantic.BinaryExpr", got)
-				}
-				if bin.Op != pkgsemantic.OpSubtract {
-					t.Fatalf("ParseExpression() op = %q, want %q", bin.Op, pkgsemantic.OpSubtract)
-				}
-				left, ok := bin.Left.(pkgsemantic.MetricRefExpr)
-				if !ok || left.Name != "gross_revenue" {
-					t.Fatalf("ParseExpression() left = %#v, want MetricRefExpr gross_revenue", bin.Left)
-				}
-				right, ok := bin.Right.(pkgsemantic.MetricRefExpr)
-				if !ok || right.Name != "discount_amount" {
-					t.Fatalf("ParseExpression() right = %#v, want MetricRefExpr discount_amount", bin.Right)
-				}
-			},
-		},
-		{
-			name: "bare identifiers become column refs",
-			expr: "revenue - cost",
-			assert: func(t *testing.T, got pkgsemantic.ExprNode) {
-				t.Helper()
-				bin, ok := got.(pkgsemantic.BinaryExpr)
-				if !ok {
-					t.Fatalf("ParseExpression() = %T, want semantic.BinaryExpr", got)
-				}
-				if bin.Op != pkgsemantic.OpSubtract {
-					t.Fatalf("ParseExpression() op = %q, want %q", bin.Op, pkgsemantic.OpSubtract)
-				}
-				left, ok := bin.Left.(pkgsemantic.ColumnRefExpr)
-				if !ok || left.Column != "revenue" || left.Table != "" {
-					t.Fatalf("ParseExpression() left = %#v, want bare ColumnRefExpr revenue", bin.Left)
-				}
-				right, ok := bin.Right.(pkgsemantic.ColumnRefExpr)
-				if !ok || right.Column != "cost" || right.Table != "" {
-					t.Fatalf("ParseExpression() right = %#v, want bare ColumnRefExpr cost", bin.Right)
-				}
-			},
-		},
-		{
-			name: "function call",
-			expr: "COALESCE(email, 'N/A')",
-			assert: func(t *testing.T, got pkgsemantic.ExprNode) {
-				t.Helper()
-				call, ok := got.(pkgsemantic.FunctionCallExpr)
-				if !ok {
-					t.Fatalf("ParseExpression() = %T, want semantic.FunctionCallExpr", got)
-				}
-				if call.Name != "COALESCE" || len(call.Args) != 2 {
-					t.Fatalf("ParseExpression() call = %#v, want COALESCE with 2 args", call)
-				}
-			},
-		},
-		{
-			name: "case expression",
-			expr: "CASE WHEN x > 0 THEN 'positive' ELSE 'negative' END",
-			assert: func(t *testing.T, got pkgsemantic.ExprNode) {
-				t.Helper()
-				caseExpr, ok := got.(pkgsemantic.CaseExpr)
-				if !ok {
-					t.Fatalf("ParseExpression() = %T, want semantic.CaseExpr", got)
-				}
-				if len(caseExpr.Conditions) != 1 || caseExpr.ElseExpr == nil {
-					t.Fatalf("ParseExpression() case = %#v, want one condition and else", caseExpr)
-				}
-			},
-		},
-		{
-			name: "qualified column ref",
-			expr: "orders.total_amount",
-			assert: func(t *testing.T, got pkgsemantic.ExprNode) {
-				t.Helper()
-				ref, ok := got.(pkgsemantic.ColumnRefExpr)
-				if !ok {
-					t.Fatalf("ParseExpression() = %T, want semantic.ColumnRefExpr", got)
-				}
-				if ref.Table != "orders" || ref.Column != "total_amount" {
-					t.Fatalf("ParseExpression() ref = %#v, want orders.total_amount", ref)
-				}
-			},
-		},
-		{
-			name: "string concatenation with operator ||",
-			expr: "first_name || ' ' || last_name",
-			assert: func(t *testing.T, got pkgsemantic.ExprNode) {
-				t.Helper()
-				bin, ok := got.(pkgsemantic.BinaryExpr)
-				if !ok {
-					t.Fatalf("ParseExpression() = %T, want semantic.BinaryExpr", got)
-				}
-				if bin.Op != pkgsemantic.OpConcat {
-					t.Fatalf("ParseExpression() op = %q, want %q", bin.Op, pkgsemantic.OpConcat)
-				}
-				// Verify left-associative nesting: (first_name || ' ') || last_name
-				left, ok := bin.Left.(pkgsemantic.BinaryExpr)
-				if !ok || left.Op != pkgsemantic.OpConcat {
-					t.Fatalf("ParseExpression() left = %T, want concat BinaryExpr", bin.Left)
-				}
-			},
-		},
+		{name: "metric refs in brackets", expr: "[gross_revenue] - [discount_amount]", assert: assertParsedMetricSubtract},
+		{name: "bare identifiers become column refs", expr: "revenue - cost", assert: assertParsedColumnSubtract},
+		{name: "function call", expr: "COALESCE(email, 'N/A')", assert: assertParsedCoalesceCall},
+		{name: "case expression", expr: "CASE WHEN x > 0 THEN 'positive' ELSE 'negative' END", assert: assertParsedCaseExpr},
+		{name: "qualified column ref", expr: "orders.total_amount", assert: assertParsedQualifiedColumnRef},
+		{name: "string concatenation with operator ||", expr: "first_name || ' ' || last_name", assert: assertParsedConcatChain},
 	}
+}
 
-	for _, tt := range tests {
+func TestParseExpressionProducesSemanticAST(t *testing.T) {
+	for _, tt := range parseExpressionASTCases() {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParseExpression(tt.expr)
 			if err != nil {

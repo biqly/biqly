@@ -180,21 +180,59 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest, userAgent, 
 	}, nil
 }
 
-func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ipAddress *string) (*TokenResponse, error) { //nolint:funlen,gocognit
-	email, emailErr := NormalizeEmail(req.Email)
-	if emailErr != nil {
-		email = strings.TrimSpace(strings.ToLower(req.Email))
-	}
-	if s.redisClient != nil {
-		lockKey := "login_failures:" + email
-		val, err := s.redisClient.Get(ctx, lockKey).Int()
-		if err == nil && val >= 5 {
-			MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
-			MetricFailedLogins.WithLabelValues(LoginFailAccountLocked).Inc()
-			return nil, ErrAccountLocked
-		}
+func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
+	email := normalizeLoginEmail(req.Email)
+	if err := s.checkLoginLockout(ctx, email); err != nil {
+		return nil, err
 	}
 
+	user, passwordOK, method, err := s.authenticateLogin(ctx, req, email)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.rejectInvalidLogin(ctx, user, passwordOK, email, method); err != nil {
+		return nil, err
+	}
+	if err := s.validateLoginAccountState(ctx, user); err != nil {
+		return nil, err
+	}
+
+	s.clearLoginFailures(ctx, email)
+
+	mfaResp, continueLogin, err := s.loginMFAGate(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	if !continueLogin {
+		return mfaResp, nil
+	}
+
+	return s.issueSession(ctx, user, userAgent, ipAddress, method)
+}
+
+func normalizeLoginEmail(raw string) string {
+	email, err := NormalizeEmail(raw)
+	if err != nil {
+		return strings.TrimSpace(strings.ToLower(raw))
+	}
+	return email
+}
+
+func (s *Service) checkLoginLockout(ctx context.Context, email string) error {
+	if s.redisClient == nil {
+		return nil
+	}
+	lockKey := "login_failures:" + email
+	val, err := s.redisClient.Get(ctx, lockKey).Int()
+	if err == nil && val >= 5 {
+		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
+		MetricFailedLogins.WithLabelValues(LoginFailAccountLocked).Inc()
+		return ErrAccountLocked
+	}
+	return nil
+}
+
+func (s *Service) authenticateLogin(ctx context.Context, req LoginRequest, email string) (*User, bool, string, error) {
 	user, err := s.userRepo.GetUserByEmail(ctx, email)
 	if errors.Is(err, ErrUserNotFound) {
 		user = nil
@@ -202,7 +240,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ipAddr
 		// time does not reveal whether the email exists.
 		VerifyDummyPassword(req.Password)
 	} else if err != nil {
-		return nil, err
+		return nil, false, "", err
 	}
 
 	// Compute local password verification regardless of IsActive / hash presence
@@ -217,85 +255,94 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ipAddr
 	// not succeed, so a local bootstrap admin always works and a slow/unreachable
 	// directory cannot affect successful local logins.
 	method := "password"
-	if !passwordOK {
-		ldapUser, lerr := s.tryLDAP(ctx, req.Email, req.Password)
-		if lerr != nil {
-			slog.WarnContext(ctx, "ldap authentication error", "error", lerr)
-		}
-		if ldapUser != nil {
-			user = ldapUser
-			passwordOK = true
-			method = "ldap"
-		}
+	if passwordOK {
+		return user, true, method, nil
 	}
 
+	ldapUser, lerr := s.tryLDAP(ctx, req.Email, req.Password)
+	if lerr != nil {
+		slog.WarnContext(ctx, "ldap authentication error", "error", lerr)
+	}
+	if ldapUser != nil {
+		return ldapUser, true, "ldap", nil
+	}
+	return user, false, method, nil
+}
+
+func (s *Service) rejectInvalidLogin(ctx context.Context, user *User, passwordOK bool, email, method string) error {
 	if user == nil {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
 		MetricFailedLogins.WithLabelValues(LoginFailUserNotFound).Inc()
 		s.recordLoginFailure(ctx, email, nil)
-		return nil, ErrInvalidCredentials
+		return ErrInvalidCredentials
 	}
-
 	if !user.IsActive {
 		MetricLoginAttempts.WithLabelValues(method, "failed").Inc()
 		MetricFailedLogins.WithLabelValues(LoginFailInactive).Inc()
-		return nil, ErrInactiveUser
+		return ErrInactiveUser
 	}
-
 	if !passwordOK {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
 		MetricFailedLogins.WithLabelValues(LoginFailBadPassword).Inc()
 		s.recordLoginFailure(ctx, email, user)
-		return nil, ErrInvalidCredentials
+		return ErrInvalidCredentials
 	}
+	return nil
+}
 
+func (s *Service) validateLoginAccountState(ctx context.Context, user *User) error {
 	state, err := s.userRepo.GetAccountState(ctx, user.ID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if state.IsDeleted() {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
 		MetricFailedLogins.WithLabelValues(LoginFailAccountDeleted).Inc()
-		return nil, ErrAccountDeleted
+		return ErrAccountDeleted
 	}
 	if state.IsFrozen() {
 		MetricLoginAttempts.WithLabelValues("password", "failed").Inc()
 		MetricFailedLogins.WithLabelValues(LoginFailAccountFrozen).Inc()
-		return nil, ErrAccountFrozen
+		return ErrAccountFrozen
 	}
+	return nil
+}
 
-	if s.redisClient != nil {
-		lockKey := "login_failures:" + email
-		if err := s.redisClient.Del(ctx, lockKey).Err(); err != nil {
-			slog.WarnContext(ctx, "failed to delete login failures key", "key", lockKey, "err", err)
-		}
+func (s *Service) clearLoginFailures(ctx context.Context, email string) {
+	if s.redisClient == nil {
+		return
 	}
+	lockKey := "login_failures:" + email
+	if err := s.redisClient.Del(ctx, lockKey).Err(); err != nil {
+		slog.WarnContext(ctx, "failed to delete login failures key", "key", lockKey, "err", err)
+	}
+}
 
+func (s *Service) loginMFAGate(ctx context.Context, user *User) (*TokenResponse, bool, error) {
 	workspaceMFARequired, err := s.activeWorkspaceRequiresMFA(ctx, user.ID)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if s.mfaSvc != nil {
 		enabled, err := s.mfaSvc.IsEnabled(ctx, user.ID)
 		if err != nil {
-			return nil, fmt.Errorf("check mfa: %w", err)
+			return nil, false, fmt.Errorf("check mfa: %w", err)
 		}
 		if enabled {
 			challenge, err := s.jwtMgr.GenerateMFAChallenge(user.ID)
 			if err != nil {
-				return nil, fmt.Errorf("generate mfa challenge: %w", err)
+				return nil, false, fmt.Errorf("generate mfa challenge: %w", err)
 			}
 			MetricLoginAttempts.WithLabelValues("password", "mfa_required").Inc()
-			return &TokenResponse{MFARequired: true, MFAToken: challenge}, nil
+			return &TokenResponse{MFARequired: true, MFAToken: challenge}, false, nil
 		}
 	}
 	if workspaceMFARequired {
 		MetricLoginAttempts.WithLabelValues("password", "mfa_required").Inc()
-		return nil, ErrMFARequired
+		return nil, false, ErrMFARequired
 	}
-
-	return s.issueSession(ctx, user, userAgent, ipAddress, method)
+	return nil, true, nil
 }
 
 func (s *Service) activeWorkspaceRequiresMFA(ctx context.Context, userID string) (bool, error) {

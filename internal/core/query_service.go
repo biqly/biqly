@@ -224,28 +224,34 @@ func dimensionNames(model *semantic.SemanticModel) []string {
 	return out
 }
 
+func (s *QueryService) loadSemanticModel(ctx context.Context, lq *query.LogicalQuery) (*semantic.SemanticModel, *ServiceError) {
+	if lq.CompositeID != "" {
+		if s.composites == nil {
+			return nil, ToServiceError(fmt.Errorf("%w: composite models not supported", ErrLoadSemanticModel))
+		}
+		model, err := s.composites.GetPublishedResolvedComposite(ctx, lq.CompositeID)
+		if err != nil {
+			return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadSemanticModel, err))
+		}
+		return model, nil
+	}
+	if lq.ModelID == "" {
+		return nil, ToServiceError(ErrModelIDRequired)
+	}
+	model, err := s.models.GetPublishedFullModel(ctx, lq.ModelID)
+	if err != nil {
+		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadSemanticModel, err))
+	}
+	return model, nil
+}
+
 func (s *QueryService) loadContext(ctx context.Context, lq *query.LogicalQuery) (*CompileResult, *ServiceError) {
 	if lq.DatasourceID == "" {
 		return nil, ToServiceError(ErrDatasourceIDRequired)
 	}
-	var model *semantic.SemanticModel
-	var err error
-	if lq.CompositeID != "" { //nolint:nestif // composite and base-model resolution share post-load validation
-		if s.composites == nil {
-			return nil, ToServiceError(fmt.Errorf("%w: composite models not supported", ErrLoadSemanticModel))
-		}
-		model, err = s.composites.GetPublishedResolvedComposite(ctx, lq.CompositeID)
-		if err != nil {
-			return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadSemanticModel, err))
-		}
-	} else {
-		if lq.ModelID == "" {
-			return nil, ToServiceError(ErrModelIDRequired)
-		}
-		model, err = s.models.GetPublishedFullModel(ctx, lq.ModelID)
-		if err != nil {
-			return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadSemanticModel, err))
-		}
+	model, se := s.loadSemanticModel(ctx, lq)
+	if se != nil {
+		return nil, se
 	}
 	ds, err := s.datasources.GetDatasource(ctx, lq.DatasourceID)
 	if err != nil {

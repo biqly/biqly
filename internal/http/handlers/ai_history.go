@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/biqly/biqly/internal/config"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 )
@@ -38,8 +40,6 @@ func canViewAIHistoryDetails(ctx context.Context, authClient *bimw.AuthClient, u
 
 // AIHistory returns a paginated AI query history list. Filtering and pagination
 // are applied in the database; heavy fields are masked per permission rules.
-//
-//nolint:gocognit
 func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 	userID := bimw.UserID(r.Context())
 	hasViewDetails := canViewAIHistoryDetails(r.Context(), h.authClient, userID)
@@ -49,56 +49,10 @@ func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := r.URL.Query()
-	page := 1
-	if v := q.Get("page"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			page = n
-		}
-	}
-	pageSize := 10
-	if v := q.Get("page_size"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			pageSize = n
-		}
-	} else if v := q.Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			pageSize = n
-		}
-	}
-	if pageSize > 100 {
-		pageSize = 100
-	}
-
-	filter := metadata.AIHistoryListFilter{
-		DatasourceID: q.Get("datasource_id"),
-		ModelID:      q.Get("model_id"),
-		Status:       q.Get("status"),
-		Search:       q.Get("search"),
-		Page:         page,
-		PageSize:     pageSize,
-	}
-
-	if hasViewDetails {
-		if _, ok := q["show_all"]; ok && q.Get("show_all") != "true" && userID != "" {
-			filter.UserID = userID
-		}
-	} else if userID != "" {
-		filter.UserID = userID
-	}
-
-	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied { //nolint:nestif
-		if len(wsFilter) == 0 {
-			writeJSON(w, http.StatusOK, map[string]any{"entries": []metadata.AIQueryHistoryEntry{}, "total": 0})
-			return
-		}
-		if filter.DatasourceID != "" {
-			if _, ok := wsFilter[filter.DatasourceID]; !ok {
-				writeJSON(w, http.StatusOK, map[string]any{"entries": []metadata.AIQueryHistoryEntry{}, "total": 0})
-				return
-			}
-		} else {
-			filter.DatasourceIDs = mapKeys(wsFilter)
-		}
+	filter := buildAIHistoryListFilter(q, userID, hasViewDetails)
+	if empty, applied := applyWorkspaceDatasourceToAIHistoryFilter(r.Context(), h.deps.Config, &filter); applied && empty {
+		writeJSON(w, http.StatusOK, map[string]any{"entries": []metadata.AIQueryHistoryEntry{}, "total": 0})
+		return
 	}
 
 	result, err := h.deps.MetaRepo.ListAIQueryHistoryFiltered(r.Context(), filter)
@@ -205,6 +159,68 @@ func (h *AIHandler) AIHistoryDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, row)
+}
+
+func buildAIHistoryListFilter(q url.Values, userID string, hasViewDetails bool) metadata.AIHistoryListFilter {
+	page, pageSize := parseAIHistoryPagination(q)
+	filter := metadata.AIHistoryListFilter{
+		DatasourceID: q.Get("datasource_id"),
+		ModelID:      q.Get("model_id"),
+		Status:       q.Get("status"),
+		Search:       q.Get("search"),
+		Page:         page,
+		PageSize:     pageSize,
+	}
+	if hasViewDetails {
+		if _, ok := q["show_all"]; ok && q.Get("show_all") != "true" && userID != "" {
+			filter.UserID = userID
+		}
+	} else if userID != "" {
+		filter.UserID = userID
+	}
+	return filter
+}
+
+func parseAIHistoryPagination(q url.Values) (page, pageSize int) {
+	page = 1
+	if v := q.Get("page"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			page = n
+		}
+	}
+	pageSize = 10
+	if v := q.Get("page_size"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			pageSize = n
+		}
+	} else if v := q.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			pageSize = n
+		}
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	return page, pageSize
+}
+
+// applyWorkspaceDatasourceToAIHistoryFilter scopes filter to workspace datasources.
+// Returns empty=true when the result set should be empty, applied=true when workspace
+// filtering is active.
+func applyWorkspaceDatasourceToAIHistoryFilter(ctx context.Context, cfg *config.Config, filter *metadata.AIHistoryListFilter) (empty, applied bool) {
+	wsFilter, applied := resolveWorkspaceDatasourceFilter(ctx, cfg)
+	if !applied {
+		return false, false
+	}
+	if len(wsFilter) == 0 {
+		return true, true
+	}
+	if filter.DatasourceID != "" {
+		_, ok := wsFilter[filter.DatasourceID]
+		return !ok, true
+	}
+	filter.DatasourceIDs = mapKeys(wsFilter)
+	return false, true
 }
 
 func mapKeys(m map[string]struct{}) []string {

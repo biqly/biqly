@@ -14,16 +14,16 @@ func TestHydrateExpressionASTsParsesDimensionAndMetricExpressions(t *testing.T) 
 	RegisterExpressionParser(func(expr string) (pkgsemantic.ExprNode, error) {
 		switch expr {
 		case "orders.total_amount - 10":
-			return pkgsemantic.BinaryExpr{
+			return &pkgsemantic.BinaryExpr{
 				Op:    pkgsemantic.OpSubtract,
-				Left:  pkgsemantic.ColumnRefExpr{Table: "orders", Column: "total_amount"},
-				Right: pkgsemantic.LiteralExpr{Value: int64(10)},
+				Left:  &pkgsemantic.ColumnRefExpr{Table: "orders", Column: "total_amount"},
+				Right: &pkgsemantic.LiteralExpr{Value: int64(10)},
 			}, nil
 		case "orders.revenue - orders.cost":
-			return pkgsemantic.BinaryExpr{
+			return &pkgsemantic.BinaryExpr{
 				Op:    pkgsemantic.OpSubtract,
-				Left:  pkgsemantic.ColumnRefExpr{Table: "orders", Column: "revenue"},
-				Right: pkgsemantic.ColumnRefExpr{Table: "orders", Column: "cost"},
+				Left:  &pkgsemantic.ColumnRefExpr{Table: "orders", Column: "revenue"},
+				Right: &pkgsemantic.ColumnRefExpr{Table: "orders", Column: "cost"},
 			}, nil
 		default:
 			t.Fatalf("ExpressionParser(%q) called unexpectedly", expr)
