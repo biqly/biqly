@@ -36,7 +36,7 @@ BIQLY_GITHUB_TOKEN='github_pat_...' ./deploy/argocd/setup-github-pat.sh
 
 ## Controller image (GHCR mirror)
 
-The Helm chart pulls `ghcr.io/biqly/argocd-image-updater:v1.2.0`, mirrored from `quay.io/argoprojlabs/argocd-image-updater:v1.2.0` because the cluster cannot reach quay.io.
+The Helm chart pulls `ghcr.io/biqly/argocd-image-updater:v1.2.0`, mirrored from `quay.io/argoprojlabs/argocd-image-updater:v1.2.0` because the cluster cannot reach quay.io. The mirror workflow copies the **full multi-arch manifest** (`buildx imagetools create`); a single-arch `docker pull` on amd64 breaks arm64 nodes with `exec format error`.
 
 - Workflow: `.github/workflows/mirror-argocd-image-updater.yml` (weekly + manual dispatch)
 - Helm override: `deploy/argocd/image-updater-helm-values.yaml` (`image.repository`, `imagePullSecrets: ghcr-registry`)
