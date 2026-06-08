@@ -30,7 +30,7 @@ export function AIHistoryPanel() {
   const [error, setError] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
   const [historyIdParam, setHistoryIdParam] = useQueryParam('historyId')
-  const expandedID = historyIdParam || null
+  const expandedId = historyIdParam || null
   const [detail, setDetail] = useState<AIHistoryEntry | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
@@ -39,7 +39,6 @@ export function AIHistoryPanel() {
   const pageSize = 10
   const [totalItems, setTotalItems] = useState(0)
   const totalPages = Math.ceil(totalItems / pageSize)
-  const displayedEntries = entries
 
   const isAdmin = roles.some((r) => r === 'super_admin' || r === 'admin')
 
@@ -73,13 +72,13 @@ export function AIHistoryPanel() {
   }, [showAll])
 
   useEffect(() => {
-    if (!expandedID || !accessToken) {
+    if (!expandedId || !accessToken) {
       setDetail(null)
       return
     }
     let cancelled = false
     setDetailLoading(true)
-    getAIHistoryDetail(accessToken, expandedID)
+    getAIHistoryDetail(accessToken, expandedId)
       .then((d) => {
         if (!cancelled) {
           setDetail(d)
@@ -98,10 +97,10 @@ export function AIHistoryPanel() {
     return () => {
       cancelled = true
     }
-  }, [expandedID, accessToken])
+  }, [expandedId, accessToken])
 
   function toggleDetail(id: string) {
-    if (expandedID === id) {
+    if (expandedId === id) {
       setHistoryIdParam('')
     } else {
       setHistoryIdParam(id)
@@ -176,9 +175,9 @@ export function AIHistoryPanel() {
                       </tr>
                     </thead>
                     <tbody>
-                      {displayedEntries.map((entry) => {
+                      {entries.map((entry) => {
                         const badge = statusBadge(entry)
-                        const isExpanded = expandedID === entry.id
+                        const isExpanded = expandedId === entry.id
                         return (
                           <Fragment key={entry.id}>
                             <tr

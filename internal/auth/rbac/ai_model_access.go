@@ -319,7 +319,7 @@ type AIModelAccessGrants struct {
 
 func scanGrantedBy(gb sql.NullString) *string {
 	if gb.Valid {
-		return new(gb.String)
+		return &gb.String
 	}
 	return nil
 }
@@ -330,16 +330,13 @@ func listGrants[G any](ctx context.Context, db *sql.DB, query string, scan func(
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
-	var grants []G
+	grants := make([]G, 0)
 	for rows.Next() {
 		g, err := scan(rows)
 		if err != nil {
 			return nil, err
 		}
 		grants = append(grants, g)
-	}
-	if grants == nil {
-		grants = make([]G, 0)
 	}
 	return grants, rows.Err()
 }
