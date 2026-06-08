@@ -878,8 +878,8 @@
   align-items: flex-start;
   padding: 14px 16px;
   border-radius: 10px;
-  border: 1px solid var(--border, #27272a);
-  background: var(--surface-elevated, #18181b);
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+  background: var(--bg-card-raised, rgba(0, 0, 0, 0.02));
   cursor: pointer;
 }
 .ldap-toggle input {

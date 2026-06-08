@@ -4,7 +4,7 @@
 
 The open items from §10 Conclusion and Roadmap in `tasks/biqly_analiz.pdf` (Version 3.0) have been verified against the codebase and updated. ESLint zero-warnings has already been achieved; the following items are still open.
 
-### Orta öncelik (2026-06-08)
+### Medium priority (2026-06-08)
 
 - [x] **Reduce AIConfig getter methods/fan-out.** 13 getter methods $\rightarrow$ 5 exported methods (`ResolvedQuery`, `ResolvedEmbedding`, `ResolvedTranslation`, `HTTPTimeout`, `RequestTimeout`) + 3 view types (`AIQueryView`, `AIEmbeddingView`, `AITranslationView`). External calls: 93 $\rightarrow$ 58. `make lint-go` clean.
   - **Files**: `internal/config/config.go`, `internal/ai/service.go`, `internal/ai/provider/*.go`, `internal/app/dependencies.go`, `internal/http/handlers/ai.go` + tests.
@@ -12,7 +12,7 @@ The open items from §10 Conclusion and Roadmap in `tasks/biqly_analiz.pdf` (Ver
 - [x] **Remove branching in TableRouter.Route.** `Route` has been reduced to 61 lines; the `funlen` nolint was removed; logic was moved to helper functions: `routeLoadAndFilter`, `routePrepareSelection`, `routeAnnotateResult`, `routeExpandSelection`, and `routeFinalize`. `go test ./internal/ai/routing/...` passes.
   - **Files**: `internal/ai/routing/router.go` + existing test files.
 
-### Düşük öncelik (2026-06-08)
+### Low priority (2026-06-08)
 
 - [x] **Gradually reduce repository-wide nolint directives.** Current baseline: **75** (`rg -c 'nolint' --glob '*.go'`); the target of <80 has been met. This round: `builtins` (`enrich_viz.go`) and `revive` (`permissions.go`) were removed. Remaining directives are mostly justified `gosec`/`nilnil`/test fixtures.
   - **Acceptance Criteria**: nolint count <80; no new nolints added; corresponding linter passes for every removed nolint.
@@ -59,25 +59,25 @@ The open items from §10 Conclusion and Roadmap in `tasks/biqly_analiz.pdf` (Ver
   - **Files**: `internal/auth/cookie.go`, `internal/config/config.go`.
 
 ### Completed (in previous rounds)
- 
- - [x] AIConfig fields split into 9 sub-structs
- - [x] ValidateContext/ValidateComposite/PasswordPolicy.Validate reduced to single-digit complexity
- - [x] Nightly live-LLM eval + drift gate added
- - [x] Auth fail-closed invariant in prod (`env.IsProduction()`)
- - [x] OTEL span depth increased from 3 $\rightarrow$ 16+
- - [x] queue package added to coverage floor monitoring (40%)
- - [x] Flaky TestMFABypassCodeFlow stabilized
- - [x] ESLint warnings reduced to zero (`--max-warnings 0`)
- - [x] CSP + X-Frame-Options + prod HSTS security headers implemented
- - [x] CodeQL + govulncheck + semgrep SAST scans enabled
- 
+
+- [x] AIConfig fields split into 9 sub-structs
+- [x] ValidateContext/ValidateComposite/PasswordPolicy.Validate reduced to single-digit complexity
+- [x] Nightly live-LLM eval + drift gate added
+- [x] Auth fail-closed invariant in prod (`env.IsProduction()`)
+- [x] OTEL span depth increased from 3 $\rightarrow$ 16+
+- [x] queue package added to coverage floor monitoring (40%)
+- [x] Flaky TestMFABypassCodeFlow stabilized
+- [x] ESLint warnings reduced to zero (`--max-warnings 0`)
+- [x] CSP + X-Frame-Options + prod HSTS security headers implemented
+- [x] CodeQL + govulncheck + semgrep SAST scans enabled
+
  ---
 
 ## Technical Analysis Report — Remaining Gaps (2026-06-07)
- 
+
  The remaining recommendations from the `tasks/biqly_analiz.pdf` report (Version 3.0) were verified in the codebase. 7 of the 8 gaps from the initial audit have been resolved; the following are still open. In order of priority:
 
-### Orta öncelik (2026-06-07)
+### Medium priority (2026-06-07)
 
 - [x] **Physically decompose the AIConfig god-object (move fields, do not just rename).** The previous renaming of nested configs did not improve the metrics (21 fields / 13 methods / 93 external calls = score of 60, CRITICAL). In this round, top-level connection/tuning fields were physically relocated.
   - Completed: `AIConfig` now contains only 9 top-level sub-structs — `Connection`, `Generation`, `Describe`, `Cache`, `Query`, `Embedding`, `Translation`, `Routing`, and `Ambiguity` (`internal/config/config.go`).
@@ -87,138 +87,138 @@ The open items from §10 Conclusion and Roadmap in `tasks/biqly_analiz.pdf` (Ver
 - [x] **Add periodic (nightly) live-LLM eval runs.** The current regression gate on the deterministic stub provider is 1.00 — which catches harness/compiler regressions but does not measure live-LLM accuracy drift. Add a nightly cron workflow + golden run with a real provider + drift reporting. (Also expand the evaluation suite with new dialect/edge cases.)
 - [x] **Make `BI_AUTH_ENABLED` a required (fail-closed) invariant in production.** Verified: `internal/config/config.go:413` defaults to `false`. Although Helm production values set it to `true`, having it disabled at the code level in production relies entirely on network-level security. Action: If `env.IsProduction()` is true and `BI_AUTH_ENABLED=false`, fail-closed during startup (panic/refuse).
 
-### Düşük öncelik (2026-06-07)
+### Low priority (2026-06-07)
 
-- [x] **OTEL izleme derinliğini artır (sürücü/DB span'leri).** Doğrulandı: yalnız 3 adlandırılmış span var — `ai.ProcessQuestion` (`internal/ai/service.go:254`), `query.Compile` (`internal/query/compiler.go:64`), `query.Execute` (`internal/query/executor.go:52`) + router otelhttp ingress. Veri-kaynağı sürücü çağrıları ve few-shot/embedding alt-fazları span'lenmiyor. Aksiyon: alt-fazlara span ekle + span'lere kritik öznitelikler (model, attempt, fingerprint).
-  - Tamamlandı (2026-06-07): datasource span'leri (`datasource.Ping/Open/Introspect/IntrospectSchemas|Tables|Columns|Relations/Query`), AI alt-fazları (`ai.PromptBuild`, `ai.AmbiguityAnalyze`, `ai.LLMGenerate`, `ai.MultiCandidate`, `ai.TableRoute`, `ai.RouteEmbedding`, `ai.LoadFewShot`, `ai.Embed`, `ai.EmbedMetadata`, `ai.ProviderGenerate`), kritik öznitelikler (`ai.model`, `ai.attempt`, `query.fingerprint`, `model.id`, token sayıları, route confidence).
-  - `query.LogicalQueryFingerprint` + `observability.WithQueryFingerprint` ile compile→execute fingerprint zinciri.
-  - Doğrulama: `go build ./internal/...` + `go test ./internal/query/... ./internal/datasource/... ./internal/ai/... ./internal/core/... ./internal/platform/observability/... ./internal/http/handlers/...` geçti.
-- [x] **`internal/queue`'yu kapsam-taban haritasına ekle.** `scripts/coveragecheck/main.go` `floors` map'ine `internal/queue` %40 taban eklendi (mevcut ~%42.5).
-- [x] **Flaky `TestMFABypassCodeFlow` izolasyonunu düzelt.** `mfatest` artık global tablo silmiyor; benzersiz e-posta seed + `t.Cleanup` ile kullanıcı bazlı teardown (`webauthn_flow_test` deseni).
-- [ ] **ESLint uyarı tavanını zamanla 0'a doğru sık.** Frontend kapısı CI-eşdeğeri ama uyarı tavanı > 0; kademeli olarak sıfıra indir.
-  - **Mevcut durum**: `--max-warnings 576` (gerçek uyarı: 576, 25 kural, 100+ dosya; Faz 1 + no-misused-promises kapatıldı)
-  - **Hedef**: Kural gruplarını öncelik sırasıyla `error`'a promote et, her grupta `max-warnings`'ı düşür.
-  - **Faz 1 — En yüksek etki, mekanik düzeltme (~830 uyarı, %57)**
-    - [x] `@typescript-eslint/prefer-nullish-coalescing` (262 → 0) — `||` → `??` değişimleri; kural suggestion-only (autofix yok), ESLint API ile 262 suggestion 56 dosyada uygulandı. `max-warnings` 1495 → 1220. Testler geçti (95/95).
-    - [x] `@typescript-eslint/no-unsafe-call` (199 → 0) — Kök neden: child component prop'larında `t: any`. `TFunction` / `LooseTFunction` export edildi (`i18n/index.tsx`); 16+ dosyada `t: any` → `TFunction` değiştirildi. Ek: `PasskeyCreationOptionsJSON`, `DashboardBuilder` KPI render, `ExpressionBuilder` geçersiz fallback argümanları kaldırıldı. `max-warnings` 1220 → 850. Testler geçti (95/95), tsc temiz.
-    - [x] `@typescript-eslint/no-unsafe-assignment` (41 → 0; todo'daki 124 eski baseline) — `AuthUserRaw` + tipli `apiFetch`, passkey JSON tipleri, `parseJsonRecord`/`parseJsonStringArray` (`utils/record.ts`), `QueryResultPayload` query run, `PermissionRowFilter.value` daraltması, i18n `navigator.languages` guard. `max-warnings` 850 → 730.
-    - [x] `@typescript-eslint/no-unsafe-member-access` (96 → 0) — Çoğu `no-unsafe-assignment` ile birlikte çözülmüştü (`api/auth.ts` tipli `apiFetch`, `DashboardBuilder` `QueryResultPayload`/`ChartRow`). Kalan 5: `Glossary.tsx` ve `ExpressionBuilder.tsx` `catch (err: unknown)` + `instanceof Error`; `admin.test.ts` mock `RequestInit` cast. Kural `error`'a promote edildi. `max-warnings` 730 → 709.
-  - **Faz 2 — Promise/async güvenlik (~256 uyarı, %17)**
-    - [x] `@typescript-eslint/no-misused-promises` (130 → 0) — Event handler ve prop callback'lerde `void asyncFn()` wrapper; form `onSubmit={(e) => { void handleSubmit(e) }}`; `AuthProvider` setInterval + `AuthGuard` navigate ref sarmalandı. 42 dosya. Kural `error`'a promote edildi. `max-warnings` 709 → 576.
-    - [x] `@typescript-eslint/no-floating-promises` (126 → 0) — `useEffect` ve async handler içindeki fire-and-forget çağrılara `void` prefix; `.then()` zincirleri `void get(...).then(...)`. 50 dosya. Kural `error`'a promote edildi. `max-warnings` 576 → 451.
-  - **Faz 3 — Tip güvenliği ve kod kalitesi (~310 uyarı, %21)**
-    - [x] `@typescript-eslint/no-unnecessary-condition` (136 → 0) — Gereksiz `?? []`/`?.`/her zaman truthy `if` kaldırıldı; discriminated union son dallar `else`; `apiFetch` dönüş tipleri daraltıldı; `apiClient` timeout `startedAt` ile; 49 dosya. Kural `error`'a promote edildi. `max-warnings` 451 → 315. Testler geçti (95/95).
-    - [x] `@typescript-eslint/no-explicit-any` (25 → 0) — `SemanticDimension`/`SemanticMetric` tipleri query builder adımlarına; `Select` onChange setter geçişi; `ComponentType<unknown>` lazy preload; `unknown[][]` chart rows; aggregation type guard; `LooseTFunction` için doğrudan `t` geçişi. Kural `error`'a promote edildi. `max-warnings` 315 → 290.
-    - [x] `@typescript-eslint/no-unsafe-argument` (35 → 0) — Faz 1'deki `no-unsafe-call`/`no-unsafe-assignment`/`no-unsafe-member-access` düzeltmeleriyle tüm 35 uyarı zaten çözülmüştü (`TFunction`, `apiFetch` tipleri, `parseJsonRecord`, `QueryResultPayload` vb.). Ek kod değişikliği gerekmedi. Kural `error`'a promote edildi. `max-warnings` 290 (değişmedi). Lint temiz (0 violation).
-    - [x] `@typescript-eslint/no-unsafe-return` (7 → 0; gerçekte 1) — `useConversation.ts` `JSON.parse` için `parseStoredConversations` + `isConversation` type guard. Kural `error`'a promote edildi.
-    - [x] `@typescript-eslint/no-redundant-type-constituents` (8 → 0) — `AIQueryResponse | unknown` → `unknown`; `DriverTileGrid` generic kaldırıldı (`readonly DriverId[]`); `jobWaiter.test` somut generic; `context_source` literal union (`| string` kaldırıldı). Kural `error`'a promote edildi.
-    - [x] `@typescript-eslint/consistent-type-imports` (5 → 0) — `import()` inline type annotation'lar `import type` ile değiştirildi (`AssistantMessageCard`, `routingViz`, `modeling/types`). Kural `error`'a promote edildi.
-    - [x] `@typescript-eslint/no-unused-vars` (28 → 0; gerçekte 3) — Kullanılmayan `Datasource`/`CardLayout` import'ları silindi; `catch` binding kaldırıldı. Kural `error`'a promote edildi. `max-warnings` 290 → 248. Testler geçti (95/95).
-  - **Faz 4 — React hook'ları ve a11y (~164 uyarı, %11)**
-    - [x] `react-hooks/set-state-in-effect` (112) — `useEffect` içinde `setState` (v7 yeni kuralı). Yoğun dosyalar: `TableBrowser.tsx` (8), `Modeling.tsx` (7), `SavedQuestions.tsx` (5). Best practice: `useEffect` + `setState` kalıbını `useSyncExternalStore`, derived state veya `useMemo` ile değiştir; ilk yükleme için `use()` hook'u veya Suspense pattern değerlendir.
-    - [x] `react-hooks/exhaustive-deps` (30) — Eksik bağımlılık dizisi. Best practice: her `useEffect`/`useCallback`/`useMemo` bağımlılık dizisini review et; yanlış bağımlılık yoksa `// eslint-disable-next-line react-hooks/exhaustive-deps` ile gerekçeli istisna ekle.
-    - [x] `react-refresh/only-export-components` (34) — Dosyada component dışı export. Best practice: utility fonksiyon ve sabitleri ayrı dosyaya taşı; `allowConstantExport: true` zaten config'de ama kalanlar için dosya böl.
-    - [x] `react-hooks/refs` (4), `react-hooks/immutability` (2), `react-hooks/purity` (1) — v7 yenileri. Best practice: ref mutate'lerini event handler'a taşı; immutable state update'leri ensure et; side effect'leri `useEffect`'e taşı.
-    - [x] `jsx-a11y/no-autofocus` (18) — `autoFocus` attribute. Best practice: `autoFocus` yerine `useRef` + `el.focus()` programatik odak; modal açılışında `useEffect` ile focus trap uygula.
-  - **Faz 5 — Kalan düşük sayılı kurallar (~33 uyarı, %2)**
-    - [x] `complexity` (24) + `max-depth` (1) — Yüksek karmaşıklıklı fonksiyonlar. Best practice: büyük fonksiyonları alt-fonksiyonlara böl; early return ile iç içe `if`'leri azalt.
-    - [x] `@typescript-eslint/no-base-to-string` (5) — `toString()` geçersiz tip. Best practice: `String()` veya template literal kullan.
-    - [x] `@typescript-eslint/no-empty-function` (3) — Boş fonksiyon gövdeleri. Best practice: `() => {}` yerine `noop` yardımcısı veya `_` prefix parametre.
-    - [x] `@typescript-eslint/ban-ts-comment` (1), `@typescript-eslint/prefer-for-of` (1) — Tek seferlik düzeltmeler.
-  - **Sıkma stratejisi**
-    - [x] Her faz tamamlandığında `max-warnings`'ı mevcut uyarı sayısı + küçük tampon (10-20) olarak güncelle.
-    - [x] Hedef timetable: Faz 1 → ~665 uyarı (`max-warnings 680`), Faz 2 → ~405 uyarı (`max-warnings 420`), Faz 3 → ~95 uyarı (`max-warnings 110`), Faz 4+5 → 0 (`max-warnings 0`).
-    - [x] Son adımda `eslint.config.js`'teki tüm `'warn'` kurallarını `'error'` yap ve `--max-warnings 0` ile kesin sıfır uyarı politikası getir.
+- [x] **Increase OTEL tracing depth (driver/DB spans).** Verified: only 3 named spans existed — `ai.ProcessQuestion` (`internal/ai/service.go:254`), `query.Compile` (`internal/query/compiler.go:64`), `query.Execute` (`internal/query/executor.go:52`) + router otelhttp ingress. Datasource driver calls and few-shot/embedding sub-phases were not spanned. Action: add spans to sub-phases + critical attributes on spans (model, attempt, fingerprint).
+  - Completed (2026-06-07): datasource spans (`datasource.Ping/Open/Introspect/IntrospectSchemas|Tables|Columns|Relations/Query`), AI sub-phases (`ai.PromptBuild`, `ai.AmbiguityAnalyze`, `ai.LLMGenerate`, `ai.MultiCandidate`, `ai.TableRoute`, `ai.RouteEmbedding`, `ai.LoadFewShot`, `ai.Embed`, `ai.EmbedMetadata`, `ai.ProviderGenerate`), critical attributes (`ai.model`, `ai.attempt`, `query.fingerprint`, `model.id`, token counts, route confidence).
+  - compile→execute fingerprint chain via `query.LogicalQueryFingerprint` + `observability.WithQueryFingerprint`.
+  - Verification: `go build ./internal/...` + `go test ./internal/query/... ./internal/datasource/... ./internal/ai/... ./internal/core/... ./internal/platform/observability/... ./internal/http/handlers/...` passed.
+- [x] **Add `internal/queue` to the coverage floor map.** Added `internal/queue` 40% floor to the `floors` map in `scripts/coveragecheck/main.go` (current ~42.5%).
+- [x] **Fix flaky `TestMFABypassCodeFlow` isolation.** `mfatest` no longer deletes global tables; per-user teardown via unique email seed + `t.Cleanup` (`webauthn_flow_test` pattern).
+- [x] **Ratchet ESLint warning ceiling toward 0 over time.** Frontend gate is CI-equivalent; warning ceiling was > 0; ratcheted to zero gradually.
+  - **Current state**: `--max-warnings 576` (actual warnings: 576, 25 rules, 100+ files; Phase 1 + no-misused-promises closed)
+  - **Target**: Promote rule groups to `error` in priority order; lower `max-warnings` in each group.
+  - **Phase 1 — Highest impact, mechanical fixes (~830 warnings, 57%)**
+    - [x] `@typescript-eslint/prefer-nullish-coalescing` (262 → 0) — `||` → `??` changes; rule is suggestion-only (no autofix); applied 262 suggestions across 56 files via ESLint API. `max-warnings` 1495 → 1220. Tests passed (95/95).
+    - [x] `@typescript-eslint/no-unsafe-call` (199 → 0) — Root cause: `t: any` on child component props. Exported `TFunction` / `LooseTFunction` (`i18n/index.tsx`); replaced `t: any` → `TFunction` in 16+ files. Also: `PasskeyCreationOptionsJSON`, `DashboardBuilder` KPI render, `ExpressionBuilder` invalid fallback args removed. `max-warnings` 1220 → 850. Tests passed (95/95), tsc clean.
+    - [x] `@typescript-eslint/no-unsafe-assignment` (41 → 0; 124 in todo was old baseline) — `AuthUserRaw` + typed `apiFetch`, passkey JSON types, `parseJsonRecord`/`parseJsonStringArray` (`utils/record.ts`), `QueryResultPayload` query run, `PermissionRowFilter.value` narrowing, i18n `navigator.languages` guard. `max-warnings` 850 → 730.
+    - [x] `@typescript-eslint/no-unsafe-member-access` (96 → 0) — Most were fixed with `no-unsafe-assignment` (`api/auth.ts` typed `apiFetch`, `DashboardBuilder` `QueryResultPayload`/`ChartRow`). Remaining 5: `Glossary.tsx` and `ExpressionBuilder.tsx` `catch (err: unknown)` + `instanceof Error`; `admin.test.ts` mock `RequestInit` cast. Rule promoted to `error`. `max-warnings` 730 → 709.
+  - **Phase 2 — Promise/async security (~256 warnings, 17%)**
+    - [x] `@typescript-eslint/no-misused-promises` (130 → 0) — `void asyncFn()` wrapper on event handlers and prop callbacks; form `onSubmit={(e) => { void handleSubmit(e) }}`; wrapped `AuthProvider` setInterval + `AuthGuard` navigate ref. 42 files. Rule promoted to `error`. `max-warnings` 709 → 576.
+    - [x] `@typescript-eslint/no-floating-promises` (126 → 0) — `void` prefix on fire-and-forget calls in `useEffect` and async handlers; `.then()` chains `void get(...).then(...)`. 50 files. Rule promoted to `error`. `max-warnings` 576 → 451.
+  - **Phase 3 — Type safety and code quality (~310 warnings, 21%)**
+    - [x] `@typescript-eslint/no-unnecessary-condition` (136 → 0) — Removed unnecessary `?? []`/`?.`/always-truthy `if`; discriminated union final branches use `else`; narrowed `apiFetch` return types; `apiClient` timeout via `startedAt`; 49 files. Rule promoted to `error`. `max-warnings` 451 → 315. Tests passed (95/95).
+    - [x] `@typescript-eslint/no-explicit-any` (25 → 0) — `SemanticDimension`/`SemanticMetric` types in query builder steps; `Select` onChange setter pass-through; `ComponentType<unknown>` lazy preload; `unknown[][]` chart rows; aggregation type guard; direct `t` pass-through for `LooseTFunction`. Rule promoted to `error`. `max-warnings` 315 → 290.
+    - [x] `@typescript-eslint/no-unsafe-argument` (35 → 0) — All 35 warnings already resolved by Phase 1 `no-unsafe-call`/`no-unsafe-assignment`/`no-unsafe-member-access` fixes (`TFunction`, `apiFetch` types, `parseJsonRecord`, `QueryResultPayload`, etc.). No extra code change needed. Rule promoted to `error`. `max-warnings` 290 (unchanged). Lint clean (0 violations).
+    - [x] `@typescript-eslint/no-unsafe-return` (7 → 0; actually 1) — `parseStoredConversations` + `isConversation` type guard for `useConversation.ts` `JSON.parse`. Rule promoted to `error`.
+    - [x] `@typescript-eslint/no-redundant-type-constituents` (8 → 0) — `AIQueryResponse | unknown` → `unknown`; removed `DriverTileGrid` generic (`readonly DriverId[]`); `jobWaiter.test` concrete generic; `context_source` literal union (`| string` removed). Rule promoted to `error`.
+    - [x] `@typescript-eslint/consistent-type-imports` (5 → 0) — Replaced `import()` inline type annotations with `import type` (`AssistantMessageCard`, `routingViz`, `modeling/types`). Rule promoted to `error`.
+    - [x] `@typescript-eslint/no-unused-vars` (28 → 0; actually 3) — Removed unused `Datasource`/`CardLayout` imports; removed `catch` binding. Rule promoted to `error`. `max-warnings` 290 → 248. Tests passed (95/95).
+  - **Phase 4 — React hooks and a11y (~164 warnings, 11%)**
+    - [x] `react-hooks/set-state-in-effect` (112) — `setState` inside `useEffect` (v7 new rule). Heavy files: `TableBrowser.tsx` (8), `Modeling.tsx` (7), `SavedQuestions.tsx` (5). Best practice: replace `useEffect` + `setState` with `useSyncExternalStore`, derived state, or `useMemo`; for initial load consider `use()` or Suspense.
+    - [x] `react-hooks/exhaustive-deps` (30) — Missing dependency arrays. Best practice: review each `useEffect`/`useCallback`/`useMemo` dependency array; if no false dependency, add justified `// eslint-disable-next-line react-hooks/exhaustive-deps`.
+    - [x] `react-refresh/only-export-components` (34) — Non-component exports in file. Best practice: move utility functions and constants to a separate file; `allowConstantExport: true` is already in config but split files for the remainder.
+    - [x] `react-hooks/refs` (4), `react-hooks/immutability` (2), `react-hooks/purity` (1) — v7 new rules. Best practice: move ref mutations to event handlers; ensure immutable state updates; move side effects to `useEffect`.
+    - [x] `jsx-a11y/no-autofocus` (18) — `autoFocus` attribute. Best practice: use `useRef` + `el.focus()` instead of `autoFocus`; apply focus trap on modal open with `useEffect`.
+  - **Phase 5 — Remaining low-count rules (~33 warnings, 2%)**
+    - [x] `complexity` (24) + `max-depth` (1) — High-complexity functions. Best practice: split large functions into sub-functions; reduce nested `if` with early return.
+    - [x] `@typescript-eslint/no-base-to-string` (5) — `toString()` on invalid type. Best practice: use `String()` or template literal.
+    - [x] `@typescript-eslint/no-empty-function` (3) — Empty function bodies. Best practice: use `noop` helper or `_`-prefixed parameter instead of `() => {}`.
+    - [x] `@typescript-eslint/ban-ts-comment` (1), `@typescript-eslint/prefer-for-of` (1) — One-off fixes.
+  - **Ratcheting strategy**
+    - [x] After each phase completes, update `max-warnings` to current warning count + small buffer (10–20).
+    - [x] Target timetable: Phase 1 → ~665 warnings (`max-warnings 680`), Phase 2 → ~405 warnings (`max-warnings 420`), Phase 3 → ~95 warnings (`max-warnings 110`), Phase 4+5 → 0 (`max-warnings 0`).
+    - [x] Final step: promote all `'warn'` rules in `eslint.config.js` to `'error'` and enforce strict zero-warning policy with `--max-warnings 0`.
 
-### Notlar
+### Notes
 
-- Tüm tespitler kaynak kodda satır/dosya bazında doğrulandı; rapordaki "kapatıldı" işaretli 7 kalem yeniden açılmadı.
-- Önce davranış-koruyan testler, sonra refactor sırası izlenmeli (özellikle AIConfig taşıması ve fonksiyon ayrıştırmalarında).
+- All findings were verified line-by-line in source; the 7 report items marked "closed" were not reopened.
+- Follow behavior-preserving tests first, then refactor (especially AIConfig moves and function extractions).
 
-## pgarray Abstraction — lib/pq Tek Noktada Toplama (2026-06-07)
+## pgarray Abstraction — Consolidating lib/pq in One Place (2026-06-07)
 
-Postgres `text[]` kodlama/çözme için kullanılan `lib/pq` helper'ları (`pq.Array`, `pq.StringArray`) 11 dosyaya dağılmıştı. Driver zaten pgx (`database/sql` + `pgx/v5/stdlib`); lib/pq sadece array codec olarak kullanılıyordu. İleride pgx native / pgtype'a geçişi tek dosyaya indirmek için tek bir abstraction'da toplandı.
+The `lib/pq` helpers (`pq.Array`, `pq.StringArray`) used for Postgres `text[]` encode/decode were spread across 11 files. The driver already uses pgx (`database/sql` + `pgx/v5/stdlib`); lib/pq was only used as an array codec. Consolidated into a single abstraction so a future pgx native / pgtype migration touches one file.
 
-### Yapılanlar
+### Completed work
 
-- [x] `internal/platform/db/pgarray/array.go` oluşturuldu — lib/pq'yu import eden **tek** paket.
-  - `func Strings(v []string) any` → query param (Valuer), `pq.Array` yerine.
+- [x] Created `internal/platform/db/pgarray/array.go` — the **only** package that imports lib/pq.
+  - `func Strings(v []string) any` → query param (Valuer), `pq.Array` instead of.
   - `type StringArray = pq.StringArray` → scan target + Valuer.
-  - `func Scan(dst any) any` → pointer scan hedefi (`pq.Array(&slice)` yerine).
-- [x] 11 dosyada doğrudan `pq.*` kullanımları `pgarray.*` ile değiştirildi, `github.com/lib/pq` import'ları kaldırıldı:
+  - `func Scan(dst any) any` → pointer scan hedefi (`pq.Array(&slice)` instead of).
+- [x] Replaced direct `pq.*` usage with `pgarray.*` in 11 files; removed `github.com/lib/pq` imports:
   - `internal/metadata/`: `repository.go`, `business_glossary.go`, `ai_time_grains.go`, `ai_history_query.go`, `permissions.go`, `translations.go`, `curated_ai.go`, `ai_jobs.go`
   - `internal/auth/repository.go`, `internal/auth/mfa/mfa_repository.go`
   - `internal/ai/provider_store.go`
-- [x] Davranış birebir aynı (`pgarray.Strings` = `pq.Array`, `StringArray` = type alias) — sadece indirection eklendi.
+- [x] Behavior unchanged (`pgarray.Strings` = `pq.Array`, `StringArray` = type alias) — only indirection added.
 
-### Sonuç / doğrulama
+### Result / verification
 
-- `lib/pq` artık yalnızca `internal/platform/db/pgarray/array.go` içinde import ediliyor (grep ile doğrulandı; başka `pq.Array`/`pq.StringArray` kalmadı).
-- `gofmt -w` tüm dokunan dosyalara uygulandı.
-- `go build ./...` ve `go vet ./internal/{metadata,auth,ai,platform/db}/...` temiz.
-- `golangci-lint run` dokunan paketlerde **0 issues**.
-- In-memory testler geçti (`internal/metadata`, `internal/ai`, `internal/platform/db`). Başarısız iki test (`auth/mfa`, `auth/workspace`) **temiz ağaçta da** FK constraint hatasıyla düşüyor → paylaşılan test DB seed sorunu, bu değişiklikle ilgisiz.
+- `lib/pq` is now imported only in `internal/platform/db/pgarray/array.go` (verified via grep; no other `pq.Array`/`pq.StringArray` remain).
+- `gofmt -w` applied to all touched files.
+- `go build ./...` and `go vet ./internal/{metadata,auth,ai,platform/db}/...` clean.
+- `golangci-lint run` on touched packages: **0 issues**.
+- In-memory tests passed (`internal/metadata`, `internal/ai`, `internal/platform/db`). Two failing tests (`auth/mfa`, `auth/workspace`) **also fail on a clean tree** with FK constraint errors → shared test DB seed issue, unrelated to this change.
 
-### İleride pgx native / pgtype'a geçiş
+### Future migration to pgx native / pgtype
 
-Artık 11 dosya yerine sadece `pgarray/array.go` içindeki üç sembolün gövdesi değişecek. `database/sql` + pgx stdlib'de kalınırsa `pgtype` muadilleri; tam pgxpool migrasyonunda Go slice'ları doğrudan geçilip `lib/pq` tamamen kaldırılabilir.
+Only the bodies of three symbols in `pgarray/array.go` need to change instead of 11 files. If staying on `database/sql` + pgx stdlib, use `pgtype` equivalents; with full pgxpool migration, pass Go slices directly and remove `lib/pq` entirely.
 
 ## Redis Client Migration Evaluation (go-redis → rueidis / valkey-go) (2026-06-07)
 
-go-redis v9 güvenilir ama performans odaklı alternatifler daha agresif:
+go-redis v9 is reliable but performance-focused alternatives are more aggressive:
 
-- **rueidis**: automatic pipelining, client-side caching, paralel workload'larda go-redis'e göre yüksek throughput iddiası. Kendi benchmark'larında ciddi farklar var.
-- **valkey-go**: Valkey/Redis için optimize, benzer performans hikayesi.
+- **rueidis**: automatic pipelining, client-side caching; claims higher throughput vs go-redis on parallel workloads. Large deltas in its own benchmarks.
+- **valkey-go**: optimized for Valkey/Redis, similar performance story.
 
-### Değerlendirme kriterleri
+### Evaluation criteria
 
-- [x] go-redis v9 ile rueidis arasında gerçek benchmark karşılaştırması yaz (GET/SET/MSET pipeline, P99 latency, connection pooling).
-- [x] rueidis client-side caching'in mevcut cache yapısına uyumunu analiz et.
-- [x] valkey-go API uyumluluğunu kontrol et (Dragonfly/Redis desteği).
-- [x] Migration riskini değerlendir: API farkları, test coverage, community/bakım durumu.
+- [x] Write real benchmark comparison between go-redis v9 and rueidis (GET/SET/MSET pipeline, P99 latency, connection pooling).
+- [x] Analyze how rueidis client-side caching fits the existing cache layout.
+- [x] Check valkey-go API compatibility (Dragonfly/Redis support).
+- [x] Assess migration risk: API differences, test coverage, community/maintenance status.
 
-### Sonuç (2026-06-07)
+### Result (2026-06-07)
 
-- Eklendi: `benchmarks/redisclient` izole Go modülü. `go-redis/v9 v9.19.0`, `rueidis v1.0.75`, `valkey-go v1.0.75` pin'li.
-- Benchmark kapsamı: single `GET`, single `SET`, batched `MSET`, pipelined `SET`/`GET`; normal `ns/op` yanında bounded `p99_ns/op` metriği raporlanıyor. Connection pool etkisi `REDIS_BENCH_POOL_SIZE` ile ölçülebilir (`go-redis` `PoolSize`, rueidis için en yakın `PipelineMultiplex` bağlantı sayısı).
-- Çalıştırma:
+- Added: isolated Go module `benchmarks/redisclient`. Pinned `go-redis/v9 v9.19.0`, `rueidis v1.0.75`, `valkey-go v1.0.75`.
+- Benchmark scope: single `GET`, single `SET`, batched `MSET`, pipelined `SET`/`GET`; bounded `p99_ns/op` reported alongside `ns/op`. Connection pool effect measurable via `REDIS_BENCH_POOL_SIZE` (`go-redis` `PoolSize`, rueidis nearest `PipelineMultiplex` connection count).
+- How to run:
   - `cd benchmarks/redisclient`
   - `REDIS_BENCH_ADDR=127.0.0.1:6379 go test -run TestValkeyCompatAPISurface -bench . -benchtime=10s -count=5`
-- Canlı lokal sonuç (`127.0.0.1:6379`, Apple M4, darwin/arm64, `-benchtime=10s -count=5`, toplam `471.606s`):
+- Live local results (`127.0.0.1:6379`, Apple M4, darwin/arm64, `-benchtime=10s -count=5`, total `471.606s`):
 
-  | Benchmark | go-redis median ns/op | rueidis median ns/op | go-redis median p99_ns/op | rueidis median p99_ns/op | Sonuç |
+  | Benchmark | go-redis median ns/op | rueidis median ns/op | go-redis median p99_ns/op | rueidis median p99_ns/op | Result |
   | --- | ---: | ---: | ---: | ---: | --- |
   | `GET` | `396704` | `487313` | `1058792` | `2753250` | go-redis daha iyi |
   | `SET` | `369127` | `413086` | `693292` | `1292750` | go-redis daha iyi; ortalama noisy |
   | `MSET` | `445711` | `509089` | `873542` | `1164958` | go-redis daha iyi |
   | Pipeline `SET`/`GET` | `389664` | `418962` | `750333` | `670333` | rueidis p99 biraz iyi, ortalama go-redis iyi |
 
-  Bu ölçüm rueidis'e geçiş için yeterli performans gerekçesi göstermedi. Staging/Dragonfly hattında farklı sonuç çıkmadıkça migration başlatma.
-- Canlı Dragonfly sonucu (`docker.dragonflydb.io/dragonflydb/dragonfly:v1.34.1`, `127.0.0.1:6379`, Apple M4, darwin/arm64, `-benchtime=10s -count=5`, toplam `495.595s`):
+  This run did not justify migrating to rueidis on performance. Do not start migration unless staging/Dragonfly shows different results.
+- Live Dragonfly results (`docker.dragonflydb.io/dragonflydb/dragonfly:v1.34.1`, `127.0.0.1:6379`, Apple M4, darwin/arm64, `-benchtime=10s -count=5`, total `495.595s`):
 
-  | Benchmark | go-redis median ns/op | rueidis median ns/op | go-redis median p99_ns/op | rueidis median p99_ns/op | Sonuç |
+  | Benchmark | go-redis median ns/op | rueidis median ns/op | go-redis median p99_ns/op | rueidis median p99_ns/op | Result |
   | --- | ---: | ---: | ---: | ---: | --- |
-  | `GET` | `449545` | `442002` | `929375` | `1038333` | yakın; p99 go-redis daha iyi |
+  | `GET` | `449545` | `442002` | `929375` | `1038333` | close; p99 go-redis better |
   | `SET` | `440736` | `456810` | `940333` | `1175875` | go-redis daha iyi |
   | `MSET` | `670924` | `786056` | `1227500` | `2391917` | go-redis belirgin daha iyi |
-  | Pipeline `SET`/`GET` | `1207217` | `3362068` | `2933459` | `9429833` | go-redis çok daha iyi |
+  | Pipeline `SET`/`GET` | `1207217` | `3362068` | `2933459` | `9429833` | go-redis much better |
 
-  Dragonfly hedefinde de rueidis'e geçiş için performans gerekçesi yok; özellikle pipeline workload'u bu implementasyonda regression olur.
-- rueidis uyumu: native builder API ile production koduna direct swap yüksek churn yaratır. Server-assisted client-side caching `DoCache`/`DoMultiCache` ile var; mevcut `internal/ai/response_cache.go` ve `internal/semantic/composite_cache.go` TTL'li `GET`/`SET` payload cache olduğu için en iyi adaylar, fakat invalidation davranışı staging'de doğrulanmalı.
-- valkey-go uyumu: `valkeycompat.NewAdapter` go-redis benzeri API sağlıyor; benchmark modülündeki `TestValkeyCompatAPISurface` canlı Redis/Dragonfly/Valkey hedefiyle `Set`, `Get`, `Cache`, `Pipelined` yüzeyini doğruluyor. Dragonfly/Redis protokol desteği pratikte hedef sürümle live test gerektirir.
-- Risk kararı: production client migration şu an yapılmadı ve iki lokal ölçüm sonrası önerilmiyor. Mevcut kullanım `INCR`/`EXPIRE`, `GET`/`SET`, `SCAN`/`DEL` ve DI'da doğrudan `*redis.Client` tiplerine bağlı. Ancak staging'de farklı ve anlamlı fark gösterilirse en düşük riskli sıra: önce ince `internal/platform/cache` adapter, sonra `internal/auth/ratelimit.go` + `internal/mail/smtp.go` pilotu, en son AI/semantic cache client-side caching denemesi.
+  On Dragonfly too, no performance case for rueidis; pipeline workloads would regress with this implementation.
+- rueidis fit: direct swap into production via native builder API is high churn. Server-assisted client-side caching via `DoCache`/`DoMultiCache`; best candidates are TTL `GET`/`SET` payload caches in `internal/ai/response_cache.go` and `internal/semantic/composite_cache.go`, but invalidation must be validated in staging.
+- valkey-go fit: `valkeycompat.NewAdapter` provides go-redis-like API; `TestValkeyCompatAPISurface` in the benchmark module verifies `Set`, `Get`, `Cache`, `Pipelined` against live Redis/Dragonfly/Valkey. Dragonfly/Redis protocol support needs live test against target version in practice.
+- Risk decision: no production client migration now; not recommended after two local runs. Current usage: `INCR`/`EXPIRE`, `GET`/`SET`, `SCAN`/`DEL` and DI tied to `*redis.Client`. If staging shows meaningful difference, lowest-risk order: thin `internal/platform/cache` adapter first, then `internal/auth/ratelimit.go` + `internal/mail/smtp.go` pilot, finally AI/semantic client-side caching trial.
 - Review / verification:
   - `gofmt -w benchmarks/redisclient/redis_client_bench_test.go`
-  - `go test ./...` (`benchmarks/redisclient`; `REDIS_BENCH_ADDR` yokken live test/bench skip ederek compile doğruladı.)
+  - `go test ./...` (`benchmarks/redisclient`; compile verified with live test/bench skipped when `REDIS_BENCH_ADDR` unset.)
   - `go vet ./...` (`benchmarks/redisclient`)
   - `REDIS_BENCH_ADDR=127.0.0.1:6379 go test -run TestValkeyCompatAPISurface -bench . -benchtime=10s -count=5`
-  - `docker compose up -d redis` + aynı benchmark komutu (`dragonfly:v1.34.1`)
+  - `docker compose up -d redis` + same benchmark command (`dragonfly:v1.34.1`)
 
-### Değişecek dosyalar (go-redis → alternatif client)
+### Files to change (go-redis → alternative client)
 
-**Doğrudan `*redis.Client` kullanan paketler:**
+**Packages that use `*redis.Client` directly:**
 
-| Dosya | Kullanım |
+| File | Usage |
 | --- | --- |
 | `internal/app/dependencies.go:454` | `redis.NewClient(opt)` — monolith DI |
 | `internal/app/providers.go:71` | `redis.NewClient(opt)` — provider DI |
@@ -234,22 +234,22 @@ go-redis v9 güvenilir ama performans odaklı alternatifler daha agresif:
 | `internal/auth/auth_test.go:18,426,482` | `redis.NewClient(opts)` — test setup |
 | `internal/auth/oauth_exchange_test.go:10,22` | `redis.NewClient(opts)` — test setup |
 
-**Değişim stratejisi:**
+**Migration strategy:**
 
-1. **Abstraction layer** (düşük risk): `internal/platform/cache` gibi bir wrapper yaz, tüm consumer'lar interface üzerinden erişsin. Sonra alttaki implementasyonu değiştir.
-2. **Direct swap** (yüksek risk): Tüm `*redis.Client` → yeni client tipi. API farkları büyükse her dosyada ciddi değişiklik.
-3. **Hybrid**: Önce abstraction layer, sonra bir servis (örn. auth rate limiter) üzerinden pilot migration.
+1. **Abstraction layer** (low risk): add a wrapper like `internal/platform/cache`; all consumers use an interface. Swap implementation underneath later.
+2. **Direct swap** (high risk): all `*redis.Client` → new client type. Large API gaps mean heavy per-file changes.
+3. **Hybrid**: abstraction layer first, then pilot migration via one service (e.g. auth rate limiter).
 
-**Önerilen sıralama:**
+**Recommended order:**
 
-- [x] 1. Benchmark ile go-redis vs rueidis karşılaştırması yap (gerçi proje mevcut load'ta bottleneck mi emin ol).
-- [ ] 2. Eğer fark anlamlıysa: `internal/platform/cache` abstraction layer oluştur.
-- [ ] 3. Pilot olarak `internal/auth/ratelimit.go` ve `internal/mail/smtp.go`'yu migrate et (basit SET/GET/INCR pattern'leri).
-- [ ] 4. `internal/ai/response_cache.go` ve `internal/semantic/composite_cache.go` — client-side caching'den faydalanacak en verimli yerler.
-- [ ] 5. DI entrypoint'leri (`dependencies.go`, `providers.go`, `cmd/*/main.go`) güncelle.
-- [ ] 6. Test altyapısını güncelle (`auth_test.go`, `oauth_exchange_test.go`).
-- [ ] 7. `go.mod`'dan go-redis dependency'sini temizle.
-- [ ] 8. Staging'de load test ile doğrula.
+- [x] 1. Benchmark go-redis vs rueidis (confirm whether Redis is a bottleneck at current load).
+- [ ] 2. If the gap is meaningful: create `internal/platform/cache` abstraction layer.
+- [ ] 3. Pilot migrate `internal/auth/ratelimit.go` and `internal/mail/smtp.go` (simple SET/GET/INCR patterns).
+- [ ] 4. `internal/ai/response_cache.go` and `internal/semantic/composite_cache.go` — best places to benefit from client-side caching.
+- [ ] 5. Update DI entrypoints (`dependencies.go`, `providers.go`, `cmd/*/main.go`).
+- [ ] 6. Update test infrastructure (`auth_test.go`, `oauth_exchange_test.go`).
+- [ ] 7. Remove go-redis dependency from `go.mod`.
+- [ ] 8. Validate with load test in staging.
 
 ## Sonic JSON Migration Results (2026-06-06)
 
@@ -271,7 +271,7 @@ Verification:
 
 ## Prioritized Architectural & Observability Recommendations (2026-06-06)
 
-- [x] **Yüksek**: OTEL tracing'i kodda enstrümante et (LLM/derle/yürüt span'leri)
+- [x] **High**: Instrument OTEL tracing in code (LLM/compile/execute spans)
   - [x] Initialize a global Tracer Provider at startup in `cmd/api/main.go`, `cmd/auth/main.go`, and the standalone microservice entrypoints (`services/*/cmd/main.go`).
   - [x] Implement trace provider setup/teardown in `internal/platform/observability/trace.go`.
   - [x] Wrap public HTTP routers with `otelhttp` middleware to propagate span contexts across endpoints.
@@ -279,22 +279,22 @@ Verification:
     - [x] `ProcessQuestion` in `internal/ai/service.go` (ambiguity analysis, LLM generate).
     - [x] `Compile` in `internal/query/compiler.go` (logical query translation to dialect SQL).
     - [x] `Execute` in `internal/query/executor.go` (physical query execution against target database).
-- [x] **Yüksek**: AI eval/regresyon paketini CI kapısı yap
+- [x] **High**: Make AI eval/regression package a CI gate
   - [x] Ensure `make eval-regression` (real model or stub golden tests) runs on every pull request and push to `main`.
   - [x] Explicitly add the regression test execution step to `.github/workflows/test.yml` (currently only runs `go test ./...` which does not execute some of these benchmarks strictly).
   - [x] Enforce failing the build if accuracy rates drop below acceptable thresholds in `internal/ai/eval_regression_test.go`.
-- [x] **Orta**: Veri-kaynağı sürücüleri için lehçe entegrasyon testleri & test kapsam kapıları
+- [x] **Medium**: Dialect integration tests for datasource drivers & coverage floor gates
   - [x] Address low test coverage in critical packages (like `datasource/{postgres,mysql,clickhouse,sqlserver}`, `dashboard`, `queue`, and `config` which currently have thin coverage, e.g., 1 test each). (datasource drivers 94–100%; `dialect` 47.6%→96.1%; `config` 48.4%→87.4%; `dashboard` 0%→89.9% via mock-driver tests; `queue` 35%→42.5% — local queue fully covered, NATS paths require a broker/integration.)
   - [x] Implement live/test database connection integration tests for each datasource adapter (`mysql`, `clickhouse`, `sqlserver` drivers under `internal/datasource/`, similar to `postgres`). (mock-bridge introspection tests mirroring postgres already present for all three.)
   - [x] Verify that physical queries compiled by dialect packages execute correctly against each database type. (`internal/dialect/methods_test.go` asserts exact SQL per dialect for quoting, placeholders, LIMIT/OFFSET, DATE_TRUNC, calendar parts, ILIKE, casts, aggregates, EXPLAIN.)
   - [x] Bind package-level test coverage thresholds as a gate in the CI workflow (leveraging the already-generated `coverage.out`). (`scripts/coveragecheck` + `make coverage-gate` + `coverage` job in `.github/workflows/test.yml`.)
-- [x] **Orta**: Güvenlik başlıklarına CSP + X-Frame-Options; prod'da HSTS zorunlu
+- [x] **Medium**: CSP + X-Frame-Options on security headers; HSTS required in prod
   - [x] Enforce strict Content Security Policy (`default-src 'self'; frame-ancestors 'none'`) and X-Frame-Options (`DENY`) on all public router definitions (`internal/http/router.go`, `internal/http/service_middleware.go`, `cmd/auth/main.go`).
   - [x] Configure `HSTSEnabled: true` automatically in production environments (e.g., when running in production mode, overriding standard development configuration defaults).
-- [x] **Orta**: AIConfig'i ve Service.Process'i ayrıştır
+- [x] **Medium**: Decompose AIConfig and Service.Process
   - [x] **AIConfig decomposition**: Separate the God-object `config.AIConfig` struct (45 fields, 13 methods, complexity score 84 - CRITICAL) in `internal/config/config.go` into purpose-based sub-configs (query/embedding/translation/ambiguity/routing). (Now *named* sub-configs — `AIConfig.Query/Embedding/Translation/Routing/Ambiguity` with clean unprefixed fields; all call sites across ai/app/http updated. Top-level surface dropped from ~45 fields to 18 + 5 grouped configs.)
   - [x] **Service.Process refactoring**: Refactor `ProcessQuestion` in `internal/ai/service.go` by extracting self-consistency (voting) and repair/retry loop branches into separate, named helper functions, enabling the complete retirement of `//nolint:gocyclo,gocognit,funlen` directives.
-- [x] **Düşük**: ESLint uyarı tavanını kademeli düşür; *.test & coverage.out’u gitignore’la (DevX / Sürdürülebilirlik)
+- [x] **Low**: Gradually lower ESLint warning ceiling; gitignore `*.test` & `coverage.out` (DevX / sustainability)
   - [x] Reduce the `--max-warnings 1500` ceiling in `frontend/package.json` to the actual count of warnings (currently 1490) + a small buffer (e.g. `1495`), and start ratcheting it down over time towards 0.
   - [x] Ensure that stray compilation outputs in the root of the repo (such as `auth.test`, `app.test`, `workspace.test`, and `coverage.out`) are properly and explicitly ignored via `.gitignore` to keep the workspace clean.
 

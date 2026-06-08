@@ -74,8 +74,8 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
           alignItems: 'flex-start',
           padding: 16,
           borderRadius: 8,
-          border: '1px solid var(--border, #27272a)',
-          background: 'var(--surface-elevated, #18181b)',
+          border: '1px solid var(--border, rgba(0, 0, 0, 0.12))',
+          background: 'var(--bg-card-raised, rgba(0, 0, 0, 0.02))',
           cursor: 'pointer',
         }}
       >
