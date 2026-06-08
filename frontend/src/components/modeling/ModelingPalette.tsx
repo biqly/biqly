@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import type { TranslationKey } from '../../i18n'
 import type {
   SemanticDimension,
@@ -7,7 +9,7 @@ import type {
   TableRow,
 } from '../../types/semantic'
 import type { SuggestedJoin, Tab } from './types'
-import { tableKey } from './utils'
+import { columnRefMatchesTable, tableKey } from './utils'
 
 type Translate = (key: TranslationKey, vars?: Record<string, string | number>) => string
 interface EntityImpact {
@@ -97,6 +99,109 @@ export function ModelingPalette({
   onReactivateMetric,
   t,
 }: ModelingPaletteProps) {
+  const tableByKey = useMemo(() => {
+    const out = new Map<string, TableRow>()
+    includedTables.forEach((table) => {
+      out.set(tableKey(table.schema_name, table.table_name), table)
+    })
+    return out
+  }, [includedTables])
+
+  const scopedTableKeys = useMemo(() => {
+    const visible = new Set<string>(
+      tableCards.map((table) => tableKey(table.schema_name, table.table_name)),
+    )
+    if (visible.size > 0) {
+      return visible
+    }
+    return new Set(includedTables.map((table) => tableKey(table.schema_name, table.table_name)))
+  }, [includedTables, tableCards])
+
+  const resolveTableKeyFromRef = (
+    ref: string | undefined | null,
+    fallbackBaseSchema?: string,
+  ): string | null => {
+    for (const table of includedTables) {
+      if (
+        columnRefMatchesTable(
+          ref,
+          table.schema_name,
+          table.table_name,
+          fallbackBaseSchema ?? model?.base_schema ?? '',
+        )
+      ) {
+        return tableKey(table.schema_name, table.table_name)
+      }
+    }
+    return null
+  }
+
+  const resolveMetricTableKey = (metric: SemanticMetric): string | null => {
+    const direct = resolveTableKeyFromRef(metric.expression, model?.base_schema)
+    if (direct) {
+      return direct
+    }
+    const expr = metric.expression
+    const byFullRef = includedTables.find((table) =>
+      expr.includes(`${table.schema_name}.${table.table_name}.`),
+    )
+    if (byFullRef) {
+      return tableKey(byFullRef.schema_name, byFullRef.table_name)
+    }
+    const byBaseRef = includedTables.find(
+      (table) => table.schema_name === model?.base_schema && expr.includes(`${table.table_name}.`),
+    )
+    if (byBaseRef) {
+      return tableKey(byBaseRef.schema_name, byBaseRef.table_name)
+    }
+    return null
+  }
+
+  const tableDisplayLabel = (table: TableRow | undefined, fallback: string) => {
+    const label = table?.label?.trim()
+    if (label && label.length > 0) {
+      return label
+    }
+    return table?.table_name ?? fallback
+  }
+
+  const groupByTable = <T,>(items: T[], resolveKey: (item: T) => string | null) => {
+    const grouped = new Map<string, T[]>()
+    items.forEach((item) => {
+      const key = resolveKey(item)
+      if (!key || !scopedTableKeys.has(key)) {
+        return
+      }
+      const bucket = grouped.get(key)
+      if (bucket) {
+        bucket.push(item)
+      } else {
+        grouped.set(key, [item])
+      }
+    })
+    return Array.from(grouped.entries())
+      .map(([key, values]) => ({ key, values }))
+      .sort((a, b) => {
+        const aTable = tableByKey.get(a.key)
+        const bTable = tableByKey.get(b.key)
+        const aLabel = tableDisplayLabel(aTable, a.key).toLowerCase()
+        const bLabel = tableDisplayLabel(bTable, b.key).toLowerCase()
+        return aLabel.localeCompare(bLabel)
+      })
+  }
+
+  const dimGroups = groupByTable(dims, (dimension) =>
+    resolveTableKeyFromRef(dimension.column_ref, model?.base_schema),
+  )
+  const inactiveDimGroups = groupByTable(inactiveDims, (dimension) =>
+    resolveTableKeyFromRef(dimension.column_ref, model?.base_schema),
+  )
+  const metricGroups = groupByTable(metrics, resolveMetricTableKey)
+  const inactiveMetricGroups = groupByTable(inactiveMetrics, resolveMetricTableKey)
+
+  const visibleDimsCount = dimGroups.reduce((sum, group) => sum + group.values.length, 0)
+  const visibleMetricsCount = metricGroups.reduce((sum, group) => sum + group.values.length, 0)
+
   return (
     <aside
       className={`modeling-palette ${open ? '' : 'modeling-side--collapsed'}`}
@@ -126,11 +231,11 @@ export function ModelingPalette({
             <span>{t('modeling.tab_short_rel')}</span>
           </div>
           <div>
-            <strong>{dims.length}</strong>
+            <strong>{visibleDimsCount}</strong>
             <span>{t('modeling.tab_short_dim')}</span>
           </div>
           <div>
-            <strong>{metrics.length}</strong>
+            <strong>{visibleMetricsCount}</strong>
             <span>{t('modeling.tab_short_metric')}</span>
           </div>
         </div>
@@ -369,61 +474,81 @@ export function ModelingPalette({
           {activeTab === 'dimensions' && (
             <div className="modeling-join-list">
               <h3>{t('modeling.dimensions_tab')}</h3>
-              {dims.length === 0 ? (
+              {visibleDimsCount === 0 ? (
                 <p className="modeling-empty">{t('modeling.no_dimensions')}</p>
               ) : (
-                dims.map((dimension) => (
-                  <div className="modeling-join-pill" key={dimension.id}>
-                    <div className="modeling-join-pill-header">
-                      <strong>{dimension.label ?? dimension.name}</strong>
-                      <span className="modeling-pill-actions">
-                        <button
-                          className="modeling-rename-btn"
-                          onClick={() => onEditDimension(dimension)}
-                          title={t('modeling.edit_display_name_title')}
-                        >
-                          ✎
-                        </button>
-                        <button
-                          className="modeling-rename-btn"
-                          onClick={() => onEditDimensionValues(dimension)}
-                          title={t('modeling.enum_values_edit_title')}
-                        >
-                          ≣
-                        </button>
-                        <button
-                          className="modeling-delete-btn"
-                          onClick={() => onDeleteDimension(dimension.id)}
-                          title={t('modeling.delete_dimension_title')}
-                        >
-                          ×
-                        </button>
-                      </span>
+                dimGroups.map((group) => {
+                  const table = tableByKey.get(group.key)
+                  const tableLabel = tableDisplayLabel(table, group.key)
+                  return (
+                    <div key={group.key}>
+                      <h3 className="modeling-subgroup-title">
+                        {tableLabel}
+                        {table && (
+                          <span className="modeling-subgroup-meta">
+                            {table.schema_name}.{table.table_name}
+                          </span>
+                        )}
+                      </h3>
+                      {group.values.map((dimension) => (
+                        <div className="modeling-join-pill" key={dimension.id}>
+                          <div className="modeling-join-pill-header">
+                            <strong>{dimension.label ?? dimension.name}</strong>
+                            <span className="modeling-pill-actions">
+                              <button
+                                className="modeling-rename-btn"
+                                onClick={() => onEditDimension(dimension)}
+                                title={t('modeling.edit_display_name_title')}
+                              >
+                                ✎
+                              </button>
+                              <button
+                                className="modeling-rename-btn"
+                                onClick={() => onEditDimensionValues(dimension)}
+                                title={t('modeling.enum_values_edit_title')}
+                              >
+                                ≣
+                              </button>
+                              <button
+                                className="modeling-delete-btn"
+                                onClick={() => onDeleteDimension(dimension.id)}
+                                title={t('modeling.delete_dimension_title')}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          </div>
+                          <span>{dimension.column_ref}</span>
+                          <span className="modeling-join-meta">{dimension.type}</span>
+                        </div>
+                      ))}
                     </div>
-                    <span>{dimension.column_ref}</span>
-                    <span className="modeling-join-meta">{dimension.type}</span>
-                  </div>
-                ))
+                  )
+                })
               )}
-              {inactiveDims.length > 0 && (
+              {inactiveDimGroups.length > 0 && (
                 <>
                   <h3>{t('modeling.inactive_dimensions_heading')}</h3>
-                  {inactiveDims.map((dimension) => (
-                    <div
-                      className="modeling-join-pill modeling-join-pill--suggested"
-                      key={dimension.id}
-                    >
-                      <div className="modeling-join-pill-header">
-                        <strong>{dimension.label ?? dimension.name}</strong>
-                        <button
-                          className="modeling-add-btn"
-                          onClick={() => onReactivateDimension(dimension)}
-                          title={t('modeling.reactivate_title')}
+                  {inactiveDimGroups.map((group) => (
+                    <div key={group.key}>
+                      {group.values.map((dimension) => (
+                        <div
+                          className="modeling-join-pill modeling-join-pill--suggested"
+                          key={dimension.id}
                         >
-                          +
-                        </button>
-                      </div>
-                      <span>{dimension.column_ref}</span>
+                          <div className="modeling-join-pill-header">
+                            <strong>{dimension.label ?? dimension.name}</strong>
+                            <button
+                              className="modeling-add-btn"
+                              onClick={() => onReactivateDimension(dimension)}
+                              title={t('modeling.reactivate_title')}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span>{dimension.column_ref}</span>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </>
@@ -433,65 +558,85 @@ export function ModelingPalette({
 
           {activeTab === 'metrics' && (
             <div className="modeling-join-list">
-              <div className="modeling-section-header" style={{ justifyContent: 'center' }}>
+              <div className="modeling-section-header">
+                <h3>{t('modeling.metrics_tab')}</h3>
                 <button
-                  className="btn btn-sm btn-primary"
+                  className="btn btn-sm btn-primary modeling-section-add-btn"
                   type="button"
                   onClick={onOpenAddMetric}
                   disabled={!model}
-                  style={{ width: '100%' }}
                 >
                   {t('modeling.add_metric_btn')}
                 </button>
               </div>
-              {metrics.length === 0 ? (
+              {visibleMetricsCount === 0 ? (
                 <p className="modeling-empty">{t('modeling.no_metrics')}</p>
               ) : (
-                metrics.map((metric) => (
-                  <div className="modeling-join-pill" key={metric.id}>
-                    <div className="modeling-join-pill-header">
-                      <strong>{metric.label ?? metric.name}</strong>
-                      <span className="modeling-pill-actions">
-                        <button
-                          className="modeling-rename-btn"
-                          onClick={() => onEditMetric(metric)}
-                          title={t('modeling.edit_display_name_title')}
-                        >
-                          ✎
-                        </button>
-                        <button
-                          className="modeling-delete-btn"
-                          onClick={() => onDeleteMetric(metric.id)}
-                          title={t('modeling.delete_metric_title')}
-                        >
-                          ×
-                        </button>
-                      </span>
+                metricGroups.map((group) => {
+                  const table = tableByKey.get(group.key)
+                  const tableLabel = tableDisplayLabel(table, group.key)
+                  return (
+                    <div key={group.key}>
+                      <h3 className="modeling-subgroup-title">
+                        {tableLabel}
+                        {table && (
+                          <span className="modeling-subgroup-meta">
+                            {table.schema_name}.{table.table_name}
+                          </span>
+                        )}
+                      </h3>
+                      {group.values.map((metric) => (
+                        <div className="modeling-join-pill" key={metric.id}>
+                          <div className="modeling-join-pill-header">
+                            <strong>{metric.label ?? metric.name}</strong>
+                            <span className="modeling-pill-actions">
+                              <button
+                                className="modeling-rename-btn"
+                                onClick={() => onEditMetric(metric)}
+                                title={t('modeling.edit_display_name_title')}
+                              >
+                                ✎
+                              </button>
+                              <button
+                                className="modeling-delete-btn"
+                                onClick={() => onDeleteMetric(metric.id)}
+                                title={t('modeling.delete_metric_title')}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          </div>
+                          <span>{metric.expression}</span>
+                          <span className="modeling-join-meta">{metric.aggregation}</span>
+                        </div>
+                      ))}
                     </div>
-                    <span>{metric.expression}</span>
-                    <span className="modeling-join-meta">{metric.aggregation}</span>
-                  </div>
-                ))
+                  )
+                })
               )}
-              {inactiveMetrics.length > 0 && (
+              {inactiveMetricGroups.length > 0 && (
                 <>
                   <h3>{t('modeling.inactive_metrics_heading')}</h3>
-                  {inactiveMetrics.map((metric) => (
-                    <div
-                      className="modeling-join-pill modeling-join-pill--suggested"
-                      key={metric.id}
-                    >
-                      <div className="modeling-join-pill-header">
-                        <strong>{metric.label ?? metric.name}</strong>
-                        <button
-                          className="modeling-add-btn"
-                          onClick={() => onReactivateMetric(metric)}
-                          title={t('modeling.reactivate_title')}
+                  {inactiveMetricGroups.map((group) => (
+                    <div key={group.key}>
+                      {group.values.map((metric) => (
+                        <div
+                          className="modeling-join-pill modeling-join-pill--suggested"
+                          key={metric.id}
                         >
-                          +
-                        </button>
-                      </div>
-                      <span>{metric.expression}</span>
+                          <div className="modeling-join-pill-header">
+                            <strong>{metric.label ?? metric.name}</strong>
+                            <button
+                              className="modeling-add-btn"
+                              onClick={() => onReactivateMetric(metric)}
+                              title={t('modeling.reactivate_title')}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span>{metric.expression}</span>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </>

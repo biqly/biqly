@@ -133,6 +133,13 @@
   margin-top: 0.75rem;
 }
 
+.confirm-dialog__actions .btn {
+  width: auto;
+  min-width: 5.5rem;
+  min-height: 2.25rem;
+  margin-top: 0;
+}
+
 .modal-card--modeling .modal-body {
   gap: 0.75rem;
 }

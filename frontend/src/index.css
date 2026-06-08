@@ -3087,16 +3087,36 @@ body.modeling-grabbing * {
   font-size: 0.68rem;
 }
 
+.modeling-subgroup-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0.8rem 0 0.35rem;
+}
+
+.modeling-subgroup-meta {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
 .modeling-delete-btn {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  margin: 0;
   border: 1px solid color-mix(in srgb, #e53e3e 40%, var(--border));
   border-radius: 6px;
   background: color-mix(in srgb, #e53e3e 8%, var(--bg-card-raised));
   color: #e53e3e;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 700;
   line-height: 1;
-  padding: 0.15rem 0.45rem;
+  padding: 0;
   cursor: pointer;
   transition:
     background 0.15s,
@@ -3115,14 +3135,21 @@ body.modeling-grabbing * {
 
 .modeling-add-btn {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  margin: 0;
   border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
   border-radius: 6px;
   background: color-mix(in srgb, var(--accent) 8%, var(--bg-card-raised));
   color: var(--accent);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 700;
   line-height: 1;
-  padding: 0.15rem 0.45rem;
+  padding: 0;
   cursor: pointer;
   transition:
     background 0.15s,
@@ -3136,13 +3163,20 @@ body.modeling-grabbing * {
 
 .modeling-rename-btn {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  margin: 0;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-card-raised);
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   line-height: 1;
-  padding: 0.15rem 0.45rem;
+  padding: 0;
   cursor: pointer;
   transition:
     background 0.15s,
@@ -3158,6 +3192,7 @@ body.modeling-grabbing * {
 
 .modeling-pill-actions {
   display: inline-flex;
+  align-items: center;
   gap: 0.25rem;
   flex: 0 0 auto;
 }
@@ -3171,6 +3206,11 @@ body.modeling-grabbing * {
 }
 
 .modeling-section-header h3 {
+  margin: 0;
+}
+
+.modeling-section-add-btn {
+  width: auto;
   margin: 0;
 }
 
