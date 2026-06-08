@@ -1,11 +1,22 @@
 package db
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
+	"strings"
 
 	"github.com/XSAM/otelsql"
 	"go.opentelemetry.io/otel/attribute"
 )
+
+// skipMigrationSpans drops spans for golang-migrate's bookkeeping queries
+// against schema_migrations. These run at startup, are not request work, and the
+// initial "relation does not exist" probe would otherwise surface as a noisy
+// error span.
+func skipMigrationSpans(_ context.Context, _ otelsql.Method, query string, _ []driver.NamedValue) bool {
+	return !strings.Contains(strings.ToLower(query), "schema_migrations")
+}
 
 // OTelOptions returns the standard otelsql instrumentation options for a pool.
 //
@@ -27,6 +38,7 @@ func OTelOptions(system, peerService string, recordStatement bool) []otelsql.Opt
 			DisableQuery:         !recordStatement,
 			OmitConnResetSession: true,
 			OmitRows:             true,
+			SpanFilter:           skipMigrationSpans,
 		}),
 	}
 }
