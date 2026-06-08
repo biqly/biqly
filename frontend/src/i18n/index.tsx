@@ -1,14 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 
+import { I18nContext } from './context'
+import { useI18n } from './hooks'
 import type { Dictionary, LocaleSectionName } from './locales/dictionary'
 import { core as enCore } from './locales/en/core'
 import { core as trCore } from './locales/tr/core'
@@ -213,8 +207,6 @@ export type TFunction = I18nContextValue['t']
 /** For call sites with dynamic or not-yet-indexed translation keys. */
 export type LooseTFunction = (key: string, params?: Record<string, string | number>) => string
 
-const I18nContext = createContext<I18nContextValue | null>(null)
-
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(currentLocale)
   // Bumped whenever a lazy locale section finishes loading, so `t` consumers re-render.
@@ -257,22 +249,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
 
-export function useI18n(): I18nContextValue {
-  const ctx = useContext(I18nContext)
-  if (!ctx) {
-    throw new Error('useI18n must be used within an <I18nProvider>')
-  }
-  return ctx
-}
-
-export function useT() {
-  return useI18n().t
-}
-
-export function useLocale() {
-  const { locale, setLocale } = useI18n()
-  return [locale, setLocale] as const
-}
+export { useI18n, useLocale, useT } from './hooks'
 
 /**
  * Ensure a lazy locale section is loaded for the active locale (and the

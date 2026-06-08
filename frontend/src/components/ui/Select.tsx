@@ -1,6 +1,6 @@
 import { useId, useMemo } from 'react'
 
-import { useT } from '../../i18n/hooks'
+import { useT } from '../../i18n'
 import { handleSelectTriggerKeyDown } from './selectKeyboard'
 import { SelectPopover } from './SelectPopover'
 import { SelectTrigger } from './SelectTrigger'
