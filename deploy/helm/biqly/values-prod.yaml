@@ -39,7 +39,9 @@ global:
       enabled: true
       serviceName: biqly
       otlpEndpoint: https://otel.il1.nl
-      sampler: parentbased_traceidratio
+      # Temporarily 100% while investigating latency / building the service
+      # dependency graph. Dial back to parentbased_traceidratio @ 0.25 afterwards.
+      sampler: always_on
       samplerArg: "0.25"
       otlpHeadersSecret:
         name: biqly-otel-secrets
