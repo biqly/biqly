@@ -474,10 +474,10 @@ def diagram_k8s():
 
 # ---- Olgunluk skor kartı (yatay barlar) -----------------------------------
 def diagram_scorecard():
-    dims = [("Güvenlik", 4.7, GREEN), ("Test Kapsamı", 4.5, GREEN),
-            ("Kod Kalitesi & Mimari", 4.2, GREEN), ("Gözlemlenebilirlik", 4.2, GREEN),
+    dims = [("Güvenlik", 4.7, GREEN), ("Test Kapsamı", 4.6, GREEN),
+            ("Kod Kalitesi & Mimari", 4.4, GREEN), ("Gözlemlenebilirlik", 4.6, GREEN),
             ("Performans", 4.0, GREEN), ("AI/LLM Mühendisliği", 4.7, GREEN),
-            ("DevX / Sürdürülebilirlik", 4.7, GREEN)]
+            ("DevX / Sürdürülebilirlik", 4.8, GREEN)]
     W = CONTENT_W
     rowh = 26
     H = len(dims)*rowh + 24
@@ -567,7 +567,7 @@ story += [
     Paragraph("Kapsam: Go backend · React/TypeScript frontend · CI/CD pipeline’ları · mikroservis K8s dağıtımı · kalite denetimi",
               st_cover_meta),
     Spacer(1, 3*mm),
-    Paragraph("Sürüm 3.0 · Haziran 2026 · Geliştirme-sonrası + canlı küme (kubectl) doğrulamalı · Hibrit (yönetici özeti + teknik derinlik)", st_cover_meta),
+    Paragraph("Sürüm 4.0 · Haziran 2026 · Geliştirme-sonrası + canlı küme (kubectl) doğrulamalı · Hibrit (yönetici özeti + teknik derinlik)", st_cover_meta),
     Paragraph("Hazırlayan: Mimari Analiz · go.mod: github.com/biqly/biqly (Go 1.26) · prod: cloudflared + Cilium Gateway mikroservis", st_cover_meta),
     PageBreak(),
 ]
@@ -601,24 +601,26 @@ story += [BUL([
  "<b>Güvenlik katmanlı ve özenlidir:</b> RS256 JWT, zamanlama-güvenli CSRF, mutlak + boşta kalma oturum süreleri, "
  "AES-256-GCM ile şifrelenmiş sağlayıcı anahtarları, parametreli SQL ve beyaz-liste tabanlı sorgu doğrulaması.",
  "<b>Mühendislik disiplini yüksektir:</b> temiz <font name='Mono'>cmd/internal/pkg</font> ayrımı, modern Go&nbsp;1.26 "
- "hata deyimleri (148× <font name='Mono'>errors.Is</font>), ~55 linter, ESLint+knip+Prettier kapısı ve zorunlu pre-commit denetimleri.",
+ "hata deyimleri (170× <font name='Mono'>errors.Is</font>), ~55 linter, <b>sıfır-uyarı ESLint</b> (no-explicit-any=error) + knip + Prettier + CodeQL kapısı.",
  "<b>Mimari — prod’da saf mikroservis (canlı küme ile doğrulandı):</b> 6 bağımsız servis Deployment’ı "
  "(ai/auth/catalog/query/frontend/mail) + Postgres StatefulSet + Dragonfly + NATS; Gateway API HTTPRoute’ları "
  "path’e göre doğrudan her servise yönlendirir. <font name='Mono'>cmd/api</font> all-in-one binary yalnızca "
  "local/docker-compose içindir; NATS tüketicisi ayrı worker pod’u değil, ai pod’u içinde çalışır.",
- "<b>Bu turda da iyileştirmeler sürdü:</b> 4 yüksek-karmaşıklık fonksiyonu LOW/MEDIUM’a indirildi "
- "(Compare 50→1, datasourceDraft 47→4, SyncMetadata 45→9, Validate 40→3), prod-tespiti tek "
- "<font name='Mono'>env.IsProduction()</font> yardımcısında birleştirildi, <b>catalog’daki kimliksiz-erişim açığı kapatıldı</b>, "
- "CI’ya <font name='Mono'>govulncheck</font> eklendi. Tek kısmi kalem hâlâ <font name='Mono'>AIConfig</font>: "
- "adlandırılmış alt-konfiglere geçirildi ama tanrı-nesnesi skoru değişmedi (21 alan, KRİTİK).",
+ "<b>Bu turda kalan yol haritasının neredeyse tamamı kapatıldı:</b> AIConfig 21→<b>9 alan</b>’a (amaç-bazlı alt-konfigler) "
+ "indirildi; validatörler (ValidateContext 39→3, ValidateComposite 27→3, PasswordPolicy 25→4); <b>prod’da auth zorunlu "
+ "invariant</b> (BI_AUTH_ENABLED fail-closed); <b>nightly canlı-LLM eval</b> (drift kapısı); OTEL span’leri 3→<b>16</b> "
+ "(veri kaynağı sürücüleri dâhil); flaky MFA testi izole edildi; queue kapsam kapısına alındı; <b>sıfır-uyarı ESLint</b> + "
+ "CodeQL eklendi; oturum/CSRF çerezleri Secure-by-default.",
+ "<b>Açık kalan tek kalem:</b> <font name='Mono'>AIConfig</font> hâlâ KRİTİK — ama artık alan şişkinliği değil, 13 metot + "
+ "93 dış çağrı kaynaklı (skor 60→48); ayrıca <font name='Mono'>TableRouter.Route</font> (27) yüksek.",
 ])]
 
 story += [H3("Genel olgunluk değerlendirmesi")]
-story += [P("Biqly, bir prototip değil; <b>üretime hazır</b>, geç-aşama bir mikroservis kod tabanıdır. Bu doküman, önceki "
-            "raporlardaki önerilerin uygulanmış halidir: ilk denetimdeki <b>8 boşluğun 7’si tamamen kapatıldı</b>, "
-            "kalan AIConfig kalemi de büyük ölçüde ilerletildi. Tüm değişiklikler kodda doğrulandı "
-            "(<font name='Mono'>go build ./...</font> ve <font name='Mono'>go vet</font> temiz). Ortalama olgunluk "
-            "~2.5/5 bandından <b>4.4/5</b> seviyesine yükseldi. Aşağıdaki skor kartı yedi boyutu özetler:")]
+story += [P("Biqly, bir prototip değil; <b>üretime hazır</b>, geç-aşama bir mikroservis kod tabanıdır. Bu doküman, ardışık "
+            "denetim turlarındaki önerilerin uygulanmış halidir: önceki yol haritasındaki <b>8 maddeden 7’si bu turda kapatıldı</b> "
+            "(yalnızca AIConfig kısmen açık). Tüm değişiklikler kodda ve canlı kümede doğrulandı "
+            "(<font name='Mono'>go build ./...</font> · <font name='Mono'>go vet</font> · lint 0-uyarı · MFA testi · kubectl). "
+            "Ortalama olgunluk ~2.5/5 bandından <b>4.5/5</b> seviyesine yükseldi. Aşağıdaki skor kartı yedi boyutu özetler:")]
 story += [diagram_scorecard(), CAP("Şekil 1 — Mühendislik olgunluğu skor kartı (5 üzerinden; geliştirme sonrası, kanıta dayalı).")]
 story += [SP(8)]
 story += [H3("İyileştirme durumu — önceki rapora kıyasla")]
@@ -631,7 +633,7 @@ story += [mk_table(
   ["3", "Lehçe sürücüleri & config/dashboard/queue ince test", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
    "Sürücü başına 2 test; <font name='Mono'>scripts/coveragecheck</font> %85/%80 kapsam kapısı"],
   ["4", "<font name='Mono'>AIConfig</font> + yüksek-karmaşıklık fonksiyonları", "<font color='%s'><b>● Kısmi</b></font>" % hx(AMBER),
-   "4 fonksiyon LOW/MEDIUM’a indi (Compare 50→1 …); AIConfig adlandırılmış alt-konfiglere geçti ama skor 60/KRİTİK değişmedi"],
+   "Tüm hedef fonksiyonlar tek-haneye indi (Compare 50→1, ValidateContext 39→3 …); AIConfig 21→9 alan (skor 60→48) ama hâlâ KRİTİK (metot/fan-out)"],
   ["5", "HSTS varsayılan kapalı", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
    "<font name='Mono'>BI_ENV=production</font> ile otomatik açık (fail-closed)"],
   ["6", "CSP / X-Frame-Options eksik", "<font color='%s'><b>● Kapatıldı</b></font>" % hx(GREEN),
@@ -952,11 +954,15 @@ story += assess("9.1 Güvenlik", "ÇOK GÜÇLÜ (en güçlü boyut)", GREEN,
  "<b>Bu turda:</b> prod-tespiti tek <font name='Mono'>env.IsProduction()</font> yardımcısında birleştirildi (api+auth ortak, testli); "
  "<b>catalog’daki kimliksiz-erişim açığı kapatıldı</b> (<font name='Mono'>/api/*</font> rotaları middleware’siz mount ediliyordu → "
  "artık JWT zorunlu); JWT admin-bypass zamanlama-güvenli ve boş-anahtar fail-closed; super-admin JWT kapısı; "
- "Cilium egress (catalog/query→auth) düzeltildi; CI’ya <font name='Mono'>govulncheck</font> + manuel semgrep tetikleyici eklendi.",
- "<font name='Mono'>BI_AUTH_ENABLED=false</font> iken savunma kısmen ağ-güvenine dayanır. Read-only koruması hâlâ tam SQL "
- "parser değil — fakat birincil savunma LogicalQuery whitelist doğrulaması ve parametreli yürütmedir.",
- "(1) Prod’da <font name='Mono'>BI_AUTH_ENABLED</font>’ı zorunlu (fail-closed) bir invariant yapın. "
- "(2) <font name='Mono'>govulncheck</font>/semgrep taramalarını sürdürün.")
+ "Cilium egress düzeltildi. <b>Bu turda:</b> prod’da <b>auth zorunlu invariant</b> — <font name='Mono'>env.IsProduction()</font> "
+ "(BI_ENV/APP_ENV veya <font name='Mono'>KUBERNETES_SERVICE_HOST</font>) iken <font name='Mono'>BI_AUTH_ENABLED=false</font> "
+ "açılışta hata verir (fail-closed, testli); oturum/CSRF çerezleri <b>Secure+HttpOnly+SameSite</b> by-default (tek dev istisnası "
+ "belgeli); <font name='Mono'>os.OpenRoot</font> ile path-traversal kapatıldı; <b>CodeQL</b> (Go/TS/Actions, haftalık) + "
+ "<font name='Mono'>govulncheck</font> + semgrep.",
+ "Read-only koruması hâlâ tam SQL parser değil — fakat birincil savunma LogicalQuery whitelist doğrulaması ve parametreli "
+ "yürütmedir. Yerel-dev için 8889 portunda <font name='Mono'>Secure=false</font> çerez istisnası mevcut (belgeli).",
+ "(1) Düzenli bağımlılık/SAST (CodeQL+govulncheck+semgrep) taramasını sürdürün. (2) Dev çerez istisnasının prod’a sızmadığını "
+ "periyodik doğrulayın.")
 story += [PageBreak()]
 
 story += assess("9.2 Test", "GÜÇLÜ — KAPSAM KAPISI EKLENDİ", GREEN,
@@ -965,27 +971,25 @@ story += assess("9.2 Test", "GÜÇLÜ — KAPSAM KAPISI EKLENDİ", GREEN,
  "lehçe sürücüleri için testler (postgres/mysql/sqlserver/clickhouse her biri 2 dosya, dialect 4), config/dashboard/queue her biri 3 dosya; "
  "ve <b>zorunlu kapsam kapısı</b> — <font name='Mono'>scripts/coveragecheck</font> ile paket başına taban: dialect & sürücüler "
  "<b>%85</b>, config/dashboard <b>%80</b> (<font name='Mono'>test.yml</font>’deki <font name='Mono'>coverage</font> işi). "
- "Eval regresyon kapısı da sayısal eşiklerle CI’da (bkz. §9.6).",
- "<font name='Mono'>internal/queue</font> test aldı (3 dosya) ama kapsam-taban haritasında değil — test ediliyor fakat kapıya bağlı değil. "
- "Eval eşikleri determinist stub sağlayıcıyla 1.00; canlı-LLM doğruluk kayması ölçülmüyor.",
- "(1) <font name='Mono'>queue</font>’yu kapsam-taban haritasına ekleyin. (2) Periyodik (nightly) canlı-LLM eval koşusu ekleyerek "
- "gerçek doğruluk kaymasını izleyin.")
+ "Eval regresyon kapısı sayısal eşiklerle CI’da. <b>Bu turda:</b> <b>209 Go test dosyası</b>; <font name='Mono'>internal/queue</font> "
+ "kapsam-taban haritasına alındı (%40); daha önce flaky olan <font name='Mono'>TestMFABypassCodeFlow</font> izole fixture ile "
+ "stabilize edildi (tek-sefer, t.Parallel yok — temiz geçiyor); ve <b>nightly canlı-LLM eval</b> (bkz. §9.6).",
+ "<font name='Mono'>queue</font> kapsam tabanı mütevazı (%40). Genel kapsam yüzdesi paket-bazlı tabanlarla yönetiliyor, "
+ "tek bir global hedef yok.",
+ "(1) Kritik paketlerin kapsam tabanlarını kademeli yükseltin. (2) Frontend (vitest) kapsamını da bir eşiğe bağlamayı düşünün.")
 
 story += assess("9.3 Kod Kalitesi & Mimari", "GÜÇLÜ — TEK KISMİ KALEM", AMBER,
  "Temiz <font name='Mono'>cmd/internal/pkg</font> ayrımı; doğru kararlılık gradyanı. Hata yönetimi Go 1.26 ev-kurallarına "
- "güçlü uyum: <b>148× errors.Is, 11× errors.AsType, yalnızca 1 eski errors.As.</b> <b>Bu sürümde:</b> orkestratör "
- "<font name='Mono'>ProcessQuestion</font> ayrıştırıldı — <font name='Mono'>//nolint:gocyclo,gocognit,funlen</font> kaldırıldı, "
- "karmaşıklık skoru <b>12</b>’ye düştü; ~30 küçük yardımcı çıkarıldı (generateWithRetries, parseAndValidate, "
- "buildSuccessResponse vb.). Tüm ağaç <font name='Mono'>go build ./...</font> ve <font name='Mono'>go vet</font> ✓. "
- "<b>Bu turda ayrıca 4 yüksek-karmaşıklık fonksiyonu LOW/MEDIUM’a indirildi</b>: <font name='Mono'>Detector.Compare</font> 50→1, "
- "<font name='Mono'>datasourceDraft</font> 47→4, <font name='Mono'>SyncMetadata</font> 45→9, <font name='Mono'>Validator.Validate</font> 40→3 "
- "(toplam nolint 53→49); <font name='Mono'>pgarray</font> paketi <font name='Mono'>lib/pq</font> bağımlılığını tekleştirdi.",
- "<font name='Mono'>AIConfig</font> adlandırılmış alt-konfiglere geçirildi (Query/Embedding/Translation/Routing/Ambiguity — "
- "gömülü→isimli), <b>ama tanrı-nesnesi skoru değişmedi</b> (21 alan / 13 metot / 93 dış çağrı = skor 60, hâlâ KRİTİK). "
- "Geri kalan çok-yüksek odaklar: <font name='Mono'>ValidateContext</font> (39), <font name='Mono'>ValidateComposite</font> (27), "
- "<font name='Mono'>PasswordPolicy.Validate</font> (25).",
- "(1) <font name='Mono'>AIConfig</font>’in üst-seviye alanlarını gerçekten <b>dışarı taşıyın</b> (rename değil, taşıma). "
- "(2) Kalan 3 yüksek-karmaşıklık fonksiyonunu kademeli ayrıştırın.")
+ "güçlü uyum: <b>170× errors.Is, 18× errors.AsType.</b> <b>Bu turda mimari borcun çoğu kapatıldı:</b> önceki rapordaki "
+ "yüksek-karmaşıklık odakları tek-haneye indirildi — <font name='Mono'>ValidateContext</font> 39→3, "
+ "<font name='Mono'>ValidateComposite</font> 27→3, <font name='Mono'>PasswordPolicy.Validate</font> 25→4; "
+ "<font name='Mono'>AIConfig</font> 21→<b>9 alan</b>’a indirildi (20+ skaler alan amaç-bazlı 9 alt-yapıya: Connection/Generation/"
+ "Describe/Cache/Query/Embedding/Translation/Routing/Ambiguity), god-object skoru 60→48. Tüm ağaç build/vet ✓.",
+ "<font name='Mono'>AIConfig</font> <b>hâlâ KRİTİK</b> — ama artık alan şişkinliği değil, 13 erişim metodu + 93 dış çağrı "
+ "kaynaklı (çok daha hafif bir şekil). <font name='Mono'>TableRouter.Route</font> (27) yüksek kalmaya devam ediyor; "
+ "repo genelinde ~47 <font name='Mono'>nolint</font> direktifi mevcut.",
+ "(1) <font name='Mono'>AIConfig</font> erişim metotlarını/çağrı fan-out’unu azaltın. "
+ "(2) <font name='Mono'>TableRouter.Route</font>’u dallanmadan arındırın; nolint sayısını kademeli düşürün.")
 story += [PageBreak()]
 
 story += assess("9.4 Gözlemlenebilirlik", "İYİ — TRACING ARTIK ENSTRÜMANTE", GREEN,
@@ -994,12 +998,12 @@ story += assess("9.4 Gözlemlenebilirlik", "İYİ — TRACING ARTIK ENSTRÜMANTE
  "<b>Bu sürümde önceki en büyük boşluk kapatıldı — OTEL dağıtık izleme uçtan uca kodda:</b> <font name='Mono'>otel</font> "
  "artık doğrudan bağımlılık (v1.44); servis giriş noktalarında <font name='Mono'>SetupTracing</font> ile OTLP-HTTP "
  "tracer provider (endpoint yoksa zarif no-op); router’da <font name='Mono'>otelhttp</font> ingress span’i; ve tam istenen "
- "<b>LLM→derle→çalıştır</b> yolunda adlandırılmış span’ler: <font name='Mono'>ai.ProcessQuestion</font>, "
- "<font name='Mono'>query.Compile</font>, <font name='Mono'>query.Execute</font>.",
- "Span kapsamı henüz sığ: veri-kaynağı sürücü çağrıları tek tek span’lenmiyor (yalnız executor sarmalıyor). "
- "Prometheus <font name='Mono'>Metrics</font> struct’ı (35 alan) gograph’ta HIGH işaretli.",
- "(1) Sürücü/DB çağrıları ve few-shot/embedding gibi alt-fazlara span ekleyerek izleme derinliğini artırın. "
- "(2) Span’lere kritik öznitelikleri (model, attempt, fingerprint) ekleyin.")
+ "<b>LLM→derle→çalıştır</b> yolunda adlandırılmış span’ler. <b>Bu turda span derinliği 3’ten 16’ya çıkarıldı:</b> "
+ "AI tarafında (11) <font name='Mono'>ai.ProcessQuestion / AmbiguityAnalyze / LLMGenerate / PromptBuild / MultiCandidate / "
+ "ProviderGenerate / Embed / TableRoute</font> vb.; veri kaynağı tarafında (5) <font name='Mono'>datasource.Query / Ping / "
+ "Open / Introspect</font> (ortak <font name='Mono'>base_driver</font> üzerinden sürücü çağrıları artık span’li).",
+ "Prometheus <font name='Mono'>Metrics</font> struct’ı geniş (35 alan) — ama bu bir kayıt (registry), kabul edilebilir.",
+ "(1) Span’lere kritik öznitelikleri (model, attempt, fingerprint) ekleyin. (2) Trace örnekleme/oranını prod yüküne göre ayarlayın.")
 
 story += assess("9.5 Performans", "İYİ, ÖLÇÜME DAYALI", GREEN,
  "Veri-kaynağı <b>bağlantı havuzu önbelleği</b> + <font name='Mono'>singleflight</font> tekilleştirme (thundering-herd "
@@ -1022,11 +1026,12 @@ story += assess("9.6 AI / LLM Mühendisliği", "OLGUN — AÇIK FARKLILAŞTIRICI
  "döngüsü. DB’den yönetilen, AES-GCM şifreli sağlayıcı/model. "
  "<b>Bu sürümde:</b> eval/regresyon paketi artık <b>CI kapısı</b> (<font name='Mono'>test.yml</font> + <font name='Mono'>ci.yml</font>) ve "
  "<b>açık sayısal eşiklerle</b> zorlanıyor (golden + benchmark mantıksal/yürütme oranı, <font name='Mono'>t.Fatalf</font>); "
- "orkestratör <font name='Mono'>ProcessQuestion</font> ayrıştırıldı (§9.3).",
- "Eval eşikleri <b>determinist stub sağlayıcı</b> üzerinde 1.00 — yani harness/derleyici regresyonunu yakalar, canlı-LLM "
- "doğruluk kaymasını ölçmez.",
- "(1) Periyodik (nightly) canlı-LLM eval koşusu ekleyerek gerçek doğruluk kaymasını izleyin. (2) Eval kapsamını yeni "
- "lehçe/edge senaryolarıyla genişletin.")
+ "orkestratör <font name='Mono'>ProcessQuestion</font> ayrıştırıldı. <b>Bu turda canlı-LLM doğruluk kayması da kapatıldı:</b> "
+ "<font name='Mono'>eval-nightly.yml</font> (cron 02:00) <font name='Mono'>cmd/eval-live</font>’ı gerçek sağlayıcıyla, "
+ "<font name='Mono'>-min-pass-rate 0.85 -fail-on-drift</font> ile çalıştırır (kimlik yoksa zarifçe atlar).",
+ "Stub-determinist CI kapısı doğruluğu değil regresyonu ölçer; canlı eval ise nightly olduğundan PR’ları anlık "
+ "bloklamaz (tasarım gereği).",
+ "(1) Eval kapsamını yeni lehçe/edge senaryolarıyla genişletin. (2) Canlı-eval baseline’ını periyodik güncelleyin.")
 
 story += assess("9.7 DevX / Sürdürülebilirlik", "MÜKEMMEL", GREEN,
  "<b>golangci-lint v2</b> ~55 linter (gosec, errorlint, contextcheck, bodyclose, rowserrcheck, sqlclosecheck, noctx, "
@@ -1035,10 +1040,12 @@ story += assess("9.7 DevX / Sürdürülebilirlik", "MÜKEMMEL", GREEN,
  "zorunlu pre-commit denetimleri; gerçek i18n; 8 temiz <font name='Mono'>cmd/</font> giriş noktası; ADR dizini. "
  "<b>Bu sürümde:</b> repo kökü temizlendi — <font name='Mono'>*.test</font> ve <font name='Mono'>coverage.out</font> hem "
  "diskte hem git’te yok, <font name='Mono'>.gitignore</font> + <font name='Mono'>make clean</font> ile garanti; CI odaklı "
- "işlere bölündü (test / eval / coverage / lint / helm); yeni <font name='Mono'>make</font> hedefleri "
- "(<font name='Mono'>coverage-gate</font>, <font name='Mono'>eval-regression</font>).",
- "Kayda değer açık DevX riski kalmadı; küçük artık: bazı paketler kapsam-taban haritası dışında (örn. queue).",
- "(1) Kapsam-taban haritasını kademeli genişletin. (2) ESLint uyarı tavanını zamanla 0’a doğru sıkın.")
+ "işlere bölündü (test / eval / coverage / lint / helm). <b>Bu turda:</b> frontend ESLint artık "
+ "<font name='Mono'>--max-warnings 0</font> ile <b>sıfır-uyarı</b> kapısı; <font name='Mono'>no-explicit-any</font> ve "
+ "no-unsafe-*/no-floating-promises kuralları <b>error</b> seviyesine yükseltildi; <b>CodeQL</b> (Go/TS/Actions, haftalık) "
+ "eklendi; <font name='Mono'>nginx-unprivileged</font> frontend; <font name='Mono'>os.OpenRoot</font> ile path-confine.",
+ "Kayda değer açık DevX riski kalmadı; çok küçük artıklar: ~47 <font name='Mono'>nolint</font> direktifi ve queue’nun mütevazı (%40) kapsam tabanı.",
+ "(1) <font name='Mono'>nolint</font> sayısını kademeli düşürün. (2) Kritik paket kapsam tabanlarını yükseltin.")
 story += [PageBreak()]
 
 # ============================ 10. SONUÇ ====================================

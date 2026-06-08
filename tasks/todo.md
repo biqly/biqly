@@ -1436,3 +1436,34 @@ All tasks are completed successfully:
 1. **Frontend**: Translation keys added for English and Turkish. Masking strategy dropdown rendered for unreviewed columns in the PII Detection Panel. Local edits are stored in `pendingStrategy` state and transmitted via `updateColumnPII` upon clicking Confirm.
 2. **Backend**: Added column-level strategy mapping in `PIIMaskingConfig` and parsed `PIIMaskingStrategy` from database records. Integrated this strategy in the query compiler: columns with `"full"` strategy resolve to `pii.HiddenLiteral` (full mask) instead of the partial masking expression.
 3. **Verification**: Frontend build and tests pass successfully. Backend linter and unit tests (including a new compiler test for strategy overrides) pass successfully.
+
+## CI/CD Workflow Duplication Cleanup Plan
+
+Success criteria:
+
+- Pure Argo image-updater commits that only change `deploy/helm/biqly/.argocd-source-*.yaml` do not trigger Semgrep, CodeQL, or Build Migrate Image.
+- Normal source commits continue to trigger the existing CI/CD workflows.
+- Build Migrate Image still runs on normal `main` pushes so the migrate image exists for service SHAs.
+
+- [x] Inspect current Semgrep, CodeQL, and build-migrate trigger filters.
+- [x] Add narrow generated-file ignores for `deploy/helm/biqly/.argocd-source-*.yaml`.
+- [x] Verify workflow YAML syntax and diff scope.
+
+## CI/CD Workflow Duplication Cleanup Review
+
+Resolved:
+
+1. Semgrep now ignores generated Argo image-updater source files on push and pull request triggers, alongside existing docs/README/workflow ignores.
+2. CodeQL now skips pure `deploy/helm/biqly/.argocd-source-*.yaml` changes on push and pull request triggers.
+3. Build Migrate Image now skips only pure generated Argo source-file changes on `main` push; its pull request `paths` filter is unchanged.
+
+Verification:
+
+- `ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path); puts "#{path}: ok" }' .github/workflows/semgrep.yml .github/workflows/codeql.yml .github/workflows/build-migrate.yml`
+- `ruby -e 'patterns = ["deploy/helm/biqly/.argocd-source-*.yaml"]; cases = {"generated only" => ["deploy/helm/biqly/.argocd-source-biqly.yaml"], "source only" => ["internal/core/service.go"], "mixed" => ["deploy/helm/biqly/.argocd-source-biqly.yaml", "internal/core/service.go"]}; cases.each do |name, paths| ignored = paths.all? { |path| patterns.any? { |pattern| File.fnmatch?(pattern, path, File::FNM_PATHNAME) } }; puts "#{name}: #{ignored ? "skip" : "run"}"; end'`
+- `git diff --check`
+
+Notes:
+
+- `actionlint` is not installed locally, so validation used YAML parsing plus explicit path-filter behavior checks.
+- Post-commit GitHub workflow observation and live ArgoCD rollout checks were not run because no commit/push/deploy was performed in this slice.

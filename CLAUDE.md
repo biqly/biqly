@@ -161,6 +161,10 @@ when writing or reviewing go code, apply these to minimize performance loss (esp
 
 these complement, not override, "simplicity first": optimize hot paths with measurements, not speculation.
 
+## lint-enforced coding rules
+
+all code must comply with `make lint-go` and `make lint-frontend` at write-time — do not wait for CI. the full explanatory list of every enabled golangci-lint rule (from `.golangci.yml`) and every ESLint rule (from `frontend/eslint.config.js`) lives in `tasks/lessons.md → Lint-Enforced Coding Rules`. review that section before writing Go or frontend code.
+
 ## frontend — react + typescript + vite
 
 commands:

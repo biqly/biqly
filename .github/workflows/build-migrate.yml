@@ -1,11 +1,13 @@
 name: Build Migrate Image
 
 on:
-  # Build on EVERY main push (no paths filter): the Helm migrate job runs the
+  # Build on every non-generated main push: the Helm migrate job runs the
   # migrate image at the same sha-<commit> tag as the catalog image, so a
   # matching migrate image must exist for every commit any service builds at.
   push:
     branches: [main]
+    paths-ignore:
+      - 'deploy/helm/biqly/.argocd-source-*.yaml'
   pull_request:
     branches: [main]
     paths:

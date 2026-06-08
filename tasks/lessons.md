@@ -204,6 +204,139 @@ Docker daemon must be running for migration testing. When Docker is unavailable:
 
 ---
 
+## Lint-Enforced Coding Rules
+
+These rules are enforced by `make lint-go` (golangci-lint via `.golangci.yml`) and `make lint-frontend` (ESLint via `frontend/eslint.config.js`). Code must comply at write-time — do not rely on CI to catch violations. The rules below explain *why* each linter is enabled and *how* to write code that passes.
+
+### Go — golangci-lint Rules (`.golangci.yml`)
+
+#### Error Handling
+
+- **errcheck** (`check-type-assertions: true`): never silently discard error returns. Every `func() (..., error)` call must handle the error. Type assertions like `v.(string)` must be checked with the two-value form `v, ok := x.(string)` — unchecked assertions panic at runtime.
+- **errorlint**: use `errors.Is()` for sentinel comparison, `errors.As()` / `errors.AsType[T]()` for type matching, and `%w` verb in `fmt.Errorf` for wrapping. Never compare errors with `==` or `!=` — wrapped errors break equality.
+- **nilerr**: do not return a nil error when returning a nil value that should accompany a non-nil error (or vice versa). If you assign `err` and then return `nil, nil`, this linter catches the logic bug.
+- **nilnesserr**: catches contradictions where a nil-checked variable is used in a way that assumes non-nil, or where a nil pointer is dereferenced after an error check.
+- **errname**: error types must be named `ErrFoo` (sentinel values) or `FooError` (custom error types). Follow Go naming convention for error variables.
+- **errchkjson**: types that marshal to JSON must handle errors from `json.Marshal` / `json.Unmarshal`. Do not discard the error from `json.Marshal` — even structs can fail if they contain unsupported types.
+- **nilnil**: do not return `(nil, nil)` — it forces callers to check both values. Return a sentinel error or a typed zero-value instead.
+
+#### Function Design
+
+- **funlen** (`lines: 120, statements: 70`): functions longer than 120 lines or 70 statements must be split. Extract helpers, reduce nesting, or break into smaller functions. This is a hard limit — if a function exceeds it, refactor before commit.
+- **gocyclo** (`min-complexity: 30`): cyclomatic complexity above 30 is blocked. Reduce branching with early returns, guard clauses, and extracted helpers. If a single function needs 30+ independent paths, it is doing too much.
+- **gocognit** (`min-complexity: 30`): cognitive complexity above 30 is blocked. Unlike cyclomatic complexity, this penalizes nesting. Deep nesting (`if` inside `if` inside `for` inside `if`) accumulates points fast — flatten with early returns.
+- **nestif** (`min-complexity: 5`): nesting depth beyond 5 levels is blocked. Every nested `if`/`for`/`select` adds complexity. Flatten by returning early, extracting methods, or using guard clauses.
+- **maintidx** (`under: 10`): maintainability index below 10 is blocked. This combines Halstead volume, cyclomatic complexity, and line count. Low scores mean the function is hard to understand and maintain.
+- **unparam**: function parameters that are never used (or always receive the same value) must be removed. Dead parameters add noise and confusion.
+- **recvcheck**: receiver type (pointer vs value) must be consistent across all methods of a type. Do not mix pointer and value receivers on the same struct.
+
+#### Resource Management
+
+- **bodyclose**: HTTP response bodies must be closed with `defer resp.Body.Close()`. Unclosed bodies leak connections and file descriptors.
+- **rowserrcheck**: `database/sql.Rows` must check `rows.Err()` after `rows.Next()` loop. The loop may exit early on error — `rows.Err()` is the only way to detect it.
+- **sqlclosecheck**: `sql.Rows`, `sql.Stmt`, and `sql.Conn` must be closed with `defer Close()`. Opening without closing leaks database resources.
+- **noctx**: every HTTP request must carry a `context.Context`. Use `http.NewRequestWithContext(ctx, ...)` — never `http.NewRequest(...)` without context. Context enables cancellation, timeouts, and tracing.
+- **contextcheck**: `context.Context` must be passed through the call chain. Do not create a new background context mid-chain — propagate the parent context for cancellation to work.
+
+#### Performance & Allocation
+
+- **prealloc**: pre-allocate slices with `make([]T, 0, n)` when the size is known or can be estimated. Without pre-allocation, `append` doubles the slice and copies on every growth.
+- **wastedassign**: assignments that are never used (assigned and then overwritten without being read) must be removed. Wasted assignments confuse readers and may indicate a logic bug.
+- **ineffassign**: values assigned but never read (the assignment itself is ineffective) must be removed. Unlike `wastedassign`, the value may be used in a later branch that is never taken.
+- **makezero**: `append` to a nil slice after `make([]T, 0)` is fine, but `make([]T, n)` followed by `append` without index overwrites existing zero-values. Use `make([]T, 0, n)` when you intend to `append`.
+- **perfsprint**: use `fmt.Sprintf` only when formatting is needed. For simple conversions, use `strconv.Itoa`, `strconv.AppendInt`, `fmt.Sprint` without format verbs. `fmt.Sprintf` with no verbs is slower than `fmt.Sprint`.
+- **mirror**: identifies code that can be simplified by using standard library functions. If `strings.Contains(s, x)` replaces a manual loop, use the stdlib version.
+- **fatcontext**: `context.Context` should not be stored in structs or wrapped in tight loops. Passing a fat context (one that accumulates values) through many layers degrades performance.
+
+#### Security (Go)
+
+- **gosec**: flags common security issues — hardcoded credentials, weak crypto (`crypto/md5`, `crypto/sha1`), SQL injection patterns, file path traversal, command injection. Treat every finding as a blocker unless explicitly accepted.
+- **bidichk**: detects bidirectional Unicode text that can hide malicious code in source files. Prevents trojan-source attacks.
+- **durationcheck**: detects cases where `time.Duration` is multiplied by another `time.Duration`, which almost always indicates a bug (duration² is nonsensical).
+
+#### Code Quality (Go)
+
+- **govet**: Go vet checks for common mistakes — unreachable code, wrong lock usage, incorrect `Printf` format strings, shadowed returns. Must be zero.
+- **staticcheck**: broad set of Go correctness and performance checks. Includes `SA*` (analysis), `S*` (style), `ST*` (static analysis), `QF*` (quick fixes). Treat as mandatory.
+- **unused**: exported and unexported identifiers that are never referenced must be removed. Dead code is maintenance burden.
+- **ineffassign**: ineffective assignments (value written but never read) must be removed.
+- **misspell**: catches spelling mistakes in comments and strings. Fix before commit.
+- **dupword**: detects duplicate words in comments and strings (e.g., "the the"). Fix before commit.
+- **gocritic** (enabled: `badLock`, `badRegexp`, `evalOrder`, `httpNoBody`, `nilValReturn`, `sloppyReassign`, `truncateCmp`, `weakCond`, `importShadow`): catches subtle logic errors — incorrect mutex usage, malformed regexps, evaluation order issues, comparison truncation, weak conditions, import shadowing. `exitAfterDefer` is disabled because `cmd/` packages legitimately call `os.Exit` after `defer`.
+- **copyloopvar**: ensures loop variables are captured correctly in closures. Since Go 1.22 loop variables are per-iteration, but this linter catches remaining patterns where the address of a loop variable is taken.
+- **revive** (rules: `blank-imports`, `context-as-argument`, `error-return`, `error-strings`, `var-naming`, `unused-parameter`, `unused-receiver`): enforces Go naming and API conventions. Context must be first argument. Errors must be returned as the last value. Error strings must not be capitalized or end with punctuation. Unused parameters and receivers must be named `_`.
+- **whitespace**: enforces consistent blank line usage — no double blank lines, blank lines at start/end of blocks. Keeps code visually clean.
+- **exhaustive**: `switch` statements on enums must cover all cases or have a `default`. Missing enum cases are bugs.
+- **nolintlint**: `//nolint` directives must name the specific linter being suppressed (e.g., `//nolint:errcheck`). Bare `//nolint` is banned — it hides all findings, not just the intended one.
+- **predeclared**: do not shadow Go predeclared identifiers (`len`, `cap`, `new`, `make`, `true`, `false`, `nil`, etc.). Shadowing builtins causes confusion.
+- **loggercheck** + **sloglint**: structured logging rules. Use `slog` with key-value pairs, not `fmt.Print*`. `slog.Info("msg", "key", value)` — keys must be string constants, values must match the logging context. Never use `fmt.Println` / `fmt.Printf` for logging in application code.
+- **forbidigo** (forbidden: `fmt.Print*`, `panic`): application code must use structured logging, not `fmt.Print*`. `panic` is banned in application code — return errors instead. Exception: `cmd/` packages may use `fmt.Print*` for CLI output.
+- **usestdlibvars**: use standard library variables instead of string literals. E.g., `http.MethodGet` instead of `"GET"`, `os.Stdout` instead of explicit file opens. Reduces typo risk.
+- **unconvert**: remove unnecessary type conversions. `int(x)` where `x` is already `int` is noise.
+- **reassign**: detects reassignment of imported package variables or loop variables that may cause subtle bugs.
+- **forcetypeassert**: type assertions `x.(T)` must use the two-value form `x, ok := y.(T)`. One-value assertions panic if the type doesn't match.
+- **musttag**: exported struct fields that are marshaled to JSON/XML/YAML must have struct tags. Missing tags cause silent data loss or incorrect serialization.
+- **gomoddirectives**: `go.mod` directives (`replace`, `retract`, `exclude`) must not be used without explicit justification. Local `replace` directives are especially dangerous in published modules.
+- **dupl** (`threshold: 100`): code blocks longer than 100 tokens that are duplicated must be extracted into a shared function. Tests (`_test.go`) are exempt because test duplication is acceptable for clarity.
+
+### Frontend — ESLint Rules (`frontend/eslint.config.js`)
+
+#### TypeScript Type Safety
+
+- **no-explicit-any**: never use `any` as a type. Use unknown, generic parameters, or a specific type. `any` opts out of all type checking — it is the TypeScript equivalent of a segfault waiting to happen.
+- **no-unsafe-call / no-unsafe-assignment / no-unsafe-member-access / no-unsafe-argument / no-unsafe-return**: values typed as `any` must not flow through the program. If a third-party library returns `any`, cast it to a specific type at the boundary immediately. Every unsafe usage is a potential runtime error.
+- **no-floating-promises**: every Promise must be awaited, returned, or explicitly voided with `void promise`. Unhandled promises cause silent failures — errors in `.then()` chains disappear.
+- **no-misused-promises**: do not pass async functions where synchronous callbacks are expected (e.g., `addEventListener`, `Array.prototype.sort`). The return value (a Promise) is ignored, and errors are lost.
+- **await-thenable**: only `await` values that are thenable (Promises). Awaiting a non-Promise is usually a bug or unnecessary.
+- **no-unnecessary-condition**: conditions that are always true or always false (based on type analysis) must be removed. They indicate a type narrowing error or dead code.
+- **prefer-nullish-coalescing**: use `??` instead of `||` for defaults. `||` treats `0`, `""`, and `false` as falsy — `??` only treats `null` and `undefined` as nullish. Prevents bugs with empty strings and zero values.
+- **no-redundant-type-constituents**: remove redundant types from unions. `string | string` is `string`. `T | T` is `T`.
+- **no-base-to-string**: do not call `.toString()` on types that have no meaningful string representation (e.g., plain objects, arrays). Use `JSON.stringify` or explicit formatting instead.
+- **no-empty-function**: empty function bodies are not allowed unless the function is intentionally a no-op. If it is a no-op, add a comment explaining why.
+- **ban-ts-comment**: `@ts-ignore` and `@ts-expect-error` are banned. Fix the type error instead of suppressing it. `@ts-expect-error` is acceptable only in test files for type-level assertions.
+- **prefer-for-of**: use `for...of` instead of indexed `for` loops when the index is not needed. More readable and works with any iterable.
+- **consistent-type-imports** (`prefer: type-imports`): use `import type { X }` for type-only imports. Type imports are erased at compile time and do not affect the runtime bundle. Mixing value and type imports in the same statement is fine, but pure type imports must use the `type` keyword.
+- **no-unused-vars** (`argsIgnorePattern: ^_`): unused variables are errors. Prefix intentionally unused parameters with `_` (e.g., `(_event: MouseEvent)`).
+
+#### React Hooks
+
+- **react-hooks/rules-of-hooks**: hooks must be called at the top level of a React function component or custom hook. Never inside loops, conditions, or nested functions. The call order must be stable across renders.
+- **react-hooks/set-state-in-effect**: do not call `setState` directly in a `useEffect` body that runs on every render. Use a dependency array or move the state update to an event handler.
+- **react-hooks/refs**: refs must be used correctly — do not read a ref during rendering (it causes stale UI), only in effects and event handlers.
+- **react-hooks/immutability**: state values must not be mutated. Always create new objects/arrays for state updates. Mutation breaks React's change detection.
+- **react-hooks/purity**: render functions must be pure — no side effects during rendering. Move side effects to `useEffect` or event handlers.
+- **react-refresh/only-export-components** (`allowConstantExport: true`): files with React components should only export components and constants. Exporting non-component functions alongside components breaks hot module replacement.
+
+#### Code Quality (Frontend)
+
+- **complexity** (`max: 20`): cyclomatic complexity above 20 per function is blocked. Break into smaller functions.
+- **max-depth** (`max: 4`): nesting deeper than 4 levels is blocked. Flatten with early returns, extracted functions, or guard clauses.
+- **no-console** (`allow: ['warn', 'error']`): `console.log` is banned in production code. Use `console.warn` / `console.error` for warnings/errors, or a proper logging utility. Debug `console.log` statements must be removed before commit.
+- **no-debugger**: `debugger` statements are banned. Remove before commit.
+- **eqeqeq** (`always`, `null: ignore`): always use `===` / `!==` for equality checks. Exception: `x == null` is allowed because it checks both `null` and `undefined` (the idiomatic TypeScript pattern).
+- **curly** (`all`): all control flow statements (`if`, `else`, `for`, `while`, `do`) must use curly braces. Single-line bodies must still use braces — prevents bugs when adding lines later.
+
+#### Security (Frontend)
+
+- **detect-non-literal-regexp**: flags `new RegExp(userInput)` — user-controlled regex patterns can cause ReDoS (regular expression denial of service). Validate or sanitize user input before using in regex.
+- **detect-unsafe-regex**: flags regex patterns that are vulnerable to catastrophic backtracking (e.g., `(a+)+`). These can hang the browser.
+- **detect-eval-with-expression**: `eval()`, `new Function()`, and similar are banned. They execute arbitrary code and are XSS vectors.
+- **detect-object-injection** (`off`): disabled because bracket notation `obj[key]` is common and safe with typed objects. This rule produces too many false positives in TypeScript codebases.
+
+#### Import Sorting
+
+- **simple-import-sort/imports + exports**: imports and exports must be sorted consistently. Groups: (1) side-effects, (2) external packages, (3) internal aliases, (4) relative imports, (5) type imports. Within each group, alphabetize. Consistent import ordering reduces merge conflicts and improves readability.
+
+#### Accessibility
+
+- **jsx-a11y/alt-text**: all `<img>` elements must have an `alt` prop. Decorative images use `alt=""`. Meaningful images describe the content.
+- **jsx-a11y/anchor-is-valid**: `<a>` elements must have a valid `href`. `href="#"` is banned — use a button for non-navigational actions, or a real URL for navigation.
+- **jsx-a11y/no-autofocus**: `autoFocus` attribute is banned. It steals focus from assistive technologies and screen readers. Manage focus programmatically with `useRef` + `.focus()` when needed.
+
+#### Test Relaxations
+
+- In `**/*.test.{ts,tsx}` and `**/test/**`: `no-explicit-any` and `no-non-null-assertion` are relaxed. Test code often needs `any` for partial mocks and `!` for asserting test preconditions. Production code has no such exemptions.
+
 ## Anti-Patterns to Avoid
 
 1. **Don't add `fmt.Sprintf` in hot-path predicate builders** — use direct string concatenation or `strings.Builder`.
