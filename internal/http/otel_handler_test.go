@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -24,7 +25,7 @@ func TestOtelRouteFilter(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.path, func(t *testing.T) {
 			t.Parallel()
-			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, tc.path, http.NoBody)
 			if got := otelRouteFilter(req); got != tc.want {
 				t.Fatalf("otelRouteFilter(%q) = %v, want %v", tc.path, got, tc.want)
 			}
@@ -43,7 +44,7 @@ func TestOTELHTTPHandler_WrapsHandler(t *testing.T) {
 
 	handler := OTELHTTPHandler("biqly-test", inner)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/ping", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ping", http.NoBody)
 	handler.ServeHTTP(rec, req)
 
 	if !called {
