@@ -42,6 +42,23 @@ function collectModelTables(model: SemanticModelDetail): { value: string; label:
   return out.sort((a, b) => a.label.localeCompare(b.label))
 }
 
+export function resolveSelectedTableKey(
+  defaultTableKey: string,
+  selectedTableKeyInput: string,
+  tableOptions: readonly { value: string }[],
+): string {
+  if (!defaultTableKey) {
+    return ''
+  }
+  if (
+    selectedTableKeyInput &&
+    tableOptions.some((option) => option.value === selectedTableKeyInput)
+  ) {
+    return selectedTableKeyInput
+  }
+  return defaultTableKey
+}
+
 export function useTableBrowserPage() {
   const navigate = useNavigate()
   const t = useT()
@@ -63,19 +80,20 @@ export function useTableBrowserPage() {
     [selectedModelId, models],
   )
   const { model: modelDetail, loading: modelLoading } = useModelDetail(modelId)
+  const tableOptions = useMemo(() => {
+    if (!modelDetail) {
+      return []
+    }
+    return collectModelTables(modelDetail)
+  }, [modelDetail])
   const defaultTableKey = modelDetail
     ? tableKey(modelDetail.base_schema, modelDetail.base_table)
     : ''
   const [selectedTableKeyInput, setSelectedTableKeyInput] = useState('')
-  const selectedTableKey = useMemo(() => {
-    if (!defaultTableKey) {
-      return ''
-    }
-    if (selectedTableKeyInput && selectedTableKeyInput === defaultTableKey) {
-      return selectedTableKeyInput
-    }
-    return defaultTableKey
-  }, [defaultTableKey, selectedTableKeyInput])
+  const selectedTableKey = useMemo(
+    () => resolveSelectedTableKey(defaultTableKey, selectedTableKeyInput, tableOptions),
+    [defaultTableKey, selectedTableKeyInput, tableOptions],
+  )
   const [detailRow, setDetailRow] = useState<DetailRowState | null>(null)
 
   const setDatasourceId = useCallback((id: string) => {
@@ -99,13 +117,6 @@ export function useTableBrowserPage() {
   const onFiltersChange = useCallback(() => {
     setDetailRow(null)
   }, [])
-
-  const tableOptions = useMemo(() => {
-    if (!modelDetail) {
-      return []
-    }
-    return collectModelTables(modelDetail)
-  }, [modelDetail])
 
   const activeDimensions = useMemo(() => {
     if (!modelDetail || !selectedTableKey) {

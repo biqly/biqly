@@ -1540,3 +1540,36 @@ Notes:
 
 - `actionlint` is not installed locally, so validation used YAML parsing plus explicit path-filter behavior checks.
 - Post-commit GitHub workflow observation and live ArgoCD rollout checks were not run because no commit/push/deploy was performed in this slice.
+
+## Table Browser Joined Table Selection Bugfix Plan
+
+Success criteria:
+
+- Table Browser keeps a selected joined table such as `public.profiles` or `public.tracked_profiles` instead of snapping back to the base table.
+- Invalid or stale table selections still fall back to the model base table.
+- Focused frontend tests cover the selection rule.
+
+- [x] Add a failing test for joined table selection.
+- [x] Fix the selected table resolution in `useTableBrowserPage`.
+- [x] Run focused frontend verification and document results.
+
+## Table Browser Joined Table Selection Review
+
+Resolved:
+
+1. Root cause: `useTableBrowserPage` only accepted `selectedTableKeyInput` when it exactly matched the base table key, so selecting a joined table immediately resolved back to the base table.
+2. Added `resolveSelectedTableKey` to accept any selected key present in the model table options while preserving base-table fallback for stale selections.
+3. Added a focused regression test for joined table selection and stale-key fallback.
+
+Verification:
+
+- Red: `npm --prefix frontend run test -- src/components/tableBrowser/useTableBrowserPage.test.ts` failed because `resolveSelectedTableKey` was not implemented.
+- Green: `npm --prefix frontend run test -- src/components/tableBrowser/useTableBrowserPage.test.ts`
+- `./frontend/node_modules/.bin/prettier --check frontend/src/components/tableBrowser/useTableBrowserPage.ts frontend/src/components/tableBrowser/useTableBrowserPage.test.ts`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run test`
+- `npm --prefix frontend run build`
+
+Notes:
+
+- Playwright opened the local app but redirected to `/auth/signin`, and Chrome DevTools was not reachable on `127.0.0.1:9222`, so authenticated visual verification was not available in this session.

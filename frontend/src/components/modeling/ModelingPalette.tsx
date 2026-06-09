@@ -590,7 +590,7 @@ export function ModelingPalette({
                 <>
                   <h3>{t('modeling.inactive_dimensions_heading')}</h3>
                   {inactiveDimGroups.map((group) => (
-                    <div key={group.key}>
+                    <div className="modeling-group-body" key={group.key}>
                       {group.values.map((dimension) => (
                         <div
                           className="modeling-join-pill modeling-join-pill--suggested"
@@ -676,7 +676,7 @@ export function ModelingPalette({
                 <>
                   <h3>{t('modeling.inactive_metrics_heading')}</h3>
                   {inactiveMetricGroups.map((group) => (
-                    <div key={group.key}>
+                    <div className="modeling-group-body" key={group.key}>
                       {group.values.map((metric) => (
                         <div
                           className="modeling-join-pill modeling-join-pill--suggested"
