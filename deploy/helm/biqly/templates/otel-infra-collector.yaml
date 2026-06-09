@@ -123,6 +123,13 @@ metadata:
     app.kubernetes.io/component: otel-infra-collector
 spec:
   replicas: 1
+  {{- with .Values.global.deploymentStrategy }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .rollingUpdate.maxSurge | default 0 }}
+      maxUnavailable: {{ .rollingUpdate.maxUnavailable | default 1 }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: biqly-otel-infra-collector

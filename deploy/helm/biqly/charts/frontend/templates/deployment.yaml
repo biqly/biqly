@@ -7,6 +7,13 @@ metadata:
 spec:
   replicas: {{ .Values.replicaCount }}
   revisionHistoryLimit: 5
+  {{- with .Values.global.deploymentStrategy }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .rollingUpdate.maxSurge | default 0 }}
+      maxUnavailable: {{ .rollingUpdate.maxUnavailable | default 1 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "frontend.selectorLabels" . | nindent 6 }}

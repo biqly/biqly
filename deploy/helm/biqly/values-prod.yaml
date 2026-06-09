@@ -1,4 +1,10 @@
 global:
+  # prag is a single 4-core node; rollouts must not schedule a second pod (default
+  # maxSurge 25% ≈ +1 replica) while the old one is still running.
+  deploymentStrategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   imagePullSecrets:
     - name: ghcr-registry
   postgresqlVIP:
@@ -35,6 +41,14 @@ global:
     logs:
       vectorConfig:
         enabled: false
+    infraTelemetry:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 96Mi
+        limits:
+          cpu: 750m
+          memory: 384Mi
     tracing:
       enabled: true
       serviceName: biqly
@@ -74,6 +88,13 @@ global:
 auth:
   enabled: true
   replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1500m
+      memory: 768Mi
   image:
     repository: auth
     tag: sha-38de6ea19634422920df5b7f49e8fad6b49ed3bf
@@ -92,6 +113,13 @@ auth:
 mail:
   enabled: true
   replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 750m
+      memory: 384Mi
   smtp:
     enabled: true
   config:
@@ -109,6 +137,13 @@ mail:
 
 frontend:
   replicaCount: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 400m
+      memory: 192Mi
   image:
     tag: sha-56b921c7800edf2ee5c29a91dfad5f764bdd9d87
   runtimeAdminKey:
@@ -116,6 +151,13 @@ frontend:
 
 catalog:
   replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 768Mi
   image:
     tag: sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
   autoscaling:
@@ -124,6 +166,13 @@ catalog:
 
 query:
   replicaCount: 1
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1500m
+      memory: 768Mi
   image:
     tag: sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
   autoscaling:
@@ -132,6 +181,13 @@ query:
 
 ai:
   replicaCount: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 3000m
+      memory: 1536Mi
   image:
     tag: sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
   rollout:

@@ -9,6 +9,13 @@ spec:
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   revisionHistoryLimit: 5
+  {{- with .Values.global.deploymentStrategy }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .rollingUpdate.maxSurge | default 0 }}
+      maxUnavailable: {{ .rollingUpdate.maxUnavailable | default 1 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "mail.selectorLabels" . | nindent 6 }}
