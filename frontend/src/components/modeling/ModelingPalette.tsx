@@ -243,6 +243,16 @@ export function ModelingPalette({
   const visibleDimsCount = dimGroups.reduce((sum, group) => sum + group.values.length, 0)
   const visibleMetricsCount = metricGroups.reduce((sum, group) => sum + group.values.length, 0)
 
+  // Only suggest FK joins between tables already in the model/canvas. The
+  // backend includes any FK with one endpoint in the model (to invite adding
+  // related tables), but that surfaces tables the user hasn't selected — which
+  // is confusing here.
+  const visibleSuggestedJoins = suggestedJoins.filter(
+    (join) =>
+      scopedTableKeys.has(tableKey(join.from_schema, join.from_table)) &&
+      scopedTableKeys.has(tableKey(join.to_schema, join.to_table)),
+  )
+
   return (
     <aside
       className={`modeling-palette ${open ? '' : 'modeling-side--collapsed'}`}
@@ -466,10 +476,10 @@ export function ModelingPalette({
                   </div>
                 ))
               )}
-              {suggestedJoins.length > 0 && (
+              {visibleSuggestedJoins.length > 0 && (
                 <>
                   <h3>{t('modeling.suggested_fk_relationships')}</h3>
-                  {suggestedJoins.map((join, index) => (
+                  {visibleSuggestedJoins.map((join, index) => (
                     <div className="modeling-join-pill modeling-join-pill--suggested" key={index}>
                       <div className="modeling-join-pill-header">
                         <strong>
