@@ -3102,6 +3102,11 @@ body.modeling-grabbing * {
 
 /* Collapsible per-table groups (Kırılım / Metrik). Click the header to expand. */
 .modeling-group {
+  /* flex-shrink:0 is required: this is a flex item of the column .modeling-join-list.
+     With overflow:hidden the item's automatic min-height resolves to 0, so the
+     fixed-height flex container would squash groups into empty clipped bars.
+     Keeping them unshrinkable lets the list scroll instead. */
+  flex: 0 0 auto;
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 8px;
   margin-bottom: 0.4rem;
