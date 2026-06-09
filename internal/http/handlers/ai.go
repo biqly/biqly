@@ -18,7 +18,6 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/ai/abtest"
-	"github.com/biqly/biqly/internal/ai/ambiguity"
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/app"
@@ -107,6 +106,10 @@ type aiQueryRequest struct {
 	Question            string   `json:"question"`
 	Tables              []string `json:"tables,omitempty"`
 	ClarificationChoice string   `json:"clarification_choice,omitempty"`
+	// ClarificationRound counts ambiguity clarification rounds already shown to
+	// the user on this question thread. The client echoes the value from the
+	// previous ambiguity response.
+	ClarificationRound int `json:"clarification_round,omitempty"`
 	// IncludeBaseTables / IncludeViews default to true when omitted (backward compatible).
 	IncludeBaseTables *bool `json:"include_base_tables,omitempty"`
 	IncludeViews      *bool `json:"include_views,omitempty"`
@@ -119,11 +122,6 @@ type aiQueryRequest struct {
 	// IncludePastQueries when true, attaches recent conversation turns as
 	// few-shot examples (frontend-side toggle).
 	IncludePastQueries bool `json:"include_past_queries,omitempty"`
-	// clarificationResolved is set server-side when a ClarificationChoice was
-	// applied this turn (the question was rewritten). It is not part of the wire
-	// format and signals the pipeline to skip the pre-LLM ambiguity re-check so
-	// a resolved clarification does not trigger another clarification loop.
-	clarificationResolved bool
 }
 
 // priorTurnPayload is the wire shape for one entry in aiQueryRequest.PriorTurns.
@@ -160,87 +158,73 @@ func priorTurnsForPrompt(payload []priorTurnPayload) []prompt.ConversationTurn {
 	return out
 }
 
-func resolveClarificationChoice(ctx context.Context, req *aiQueryRequest, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry) error {
-	if req.ClarificationChoice == "" {
-		return nil
-	}
-	question, err := ambiguity.Resolve(ctx, req.Question, req.ClarificationChoice, model, glossary)
-	if err != nil {
-		return err
-	}
-	req.Question = question
-	req.ClarificationChoice = ""
-	return nil
-}
-
-func (h *AIHandler) resolveClarificationChoice(ctx context.Context, req *aiQueryRequest, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry) error {
-	choice := req.ClarificationChoice
-	if err := resolveClarificationChoice(ctx, req, model, glossary); err != nil {
-		return err
-	}
-	if choice != "" {
-		req.clarificationResolved = true
-	}
-	if h.metrics != nil && strings.HasPrefix(choice, "ambiguity:") {
-		h.metrics.RecordAmbiguityClarified()
-	}
-	return nil
-}
-
 // parseAndRouteAIQuery decodes the request, validates required fields, loads the semantic
 // model (and table routing). If it writes a response to w (bad request, model load error, or
 // clarification-only response), ok is false.
-func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request) (aiQueryRequest, *semantic.SemanticModel, *routing.TableRoutingResult, bool) {
+func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request) (aiQueryRequest, *ProcessContext, *semantic.SemanticModel, *routing.TableRoutingResult, bool) {
 	req, ok := decodeJSON[aiQueryRequest](w, r)
 	if !ok {
-		return aiQueryRequest{}, nil, nil, false
+		return aiQueryRequest{}, nil, nil, nil, false
 	}
 	if req.Question == "" {
 		writeError(w, http.StatusBadRequest, "question is required")
-		return *req, nil, nil, false
+		return *req, nil, nil, nil, false
 	}
 	if req.DatasourceID == "" {
 		writeError(w, http.StatusBadRequest, core.MsgDatasourceIDRequired)
-		return *req, nil, nil, false
+		return *req, nil, nil, nil, false
 	}
 
 	ctx := r.Context()
 	model, routeResult, err := h.loadQueryModel(ctx, *req)
 	if err != nil {
 		h.writeModelLoadError(ctx, w, *req, err)
-		return *req, nil, nil, false
+		return *req, nil, nil, nil, false
 	}
 	if routeResult != nil && routeResult.NeedsClarification {
 		resp := clarificationResponse(routeResult)
 		h.observeAIRequest(ctx, *req, model, routeResult, resp, 0)
 		writeJSON(w, http.StatusOK, resp)
-		return *req, nil, nil, false
+		return *req, nil, nil, nil, false
 	}
-	if req.ClarificationChoice != "" {
-		glossary := h.loadGlossaryForAmbiguity(ctx, model)
-		if err := h.resolveClarificationChoice(ctx, req, model, glossary); err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return *req, nil, nil, false
-		}
+	pc := buildProcessContext(*req)
+	if err := h.resolveProcessContext(ctx, pc, model); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return *req, pc, nil, nil, false
 	}
-	return *req, model, routeResult, true
+	pc.ApplyToRequest(req)
+	return *req, pc, model, routeResult, true
 }
 
-func (h *AIHandler) standardProcessOptions(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel) []ai.ProcessOption {
+func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessContext, req aiQueryRequest, model *semantic.SemanticModel) []ai.ProcessOption {
+	question := req.Question
+	if pc != nil && pc.Question != "" {
+		question = pc.Question
+	}
 	catalog, external := h.loadGlossaryEntries(ctx, model)
 	opts := []ai.ProcessOption{
 		ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
 		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
 		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
-		ai.WithGlossary(prompt.SelectGlossaryForQuestion(req.Question, prompt.MergeGlossaryEntries(catalog, external), model)),
+		ai.WithGlossary(prompt.SelectGlossaryForQuestion(question, prompt.MergeGlossaryEntries(catalog, external), model)),
 		ai.WithAmbiguityGlossary(combineGlossaryEntries(catalog, external)),
 	}
-	if h.deps.Config.AI.Ambiguity.CheckEnabled && !req.clarificationResolved {
+	ambiguityCfg := h.deps.Config.AI.Ambiguity
+	if pc != nil && pc.AmbiguityCapReached(ambiguityCfg) {
+		slog.WarnContext(ctx, "ambiguity round cap reached, bypassing check",
+			"clarification_round", pc.clarificationRound,
+			"max_rounds", maxClarificationRounds,
+		)
+		if h.metrics != nil {
+			h.metrics.RecordAmbiguityRoundCapReached()
+		}
+	}
+	if pc != nil && pc.ShouldCheckAmbiguity(ambiguityCfg) {
 		opts = append(opts,
 			ai.WithAmbiguityCheck(true),
-			ai.WithAmbiguityConfidenceThreshold(h.deps.Config.AI.Ambiguity.ConfidenceThreshold),
-			ai.WithAmbiguityMaxOptions(h.deps.Config.AI.Ambiguity.MaxOptions),
-			ai.WithLLMAmbiguityCheck(h.deps.Config.AI.Ambiguity.LLMEnabled),
+			ai.WithAmbiguityConfidenceThreshold(ambiguityCfg.ConfidenceThreshold),
+			ai.WithAmbiguityMaxOptions(ambiguityCfg.MaxOptions),
+			ai.WithLLMAmbiguityCheck(ambiguityCfg.LLMEnabled),
 		)
 		if h.metrics != nil {
 			opts = append(opts, ai.WithAmbiguityAnalysisObserver(h.metrics.RecordAmbiguityAnalysis))
@@ -251,6 +235,7 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, req aiQueryReque
 
 func (h *AIHandler) processAIQuestion(
 	ctx context.Context,
+	pc *ProcessContext,
 	req aiQueryRequest,
 	model *semantic.SemanticModel,
 	routeResult *routing.TableRoutingResult,
@@ -263,9 +248,13 @@ func (h *AIHandler) processAIQuestion(
 	tracker := &abtest.ExperimentTracker{}
 	ctx = abtest.WithExperimentTracker(ctx, tracker)
 
-	opts := h.standardProcessOptions(ctx, req, model)
+	question := req.Question
+	if pc != nil && pc.Question != "" {
+		question = pc.Question
+	}
+	opts := h.standardProcessOptions(ctx, pc, req, model)
 	opts = append(opts, extra...)
-	resp, err := h.service.ProcessQuestion(ctx, req.Question, model, opts...)
+	resp, err := h.service.ProcessQuestion(ctx, question, model, opts...)
 	if resp != nil {
 		if resp.Metadata == nil {
 			resp.Metadata = &ai.AIMetadata{}
@@ -286,13 +275,14 @@ func (h *AIHandler) processAIQuestion(
 	if resp == nil {
 		resp = failedAIResponse(errors.New("ai response missing"))
 	}
+	attachAmbiguityClarificationRound(pc, resp)
 	return h.observeAIRequest(ctx, req, model, routeResult, resp, time.Since(start).Milliseconds()), nil
 }
 
 // processAndObserve is the shared entry for Query, Preview, and Run: parse/route,
 // optional Run-phase datasource pool, LLM process + telemetry, then phase-specific compile/execute.
 func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, phase aiQueryPhase) {
-	req, model, routeResult, ok := h.parseAndRouteAIQuery(w, r)
+	req, pc, model, routeResult, ok := h.parseAndRouteAIQuery(w, r)
 	if !ok {
 		return
 	}
@@ -311,7 +301,7 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 		}
 	}
 
-	resp, err := h.processAIQuestion(ctx, req, model, routeResult, processOpts...)
+	resp, err := h.processAIQuestion(ctx, pc, req, model, routeResult, processOpts...)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to process question", err,
 			"question", req.Question,

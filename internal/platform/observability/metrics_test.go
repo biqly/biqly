@@ -24,6 +24,7 @@ func TestMetricsRecord(t *testing.T) {
 	m.RecordAmbiguityAnalysis(12, "rule_based", true)
 	m.RecordAmbiguityAnalysis(34, "llm", true)
 	m.RecordAmbiguityClarified()
+	m.RecordAmbiguityRoundCapReached()
 
 	if got := testutil.ToFloat64(m.catalogDBQueries); got != 2 {
 		t.Fatalf("catalog_db_queries_total = %v, want 2", got)
@@ -60,6 +61,9 @@ func TestMetricsRecord(t *testing.T) {
 	}
 	if got := testutil.ToFloat64(m.ambiguityClarified); got != 1 {
 		t.Fatalf("biqly_ambiguity_clarified_total = %v, want 1", got)
+	}
+	if got := testutil.ToFloat64(m.ambiguityRoundCapReached); got != 1 {
+		t.Fatalf("biqly_ambiguity_round_cap_reached_total = %v, want 1", got)
 	}
 }
 

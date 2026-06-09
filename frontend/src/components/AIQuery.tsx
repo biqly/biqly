@@ -75,6 +75,7 @@ export default function AIQuery() {
   const [queryAction, setQueryAction] = useState<'preview' | 'execute' | null>(null)
   const [jobError, setJobError] = useState<string | null>(null)
   const [aiElapsedMs, setAiElapsedMs] = useState(0)
+  const [clarificationRound, setClarificationRound] = useState(0)
 
   const aiBusy = queryAction !== null
   const displayElapsedMs = aiBusy ? aiElapsedMs : 0
@@ -282,7 +283,11 @@ export default function AIQuery() {
     }
   }
 
-  const requestBody = (q = question, clarificationChoice?: string): AIQueryRequest => {
+  const requestBody = (
+    q = question,
+    clarificationChoice?: string,
+    round = clarificationRound,
+  ): AIQueryRequest => {
     const isComposite = semanticModelId.startsWith('composite:')
     return {
       datasource_id: datasourceId,
@@ -290,6 +295,7 @@ export default function AIQuery() {
       composite_id: isComposite ? semanticModelId.slice('composite:'.length) : undefined,
       question: q,
       clarification_choice: clarificationChoice,
+      clarification_round: round > 0 ? round : undefined,
       tables: autoTableRouting ? undefined : effectiveSelectedTables,
       include_base_tables: includeBaseTables,
       include_views: includeViews,
@@ -304,6 +310,9 @@ export default function AIQuery() {
       return
     }
     if (flat.needs_clarification) {
+      if (typeof flat.clarification_round === 'number') {
+        setClarificationRound(flat.clarification_round)
+      }
       addMessage({ role: 'user', content: q })
       addMessage({
         role: 'assistant',
@@ -312,6 +321,7 @@ export default function AIQuery() {
       })
       return
     }
+    setClarificationRound(0)
     addMessage({ role: 'user', content: q })
     const summary = flat.sql
       ? t('ai_query.assistant_sql_preview', { snippet: flat.sql.slice(0, 120) })
@@ -323,10 +333,21 @@ export default function AIQuery() {
     if (!q.trim()) {
       return
     }
+    let effectiveRound = clarificationRound
+    if (!clarificationChoice) {
+      const lastAssistant = [...(activeConversation?.messages ?? [])]
+        .reverse()
+        .find((m) => m.role === 'assistant')
+      const continuingClarification = Boolean(lastAssistant?.ai_response?.needs_clarification)
+      if (!continuingClarification) {
+        effectiveRound = 0
+        setClarificationRound(0)
+      }
+    }
     setQueryAction(execute ? 'execute' : 'preview')
     setJobError(null)
     try {
-      const body = requestBody(q, clarificationChoice)
+      const body = requestBody(q, clarificationChoice, effectiveRound)
       const kind = execute ? 'run' : 'preview'
       const outcome = await runJob(kind, body, {
         onError: (message) => setJobError(message),

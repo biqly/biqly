@@ -1198,7 +1198,7 @@ func TestCompiler_CustomExpression(t *testing.T) {
 	}
 }
 
-func TestCompiler_MetabaseTableSearch(t *testing.T) {
+func TestCompiler_TableSearchContains(t *testing.T) {
 	model := &semantic.SemanticModel{
 		Name:       "products",
 		BaseSchema: "public",

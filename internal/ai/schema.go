@@ -65,6 +65,7 @@ type ClarificationResponse struct {
 	NeedsClarification    bool           `json:"needs_clarification,omitempty"`
 	ClarificationQuestion string         `json:"clarification_question,omitempty"`
 	ClarificationOptions  []string       `json:"clarification_options,omitempty"`
+	ClarificationRound    int            `json:"clarification_round,omitempty"`
 	Clarification         *Clarification `json:"clarification,omitempty"`
 }
 

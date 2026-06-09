@@ -6,6 +6,7 @@ type AIMetricsRecorder interface {
 	RecordLLMRequest(latencyMs int64, tokensUsed int, promptBuildMs int64)
 	RecordAmbiguityAnalysis(latencyMs int64, source string, detected bool)
 	RecordAmbiguityClarified()
+	RecordAmbiguityRoundCapReached()
 	RecordAIRepair(success bool, attempts int, errorCodes []string)
 }
 

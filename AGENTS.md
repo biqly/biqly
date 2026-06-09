@@ -307,3 +307,17 @@ notes:
 - `ci.yml` skips when only `deploy/**` changes.
 - docker images are pushed to `ghcr.io/biqly/*` and tagged with the git sha.
 - golangci-lint version is pinned in `ci.yml` (`v2.12.2`) — match locally with `make lint-go`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live on GitHub (`biqly/biqly`); use `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical triage roles map 1:1 to GitHub label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: `CONTEXT.md` at repo root + `docs/adr/` for decisions. See `docs/agents/domain.md`.

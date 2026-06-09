@@ -211,7 +211,7 @@
   border-color: var(--accent-hover);
 }
 
-/* Chip Input for Metabase Table Search */
+/* Chip input for multi-term table search */
 .chip-input-container {
   display: flex;
   flex-wrap: wrap;
@@ -325,7 +325,7 @@
   opacity: 1;
   color: var(--text-primary);
 }
-/* Premium Metabase-style Table Browser Overhauls */
+/* Premium table browser layout */
 .table-browser-add-filter-btn {
   display: flex;
   align-items: center;

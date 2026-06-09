@@ -19,9 +19,19 @@ function pickClarification(
   nested?: Record<string, unknown>,
 ): Pick<
   AIQueryResponse,
-  'needs_clarification' | 'clarification_question' | 'clarification_options' | 'clarification'
+  | 'needs_clarification'
+  | 'clarification_question'
+  | 'clarification_options'
+  | 'clarification_round'
+  | 'clarification'
 > {
   const clar = nested ?? raw
+  const clarificationRound =
+    typeof clar.clarification_round === 'number'
+      ? clar.clarification_round
+      : typeof raw.clarification_round === 'number'
+        ? raw.clarification_round
+        : undefined
   return {
     needs_clarification: Boolean(clar.needs_clarification ?? raw.needs_clarification),
     clarification_question:
@@ -35,6 +45,7 @@ function pickClarification(
       : Array.isArray(raw.clarification_options)
         ? (raw.clarification_options as string[])
         : undefined,
+    clarification_round: clarificationRound,
     clarification:
       clar.clarification != null
         ? (clar.clarification as AIQueryResponse['clarification'])

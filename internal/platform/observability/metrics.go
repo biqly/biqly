@@ -29,18 +29,19 @@ type Metrics struct {
 	cacheHits     prometheus.Counter
 	cacheMisses   prometheus.Counter
 
-	aiRequestsTotal    prometheus.Counter
-	aiErrors           prometheus.Counter
-	aiRequestDuration  prometheus.Histogram
-	aiRetriesTotal     prometheus.Counter
-	aiClarifications   prometheus.Counter
-	llmRequestDuration prometheus.Histogram
-	llmTokensUsed      prometheus.Counter
-	promptBuildSeconds prometheus.Histogram
-	ambiguityDetected  prometheus.Counter
-	ambiguityClarified prometheus.Counter
-	ambiguityLatencyMS prometheus.Histogram
-	ambiguityBySource  *prometheus.CounterVec
+	aiRequestsTotal          prometheus.Counter
+	aiErrors                 prometheus.Counter
+	aiRequestDuration        prometheus.Histogram
+	aiRetriesTotal           prometheus.Counter
+	aiClarifications         prometheus.Counter
+	llmRequestDuration       prometheus.Histogram
+	llmTokensUsed            prometheus.Counter
+	promptBuildSeconds       prometheus.Histogram
+	ambiguityDetected        prometheus.Counter
+	ambiguityClarified       prometheus.Counter
+	ambiguityRoundCapReached prometheus.Counter
+	ambiguityLatencyMS       prometheus.Histogram
+	ambiguityBySource        *prometheus.CounterVec
 
 	validationFailures prometheus.Counter
 	connectionErrors   prometheus.Counter
@@ -118,6 +119,7 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 		ambiguityClarified: f.NewCounter(prometheus.CounterOpts{
 			Name: "biqly_ambiguity_clarified_total", Help: "Total ambiguity clarifications answered by users.",
 		}),
+		ambiguityRoundCapReached: f.NewCounter(prometheus.CounterOpts{Name: "biqly_ambiguity_round_cap_reached_total", Help: "Total requests where ambiguity checking was bypassed due to the round cap."}),
 		ambiguityLatencyMS: f.NewHistogram(prometheus.HistogramOpts{
 			Name: "biqly_ambiguity_latency_ms", Help: "Ambiguity analysis latency in milliseconds.", Buckets: ambiguityLatencyMSBuckets,
 		}),
@@ -259,6 +261,9 @@ func (m *Metrics) RecordAmbiguityAnalysis(latencyMs int64, source string, detect
 
 // RecordAmbiguityClarified records a user answer to an ambiguity clarification.
 func (m *Metrics) RecordAmbiguityClarified() { m.ambiguityClarified.Inc() }
+
+// RecordAmbiguityRoundCapReached records when ambiguity checking is skipped because the round cap was reached.
+func (m *Metrics) RecordAmbiguityRoundCapReached() { m.ambiguityRoundCapReached.Inc() }
 
 // RecordCatalogDBQuery records a Catalog-owned handler call that performs
 // metadata DB work.

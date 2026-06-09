@@ -1,5 +1,179 @@
 # Todo list
 
+## Ambiguity & Clarification — Best Practices Uygulama Planı (2026-06-09)
+
+Kaynak: `docs/research/ambiguity-clarification-best-practices.md` — mevcut mimari vs endüstri standartları karşılaştırması.
+
+### P0 — Sync/Async Tek Yol (ProcessContext) [HIGH]
+
+**Amaç:** Bug 2 sınıfı hataları (sync/async path divergence) yapısal olarak imkansız kılmak.
+
+**Neden:** `resolveClarificationChoice` free function vs method split'i tekrar yaşanabilir.
+İki ayrı kod yolunda (`parseAndRouteAIQuery` sync, `executeAIQueryPhase` async) aynı state
+yönetimi tekrar edilmesi zorunlu — bu architectural smell.
+
+- [x] `ProcessContext` struct oluştur (`internal/http/handlers/ai_context.go`):
+  ```go
+  type ProcessContext struct {
+      Question              string
+      ClarificationChoice   string
+      ClarificationResolved bool
+      DatasourceID          string
+      clarificationRound    int
+  }
+
+  func (pc *ProcessContext) Resolve(ctx context.Context, ...) error { ... }
+  func (pc *ProcessContext) ShouldCheckAmbiguity(cfg AmbiguityConfig) bool { ... }
+  ```
+- [x] `parseAndRouteAIQuery` → `buildProcessContext(req)` ile context oluştur, `Resolve()` çağır.
+- [x] `executeAIQueryPhase` → aynı `buildProcessContext(req)` + `Resolve()` kullan.
+- [x] `standardProcessOptions` → `req.clarificationResolved` yerine `pc.ShouldCheckAmbiguity(cfg)` oku.
+- [x] Mevcut `resolveClarificationChoice` free function + method → kaldır; tek giriş noktası `ProcessContext.Resolve`.
+- [x] Regresyon testleri: `TestProcessContextResolveSetsFlag`, `TestProcessContextSyncAsyncIdenticalBehavior`.
+- [x] **Kabul:** Sync ve async path aynı `ProcessContext` üzerinden geçer; `clarificationResolved` flag'ini sadece
+  `ProcessContext.Resolve` set eder; struct dışında bu state'e erişim yok.
+
+### P1 — Maksimum Netleştirme Turu Sayısı (Hard Cap) [HIGH]
+
+**Amaç:** Herhangi bir edge case'de sonsuz netleştirme döngüsünü imkansız kılmak.
+
+**Neden:** Mevcut guard sadece `clarificationResolved` flag'ine bakıyor. Eğer rewritten question
+hâlâ belirsizse ve bayrak bir şekilde resetlenirse döngü tekrar başlar. Hard cap = son çare güvenlik.
+
+- [x] `ProcessContext.clarificationRound` sayacı ekle (`maxClarificationRounds = 2`).
+- [x] `ShouldCheckAmbiguity` içinde `clarificationRound < maxClarificationRounds` kontrolü.
+- [x] Her ambiguity response dönüşünde `clarificationRound++`.
+- [x] Hard cap aşıldığında ambiguity check'i bypass et, logla (metric: `biqly_ambiguity_round_cap_reached_total`).
+- [x] Test: `TestAmbiguityHardCapStopsAfterMaxRounds`.
+- [x] **Kabul:** 2 turdan fazla netleştirme sorulmaz; cap metrics ile gözlemlenebilir.
+
+### P2 — Zengin Glossary ai_context [MEDIUM]
+
+**Amaç:** Deterministic ambiguity detection'ı güçlendirmek — semantic model `ai_context` benzeri
+yapısal iş bağlamını Biqly glossary'e taşımak.
+
+**Neden:** Endüstri standardı semantic katmanlar `synonyms`, `units`, `null_meaning`, `business_rules`
+gibi yapısal metadata taşır. Biqly glossary flat key-value → belirsizlik azaltmak için daha zengin bağlam gerek.
+
+- [ ] `glossary_entries` tablosuna `ai_context JSONB` kolonu ekle (migration):
+  ```sql
+  ALTER TABLE glossary_entries ADD COLUMN ai_context JSONB;
+  -- Örnek değer:
+  -- {"synonyms": ["revenue", "gelir", "ciro"],
+  --  "unit": "TRY",
+  --  "null_meaning": "not yet invoiced",
+  --  "business_rules": ["exclude cancelled orders"]}
+  ```
+- [ ] `prompt.GlossaryEntry` struct'ına `AIContext` alanı ekle.
+- [ ] `loadGlossaryEntries` → `ai_context` kolonunu da oku.
+- [ ] Synonym detector → `ai_context.synonyms` alanından da eşleştirme yap.
+- [ ] LLM prompt → `ai_context` içeriğini prompt context'e dahil et (units, null_meaning, rules).
+- [ ] Admin UI → glossary edit form'una `ai_context` JSONB editor ekle (structured: synonyms[], unit, null_meaning, rules[]).
+- [ ] Test: synonym collision'da `ai_context.synonyms` üzerinden match geldiğinde ambiguity detection çalışıyor.
+- [ ] **Kabul:** Glossary artık synonyms, units, null semantics taşıyabiliyor; bunlar ambiguity + prompt'a entegre.
+
+### P3 — NL-SQL Memory Store (Öğrenme Döngüsü) [MEDIUM]
+
+**Amaç:** Onaylanan soru-SQL çiftlerinden öğrenmek — vektör bellek / confirmed-query store ile positive feedback loop.
+
+**Neden:** En yüksek ROI'li iyileştirme. Kullanıcı bir sonucu kabul ettiğinde NL→SQL çifti saklanır;
+gelecekteki benzer sorularda few-shot example olarak kullanılır. Endüstride embedding tabanlı bellek
+kullanılır; Biqly mevcut embedding altyapısını kullanabilir.
+
+- [ ] Yeni tablo: `ai_confirmed_queries` (datasource_id, question_hash, nl_query, sql_query, semantic_model_hash, confirmed_at, user_id).
+- [ ] Kullanıcı "thumbs up" / sonucu kabul ettiğinde → NL-SQL çiftini `ai_confirmed_queries`'e kaydet.
+- [ ] `loadFewShotExamples` → datasource bazlı `ai_confirmed_queries`'ten de örnek çek (son N, similarity-weighted).
+- [ ] Embedding ile semantic search: yeni soru geldiğinde `ai_confirmed_queries`'te en benzer K çifti getir,
+  LLM prompt'una few-shot olarak ekle.
+- [ ] Periyodik temizlik: semantic model değiştiğinde (`semantic_model_hash` mismatch) eski çiftleri pasifleştir.
+- [ ] Metric: `biqly_memory_store_confirmed_total`, `biqly_memory_store_recall_hits_total`.
+- [ ] Test: onaylı çift sonraki benzer soruda few-shot olarak geliyor; model değişikliğinde eski çiftler pasif.
+- [ ] **Kabul:** Kullanıcı onaylı sonucu sonraki benzer sorularda few-shot olarak kullanılıyor; accuracy artışı ölçülebilir.
+
+### P4 — Structured Enrich-Context Workflow [LOW]
+
+**Amaç:** Eksik iş bağlamını sistematik tespit eden bir enrich-context workflow (agent skill / admin aracı).
+
+**Neden:** Glossary ve model metadata'sı genellikle eksik. Bir araç bu boşlukları tespit edip
+doldurma önerisi sunmalı — manuel olarak her kolona description yazmak ölçeklenmiyor.
+
+- [ ] `POST /api/admin/ai/enrich-context` endpoint:
+  - Semantic model + glossary + örnek veriyi oku.
+  - Boşluk tespiti: description'ı olmayan kolonlar, label'ı olmayan enum değerleri, synonym collision'lar.
+  - AI ile zenginleştirme önerisi üret (her boşluk için öneri).
+  - Response: gap report + suggested enrichments.
+- [ ] Kullanıcı önerileri onayla → glossary/metadata'ya yaz.
+- [ ] CLI eşdeğeri: `biqly enrich-context --datasource <id> --dry-run`.
+- [ ] Metric: `biqly_enrich_context_gaps_found_total`, `biqly_enrich_context_applied_total`.
+- [ ] **Kabul:** Admin panelde "Context'i Zenginleştir" butonu → boşluk raporu + tek tıkla onay.
+
+### P5 — Kademe Kademe Artan (Tiered) Ambiguity Detection [LOW]
+
+**Amaç:** Her belirsizlik için LLM çağrısı yapmak yerine maliyet/latency optimize eden tiered yaklaşım.
+
+**Neden:** Mevcut sistem deterministic + LLM-backed check'i tek flag ile yönetiyor. Çoğu belirsizlik
+deterministic (synonym/homonym) çözülebilir — her seferinde LLM çağrısı gereksiz maliyet.
+
+| Tier | Ne zaman | Nasıl | Maliyet |
+|---|---|---|---|
+| Tier 0: Routing | Tablo/kolon routing belirsiz | Deterministic | Free |
+| Tier 1: Synonym | Synonym/homonym collision | Deterministic glossary | Free |
+| Tier 2: Semantic | Yorumlama confidence düşük | LLM-backed analiz | ~$0.01 |
+| Tier 3: Interactive | Kullanıcı 2 kez yanlış seçti | Agent-driven multi-turn | ~$0.05 |
+
+- [ ] `AmbiguityConfig`'e `EnableTieredCheck bool` ekle (feature flag, backward compatible).
+- [ ] `standardProcessOptions` tiered logic:
+  - Tier 0: routing sonucu `NeedsClarification` → direkt döndür (mevcut, değişiklik yok).
+  - Tier 1: `WithAmbiguityCheck(true)` sadece deterministic synonym/homonym check.
+  - Tier 2: `WithLLMAmbiguityCheck(true)` sadece Tier 1 boş geldiyse.
+  - Tier 3: İki clarification round'dan sonra agent-mod'a geç (P1 hard cap ile entegre).
+- [ ] Her tier için ayrı metric: `biqly_ambiguity_tier{tier="0|1|2|3"}`.
+- [ ] Config: `Ambiguity.TieredEnabled` + `Ambiguity.MaxLLMTierPerQuestion` (default: 1).
+- [ ] Test: her tier'ın bağımsız tetiklendiği unit test + tier geçiş entegrasyon test.
+- [ ] **Kabul:** LLM-backed check sadece deterministic check boş geldiyse çalışıyor; maliyet düşüyor.
+
+### P6 — Generation Trace (Kullanıcıya Ne Anlaşıldığını Gösterme) [LOW]
+
+**Amaç:** Generation trace / dry-plan benzeri şeffaflık — kullanıcının "sistem ne anladı?" görebilmesi.
+
+**Neden:** Belirsizlik tespit edildiğinde kullanıcı neden sorulduğunu anlamıyor. Trace = şeffaflık + güven.
+
+- [ ] `ai.Response.Metadata`'ya `GenerationTrace` alanı ekle:
+  ```go
+  type GenerationTrace struct {
+      RoutedTable    string  `json:"routed_table"`
+      RouteConfidence float64 `json:"route_confidence"`
+      ColumnsResolved []ColumnResolution `json:"columns_resolved"`
+      AmbiguityResult string  `json:"ambiguity_result"` // "passed" | "clarification_needed"
+      AmbiguityDetail string  `json:"ambiguity_detail,omitempty"`
+  }
+  ```
+- [ ] Routing, ambiguity check, ve column resolution adımlarında trace topla.
+- [ ] Frontend: AI response'da trace bilgisi varsa expandable "Nasıl Anlaşıldı?" bölümü göster.
+- [ ] **Kabul:** Kullanıcı belirsizlik kartında "Sistem 'revenue' → total_revenue olarak anladı" gibi bilgi görebiliyor.
+
+### P7 — Ambiguity Eval Regression Golden Cases [LOW]
+
+**Amaç:** Belirsizlik davranışını regresyondan korumak için özel eval golden cases.
+
+**Neden:** Mevcut eval suite ambiguity özelinde golden case taşımıyordu — Bug 2 canlıya çıkabildi.
+
+- [ ] `internal/ai/eval/testdata/` altında `ambiguity_golden.json` oluştur:
+  ```json
+  [
+    {"question": "Satışları göster", "expected_type": "clarification",
+     "expected_detail": "synonym: satis_total vs satis_count"},
+    {"question": "Show revenue for Q1", "clarification_choice": "ambiguity:0:1",
+     "expected_sql": "SELECT SUM(net_revenue) FROM orders WHERE ..."}
+  ]
+  ```
+- [ ] Eval runner: `expected_type=clarification` → ambiguity response geldiğini assert.
+- [ ] `expected_sql` → clarification choice sonrası doğru SQL üretildiğini assert.
+- [ ] CI: `make eval-regression` ambiguity golden'ları da çalıştırır.
+- [ ] **Kabul:** Ambiguity davranışı değişirse CI kırmızı olur; yeni golden case ekleme prosedürü belgeli.
+
+---
+
 ## AI Sorgu — Netleştirme (Clarification) Akışı Düzeltmeleri (2026-06-09)
 
 İki hata: (1) UI/UX — netleştirme kartı scroll'da ortada kalıyor; (2) Logic —

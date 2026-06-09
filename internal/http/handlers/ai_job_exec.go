@@ -61,12 +61,11 @@ func (h *AIHandler) executeAIQueryPhase(
 	if clarify != nil {
 		return clarify, nil
 	}
-	if req.ClarificationChoice != "" {
-		glossary := h.loadGlossaryForAmbiguity(ctx, model)
-		if err := h.resolveClarificationChoice(ctx, &req, model, glossary); err != nil {
-			return nil, err
-		}
+	pc := buildProcessContext(req)
+	if err := h.resolveProcessContext(ctx, pc, model); err != nil {
+		return nil, err
 	}
+	pc.ApplyToRequest(&req)
 
 	if report != nil {
 		report(AIJobProgress{Phase: "generating", Message: "generating logical query", Progress: 35, Status: metadata.AIJobStatusRunning})
@@ -84,14 +83,14 @@ func (h *AIHandler) executeAIQueryPhase(
 			defer closeResolvedDatasource(ctx, resolved)
 		}
 	} else {
-		processOpts = h.standardProcessOptions(ctx, req, model)
+		processOpts = h.standardProcessOptions(ctx, pc, req, model)
 	}
 
 	if report != nil {
 		report(AIJobProgress{Phase: "validating", Message: "validating response", Progress: 55, Status: metadata.AIJobStatusRunning})
 	}
 
-	resp, err := h.processAIQuestion(ctx, req, model, routeResult, processOpts...)
+	resp, err := h.processAIQuestion(ctx, pc, req, model, routeResult, processOpts...)
 	if err != nil {
 		return nil, err
 	}

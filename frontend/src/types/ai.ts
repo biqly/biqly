@@ -73,6 +73,7 @@ export interface AIQueryRequest {
   composite_id?: string
   question: string
   clarification_choice?: string
+  clarification_round?: number
   tables?: string[]
   include_base_tables?: boolean
   include_views?: boolean
@@ -219,6 +220,7 @@ export interface AIQueryResponse {
   needs_clarification?: boolean
   clarification_question?: string
   clarification_options?: string[]
+  clarification_round?: number
   clarification?: Clarification
   // Multi-candidate
   candidates?: LogicalQueryCandidate[]
