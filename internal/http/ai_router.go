@@ -147,6 +147,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 
 	examplesHandler := handlers.NewAIExamplesHandler(deps)
 	examplesHandler.SetAuthClient(authClient)
+	examplesHandler.SetAIMetricsRecorder(GetMetrics())
 	r.Get("/ai/examples", examplesHandler.ListExamples)
 	r.Get("/ai/examples/favorites", examplesHandler.ListFavorites)
 	r.Post("/ai/examples", examplesHandler.CreateExample)

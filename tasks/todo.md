@@ -72,14 +72,14 @@ gibi yapısal metadata taşır. Biqly glossary flat key-value → belirsizlik az
 gelecekteki benzer sorularda few-shot example olarak kullanılır. Endüstride embedding tabanlı bellek
 kullanılır; Biqly mevcut embedding altyapısını kullanabilir.
 
-- [ ] Yeni tablo: `ai_confirmed_queries` (datasource_id, question_hash, nl_query, sql_query, semantic_model_hash, confirmed_at, user_id).
-- [ ] Kullanıcı "thumbs up" / sonucu kabul ettiğinde → NL-SQL çiftini `ai_confirmed_queries`'e kaydet.
-- [ ] `loadFewShotExamples` → datasource bazlı `ai_confirmed_queries`'ten de örnek çek (son N, similarity-weighted).
-- [ ] Embedding ile semantic search: yeni soru geldiğinde `ai_confirmed_queries`'te en benzer K çifti getir,
+- [x] Yeni tablo: `ai_confirmed_queries` (datasource_id, question_hash, nl_query, sql_query, semantic_model_hash, confirmed_at, user_id).
+- [x] Kullanıcı "thumbs up" / sonucu kabul ettiğinde → NL-SQL çiftini `ai_confirmed_queries`'e kaydet.
+- [x] `loadFewShotExamples` → datasource bazlı `ai_confirmed_queries`'ten de örnek çek (son N, similarity-weighted).
+- [x] Embedding ile semantic search: yeni soru geldiğinde `ai_confirmed_queries`'te en benzer K çifti getir,
   LLM prompt'una few-shot olarak ekle.
-- [ ] Periyodik temizlik: semantic model değiştiğinde (`semantic_model_hash` mismatch) eski çiftleri pasifleştir.
-- [ ] Metric: `biqly_memory_store_confirmed_total`, `biqly_memory_store_recall_hits_total`.
-- [ ] Test: onaylı çift sonraki benzer soruda few-shot olarak geliyor; model değişikliğinde eski çiftler pasif.
+- [x] Periyodik temizlik: semantic model değiştiğinde (`semantic_model_hash` mismatch) eski çiftleri pasifleştir.
+- [x] Metric: `biqly_memory_store_confirmed_total`, `biqly_memory_store_recall_hits_total`.
+- [x] Test: onaylı çift sonraki benzer soruda few-shot olarak geliyor; model değişikliğinde eski çiftler pasif.
 - [ ] **Kabul:** Kullanıcı onaylı sonucu sonraki benzer sorularda few-shot olarak kullanılıyor; accuracy artışı ölçülebilir.
 
 ### P4 — Structured Enrich-Context Workflow [LOW]

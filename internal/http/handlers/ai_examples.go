@@ -53,6 +53,7 @@ type submitAIFeedbackRequest struct {
 type AIExamplesHandler struct {
 	deps       *app.AIDeps
 	authClient *bimw.AuthClient
+	metrics    AIMetricsRecorder
 }
 
 // NewAIExamplesHandler creates a new handler for AI examples and feedback.
@@ -63,6 +64,11 @@ func NewAIExamplesHandler(deps *app.AIDeps) *AIExamplesHandler {
 // SetAuthClient sets the auth service client.
 func (h *AIExamplesHandler) SetAuthClient(c *bimw.AuthClient) {
 	h.authClient = c
+}
+
+// SetAIMetricsRecorder wires process-level counters (e.g. Prometheus /metrics).
+func (h *AIExamplesHandler) SetAIMetricsRecorder(m AIMetricsRecorder) {
+	h.metrics = m
 }
 
 // ListExamples returns all few-shot examples, optionally filtered.
@@ -240,6 +246,9 @@ func (h *AIExamplesHandler) SubmitFeedback(w http.ResponseWriter, r *http.Reques
 	}
 	if err := h.deps.MetaRepo.UpdateLatestAIQueryHistoryRating(ctx, input.DatasourceID, input.Rating, bimw.UserID(ctx), input.Question); err != nil {
 		slog.WarnContext(ctx, "update latest AI query history rating", "datasource_id", input.DatasourceID, "err", err)
+	}
+	if input.Rating == "positive" {
+		h.storeConfirmedQueryOnPositiveFeedback(ctx, input.DatasourceID, bimw.UserID(ctx), input.Question, h.metrics)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "recorded"})

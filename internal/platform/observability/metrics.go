@@ -43,6 +43,9 @@ type Metrics struct {
 	ambiguityLatencyMS       prometheus.Histogram
 	ambiguityBySource        *prometheus.CounterVec
 
+	memoryStoreConfirmed prometheus.Counter
+	memoryStoreRecall    prometheus.Counter
+
 	validationFailures prometheus.Counter
 	connectionErrors   prometheus.Counter
 
@@ -188,10 +191,22 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 			Name: "model_publish_duration_seconds", Help: "Semantic model publish duration in seconds.", Buckets: prometheus.DefBuckets,
 		}),
 	}
+	registerMemoryStoreMetrics(f, m)
 	if g, ok := reg.(prometheus.Gatherer); ok {
 		registerCardinalityCollector(reg, g)
 	}
 	return m
+}
+
+func registerMemoryStoreMetrics(f interface {
+	NewCounter(opts prometheus.CounterOpts) prometheus.Counter
+}, m *Metrics) {
+	m.memoryStoreConfirmed = f.NewCounter(prometheus.CounterOpts{
+		Name: "biqly_memory_store_confirmed_total", Help: "Total user-confirmed NL query pairs stored for few-shot recall.",
+	})
+	m.memoryStoreRecall = f.NewCounter(prometheus.CounterOpts{
+		Name: "biqly_memory_store_recall_hits_total", Help: "Total confirmed query pairs recalled into few-shot prompts.",
+	})
 }
 
 var (
@@ -264,6 +279,16 @@ func (m *Metrics) RecordAmbiguityClarified() { m.ambiguityClarified.Inc() }
 
 // RecordAmbiguityRoundCapReached records when ambiguity checking is skipped because the round cap was reached.
 func (m *Metrics) RecordAmbiguityRoundCapReached() { m.ambiguityRoundCapReached.Inc() }
+
+// RecordMemoryStoreConfirmed records a stored user-confirmed NL→query pair.
+func (m *Metrics) RecordMemoryStoreConfirmed() { m.memoryStoreConfirmed.Inc() }
+
+// RecordMemoryStoreRecall records confirmed pairs injected into a prompt.
+func (m *Metrics) RecordMemoryStoreRecall(count int) {
+	if count > 0 {
+		m.memoryStoreRecall.Add(float64(count))
+	}
+}
 
 // RecordCatalogDBQuery records a Catalog-owned handler call that performs
 // metadata DB work.

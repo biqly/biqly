@@ -461,6 +461,12 @@ func (h *SemanticHandler) PublishModel(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnprocessableEntity, result)
 		return
 	}
+	if result.Model != nil && h.deps.MetaRepo != nil {
+		modelHash := metadata.SemanticModelHash(result.Model.ID, result.Version)
+		if _, err := h.deps.MetaRepo.DeactivateConfirmedQueriesExceptHash(r.Context(), result.Model.ID, modelHash); err != nil {
+			slog.WarnContext(r.Context(), "deactivate stale confirmed queries after publish", "model_id", result.Model.ID, "error", err)
+		}
+	}
 	writeJSON(w, http.StatusOK, result)
 }
 

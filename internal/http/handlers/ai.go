@@ -204,7 +204,7 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessConte
 	catalog, external := h.loadGlossaryEntries(ctx, model)
 	opts := []ai.ProcessOption{
 		ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
-		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model)),
+		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model, question)),
 		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
 		ai.WithGlossary(prompt.SelectGlossaryForQuestion(question, prompt.MergeGlossaryEntries(catalog, external), model)),
 		ai.WithAmbiguityGlossary(combineGlossaryEntries(catalog, external)),
@@ -354,7 +354,7 @@ func (h *AIHandler) resolveRunPhaseProcessOptions(ctx context.Context, req aiQue
 		return nil, []ai.ProcessOption{
 			ai.WithSQLValidator(newQueryClientDryRunValidator(h.deps.QueryClient)),
 			ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
-			ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
+			ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.Question, req.ExampleIDs, req.IncludePastQueries)),
 		}, nil
 	}
 	resolved, err := h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
@@ -403,7 +403,7 @@ func (h *AIHandler) localRunProcessOptions(ctx context.Context, req aiQueryReque
 	return []ai.ProcessOption{
 		ai.WithSQLValidator(newSQLDryRunValidator(h.deps.QueryService, db, driver, model)),
 		ai.WithTargetDialect(targetDialect.Name()),
-		ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.ExampleIDs, req.IncludePastQueries)),
+		ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.Question, req.ExampleIDs, req.IncludePastQueries)),
 		ai.WithSampleData(h.loadSampleData(ctx, db, targetDialect, model)),
 	}, nil
 }
@@ -1084,7 +1084,7 @@ func (h *AIHandler) loadSampleData(ctx context.Context, db *sql.DB, d dialect.Di
 // inputs are empty/false this matches loadFewShotExamples — used by Run() so
 // the frontend can override which exemplars hit the prompt without breaking
 // the simpler Query/Preview paths.
-func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *semantic.SemanticModel, exampleIDs []string, includePastQueries bool) []prompt.FewShotExample {
+func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *semantic.SemanticModel, question string, exampleIDs []string, includePastQueries bool) []prompt.FewShotExample {
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.LoadFewShot")
 	defer span.End()
 
@@ -1133,6 +1133,8 @@ func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *seman
 			}
 		}
 	}
+
+	out = h.appendConfirmedFewShot(ctx, model, question, out)
 
 	if includePastQueries {
 		remaining := fewShotLimit - len(out)
@@ -1220,7 +1222,7 @@ func (h *AIHandler) listBusinessGlossary(ctx context.Context, datasourceID, mode
 
 // loadFewShotExamples returns recent high-confidence (question, logical_query)
 // pairs for this datasource+model. Errors are non-fatal — we just log and skip.
-func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.SemanticModel) []prompt.FewShotExample {
+func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.SemanticModel, question string) []prompt.FewShotExample {
 	if model == nil {
 		return nil
 	}
@@ -1255,6 +1257,8 @@ func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.Sem
 			}
 		}
 	}
+
+	out = h.appendConfirmedFewShot(ctx, model, question, out)
 
 	remaining := fewShotLimit - len(out)
 	if remaining > 0 {

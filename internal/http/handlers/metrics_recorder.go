@@ -8,6 +8,8 @@ type AIMetricsRecorder interface {
 	RecordAmbiguityClarified()
 	RecordAmbiguityRoundCapReached()
 	RecordAIRepair(success bool, attempts int, errorCodes []string)
+	RecordMemoryStoreConfirmed()
+	RecordMemoryStoreRecall(count int)
 }
 
 // CatalogMetricsRecorder records Catalog Service process metrics.
