@@ -412,6 +412,8 @@ export const core: CoreDictionary = {
       'Token ve gecikme özeti yanıt gelince gösterilir. Zaman aşımı en fazla {{minutes}} dk.',
     err_settings_load: 'Sunucu AI ayarları yüklenemedi',
     clarification_title: "🤔 AI'nın netleştirmeye ihtiyacı var",
+    clarification_cap_reached:
+      'Maksimum netleştirme turuna ulaşıldı — bir seçenek seçin, en iyi tahminimizle yanıtlayalım.',
     generation_trace_title: 'Nasıl anlaşıldı?',
     generation_trace_table: 'Yönlendirilen tablo',
     generation_trace_confidence: 'Yönlendirme güveni {{value}}',

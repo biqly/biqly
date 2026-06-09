@@ -249,11 +249,16 @@ Backend P0–P7 uygulandı, frontend karşılıkları denetlendi. Tamamlanan ve 
 
 #### Frontend için yeni maddeler:
 
-- [ ] **P1 — Hard cap UX göstergesi.** `clarificationRound >= 2` olduğunda clarification seçeneklerinin
-  yanında veya yerine "Maksimum netleştirme turuna ulaşıldı" mesajı gösterilmeli; yeni netleştirme gönderimi
-  engellenmeli (buton disable veya gizle).
-  - **Dosyalar:** `frontend/src/components/aiQuery/AIQuery.tsx` (round state burada),
-    `frontend/src/components/aiQuery/routingViz.tsx` (ClarificationCard render).
+- [x] **P1 — Hard cap UX göstergesi.** Round ≥ `maxClarificationRounds` (2) olan clarification kartında
+  "Maksimum netleştirme turuna ulaşıldı — bir seçenek seçin, en iyi tahminle yanıtlayalım" bildirimi gösteriliyor.
+  - **UX kararı (kullanıcı onayı):** Seçenek butonları AÇIK kalıyor — round-2 kartının seçenekleri o turu *çözen*
+    butonlar; disable etmek sorguyu çözülemez halde bırakırdı (backend gelen round 2'de ambiguity'yi zaten bypass edip
+    nihai cevabı üretiyor). Bildirim + açık seçenekler doğru davranış.
+  - Round değeri global state'ten değil, her mesajın `result.clarification_round`'undan okunuyor (per-message doğru kaynak).
+    `MAX_CLARIFICATION_ROUNDS = 2` sabiti backend `maxClarificationRounds` ile hizalı (yorumla işaretlendi).
+  - **Dosyalar:** `assistantMessageCardSections.tsx` (cap hesabı + `capReached` prop), `routingViz.tsx`
+    (`ClarificationCard` bildirim render), `i18n/locales/{en,tr}/core.ts`, `styles/aiQuery.css` (`.clarification-cap-notice`).
+  - Gate: `make check-frontend` exit 0 (lint 0, format:check, knip:ci 0, test 99/99, build ✓).
 
 - [ ] **P3 — Confirmed queries admin listesi + "öğrenildi" geri bildirimi.**
   1. Admin settings veya datasource detail'da "Onaylanmış Sorgular" tablosu: soru, SQL, onay tarihi, pasif yap butonu.

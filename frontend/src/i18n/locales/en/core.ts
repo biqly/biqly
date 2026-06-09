@@ -404,6 +404,8 @@ export const core = {
       'Token and latency summary appear when the response arrives. Timeout at most {{minutes}} min.',
     err_settings_load: 'Could not load server AI settings',
     clarification_title: '🤔 The AI needs clarification',
+    clarification_cap_reached:
+      'Maximum clarification rounds reached — pick an option and we will answer with our best guess.',
     generation_trace_title: 'How it was understood',
     generation_trace_table: 'Routed to',
     generation_trace_confidence: 'Routing confidence {{value}}',

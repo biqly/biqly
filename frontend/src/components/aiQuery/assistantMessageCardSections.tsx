@@ -20,6 +20,10 @@ import type { AssistantMessageCardProps } from './types'
 
 type AssistantT = AssistantMessageCardProps['t']
 
+// Mirrors backend `maxClarificationRounds` (internal/http/handlers/ai_context.go):
+// at this round the server stops re-asking and answers with its best guess.
+const MAX_CLARIFICATION_ROUNDS = 2
+
 export function AssistantMessageHeader({
   result,
   aiRuntime,
@@ -116,6 +120,7 @@ export function AssistantMessageClarificationSections({
   const showClarification =
     result.needs_clarification &&
     (clarificationOptions.length > 0 || result.clarification?.options?.length)
+  const capReached = (result.clarification_round ?? 0) >= MAX_CLARIFICATION_ROUNDS
 
   return (
     <>
@@ -129,6 +134,7 @@ export function AssistantMessageClarificationSections({
           options={clarificationOptions}
           clarification={result.clarification}
           generationTrace={result.generation_trace}
+          capReached={capReached}
           onSelect={(choice) => onSelectClarification(choice, userQuestion)}
           onSkip={() => onSkipClarification(userQuestion)}
         />
