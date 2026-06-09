@@ -128,6 +128,70 @@ func TestNightlySuiteRegressionGate(t *testing.T) {
 	runStubSuiteRegression(t, evalpkg.NightlyCases(), benchmarkPassThreshold)
 }
 
+func TestAmbiguityGoldenRegressionGate(t *testing.T) {
+	cases, err := evalpkg.LoadDefaultAmbiguityGoldenCases()
+	if err != nil {
+		t.Fatalf("load ambiguity golden cases: %v", err)
+	}
+
+	ctx := context.Background()
+	analysis := evalpkg.RunAmbiguityGoldenAnalysis(ctx, cases)
+	if analysis.Passed != analysis.Total {
+		for _, cr := range analysis.Cases {
+			if !cr.Passed {
+				t.Errorf("[%s] analysis: %s", cr.Case.ID, cr.Reason)
+			}
+		}
+		t.Fatalf("ambiguity analysis %d/%d passed", analysis.Passed, analysis.Total)
+	}
+
+	cfg := config.AIConfig{
+		Connection: config.AIConnectionConfig{Model: "stub"},
+		Generation: config.AIGenerationConfig{
+			MaxTokens:   2048,
+			Temperature: 0,
+			MaxRetries:  0,
+		},
+	}
+
+	choiceCases, err := evalpkg.AmbiguityGoldenChoiceCases(ctx, cases)
+	if err != nil {
+		t.Fatalf("build choice cases: %v", err)
+	}
+	if len(choiceCases) > 0 {
+		svc := NewServiceWithProvider(&cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProviderForCases(choiceCases))
+		choiceResult, err := evalpkg.RunAmbiguityGoldenChoiceSuite(ctx, svc, cases)
+		if err != nil {
+			t.Fatalf("choice suite: %v", err)
+		}
+		if choiceResult.Passed != choiceResult.Total {
+			for _, cr := range choiceResult.Cases {
+				if !cr.Passed {
+					t.Errorf("[%s] choice: %s", cr.Case.ID, cr.Reason)
+				}
+			}
+			t.Fatalf("ambiguity choice %d/%d passed", choiceResult.Passed, choiceResult.Total)
+		}
+	}
+
+	clarifySvc := NewServiceWithProvider(&cfg, query.NewValidator(1000), evalpkg.NewGoldenStubProvider())
+	for _, c := range cases {
+		if c.ExpectedType != evalpkg.AmbiguityExpectedClarification || c.ClarificationChoice != "" {
+			continue
+		}
+		resp, err := clarifySvc.ProcessQuestion(ctx, c.Question, c.Model,
+			WithAmbiguityCheck(true),
+			WithAmbiguityGlossary(c.Glossary),
+		)
+		if err != nil {
+			t.Fatalf("[%s] ProcessQuestion: %v", c.ID, err)
+		}
+		if resp.Clarification == nil || !resp.Clarification.NeedsClarification {
+			t.Fatalf("[%s] expected NeedsClarification from ProcessQuestion", c.ID)
+		}
+	}
+}
+
 func runStubSuiteRegression(t *testing.T, cases []evalpkg.GoldenCase, threshold float64) {
 	t.Helper()
 	cfg := config.AIConfig{

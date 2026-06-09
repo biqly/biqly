@@ -1,0 +1,44 @@
+[
+  {
+    "id": "glossary-active-customers",
+    "question": "aktif müşteriler",
+    "model_ref": "clarification_basic",
+    "glossary_ref": "active_customers",
+    "expected_type": "clarification",
+    "expected_detail": "aktif müşteriler"
+  },
+  {
+    "id": "scope-large-orders",
+    "question": "büyük siparişler",
+    "model_ref": "clarification_basic",
+    "glossary_ref": "active_customers",
+    "expected_type": "clarification",
+    "expected_detail": "scope"
+  },
+  {
+    "id": "specific-last-30-days",
+    "question": "son 30 günde sipariş veren müşteriler",
+    "model_ref": "clarification_basic",
+    "glossary_ref": "active_customers",
+    "expected_type": "pass"
+  },
+  {
+    "id": "synonym-ciro-revenue",
+    "question": "Ciro göster",
+    "model_ref": "revenue_synonyms",
+    "expected_type": "clarification",
+    "expected_detail": "ciro"
+  },
+  {
+    "id": "choice-net-revenue",
+    "question": "Ciro göster",
+    "model_ref": "gross_net_revenue",
+    "expected_type": "clarification",
+    "expected_detail": "ciro",
+    "clarification_choice": "ambiguity:0:1",
+    "expected": {
+      "select": [{ "type": "metric", "name": "net_revenue" }],
+      "limit": 100
+    }
+  }
+]

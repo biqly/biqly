@@ -16,6 +16,8 @@ type AmbiguityCase struct {
 }
 
 // AmbiguityCases returns the built-in clarification evaluation set.
+// JSON-backed regression cases live in testdata/ambiguity_golden.json; see
+// AmbiguityGoldenCase and LoadDefaultAmbiguityGoldenCases for add-case steps.
 func AmbiguityCases() []AmbiguityCase {
 	model := &semantic.SemanticModel{
 		Dimensions: []semantic.Dimension{

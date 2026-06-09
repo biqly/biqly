@@ -150,7 +150,7 @@ deterministic (synonym/homonym) çözülebilir — her seferinde LLM çağrısı
 
 **Neden:** Mevcut eval suite ambiguity özelinde golden case taşımıyordu — Bug 2 canlıya çıkabildi.
 
-- [ ] `internal/ai/eval/testdata/` altında `ambiguity_golden.json` oluştur:
+- [x] `internal/ai/eval/testdata/` altında `ambiguity_golden.json` oluştur:
   ```json
   [
     {"question": "Satışları göster", "expected_type": "clarification",
@@ -159,10 +159,10 @@ deterministic (synonym/homonym) çözülebilir — her seferinde LLM çağrısı
      "expected_sql": "SELECT SUM(net_revenue) FROM orders WHERE ..."}
   ]
   ```
-- [ ] Eval runner: `expected_type=clarification` → ambiguity response geldiğini assert.
-- [ ] `expected_sql` → clarification choice sonrası doğru SQL üretildiğini assert.
-- [ ] CI: `make eval-regression` ambiguity golden'ları da çalıştırır.
-- [ ] **Kabul:** Ambiguity davranışı değişirse CI kırmızı olur; yeni golden case ekleme prosedürü belgeli.
+- [x] Eval runner: `expected_type=clarification` → ambiguity response geldiğini assert.
+- [x] `expected` LogicalQuery → clarification choice sonrası doğru sorgu üretildiğini assert.
+- [x] CI: `make eval-regression` ambiguity golden'ları da çalıştırır.
+- [x] **Kabul:** Ambiguity davranışı değişirse CI kırmızı olur; yeni golden case ekleme prosedürü belgeli (`AmbiguityGoldenCase` godoc).
 
 ---
 
