@@ -26,6 +26,7 @@ import {
   runRequestSchemaToggle,
   runRequestTableRemoval,
   runSaveJoin,
+  runSyncDimensions,
 } from './modelingModelActions'
 import { buildModelingTableCards } from './modelingTableCards'
 import type { JoinForm, SuggestedJoin, Tab } from './types'
@@ -342,6 +343,11 @@ export function useModelingPageState() {
         table,
       ),
     [confirm, loadSuggestedJoins, model, postData, refreshModels, t, toggleTableVisibility],
+  )
+
+  const syncDimensions = useCallback(
+    () => runSyncDimensions({ model, postData, refreshModels, setMessage, t }),
+    [model, postData, refreshModels, t],
   )
 
   const canvas = useModelingCanvas(modelId, tableCards, columns, model)
@@ -674,6 +680,7 @@ export function useModelingPageState() {
     removeModel,
     renameModel,
     publishModel,
+    syncDimensions,
     renameTarget,
     renameValue,
     savingRename,

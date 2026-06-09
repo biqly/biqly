@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
 
 import type { TranslationKey } from '../../i18n'
 import type {
@@ -52,11 +52,51 @@ interface ModelingPaletteProps {
   onEditDimensionValues: (dimension: SemanticDimension) => void
   onDeleteDimension: (dimensionId: string) => void
   onReactivateDimension: (dimension: SemanticDimension) => void
+  onSyncDimensions: () => void
   onOpenAddMetric: () => void
   onEditMetric: (metric: SemanticMetric) => void
   onDeleteMetric: (metricId: string) => void
   onReactivateMetric: (metric: SemanticMetric) => void
   t: Translate
+}
+
+interface CollapsibleGroupProps {
+  title: string
+  meta?: string
+  count: number
+  defaultOpen?: boolean
+  children: ReactNode
+}
+
+// CollapsibleGroup renders one table's entities (dimensions/metrics) behind a
+// click-to-expand header with a count badge, so large schemas stay scannable
+// instead of an endless flat list.
+function CollapsibleGroup({
+  title,
+  meta,
+  count,
+  defaultOpen = false,
+  children,
+}: CollapsibleGroupProps) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className={`modeling-group ${open ? 'modeling-group--open' : ''}`}>
+      <button
+        type="button"
+        className="modeling-group-header"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="modeling-group-chevron" aria-hidden="true">
+          {open ? '▾' : '▸'}
+        </span>
+        <span className="modeling-group-title">{title}</span>
+        {meta && <span className="modeling-group-meta">{meta}</span>}
+        <span className="modeling-group-count">{count}</span>
+      </button>
+      {open && <div className="modeling-group-body">{children}</div>}
+    </div>
+  )
 }
 
 export function ModelingPalette({
@@ -93,6 +133,7 @@ export function ModelingPalette({
   onEditDimensionValues,
   onDeleteDimension,
   onReactivateDimension,
+  onSyncDimensions,
   onOpenAddMetric,
   onEditMetric,
   onDeleteMetric,
@@ -473,7 +514,18 @@ export function ModelingPalette({
 
           {activeTab === 'dimensions' && (
             <div className="modeling-join-list">
-              <h3>{t('modeling.dimensions_tab')}</h3>
+              <div className="modeling-section-header">
+                <h3>{t('modeling.dimensions_tab')}</h3>
+                <button
+                  className="btn btn-sm btn-primary modeling-section-add-btn"
+                  type="button"
+                  onClick={onSyncDimensions}
+                  disabled={!model}
+                  title={t('modeling.sync_dimensions_title')}
+                >
+                  {t('modeling.sync_dimensions_btn')}
+                </button>
+              </div>
               {visibleDimsCount === 0 ? (
                 <p className="modeling-empty">{t('modeling.no_dimensions')}</p>
               ) : (
@@ -481,15 +533,13 @@ export function ModelingPalette({
                   const table = tableByKey.get(group.key)
                   const tableLabel = tableDisplayLabel(table, group.key)
                   return (
-                    <div key={group.key}>
-                      <h3 className="modeling-subgroup-title">
-                        {tableLabel}
-                        {table && (
-                          <span className="modeling-subgroup-meta">
-                            {table.schema_name}.{table.table_name}
-                          </span>
-                        )}
-                      </h3>
+                    <CollapsibleGroup
+                      key={group.key}
+                      title={tableLabel}
+                      meta={table ? `${table.schema_name}.${table.table_name}` : undefined}
+                      count={group.values.length}
+                      defaultOpen={dimGroups.length === 1}
+                    >
                       {group.values.map((dimension) => (
                         <div className="modeling-join-pill" key={dimension.id}>
                           <div className="modeling-join-pill-header">
@@ -522,7 +572,7 @@ export function ModelingPalette({
                           <span className="modeling-join-meta">{dimension.type}</span>
                         </div>
                       ))}
-                    </div>
+                    </CollapsibleGroup>
                   )
                 })
               )}
@@ -576,15 +626,13 @@ export function ModelingPalette({
                   const table = tableByKey.get(group.key)
                   const tableLabel = tableDisplayLabel(table, group.key)
                   return (
-                    <div key={group.key}>
-                      <h3 className="modeling-subgroup-title">
-                        {tableLabel}
-                        {table && (
-                          <span className="modeling-subgroup-meta">
-                            {table.schema_name}.{table.table_name}
-                          </span>
-                        )}
-                      </h3>
+                    <CollapsibleGroup
+                      key={group.key}
+                      title={tableLabel}
+                      meta={table ? `${table.schema_name}.${table.table_name}` : undefined}
+                      count={group.values.length}
+                      defaultOpen={metricGroups.length === 1}
+                    >
                       {group.values.map((metric) => (
                         <div className="modeling-join-pill" key={metric.id}>
                           <div className="modeling-join-pill-header">
@@ -610,7 +658,7 @@ export function ModelingPalette({
                           <span className="modeling-join-meta">{metric.aggregation}</span>
                         </div>
                       ))}
-                    </div>
+                    </CollapsibleGroup>
                   )
                 })
               )}

@@ -1087,6 +1087,11 @@ export const core = {
     remove_table_action: 'Remove table',
     remove_from_model_title: 'Remove from semantic model',
     table_removed: 'Table removed from model.',
+    sync_dimensions_btn: '↻ Sync dimensions',
+    sync_dimensions_title:
+      'Generate missing dimensions for tables already in the model (e.g. added via a relationship). Existing ones are kept.',
+    dimensions_synced: '{count} dimension(s) added.',
+    dimensions_synced_none: 'No missing dimensions — model is up to date.',
     change_base_title: 'Change base table',
     change_base_body: 'This is the base table. Pick a new base before removing it.',
     base_table_label: 'Base table',

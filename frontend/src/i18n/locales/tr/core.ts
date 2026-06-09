@@ -1098,6 +1098,11 @@ export const core: CoreDictionary = {
     remove_table_action: 'Tabloyu kaldır',
     remove_from_model_title: 'Semantic modelden kaldır',
     table_removed: 'Tablo modelden kaldırıldı.',
+    sync_dimensions_btn: '↻ Kırılımları senkronize et',
+    sync_dimensions_title:
+      'Modeldeki tablolar için (örn. ilişkiyle eklenen) eksik kırılımları üretir. Mevcut olanlar korunur.',
+    dimensions_synced: '{count} kırılım eklendi.',
+    dimensions_synced_none: 'Eksik kırılım yok — model güncel.',
     change_base_title: 'Base tabloyu değiştir',
     change_base_body: 'This is the base table. Pick a new base before removing it.',
     base_table_label: 'Base tablo',

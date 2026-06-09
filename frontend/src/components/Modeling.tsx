@@ -105,6 +105,9 @@ export default function Modeling() {
               onReactivateDimension={(dimension) => {
                 void s.reactivateDimension(dimension)
               }}
+              onSyncDimensions={() => {
+                void s.syncDimensions()
+              }}
               onOpenAddMetric={() => s.setAddMetricOpen(true)}
               onEditMetric={s.setEditingMetric}
               onDeleteMetric={(metricId) => {

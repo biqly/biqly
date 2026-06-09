@@ -176,6 +176,34 @@ export async function runRequestTableRemoval(
   setMessage(t('modeling.table_removed'))
 }
 
+// runSyncDimensions appends missing dimensions for tables already in the model
+// (e.g. a table added via a manual relationship after generation) from current
+// metadata, then reloads the model. Idempotent server-side.
+export async function runSyncDimensions(deps: {
+  model: SemanticModelDetail | null
+  postData: <T = unknown>(url: string, body: unknown) => Promise<T | null>
+  refreshModels: (id: string) => Promise<void>
+  setMessage: (m: string | null) => void
+  t: TFn
+}) {
+  const { model, postData, refreshModels, setMessage, t } = deps
+  if (!model) {
+    return
+  }
+  setMessage(null)
+  const res = await postData<{ added: number }>(
+    `/api/semantic/models/${model.id}/sync-dimensions`,
+    {},
+  )
+  await refreshModels(model.id)
+  const added = res?.added ?? 0
+  setMessage(
+    added > 0
+      ? t('modeling.dimensions_synced', { count: added })
+      : t('modeling.dimensions_synced_none'),
+  )
+}
+
 export async function runRequestSchemaToggle(
   deps: {
     model: SemanticModelDetail | null
