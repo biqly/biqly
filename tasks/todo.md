@@ -89,15 +89,15 @@ kullanılır; Biqly mevcut embedding altyapısını kullanabilir.
 **Neden:** Glossary ve model metadata'sı genellikle eksik. Bir araç bu boşlukları tespit edip
 doldurma önerisi sunmalı — manuel olarak her kolona description yazmak ölçeklenmiyor.
 
-- [ ] `POST /api/admin/ai/enrich-context` endpoint:
+- [x] `POST /api/ai/enrich-context` + `POST /api/ai/enrich-context/apply` (admin key):
   - Semantic model + glossary + örnek veriyi oku.
   - Boşluk tespiti: description'ı olmayan kolonlar, label'ı olmayan enum değerleri, synonym collision'lar.
   - AI ile zenginleştirme önerisi üret (her boşluk için öneri).
   - Response: gap report + suggested enrichments.
-- [ ] Kullanıcı önerileri onayla → glossary/metadata'ya yaz.
-- [ ] CLI eşdeğeri: `biqly enrich-context --datasource <id> --dry-run`.
-- [ ] Metric: `biqly_enrich_context_gaps_found_total`, `biqly_enrich_context_applied_total`.
-- [ ] **Kabul:** Admin panelde "Context'i Zenginleştir" butonu → boşluk raporu + tek tıkla onay.
+- [x] Kullanıcı önerileri onayla → glossary/metadata'ya yaz.
+- [x] CLI eşdeğeri: `biqly enrich-context --datasource <id> --model <id> --dry-run`.
+- [x] Metric: `biqly_enrich_context_gaps_found_total`, `biqly_enrich_context_applied_total`.
+- [x] **Kabul:** Glossary sayfasında "Context'i Zenginleştir" butonu → boşluk raporu + seçili önerileri uygula.
 
 ### P5 — Kademe Kademe Artan (Tiered) Ambiguity Detection [LOW]
 

@@ -46,6 +46,9 @@ type Metrics struct {
 	memoryStoreConfirmed prometheus.Counter
 	memoryStoreRecall    prometheus.Counter
 
+	enrichContextGapsFound prometheus.Counter
+	enrichContextApplied   prometheus.Counter
+
 	validationFailures prometheus.Counter
 	connectionErrors   prometheus.Counter
 
@@ -191,14 +194,14 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 			Name: "model_publish_duration_seconds", Help: "Semantic model publish duration in seconds.", Buckets: prometheus.DefBuckets,
 		}),
 	}
-	registerMemoryStoreMetrics(f, m)
+	registerExtendedAIMetrics(f, m)
 	if g, ok := reg.(prometheus.Gatherer); ok {
 		registerCardinalityCollector(reg, g)
 	}
 	return m
 }
 
-func registerMemoryStoreMetrics(f interface {
+func registerExtendedAIMetrics(f interface {
 	NewCounter(opts prometheus.CounterOpts) prometheus.Counter
 }, m *Metrics) {
 	m.memoryStoreConfirmed = f.NewCounter(prometheus.CounterOpts{
@@ -206,6 +209,12 @@ func registerMemoryStoreMetrics(f interface {
 	})
 	m.memoryStoreRecall = f.NewCounter(prometheus.CounterOpts{
 		Name: "biqly_memory_store_recall_hits_total", Help: "Total confirmed query pairs recalled into few-shot prompts.",
+	})
+	m.enrichContextGapsFound = f.NewCounter(prometheus.CounterOpts{
+		Name: "biqly_enrich_context_gaps_found_total", Help: "Total context gaps detected by enrich-context analysis.",
+	})
+	m.enrichContextApplied = f.NewCounter(prometheus.CounterOpts{
+		Name: "biqly_enrich_context_applied_total", Help: "Total enrich-context suggestions applied to metadata/glossary.",
 	})
 }
 
@@ -287,6 +296,20 @@ func (m *Metrics) RecordMemoryStoreConfirmed() { m.memoryStoreConfirmed.Inc() }
 func (m *Metrics) RecordMemoryStoreRecall(count int) {
 	if count > 0 {
 		m.memoryStoreRecall.Add(float64(count))
+	}
+}
+
+// RecordEnrichContextGaps records gaps found during enrich-context analysis.
+func (m *Metrics) RecordEnrichContextGaps(count int) {
+	if count > 0 {
+		m.enrichContextGapsFound.Add(float64(count))
+	}
+}
+
+// RecordEnrichContextApplied records enrichments written after user approval.
+func (m *Metrics) RecordEnrichContextApplied(count int) {
+	if count > 0 {
+		m.enrichContextApplied.Add(float64(count))
 	}
 }
 

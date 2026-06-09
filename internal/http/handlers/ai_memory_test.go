@@ -25,6 +25,8 @@ func (*memoryMetricsStub) RecordAmbiguityRoundCapReached()     {}
 func (*memoryMetricsStub) RecordAIRepair(bool, int, []string)  {}
 func (*memoryMetricsStub) RecordMemoryStoreConfirmed()         {}
 func (m *memoryMetricsStub) RecordMemoryStoreRecall(count int) { m.recallHits += count }
+func (*memoryMetricsStub) RecordEnrichContextGaps(int)         {}
+func (*memoryMetricsStub) RecordEnrichContextApplied(int)      {}
 
 func TestAppendConfirmedFewShotAddsRecalledExamples(t *testing.T) {
 	db, state := setupMockDB(t)

@@ -10,6 +10,8 @@ type AIMetricsRecorder interface {
 	RecordAIRepair(success bool, attempts int, errorCodes []string)
 	RecordMemoryStoreConfirmed()
 	RecordMemoryStoreRecall(count int)
+	RecordEnrichContextGaps(count int)
+	RecordEnrichContextApplied(count int)
 }
 
 // CatalogMetricsRecorder records Catalog Service process metrics.

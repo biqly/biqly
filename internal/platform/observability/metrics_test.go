@@ -27,6 +27,8 @@ func TestMetricsRecord(t *testing.T) {
 	m.RecordAmbiguityRoundCapReached()
 	m.RecordMemoryStoreConfirmed()
 	m.RecordMemoryStoreRecall(2)
+	m.RecordEnrichContextGaps(5)
+	m.RecordEnrichContextApplied(3)
 
 	if got := testutil.ToFloat64(m.catalogDBQueries); got != 2 {
 		t.Fatalf("catalog_db_queries_total = %v, want 2", got)
@@ -72,6 +74,12 @@ func TestMetricsRecord(t *testing.T) {
 	}
 	if got := testutil.ToFloat64(m.memoryStoreRecall); got != 2 {
 		t.Fatalf("biqly_memory_store_recall_hits_total = %v, want 2", got)
+	}
+	if got := testutil.ToFloat64(m.enrichContextGapsFound); got != 5 {
+		t.Fatalf("biqly_enrich_context_gaps_found_total = %v, want 5", got)
+	}
+	if got := testutil.ToFloat64(m.enrichContextApplied); got != 3 {
+		t.Fatalf("biqly_enrich_context_applied_total = %v, want 3", got)
 	}
 }
 

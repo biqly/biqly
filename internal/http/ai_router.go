@@ -143,6 +143,11 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 		r.Get("/ai/ab-experiments/{id}/metrics", abHandler.GetMetrics)
 		r.Get("/ai/ab-experiments/{id}/timeseries", abHandler.GetTimeseries)
 		r.Get("/ai/ab-experiments/{id}/recommendation", abHandler.GetRecommendation)
+
+		enrichHandler := handlers.NewEnrichContextHandler(deps)
+		enrichHandler.SetAIMetricsRecorder(GetMetrics())
+		r.Post("/ai/enrich-context", enrichHandler.Analyze)
+		r.Post("/ai/enrich-context/apply", enrichHandler.Apply)
 	})
 
 	examplesHandler := handlers.NewAIExamplesHandler(deps)

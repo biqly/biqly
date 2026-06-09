@@ -1,13 +1,15 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { useApi } from '../hooks/useApi'
+import { useAdminApi, useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDatasources } from '../hooks/useDatasources'
 import { useModelDetail } from '../hooks/useModelDetail'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
+import type { EnrichAnalyzeResult } from '../types/enrichContext'
 import type { BusinessGlossaryTerm, GlossaryAIContext } from '../types/glossary'
+import { GlossaryEnrichPanel } from './GlossaryEnrichPanel'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
@@ -17,6 +19,11 @@ export default function Glossary() {
   const t = useT()
   const confirm = useConfirm()
   const { get, postData, putData, deleteData, loading } = useApi()
+  const {
+    postData: adminPost,
+    loading: enrichLoading,
+    configured: adminConfigured,
+  } = useAdminApi()
 
   const [terms, setTerms] = useState<BusinessGlossaryTerm[]>([])
   const [initLoading, setInitLoading] = useState(true)
@@ -48,6 +55,13 @@ export default function Glossary() {
   const [formBusinessRules, setFormBusinessRules] = useState<string[]>([])
   const [businessRuleInput, setBusinessRuleInput] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
+
+  const [showEnrichPanel, setShowEnrichPanel] = useState(false)
+  const [enrichResult, setEnrichResult] = useState<EnrichAnalyzeResult | null>(null)
+  const [enrichSelections, setEnrichSelections] = useState<
+    Record<string, { selected: boolean; value: string }>
+  >({})
+  const [enrichError, setEnrichError] = useState<string | null>(null)
 
   // Sidebar details for selecting model fields
   const { model: activeModelDetail, setModel: setActiveModelDetail } = useModelDetail(formModelId, {
@@ -394,6 +408,77 @@ export default function Glossary() {
     ]
   }, [activeModelDetail, formMapsToType, formModelId])
 
+  const runEnrichAnalyze = useCallback(async () => {
+    setEnrichError(null)
+    if (!selectedDatasourceId || !selectedModelId) {
+      setEnrichError(t('glossary.enrich_context_model_required'))
+      return
+    }
+    if (!adminConfigured) {
+      setEnrichError(t('glossary.enrich_context_admin_key'))
+      return
+    }
+    try {
+      const result = await adminPost<EnrichAnalyzeResult>('/api/ai/enrich-context', {
+        datasource_id: selectedDatasourceId,
+        model_id: selectedModelId,
+        suggest: true,
+      })
+      if (!result) {
+        return
+      }
+      setEnrichResult(result)
+      setShowEnrichPanel(true)
+      const suggestionsByGap = new Map(
+        (result.suggestions ?? []).map((suggestion) => [suggestion.gap_id, suggestion.text]),
+      )
+      const next: Record<string, { selected: boolean; value: string }> = {}
+      for (const gap of result.gaps) {
+        if (gap.applyable) {
+          next[gap.id] = {
+            selected: true,
+            value: suggestionsByGap.get(gap.id) ?? '',
+          }
+        }
+      }
+      setEnrichSelections(next)
+    } catch (err) {
+      setEnrichError(err instanceof Error ? err.message : String(err))
+    }
+  }, [adminConfigured, adminPost, selectedDatasourceId, selectedModelId, t])
+
+  const applyEnrichSelected = useCallback(async () => {
+    if (!enrichResult || !selectedDatasourceId || !selectedModelId) {
+      return
+    }
+    const items = Object.entries(enrichSelections)
+      .filter(([, selection]) => selection.selected && selection.value.trim())
+      .map(([gap_id, selection]) => ({ gap_id, value: selection.value.trim() }))
+    if (items.length === 0) {
+      return
+    }
+    setEnrichError(null)
+    try {
+      await adminPost('/api/ai/enrich-context/apply', {
+        datasource_id: selectedDatasourceId,
+        model_id: selectedModelId,
+        items,
+      })
+      await loadTerms()
+      await runEnrichAnalyze()
+    } catch (err) {
+      setEnrichError(err instanceof Error ? err.message : String(err))
+    }
+  }, [
+    adminPost,
+    enrichResult,
+    enrichSelections,
+    loadTerms,
+    runEnrichAnalyze,
+    selectedDatasourceId,
+    selectedModelId,
+  ])
+
   if (initLoading && terms.length === 0) {
     return <LoadingScreen minHeight="300px" />
   }
@@ -404,9 +489,22 @@ export default function Glossary() {
         <div className="card-intro">
           <div className="card-header-row">
             <h2>{t('glossary.title')}</h2>
-            <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
-              {t('glossary.new')}
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-secondary"
+                disabled={!selectedModelId || enrichLoading}
+                title={t('glossary.enrich_context_hint')}
+                onClick={() => {
+                  void runEnrichAnalyze()
+                }}
+              >
+                {t('glossary.enrich_context')}
+              </button>
+              <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
+                {t('glossary.new')}
+              </button>
+            </div>
           </div>
           <p className="card-lead card-lead--single-line" title={t('glossary.manage_hint')}>
             {t('glossary.manage_hint')}
@@ -451,6 +549,36 @@ export default function Glossary() {
             />
           </div>
         </div>
+
+        {enrichError && <ErrorAlert error={enrichError} />}
+
+        {showEnrichPanel && enrichResult && (
+          <GlossaryEnrichPanel
+            result={enrichResult}
+            selections={enrichSelections}
+            loading={enrichLoading}
+            onClose={() => {
+              setShowEnrichPanel(false)
+              setEnrichResult(null)
+              setEnrichSelections({})
+            }}
+            onRerun={() => {
+              void runEnrichAnalyze()
+            }}
+            onApply={() => {
+              void applyEnrichSelected()
+            }}
+            onSelectionChange={(gapId, patch) => {
+              setEnrichSelections((prev) => ({
+                ...prev,
+                [gapId]: {
+                  selected: patch.selected ?? prev[gapId]?.selected ?? true,
+                  value: patch.value ?? prev[gapId]?.value ?? '',
+                },
+              }))
+            }}
+          />
+        )}
 
         {displayedTerms.length === 0 && <EmptyState description={t('glossary.empty')} />}
 
