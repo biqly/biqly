@@ -1,6 +1,7 @@
 package semanticgen
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/biqly/biqly/internal/metadata"
@@ -71,6 +72,57 @@ func TestGenerateModelFromMetadata(t *testing.T) {
 	if len(got.Model.Joins) != 1 {
 		t.Fatalf("joins len = %d, want 1", len(got.Model.Joins))
 	}
+}
+
+func TestAppendMissingDimensions(t *testing.T) {
+	model := &semantic.SemanticModel{
+		ID:           "m1",
+		DatasourceID: "ds1",
+		BaseSchema:   "sales",
+		BaseTable:    "orders",
+		Dimensions: []semantic.Dimension{
+			{ID: "d1", ModelID: "m1", Name: "order_date", ColumnRef: "orders.order_date", Type: "date"},
+		},
+		Joins: []semantic.Join{
+			{FromSchema: "sales", FromTable: "orders", FromColumn: "screen", ToSchema: "public", ToTable: "timeline", ToColumn: "screen_name"},
+		},
+	}
+	columns := []metadata.Column{
+		{DatasourceID: "ds1", SchemaName: "sales", TableName: "orders", ColumnName: "order_date", DataType: "timestamp"},
+		{DatasourceID: "ds1", SchemaName: "public", TableName: "timeline", ColumnName: "screen_name", DataType: "varchar"},
+		{DatasourceID: "ds1", SchemaName: "public", TableName: "timeline", ColumnName: "author_name", DataType: "varchar"},
+		{DatasourceID: "ds1", SchemaName: "warehouse", TableName: "unrelated", ColumnName: "x", DataType: "varchar"},
+	}
+	opts := GenerateModelOptions{DatasourceID: "ds1", BaseSchema: "sales", BaseTable: "orders"}
+
+	added := AppendMissingDimensions(model, columns, opts)
+
+	if !containsRef(added, "timeline") {
+		t.Fatalf("expected dimensions for the joined timeline table: %#v", added)
+	}
+	for _, dim := range added {
+		if dim.ColumnRef == "orders.order_date" && dim.TimeGrain == "" {
+			t.Fatalf("re-added an existing dimension (order_date)")
+		}
+		if strings.Contains(dim.ColumnRef, "unrelated") {
+			t.Fatalf("added a dimension for a table not in the model: %s", dim.ColumnRef)
+		}
+	}
+
+	// Idempotent: once persisted, a re-run adds nothing.
+	model.Dimensions = append(model.Dimensions, added...)
+	if again := AppendMissingDimensions(model, columns, opts); len(again) != 0 {
+		t.Fatalf("AppendMissingDimensions not idempotent: got %d new dims", len(again))
+	}
+}
+
+func containsRef(dimensions []semantic.Dimension, substr string) bool {
+	for _, dim := range dimensions {
+		if strings.Contains(dim.ColumnRef, substr) {
+			return true
+		}
+	}
+	return false
 }
 
 func hasDimension(dimensions []semantic.Dimension, name, ref string) bool {

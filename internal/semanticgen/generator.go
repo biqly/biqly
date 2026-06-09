@@ -139,6 +139,64 @@ func appendRelatedDimensions(model *semantic.SemanticModel, dimNames map[string]
 	return warnings
 }
 
+// AppendMissingDimensions returns dimensions that belong to tables already in
+// the model (base table + join endpoints) but are not yet defined. It lets an
+// existing, hand-edited model pick up dimensions for tables added after the
+// initial generation — e.g. a table wired in via a manual relationship — without
+// recreating the model and losing manual edits. Existing dimensions are matched
+// by (column_ref, time_grain) so re-runs are idempotent.
+func AppendMissingDimensions(model *semantic.SemanticModel, columns []metadata.Column, opts GenerateModelOptions) []semantic.Dimension {
+	opts = normalizeGenerateModelOptions(opts)
+	names := make(map[string]bool, len(model.Dimensions))
+	existing := make(map[string]bool, len(model.Dimensions))
+	for i := range model.Dimensions {
+		d := model.Dimensions[i]
+		names[d.Name] = true
+		existing[dimDedupeKey(d.ColumnRef, d.TimeGrain)] = true
+	}
+	modelTables := modelTableKeys(model)
+	added := make([]semantic.Dimension, 0)
+	for _, col := range columns {
+		if len(model.Dimensions)+len(added) >= opts.MaxDimensions {
+			break
+		}
+		if !modelTables[tableKey(col.SchemaName, col.TableName)] {
+			continue
+		}
+		isBase := col.SchemaName == model.BaseSchema && col.TableName == model.BaseTable
+		if isBase && shouldSkipDimension(col) {
+			continue
+		}
+		if !isBase && shouldSkipRelatedDimension(col) {
+			continue
+		}
+		dim := dimensionFromColumn(model.ID, col, model.BaseSchema, names, !isBase)
+		candidates := appendDateGrainDimensions([]semantic.Dimension{dim}, model.ID, col, dim, names, opts.MaxDimensions)
+		for _, c := range candidates {
+			key := dimDedupeKey(c.ColumnRef, c.TimeGrain)
+			if existing[key] {
+				continue
+			}
+			existing[key] = true
+			added = append(added, c)
+		}
+	}
+	return added
+}
+
+func dimDedupeKey(columnRef, timeGrain string) string {
+	return columnRef + "|" + timeGrain
+}
+
+func modelTableKeys(model *semantic.SemanticModel) map[string]bool {
+	keys := map[string]bool{tableKey(model.BaseSchema, model.BaseTable): true}
+	for _, j := range model.Joins {
+		keys[tableKey(j.FromSchema, j.FromTable)] = true
+		keys[tableKey(j.ToSchema, j.ToTable)] = true
+	}
+	return keys
+}
+
 func appendGeneratedMetrics(metrics []semantic.Metric, metricNames map[string]bool, baseCols []metadata.Column, baseSchema, modelID string, opts GenerateModelOptions, warnings *[]string) []semantic.Metric {
 	metrics = append(metrics, countMetric(modelID, metricNames))
 	for _, col := range baseCols {

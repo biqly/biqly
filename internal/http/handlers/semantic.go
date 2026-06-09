@@ -545,6 +545,55 @@ func createModelEntity[T any, E any](
 }
 
 // CreateDimension adds a dimension to a semantic model.
+type syncDimensionsResponse struct {
+	Model *semantic.SemanticModel `json:"model"`
+	Added int                     `json:"added"`
+}
+
+// SyncDimensions appends dimensions for tables already in the model (base table
+// + join endpoints) that lack them — e.g. a table wired in via a manual
+// relationship after the model was generated. It reads current datasource
+// metadata and is idempotent: existing dimensions are left untouched.
+func (h *SemanticHandler) SyncDimensions(w http.ResponseWriter, r *http.Request) {
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+
+	model, err := h.deps.SemanticRepo.GetFullModel(ctx, id)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusNotFound, "model not found", err)
+		return
+	}
+
+	columns, err := h.deps.MetaRepo.ListColumns(ctx, model.DatasourceID, "", "")
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to load columns", err)
+		return
+	}
+
+	added := semanticgen.AppendMissingDimensions(model, columns, semanticgen.GenerateModelOptions{
+		DatasourceID: model.DatasourceID,
+		BaseSchema:   model.BaseSchema,
+		BaseTable:    model.BaseTable,
+	})
+	for i := range added {
+		dim := added[i]
+		if err := h.deps.SemanticRepo.CreateDimension(ctx, &dim); err != nil {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to create dimension", err)
+			return
+		}
+	}
+
+	full, err := h.deps.SemanticRepo.GetFullModel(ctx, id)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to reload model", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, syncDimensionsResponse{Model: full, Added: len(added)})
+}
+
 func (h *SemanticHandler) CreateDimension(w http.ResponseWriter, r *http.Request) {
 	createModelEntity(w, r, dimensionFromRequest, func(ctx context.Context, d *semantic.Dimension) error {
 		return h.deps.SemanticRepo.CreateDimension(ctx, d)

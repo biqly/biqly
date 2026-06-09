@@ -94,6 +94,7 @@ func registerCatalogSemanticRoutes(r chi.Router, deps *app.CatalogDeps) {
 	r.Post("/semantic/models/{id}/compile-expression", semHandler.CompileExpression)
 	r.Post("/semantic/models/{id}/publish", semHandler.PublishModel)
 	r.Post("/semantic/models/{id}/rollback", semHandler.RollbackModel)
+	r.Post("/semantic/models/{id}/sync-dimensions", semHandler.SyncDimensions)
 	r.Post("/semantic/models/{id}/dimensions", semHandler.CreateDimension)
 	r.Delete("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.DeleteDimension)
 	r.Put("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.UpdateDimension)
