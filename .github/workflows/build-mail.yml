@@ -6,8 +6,8 @@ on:
     paths:
       - cmd/mail/**
       - cmd/mail-migrate/**
-      - internal/mail/**
-      - internal/emailaddr/**
+      - internal/**
+      - pkg/**
       - migrations/mail/**
       - go.mod
       - go.sum
@@ -18,8 +18,8 @@ on:
     paths:
       - cmd/mail/**
       - cmd/mail-migrate/**
-      - internal/mail/**
-      - internal/emailaddr/**
+      - internal/**
+      - pkg/**
       - migrations/mail/**
       - go.mod
       - go.sum

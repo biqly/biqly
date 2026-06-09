@@ -6,7 +6,8 @@ on:
     paths:
       - cmd/auth/**
       - cmd/auth-migrate/**
-      - internal/auth/**
+      - internal/**
+      - pkg/**
       - migrations/auth/**
       - go.mod
       - go.sum
@@ -17,7 +18,8 @@ on:
     paths:
       - cmd/auth/**
       - cmd/auth-migrate/**
-      - internal/auth/**
+      - internal/**
+      - pkg/**
       - migrations/auth/**
       - go.mod
       - go.sum
