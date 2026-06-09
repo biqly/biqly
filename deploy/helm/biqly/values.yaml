@@ -71,6 +71,13 @@ global:
         - 1433
         - 8123
         - 9000
+    otelCollectorUpstream:
+      # Egress from biqly-otel-infra-collector to the remote OTLP backend (kibrit
+      # over Tailscale in prod). Set cidrs in values-prod.yaml.
+      enabled: true
+      cidrs: []
+      ports:
+        - 4318
     aiExternal:
       enabled: true
       # HTTPS to any host (OpenAI-compatible gateways, CDNs with rotating IPs).

@@ -1,0 +1,31 @@
+{{- $tracing := .Values.global.observability.tracing -}}
+{{- $it := .Values.global.observability.infraTelemetry -}}
+{{- $upstream := .Values.global.networkPolicy.otelCollectorUpstream -}}
+{{- if and .Values.global.networkPolicy.enabled $tracing.enabled $tracing.useInClusterCollector $it.enabled $upstream.enabled }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: biqly-otel-collector-egress
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: biqly-otel-infra-collector
+      app.kubernetes.io/part-of: biqly
+  egress:
+    - toEntities:
+        - cluster
+    {{- with $upstream.cidrs }}
+    - toCIDRSet:
+        {{- range . }}
+        - cidr: {{ . | quote }}
+        {{- end }}
+      toPorts:
+        - ports:
+            {{- range $upstream.ports }}
+            - port: {{ . | quote }}
+              protocol: TCP
+            {{- end }}
+    {{- end }}
+{{- end }}

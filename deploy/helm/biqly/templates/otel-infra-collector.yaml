@@ -199,11 +199,18 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 20
           readinessProbe:
+            {{- if $gateway }}
+            tcpSocket:
+              port: otlp-http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            {{- else }}
             httpGet:
               path: /
               port: health
             initialDelaySeconds: 5
             periodSeconds: 10
+            {{- end }}
           volumeMounts:
             - name: config
               mountPath: /conf

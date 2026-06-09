@@ -72,6 +72,7 @@ spec:
                 - ALL
             seccompProfile:
               type: RuntimeDefault
+        {{- include "biqly.waitForOtelCollectorInitContainer" . | nindent 8 }}
       containers:
         - name: ai
           image: {{ include "ai.image" . | quote }}

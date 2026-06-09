@@ -63,6 +63,7 @@ spec:
                 - ALL
             seccompProfile:
               type: RuntimeDefault
+        {{- include "biqly.waitForOtelCollectorInitContainer" . | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
           image: {{ include "auth.image" . }}
