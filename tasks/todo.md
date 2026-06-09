@@ -57,15 +57,28 @@ sormaz, sonucu üretir; netleştirme kartının sorusu otomatik görünür olur;
 
 **Sonuç:** Zorunlu işlerin tümü tamamlandı; tüm kapılar temiz geçti.
 
-- **Bug 2 (sonsuz döngü) çözüldü** — `clarificationResolved` bayrağı çözülen turda
-  pre-LLM ambiguity kontrolünü atlatıyor. Synonym detector sıkılaştırması ilk
-  netleştirmenin gürültüsünü azaltıyor (jenerik kısa token'lar artık tetiklemiyor).
+- **Bug 2 (sonsuz döngü) — GERÇEK kök neden bulundu ve çözüldü.** İlk fix yalnızca
+  **senkron** uç noktayı (`parseAndRouteAIQuery`) yamalıyordu; ancak frontend
+  generate/preview için **asenkron job** yolunu (`ai_job_exec.go` →
+  `executeAIQueryPhase`) kullanıyor. Bu yol seçimi `resolveClarificationChoice`
+  ile çözüyordu ama `clarificationResolved` bayrağını **hiç set etmiyordu** → guard
+  `!req.clarificationResolved` her turda `true` kalıyor → `standardProcessOptions`
+  her turda `WithAmbiguityCheck(true)` ekliyor → sonsuz yeniden-netleştirme.
+  **Fix:** `req.clarificationResolved = true` ataması ortak `resolveClarificationChoice`
+  **METODUNA** (`ai.go:176-188`, `choice != ""` iken) taşındı; böylece hem senkron
+  hem asenkron job yolu bayrağı alıyor. `parseAndRouteAIQuery`'deki artık-gereksiz
+  açık atama kaldırıldı. Run fazı (`resolveRunPhaseForJob`) zaten ambiguity check
+  eklemiyor → döngü riski yok. Synonym detector sıkılaştırması ilk netleştirme
+  gürültüsünü azaltıyor.
+- **Regresyon testi:** `ai_ambiguity_test.go` →
+  `TestHandlerResolveClarificationChoiceSetsResolvedFlag` (metot choice çözünce
+  bayrağı set ediyor) + `...NoChoiceKeepsFlagUnset` (choice yoksa set etmiyor).
 - **Bug 1 (scroll) çözüldü** — netleştirme kartı feed üstüne hizalanıyor, soru
   görünür kalıyor.
-- **Doğrulama kapıları:** `make lint-go` (0 sorun) · `go test -race`
-  (`internal/ai/...`, `internal/http/handlers/`) PASS · `npm run lint` (0 uyarı) ·
-  Prettier `format:check` temiz · `npm run build` (tsc+vite) PASS · `npm run test`
-  (vitest, 98 test) PASS · `make eval-regression` PASS · `deadcode` temiz.
+- **Doğrulama kapıları (2026-06-09 son tur):** `make lint-go` (0 sorun) ·
+  `make test-go` (`-race`) PASS · `go test ./internal/http/handlers/` PASS ·
+  `make eval-regression` PASS · `deadcode` (yeni ölü kod yok; mevcut `pkg/` SDK +
+  observability bulguları pre-existing). Frontend bu turda değişmedi.
 - **Commit yapılmadı** (kullanıcı onayı bekleniyor).
 
 ## Technical Architecture Analysis — Remaining Actions (2026-06-08)

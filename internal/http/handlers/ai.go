@@ -178,6 +178,9 @@ func (h *AIHandler) resolveClarificationChoice(ctx context.Context, req *aiQuery
 	if err := resolveClarificationChoice(ctx, req, model, glossary); err != nil {
 		return err
 	}
+	if choice != "" {
+		req.clarificationResolved = true
+	}
 	if h.metrics != nil && strings.HasPrefix(choice, "ambiguity:") {
 		h.metrics.RecordAmbiguityClarified()
 	}
@@ -219,7 +222,6 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 			writeError(w, http.StatusBadRequest, err.Error())
 			return *req, nil, nil, false
 		}
-		req.clarificationResolved = true
 	}
 	return *req, model, routeResult, true
 }
