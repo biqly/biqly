@@ -1,5 +1,5 @@
 {{/*
-  OTLP export env for workloads that call SetupTracing (auth today; api/worker
+  OTLP export env for workloads that call SetupTracing (auth, mail; api/worker
   when deployed). Headers come from a Secret — never from ConfigMap.
 */}}
 {{- define "biqly.otelEnv" -}}

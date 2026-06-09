@@ -10,7 +10,7 @@ import (
 // otelRouteFilter skips high-churn, low-signal paths from HTTP server spans.
 func otelRouteFilter(r *http.Request) bool {
 	switch r.URL.Path {
-	case "/health", "/ready", "/metrics":
+	case "/health", "/healthz", "/ready", "/readyz", "/metrics":
 		return false
 	}
 	if strings.HasSuffix(r.URL.Path, "/health") && strings.Contains(r.URL.Path, "/internal") {

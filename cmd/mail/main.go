@@ -19,6 +19,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/redis/go-redis/v9"
 
+	bihttp "github.com/biqly/biqly/internal/http"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/mail"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
@@ -26,6 +27,17 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+	shutdownTracing, tracErr := observability.SetupTracing(ctx, "mail")
+	if tracErr != nil {
+		slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)
+	}
+	defer func() {
+		if err := shutdownTracing(context.Background()); err != nil {
+			slog.Warn("trace provider shutdown error", "error", err)
+		}
+	}()
+
 	cfg := mail.NewConfigFromEnv()
 
 	if cfg.DBDSN == "" {
@@ -105,7 +117,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + strconv.Itoa(cfg.Port),
-		Handler:           router,
+		Handler:           bihttp.OTELHTTPHandler("biqly-mail", router),
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      30 * time.Second,

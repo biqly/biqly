@@ -15,7 +15,9 @@ func TestOtelRouteFilter(t *testing.T) {
 		want bool
 	}{
 		{"/health", false},
+		{"/healthz", false},
 		{"/ready", false},
+		{"/readyz", false},
 		{"/metrics", false},
 		{"/internal/health", false},
 		{"/api/query/run", true},

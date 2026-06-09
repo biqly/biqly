@@ -67,6 +67,7 @@ spec:
                 - ALL
             seccompProfile:
               type: RuntimeDefault
+        {{- include "biqly.waitForOtelCollectorInitContainer" . | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
           image: {{ include "mail.image" . }}
@@ -105,6 +106,7 @@ spec:
                   key: BI_MAIL_SMTP_PASS
                   optional: false
             {{- end }}
+            {{- include "biqly.otelEnv" . | nindent 12 }}
           livenessProbe:
             httpGet:
               path: /healthz
