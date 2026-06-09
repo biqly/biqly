@@ -1,0 +1,120 @@
+/* Enrich-context panel (glossary). BEM. */
+
+.enrich-panel {
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  background: var(--surface-elevated, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+}
+
+.enrich-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.enrich-panel__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.enrich-panel__subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.enrich-panel__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.enrich-panel__bulk {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.enrich-panel__bulk-count {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Apply result banner */
+.enrich-panel__result {
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius, 8px);
+  border: 1px solid var(--border);
+  background: var(--surface-elevated, rgba(255, 255, 255, 0.02));
+  font-size: 0.85rem;
+}
+
+.enrich-panel__result--error {
+  border-color: var(--danger, #d9534f);
+}
+
+.enrich-panel__result-summary {
+  font-weight: 600;
+}
+
+.enrich-panel__result-errors {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--danger, #d9534f);
+}
+
+/* Gap rows */
+.enrich-panel__kind {
+  font-size: 0.72rem;
+}
+
+.enrich-panel__muted {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.enrich-panel__gap-summary {
+  font-weight: 600;
+}
+
+.enrich-panel__gap-detail {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.enrich-panel__value {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.enrich-panel__suggestion {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.enrich-panel__restore {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.enrich-panel__restore:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

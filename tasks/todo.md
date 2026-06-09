@@ -183,10 +183,16 @@ Tüm P0–P7 maddeleri codebase'te uygulandı. Aşağıdaki denetim bulguları v
 
 **Açıkta kalan iyileştirme maddeleri (denetim bulgusu):**
 
-- [ ] **Enrich-context frontend admin UI.** Backend endpoint'leri hazır (`/api/admin/ai/enrich-context` analyze + apply),
-  ancak frontend'de "Context'i Zenginleştir" butonu/paneli yok. Admin settings veya datasource detail sayfasına
-  entegre edilmeli: Analyze butonu → gap listesi + AI suggestion'lar → tek tıkla onay → Apply.
-  - **Dosyalar:** `frontend/src/components/settings/` veya `frontend/src/components/datasource/` altına yeni bileşen.
+- [x] **Enrich-context frontend UI.** ~~frontend'de buton/panel yok~~ — premis yanlıştı: UI zaten Glossary
+  sayfasında mevcuttu (`64ef4642 feat(ai): add enrich-context workflow`). Analyze → gap listesi + AI suggestion →
+  onay → Apply akışı `GlossaryEnrichPanel.tsx` + `Glossary.tsx` içinde çalışıyor (`/glossary`).
+  Mevcut panel iyileştirildi (kullanıcı isteğiyle):
+  - Apply sonucu + hatalar artık gösteriliyor (önceden `{applied,skipped,errors}` sessizce yutuluyordu — silent failure düzeltildi).
+  - Toplu seç/temizle + "N seçileni uygula" sayacı.
+  - AI önerisi ayrı gösteriliyor + "öneriyi geri yükle"; `sample_rows` başlıkta.
+  - Inline style → BEM (`styles/glossary-enrich.css`); checkbox/textarea için aria-label.
+  - **Dosyalar:** `GlossaryEnrichPanel.tsx`, `Glossary.tsx`, `styles/glossary-enrich.css`, `i18n/locales/{en,tr}/core.ts`.
+  - Gate'ler: ESLint 0, Prettier temiz, tsc/build temiz, vitest 99/99, knip:ci 0.
 
 - [ ] **Memory store model değişikliğinde pasifleştirme orkestrasyonu.** `ai_confirmed_queries.semantic_model_hash`
   kolonu var, `ListActiveConfirmedQueries` hash filtresi yapıyor, ancak semantic model publish sırasında

@@ -7,7 +7,7 @@ import { useDatasources } from '../hooks/useDatasources'
 import { useModelDetail } from '../hooks/useModelDetail'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
-import type { EnrichAnalyzeResult } from '../types/enrichContext'
+import type { EnrichAnalyzeResult, EnrichApplyResult } from '../types/enrichContext'
 import type { BusinessGlossaryTerm, GlossaryAIContext } from '../types/glossary'
 import { GlossaryEnrichPanel } from './GlossaryEnrichPanel'
 import { EmptyState } from './ui/EmptyState'
@@ -58,6 +58,7 @@ export default function Glossary() {
     Record<string, { selected: boolean; value: string }>
   >({})
   const [enrichError, setEnrichError] = useState<string | null>(null)
+  const [enrichApplyResult, setEnrichApplyResult] = useState<EnrichApplyResult | null>(null)
 
   // Sidebar details for selecting model fields
   const { model: activeModelDetail, setModel: setActiveModelDetail } = useModelDetail(formModelId, {
@@ -406,6 +407,7 @@ export default function Glossary() {
 
   const runEnrichAnalyze = useCallback(async () => {
     setEnrichError(null)
+    setEnrichApplyResult(null)
     if (!selectedDatasourceId || !selectedModelId) {
       setEnrichError(t('glossary.enrich_context_model_required'))
       return
@@ -455,13 +457,16 @@ export default function Glossary() {
     }
     setEnrichError(null)
     try {
-      await adminPost('/api/ai/enrich-context/apply', {
+      const result = await adminPost<EnrichApplyResult>('/api/ai/enrich-context/apply', {
         datasource_id: selectedDatasourceId,
         model_id: selectedModelId,
         items,
       })
       await loadTerms()
       await runEnrichAnalyze()
+      if (result) {
+        setEnrichApplyResult(result)
+      }
     } catch (err) {
       setEnrichError(err instanceof Error ? err.message : String(err))
     }
@@ -552,11 +557,13 @@ export default function Glossary() {
           <GlossaryEnrichPanel
             result={enrichResult}
             selections={enrichSelections}
+            applyResult={enrichApplyResult}
             loading={enrichLoading}
             onClose={() => {
               setShowEnrichPanel(false)
               setEnrichResult(null)
               setEnrichSelections({})
+              setEnrichApplyResult(null)
             }}
             onRerun={() => {
               void runEnrichAnalyze()
@@ -572,6 +579,20 @@ export default function Glossary() {
                   value: patch.value ?? prev[gapId]?.value ?? '',
                 },
               }))
+            }}
+            onSelectAll={(selected) => {
+              setEnrichSelections((prev) => {
+                const next = { ...prev }
+                for (const gap of enrichResult.gaps) {
+                  if (gap.applyable) {
+                    next[gap.id] = {
+                      selected,
+                      value: prev[gap.id]?.value ?? '',
+                    }
+                  }
+                }
+                return next
+              })
             }}
           />
         )}
