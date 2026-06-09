@@ -70,7 +70,13 @@ data:
       memory_limiter:
         check_interval: 1s
         limit_mib: 192
-      resource:
+      # App traces keep OTEL_SERVICE_NAME (biqly); infra scrapes get biqly-infra.
+      resource/namespace:
+        attributes:
+          - key: service.namespace
+            value: biqly
+            action: upsert
+      resource/infra:
         attributes:
           - key: service.namespace
             value: biqly
@@ -100,12 +106,12 @@ data:
         {{- if $gateway }}
         traces:
           receivers: [otlp]
-          processors: [memory_limiter, resource, batch]
+          processors: [memory_limiter, resource/namespace, batch]
           exporters: [otlphttp]
         {{- end }}
         metrics:
           receivers: [{{ join ", " $recv }}]
-          processors: [memory_limiter, resource, batch]
+          processors: [memory_limiter, resource/infra, batch]
           exporters: [otlphttp]
 ---
 apiVersion: apps/v1

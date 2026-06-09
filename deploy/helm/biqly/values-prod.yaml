@@ -43,11 +43,10 @@ global:
       # (https://otel.il1.nl), removing the public round-trip. Apps still export
       # to the in-cluster collector; only the collector forwards here.
       otlpEndpoint: http://100.84.49.60:4318
-      # Parent-based ratio keeps trace volume (and the export load it adds to the
-      # single-node cluster) bounded while still capturing connected cross-service
-      # traces. Raise temporarily to always_on only for focused investigation.
-      sampler: parentbased_traceidratio
-      samplerArg: "0.1"
+      # Export every span while Jaeger / OTLP path is being validated. Revert to
+      # parentbased_traceidratio (e.g. 0.1) once volume is acceptable on the cluster.
+      sampler: always_on
+      samplerArg: "1"
       otlpHeadersSecret:
         name: biqly-otel-secrets
         key: OTEL_EXPORTER_OTLP_HEADERS
