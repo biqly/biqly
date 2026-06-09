@@ -46,6 +46,10 @@ type AIHandler struct {
 	deps        *app.AIDeps
 	authClient  *bimw.AuthClient
 	metrics     AIMetricsRecorder
+
+	// ambiguityOverridesCache memoizes DB-managed ambiguity config overrides
+	// (see ai_admin_config.go) so per-request reads stay off the database.
+	ambiguityOverridesCache ambiguityOverridesCache
 }
 
 // SetAuthClient wires the auth service client for user model access checks.
@@ -213,7 +217,7 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessConte
 		ai.WithGlossary(prompt.SelectGlossaryForQuestion(question, prompt.MergeGlossaryEntries(catalog, external), model)),
 		ai.WithAmbiguityGlossary(combineGlossaryEntries(catalog, external)),
 	)
-	ambiguityCfg := h.deps.Config.AI.Ambiguity
+	ambiguityCfg := h.effectiveAmbiguityConfig(ctx)
 	if pc != nil && pc.AmbiguityCapReached(ambiguityCfg) {
 		slog.WarnContext(ctx, "ambiguity round cap reached, bypassing check",
 			"clarification_round", pc.clarificationRound,

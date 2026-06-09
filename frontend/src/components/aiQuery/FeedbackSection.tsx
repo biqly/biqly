@@ -5,13 +5,16 @@ import type { FeedbackCatKey } from './types'
 import { FEEDBACK_CAT_KEYS } from './types'
 
 interface FeedbackSectionProps {
-  onSubmitPositive: () => void
+  // Resolves to true when the backend stored the pair in the memory store
+  // ("learned"), so the section can surface that to the user.
+  onSubmitPositive: () => Promise<boolean>
   onSubmitNegative: (categories: FeedbackCatKey[], text: string) => void
 }
 
 export function FeedbackSection({ onSubmitPositive, onSubmitNegative }: FeedbackSectionProps) {
   const t = useT()
   const [userFeedback, setUserFeedback] = useState<'positive' | 'negative' | null>(null)
+  const [learned, setLearned] = useState(false)
   const [showFeedbackForm, setShowFeedbackForm] = useState(false)
   const [feedbackCategories, setFeedbackCategories] = useState<FeedbackCatKey[]>([])
   const [feedbackText, setFeedbackText] = useState('')
@@ -19,7 +22,7 @@ export function FeedbackSection({ onSubmitPositive, onSubmitNegative }: Feedback
   const submitFeedback = (rating: 'positive' | 'negative') => {
     setUserFeedback(rating)
     if (rating === 'positive') {
-      onSubmitPositive()
+      void onSubmitPositive().then(setLearned)
     } else {
       setShowFeedbackForm(true)
     }
@@ -54,6 +57,11 @@ export function FeedbackSection({ onSubmitPositive, onSubmitNegative }: Feedback
         >
           👎
         </button>
+        {learned && (
+          <span className="feedback-learned-badge" role="status">
+            ✓ {t('ai_query.feedback_learned')}
+          </span>
+        )}
       </div>
       {showFeedbackForm && (
         <div className="feedback-form">

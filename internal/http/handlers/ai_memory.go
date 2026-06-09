@@ -41,23 +41,26 @@ func (h *AIHandler) appendConfirmedFewShot(
 	return append(out, recalled...)
 }
 
+// storeConfirmedQueryOnPositiveFeedback persists the NL→SQL pair behind a
+// thumbs-up. It reports whether the pair was actually stored so the response
+// can tell the user the query was learned.
 func (h *AIExamplesHandler) storeConfirmedQueryOnPositiveFeedback(
 	ctx context.Context,
 	datasourceID, userID, question string,
 	metrics AIMetricsRecorder,
-) {
+) bool {
 	if h.deps == nil || h.deps.MetaRepo == nil || userID == "" {
-		return
+		return false
 	}
 	history, err := h.deps.MetaRepo.GetLatestAIQueryHistoryForFeedback(ctx, datasourceID, userID, question)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			slog.WarnContext(ctx, "load AI history for confirmed query", "error", err)
 		}
-		return
+		return false
 	}
 	if len(history.LogicalQuery) == 0 {
-		return
+		return false
 	}
 	modelHash := ""
 	modelID := history.ModelID
@@ -95,9 +98,10 @@ func (h *AIExamplesHandler) storeConfirmedQueryOnPositiveFeedback(
 	})
 	if err != nil {
 		slog.WarnContext(ctx, "store confirmed query", "error", err)
-		return
+		return false
 	}
 	if metrics != nil {
 		metrics.RecordMemoryStoreConfirmed()
 	}
+	return true
 }

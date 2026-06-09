@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"time"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
@@ -131,6 +132,61 @@ func (r *Repository) ListActiveConfirmedQueries(ctx context.Context, datasourceI
 	return platformdb.QuerySliceErr(ctx, r.db, "list active confirmed queries", q,
 		[]any{datasourceID, semanticModelHash, modelArg, limit},
 		scanConfirmedQueryRow)
+}
+
+// ConfirmedQueryAdminRow is the admin-facing view of a confirmed pair,
+// including inactive rows and the confirmation timestamp.
+type ConfirmedQueryAdminRow struct {
+	ID                string
+	DatasourceID      string
+	ModelID           string
+	UserID            string
+	NLQuery           string
+	SQLQuery          string
+	SemanticModelHash string
+	IsActive          bool
+	ConfirmedAt       time.Time
+}
+
+// ListConfirmedQueriesForAdmin returns the newest confirmed pairs for a
+// datasource regardless of model hash or active state (admin review listing).
+func (r *Repository) ListConfirmedQueriesForAdmin(ctx context.Context, datasourceID string, limit int) ([]ConfirmedQueryAdminRow, error) {
+	if limit <= 0 {
+		limit = ConfirmedQueriesCandidatePool
+	}
+	q := `
+		SELECT id::text, datasource_id::text, COALESCE(model_id::text, ''), COALESCE(user_id, ''),
+			nl_query, sql_query, semantic_model_hash, is_active, confirmed_at
+		FROM ai_confirmed_queries
+		WHERE datasource_id = $1::uuid
+		ORDER BY confirmed_at DESC
+		LIMIT $2
+	`
+	return platformdb.QuerySliceErr(ctx, r.db, "list confirmed queries for admin", q,
+		[]any{datasourceID, limit},
+		func(s platformdb.Scanner) (ConfirmedQueryAdminRow, error) {
+			var row ConfirmedQueryAdminRow
+			if err := s.Scan(
+				&row.ID, &row.DatasourceID, &row.ModelID, &row.UserID,
+				&row.NLQuery, &row.SQLQuery, &row.SemanticModelHash,
+				&row.IsActive, &row.ConfirmedAt,
+			); err != nil {
+				return row, fmt.Errorf("scan confirmed query admin row: %w", err)
+			}
+			return row, nil
+		})
+}
+
+// SetConfirmedQueryActive toggles a single confirmed pair's recall eligibility.
+// It returns the number of rows updated (0 when the id does not exist).
+func (r *Repository) SetConfirmedQueryActive(ctx context.Context, id string, active bool) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE ai_confirmed_queries SET is_active = $2 WHERE id = $1::uuid
+	`, id, active)
+	if err != nil {
+		return 0, fmt.Errorf("set confirmed query active: %w", err)
+	}
+	return res.RowsAffected()
 }
 
 // DeactivateConfirmedQueriesExceptHash marks stale pairs inactive after a model publish.

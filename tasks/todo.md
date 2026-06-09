@@ -260,23 +260,49 @@ Backend P0–P7 uygulandı, frontend karşılıkları denetlendi. Tamamlanan ve 
     (`ClarificationCard` bildirim render), `i18n/locales/{en,tr}/core.ts`, `styles/aiQuery.css` (`.clarification-cap-notice`).
   - Gate: `make check-frontend` exit 0 (lint 0, format:check, knip:ci 0, test 99/99, build ✓).
 
-- [ ] **P3 — Confirmed queries admin listesi + "öğrenildi" geri bildirimi.**
-  1. Admin settings veya datasource detail'da "Onaylanmış Sorgular" tablosu: soru, SQL, onay tarihi, pasif yap butonu.
-     Endpoint'ler hazır (`GET /api/admin/ai/confirmed-queries?datasource_id=...`).
-  2. Thumbs-up sonrası toast/badge: "Bu sorgu öğrenildi ve gelecekte benzer sorularda kullanılacak."
-  - **Dosyalar:** `frontend/src/components/settings/` veya yeni `ConfirmedQueriesPanel.tsx`,
-    `frontend/src/components/aiQuery/FeedbackSection.tsx` (toast entegrasyonu).
+- [x] **P3 — Confirmed queries admin listesi + "öğrenildi" geri bildirimi.** ~~Endpoint'ler hazır~~ —
+  premis yanlıştı: `GET /api/admin/ai/confirmed-queries` backend'de **yoktu** (repo'da yalnızca recall amaçlı
+  `ListActiveConfirmedQueries` vardı). Eksik backend bu turda eklendi:
+  - Backend: `ListConfirmedQueriesForAdmin` (aktif+pasif, `confirmed_at` dahil) + `SetConfirmedQueryActive`
+    (`internal/metadata/ai_confirmed_queries.go`); admin-key'li `GET /api/ai/confirmed-queries?datasource_id=...` +
+    `POST /api/ai/confirmed-queries/{id}/deactivate` (`handlers/ai_confirmed_queries.go`, `ai_router.go`).
+    Mevcut admin AI endpoint konvansiyonuna uyularak `/api/ai/...` altında (AdminKeyMiddleware: super_admin JWT veya admin key).
+  - "Öğrenildi" sinyali: `POST /api/ai/feedback` yanıtına `learned: bool` eklendi
+    (`storeConfirmedQueryOnPositiveFeedback` artık bool döndürüyor).
+  - Frontend: yeni admin sekmesi **AI & paylaşım → Onaylanmış Sorgular** (`ConfirmedQueriesPanel.tsx`,
+    `adminNavConfig.ts`, `Admin.tsx`, `api/aiAdmin.ts`): datasource seçici, soru/SQL/onay tarihi/durum tablosu,
+    pasifleştir butonu. Thumbs-up sonrası `FeedbackSection`'da "öğrenildi" rozeti (`learned===true` ise;
+    `.feedback-learned-badge`, `role="status"`). Admin.tsx tab render'ı prop'suz paneller için
+    `PROPLESS_TAB_PANELS` map'ine sadeleştirildi (complexity 21→<20).
+  - Testler: `ai_confirmed_queries_admin_test.go` (list + validation + deactivate/404/400).
+  - **Dosyalar:** yukarıdakiler + `i18n/locales/{en,tr}/{admin,core}.ts`, `styles/aiQuery.css`,
+    `AssistantMessageCard.tsx`.
 
-- [ ] **P5 — Tiered ambiguity admin toggle.** `GET /api/admin/config` + `PUT /api/admin/config` üzerinden
-  `ambiguity.tieredEnabled` ve `ambiguity.maxLLMTierPerQuestion` okuma/yazma UI.
-  Mevcut admin settings sayfasına "Ambiguity Detection" bölümü eklenmeli.
-  - **Dosyalar:** `frontend/src/components/settings/Settings.tsx`,
-    i18n: `frontend/src/i18n/locales/en/core.ts`, `tr/core.ts`.
+- [x] **P5 — Tiered ambiguity admin toggle.** ~~`GET/PUT /api/admin/config` üzerinden~~ — premis yanlıştı:
+  bu endpoint'ler **yoktu** ve `AmbiguityConfig` salt env-var'dı (runtime store yok). Bu turda eklendi:
+  - Backend: migration `045a` `ai_runtime_config(key, value JSONB, updated_at)` KV tablosu;
+    `Get/UpsertAIRuntimeConfig` (`metadata/ai_runtime_config.go`); admin-key'li
+    `GET/PUT /api/ai/admin/config` (`handlers/ai_admin_config.go`). Overlay deseni:
+    `effectiveAmbiguityConfig` env varsayılanları üzerine DB override'larını bindiriyor
+    (nil alan = env default); 30s TTL cache (PUT yapan replika anında invalidate, diğerleri TTL içinde yakınsar).
+    `standardProcessOptions` artık `h.effectiveAmbiguityConfig(ctx)` okuyor → sync + async job yolu aynı değeri görür.
+    PUT validasyonu: her iki alan zorunlu, `max_llm_tier_per_question` 0–10.
+  - Frontend: hedef sayfa `Settings.tsx` değil (orası kullanıcı ayarları) — bölüm
+    **Admin → Platform Ayarları**'na eklendi (`PlatformSettingsPanel.tsx`): tiered checkbox +
+    max LLM tier sayı girişi + DB-override/env-default notu + ayrı kaydet.
+  - Testler: `ai_admin_config_test.go` (overlay, env-default GET, PUT persist+reload, validasyon).
+  - **Dosyalar:** `migrations/045{a,b}_add_ai_runtime_config.*.sql`, `internal/metadata/ai_runtime_config.go`,
+    `internal/http/handlers/ai_admin_config.go`, `ai.go`, `internal/http/ai_router.go`,
+    `frontend/src/api/aiAdmin.ts`, `PlatformSettingsPanel.tsx`, `i18n/locales/{en,tr}/admin.ts`.
 
-- [ ] **P6 — Generation trace i18n eksikleri.** `columns_resolved` bölüm başlığı ve `ambiguity_detail`
-  etiketi için i18n anahtarları eklenecek (`generation_trace_columns`, `generation_trace_ambiguity_detail`).
-  - **Dosyalar:** `frontend/src/components/aiQuery/generationTrace.tsx:51-57` (columns list),
-    `frontend/src/i18n/locales/en/core.ts`, `tr/core.ts`.
+- [x] **P6 — Generation trace i18n eksikleri.** `generation_trace_columns` ("Resolved columns"/"Çözümlenen
+  kolonlar") bölüm başlığı columns listesinin üstüne, `generation_trace_ambiguity_detail` ("Detail"/"Ayrıntı")
+  etiketi ambiguity detayının önüne eklendi.
+  - **Dosyalar:** `frontend/src/components/aiQuery/generationTrace.tsx`,
+    `frontend/src/i18n/locales/{en,tr}/core.ts`.
+  - Gate'ler (üç madde birlikte): `make check-frontend` exit 0 (lint 0, format:check ✓, knip:ci ✓,
+    vitest 99/99, build ✓); `make lint-go` 0 issues; `make test-go` (-race, 58 paket) PASS;
+    `deadcode` yeni bulgu yok. Commit yapılmadı.
 
 ---
 

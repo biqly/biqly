@@ -126,9 +126,9 @@ export function AssistantMessageCard({
 
   const submitFeedback = async (body: Record<string, unknown>) => {
     try {
-      await postData('/api/ai/feedback', body)
+      return await postData<{ status: string; learned?: boolean }>('/api/ai/feedback', body)
     } catch {
-      /* ignore */
+      return null
     }
   }
 
@@ -192,12 +192,13 @@ export function AssistantMessageCard({
       )}
       <div className="feedback-row-wrapper">
         <FeedbackSection
-          onSubmitPositive={() => {
-            void submitFeedback({
+          onSubmitPositive={async () => {
+            const res = await submitFeedback({
               question: userQuestion,
               datasource_id: datasourceId,
               rating: 'positive',
             })
+            return res?.learned === true
           }}
           onSubmitNegative={(categories: FeedbackCatKey[], text: string) => {
             void submitFeedback({

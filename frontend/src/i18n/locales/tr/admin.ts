@@ -25,6 +25,23 @@ export const admin: AdminDictionary = {
     ldap: 'LDAP / Dizin',
     platform_settings: 'Platform Ayarları',
     ai_ab_experiments: 'Prompt A/B Testleri',
+    ai_confirmed: 'Onaylanmış Sorgular',
+  },
+  confirmed_queries: {
+    title: 'Onaylanmış Sorgular',
+    description:
+      'Beğeni (👍) geri bildiriminden öğrenilen soru→sorgu çiftleri. Aktif çiftler benzer sorularda few-shot örnek olarak yeniden kullanılır; bir çifti hatırlamadan çıkarmak için pasifleştirin.',
+    datasource: 'Veri kaynağı',
+    col_question: 'Soru',
+    col_query: 'Sorgu',
+    col_confirmed_at: 'Onay tarihi',
+    col_status: 'Durum',
+    col_actions: 'İşlemler',
+    status_active: 'Aktif',
+    status_inactive: 'Pasif',
+    deactivate: 'Pasifleştir',
+    deactivated: 'Onaylanmış sorgu pasifleştirildi.',
+    empty: 'Bu veri kaynağı için henüz onaylanmış sorgu yok.',
   },
   pii: {
     title: 'PII Tespiti',
@@ -389,6 +406,19 @@ export const admin: AdminDictionary = {
       'Yalnızca davet edilen kullanıcılar katılabilir. Herkese açık kayıt ve yeni OAuth hesapları kapatılır.',
     last_updated: 'Son güncelleme: {{date}}',
     saved: 'Platform ayarları kaydedildi.',
+    ambiguity_title: 'Belirsizlik Tespiti',
+    ambiguity_description:
+      'AI sorgu belirsizliğinin nasıl tespit edileceğini ayarlayın. Kademeli mod, eşanlamlı/eşadlı belirsizliği önce deterministik çözer; LLM kontrolüne yalnızca gerektiğinde başvurur.',
+    ambiguity_tiered_label: 'Kademeli belirsizlik tespiti',
+    ambiguity_tiered_hint:
+      'Önce ücretsiz deterministik kontroller çalışır; LLM destekli kontrol yalnızca bunlar sonuç bulamazsa devreye girer.',
+    ambiguity_max_llm_label: 'Soru başına en fazla LLM kademesi turu',
+    ambiguity_max_llm_hint:
+      'Bir soru için kaç netleştirme turunun LLM destekli kontrolü kullanabileceği (0 devre dışı bırakır).',
+    ambiguity_db_override_note:
+      'Değerler veritabanında saklanır ve ortam varsayılanlarını geçersiz kılar.',
+    ambiguity_env_default_note: 'Değerler şu anda ortam varsayılanlarından geliyor.',
+    ambiguity_saved: 'Belirsizlik ayarları kaydedildi.',
   },
   ldap: {
     title: 'LDAP / Dizin ile giriş',

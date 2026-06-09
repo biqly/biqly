@@ -79,8 +79,22 @@ const LDAPSettingsPanel = lazyWithPreload(() =>
 const ABExperimentPanel = lazyWithPreload(() =>
   import('./ABExperimentPanel').then((m) => ({ default: m.ABExperimentPanel })),
 )
+const ConfirmedQueriesPanel = lazyWithPreload(() =>
+  import('./ConfirmedQueriesPanel').then((m) => ({ default: m.ConfirmedQueriesPanel })),
+)
 
 const pendingStyle: React.CSSProperties = { padding: 24 }
+
+// Panels that take no props render through this map; panels needing the auth
+// token (or extra wiring) keep explicit branches in Admin below.
+const PROPLESS_TAB_PANELS: Partial<Record<AdminTab, ComponentType>> = {
+  ai_usage: AIUsageAdminPanel,
+  ai_history: AIHistoryPanel,
+  sharing: SharedResourcesList,
+  ai_providers: AIProvidersPanel,
+  ai_ab_experiments: ABExperimentPanel,
+  ai_confirmed: ConfirmedQueriesPanel,
+}
 
 const TAB_COMPONENTS: Record<AdminTab, AdminLazyPanel> = {
   users: UserListPage,
@@ -98,6 +112,7 @@ const TAB_COMPONENTS: Record<AdminTab, AdminLazyPanel> = {
   ldap: LDAPSettingsPanel,
   platform_settings: PlatformSettingsPanel,
   ai_ab_experiments: ABExperimentPanel,
+  ai_confirmed: ConfirmedQueriesPanel,
 }
 
 export default function Admin() {
@@ -112,6 +127,7 @@ export default function Admin() {
 
   const tab: AdminTab = isAdminTab(tabParam) ? tabParam : 'users'
   const selectedUserID = userIdParam || null
+  const ProplessPanel = PROPLESS_TAB_PANELS[tab]
 
   const handleTabHover = (hoveredTab: AdminTab) => {
     void TAB_COMPONENTS[hoveredTab].preload()
@@ -166,17 +182,13 @@ export default function Admin() {
           {tab === 'roles' && <RolesPanel token={accessToken} />}
           {tab === 'datasource_access' && <DatasourceAccessPanel token={accessToken} />}
           {tab === 'workspaces' && <WorkspacesPanel token={accessToken} />}
-          {tab === 'ai_usage' && <AIUsageAdminPanel />}
-          {tab === 'ai_history' && <AIHistoryPanel />}
-          {tab === 'sharing' && <SharedResourcesList />}
           {tab === 'audit_log' && <AuditLogPanel token={accessToken} />}
-          {tab === 'ai_providers' && <AIProvidersPanel />}
           {tab === 'row_level_security' && <RowLevelSecurityPanel token={accessToken} />}
           {tab === 'field_permissions' && <FieldPermissionPanel token={accessToken} />}
           {tab === 'pii_detection' && <PIIDetectionPanel token={accessToken} />}
           {tab === 'ldap' && <LDAPSettingsPanel token={accessToken} />}
           {tab === 'platform_settings' && <PlatformSettingsPanel token={accessToken} />}
-          {tab === 'ai_ab_experiments' && <ABExperimentPanel />}
+          {ProplessPanel && <ProplessPanel />}
         </Suspense>
       </div>
     </div>

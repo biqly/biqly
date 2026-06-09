@@ -247,11 +247,12 @@ func (h *AIExamplesHandler) SubmitFeedback(w http.ResponseWriter, r *http.Reques
 	if err := h.deps.MetaRepo.UpdateLatestAIQueryHistoryRating(ctx, input.DatasourceID, input.Rating, bimw.UserID(ctx), input.Question); err != nil {
 		slog.WarnContext(ctx, "update latest AI query history rating", "datasource_id", input.DatasourceID, "err", err)
 	}
+	learned := false
 	if input.Rating == "positive" {
-		h.storeConfirmedQueryOnPositiveFeedback(ctx, input.DatasourceID, bimw.UserID(ctx), input.Question, h.metrics)
+		learned = h.storeConfirmedQueryOnPositiveFeedback(ctx, input.DatasourceID, bimw.UserID(ctx), input.Question, h.metrics)
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "recorded"})
+	writeJSON(w, http.StatusOK, map[string]any{"status": "recorded", "learned": learned})
 }
 
 // ModelStats is the wire shape for per-model AI statistics.

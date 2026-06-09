@@ -45,22 +45,36 @@ export function GenerationTracePanel({
         ) : null}
 
         {trace.ambiguity_detail ? (
-          <p className="generation-trace__detail">{trace.ambiguity_detail}</p>
+          <p className="generation-trace__detail">
+            <span className="generation-trace__label">
+              {t('ai_query.generation_trace_ambiguity_detail')}
+            </span>
+            {trace.ambiguity_detail}
+          </p>
         ) : null}
 
         {(trace.columns_resolved?.length ?? 0) > 0 ? (
-          <ul className="generation-trace__columns">
-            {(trace.columns_resolved ?? []).map((col, idx) => (
-              <li key={`${col.term}-${col.resolved}-${idx}`}>
-                <code>{col.term}</code>
-                <span className="generation-trace__arrow" aria-hidden="true">
-                  →
-                </span>
-                <code>{col.resolved}</code>
-                {col.source ? <span className="generation-trace__meta">({col.source})</span> : null}
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="generation-trace__row">
+              <span className="generation-trace__label">
+                {t('ai_query.generation_trace_columns')}
+              </span>
+            </p>
+            <ul className="generation-trace__columns">
+              {(trace.columns_resolved ?? []).map((col, idx) => (
+                <li key={`${col.term}-${col.resolved}-${idx}`}>
+                  <code>{col.term}</code>
+                  <span className="generation-trace__arrow" aria-hidden="true">
+                    →
+                  </span>
+                  <code>{col.resolved}</code>
+                  {col.source ? (
+                    <span className="generation-trace__meta">({col.source})</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </>
         ) : null}
       </div>
     </Collapsible>

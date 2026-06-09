@@ -148,6 +148,12 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 		enrichHandler.SetAIMetricsRecorder(GetMetrics())
 		r.Post("/ai/enrich-context", enrichHandler.Analyze)
 		r.Post("/ai/enrich-context/apply", enrichHandler.Apply)
+
+		// NL→SQL memory store administration (P3) and runtime config (P5).
+		r.Get("/ai/confirmed-queries", aiHandler.AdminListConfirmedQueries)
+		r.Post("/ai/confirmed-queries/{id}/deactivate", aiHandler.AdminDeactivateConfirmedQuery)
+		r.Get("/ai/admin/config", aiHandler.AdminRuntimeConfig)
+		r.Put("/ai/admin/config", aiHandler.UpdateAdminRuntimeConfig)
 	})
 
 	examplesHandler := handlers.NewAIExamplesHandler(deps)

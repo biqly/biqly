@@ -23,6 +23,23 @@ export const admin = {
     ldap: 'LDAP / Directory',
     platform_settings: 'Platform Settings',
     ai_ab_experiments: 'Prompt A/B Testing',
+    ai_confirmed: 'Confirmed Queries',
+  },
+  confirmed_queries: {
+    title: 'Confirmed Queries',
+    description:
+      'Question→query pairs learned from thumbs-up feedback. Active pairs are reused as few-shot examples for similar questions; deactivate a pair to remove it from recall.',
+    datasource: 'Datasource',
+    col_question: 'Question',
+    col_query: 'Query',
+    col_confirmed_at: 'Confirmed at',
+    col_status: 'Status',
+    col_actions: 'Actions',
+    status_active: 'Active',
+    status_inactive: 'Inactive',
+    deactivate: 'Deactivate',
+    deactivated: 'Confirmed query deactivated.',
+    empty: 'No confirmed queries for this datasource yet.',
   },
   pii: {
     title: 'PII Detection',
@@ -385,6 +402,19 @@ export const admin = {
       'Only invited users can join. Disable public sign-up and OAuth registration for new accounts.',
     last_updated: 'Last updated: {{date}}',
     saved: 'Platform settings saved.',
+    ambiguity_title: 'Ambiguity Detection',
+    ambiguity_description:
+      'Tune how AI query ambiguity is detected. Tiered mode resolves synonym/homonym ambiguity deterministically first and only falls back to the LLM check when needed.',
+    ambiguity_tiered_label: 'Tiered ambiguity detection',
+    ambiguity_tiered_hint:
+      'Run free deterministic checks first; invoke the LLM-backed check only when they find nothing.',
+    ambiguity_max_llm_label: 'Max LLM tier rounds per question',
+    ambiguity_max_llm_hint:
+      'How many clarification rounds per question may use the LLM-backed check (0 disables it).',
+    ambiguity_db_override_note:
+      'Values are stored in the database and override environment defaults.',
+    ambiguity_env_default_note: 'Values currently come from environment defaults.',
+    ambiguity_saved: 'Ambiguity settings saved.',
   },
   ldap: {
     title: 'LDAP / Directory sign-in',
