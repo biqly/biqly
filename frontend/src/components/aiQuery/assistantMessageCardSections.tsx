@@ -4,6 +4,7 @@ import type { PivotTableData } from '../../utils/pivotTable'
 import { ResultTable } from '../ResultTable'
 import { ChartContainer } from '../ui/ChartContainer'
 import { ChartTypeSelector } from '../ui/ChartTypeSelector'
+import { GenerationTracePanel } from './generationTrace'
 import {
   CandidateComparisonPanel,
   ClarificationCard,
@@ -127,6 +128,7 @@ export function AssistantMessageClarificationSections({
           }
           options={clarificationOptions}
           clarification={result.clarification}
+          generationTrace={result.generation_trace}
           onSelect={(choice) => onSelectClarification(choice, userQuestion)}
           onSkip={() => onSkipClarification(userQuestion)}
         />
@@ -134,26 +136,44 @@ export function AssistantMessageClarificationSections({
       {result.candidates && result.candidates.length > 1 && !result.needs_clarification && (
         <CandidateComparisonPanel candidates={result.candidates} onUse={onUseCandidate} />
       )}
-      {result.table_routing && (
-        <Collapsible title={t('ai_query.collapsible_routing')} defaultOpen>
-          <TableRoutingViz routing={result.table_routing} />
-          {(result.table_routing.selected_tables?.length ?? 0) > 0 && (
-            <button
-              type="button"
-              className="btn btn-sm btn-sample"
-              onClick={() => {
-                const firstSel = result.table_routing?.selected_tables?.[0]
-                if (firstSel) {
-                  onSampleData(firstSel)
-                }
-              }}
-            >
-              {t('ai_query.sample_preview_btn')}
-            </button>
-          )}
-        </Collapsible>
-      )}
+      {result.generation_trace && !showClarification ? (
+        <GenerationTracePanel trace={result.generation_trace} />
+      ) : null}
+      <AssistantTableRoutingSection result={result} onSampleData={onSampleData} t={t} />
     </>
+  )
+}
+
+function AssistantTableRoutingSection({
+  result,
+  onSampleData,
+  t,
+}: {
+  result: AIQueryResponse
+  onSampleData: (tableName: string) => void
+  t: AssistantT
+}) {
+  if (!result.table_routing) {
+    return null
+  }
+  return (
+    <Collapsible title={t('ai_query.collapsible_routing')} defaultOpen>
+      <TableRoutingViz routing={result.table_routing} />
+      {(result.table_routing.selected_tables?.length ?? 0) > 0 && (
+        <button
+          type="button"
+          className="btn btn-sm btn-sample"
+          onClick={() => {
+            const firstSel = result.table_routing?.selected_tables?.[0]
+            if (firstSel) {
+              onSampleData(firstSel)
+            }
+          }}
+        >
+          {t('ai_query.sample_preview_btn')}
+        </button>
+      )}
+    </Collapsible>
   )
 }
 

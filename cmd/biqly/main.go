@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"flag"
 	"log/slog"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"github.com/biqly/biqly/internal/ai/enrichcontext"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/semantic"
+	"github.com/bytedance/sonic"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -77,10 +77,13 @@ func runEnrichContext(args []string) {
 		os.Exit(1)
 	}
 
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(result); err != nil {
+	out, err := sonic.ConfigStd.MarshalIndent(result, "", "  ")
+	if err != nil {
 		slog.Error("encode result", "error", err)
+		os.Exit(1)
+	}
+	if _, err := os.Stdout.Write(append(out, '\n')); err != nil {
+		slog.Error("write result", "error", err)
 		os.Exit(1)
 	}
 

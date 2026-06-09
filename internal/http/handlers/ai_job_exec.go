@@ -97,6 +97,7 @@ func (h *AIHandler) executeAIQueryPhase(
 	if err != nil {
 		return nil, err
 	}
+	attachGenerationTrace(routeResult, model, resp)
 
 	switch phase {
 	case aiPhaseGenerate:

@@ -93,6 +93,7 @@ export function normalizeAIQueryResponse(raw: unknown): AIQueryResponse | null {
     flat.candidates = metadata.candidates as AIQueryResponse['candidates']
     flat.candidates_count =
       typeof metadata.candidates_count === 'number' ? metadata.candidates_count : undefined
+    flat.generation_trace = metadata.generation_trace as AIQueryResponse['generation_trace']
   }
 
   return flat

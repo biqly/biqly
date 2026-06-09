@@ -19,11 +19,7 @@ export default function Glossary() {
   const t = useT()
   const confirm = useConfirm()
   const { get, postData, putData, deleteData, loading } = useApi()
-  const {
-    postData: adminPost,
-    loading: enrichLoading,
-    configured: adminConfigured,
-  } = useAdminApi()
+  const { postData: adminPost, loading: enrichLoading, configured: adminConfigured } = useAdminApi()
 
   const [terms, setTerms] = useState<BusinessGlossaryTerm[]>([])
   const [initLoading, setInitLoading] = useState(true)

@@ -239,6 +239,8 @@ export interface AIQueryResponse {
   // Performance
   latency_ms?: number
   cost_usd?: number
+  // Transparency (how the system interpreted the question)
+  generation_trace?: GenerationTrace
 }
 
 export interface ConversationMessage {
@@ -433,6 +435,20 @@ export interface Clarification {
       }[]
     }[]
   }
+}
+
+export interface ColumnResolution {
+  term: string
+  resolved: string
+  source?: string
+}
+
+export interface GenerationTrace {
+  routed_table?: string
+  route_confidence?: number
+  columns_resolved?: ColumnResolution[]
+  ambiguity_result?: string
+  ambiguity_detail?: string
 }
 
 export type QueryColumnSemanticType = 'dimension' | 'metric'

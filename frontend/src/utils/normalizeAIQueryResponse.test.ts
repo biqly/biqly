@@ -51,4 +51,24 @@ describe('normalizeAIQueryResponse', () => {
     expect(flat?.clarification_question).toBe('Which table?')
     expect(flat?.clarification_options).toEqual(['orders', 'customers'])
   })
+
+  it('unwraps generation_trace from metadata', () => {
+    const nested = {
+      result: {
+        sql: 'SELECT 1',
+        confidence: 0.8,
+      },
+      metadata: {
+        generation_trace: {
+          routed_table: 'orders',
+          route_confidence: 0.91,
+          ambiguity_result: 'passed',
+          columns_resolved: [{ term: 'revenue', resolved: 'sum(orders.total_amount)' }],
+        },
+      },
+    }
+    const flat = normalizeAIQueryResponse(nested)
+    expect(flat?.generation_trace?.routed_table).toBe('orders')
+    expect(flat?.generation_trace?.columns_resolved?.[0]?.resolved).toBe('sum(orders.total_amount)')
+  })
 })

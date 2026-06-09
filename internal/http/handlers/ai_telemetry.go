@@ -115,8 +115,24 @@ func (h *AIHandler) observeAIRequest(
 	}
 	slog.InfoContext(ctx, "ai query completed", logArgs...)
 
+	attachGenerationTrace(routeResult, model, resp)
+
 	h.recordAIHistory(ctx, req, model, routeResult, resp)
 	return resp
+}
+
+func attachGenerationTrace(routeResult *routing.TableRoutingResult, model *semantic.SemanticModel, resp *ai.Response) {
+	if resp == nil {
+		return
+	}
+	trace := ai.BuildGenerationTrace(routeResult, model, resp)
+	if trace == nil {
+		return
+	}
+	if resp.Metadata == nil {
+		resp.Metadata = &ai.AIMetadata{}
+	}
+	resp.Metadata.GenerationTrace = trace
 }
 
 func enrichAIHistoryEntry(entry *metadata.AIQueryHistoryEntry, resp *ai.Response) {

@@ -130,7 +130,7 @@ deterministic (synonym/homonym) çözülebilir — her seferinde LLM çağrısı
 
 **Neden:** Belirsizlik tespit edildiğinde kullanıcı neden sorulduğunu anlamıyor. Trace = şeffaflık + güven.
 
-- [ ] `ai.Response.Metadata`'ya `GenerationTrace` alanı ekle:
+- [x] `ai.Response.Metadata`'ya `GenerationTrace` alanı ekle:
   ```go
   type GenerationTrace struct {
       RoutedTable    string  `json:"routed_table"`
@@ -140,9 +140,9 @@ deterministic (synonym/homonym) çözülebilir — her seferinde LLM çağrısı
       AmbiguityDetail string  `json:"ambiguity_detail,omitempty"`
   }
   ```
-- [ ] Routing, ambiguity check, ve column resolution adımlarında trace topla.
-- [ ] Frontend: AI response'da trace bilgisi varsa expandable "Nasıl Anlaşıldı?" bölümü göster.
-- [ ] **Kabul:** Kullanıcı belirsizlik kartında "Sistem 'revenue' → total_revenue olarak anladı" gibi bilgi görebiliyor.
+- [x] Routing, ambiguity check, ve column resolution adımlarında trace topla (`internal/ai/trace.go` + `observeAIRequest`).
+- [x] Frontend: AI response'da trace bilgisi varsa expandable "Nasıl Anlaşıldı?" bölümü göster (`GenerationTracePanel`).
+- [x] **Kabul:** Kullanıcı belirsizlik kartında "Sistem 'revenue' → total_revenue olarak anladı" gibi bilgi görebiliyor.
 
 ### P7 — Ambiguity Eval Regression Golden Cases [LOW]
 

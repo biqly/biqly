@@ -61,7 +61,12 @@ export function GlossaryEnrichPanel({
           <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>
             {t('glossary.enrich_context_close')}
           </button>
-          <button type="button" className="btn btn-sm btn-secondary" disabled={loading} onClick={onRerun}>
+          <button
+            type="button"
+            className="btn btn-sm btn-secondary"
+            disabled={loading}
+            onClick={onRerun}
+          >
             {t('glossary.enrich_context_run')}
           </button>
           <button

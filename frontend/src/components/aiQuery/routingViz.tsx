@@ -7,6 +7,7 @@ import type {
   AIQueryResponse,
   Clarification,
   EmbedMetadataResponse,
+  GenerationTrace,
   LogicalQuery,
   LogicalQueryCandidate,
   PromptStats,
@@ -14,6 +15,7 @@ import type {
   TokenUsage,
 } from '../../types/ai'
 import { localeNumberTag } from '../../utils/formatters'
+import { GenerationTracePanel } from './generationTrace'
 
 type TFn = ReturnType<typeof useT>
 
@@ -370,12 +372,14 @@ export function ClarificationCard({
   question,
   options,
   clarification,
+  generationTrace,
   onSelect,
   onSkip,
 }: {
   question: string
   options: string[]
   clarification?: Clarification
+  generationTrace?: GenerationTrace
   onSelect: (choice: string) => void
   onSkip: () => void
 }) {
@@ -427,6 +431,7 @@ export function ClarificationCard({
       <button type="button" className="btn btn-skip" onClick={onSkip}>
         {t('ai_query.clarification_skip')}
       </button>
+      {generationTrace ? <GenerationTracePanel trace={generationTrace} /> : null}
     </div>
   )
 }
