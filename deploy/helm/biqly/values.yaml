@@ -195,10 +195,17 @@ global:
       vectorConfig:
         enabled: true
     tracing:
-      # App-side OTLP export (biqly-config + biqly.otelEnv). Independent of in-cluster collector.
+      # App-side OTLP export (biqly-config + biqly.otelEnv).
       enabled: true
       serviceName: biqly
+      # Remote backend. With useInClusterCollector the apps DO NOT export here
+      # directly — the in-cluster collector forwards to it with the bearer token.
       otlpEndpoint: http://biqly-otel-collector:4318
+      # Apps export to the in-cluster collector (gateway) over a fast in-cluster
+      # hop, so the remote (Cloudflare) round-trip never touches the request
+      # path. The collector absorbs remote latency with its queue + retry.
+      useInClusterCollector: true
+      collectorEndpoint: http://biqly-otel-infra-collector:4318
       sampler: parentbased_traceidratio
       samplerArg: "0.25"
       otlpHeadersSecret:

@@ -23,6 +23,13 @@ spec:
               protocol: TCP
             - port: {{ .Values.global.networkPolicy.metadata.ports.redis | quote }}
               protocol: TCP
+            {{- if .Values.global.observability.tracing.useInClusterCollector }}
+            # OTLP export to the in-cluster collector gateway (gRPC + HTTP).
+            - port: "4317"
+              protocol: TCP
+            - port: "4318"
+              protocol: TCP
+            {{- end }}
     # JWT public-key fetches and permission checks against the auth service.
     # Without this, BI_AUTH_ENABLED=true leaves catalog/query unable to verify
     # tokens (every /api request answers 503 "auth key unavailable").

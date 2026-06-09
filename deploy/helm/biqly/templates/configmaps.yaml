@@ -16,10 +16,15 @@ data:
   {{ $key }}: {{ $value | quote }}
   {{- end }}
   {{- if .Values.global.observability.tracing.enabled }}
-  OTEL_SERVICE_NAME: {{ .Values.global.observability.tracing.serviceName | default "biqly" | quote }}
-  OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.global.observability.tracing.otlpEndpoint | default "http://biqly-otel-collector:4318" | quote }}
-  OTEL_TRACES_SAMPLER: {{ .Values.global.observability.tracing.sampler | default "parentbased_traceidratio" | quote }}
-  OTEL_TRACES_SAMPLER_ARG: {{ .Values.global.observability.tracing.samplerArg | default "0.25" | quote }}
+  {{- $tracing := .Values.global.observability.tracing }}
+  OTEL_SERVICE_NAME: {{ $tracing.serviceName | default "biqly" | quote }}
+  {{- if $tracing.useInClusterCollector }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ $tracing.collectorEndpoint | required "tracing.collectorEndpoint is required when useInClusterCollector is true" | quote }}
+  {{- else }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ $tracing.otlpEndpoint | default "http://biqly-otel-collector:4318" | quote }}
+  {{- end }}
+  OTEL_TRACES_SAMPLER: {{ $tracing.sampler | default "parentbased_traceidratio" | quote }}
+  OTEL_TRACES_SAMPLER_ARG: {{ $tracing.samplerArg | default "0.25" | quote }}
   {{- end }}
 {{/*
   The former "{{ .Values.global.secretNames.aiConfig }}-provider" ConfigMap held

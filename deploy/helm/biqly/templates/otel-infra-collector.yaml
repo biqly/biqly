@@ -4,10 +4,14 @@
 {{- $endpoint := $it.otlpEndpoint | default $tracing.otlpEndpoint -}}
 {{- $secretName := $it.otlpHeadersSecret.name | default $tracing.otlpHeadersSecret.name -}}
 {{- $secretKey := $it.otlpHeadersSecret.key | default $tracing.otlpHeadersSecret.key -}}
+{{- /* Gateway role: receive OTLP from the apps and forward to the remote backend
+       so the slow internet round-trip never touches the request path. */ -}}
+{{- $gateway := $tracing.useInClusterCollector -}}
 {{- $recv := list -}}
 {{- if $it.postgresql.enabled }}{{- $recv = append $recv "postgresql" -}}{{- end }}
 {{- if or $it.dragonfly.enabled $it.nats.enabled }}{{- $recv = append $recv "prometheus" -}}{{- end }}
-{{- if not $recv }}{{- fail "global.observability.infraTelemetry.enabled is true but every source is disabled" }}{{- end }}
+{{- if and (not $recv) (not $gateway) }}{{- fail "global.observability.infraTelemetry.enabled is true but every source is disabled and the gateway is off" }}{{- end }}
+{{- if $gateway }}{{- $recv = append $recv "otlp" -}}{{- end }}
 {{- if not $endpoint }}{{- fail "infraTelemetry needs an OTLP endpoint (set infraTelemetry.otlpEndpoint or observability.tracing.otlpEndpoint)" }}{{- end }}
 {{- if not $secretName }}{{- fail "infraTelemetry needs the OTLP headers secret (set infraTelemetry.otlpHeadersSecret or observability.tracing.otlpHeadersSecret)" }}{{- end }}
 apiVersion: v1
@@ -28,6 +32,14 @@ data:
         scheme: Bearer
         filename: /etc/otel/auth/token
     receivers:
+      {{- if $gateway }}
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      {{- end }}
       {{- if $it.postgresql.enabled }}
       postgresql:
         endpoint: {{ printf "%s:%v" $it.postgresql.service $it.postgresql.port | quote }}
@@ -72,9 +84,25 @@ data:
         endpoint: {{ $endpoint | quote }}
         auth:
           authenticator: bearertokenauth
+        # The queue + retry absorb remote (Cloudflare) slowness here, in a
+        # separate pod, so the app exporters never block on the internet link.
+        sending_queue:
+          enabled: true
+          queue_size: 10000
+        retry_on_failure:
+          enabled: true
+          initial_interval: 5s
+          max_interval: 30s
+          max_elapsed_time: 300s
     service:
       extensions: [health_check, bearertokenauth]
       pipelines:
+        {{- if $gateway }}
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [otlphttp]
+        {{- end }}
         metrics:
           receivers: [{{ join ", " $recv }}]
           processors: [memory_limiter, resource, batch]
@@ -158,6 +186,12 @@ spec:
           ports:
             - name: health
               containerPort: 13133
+            {{- if $gateway }}
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /
@@ -198,4 +232,25 @@ spec:
             secretName: {{ $secretName | quote }}
         - name: auth
           emptyDir: {}
+{{- if $gateway }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: biqly-otel-infra-collector
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-infra-collector
+spec:
+  selector:
+    app.kubernetes.io/name: biqly-otel-infra-collector
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+{{- end }}
 {{- end }}

@@ -38,7 +38,11 @@ global:
     tracing:
       enabled: true
       serviceName: biqly
-      otlpEndpoint: https://otel.il1.nl
+      # Collector upstream. Direct to kibrit's OTLP receiver over Tailscale
+      # (token-gated, encrypted by Tailscale) instead of the Cloudflare path
+      # (https://otel.il1.nl), removing the public round-trip. Apps still export
+      # to the in-cluster collector; only the collector forwards here.
+      otlpEndpoint: http://100.84.49.60:4318
       # Parent-based ratio keeps trace volume (and the export load it adds to the
       # single-node cluster) bounded while still capturing connected cross-service
       # traces. Raise temporarily to always_on only for focused investigation.
