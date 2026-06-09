@@ -42,7 +42,7 @@ global:
       # Parent-based ratio keeps trace volume (and the export load it adds to the
       # single-node cluster) bounded while still capturing connected cross-service
       # traces. Raise temporarily to always_on only for focused investigation.
-      sampler: parentbased_traceidratio
+      sampler: always_on
       samplerArg: "0.1"
       otlpHeadersSecret:
         name: biqly-otel-secrets
