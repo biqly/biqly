@@ -242,6 +242,33 @@ func TestProcessQuestionReturnsAmbiguityClarificationBeforeLLM(t *testing.T) {
 	}
 }
 
+// When a clarification choice has been resolved upstream, the handler omits
+// WithAmbiguityCheck so the same (now ambiguous-looking) model does NOT trigger
+// another clarification — it proceeds straight to the LLM. This is the core
+// guard that breaks the repeated-clarification loop.
+func TestProcessQuestionSkipsAmbiguityWhenCheckDisabled(t *testing.T) {
+	client := &countingProvider{}
+	svc := NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), client)
+	model := &semantic.SemanticModel{
+		Metrics: []semantic.Metric{
+			{Name: "gross_revenue", Aggregation: "sum", Expression: "amount", Synonyms: []string{"ciro"}},
+			{Name: "net_revenue", Aggregation: "sum", Expression: "amount", Synonyms: []string{"ciro"}},
+		},
+	}
+
+	resp, err := svc.ProcessQuestion(context.Background(), "Ciro göster", model)
+	resp = requireProcessQuestionResponse(t, resp, err)
+	if resp.Clarification != nil {
+		t.Fatalf("ProcessQuestion() clarification = %+v, want nil when ambiguity check disabled", resp.Clarification)
+	}
+	if got := client.calls.Load(); got != 1 {
+		t.Errorf("ProcessQuestion() provider calls = %d, want 1", got)
+	}
+	if resp.Result == nil || resp.Result.LogicalQuery == nil {
+		t.Fatalf("ProcessQuestion() expected LogicalQuery, got %+v", resp.Result)
+	}
+}
+
 func TestProcessQuestionReturnsLLMAmbiguityClarificationWhenRuleBasedClean(t *testing.T) {
 	client := &scriptedProvider{
 		replies: []string{`{

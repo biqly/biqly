@@ -119,6 +119,11 @@ type aiQueryRequest struct {
 	// IncludePastQueries when true, attaches recent conversation turns as
 	// few-shot examples (frontend-side toggle).
 	IncludePastQueries bool `json:"include_past_queries,omitempty"`
+	// clarificationResolved is set server-side when a ClarificationChoice was
+	// applied this turn (the question was rewritten). It is not part of the wire
+	// format and signals the pipeline to skip the pre-LLM ambiguity re-check so
+	// a resolved clarification does not trigger another clarification loop.
+	clarificationResolved bool
 }
 
 // priorTurnPayload is the wire shape for one entry in aiQueryRequest.PriorTurns.
@@ -214,6 +219,7 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 			writeError(w, http.StatusBadRequest, err.Error())
 			return *req, nil, nil, false
 		}
+		req.clarificationResolved = true
 	}
 	return *req, model, routeResult, true
 }
@@ -227,7 +233,7 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, req aiQueryReque
 		ai.WithGlossary(prompt.SelectGlossaryForQuestion(req.Question, prompt.MergeGlossaryEntries(catalog, external), model)),
 		ai.WithAmbiguityGlossary(combineGlossaryEntries(catalog, external)),
 	}
-	if h.deps.Config.AI.Ambiguity.CheckEnabled {
+	if h.deps.Config.AI.Ambiguity.CheckEnabled && !req.clarificationResolved {
 		opts = append(opts,
 			ai.WithAmbiguityCheck(true),
 			ai.WithAmbiguityConfidenceThreshold(h.deps.Config.AI.Ambiguity.ConfidenceThreshold),

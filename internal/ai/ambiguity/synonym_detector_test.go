@@ -95,3 +95,43 @@ func TestDetectSynonyms_FuzzyQuestionMatch(t *testing.T) {
 		},
 	})
 }
+
+func genericTokenModel() *semantic.SemanticModel {
+	return &semantic.SemanticModel{
+		Dimensions: []semantic.Dimension{
+			{Name: "created_month", Synonyms: []string{"ay"}},
+			{Name: "created_day", Synonyms: []string{"day", "days"}},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "deleted_month", Synonyms: []string{"ay"}},
+			{Name: "fetched_day", Synonyms: []string{"day", "days"}},
+		},
+	}
+}
+
+// Short, generic synonym tokens that only appear as substrings of unrelated
+// words (e.g. "ay" inside "kayıt", "day" inside "today") must not be flagged as
+// ambiguous — that was the source of the repeated low-value clarification loop.
+func TestDetectSynonyms_GenericSubstringTokensNotFlagged(t *testing.T) {
+	assertDetectSynonyms(t, genericTokenModel(), "geçen hafta toplam kaç adet tweet atılmıştır", nil)
+	assertDetectSynonyms(t, genericTokenModel(), "kayıt sayısı today göster", nil)
+}
+
+func multiWordSynonymModel() *semantic.SemanticModel {
+	return &semantic.SemanticModel{
+		Dimensions: []semantic.Dimension{
+			{Name: "order_date", Synonyms: []string{"sipariş tarihi"}},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "order_count", Synonyms: []string{"sipariş tarihi"}},
+		},
+	}
+}
+
+// Multi-word synonyms remain matchable as a contiguous phrase.
+func TestDetectSynonyms_MultiWordPhraseMatches(t *testing.T) {
+	got := DetectSynonyms(i18n.LocaleEN, "sipariş tarihi nedir", multiWordSynonymModel())
+	if len(got) != 1 || got[0].Term != "sipariş tarihi" {
+		t.Fatalf("expected one ambiguity for multi-word phrase, got %#v", got)
+	}
+}

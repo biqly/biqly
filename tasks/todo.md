@@ -1,5 +1,73 @@
 # Todo list
 
+## AI Sorgu — Netleştirme (Clarification) Akışı Düzeltmeleri (2026-06-09)
+
+İki hata: (1) UI/UX — netleştirme kartı scroll'da ortada kalıyor; (2) Logic —
+seçim yapılmasına rağmen sistem tekrar tekrar netleştirme soruyor (sonsuz döngü).
+
+**Kök neden (Bug 2):** Netleştirme cevabı `handlers/ai.go` içinde soruyu yeniden
+yazıp choice'i temizledikten sonra, `standardProcessOptions` koşulsuz olarak
+`WithAmbiguityCheck(true)` ekliyor; `ProcessQuestion → checkAmbiguity`
+yeniden-yazılmış soruda YENİ bir belirsizlik (genelde synonym detector'ın
+"ay/day/days" gibi jenerik token'ları) buluyor ve tekrar soruyor. Frontend her
+turda orijinal soruyu + tek choice gönderdiği için önceki çözümler taşınmıyor →
+≥2 belirsizlikte asla yakınsamıyor.
+
+**Kök neden (Bug 1):** `ChatPanel` scroll efekti her mesajda feed'i `scrollHeight`'a
+(en alta) kaydırıyor; uzun netleştirme kartında soru görünür alanın dışında kalıyor.
+
+### Yapılacaklar
+
+- [x] **Backend: Netleştirme turunda ambiguity check'i atla (Bug 2 ana fix).**
+  `aiQueryRequest`'e unexported `clarificationResolved bool` eklendi;
+  `parseAndRouteAIQuery` choice çözüldüğünde `true` set ediyor;
+  `standardProcessOptions` artık `WithAmbiguityCheck(true)`'u
+  `&& !req.clarificationResolved` ile koşullu ekliyor. Çözülen turda LLM
+  üretimine doğrudan gidiliyor → döngü deterministik kırıldı.
+  - **Files**: `internal/http/handlers/ai.go`.
+- [x] **Backend: Synonym detector precision (gürültü azaltma).**
+  `synonymMatchConfidence` yeniden yazıldı: tek-token synonym'ler tam token
+  eşleşmesi gerektiriyor (substring değil); `minExactSynonymTokenRunes=2`,
+  `minFuzzySynonymTokenRunes=4` gate'leri eklendi; çok-kelimeli ifadeler
+  bitişik `strings.Contains` ile eşleşmeye devam ediyor. "ay/day/days" gibi
+  jenerik token'lar artık alakasız kelimeler içinde işaretlenmiyor.
+  - **Files**: `internal/ai/ambiguity/synonym_detector.go`.
+- [x] **Frontend: Netleştirme kartını üstten görünür kıl (Bug 1).**
+  `ChatPanel` scroll `useEffect` netleştirme-bilinçli: son asistan mesajı
+  `ai_response?.needs_clarification` ise o kart feed üstüne hizalanıyor
+  (`data-message-index` + `getBoundingClientRect`); diğer hallerde mevcut
+  en-alta kaydırma korunuyor.
+  - **Files**: `frontend/src/components/aiQuery/ChatPanel.tsx`.
+- [x] **Testler.** Backend: `service_test.go` →
+  `TestProcessQuestionSkipsAmbiguityWhenCheckDisabled` (choice çözülünce tekrar
+  sormaz, LLM bir kez çağrılır); `synonym_detector_test.go` →
+  `TestDetectSynonyms_GenericSubstringTokensNotFlagged`,
+  `TestDetectSynonyms_MultiWordPhraseMatches`. Frontend lint/test/build temiz.
+  - **Files**: `internal/ai/service_test.go`,
+    `internal/ai/ambiguity/synonym_detector_test.go`.
+- [ ] **(Opsiyonel, Faz 2) Çok terimli belirsizlik.** Tüm gerçek belirsizlikleri
+  tek turda sun veya çözümleri turlar arası biriktir; atlamak yerine tam
+  disambiguasyon ile yakınsa. (Ertelendi.)
+
+**Kabul kriterleri:** Bir netleştirme seçimi sonrası sistem tekrar netleştirme
+sormaz, sonucu üretir; netleştirme kartının sorusu otomatik görünür olur;
+`make lint-go`, `make test-go`, `make lint-frontend`, `make test-frontend` temiz.
+
+### Review (2026-06-09)
+
+**Sonuç:** Zorunlu işlerin tümü tamamlandı; tüm kapılar temiz geçti.
+
+- **Bug 2 (sonsuz döngü) çözüldü** — `clarificationResolved` bayrağı çözülen turda
+  pre-LLM ambiguity kontrolünü atlatıyor. Synonym detector sıkılaştırması ilk
+  netleştirmenin gürültüsünü azaltıyor (jenerik kısa token'lar artık tetiklemiyor).
+- **Bug 1 (scroll) çözüldü** — netleştirme kartı feed üstüne hizalanıyor, soru
+  görünür kalıyor.
+- **Doğrulama kapıları:** `make lint-go` (0 sorun) · `go test -race`
+  (`internal/ai/...`, `internal/http/handlers/`) PASS · `npm run lint` (0 uyarı) ·
+  Prettier `format:check` temiz · `npm run build` (tsc+vite) PASS · `npm run test`
+  (vitest, 98 test) PASS · `make eval-regression` PASS · `deadcode` temiz.
+- **Commit yapılmadı** (kullanıcı onayı bekleniyor).
+
 ## Technical Architecture Analysis — Remaining Actions (2026-06-08)
 
 The open items from §10 Conclusion and Roadmap in `tasks/biqly_analiz.pdf` (Version 3.0) have been verified against the codebase and updated. ESLint zero-warnings has already been achieved; the following items are still open.

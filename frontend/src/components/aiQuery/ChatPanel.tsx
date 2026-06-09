@@ -35,16 +35,33 @@ export function ChatPanel({
   const prevMsgCountRef = useRef<number>(0)
 
   useEffect(() => {
+    const feed = chatFeedRef.current
     const currentId = activeConversation?.id
-    const currentCount = activeConversation?.messages.length ?? 0
+    const messages = activeConversation?.messages ?? []
+    const currentCount = messages.length
 
-    if (chatFeedRef.current) {
+    if (feed) {
       const isSameConv = prevConvIdRef.current === currentId
-      const behavior = isSameConv && currentCount > prevMsgCountRef.current ? 'smooth' : 'auto'
-      chatFeedRef.current.scrollTo({
-        top: chatFeedRef.current.scrollHeight,
-        behavior,
-      })
+      const behavior: ScrollBehavior =
+        isSameConv && currentCount > prevMsgCountRef.current ? 'smooth' : 'auto'
+
+      const lastMessage = messages[currentCount - 1]
+      const lastNeedsClarification =
+        lastMessage?.role === 'assistant' && Boolean(lastMessage.ai_response?.needs_clarification)
+      const target = lastNeedsClarification
+        ? feed.querySelector<HTMLElement>(`[data-message-index="${currentCount - 1}"]`)
+        : null
+
+      if (target) {
+        const feedRect = feed.getBoundingClientRect()
+        const targetRect = target.getBoundingClientRect()
+        feed.scrollTo({
+          top: feed.scrollTop + (targetRect.top - feedRect.top) - 8,
+          behavior,
+        })
+      } else {
+        feed.scrollTo({ top: feed.scrollHeight, behavior })
+      }
     }
 
     prevConvIdRef.current = currentId
@@ -80,7 +97,11 @@ export function ChatPanel({
               } else {
                 const userQuestion = index > 0 ? (conv.messages[index - 1]?.content ?? '') : ''
                 return (
-                  <div key={index} className="chat-bubble assistant-bubble">
+                  <div
+                    key={index}
+                    className="chat-bubble assistant-bubble"
+                    data-message-index={index}
+                  >
                     <AssistantMessageCard
                       message={message}
                       messageIndex={index}

@@ -72,26 +72,51 @@ func addSynonymTargets(locale i18n.Locale, bySynonym map[string][]synonymTarget,
 	}
 }
 
+// Synonym token length thresholds. Single-character synonym tokens are too
+// generic to anchor a clarification, and fuzzy (single edit) matching is only
+// trustworthy on reasonably long tokens — otherwise short, generic time-grain
+// words ("ay", "day", "days") produce low-value clarifications.
+const (
+	minExactSynonymTokenRunes = 2
+	minFuzzySynonymTokenRunes = 4
+)
+
 func synonymMatchConfidence(question string, questionTokens map[string]struct{}, synonym string) float64 {
 	if synonym == "" {
 		return 0
 	}
-	if strings.Contains(question, synonym) {
-		return 1
-	}
 
 	synonymTokens := routing.TokenSet(synonym)
-	if len(synonymTokens) != 1 {
+	if len(synonymTokens) == 0 {
 		return 0
 	}
+
+	// Multi-word synonyms are specific enough to match as a contiguous phrase.
+	if len(synonymTokens) > 1 {
+		if strings.Contains(question, synonym) {
+			return 1
+		}
+		return 0
+	}
+
+	// Single-token synonyms must align with a whole question token. Substring
+	// matching (e.g. "ay" inside "kayıt") spuriously flags generic tokens and
+	// drives repeated low-value clarifications.
 	var synonymToken string
 	for synonymToken = range synonymTokens {
 	}
 	synonymRunes := utf8.RuneCountInString(synonymToken)
-	if synonymRunes < 4 {
+	if synonymRunes < minExactSynonymTokenRunes {
 		return 0
 	}
+	if _, ok := questionTokens[synonymToken]; ok {
+		return 1
+	}
 
+	// Fuzzy single-edit match tolerates typos, but only on longer tokens.
+	if synonymRunes < minFuzzySynonymTokenRunes {
+		return 0
+	}
 	var best float64
 	for questionToken := range questionTokens {
 		distance := levenshteinDistance(questionToken, synonymToken)
