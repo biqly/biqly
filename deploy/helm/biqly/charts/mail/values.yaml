@@ -82,3 +82,11 @@ networkPolicy:
       enabled: true
       ports:
         - 587
+    otel:
+      enabled: true
+      # 4317/4318 reach the in-cluster collector gateway; 443 keeps the direct
+      # remote path working when useInClusterCollector is off.
+      ports:
+        - 443
+        - 4317
+        - 4318
