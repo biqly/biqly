@@ -1,10 +1,74 @@
 package handlers
 
 import (
+	"context"
+	"database/sql/driver"
 	"testing"
+	"time"
 
+	"github.com/biqly/biqly/internal/ai/routing"
+	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/config"
+	"github.com/biqly/biqly/internal/metadata"
 )
+
+type tierMetricsStub struct {
+	tiers []string
+}
+
+func (*tierMetricsStub) RecordAIRequest(int64, bool, int, bool) {}
+func (*tierMetricsStub) RecordLLMRequest(int64, int, int64)     {}
+func (*tierMetricsStub) RecordAmbiguityAnalysis(int64, string, bool) {
+}
+func (m *tierMetricsStub) RecordAmbiguityTier(tier string)  { m.tiers = append(m.tiers, tier) }
+func (*tierMetricsStub) RecordAmbiguityClarified()          {}
+func (*tierMetricsStub) RecordAmbiguityRoundCapReached()    {}
+func (*tierMetricsStub) RecordAIRepair(bool, int, []string) {}
+func (*tierMetricsStub) RecordMemoryStoreConfirmed()        {}
+func (*tierMetricsStub) RecordMemoryStoreRecall(int)        {}
+func (*tierMetricsStub) RecordMemoryRecallFeedback(bool, string) {
+}
+func (*tierMetricsStub) RecordEnrichContextGaps(int)    {}
+func (*tierMetricsStub) RecordEnrichContextApplied(int) {}
+
+func TestTierZeroClarificationIfNeeded(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := metadata.NewRepository(db)
+	metrics := &tierMetricsStub{}
+	h := &AIHandler{
+		deps:    (&app.Dependencies{MetaRepo: repo}).AIDeps(),
+		metrics: metrics,
+	}
+	ctx := context.Background()
+	req := aiQueryRequest{DatasourceID: "ds-1", Question: "sales?"}
+	route := &routing.TableRoutingResult{NeedsClarification: true, Candidates: []routing.TableCandidate{{Table: "orders"}}}
+
+	state.queries = []queryMock{
+		{
+			Pattern: "INSERT INTO ai_query_history",
+			Cols:    []string{"id", "created_at"},
+			Rows:    [][]driver.Value{{"aqh-1", time.Now()}},
+		},
+	}
+
+	resp, ok := h.tierZeroClarificationIfNeeded(ctx, req, nil, route)
+	if !ok || resp == nil {
+		t.Fatal("expected tier-0 clarification response")
+	}
+	if resp.Clarification == nil || !resp.Clarification.NeedsClarification {
+		t.Fatal("expected NeedsClarification on response")
+	}
+	if len(metrics.tiers) != 1 || metrics.tiers[0] != "0" {
+		t.Fatalf("tiers = %v, want [0]", metrics.tiers)
+	}
+
+	if resp, ok := h.tierZeroClarificationIfNeeded(ctx, req, nil, nil); ok || resp != nil {
+		t.Fatalf("nil route: resp=%v ok=%v, want nil/false", resp, ok)
+	}
+	if resp, ok := h.tierZeroClarificationIfNeeded(ctx, req, nil, &routing.TableRoutingResult{}); ok || resp != nil {
+		t.Fatalf("no clarification route: resp=%v ok=%v, want nil/false", resp, ok)
+	}
+}
 
 func TestShouldUseLLMAmbiguityTier(t *testing.T) {
 	tiered := config.AmbiguityConfig{

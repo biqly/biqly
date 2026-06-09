@@ -93,22 +93,33 @@ type adminAmbiguityConfig struct {
 	MaxLLMTierPerQuestion int  `json:"max_llm_tier_per_question"`
 	// DBOverride reports whether the values come from the database rather
 	// than the environment defaults.
-	DBOverride bool `json:"db_override"`
+	DBOverride bool   `json:"db_override"`
+	Source     string `json:"source"` // "environment" | "database"
 }
 
 type adminRuntimeConfigResponse struct {
 	Ambiguity adminAmbiguityConfig `json:"ambiguity"`
 }
 
-func (h *AIHandler) adminRuntimeConfigResponse(ctx context.Context) adminRuntimeConfigResponse {
+func (h *AIHandler) effectiveAmbiguitySettings(ctx context.Context) adminAmbiguityConfig {
 	ov := h.loadAmbiguityOverrides(ctx)
 	eff := h.effectiveAmbiguityConfig(ctx)
+	dbOverride := ov.TieredEnabled != nil || ov.MaxLLMTierPerQuestion != nil
+	source := "environment"
+	if dbOverride {
+		source = "database"
+	}
+	return adminAmbiguityConfig{
+		TieredEnabled:         eff.TieredEnabled,
+		MaxLLMTierPerQuestion: eff.MaxLLMTierPerQuestion,
+		DBOverride:            dbOverride,
+		Source:                source,
+	}
+}
+
+func (h *AIHandler) adminRuntimeConfigResponse(ctx context.Context) adminRuntimeConfigResponse {
 	return adminRuntimeConfigResponse{
-		Ambiguity: adminAmbiguityConfig{
-			TieredEnabled:         eff.TieredEnabled,
-			MaxLLMTierPerQuestion: eff.MaxLLMTierPerQuestion,
-			DBOverride:            ov.TieredEnabled != nil || ov.MaxLLMTierPerQuestion != nil,
-		},
+		Ambiguity: h.effectiveAmbiguitySettings(ctx),
 	}
 }
 

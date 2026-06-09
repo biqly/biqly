@@ -203,4 +203,11 @@ type SettingsResponse struct {
 	EffectiveMaxPromptRunes int    `json:"effective_max_prompt_runes,omitempty"`
 	ContextWindowTokens     int    `json:"context_window_tokens,omitempty"`
 	ContextWindowSource     string `json:"context_window_source,omitempty"`
+
+	Ambiguity struct {
+		TieredEnabled         bool   `json:"tiered_enabled"`
+		MaxLLMTierPerQuestion int    `json:"max_llm_tier_per_question"`
+		DBOverride            bool   `json:"db_override"`
+		Source                string `json:"source"`
+	} `json:"ambiguity"`
 }

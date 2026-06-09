@@ -176,7 +176,7 @@ Tüm P0–P7 maddeleri codebase'te uygulandı. Aşağıdaki denetim bulguları v
 | P1 Hard Cap | ✅ Tamamlandı | `maxClarificationRounds=2`, `ShouldCheckAmbiguity` round kontrolü, `AmbiguityCapReached`, frontend `clarification_round` alanı (types + AIQuery.tsx) |
 | P2 Glossary AIContext | ✅ Tamamlandı | `pkg/metadata/types.go:GlossaryAIContext{Synonyms,Unit,NullMeaning,BusinessRules}`, migration `043a`, synonym detector entegrasyonu, frontend Glossary.tsx admin form |
 | P3 NL-SQL Memory Store | ✅ Tamamlandı | `ai_confirmed_queries` tablosu (migration `044a`), `metadata/ai_confirmed_queries.go`, `ai/memory/recall.go`, feedback → store, few-shot recall entegrasyonu |
-| P4 Enrich-Context | ✅ Tamamlandı | `ai/enrichcontext/` (service, gaps, suggest, apply, types), `ai_enrich_context.go` handler, `/api/admin/ai/enrich-context` + `/apply` endpoint'leri |
+| P4 Enrich-Context | ✅ Tamamlandı | `ai/enrichcontext/` (service, gaps, suggest, apply, types), `ai_enrich_context.go` handler, admin-key grubunda `POST /api/ai/enrich-context` + `POST /api/ai/enrich-context/apply` (`ai_router.go`) |
 | P5 Tiered Detection | ✅ Tamamlandı | `AmbiguityConfig.TieredEnabled` + `MaxLLMTierPerQuestion`, `WithAmbiguitySynonymOnly`, `ShouldUseLLMAmbiguityTier`, `biqly_ambiguity_tier` metric |
 | P6 Generation Trace | ✅ Tamamlandı | `ai/trace.go:GenerationTrace`, `BuildGenerationTrace`, frontend `generationTrace.tsx` panel, `routingViz.tsx` entegrasyonu, i18n anahtarları |
 | P7 Eval Golden Cases | ✅ Tamamlandı | `ambiguity_golden.go`, `ambiguity_golden_runner.go`, `testdata/ambiguity_golden.json` (5 case), eval-regression entegrasyonu |
@@ -338,23 +338,26 @@ Plan'daki tüm metric adları (`biqly_ambiguity_round_cap_reached_total`, `biqly
   - [x] Eval: confirmed-query enjekte edilen golden case (recall few-shot'unun üretimi iyileştirdiğini
     assert eden, stub-provider'lı regression case) — `internal/ai/eval/`.
 
-- [ ] **GAP-3 (P0 kalıntısı) — Tier-0 short-circuit bloğu sync/async'te tekrar ediyor.**
+- [x] **GAP-3 (P0 kalıntısı) — Tier-0 short-circuit bloğu sync/async'te tekrar ediyor.**
   `routeResult.NeedsClarification → RecordAmbiguityTier("0") + clarificationResponse + observe` bloğu
   hem `ai.go:184-191` (sync) hem `ai_job_exec.go:~44` (async) içinde kopya — P0'ın "tek yol" hedefinin
   dışında kalmış küçük bir divergence noktası. Ortak helper'a çekilmeli
   (örn. `(h *AIHandler) tierZeroClarification(...)`).
   - **Dosyalar:** `internal/http/handlers/ai.go`, `ai_job_exec.go`.
 
-- [ ] **GAP-4 (doc) — Denetim tablosundaki endpoint path'leri yanlış.** P4 satırı
-  `/api/admin/ai/enrich-context` yazıyor; gerçek path admin-key grubunda `/api/ai/enrich-context`.
-  (P3'teki aynı hata bugün düzeltildi: gerçek path `/api/ai/confirmed-queries`.) Tablo satırı düzeltilmeli;
-  `/api/admin/*` diye bir route ailesi hiç yok — gelecek maddelerde bu kalıba dikkat.
+- [x] **GAP-4 (doc) — Denetim tablosundaki endpoint path'leri yanlış.** P4 satırı
+  `/api/admin/ai/enrich-context` yazıyordu; gerçek path admin-key grubunda `/api/ai/enrich-context`
+  + `/api/ai/enrich-context/apply`. (P3'teki aynı hata daha önce düzeltildi: gerçek path
+  `/api/ai/confirmed-queries`.) Tablo satırı güncellendi; `/api/admin/*` diye bir route ailesi
+  hiç yok — gelecek maddelerde bu kalıba dikkat.
 
-- [ ] **NOT-1 (plan-dışı ekleme, bilinçli) — `ai_runtime_config` DB override katmanı.** P5 admin
+- [x] **NOT-1 (plan-dışı ekleme, bilinçli) — `ai_runtime_config` DB override katmanı.** P5 admin
   toggle'ı için plan dışı eklendi (planda yalnızca env flag vardı). Operasyon etkisi: DB override
-  varken Helm/env değeri değiştirmek etkisizdir (`db_override` admin panelde görünüyor). İsteğe bağlı
-  küçük iyileştirme: `/api/ai/settings` (RuntimeSettings) yanıtına efektif ambiguity değerlerini ve
-  kaynağını eklemek → kullanıcı-görünür ayar sayfalarında da tutarlı görünürlük.
+  varken Helm/env değeri değiştirmek etkisizdir (`db_override` admin panelde görünüyor). İyileştirme:
+  `GET /api/ai/settings` yanıtına efektif ambiguity değerleri + `db_override` + `source`
+  (`environment` | `database`) eklendi — admin config ile aynı wire shape (`effectiveAmbiguitySettings`).
+  **Dosyalar:** `ai_settings.go`, `ai_admin_config.go`, `ai_settings_test.go`, `frontend/src/types/ai.ts`,
+  `pkg/aiclient/schema.go`.
 
 ### Prod Vaka: "geçen ay kaç adet tweet atılmıştır?" (2026-06-09 21:55, zlitter_2)
 

@@ -38,6 +38,15 @@ export interface AIRuntimeSettings {
   db_managed?: boolean
   /** Current default model per purpose when db_managed is true. */
   active_models?: ActiveModelSummary[]
+  /** Effective tiered-ambiguity knobs; source reflects env vs ai_runtime_config override. */
+  ambiguity?: AmbiguityRuntimeSettings
+}
+
+export interface AmbiguityRuntimeSettings {
+  tiered_enabled: boolean
+  max_llm_tier_per_question: number
+  db_override: boolean
+  source?: 'environment' | 'database'
 }
 
 export interface ActiveModelSummary {

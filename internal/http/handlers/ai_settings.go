@@ -57,6 +57,10 @@ type aiRuntimeSettingsResponse struct {
 	// ActiveModels lists the current default model per purpose when DB-managed.
 	DBManaged    bool                 `json:"db_managed"`
 	ActiveModels []activeModelSummary `json:"active_models,omitempty"`
+
+	// Ambiguity reports effective tiered-ambiguity knobs and whether they come
+	// from ai_runtime_config (db_override) or environment defaults.
+	Ambiguity adminAmbiguityConfig `json:"ambiguity"`
 }
 
 // activeModelSummary is the non-secret view of a default model per purpose.
@@ -191,5 +195,6 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	out.Ambiguity = h.effectiveAmbiguitySettings(r.Context())
 	writeJSON(w, http.StatusOK, out)
 }

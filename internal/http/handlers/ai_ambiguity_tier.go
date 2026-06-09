@@ -1,9 +1,31 @@
 package handlers
 
 import (
+	"context"
+
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/config"
+	"github.com/biqly/biqly/internal/semantic"
 )
+
+// tierZeroClarificationIfNeeded handles table-routing ambiguity tier-0 short-circuit.
+// Returns (response, true) when routing needs clarification; (nil, false) otherwise.
+func (h *AIHandler) tierZeroClarificationIfNeeded(
+	ctx context.Context,
+	req aiQueryRequest,
+	model *semantic.SemanticModel,
+	routeResult *routing.TableRoutingResult,
+) (*ai.Response, bool) {
+	if routeResult == nil || !routeResult.NeedsClarification {
+		return nil, false
+	}
+	if h.metrics != nil {
+		h.metrics.RecordAmbiguityTier("0")
+	}
+	resp := clarificationResponse(routeResult)
+	return h.observeAIRequest(ctx, req, model, routeResult, resp, 0, nil), true
+}
 
 func ambiguityProcessOptions(cfg config.AmbiguityConfig, pc *ProcessContext, observer ai.AmbiguityAnalysisObserver, tierRecorder func(tier string)) []ai.ProcessOption {
 	if pc != nil && pc.ShouldUseInteractiveTier(cfg) {

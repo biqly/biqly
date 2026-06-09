@@ -39,6 +39,8 @@ export interface AmbiguityAdminConfig {
   tiered_enabled: boolean
   max_llm_tier_per_question: number
   db_override: boolean
+  /** "environment" when env defaults apply; "database" when ai_runtime_config overrides. */
+  source?: 'environment' | 'database'
 }
 
 export interface AIAdminRuntimeConfig {

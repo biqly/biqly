@@ -39,11 +39,8 @@ func (h *AIHandler) resolveAIQuery(ctx context.Context, req aiQueryRequest) (*se
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if routeResult != nil && routeResult.NeedsClarification {
-		if h.metrics != nil {
-			h.metrics.RecordAmbiguityTier("0")
-		}
-		return nil, routeResult, clarificationResponse(routeResult), nil
+	if resp, ok := h.tierZeroClarificationIfNeeded(ctx, req, model, routeResult); ok {
+		return nil, routeResult, resp, nil
 	}
 	return model, routeResult, nil, nil
 }

@@ -185,12 +185,7 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 		h.writeModelLoadError(ctx, w, *req, err)
 		return *req, nil, nil, nil, false
 	}
-	if routeResult != nil && routeResult.NeedsClarification {
-		if h.metrics != nil {
-			h.metrics.RecordAmbiguityTier("0")
-		}
-		resp := clarificationResponse(routeResult)
-		h.observeAIRequest(ctx, *req, model, routeResult, resp, 0, nil)
+	if resp, ok := h.tierZeroClarificationIfNeeded(ctx, *req, model, routeResult); ok {
 		writeJSON(w, http.StatusOK, resp)
 		return *req, nil, nil, nil, false
 	}

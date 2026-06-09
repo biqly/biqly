@@ -51,6 +51,7 @@ func TestAdminRuntimeConfigReturnsEnvDefaults(t *testing.T) {
 	assert.False(t, resp.Ambiguity.TieredEnabled)
 	assert.Equal(t, 1, resp.Ambiguity.MaxLLMTierPerQuestion)
 	assert.False(t, resp.Ambiguity.DBOverride)
+	assert.Equal(t, "environment", resp.Ambiguity.Source)
 }
 
 // PUT persists the overrides, invalidates the cache, and echoes the stored values.
@@ -78,6 +79,7 @@ func TestUpdateAdminRuntimeConfigPersistsAndReloads(t *testing.T) {
 	assert.True(t, resp.Ambiguity.TieredEnabled)
 	assert.Equal(t, 2, resp.Ambiguity.MaxLLMTierPerQuestion)
 	assert.True(t, resp.Ambiguity.DBOverride)
+	assert.Equal(t, "database", resp.Ambiguity.Source)
 }
 
 // Both knobs are required and the LLM tier budget is range-checked.
