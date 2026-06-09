@@ -153,6 +153,7 @@ type processOptions struct {
 	ambiguityGlossary            []promptpkg.GlossaryEntry
 	ambiguityCheck               bool
 	ambiguitySynonymOnly         bool
+	ambiguityInteractiveTier     bool
 	ambiguityConfidenceThreshold float64
 	ambiguityMaxOptions          int
 	ambiguityLLMCheck            bool
@@ -233,6 +234,12 @@ func WithAmbiguityCheck(enabled bool) ProcessOption {
 // WithAmbiguitySynonymOnly limits rule-based checks to glossary/synonym detectors (tier 1).
 func WithAmbiguitySynonymOnly(enabled bool) ProcessOption {
 	return func(o *processOptions) { o.ambiguitySynonymOnly = enabled }
+}
+
+// WithAmbiguityInteractiveTier enables Tier 3 agent-driven disambiguation: full rule-based
+// analysis plus LLM fallback with uncapped clarification options.
+func WithAmbiguityInteractiveTier(enabled bool) ProcessOption {
+	return func(o *processOptions) { o.ambiguityInteractiveTier = enabled }
 }
 
 // WithAmbiguityConfidenceThreshold sets the minimum interpretation confidence for ambiguity clarification.
@@ -330,7 +337,7 @@ func (s *Service) checkAmbiguity(ctx context.Context, question string, model *se
 	if glossary == nil {
 		glossary = options.glossary
 	}
-	cacheKey := ambiguityAnalysisCacheKey(question, model, glossary, options.ambiguityConfidenceThreshold, options.ambiguityLLMCheck, options.ambiguitySynonymOnly)
+	cacheKey := ambiguityAnalysisCacheKey(question, model, glossary, options.ambiguityConfidenceThreshold, options.ambiguityLLMCheck, options.ambiguitySynonymOnly, options.ambiguityInteractiveTier)
 	result, source, cached := s.getCachedAmbiguityAnalysis(cacheKey)
 	if cached {
 		if options.ambiguityObserver != nil {
@@ -340,7 +347,11 @@ func (s *Service) checkAmbiguity(ctx context.Context, question string, model *se
 		result = s.analyzeAmbiguity(ctx, question, model, glossary, options, cacheKey)
 	}
 	if result.IsAmbiguous {
-		return ambiguityClarificationResponse(i18n.FromContext(ctx), result, options.ambiguityMaxOptions), true
+		maxOptions := options.ambiguityMaxOptions
+		if options.ambiguityInteractiveTier {
+			maxOptions = 0
+		}
+		return ambiguityClarificationResponse(i18n.FromContext(ctx), result, maxOptions), true
 	}
 	return nil, false
 }
@@ -356,11 +367,11 @@ func (s *Service) analyzeAmbiguity(ctx context.Context, question string, model *
 
 	source := "rule_based"
 	start := time.Now()
-	if options.ambiguityTierObserver != nil {
+	if options.ambiguityTierObserver != nil && !options.ambiguityInteractiveTier {
 		options.ambiguityTierObserver("1")
 	}
 	var result ambiguitypkg.Result
-	if options.ambiguitySynonymOnly {
+	if options.ambiguitySynonymOnly && !options.ambiguityInteractiveTier {
 		result = ambiguitypkg.AnalyzeSynonymHomonym(ctx, question, model, glossary, options.ambiguityConfidenceThreshold)
 	} else {
 		result = ambiguitypkg.Analyze(ctx, question, model, glossary, options.ambiguityConfidenceThreshold)
@@ -370,7 +381,8 @@ func (s *Service) analyzeAmbiguity(ctx context.Context, question string, model *
 	}
 
 	cacheable := true
-	if !result.IsAmbiguous && options.ambiguityLLMCheck {
+	llmCheck := options.ambiguityLLMCheck || options.ambiguityInteractiveTier
+	if !result.IsAmbiguous && llmCheck {
 		if options.ambiguityTierObserver != nil {
 			options.ambiguityTierObserver("2")
 		}

@@ -131,14 +131,52 @@ func TestAmbiguityHardCapStopsAfterMaxRounds(t *testing.T) {
 		if pc.AmbiguityCapReached(cfg) {
 			t.Fatalf("round %d: AmbiguityCapReached() = true, want false", round)
 		}
+		if pc.ShouldUseInteractiveTier(cfg) {
+			t.Fatalf("round %d: ShouldUseInteractiveTier() = true, want false", round)
+		}
 	}
 
-	capped := &ProcessContext{clarificationRound: maxClarificationRounds}
-	if capped.ShouldCheckAmbiguity(cfg) {
-		t.Error("at cap: ShouldCheckAmbiguity() = true, want false")
+	interactive := &ProcessContext{clarificationRound: maxClarificationRounds}
+	if !interactive.ShouldCheckAmbiguity(cfg) {
+		t.Error("at cap boundary: ShouldCheckAmbiguity() = false, want true for interactive tier")
 	}
-	if !capped.AmbiguityCapReached(cfg) {
-		t.Error("at cap: AmbiguityCapReached() = false, want true")
+	if !interactive.ShouldUseInteractiveTier(cfg) {
+		t.Error("at cap boundary: ShouldUseInteractiveTier() = false, want true")
+	}
+	if interactive.AmbiguityCapReached(cfg) {
+		t.Error("at cap boundary: AmbiguityCapReached() = true, want false")
+	}
+
+	pastCap := &ProcessContext{clarificationRound: maxClarificationRounds + 1}
+	if pastCap.ShouldCheckAmbiguity(cfg) {
+		t.Error("past cap: ShouldCheckAmbiguity() = true, want false")
+	}
+	if !pastCap.AmbiguityCapReached(cfg) {
+		t.Error("past cap: AmbiguityCapReached() = false, want true")
+	}
+}
+
+func TestProcessContextResolvePartialKeepsFlagUnset(t *testing.T) {
+	pc := &ProcessContext{
+		Question:            "Ciro ve aktif müşterileri göster",
+		ClarificationChoice: "ambiguity:0:1",
+	}
+	model := &semantic.SemanticModel{
+		Metrics: []semantic.Metric{
+			{Name: "gross_revenue", Synonyms: []string{"ciro"}},
+			{Name: "net_revenue", Synonyms: []string{"ciro"}},
+		},
+		Dimensions: []semantic.Dimension{
+			{Name: "active_customer", Synonyms: []string{"aktif"}},
+			{Name: "recent_customer", Synonyms: []string{"aktif"}},
+		},
+	}
+
+	if err := pc.Resolve(context.Background(), model, nil); err != nil {
+		t.Fatalf("Resolve() error = %v, want nil", err)
+	}
+	if pc.ClarificationResolved {
+		t.Error("ClarificationResolved = true, want false when another ambiguity remains")
 	}
 }
 

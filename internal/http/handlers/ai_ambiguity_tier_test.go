@@ -43,16 +43,26 @@ func TestShouldUseLLMAmbiguityTier(t *testing.T) {
 }
 
 func TestAmbiguityProcessOptionsCapRecordsTier3(t *testing.T) {
-	cfg := config.AmbiguityConfig{CheckEnabled: true, TieredEnabled: true}
+	cfg := config.AmbiguityConfig{CheckEnabled: true, TieredEnabled: true, LLMEnabled: true}
 	pc := &ProcessContext{clarificationRound: maxClarificationRounds}
 
 	var tiers []string
 	opts := ambiguityProcessOptions(cfg, pc, nil, func(tier string) { tiers = append(tiers, tier) })
-	if len(opts) != 0 {
-		t.Fatalf("opts = %d, want 0 when cap reached", len(opts))
+	if len(opts) == 0 {
+		t.Fatal("opts empty, want interactive tier options at cap boundary")
 	}
 	if len(tiers) != 1 || tiers[0] != "3" {
 		t.Fatalf("tiers = %v, want [3]", tiers)
+	}
+}
+
+func TestAmbiguityProcessOptionsPastCapBypassesCheck(t *testing.T) {
+	cfg := config.AmbiguityConfig{CheckEnabled: true, TieredEnabled: true}
+	pc := &ProcessContext{clarificationRound: maxClarificationRounds + 1}
+
+	opts := ambiguityProcessOptions(cfg, pc, nil, func(tier string) { t.Fatalf("unexpected tier %q", tier) })
+	if len(opts) != 0 {
+		t.Fatalf("opts = %d, want 0 when past interactive tier", len(opts))
 	}
 }
 

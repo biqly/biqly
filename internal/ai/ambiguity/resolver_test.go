@@ -48,3 +48,41 @@ func TestResolveAnalyzesAndRewritesQuestion(t *testing.T) {
 		t.Errorf("Resolve() = %q, want %q", got, want)
 	}
 }
+
+func TestHasRemainingAfterPartialResolution(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Metrics: []semantic.Metric{
+			{Name: "gross_revenue", Synonyms: []string{"ciro"}},
+			{Name: "net_revenue", Synonyms: []string{"ciro"}},
+		},
+		Dimensions: []semantic.Dimension{
+			{Name: "active_customer", Synonyms: []string{"aktif"}},
+			{Name: "recent_customer", Synonyms: []string{"aktif"}},
+		},
+	}
+
+	question, err := Resolve(context.Background(), "Ciro ve aktif müşterileri göster", "ambiguity:0:1", model, nil)
+	if err != nil {
+		t.Fatalf("Resolve() error = %v, want nil", err)
+	}
+	if !HasRemaining(context.Background(), question, model, nil) {
+		t.Error("HasRemaining() = false, want true when another ambiguous term remains")
+	}
+}
+
+func TestHasRemainingFalseWhenFullyResolved(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Metrics: []semantic.Metric{
+			{Name: "gross_revenue", Synonyms: []string{"ciro"}},
+			{Name: "net_revenue", Synonyms: []string{"ciro"}},
+		},
+	}
+
+	question, err := Resolve(context.Background(), "Ciro göster", "ambiguity:0:1", model, nil)
+	if err != nil {
+		t.Fatalf("Resolve() error = %v, want nil", err)
+	}
+	if HasRemaining(context.Background(), question, model, nil) {
+		t.Errorf("HasRemaining() = true, want false for %q", question)
+	}
+}

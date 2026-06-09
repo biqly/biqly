@@ -20,6 +20,13 @@ func Resolve(ctx context.Context, question, choice string, model *semantic.Seman
 	return ResolveChoice(question, choice, Analyze(ctx, question, model, glossary, 0))
 }
 
+// HasRemaining reports whether the question still has unresolved ambiguities after
+// partial term resolution.
+func HasRemaining(ctx context.Context, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry) bool {
+	result := Analyze(ctx, question, model, glossary, 0)
+	return result.IsAmbiguous
+}
+
 // ResolveChoice rewrites a question using the selected ambiguity interpretation.
 func ResolveChoice(question, choice string, result Result) (string, error) {
 	ambiguityIndex, interpretationIndex, err := parseClarificationChoice(choice)

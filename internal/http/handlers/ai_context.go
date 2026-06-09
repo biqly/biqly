@@ -51,6 +51,10 @@ func (pc *ProcessContext) Resolve(ctx context.Context, model *semantic.SemanticM
 	}
 	pc.Question = question
 	pc.ClarificationChoice = ""
+	if ambiguity.HasRemaining(ctx, question, model, glossary) {
+		pc.ClarificationResolved = false
+		return nil
+	}
 	pc.ClarificationResolved = true
 	return nil
 }
@@ -62,14 +66,29 @@ func (pc *ProcessContext) ShouldCheckAmbiguity(cfg config.AmbiguityConfig) bool 
 	if !cfg.CheckEnabled || pc.ClarificationResolved {
 		return false
 	}
+	if pc.ShouldUseInteractiveTier(cfg) {
+		return true
+	}
+	if pc.AmbiguityCapReached(cfg) {
+		return false
+	}
 	return pc.clarificationRound < maxClarificationRounds
+}
+
+// ShouldUseInteractiveTier is Tier 3: one agent-driven LLM disambiguation pass after
+// the user has exhausted normal clarification rounds without resolving.
+func (pc *ProcessContext) ShouldUseInteractiveTier(cfg config.AmbiguityConfig) bool {
+	if pc == nil {
+		return false
+	}
+	return cfg.CheckEnabled && !pc.ClarificationResolved && pc.clarificationRound == maxClarificationRounds
 }
 
 func (pc *ProcessContext) AmbiguityCapReached(cfg config.AmbiguityConfig) bool {
 	if pc == nil {
 		return false
 	}
-	return cfg.CheckEnabled && !pc.ClarificationResolved && pc.clarificationRound >= maxClarificationRounds
+	return cfg.CheckEnabled && !pc.ClarificationResolved && pc.clarificationRound > maxClarificationRounds
 }
 
 func (pc *ProcessContext) ShouldUseLLMAmbiguityTier(cfg config.AmbiguityConfig) bool {

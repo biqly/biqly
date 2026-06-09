@@ -304,6 +304,58 @@ Backend P0–P7 uygulandı, frontend karşılıkları denetlendi. Tamamlanan ve 
     vitest 99/99, build ✓); `make lint-go` 0 issues; `make test-go` (-race, 58 paket) PASS;
     `deadcode` yeni bulgu yok. Commit yapılmadı.
 
+### Plan ↔ Codebase Boşluk Analizi — 2. Tur (2026-06-09)
+
+P0–P7 iddiaları kod üzerinde tek tek doğrulandı. **Doğrulananlar (yeni madde gerekmez):**
+P0 `ClarificationResolved` yalnızca `ai_context.go:54`'te yazılıyor (kabul kriteri sağlanıyor);
+P1 round artışı `attachAmbiguityClarificationRound` üzerinden, metric mevcut; P2 prompt
+`unit/null_meaning/business_rules`'ı `prompt/glossary.go`'da kullanıyor; P3 recall iki few-shot
+yolunda da bağlı (`ai.go:1141,1265`); P4 CLI `cmd/biqly` `--dry-run`/`--suggest` ile mevcut;
+P5 Tier 2 LLM yalnızca deterministik boş dönünce çalışıyor (`service.go: !result.IsAmbiguous &&
+ambiguityLLMCheck`), tier 0/1/2/3 metric'leri kayıtlı; P6 `ColumnsResolved` routing+resolution'dan
+dolduruluyor; P7 golden suite choice→expected round-trip case'i ve choice↔expected validasyonunu içeriyor.
+Plan'daki tüm metric adları (`biqly_ambiguity_round_cap_reached_total`, `biqly_ambiguity_tier`,
+`biqly_memory_store_*`, `biqly_enrich_context_*`) birebir mevcut.
+
+**Tespit edilen boşluklar / yeni maddeler:**
+
+- [x] **GAP-1 (P5) — Tier 3 "agent-driven multi-turn" uygulandı (seçenek a).**
+  Plan tablosundaki Tier 3 artık cap bypass değil: `clarificationRound == maxClarificationRounds` (2) iken
+  `ShouldUseInteractiveTier` → tam rule-based analiz + zorunlu LLM + sınırsız seçenek (`WithAmbiguityInteractiveTier`).
+  `clarificationRound > 2` ise gerçek bypass (ambiguity check kapalı). Kısmi çözüm: `HasRemaining` ile
+  `ClarificationResolved` yalnızca tüm belirsizlikler giderildiğinde set edilir. Frontend: round===2
+  interactive tier bildirimi; round>2 cap bildirimi. Metric help: `3=interactive agent`.
+  - **Dosyalar:** `ai_ambiguity_tier.go`, `ai_context.go`, `internal/ai/service.go`, `ambiguity/resolver.go`,
+    `metrics.go`, frontend `assistantMessageCardSections.tsx`, `routingViz.tsx`, i18n `core.ts`.
+
+- [ ] **GAP-2 (P3) — Açık kabul kriteri "accuracy artışı ölçülebilir" için somut alt maddeler.**
+  Recall mekanizması ve sayaçlar var ama "memory store accuracy'yi artırıyor mu" sorusuna yanıt veren
+  ölçüm yok. Alt maddeler:
+  - [ ] `ai_query_history`'e `memory_recall_used bool` (veya recall hit sayısı) alanı yaz → pozitif/negatif
+    feedback oranı recall'lı vs recall'sız sorgular için karşılaştırılabilir olsun.
+  - [ ] Grafana paneli: `biqly_memory_store_recall_hits_total` / `biqly_memory_store_confirmed_total`
+    trendi + recall'lı sorguların thumbs-up oranı.
+  - [ ] Eval: confirmed-query enjekte edilen golden case (recall few-shot'unun üretimi iyileştirdiğini
+    assert eden, stub-provider'lı regression case) — `internal/ai/eval/`.
+
+- [ ] **GAP-3 (P0 kalıntısı) — Tier-0 short-circuit bloğu sync/async'te tekrar ediyor.**
+  `routeResult.NeedsClarification → RecordAmbiguityTier("0") + clarificationResponse + observe` bloğu
+  hem `ai.go:184-191` (sync) hem `ai_job_exec.go:~44` (async) içinde kopya — P0'ın "tek yol" hedefinin
+  dışında kalmış küçük bir divergence noktası. Ortak helper'a çekilmeli
+  (örn. `(h *AIHandler) tierZeroClarification(...)`).
+  - **Dosyalar:** `internal/http/handlers/ai.go`, `ai_job_exec.go`.
+
+- [ ] **GAP-4 (doc) — Denetim tablosundaki endpoint path'leri yanlış.** P4 satırı
+  `/api/admin/ai/enrich-context` yazıyor; gerçek path admin-key grubunda `/api/ai/enrich-context`.
+  (P3'teki aynı hata bugün düzeltildi: gerçek path `/api/ai/confirmed-queries`.) Tablo satırı düzeltilmeli;
+  `/api/admin/*` diye bir route ailesi hiç yok — gelecek maddelerde bu kalıba dikkat.
+
+- [ ] **NOT-1 (plan-dışı ekleme, bilinçli) — `ai_runtime_config` DB override katmanı.** P5 admin
+  toggle'ı için plan dışı eklendi (planda yalnızca env flag vardı). Operasyon etkisi: DB override
+  varken Helm/env değeri değiştirmek etkisizdir (`db_override` admin panelde görünüyor). İsteğe bağlı
+  küçük iyileştirme: `/api/ai/settings` (RuntimeSettings) yanıtına efektif ambiguity değerlerini ve
+  kaynağını eklemek → kullanıcı-görünür ayar sayfalarında da tutarlı görünürlük.
+
 ---
 
 ## AI Sorgu — Netleştirme (Clarification) Akışı Düzeltmeleri (2026-06-09)

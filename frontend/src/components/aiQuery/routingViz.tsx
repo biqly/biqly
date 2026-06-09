@@ -373,6 +373,7 @@ export function ClarificationCard({
   options,
   clarification,
   generationTrace,
+  interactiveTier = false,
   capReached = false,
   onSelect,
   onSkip,
@@ -381,6 +382,7 @@ export function ClarificationCard({
   options: string[]
   clarification?: Clarification
   generationTrace?: GenerationTrace
+  interactiveTier?: boolean
   capReached?: boolean
   onSelect: (choice: string) => void
   onSkip: () => void
@@ -393,6 +395,11 @@ export function ClarificationCard({
   return (
     <div className={`clarification-card${isAmbiguity ? ' clarification-card--ambiguity' : ''}`}>
       <div className="clarification-title">{t('ai_query.clarification_title')}</div>
+      {interactiveTier && (
+        <p className="clarification-cap-notice clarification-cap-notice--interactive" role="status">
+          {t('ai_query.clarification_interactive_tier')}
+        </p>
+      )}
       {capReached && (
         <p className="clarification-cap-notice" role="status">
           {t('ai_query.clarification_cap_reached')}

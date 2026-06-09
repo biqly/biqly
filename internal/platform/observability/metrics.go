@@ -211,7 +211,7 @@ func registerExtendedAIMetrics(f extendedMetricsFactory, m *Metrics) {
 		Name: "biqly_ambiguity_by_source", Help: "Total detected ambiguities by analyzer source.",
 	}, []string{"source"})
 	m.ambiguityTier = f.NewCounterVec(prometheus.CounterOpts{
-		Name: "biqly_ambiguity_tier", Help: "Ambiguity escalation tier engagements (0=routing, 1=synonym, 2=LLM, 3=interactive cap).",
+		Name: "biqly_ambiguity_tier", Help: "Ambiguity escalation tier engagements (0=routing, 1=synonym, 2=LLM, 3=interactive agent).",
 	}, []string{"tier"})
 	m.memoryStoreConfirmed = f.NewCounter(prometheus.CounterOpts{
 		Name: "biqly_memory_store_confirmed_total", Help: "Total user-confirmed NL query pairs stored for few-shot recall.",

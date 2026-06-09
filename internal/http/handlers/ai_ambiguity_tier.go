@@ -6,10 +6,25 @@ import (
 )
 
 func ambiguityProcessOptions(cfg config.AmbiguityConfig, pc *ProcessContext, observer ai.AmbiguityAnalysisObserver, tierRecorder func(tier string)) []ai.ProcessOption {
-	if pc != nil && pc.AmbiguityCapReached(cfg) {
+	if pc != nil && pc.ShouldUseInteractiveTier(cfg) {
 		if tierRecorder != nil {
 			tierRecorder("3")
 		}
+		opts := []ai.ProcessOption{
+			ai.WithAmbiguityCheck(true),
+			ai.WithAmbiguityInteractiveTier(true),
+			ai.WithAmbiguityConfidenceThreshold(cfg.ConfidenceThreshold),
+			ai.WithLLMAmbiguityCheck(true),
+		}
+		if observer != nil {
+			opts = append(opts, ai.WithAmbiguityAnalysisObserver(observer))
+		}
+		if tierRecorder != nil {
+			opts = append(opts, ai.WithAmbiguityTierObserver(tierRecorder))
+		}
+		return opts
+	}
+	if pc != nil && pc.AmbiguityCapReached(cfg) {
 		return nil
 	}
 	if pc == nil || !pc.ShouldCheckAmbiguity(cfg) {

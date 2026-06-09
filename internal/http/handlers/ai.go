@@ -218,7 +218,11 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessConte
 		ai.WithAmbiguityGlossary(combineGlossaryEntries(catalog, external)),
 	)
 	ambiguityCfg := h.effectiveAmbiguityConfig(ctx)
-	if pc != nil && pc.AmbiguityCapReached(ambiguityCfg) {
+	if pc != nil && pc.ShouldUseInteractiveTier(ambiguityCfg) {
+		slog.InfoContext(ctx, "ambiguity interactive tier engaged",
+			"clarification_round", pc.clarificationRound,
+		)
+	} else if pc != nil && pc.AmbiguityCapReached(ambiguityCfg) {
 		slog.WarnContext(ctx, "ambiguity round cap reached, bypassing check",
 			"clarification_round", pc.clarificationRound,
 			"max_rounds", maxClarificationRounds,

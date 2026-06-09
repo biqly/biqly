@@ -120,7 +120,9 @@ export function AssistantMessageClarificationSections({
   const showClarification =
     result.needs_clarification &&
     (clarificationOptions.length > 0 || result.clarification?.options?.length)
-  const capReached = (result.clarification_round ?? 0) >= MAX_CLARIFICATION_ROUNDS
+  const clarificationRound = result.clarification_round ?? 0
+  const interactiveTier = clarificationRound === MAX_CLARIFICATION_ROUNDS
+  const capReached = clarificationRound > MAX_CLARIFICATION_ROUNDS
 
   return (
     <>
@@ -134,6 +136,7 @@ export function AssistantMessageClarificationSections({
           options={clarificationOptions}
           clarification={result.clarification}
           generationTrace={result.generation_trace}
+          interactiveTier={interactiveTier}
           capReached={capReached}
           onSelect={(choice) => onSelectClarification(choice, userQuestion)}
           onSkip={() => onSkipClarification(userQuestion)}
