@@ -164,6 +164,15 @@ Close items explicitly with rationale when investigation shows no current issue:
 
 **Rule**: Don't leave stale items open. Close with a one-line decision so the next person doesn't re-investigate.
 
+### Verify-Before-Build (todo.md drifts behind code)
+
+`tasks/todo.md` lags the codebase. Multiple "X is missing / not wired" items turned out to be already implemented and shipped:
+
+- "enrich-context frontend UI yok" → already lived in `GlossaryEnrichPanel.tsx` + `Glossary.tsx` (commit `64ef4642`).
+- "publish-time confirmed-query deaktivasyon mekanizması yok" → `DeactivateConfirmedQueriesExceptHash` already called from `(*SemanticHandler).PublishModel`.
+
+**Rule**: Before implementing ANY todo.md item, confirm the current state first — `gograph_query`/`gograph_context` for Go symbols, `rg` for frontend. If it already exists, surface that and pivot to improve/harden/test instead of rebuilding from scratch. Never trust a todo's "yok / missing" framing at face value.
+
 ### Migration Naming Convention
 
 ```text

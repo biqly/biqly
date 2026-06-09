@@ -154,6 +154,9 @@ func (h *SemanticHandler) GenerateModel(w http.ResponseWriter, r *http.Request) 
 		full = result.Model
 		validation = result.Validation
 		published = validation.Valid
+		if published {
+			h.deactivateStaleConfirmedQueries(ctx, result)
+		}
 	}
 
 	writeJSON(w, http.StatusCreated, generateModelResponse{
@@ -461,13 +464,22 @@ func (h *SemanticHandler) PublishModel(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnprocessableEntity, result)
 		return
 	}
-	if result.Model != nil && h.deps.MetaRepo != nil {
-		modelHash := metadata.SemanticModelHash(result.Model.ID, result.Version)
-		if _, err := h.deps.MetaRepo.DeactivateConfirmedQueriesExceptHash(r.Context(), result.Model.ID, modelHash); err != nil {
-			slog.WarnContext(r.Context(), "deactivate stale confirmed queries after publish", "model_id", result.Model.ID, "error", err)
-		}
-	}
+	h.deactivateStaleConfirmedQueries(r.Context(), result)
 	writeJSON(w, http.StatusOK, result)
+}
+
+// deactivateStaleConfirmedQueries marks confirmed queries whose stored semantic
+// model hash no longer matches the freshly published version as inactive, so
+// stale few-shot examples stop being recalled after a model changes. It is a
+// best-effort hook: failures are logged but never block the publish response.
+func (h *SemanticHandler) deactivateStaleConfirmedQueries(ctx context.Context, result *semantic.PublishResult) {
+	if result == nil || result.Model == nil || h.deps.MetaRepo == nil {
+		return
+	}
+	modelHash := metadata.SemanticModelHash(result.Model.ID, result.Version)
+	if _, err := h.deps.MetaRepo.DeactivateConfirmedQueriesExceptHash(ctx, result.Model.ID, modelHash); err != nil {
+		slog.WarnContext(ctx, "deactivate stale confirmed queries after publish", "model_id", result.Model.ID, "error", err)
+	}
 }
 
 // RollbackModel restores a previously published semantic model version.

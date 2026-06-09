@@ -194,11 +194,17 @@ Tüm P0–P7 maddeleri codebase'te uygulandı. Aşağıdaki denetim bulguları v
   - **Dosyalar:** `GlossaryEnrichPanel.tsx`, `Glossary.tsx`, `styles/glossary-enrich.css`, `i18n/locales/{en,tr}/core.ts`.
   - Gate'ler: ESLint 0, Prettier temiz, tsc/build temiz, vitest 99/99, knip:ci 0.
 
-- [ ] **Memory store model değişikliğinde pasifleştirme orkestrasyonu.** `ai_confirmed_queries.semantic_model_hash`
-  kolonu var, `ListActiveConfirmedQueries` hash filtresi yapıyor, ancak semantic model publish sırasında
-  eski hash'li kayıtları pasifleştiren bir mekanizma yok. Model publish → eski confirmed query'leri
-  `is_active=false` yapacak bir hook veya periyodik temizlik gerek.
-  - **Dosyalar:** `internal/ai/response_cache.go`'daki `OnModelPublish` benzeri hook veya yeni migration job.
+- [x] **Memory store model değişikliğinde pasifleştirme orkestrasyonu.** ~~mekanizma yok~~ — premis yanlıştı:
+  `DeactivateConfirmedQueriesExceptHash` + publish hook'u zaten mevcuttu (`(*SemanticHandler).PublishModel`
+  publish sonrası `semantic_model_hash <> modelID@version` olan aktif kayıtları `is_active=false` yapıyor;
+  store/recall da aynı `modelID@version` hash formatını kullanıyor → tutarlı).
+  Sağlamlaştırma yapıldı (kullanıcı isteğiyle):
+  - Deaktivasyon `deactivateStaleConfirmedQueries` helper'ına çıkarıldı (handler içinde, MetaRepo+SemanticRepo erişimi orada).
+  - İkinci publish yolu `GenerateModel` (`req.Publish=true`) da artık helper'ı çağırıyor → simetri/gelecek-güvenliği
+    (yeni model olduğu için pratikte no-op ama tutarlı).
+  - Test eklendi: `semantic_confirmed_queries_test.go` — publish→deaktivasyon doğru hash ile çağrılıyor + nil/model-yok no-op guard.
+  - **Dosyalar:** `internal/http/handlers/semantic.go`, `internal/http/handlers/semantic_confirmed_queries_test.go`.
+  - Gate'ler: gofmt ✓, lint-go 0 issues, race test (handlers/semantic/metadata) ✓, deadcode temiz.
 
 - [ ] **Generation trace clarification kartında gösterimi.** Mevcut `GenerationTracePanel` sadece
   `!showClarification` (sonuç görünür, clarification değil) durumunda render ediliyor
