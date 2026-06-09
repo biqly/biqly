@@ -148,3 +148,9 @@ docker-down:
 
 dev:
 	@go run ./cmd/api/
+
+grafana-enable:
+	kubectl scale deployment/grafana -n monitoring --replicas=1
+
+grafana-dashboards-sync:
+	helm template biqly deploy/helm/biqly -f deploy/helm/biqly/values-prod.yaml -s templates/grafana-dashboards.yaml | kubectl apply -n biqly -f -

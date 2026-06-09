@@ -1,4 +1,5 @@
 {{- if .Values.global.observability.dashboards.enabled }}
+{{- $ds := "{\"type\":\"prometheus\",\"uid\":\"prometheus\"}" -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -6,56 +7,68 @@ metadata:
   labels:
     {{- include "biqly.labels" . | nindent 4 }}
     {{- toYaml .Values.global.observability.dashboards.labels | nindent 4 }}
+  {{- with .Values.global.observability.dashboards.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 data:
   biqly-ai.json: |
     {
       "title": "Biqly AI",
+      "uid": "biqly-ai",
       "schemaVersion": 39,
+      "refresh": "30s",
       "panels": [
-        {"type":"timeseries","title":"AI request rate","targets":[{"expr":"sum(rate(bi_ai_requests_total[5m]))"}]},
-        {"type":"timeseries","title":"AI success rate","targets":[{"expr":"1 - (sum(rate(bi_ai_errors[5m])) / clamp_min(sum(rate(bi_ai_requests_total[5m])), 1))"}]},
-        {"type":"timeseries","title":"Average LLM latency","targets":[{"expr":"sum(rate(llm_request_duration_seconds[5m])) / clamp_min(sum(rate(bi_ai_requests_total[5m])), 1)"}]},
-        {"type":"timeseries","title":"Tokens used","targets":[{"expr":"sum(rate(llm_tokens_used_total[5m]))"}]},
-        {"type":"timeseries","title":"Clarifications","targets":[{"expr":"sum(rate(bi_ai_clarifications_total[5m]))"}]},
-        {"type":"timeseries","title":"Memory store confirmed","targets":[{"expr":"sum(rate(biqly_memory_store_confirmed_total[5m]))"}]},
-        {"type":"timeseries","title":"Memory recall hits","targets":[{"expr":"sum(rate(biqly_memory_store_recall_hits_total[5m]))"}]},
-        {"type":"timeseries","title":"Recall feedback thumbs-up rate","targets":[{"expr":"sum(rate(biqly_memory_recall_feedback_total{rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total[5m])), 1)"}]},
-        {"type":"timeseries","title":"Recall vs no-recall thumbs-up rate","targets":[{"expr":"sum(rate(biqly_memory_recall_feedback_total{recall=\"true\",rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total{recall=\"true\"}[5m])), 1)"},{"expr":"sum(rate(biqly_memory_recall_feedback_total{recall=\"false\",rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total{recall=\"false\"}[5m])), 1)"}]}
+        {"type":"timeseries","title":"AI request rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(bi_ai_requests_total[5m]))"}]},
+        {"type":"timeseries","title":"AI success rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"1 - (sum(rate(bi_ai_errors_total[5m])) / clamp_min(sum(rate(bi_ai_requests_total[5m])), 1))"}]},
+        {"type":"timeseries","title":"Average LLM latency (s)","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(llm_request_duration_seconds_sum[5m])) / clamp_min(sum(rate(llm_request_duration_seconds_count[5m])), 1)"}]},
+        {"type":"timeseries","title":"Tokens used","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(llm_tokens_used_total[5m]))"}]},
+        {"type":"timeseries","title":"Clarifications","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(bi_ai_clarifications_total[5m]))"}]},
+        {"type":"timeseries","title":"Memory store confirmed","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_store_confirmed_total[5m]))"}]},
+        {"type":"timeseries","title":"Memory recall hits","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_store_recall_hits_total[5m]))"}]},
+        {"type":"timeseries","title":"Recall feedback thumbs-up rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_recall_feedback_total{rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total[5m])), 1)"}]},
+        {"type":"timeseries","title":"Recall vs no-recall thumbs-up rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_recall_feedback_total{recall=\"true\",rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total{recall=\"true\"}[5m])), 1)"},{"refId":"B","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_recall_feedback_total{recall=\"false\",rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total{recall=\"false\"}[5m])), 1)"}]}
       ]
     }
   biqly-query.json: |
     {
       "title": "Biqly Query",
+      "uid": "biqly-query",
       "schemaVersion": 39,
+      "refresh": "30s",
       "panels": [
-        {"type":"timeseries","title":"Compile rate","targets":[{"expr":"sum(rate(query_compile_total[5m]))"}]},
-        {"type":"timeseries","title":"Compile error rate","targets":[{"expr":"sum(rate(query_compile_errors_total[5m])) / clamp_min(sum(rate(query_compile_total[5m])), 1)"}]},
-        {"type":"timeseries","title":"Average compile duration","targets":[{"expr":"sum(rate(query_compile_duration_seconds[5m])) / clamp_min(sum(rate(query_compile_total[5m])), 1)"}]},
-        {"type":"timeseries","title":"Execute duration","targets":[{"expr":"sum(rate(query_execute_duration_seconds[5m])) / clamp_min(sum(rate(query_execute_total[5m])), 1)"}]},
-        {"type":"timeseries","title":"Rows returned","targets":[{"expr":"sum(rate(query_rows_returned[5m]))"}]}
+        {"type":"timeseries","title":"Compile rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_compile_total[5m]))"}]},
+        {"type":"timeseries","title":"Compile error rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_compile_errors_total[5m])) / clamp_min(sum(rate(query_compile_total[5m])), 1)"}]},
+        {"type":"timeseries","title":"Average compile duration (s)","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_compile_duration_seconds_sum[5m])) / clamp_min(sum(rate(query_compile_duration_seconds_count[5m])), 1)"}]},
+        {"type":"timeseries","title":"Execute duration (s)","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_execute_duration_seconds_sum[5m])) / clamp_min(sum(rate(query_execute_duration_seconds_count[5m])), 1)"}]},
+        {"type":"timeseries","title":"Rows returned","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_rows_returned_total[5m]))"}]}
       ]
     }
   biqly-catalog.json: |
     {
       "title": "Biqly Catalog",
+      "uid": "biqly-catalog",
       "schemaVersion": 39,
+      "refresh": "30s",
       "panels": [
-        {"type":"timeseries","title":"DB query rate","targets":[{"expr":"sum(rate(catalog_db_queries_total[5m]))"}]},
-        {"type":"timeseries","title":"DB error rate","targets":[{"expr":"sum(rate(catalog_db_query_errors_total[5m])) / clamp_min(sum(rate(catalog_db_queries_total[5m])), 1)"}]},
-        {"type":"timeseries","title":"Average DB duration","targets":[{"expr":"sum(rate(catalog_db_query_duration_seconds[5m])) / clamp_min(sum(rate(catalog_db_queries_total[5m])), 1)"}]},
-        {"type":"timeseries","title":"Model publish duration","targets":[{"expr":"sum(rate(model_publish_duration_seconds[5m])) / clamp_min(sum(rate(model_publish_total[5m])), 1)"}]},
-        {"type":"timeseries","title":"Model publish error rate","targets":[{"expr":"sum(rate(model_publish_errors_total[5m])) / clamp_min(sum(rate(model_publish_total[5m])), 1)"}]}
+        {"type":"timeseries","title":"DB query rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(catalog_db_queries_total[5m]))"}]},
+        {"type":"timeseries","title":"DB error rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(catalog_db_query_errors_total[5m])) / clamp_min(sum(rate(catalog_db_queries_total[5m])), 1)"}]},
+        {"type":"timeseries","title":"Average DB duration (s)","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(catalog_db_query_duration_seconds_sum[5m])) / clamp_min(sum(rate(catalog_db_query_duration_seconds_count[5m])), 1)"}]},
+        {"type":"timeseries","title":"Model publish duration (s)","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(model_publish_duration_seconds_sum[5m])) / clamp_min(sum(rate(model_publish_duration_seconds_count[5m])), 1)"}]},
+        {"type":"timeseries","title":"Model publish error rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(model_publish_errors_total[5m])) / clamp_min(sum(rate(model_publish_total[5m])), 1)"}]}
       ]
     }
   biqly-cardinality.json: |
     {
       "title": "Biqly Metric Cardinality",
+      "uid": "biqly-cardinality",
       "schemaVersion": 39,
+      "refresh": "30s",
       "panels": [
-        {"type":"timeseries","title":"Top metric series count","targets":[{"expr":"topk(15, bi_prom_metric_series_total)"}]},
-        {"type":"timeseries","title":"Label cardinality by metric","targets":[{"expr":"topk(20, bi_prom_label_cardinality)"}]},
-        {"type":"stat","title":"Metrics over series warn threshold","targets":[{"expr":"count(bi_prom_metric_series_total > 100)"}]},
-        {"type":"table","title":"High label cardinality","targets":[{"expr":"bi_prom_label_cardinality > 16","format":"table","instant":true}]}
+        {"type":"timeseries","title":"Top metric series count","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"topk(15, bi_prom_metric_series_total)"}]},
+        {"type":"timeseries","title":"Label cardinality by metric","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"topk(20, bi_prom_label_cardinality)"}]},
+        {"type":"stat","title":"Metrics over series warn threshold","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"count(bi_prom_metric_series_total > 100)"}]},
+        {"type":"table","title":"High label cardinality","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"bi_prom_label_cardinality > 16","format":"table","instant":true}]}
       ]
     }
 {{- end }}

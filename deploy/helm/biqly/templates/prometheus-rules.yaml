@@ -24,7 +24,7 @@ spec:
             description: "Current metrics are counters, so this approximates latency until histogram buckets are added."
         - alert: BiqlyAIErrorBudgetBurn
           expr: |
-            sum(rate(bi_ai_errors[5m]))
+            sum(rate(bi_ai_errors_total[5m]))
             /
             clamp_min(sum(rate(bi_ai_requests_total[5m])), 1) > 0.05
           for: 5m
