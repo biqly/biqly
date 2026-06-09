@@ -121,6 +121,27 @@ func TestFilterAmbiguities_RequiresTwoInterpretationsAboveThreshold(t *testing.T
 	}
 }
 
+func TestAnalyzeSynonymHomonym_SkipsTemporalAndScope(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Dimensions: []semantic.Dimension{
+			{Name: "order_date", Type: string(semantic.DimensionTypeDate)},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "order_count"},
+			{Name: "revenue"},
+		},
+	}
+
+	full := Analyze(context.Background(), "büyük siparişler", model, nil, 0)
+	tier1 := AnalyzeSynonymHomonym(context.Background(), "büyük siparişler", model, nil, 0)
+	if !full.IsAmbiguous {
+		t.Fatal("full Analyze() should flag scope ambiguity")
+	}
+	if tier1.IsAmbiguous {
+		t.Fatalf("AnalyzeSynonymHomonym() = %#v, want no scope/temporal ambiguity", tier1)
+	}
+}
+
 func TestAnalyze_QuestionExamples(t *testing.T) {
 	model := &semantic.SemanticModel{
 		Dimensions: []semantic.Dimension{

@@ -22,19 +22,21 @@ type ambiguityAnalysisCacheEntry struct {
 	expiresAt time.Time
 }
 
-func ambiguityAnalysisCacheKey(question string, model *semantic.SemanticModel, glossary []promptpkg.GlossaryEntry, confidenceThreshold float64, llmEnabled bool) string {
+func ambiguityAnalysisCacheKey(question string, model *semantic.SemanticModel, glossary []promptpkg.GlossaryEntry, confidenceThreshold float64, llmEnabled bool, synonymOnly bool) string {
 	payload, err := sonic.ConfigStd.Marshal(struct {
 		Question            string                    `json:"question"`
 		Model               *semantic.SemanticModel   `json:"model"`
 		Glossary            []promptpkg.GlossaryEntry `json:"glossary"`
 		ConfidenceThreshold float64                   `json:"confidence_threshold"`
 		LLMEnabled          bool                      `json:"llm_enabled"`
+		SynonymOnly         bool                      `json:"synonym_only"`
 	}{
 		Question:            question,
 		Model:               model,
 		Glossary:            glossary,
 		ConfidenceThreshold: confidenceThreshold,
 		LLMEnabled:          llmEnabled,
+		SynonymOnly:         synonymOnly,
 	})
 	if err != nil {
 		sum := sha256.Sum256([]byte(question))

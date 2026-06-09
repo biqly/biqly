@@ -113,16 +113,16 @@ deterministic (synonym/homonym) çözülebilir — her seferinde LLM çağrısı
 | Tier 2: Semantic | Yorumlama confidence düşük | LLM-backed analiz | ~$0.01 |
 | Tier 3: Interactive | Kullanıcı 2 kez yanlış seçti | Agent-driven multi-turn | ~$0.05 |
 
-- [ ] `AmbiguityConfig`'e `EnableTieredCheck bool` ekle (feature flag, backward compatible).
-- [ ] `standardProcessOptions` tiered logic:
-  - Tier 0: routing sonucu `NeedsClarification` → direkt döndür (mevcut, değişiklik yok).
-  - Tier 1: `WithAmbiguityCheck(true)` sadece deterministic synonym/homonym check.
-  - Tier 2: `WithLLMAmbiguityCheck(true)` sadece Tier 1 boş geldiyse.
-  - Tier 3: İki clarification round'dan sonra agent-mod'a geç (P1 hard cap ile entegre).
-- [ ] Her tier için ayrı metric: `biqly_ambiguity_tier{tier="0|1|2|3"}`.
-- [ ] Config: `Ambiguity.TieredEnabled` + `Ambiguity.MaxLLMTierPerQuestion` (default: 1).
-- [ ] Test: her tier'ın bağımsız tetiklendiği unit test + tier geçiş entegrasyon test.
-- [ ] **Kabul:** LLM-backed check sadece deterministic check boş geldiyse çalışıyor; maliyet düşüyor.
+- [x] `AmbiguityConfig`'e `TieredEnabled bool` ekle (feature flag, backward compatible; env: `BI_AI_AMBIGUITY_TIERED_ENABLED`).
+- [x] `standardProcessOptions` tiered logic (`ambiguityProcessOptions`):
+  - Tier 0: routing sonucu `NeedsClarification` → direkt döndür + `RecordAmbiguityTier("0")`.
+  - Tier 1: `WithAmbiguityCheck(true)` + `WithAmbiguitySynonymOnly(true)` (glossary/synonym only).
+  - Tier 2: `WithLLMAmbiguityCheck(true)` sadece Tier 1 boş geldiyse + `MaxLLMTierPerQuestion` round cap.
+  - Tier 3: İki clarification round'dan sonra agent-mod'a geç (P1 hard cap) + `RecordAmbiguityTier("3")`.
+- [x] Her tier için ayrı metric: `biqly_ambiguity_tier{tier="0|1|2|3"}`.
+- [x] Config: `Ambiguity.TieredEnabled` + `Ambiguity.MaxLLMTierPerQuestion` (default: 1).
+- [x] Test: `AnalyzeSynonymHomonym`, handler tier options, service tier observer + synonym-only integration.
+- [x] **Kabul:** LLM-backed check sadece deterministic check boş geldiyse çalışıyor; tiered modda scope/temporal Tier 1'de atlanıyor.
 
 ### P6 — Generation Trace (Kullanıcıya Ne Anlaşıldığını Gösterme) [LOW]
 

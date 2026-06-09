@@ -72,6 +72,22 @@ func (pc *ProcessContext) AmbiguityCapReached(cfg config.AmbiguityConfig) bool {
 	return cfg.CheckEnabled && !pc.ClarificationResolved && pc.clarificationRound >= maxClarificationRounds
 }
 
+func (pc *ProcessContext) ShouldUseLLMAmbiguityTier(cfg config.AmbiguityConfig) bool {
+	if !cfg.LLMEnabled {
+		return false
+	}
+	if !cfg.TieredEnabled {
+		return true
+	}
+	if cfg.MaxLLMTierPerQuestion <= 0 {
+		return false
+	}
+	if pc == nil {
+		return true
+	}
+	return pc.clarificationRound < cfg.MaxLLMTierPerQuestion
+}
+
 func (pc *ProcessContext) nextAmbiguityClarificationRound() int {
 	if pc == nil {
 		return 1

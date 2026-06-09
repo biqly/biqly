@@ -35,6 +35,7 @@ var ForbiddenMetricLabels = []string{
 // *_Vec metric owned by this package. Update when adding a new labeled metric.
 var VecLabelLimits = map[string]map[string]int{
 	"biqly_ambiguity_by_source":        {"source": 3},
+	"biqly_ambiguity_tier":             {"tier": 4},
 	"bi_ai_repair_by_error_code_total": {"code": 16},
 }
 

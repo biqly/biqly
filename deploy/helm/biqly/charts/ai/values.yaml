@@ -42,6 +42,7 @@ config:
   BI_CATALOG_SERVICE_URL: http://biqly-catalog:8080
   BI_QUERY_SERVICE_URL: http://biqly-query:8081
   BI_AUTH_SERVICE_URL: http://biqly-auth:8889
+  BI_AI_AMBIGUITY_TIERED_ENABLED: "true"
   # AI provider/model selection is managed in the database (Administration →
   # AI Providers), not via environment variables.
 resources:

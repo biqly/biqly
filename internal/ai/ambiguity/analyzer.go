@@ -43,7 +43,16 @@ type SemanticMapping struct {
 	Name string `json:"name"`
 }
 
-// Analyze runs rule-based ambiguity detectors before LogicalQuery generation.
+// AnalyzeSynonymHomonym runs tier-1 detectors: glossary collisions and synonym/homonym matches only.
+func AnalyzeSynonymHomonym(ctx context.Context, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry, confidenceThreshold float64) Result {
+	locale := i18n.FromContext(ctx)
+	return analyzeWithDetectors(ctx, []func(context.Context) []Item{
+		func(context.Context) []Item { return DetectGlossary(question, glossary, model) },
+		func(context.Context) []Item { return DetectSynonyms(locale, question, model) },
+	}, confidenceThreshold, ruleBasedAnalysisTimeout)
+}
+
+// Analyze runs all rule-based ambiguity detectors before LogicalQuery generation.
 func Analyze(ctx context.Context, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry, confidenceThreshold float64) Result {
 	locale := i18n.FromContext(ctx)
 	return analyzeWithDetectors(ctx, []func(context.Context) []Item{

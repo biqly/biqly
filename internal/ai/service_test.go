@@ -219,6 +219,67 @@ func TestProcessQuestionRetriesOnInvalidJSON(t *testing.T) {
 	}
 }
 
+func TestProcessQuestionSynonymOnlySkipsScopeAmbiguity(t *testing.T) {
+	client := &scriptedProvider{
+		replies: []string{`{"select":[{"type":"metric","name":"order_count"}],"limit":10}`},
+	}
+	svc := NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), client)
+	model := &semantic.SemanticModel{
+		Metrics: []semantic.Metric{
+			{Name: "order_count", Aggregation: "count", Expression: "*"},
+			{Name: "revenue", Aggregation: "sum", Expression: "amount"},
+		},
+	}
+
+	resp, err := svc.ProcessQuestion(
+		context.Background(),
+		"büyük siparişler",
+		model,
+		WithAmbiguityCheck(true),
+		WithAmbiguitySynonymOnly(true),
+		WithLLMAmbiguityCheck(false),
+	)
+	resp = requireProcessQuestionResponse(t, resp, err)
+	if resp.Clarification != nil {
+		t.Fatalf("ProcessQuestion() clarification = %+v, want nil for scope-only ambiguity in tier 1", resp.Clarification)
+	}
+	if got := client.calls.Load(); got != 1 {
+		t.Errorf("ProcessQuestion() provider calls = %d, want 1 generation after tier-1 pass", got)
+	}
+}
+
+func TestProcessQuestionTierObserverRecordsTiers(t *testing.T) {
+	client := &scriptedProvider{
+		replies: []string{`{
+			"is_ambiguous": true,
+			"ambiguities": [{
+				"term": "active customers",
+				"possible_meanings": ["Enabled accounts", "Recently ordering customers"]
+			}]
+		}`, `{"select":[{"type":"metric","name":"row_count"}],"limit":10}`},
+	}
+	svc := NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), client)
+	model := &semantic.SemanticModel{
+		Metrics: []semantic.Metric{{Name: "row_count", Aggregation: "count", Expression: "*"}},
+	}
+	var tiers []string
+	_, err := svc.ProcessQuestion(
+		context.Background(),
+		"Show active customers",
+		model,
+		WithAmbiguityCheck(true),
+		WithAmbiguitySynonymOnly(true),
+		WithLLMAmbiguityCheck(true),
+		WithAmbiguityTierObserver(func(tier string) { tiers = append(tiers, tier) }),
+	)
+	if err != nil {
+		t.Fatalf("ProcessQuestion() error = %v", err)
+	}
+	if len(tiers) < 2 || tiers[0] != "1" || tiers[1] != "2" {
+		t.Fatalf("tiers = %v, want [1 2]", tiers)
+	}
+}
+
 func TestProcessQuestionReturnsAmbiguityClarificationBeforeLLM(t *testing.T) {
 	client := &countingProvider{}
 	svc := NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), client)

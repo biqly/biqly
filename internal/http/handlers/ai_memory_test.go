@@ -20,6 +20,7 @@ func (*memoryMetricsStub) RecordAIRequest(int64, bool, int, bool) {}
 func (*memoryMetricsStub) RecordLLMRequest(int64, int, int64)     {}
 func (*memoryMetricsStub) RecordAmbiguityAnalysis(int64, string, bool) {
 }
+func (*memoryMetricsStub) RecordAmbiguityTier(string)          {}
 func (*memoryMetricsStub) RecordAmbiguityClarified()           {}
 func (*memoryMetricsStub) RecordAmbiguityRoundCapReached()     {}
 func (*memoryMetricsStub) RecordAIRepair(bool, int, []string)  {}

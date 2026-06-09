@@ -152,10 +152,12 @@ type processOptions struct {
 	glossary                     []promptpkg.GlossaryEntry
 	ambiguityGlossary            []promptpkg.GlossaryEntry
 	ambiguityCheck               bool
+	ambiguitySynonymOnly         bool
 	ambiguityConfidenceThreshold float64
 	ambiguityMaxOptions          int
 	ambiguityLLMCheck            bool
 	ambiguityObserver            AmbiguityAnalysisObserver
+	ambiguityTierObserver        func(tier string)
 }
 
 type tieredProcessOptions struct {
@@ -228,6 +230,11 @@ func WithAmbiguityCheck(enabled bool) ProcessOption {
 	return func(o *processOptions) { o.ambiguityCheck = enabled }
 }
 
+// WithAmbiguitySynonymOnly limits rule-based checks to glossary/synonym detectors (tier 1).
+func WithAmbiguitySynonymOnly(enabled bool) ProcessOption {
+	return func(o *processOptions) { o.ambiguitySynonymOnly = enabled }
+}
+
 // WithAmbiguityConfidenceThreshold sets the minimum interpretation confidence for ambiguity clarification.
 func WithAmbiguityConfidenceThreshold(threshold float64) ProcessOption {
 	return func(o *processOptions) { o.ambiguityConfidenceThreshold = threshold }
@@ -246,6 +253,11 @@ func WithLLMAmbiguityCheck(enabled bool) ProcessOption {
 // WithAmbiguityAnalysisObserver records ambiguity latency and source metrics.
 func WithAmbiguityAnalysisObserver(observer AmbiguityAnalysisObserver) ProcessOption {
 	return func(o *processOptions) { o.ambiguityObserver = observer }
+}
+
+// WithAmbiguityTierObserver records which ambiguity escalation tier ran.
+func WithAmbiguityTierObserver(observer func(tier string)) ProcessOption {
+	return func(o *processOptions) { o.ambiguityTierObserver = observer }
 }
 
 // ProcessQuestion handles a natural language question. On parse or validation
@@ -318,7 +330,7 @@ func (s *Service) checkAmbiguity(ctx context.Context, question string, model *se
 	if glossary == nil {
 		glossary = options.glossary
 	}
-	cacheKey := ambiguityAnalysisCacheKey(question, model, glossary, options.ambiguityConfidenceThreshold, options.ambiguityLLMCheck)
+	cacheKey := ambiguityAnalysisCacheKey(question, model, glossary, options.ambiguityConfidenceThreshold, options.ambiguityLLMCheck, options.ambiguitySynonymOnly)
 	result, source, cached := s.getCachedAmbiguityAnalysis(cacheKey)
 	if cached {
 		if options.ambiguityObserver != nil {
@@ -344,13 +356,24 @@ func (s *Service) analyzeAmbiguity(ctx context.Context, question string, model *
 
 	source := "rule_based"
 	start := time.Now()
-	result := ambiguitypkg.Analyze(ctx, question, model, glossary, options.ambiguityConfidenceThreshold)
+	if options.ambiguityTierObserver != nil {
+		options.ambiguityTierObserver("1")
+	}
+	var result ambiguitypkg.Result
+	if options.ambiguitySynonymOnly {
+		result = ambiguitypkg.AnalyzeSynonymHomonym(ctx, question, model, glossary, options.ambiguityConfidenceThreshold)
+	} else {
+		result = ambiguitypkg.Analyze(ctx, question, model, glossary, options.ambiguityConfidenceThreshold)
+	}
 	if options.ambiguityObserver != nil {
 		options.ambiguityObserver(time.Since(start).Milliseconds(), source, result.IsAmbiguous)
 	}
 
 	cacheable := true
 	if !result.IsAmbiguous && options.ambiguityLLMCheck {
+		if options.ambiguityTierObserver != nil {
+			options.ambiguityTierObserver("2")
+		}
 		analysisCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		start = time.Now()
 		llmResult, err := ambiguitypkg.NewLLMAnalyzer(s.client).Analyze(analysisCtx, i18n.FromContext(ctx), question, model, glossary)

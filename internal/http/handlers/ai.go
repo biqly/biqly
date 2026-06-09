@@ -182,6 +182,9 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 		return *req, nil, nil, nil, false
 	}
 	if routeResult != nil && routeResult.NeedsClarification {
+		if h.metrics != nil {
+			h.metrics.RecordAmbiguityTier("0")
+		}
 		resp := clarificationResponse(routeResult)
 		h.observeAIRequest(ctx, *req, model, routeResult, resp, 0)
 		writeJSON(w, http.StatusOK, resp)
@@ -202,13 +205,14 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessConte
 		question = pc.Question
 	}
 	catalog, external := h.loadGlossaryEntries(ctx, model)
-	opts := []ai.ProcessOption{
+	opts := make([]ai.ProcessOption, 0, 6)
+	opts = append(opts,
 		ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
 		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model, question)),
 		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
 		ai.WithGlossary(prompt.SelectGlossaryForQuestion(question, prompt.MergeGlossaryEntries(catalog, external), model)),
 		ai.WithAmbiguityGlossary(combineGlossaryEntries(catalog, external)),
-	}
+	)
 	ambiguityCfg := h.deps.Config.AI.Ambiguity
 	if pc != nil && pc.AmbiguityCapReached(ambiguityCfg) {
 		slog.WarnContext(ctx, "ambiguity round cap reached, bypassing check",
@@ -219,17 +223,13 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessConte
 			h.metrics.RecordAmbiguityRoundCapReached()
 		}
 	}
-	if pc != nil && pc.ShouldCheckAmbiguity(ambiguityCfg) {
-		opts = append(opts,
-			ai.WithAmbiguityCheck(true),
-			ai.WithAmbiguityConfidenceThreshold(ambiguityCfg.ConfidenceThreshold),
-			ai.WithAmbiguityMaxOptions(ambiguityCfg.MaxOptions),
-			ai.WithLLMAmbiguityCheck(ambiguityCfg.LLMEnabled),
-		)
-		if h.metrics != nil {
-			opts = append(opts, ai.WithAmbiguityAnalysisObserver(h.metrics.RecordAmbiguityAnalysis))
-		}
+	var ambiguityObserver ai.AmbiguityAnalysisObserver
+	var tierRecorder func(tier string)
+	if h.metrics != nil {
+		ambiguityObserver = h.metrics.RecordAmbiguityAnalysis
+		tierRecorder = h.metrics.RecordAmbiguityTier
 	}
+	opts = append(opts, ambiguityProcessOptions(ambiguityCfg, pc, ambiguityObserver, tierRecorder)...)
 	return opts
 }
 

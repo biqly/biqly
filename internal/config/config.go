@@ -256,6 +256,10 @@ type AmbiguityConfig struct {
 	MaxOptions int
 	// LLMEnabled enables the provider-backed ambiguity fallback after deterministic checks pass.
 	LLMEnabled bool
+	// TieredEnabled runs synonym/homonym checks before temporal/scope and gates LLM tier usage.
+	TieredEnabled bool
+	// MaxLLMTierPerQuestion caps how many clarification rounds may invoke the LLM ambiguity tier.
+	MaxLLMTierPerQuestion int
 }
 
 // AIConnectionConfig groups shared LLM HTTP connection settings. Provider/model
@@ -499,8 +503,10 @@ func loadAIConfigFromEnv() AIConfig {
 				"BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD",
 				0.70,
 			),
-			MaxOptions: getEnvAsInt("BI_AI_AMBIGUITY_MAX_OPTIONS", 5),
-			LLMEnabled: getEnvAsBool("BI_AI_AMBIGUITY_LLM_ENABLED", false),
+			MaxOptions:            getEnvAsInt("BI_AI_AMBIGUITY_MAX_OPTIONS", 5),
+			LLMEnabled:            getEnvAsBool("BI_AI_AMBIGUITY_LLM_ENABLED", false),
+			TieredEnabled:         getEnvAsBool("BI_AI_AMBIGUITY_TIERED_ENABLED", false),
+			MaxLLMTierPerQuestion: getEnvAsInt("BI_AI_AMBIGUITY_MAX_LLM_TIER_PER_QUESTION", 1),
 		},
 	}
 }
@@ -520,6 +526,9 @@ func validateLoadedConfig(cfg *Config) error {
 	}
 	if err := validateFloatRange("BI_AI_AMBIGUITY_CONFIDENCE_THRESHOLD", cfg.AI.Ambiguity.ConfidenceThreshold, 0, 1); err != nil {
 		return err
+	}
+	if cfg.AI.Ambiguity.MaxLLMTierPerQuestion < 0 {
+		return fmt.Errorf("BI_AI_AMBIGUITY_MAX_LLM_TIER_PER_QUESTION must be >= 0, got %d", cfg.AI.Ambiguity.MaxLLMTierPerQuestion)
 	}
 	if err := validateFloatRange("BI_AI_EMBEDDING_WEIGHT", cfg.AI.Embedding.Weight, 0, 100); err != nil {
 		return err

@@ -42,6 +42,7 @@ type Metrics struct {
 	ambiguityRoundCapReached prometheus.Counter
 	ambiguityLatencyMS       prometheus.Histogram
 	ambiguityBySource        *prometheus.CounterVec
+	ambiguityTier            *prometheus.CounterVec
 
 	memoryStoreConfirmed prometheus.Counter
 	memoryStoreRecall    prometheus.Counter
@@ -119,21 +120,6 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 		promptBuildSeconds: f.NewHistogram(prometheus.HistogramOpts{
 			Name: "prompt_build_duration_seconds", Help: "Prompt build duration in seconds.", Buckets: prometheus.DefBuckets,
 		}),
-		ambiguityDetected: f.NewCounter(prometheus.CounterOpts{
-			Name: "biqly_ambiguity_detected_total", Help: "Total questions where ambiguity was detected.",
-		}),
-		ambiguityClarified: f.NewCounter(prometheus.CounterOpts{
-			Name: "biqly_ambiguity_clarified_total", Help: "Total ambiguity clarifications answered by users.",
-		}),
-		ambiguityRoundCapReached: f.NewCounter(prometheus.CounterOpts{Name: "biqly_ambiguity_round_cap_reached_total", Help: "Total requests where ambiguity checking was bypassed due to the round cap."}),
-		ambiguityLatencyMS: f.NewHistogram(prometheus.HistogramOpts{
-			Name: "biqly_ambiguity_latency_ms", Help: "Ambiguity analysis latency in milliseconds.", Buckets: ambiguityLatencyMSBuckets,
-		}),
-		// Label cardinality bounded via VecLabelLimits["biqly_ambiguity_by_source"].
-		ambiguityBySource: f.NewCounterVec(prometheus.CounterOpts{
-			Name: "biqly_ambiguity_by_source", Help: "Total detected ambiguities by analyzer source.",
-		}, []string{"source"}),
-
 		validationFailures: f.NewCounter(prometheus.CounterOpts{
 			Name: "bi_validation_failures_total", Help: "Total validation failures.",
 		}),
@@ -201,9 +187,32 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 	return m
 }
 
-func registerExtendedAIMetrics(f interface {
+type extendedMetricsFactory interface {
 	NewCounter(opts prometheus.CounterOpts) prometheus.Counter
-}, m *Metrics) {
+	NewCounterVec(opts prometheus.CounterOpts, labelNames []string) *prometheus.CounterVec
+	NewHistogram(opts prometheus.HistogramOpts) prometheus.Histogram
+}
+
+func registerExtendedAIMetrics(f extendedMetricsFactory, m *Metrics) {
+	m.ambiguityDetected = f.NewCounter(prometheus.CounterOpts{
+		Name: "biqly_ambiguity_detected_total", Help: "Total questions where ambiguity was detected.",
+	})
+	m.ambiguityClarified = f.NewCounter(prometheus.CounterOpts{
+		Name: "biqly_ambiguity_clarified_total", Help: "Total ambiguity clarifications answered by users.",
+	})
+	m.ambiguityRoundCapReached = f.NewCounter(prometheus.CounterOpts{
+		Name: "biqly_ambiguity_round_cap_reached_total", Help: "Total requests where ambiguity checking was bypassed due to the round cap.",
+	})
+	m.ambiguityLatencyMS = f.NewHistogram(prometheus.HistogramOpts{
+		Name: "biqly_ambiguity_latency_ms", Help: "Ambiguity analysis latency in milliseconds.", Buckets: ambiguityLatencyMSBuckets,
+	})
+	// Label cardinality bounded via VecLabelLimits["biqly_ambiguity_by_source"].
+	m.ambiguityBySource = f.NewCounterVec(prometheus.CounterOpts{
+		Name: "biqly_ambiguity_by_source", Help: "Total detected ambiguities by analyzer source.",
+	}, []string{"source"})
+	m.ambiguityTier = f.NewCounterVec(prometheus.CounterOpts{
+		Name: "biqly_ambiguity_tier", Help: "Ambiguity escalation tier engagements (0=routing, 1=synonym, 2=LLM, 3=interactive cap).",
+	}, []string{"tier"})
 	m.memoryStoreConfirmed = f.NewCounter(prometheus.CounterOpts{
 		Name: "biqly_memory_store_confirmed_total", Help: "Total user-confirmed NL query pairs stored for few-shot recall.",
 	})
@@ -281,6 +290,12 @@ func (m *Metrics) RecordAmbiguityAnalysis(latencyMs int64, source string, detect
 		cleanSource := BoundLabel(source, []string{"rule_based", "llm"}, "other")
 		m.ambiguityBySource.WithLabelValues(cleanSource).Inc()
 	}
+}
+
+// RecordAmbiguityTier records which ambiguity escalation tier was engaged.
+func (m *Metrics) RecordAmbiguityTier(tier string) {
+	cleanTier := BoundLabel(tier, []string{"0", "1", "2", "3"}, "other")
+	m.ambiguityTier.WithLabelValues(cleanTier).Inc()
 }
 
 // RecordAmbiguityClarified records a user answer to an ambiguity clarification.

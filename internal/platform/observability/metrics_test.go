@@ -23,6 +23,8 @@ func TestMetricsRecord(t *testing.T) {
 	m.RecordAIRequest(90, false, 0, true)
 	m.RecordAmbiguityAnalysis(12, "rule_based", true)
 	m.RecordAmbiguityAnalysis(34, "llm", true)
+	m.RecordAmbiguityTier("1")
+	m.RecordAmbiguityTier("2")
 	m.RecordAmbiguityClarified()
 	m.RecordAmbiguityRoundCapReached()
 	m.RecordMemoryStoreConfirmed()
