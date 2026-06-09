@@ -164,6 +164,53 @@ deterministic (synonym/homonym) çözülebilir — her seferinde LLM çağrısı
 - [x] CI: `make eval-regression` ambiguity golden'ları da çalıştırır.
 - [x] **Kabul:** Ambiguity davranışı değişirse CI kırmızı olur; yeni golden case ekleme prosedürü belgeli (`AmbiguityGoldenCase` godoc).
 
+### Denetim Sonuçları (2026-06-09)
+
+Tüm P0–P7 maddeleri codebase'te uygulandı. Aşağıdaki denetim bulguları ve açıkta kalan iyileştirme maddeleri:
+
+**Uygulama doğrulaması:**
+
+| Madde | Durum | Kanıt |
+|---|---|---|
+| P0 ProcessContext | ✅ Tamamlandı | `ai_context.go`: struct + `buildProcessContext` + `Resolve` + `ApplyToRequest`; sync (`ai.go:193`) ve async (`ai_job_exec.go:67`) aynı yolu kullanıyor; eski free function kaldırılmış |
+| P1 Hard Cap | ✅ Tamamlandı | `maxClarificationRounds=2`, `ShouldCheckAmbiguity` round kontrolü, `AmbiguityCapReached`, frontend `clarification_round` alanı (types + AIQuery.tsx) |
+| P2 Glossary AIContext | ✅ Tamamlandı | `pkg/metadata/types.go:GlossaryAIContext{Synonyms,Unit,NullMeaning,BusinessRules}`, migration `043a`, synonym detector entegrasyonu, frontend Glossary.tsx admin form |
+| P3 NL-SQL Memory Store | ✅ Tamamlandı | `ai_confirmed_queries` tablosu (migration `044a`), `metadata/ai_confirmed_queries.go`, `ai/memory/recall.go`, feedback → store, few-shot recall entegrasyonu |
+| P4 Enrich-Context | ✅ Tamamlandı | `ai/enrichcontext/` (service, gaps, suggest, apply, types), `ai_enrich_context.go` handler, `/api/admin/ai/enrich-context` + `/apply` endpoint'leri |
+| P5 Tiered Detection | ✅ Tamamlandı | `AmbiguityConfig.TieredEnabled` + `MaxLLMTierPerQuestion`, `WithAmbiguitySynonymOnly`, `ShouldUseLLMAmbiguityTier`, `biqly_ambiguity_tier` metric |
+| P6 Generation Trace | ✅ Tamamlandı | `ai/trace.go:GenerationTrace`, `BuildGenerationTrace`, frontend `generationTrace.tsx` panel, `routingViz.tsx` entegrasyonu, i18n anahtarları |
+| P7 Eval Golden Cases | ✅ Tamamlandı | `ambiguity_golden.go`, `ambiguity_golden_runner.go`, `testdata/ambiguity_golden.json` (5 case), eval-regression entegrasyonu |
+
+**Açıkta kalan iyileştirme maddeleri (denetim bulgusu):**
+
+- [ ] **Enrich-context frontend admin UI.** Backend endpoint'leri hazır (`/api/admin/ai/enrich-context` analyze + apply),
+  ancak frontend'de "Context'i Zenginleştir" butonu/paneli yok. Admin settings veya datasource detail sayfasına
+  entegre edilmeli: Analyze butonu → gap listesi + AI suggestion'lar → tek tıkla onay → Apply.
+  - **Dosyalar:** `frontend/src/components/settings/` veya `frontend/src/components/datasource/` altına yeni bileşen.
+
+- [ ] **Memory store model değişikliğinde pasifleştirme orkestrasyonu.** `ai_confirmed_queries.semantic_model_hash`
+  kolonu var, `ListActiveConfirmedQueries` hash filtresi yapıyor, ancak semantic model publish sırasında
+  eski hash'li kayıtları pasifleştiren bir mekanizma yok. Model publish → eski confirmed query'leri
+  `is_active=false` yapacak bir hook veya periyodik temizlik gerek.
+  - **Dosyalar:** `internal/ai/response_cache.go`'daki `OnModelPublish` benzeri hook veya yeni migration job.
+
+- [ ] **Generation trace clarification kartında gösterimi.** Mevcut `GenerationTracePanel` sadece
+  `!showClarification` (sonuç görünür, clarification değil) durumunda render ediliyor
+  (`assistantMessageCardSections.tsx:139`). Clarification kartında da trace gösterilmeli — kullanıcı
+  neden sorulduğunu anlasın (P6'nın kabul kriteri).
+  - **Dosyalar:** `frontend/src/components/aiQuery/assistantMessageCardSections.tsx:131-139`, trace'i
+    clarification durumunda da göster (expanded `AmbiguityDetail` ile).
+
+- [ ] **Golden case coverage — routing ambiguity (Tier 0).** Mevcut 5 golden case'in tamamı Tier 1/2
+  (glossary synonym + scope). Routing tablosundan gelen Tier 0 clarification case'i yok. En az 1 case
+  eklenmeli: birden fazla tablo adayı olan bir soru → routing clarification.
+  - **Dosyalar:** `internal/ai/eval/testdata/ambiguity_golden.json`, `internal/ai/eval/ambiguity_golden_models.go`.
+
+- [ ] **Tiered config varsayılan değerleri.** `AmbiguityConfig.TieredEnabled` ve `MaxLLMTierPerQuestion`
+  config'de tanımlı ancak production values'da açıkça set edilmesi gerekebilir.
+  Helm values'ta `ai.ambiguity.tieredEnabled: true` + `maxLLMTierPerQuestion: 1` eklenmeli.
+  - **Dosyalar:** `deploy/helm/biqly/values.yaml`, `values-prod.yaml`.
+
 ---
 
 ## AI Sorgu — Netleştirme (Clarification) Akışı Düzeltmeleri (2026-06-09)

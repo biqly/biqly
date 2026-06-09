@@ -140,6 +140,7 @@ func registerCatalogMetadataRoutes(r chi.Router, deps *app.CatalogDeps, authClie
 	metaHandler := handlers.NewMetadataHandler(deps)
 	piiHandler := handlers.NewPIIHandler(deps)
 	r.Get("/datasources/{id}/tables", metaHandler.ListTables)
+	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Get("/datasources/{id}/tables/{schema}/{table}/sample", metaHandler.GetTableSample)
 	r.Get("/datasources/{id}/columns", metaHandler.ListColumns)
 	r.Get("/metadata/columns/search", metaHandler.SearchColumns)
 	r.Get("/metadata/tables/search", metaHandler.SearchTables)

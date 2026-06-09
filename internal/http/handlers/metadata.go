@@ -2,12 +2,18 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 )
+
+// tableSampleRowLimit caps how many rows the table sample-data preview returns.
+const tableSampleRowLimit = 50
 
 // MetadataHandler exposes endpoints for browsing and editing introspected metadata.
 type MetadataHandler struct {
@@ -225,4 +231,114 @@ func (h *MetadataHandler) GetColumnTranslations(w http.ResponseWriter, r *http.R
 // PutColumnTranslations upserts language-specific overrides for a column.
 func (h *MetadataHandler) PutColumnTranslations(w http.ResponseWriter, r *http.Request) {
 	h.putTranslations(w, r, metadata.EntityTypeColumn)
+}
+
+type sampleColumn struct {
+	Name string `json:"name"`
+}
+
+type sampleData struct {
+	Columns []sampleColumn `json:"columns"`
+	Rows    [][]any        `json:"rows"`
+}
+
+// GetTableSample returns up to tableSampleRowLimit rows from a single
+// introspected table so the UI can preview real data.
+// GET /datasources/{id}/tables/{schema}/{table}/sample
+func (h *MetadataHandler) GetTableSample(w http.ResponseWriter, r *http.Request) {
+	datasourceID, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	schemaName, ok := requireURLParam(w, r, "schema")
+	if !ok {
+		return
+	}
+	tableName, ok := requireURLParam(w, r, "table")
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+
+	// Confine sampling to tables we have introspected: gives a clean 404 for
+	// unknown tables and keeps the query off arbitrary identifiers. The query
+	// below is built from the matched record's own fields (sourced from our
+	// metadata DB), never the raw request strings.
+	known, err := h.deps.MetaRepo.ListTables(ctx, datasourceID, schemaName)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list tables", err)
+		return
+	}
+	idx := slices.IndexFunc(known, func(t metadata.Table) bool { return t.TableName == tableName })
+	if idx < 0 {
+		writeEntityNotFound(w, "table")
+		return
+	}
+	table := known[idx]
+
+	resolved, err := h.deps.ResolveDatasourceDB(ctx, datasourceID)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to open connection", err)
+		return
+	}
+	defer func() { _ = resolved.DB.Close() }()
+
+	// Identifiers are quoted through the dialect and taken from the validated
+	// metadata record, so no request input reaches the query.
+	d := resolved.Driver.Dialect()
+	tableRef := d.QuoteIdentSegment(table.SchemaName) + "." + d.QuoteIdentSegment(table.TableName)
+	query := d.SelectWithLimit([]string{"*"}, tableRef, tableSampleRowLimit)
+
+	sample, err := querySampleRows(ctx, resolved.DB, query)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to fetch sample rows", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, sample)
+}
+
+// querySampleRows runs query and scans every column into a generic grid,
+// converting driver []byte cells (e.g. MySQL text) to strings so they
+// serialize as readable JSON rather than base64.
+func querySampleRows(ctx context.Context, db *sql.DB, query string) (_ *sampleData, err error) {
+	rows, err := db.QueryContext(ctx, query) // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
+	if err != nil {
+		return nil, fmt.Errorf("query sample rows: %w", err)
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
+
+	colNames, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("read columns: %w", err)
+	}
+	cols := make([]sampleColumn, len(colNames))
+	for i, name := range colNames {
+		cols[i] = sampleColumn{Name: name}
+	}
+
+	out := make([][]any, 0, tableSampleRowLimit)
+	for rows.Next() {
+		cells := make([]any, len(colNames))
+		ptrs := make([]any, len(colNames))
+		for i := range cells {
+			ptrs[i] = &cells[i]
+		}
+		if scanErr := rows.Scan(ptrs...); scanErr != nil {
+			return nil, fmt.Errorf("scan sample row: %w", scanErr)
+		}
+		for i, c := range cells {
+			if b, ok := c.([]byte); ok {
+				cells[i] = string(b)
+			}
+		}
+		out = append(out, cells)
+	}
+	if scanErr := rows.Err(); scanErr != nil {
+		return nil, fmt.Errorf("iterate sample rows: %w", scanErr)
+	}
+	return &sampleData{Columns: cols, Rows: out}, nil
 }
