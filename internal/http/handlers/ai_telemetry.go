@@ -44,6 +44,7 @@ func (h *AIHandler) observeAIRequest(
 	routeResult *routing.TableRoutingResult,
 	resp *ai.Response,
 	latencyMs int64,
+	pc *ProcessContext,
 ) *ai.Response {
 	if resp == nil {
 		resp = failedAIResponse(nil)
@@ -117,7 +118,7 @@ func (h *AIHandler) observeAIRequest(
 
 	attachGenerationTrace(routeResult, model, resp)
 
-	h.recordAIHistory(ctx, req, model, routeResult, resp)
+	h.recordAIHistory(ctx, req, model, routeResult, resp, pc)
 	return resp
 }
 

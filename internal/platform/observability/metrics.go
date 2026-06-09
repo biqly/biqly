@@ -46,6 +46,7 @@ type Metrics struct {
 
 	memoryStoreConfirmed prometheus.Counter
 	memoryStoreRecall    prometheus.Counter
+	memoryRecallFeedback *prometheus.CounterVec
 
 	enrichContextGapsFound prometheus.Counter
 	enrichContextApplied   prometheus.Counter
@@ -219,6 +220,9 @@ func registerExtendedAIMetrics(f extendedMetricsFactory, m *Metrics) {
 	m.memoryStoreRecall = f.NewCounter(prometheus.CounterOpts{
 		Name: "biqly_memory_store_recall_hits_total", Help: "Total confirmed query pairs recalled into few-shot prompts.",
 	})
+	m.memoryRecallFeedback = f.NewCounterVec(prometheus.CounterOpts{
+		Name: "biqly_memory_recall_feedback_total", Help: "User thumbs-up/down on AI answers, split by memory recall usage.",
+	}, []string{"recall", "rating"})
 	m.enrichContextGapsFound = f.NewCounter(prometheus.CounterOpts{
 		Name: "biqly_enrich_context_gaps_found_total", Help: "Total context gaps detected by enrich-context analysis.",
 	})
@@ -312,6 +316,16 @@ func (m *Metrics) RecordMemoryStoreRecall(count int) {
 	if count > 0 {
 		m.memoryStoreRecall.Add(float64(count))
 	}
+}
+
+// RecordMemoryRecallFeedback records user rating split by recall usage.
+func (m *Metrics) RecordMemoryRecallFeedback(recallUsed bool, rating string) {
+	recall := "false"
+	if recallUsed {
+		recall = "true"
+	}
+	cleanRating := BoundLabel(rating, []string{"positive", "negative"}, "other")
+	m.memoryRecallFeedback.WithLabelValues(recall, cleanRating).Inc()
 }
 
 // RecordEnrichContextGaps records gaps found during enrich-context analysis.

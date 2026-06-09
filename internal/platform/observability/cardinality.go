@@ -34,9 +34,10 @@ var ForbiddenMetricLabels = []string{
 // VecLabelLimits documents the maximum distinct values allowed per label on each
 // *_Vec metric owned by this package. Update when adding a new labeled metric.
 var VecLabelLimits = map[string]map[string]int{
-	"biqly_ambiguity_by_source":        {"source": 3},
-	"biqly_ambiguity_tier":             {"tier": 4},
-	"bi_ai_repair_by_error_code_total": {"code": 16},
+	"biqly_ambiguity_by_source":          {"source": 3},
+	"biqly_ambiguity_tier":               {"tier": 4},
+	"bi_ai_repair_by_error_code_total":   {"code": 16},
+	"biqly_memory_recall_feedback_total": {"recall": 2, "rating": 2},
 }
 
 var cardinalityRegistered sync.Map

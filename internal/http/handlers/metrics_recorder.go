@@ -11,6 +11,7 @@ type AIMetricsRecorder interface {
 	RecordAIRepair(success bool, attempts int, errorCodes []string)
 	RecordMemoryStoreConfirmed()
 	RecordMemoryStoreRecall(count int)
+	RecordMemoryRecallFeedback(recallUsed bool, rating string)
 	RecordEnrichContextGaps(count int)
 	RecordEnrichContextApplied(count int)
 }

@@ -30,6 +30,12 @@ type AIMetricsSummary struct {
 	TotalTokens        int     `json:"total_tokens"`
 	PositiveFeedback   int     `json:"positive_feedback"`
 	NegativeFeedback   int     `json:"negative_feedback"`
+	RecallUsedPositive int     `json:"recall_used_positive_feedback"`
+	RecallUsedNegative int     `json:"recall_used_negative_feedback"`
+	NoRecallPositive   int     `json:"no_recall_positive_feedback"`
+	NoRecallNegative   int     `json:"no_recall_negative_feedback"`
+	RecallThumbsUpRate float64 `json:"recall_thumbs_up_rate"`
+	NoRecallThumbsUpRate float64 `json:"no_recall_thumbs_up_rate"`
 }
 
 // AIMetricsDayRow is daily AI pipeline aggregates for charts.
@@ -85,7 +91,11 @@ func (r *Repository) GetAIMetricsDashboard(ctx context.Context, days int) (summa
 			COALESCE(SUM(cost_usd), 0),
 			COALESCE(SUM(token_count), 0),
 			COUNT(*) FILTER (WHERE user_rating = 'positive'),
-			COUNT(*) FILTER (WHERE user_rating = 'negative')
+			COUNT(*) FILTER (WHERE user_rating = 'negative'),
+			COUNT(*) FILTER (WHERE memory_recall_used AND user_rating = 'positive'),
+			COUNT(*) FILTER (WHERE memory_recall_used AND user_rating = 'negative'),
+			COUNT(*) FILTER (WHERE NOT memory_recall_used AND user_rating = 'positive'),
+			COUNT(*) FILTER (WHERE NOT memory_recall_used AND user_rating = 'negative')
 		FROM ai_query_history
 		WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
 	`, interval).Scan(
@@ -100,6 +110,10 @@ func (r *Repository) GetAIMetricsDashboard(ctx context.Context, days int) (summa
 		&summary.TotalTokens,
 		&summary.PositiveFeedback,
 		&summary.NegativeFeedback,
+		&summary.RecallUsedPositive,
+		&summary.RecallUsedNegative,
+		&summary.NoRecallPositive,
+		&summary.NoRecallNegative,
 	)
 	if err != nil {
 		return summary, daily, err
@@ -107,6 +121,14 @@ func (r *Repository) GetAIMetricsDashboard(ctx context.Context, days int) (summa
 	if summary.TotalQueries > 0 {
 		summary.SuccessRate = float64(summary.SuccessCount) / float64(summary.TotalQueries)
 		summary.FailureRate = float64(summary.FailedCount) / float64(summary.TotalQueries)
+	}
+	recallRated := summary.RecallUsedPositive + summary.RecallUsedNegative
+	if recallRated > 0 {
+		summary.RecallThumbsUpRate = float64(summary.RecallUsedPositive) / float64(recallRated)
+	}
+	noRecallRated := summary.NoRecallPositive + summary.NoRecallNegative
+	if noRecallRated > 0 {
+		summary.NoRecallThumbsUpRate = float64(summary.NoRecallPositive) / float64(noRecallRated)
 	}
 	return summary, daily, nil
 }

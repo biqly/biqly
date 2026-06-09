@@ -78,7 +78,7 @@ func (h *AIHandler) executeAIQueryPhase(
 	var processOpts []ai.ProcessOption
 	if phase == aiPhaseRun {
 		var resolveErr error
-		resolved, processOpts, resolveErr = h.resolveRunPhaseForJob(ctx, req, model)
+		resolved, processOpts, resolveErr = h.resolveRunPhaseForJob(ctx, pc, req, model)
 		if resolveErr != nil {
 			return nil, resolveErr
 		}

@@ -190,7 +190,7 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 			h.metrics.RecordAmbiguityTier("0")
 		}
 		resp := clarificationResponse(routeResult)
-		h.observeAIRequest(ctx, *req, model, routeResult, resp, 0)
+		h.observeAIRequest(ctx, *req, model, routeResult, resp, 0, nil)
 		writeJSON(w, http.StatusOK, resp)
 		return *req, nil, nil, nil, false
 	}
@@ -210,9 +210,13 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessConte
 	}
 	catalog, external := h.loadGlossaryEntries(ctx, model)
 	opts := make([]ai.ProcessOption, 0, 6)
+	fewShot, recallHits := h.loadFewShotExamples(ctx, model, question)
+	if pc != nil {
+		pc.SetMemoryRecallHitCount(recallHits)
+	}
 	opts = append(opts,
 		ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
-		ai.WithFewShotExamples(h.loadFewShotExamples(ctx, model, question)),
+		ai.WithFewShotExamples(fewShot),
 		ai.WithPriorTurns(priorTurnsForPrompt(req.PriorTurns)),
 		ai.WithGlossary(prompt.SelectGlossaryForQuestion(question, prompt.MergeGlossaryEntries(catalog, external), model)),
 		ai.WithAmbiguityGlossary(combineGlossaryEntries(catalog, external)),
@@ -277,14 +281,14 @@ func (h *AIHandler) processAIQuestion(
 		}
 	}
 	if err != nil {
-		h.observeAIRequest(ctx, req, model, routeResult, failedAIResponse(err), time.Since(start).Milliseconds())
+		h.observeAIRequest(ctx, req, model, routeResult, failedAIResponse(err), time.Since(start).Milliseconds(), pc)
 		return nil, err
 	}
 	if resp == nil {
 		resp = failedAIResponse(errors.New("ai response missing"))
 	}
 	attachAmbiguityClarificationRound(pc, resp)
-	return h.observeAIRequest(ctx, req, model, routeResult, resp, time.Since(start).Milliseconds()), nil
+	return h.observeAIRequest(ctx, req, model, routeResult, resp, time.Since(start).Milliseconds(), pc), nil
 }
 
 // processAndObserve is the shared entry for Query, Preview, and Run: parse/route,
@@ -300,7 +304,7 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 	var processOpts []ai.ProcessOption
 	if phase == aiPhaseRun {
 		var ok bool
-		resolved, processOpts, ok = h.applyRunPhaseForHTTP(ctx, w, req, model)
+		resolved, processOpts, ok = h.applyRunPhaseForHTTP(ctx, w, req, model, pc)
 		if !ok {
 			return
 		}
@@ -343,8 +347,9 @@ func (h *AIHandler) applyRunPhaseForHTTP(
 	w http.ResponseWriter,
 	req aiQueryRequest,
 	model *semantic.SemanticModel,
+	pc *ProcessContext,
 ) (*app.ResolvedDatasource, []ai.ProcessOption, bool) {
-	resolved, processOpts, err := h.resolveRunPhaseProcessOptions(ctx, req, model)
+	resolved, processOpts, err := h.resolveRunPhaseProcessOptions(ctx, pc, req, model)
 	if err == nil {
 		return resolved, processOpts, true
 	}
@@ -357,19 +362,23 @@ func (h *AIHandler) applyRunPhaseForHTTP(
 	return nil, nil, false
 }
 
-func (h *AIHandler) resolveRunPhaseProcessOptions(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel) (*app.ResolvedDatasource, []ai.ProcessOption, error) {
+func (h *AIHandler) resolveRunPhaseProcessOptions(ctx context.Context, pc *ProcessContext, req aiQueryRequest, model *semantic.SemanticModel) (*app.ResolvedDatasource, []ai.ProcessOption, error) {
 	if h.deps.QueryClient != nil {
+		fewShot, recallHits := h.loadFewShotExamplesWithIDs(ctx, model, req.Question, req.ExampleIDs, req.IncludePastQueries)
+		if pc != nil {
+			pc.SetMemoryRecallHitCount(recallHits)
+		}
 		return nil, []ai.ProcessOption{
 			ai.WithSQLValidator(newQueryClientDryRunValidator(h.deps.QueryClient)),
 			ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
-			ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.Question, req.ExampleIDs, req.IncludePastQueries)),
+			ai.WithFewShotExamples(fewShot),
 		}, nil
 	}
 	resolved, err := h.deps.ResolveDatasourceDB(ctx, req.DatasourceID)
 	if err != nil {
 		return nil, nil, err
 	}
-	processOpts, err := h.localRunProcessOptions(ctx, req, model, resolved)
+	processOpts, err := h.localRunProcessOptions(ctx, pc, req, model, resolved)
 	if err != nil {
 		return resolved, nil, err
 	}
@@ -378,10 +387,11 @@ func (h *AIHandler) resolveRunPhaseProcessOptions(ctx context.Context, req aiQue
 
 func (h *AIHandler) resolveRunPhaseForJob(
 	ctx context.Context,
+	pc *ProcessContext,
 	req aiQueryRequest,
 	model *semantic.SemanticModel,
 ) (*app.ResolvedDatasource, []ai.ProcessOption, error) {
-	resolved, processOpts, err := h.resolveRunPhaseProcessOptions(ctx, req, model)
+	resolved, processOpts, err := h.resolveRunPhaseProcessOptions(ctx, pc, req, model)
 	if err == nil {
 		return resolved, processOpts, nil
 	}
@@ -400,7 +410,7 @@ func closeResolvedDatasource(ctx context.Context, resolved *app.ResolvedDatasour
 	}
 }
 
-func (h *AIHandler) localRunProcessOptions(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel, resolved *app.ResolvedDatasource) ([]ai.ProcessOption, error) {
+func (h *AIHandler) localRunProcessOptions(ctx context.Context, pc *ProcessContext, req aiQueryRequest, model *semantic.SemanticModel, resolved *app.ResolvedDatasource) ([]ai.ProcessOption, error) {
 	if resolved == nil || resolved.DB == nil || resolved.Driver == nil {
 		return nil, errors.New("datasource not resolved")
 	}
@@ -408,10 +418,14 @@ func (h *AIHandler) localRunProcessOptions(ctx context.Context, req aiQueryReque
 	driver := resolved.Driver
 	db := resolved.DB
 	targetDialect := driver.Dialect()
+	fewShot, recallHits := h.loadFewShotExamplesWithIDs(ctx, model, req.Question, req.ExampleIDs, req.IncludePastQueries)
+	if pc != nil {
+		pc.SetMemoryRecallHitCount(recallHits)
+	}
 	return []ai.ProcessOption{
 		ai.WithSQLValidator(newSQLDryRunValidator(h.deps.QueryService, db, driver, model)),
 		ai.WithTargetDialect(targetDialect.Name()),
-		ai.WithFewShotExamples(h.loadFewShotExamplesWithIDs(ctx, model, req.Question, req.ExampleIDs, req.IncludePastQueries)),
+		ai.WithFewShotExamples(fewShot),
 		ai.WithSampleData(h.loadSampleData(ctx, db, targetDialect, model)),
 	}, nil
 }
@@ -1092,12 +1106,12 @@ func (h *AIHandler) loadSampleData(ctx context.Context, db *sql.DB, d dialect.Di
 // inputs are empty/false this matches loadFewShotExamples — used by Run() so
 // the frontend can override which exemplars hit the prompt without breaking
 // the simpler Query/Preview paths.
-func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *semantic.SemanticModel, question string, exampleIDs []string, includePastQueries bool) []prompt.FewShotExample {
+func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *semantic.SemanticModel, question string, exampleIDs []string, includePastQueries bool) ([]prompt.FewShotExample, int) {
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.LoadFewShot")
 	defer span.End()
 
 	if model == nil {
-		return nil
+		return nil, 0
 	}
 	span.SetAttributes(attribute.String("model.id", model.ID))
 	var modelID *string
@@ -1142,7 +1156,7 @@ func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *seman
 		}
 	}
 
-	out = h.appendConfirmedFewShot(ctx, model, question, out)
+	out, recallHits := h.appendConfirmedFewShot(ctx, model, question, out)
 
 	if includePastQueries {
 		remaining := fewShotLimit - len(out)
@@ -1162,7 +1176,7 @@ func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *seman
 	}
 
 	span.SetAttributes(attribute.Int("ai.few_shot.count", len(out)))
-	return out
+	return out, recallHits
 }
 
 // datasourceDialectName returns the driver type for prompt dialect examples.
@@ -1230,9 +1244,9 @@ func (h *AIHandler) listBusinessGlossary(ctx context.Context, datasourceID, mode
 
 // loadFewShotExamples returns recent high-confidence (question, logical_query)
 // pairs for this datasource+model. Errors are non-fatal — we just log and skip.
-func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.SemanticModel, question string) []prompt.FewShotExample {
+func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.SemanticModel, question string) ([]prompt.FewShotExample, int) {
 	if model == nil {
-		return nil
+		return nil, 0
 	}
 	var modelID *string
 	if model.ID != "" {
@@ -1266,7 +1280,7 @@ func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.Sem
 		}
 	}
 
-	out = h.appendConfirmedFewShot(ctx, model, question, out)
+	out, recallHits := h.appendConfirmedFewShot(ctx, model, question, out)
 
 	remaining := fewShotLimit - len(out)
 	if remaining > 0 {
@@ -1283,7 +1297,7 @@ func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.Sem
 		}
 	}
 
-	return out
+	return out, recallHits
 }
 
 func stringValue(s *string) string {

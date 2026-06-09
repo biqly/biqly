@@ -17,28 +17,28 @@ func (h *AIHandler) appendConfirmedFewShot(
 	model *semantic.SemanticModel,
 	question string,
 	out []prompt.FewShotExample,
-) []prompt.FewShotExample {
+) ([]prompt.FewShotExample, int) {
 	if model == nil || h.deps == nil || h.deps.MetaRepo == nil {
-		return out
+		return out, 0
 	}
 	remaining := fewShotLimit - len(out)
 	if remaining <= 0 {
-		return out
+		return out, 0
 	}
 	modelHash := memory.SemanticModelHashForModel(model)
 	candidates, err := h.deps.MetaRepo.ListActiveConfirmedQueries(ctx, model.DatasourceID, model.ID, modelHash, metadata.ConfirmedQueriesCandidatePool)
 	if err != nil {
 		slog.WarnContext(ctx, "load confirmed few-shot examples failed", "error", err)
-		return out
+		return out, 0
 	}
 	recalled, hitCount := memory.RecallFewShot(ctx, h.deps.Embedder, candidates, question, remaining)
 	if len(recalled) == 0 {
-		return out
+		return out, 0
 	}
 	if h.metrics != nil {
 		h.metrics.RecordMemoryStoreRecall(hitCount)
 	}
-	return append(out, recalled...)
+	return append(out, recalled...), hitCount
 }
 
 // storeConfirmedQueryOnPositiveFeedback persists the NL→SQL pair behind a

@@ -800,9 +800,9 @@ func TestQueryAndAIHistory(t *testing.T) {
 		},
 		{
 			Pattern: "SELECT id, datasource_id, model_id, user_id, question, prompt_context",
-			Cols:    []string{"id", "datasource_id", "model_id", "user_id", "question", "prompt_context", "ai_response", "logical_query", "confidence_score", "warnings", "outcome_status", "retry_count", "needs_clarification", "model_used", "prompt_tokens", "completion_tokens", "token_count", "cost_usd", "latency_ms", "created_at", "ab_experiment_id", "ab_variant_id"},
+			Cols:    []string{"id", "datasource_id", "model_id", "user_id", "question", "prompt_context", "ai_response", "logical_query", "confidence_score", "warnings", "outcome_status", "retry_count", "needs_clarification", "model_used", "prompt_tokens", "completion_tokens", "token_count", "cost_usd", "latency_ms", "created_at", "ab_experiment_id", "ab_variant_id", "memory_recall_used", "memory_recall_hit_count"},
 			Rows: [][]driver.Value{
-				{"aqh-123", "ds-1", "m-1", "u-1", "how many users?", []byte(`{}`), []byte(`{}`), []byte(`{"version":"v1"}`), 0.95, `{warn1}`, "success", int64(0), false, "gpt-4", int64(6), int64(4), int64(10), 0.05, int64(120), now, nil, nil},
+				{"aqh-123", "ds-1", "m-1", "u-1", "how many users?", []byte(`{}`), []byte(`{}`), []byte(`{"version":"v1"}`), 0.95, `{warn1}`, "success", int64(0), false, "gpt-4", int64(6), int64(4), int64(10), 0.05, int64(120), now, nil, nil, false, int64(0)},
 			},
 		},
 	}
@@ -1083,8 +1083,9 @@ func testAIFeedbackAndUsageRepository(ctx context.Context, t *testing.T, repo *R
 	err := repo.InsertAIFeedback(ctx, "how long?", "ds-1", "positive", []string{"speed"}, "very fast")
 	assert.NoError(t, err)
 
-	err = repo.UpdateLatestAIQueryHistoryRating(ctx, "ds-1", "positive", "user-1", "how long?")
+	recallUsed, err := repo.UpdateLatestAIQueryHistoryRating(ctx, "ds-1", "positive", "user-1", "how long?")
 	assert.NoError(t, err)
+	assert.False(t, recallUsed)
 
 	rates, err := repo.ListModelSuccessRates(ctx, "30")
 	assert.NoError(t, err)
@@ -1141,9 +1142,13 @@ func TestAIFeedbackAndUsageRepository(t *testing.T) {
 
 	state.execs = []execMock{
 		{Pattern: "INSERT INTO ai_feedback", RowsAffected: 1},
-		{Pattern: "UPDATE ai_query_history SET user_rating =", RowsAffected: 1},
 	}
 	state.queries = []queryMock{
+		{
+			Pattern: "UPDATE ai_query_history SET user_rating",
+			Cols:    []string{"memory_recall_used"},
+			Rows:    [][]driver.Value{{false}},
+		},
 		{
 			Pattern: "SELECT COALESCE(h.model_id::text, 'unknown')",
 			Cols:    []string{"model_id", "total_queries", "success_count", "failure_count", "avg_confidence", "avg_latency_ms", "positive_count", "negative_count"},
@@ -1301,8 +1306,8 @@ func TestAIMetricsDashboardRepository(t *testing.T) {
 		},
 		{
 			Pattern: "SELECT COUNT(*), COUNT(*) FILTER (WHERE outcome_status = 'success')",
-			Cols:    []string{"total", "success", "failed", "partial", "clarification", "avg_retry", "avg_latency", "sum_cost", "sum_tokens", "pos_feed", "neg_feed"},
-			Rows:    [][]driver.Value{{10, 8, 1, 1, 0, 1.2, 180.0, 0.05, 1200, 4, 1}},
+			Cols:    []string{"total", "success", "failed", "partial", "clarification", "avg_retry", "avg_latency", "sum_cost", "sum_tokens", "pos_feed", "neg_feed", "recall_pos", "recall_neg", "no_recall_pos", "no_recall_neg"},
+			Rows:    [][]driver.Value{{10, 8, 1, 1, 0, 1.2, 180.0, 0.05, 1200, 4, 1, 2, 0, 2, 1}},
 		},
 	}
 

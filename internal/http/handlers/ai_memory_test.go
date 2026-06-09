@@ -20,14 +20,15 @@ func (*memoryMetricsStub) RecordAIRequest(int64, bool, int, bool) {}
 func (*memoryMetricsStub) RecordLLMRequest(int64, int, int64)     {}
 func (*memoryMetricsStub) RecordAmbiguityAnalysis(int64, string, bool) {
 }
-func (*memoryMetricsStub) RecordAmbiguityTier(string)          {}
-func (*memoryMetricsStub) RecordAmbiguityClarified()           {}
-func (*memoryMetricsStub) RecordAmbiguityRoundCapReached()     {}
-func (*memoryMetricsStub) RecordAIRepair(bool, int, []string)  {}
-func (*memoryMetricsStub) RecordMemoryStoreConfirmed()         {}
-func (m *memoryMetricsStub) RecordMemoryStoreRecall(count int) { m.recallHits += count }
-func (*memoryMetricsStub) RecordEnrichContextGaps(int)         {}
-func (*memoryMetricsStub) RecordEnrichContextApplied(int)      {}
+func (*memoryMetricsStub) RecordAmbiguityTier(string)              {}
+func (*memoryMetricsStub) RecordAmbiguityClarified()               {}
+func (*memoryMetricsStub) RecordAmbiguityRoundCapReached()         {}
+func (*memoryMetricsStub) RecordAIRepair(bool, int, []string)      {}
+func (*memoryMetricsStub) RecordMemoryStoreConfirmed()             {}
+func (m *memoryMetricsStub) RecordMemoryStoreRecall(count int)     { m.recallHits += count }
+func (*memoryMetricsStub) RecordMemoryRecallFeedback(bool, string) {}
+func (*memoryMetricsStub) RecordEnrichContextGaps(int)             {}
+func (*memoryMetricsStub) RecordEnrichContextApplied(int)          {}
 
 func TestAppendConfirmedFewShotAddsRecalledExamples(t *testing.T) {
 	db, state := setupMockDB(t)
@@ -75,8 +76,9 @@ func TestAppendConfirmedFewShotAddsRecalledExamples(t *testing.T) {
 		deps:    (&app.Dependencies{MetaRepo: repo}).AIDeps(),
 		metrics: metrics,
 	}
-	out := h.appendConfirmedFewShot(ctx, model, "show monthly sales trend", nil)
+	out, hits := h.appendConfirmedFewShot(ctx, model, "show monthly sales trend", nil)
 	require.Len(t, out, 1)
 	assert.Equal(t, "monthly sales", out[0].Question)
+	assert.Equal(t, 1, hits)
 	assert.Equal(t, 1, metrics.recallHits)
 }

@@ -43,8 +43,9 @@ func (h *AIHandler) recordAIHistory(
 	model *semantic.SemanticModel,
 	routeResult *routing.TableRoutingResult,
 	resp *ai.Response,
+	pc *ProcessContext,
 ) {
-	entry := buildAIHistoryEntry(ctx, req, model, routeResult, resp)
+	entry := buildAIHistoryEntry(ctx, req, model, routeResult, resp, pc)
 	if h.deps.CatalogClient != nil {
 		if _, err := h.deps.CatalogClient.CreateAIHistory(ctx, entry); err != nil {
 			slog.ErrorContext(ctx, "create AI query history via catalog failed", "error", err)
@@ -69,6 +70,7 @@ func buildAIHistoryEntry(
 	model *semantic.SemanticModel,
 	routeResult *routing.TableRoutingResult,
 	resp *ai.Response,
+	pc *ProcessContext,
 ) *metadata.AIQueryHistoryEntry {
 	var prompt string
 	var locale string
@@ -122,6 +124,18 @@ func buildAIHistoryEntry(
 	}
 	if userID := historyUserID(ctx); userID != "" {
 		entry.UserID = new(userID)
+	}
+	if pc != nil {
+		recallHits := pc.MemoryRecallHitCount()
+		entry.MemoryRecallHitCount = recallHits
+		entry.MemoryRecallUsed = recallHits > 0
+		ctxMap, ok := entry.PromptContext.(map[string]any)
+		if !ok || ctxMap == nil {
+			ctxMap = map[string]any{}
+			entry.PromptContext = ctxMap
+		}
+		ctxMap["memory_recall_used"] = entry.MemoryRecallUsed
+		ctxMap["memory_recall_hit_count"] = recallHits
 	}
 	enrichAIHistoryEntry(entry, resp)
 	return entry

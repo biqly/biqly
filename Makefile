@@ -79,7 +79,7 @@ eval:
 	@go test -v ./internal/ai/... ./internal/http/handlers/... -run "TestGoldenSeedSelfConsistent|TestLogicalQueryEqualBaseline|TestGoldenLoader|TestEvalCaseCRUD"
 
 eval-regression:
-	@go test ./internal/ai/ -run 'TestGoldenSeedSelfConsistent|TestLogicalQueryEqualBaseline|TestResultSetEqualBaseline|TestExecutionAccuracyGolden|TestEvalRegressionGate|TestBenchmarkSuiteRegressionGate|TestBenchmarkSuiteSelfConsistent|TestNightlySuiteSelfConsistent|TestNightlySuiteRegressionGate|TestAmbiguityGoldenRegressionGate' -count=1 -v
+	@go test ./internal/ai/ -run 'TestGoldenSeedSelfConsistent|TestLogicalQueryEqualBaseline|TestResultSetEqualBaseline|TestExecutionAccuracyGolden|TestEvalRegressionGate|TestBenchmarkSuiteRegressionGate|TestBenchmarkSuiteSelfConsistent|TestNightlySuiteSelfConsistent|TestNightlySuiteRegressionGate|TestAmbiguityGoldenRegressionGate|TestMemoryRecallRegressionGate' -count=1 -v
 
 eval-live:
 	@go run ./cmd/eval-live -baseline testdata/eval/nightly_baseline.json -output eval-live-report.json

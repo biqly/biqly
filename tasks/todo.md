@@ -328,14 +328,14 @@ Plan'daki tüm metric adları (`biqly_ambiguity_round_cap_reached_total`, `biqly
   - **Dosyalar:** `ai_ambiguity_tier.go`, `ai_context.go`, `internal/ai/service.go`, `ambiguity/resolver.go`,
     `metrics.go`, frontend `assistantMessageCardSections.tsx`, `routingViz.tsx`, i18n `core.ts`.
 
-- [ ] **GAP-2 (P3) — Açık kabul kriteri "accuracy artışı ölçülebilir" için somut alt maddeler.**
+- [x] **GAP-2 (P3) — Açık kabul kriteri "accuracy artışı ölçülebilir" için somut alt maddeler.**
   Recall mekanizması ve sayaçlar var ama "memory store accuracy'yi artırıyor mu" sorusuna yanıt veren
   ölçüm yok. Alt maddeler:
-  - [ ] `ai_query_history`'e `memory_recall_used bool` (veya recall hit sayısı) alanı yaz → pozitif/negatif
+  - [x] `ai_query_history`'e `memory_recall_used bool` (veya recall hit sayısı) alanı yaz → pozitif/negatif
     feedback oranı recall'lı vs recall'sız sorgular için karşılaştırılabilir olsun.
-  - [ ] Grafana paneli: `biqly_memory_store_recall_hits_total` / `biqly_memory_store_confirmed_total`
+  - [x] Grafana paneli: `biqly_memory_store_recall_hits_total` / `biqly_memory_store_confirmed_total`
     trendi + recall'lı sorguların thumbs-up oranı.
-  - [ ] Eval: confirmed-query enjekte edilen golden case (recall few-shot'unun üretimi iyileştirdiğini
+  - [x] Eval: confirmed-query enjekte edilen golden case (recall few-shot'unun üretimi iyileştirdiğini
     assert eden, stub-provider'lı regression case) — `internal/ai/eval/`.
 
 - [ ] **GAP-3 (P0 kalıntısı) — Tier-0 short-circuit bloğu sync/async'te tekrar ediyor.**
@@ -355,6 +355,79 @@ Plan'daki tüm metric adları (`biqly_ambiguity_round_cap_reached_total`, `biqly
   varken Helm/env değeri değiştirmek etkisizdir (`db_override` admin panelde görünüyor). İsteğe bağlı
   küçük iyileştirme: `/api/ai/settings` (RuntimeSettings) yanıtına efektif ambiguity değerlerini ve
   kaynağını eklemek → kullanıcı-görünür ayar sayfalarında da tutarlı görünürlük.
+
+### Prod Vaka: "geçen ay kaç adet tweet atılmıştır?" (2026-06-09 21:55, zlitter_2)
+
+İki kullanıcı-görünür hata, üç kök neden (kod üzerinde doğrulandı):
+
+**Belirti 1 — Netleştirme kartı Türkçe UI'a rağmen İngilizce geldi.**
+Kök neden: frontend generate/preview için **async job** yolunu kullanıyor; worker job'ı
+"bare consumer context" ile çalıştırıyor (`ai_job_service.go` — yorum aynen böyle diyor).
+`UserID` job kaydına persist edilip worker'da `ai.WithUserID` ile geri enjekte ediliyor ama
+**locale edilmiyor** → `i18n.FromContext(ctx)` = DefaultLocale("en") → `ambiguity_reason`
+("This question matched more than one possible meaning.") ve `ambiguity_question_single`
+("What did you mean by ...?") İngilizce katalogtan basılıyor. `internal/i18n/locales/tr.json`
+çevirileri **mevcut ama job yolunda hiç kullanılamıyor**. Senkron yolda `bimw.Locale`
+middleware'i X-Locale'i context'e koyduğu için sorun yalnızca async yolda görülüyor.
+
+**Belirti 2 — "geçen ay" koşulu nihai sorguya yansımadı** (`SELECT COUNT(*) ... LIMIT 100`,
+filtresiz; güven %90 gösterildi). İki ayrı kök neden:
+(a) *Sahte belirsizlik gürültüsü:* routing her timestamp kolonu için `*_month` date-grain
+dimension üretip month grain synonym'lerini ("ay", "aylık", ...) kopyalıyor
+(`routing/time_grains.go`); `DetectSynonyms` modeldeki TÜM dimension synonym'lerini taradığı
+için "geçen ay" içindeki "ay" token'ı 15 `*_month` dim'e çarpıyor → anlamsız 15 seçenekli
+"semantic" kartı. Oysa `temporal_detector.go` "geçen ay" kalıbını tanıyor ve anlamlı 2 yorum
+üretiyor (takvim ayı vs son 30 gün) — ama tiered modda (`AnalyzeSynonymHomonym`) temporal
+detector hiç çalışmıyor; çalışsa bile synonym detector bare-token "ay"ı ayrıca işaretliyor.
+(b) *Sessiz koşul düşmesi:* LLM (mimo-v2.5) modelle uyuşmayan şekil üretti, repair döngüsü
+sonunda filtresiz bare-count kaldı; `warnings_body` gösterildi ama zaman koşulunun
+**uygulanmadığı** açıkça söylenmedi ve güven %90 kaldı. Compile katmanı `between` +
+`calendar_grain_filter.go` ile "geçen ay"ı ifade EDEBİLİYOR — kayıp üretim/repair tarafında.
+
+**Yapılacaklar:**
+
+- [ ] **VAKA-1 — Async job yoluna locale propagasyonu.** Job oluştururken request locale'ini
+  (`i18n.FromContext`) job kaydına persist et (`metadata.AIJob`'a `locale` alanı veya
+  `RequestJSON` içine), worker'da `processJob` öncesi `i18n.WithLocale(ctx, job.Locale)` enjekte
+  et — `UserID` ile birebir aynı kalıp. Test: TR locale ile submit edilen job'ın clarification
+  yanıtı `tr.json` metinlerini içeriyor.
+  - **Dosyalar:** `internal/metadata/ai_jobs*.go` (+migration gerekirse), `internal/http/handlers/ai_jobs.go`
+    (create), `ai_job_service.go` (inject), test.
+
+- [ ] **VAKA-2 — Date-grain synonym'leri belirsizlik tespitinden çıkar.** `DetectSynonyms`
+  auto-generated date-grain dimension'ların grain synonym'lerini ("ay", "gün", "yıl",
+  "çeyrek", "saat" + EN karşılıkları) collision adayı saymasın: ya date-grain dim'leri
+  (suffix `_month/_day/_quarter/_year/_hour`) detector'dan hariç tut, ya da soru içinde
+  bilinen temporal phrase'in (`temporal_detector` pattern listesi) parçası olan token'ları
+  atla. Kabul: "geçen ay kaç tweet" sorusu synonym collision üretmiyor; "ay" tek başına
+  meşru kolon adı olarak geçen durumlar etkilenmiyor.
+  - **Dosyalar:** `internal/ai/ambiguity/synonym_detector.go`, `analyzer.go`, testler.
+
+- [ ] **VAKA-3 — Tiered modda temporal ifadeler için doğru tier.** "geçen ay" gibi kalıplar
+  Tier 1'de (deterministik, ücretsiz) `DetectTemporal` ile yakalanabilirken tiered mod onları
+  tamamen atlıyor (P5 kabulünde "scope/temporal Tier 1'de atlanıyor" diye bilinçli yazılmıştı —
+  bu vaka kararın yanlış olduğunu gösteriyor: temporal de deterministik ve ücretsiz).
+  `AnalyzeSynonymHomonym`'e `DetectTemporal`'ı ekle (veya tiered Tier 1 detector setini
+  config'e bağla) → kullanıcı "takvim ayı mı, son 30 gün mü?" gibi ANLAMLI bir netleştirme görür.
+  - **Dosyalar:** `internal/ai/ambiguity/analyzer.go`, ilgili testler + `ambiguity_golden.json`'a
+    TR temporal case.
+
+- [ ] **VAKA-4 — Temporal koşul sessizce düşmesin.** Soruda temporal phrase tespit edildiyse
+  (temporal detector pattern'leri) ve nihai LogicalQuery hiçbir tarih filtresi/grain filtresi
+  içermiyorsa: özel uyarı ekle ("zaman koşulu sorguya uygulanamadı"), confidence'ı düşür ve/veya
+  recovery seçenekleri sun — %90 güvenle filtresiz COUNT dönmek yanlış-doğru cevap üretiyor
+  (silent failure). Ek olarak: TR göreli tarih few-shot örneği ("geçen ay kaç X" →
+  `created_at` üzerinde prev-calendar-month filter'lı count) + eval golden case.
+  - **Dosyalar:** `internal/ai/service.go` (gen loop sonrası post-check), `internal/ai/trace.go`
+    (uyarı/trace alanı), few-shot seed + `internal/ai/eval/testdata/`, frontend uyarı metni
+    gerekiyorsa `i18n/locales/{en,tr}/core.ts`.
+
+- [ ] **VAKA-5 (ikincil) — Netleştirme seçenek metinleri ham kolon description'ı.** Seçenek
+  etiketleri İngilizce metadata description'larından geliyor (örn. "The standardized,
+  machine-readable timestamp..."); locale düzelse bile bu metinler İngilizce kalır ve son
+  kullanıcı için fazla teknik. Routing'deki `MetadataTranslator` benzeri bir çeviri/sadeleştirme
+  katmanının ambiguity seçeneklerine de uygulanması değerlendirilmeli (düşük öncelik;
+  VAKA-2/3 zaten bu kartın hiç çıkmamasını sağlar).
 
 ---
 

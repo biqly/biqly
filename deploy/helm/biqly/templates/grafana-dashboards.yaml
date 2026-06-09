@@ -16,7 +16,11 @@ data:
         {"type":"timeseries","title":"AI success rate","targets":[{"expr":"1 - (sum(rate(bi_ai_errors[5m])) / clamp_min(sum(rate(bi_ai_requests_total[5m])), 1))"}]},
         {"type":"timeseries","title":"Average LLM latency","targets":[{"expr":"sum(rate(llm_request_duration_seconds[5m])) / clamp_min(sum(rate(bi_ai_requests_total[5m])), 1)"}]},
         {"type":"timeseries","title":"Tokens used","targets":[{"expr":"sum(rate(llm_tokens_used_total[5m]))"}]},
-        {"type":"timeseries","title":"Clarifications","targets":[{"expr":"sum(rate(bi_ai_clarifications_total[5m]))"}]}
+        {"type":"timeseries","title":"Clarifications","targets":[{"expr":"sum(rate(bi_ai_clarifications_total[5m]))"}]},
+        {"type":"timeseries","title":"Memory store confirmed","targets":[{"expr":"sum(rate(biqly_memory_store_confirmed_total[5m]))"}]},
+        {"type":"timeseries","title":"Memory recall hits","targets":[{"expr":"sum(rate(biqly_memory_store_recall_hits_total[5m]))"}]},
+        {"type":"timeseries","title":"Recall feedback thumbs-up rate","targets":[{"expr":"sum(rate(biqly_memory_recall_feedback_total{rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total[5m])), 1)"}]},
+        {"type":"timeseries","title":"Recall vs no-recall thumbs-up rate","targets":[{"expr":"sum(rate(biqly_memory_recall_feedback_total{recall=\"true\",rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total{recall=\"true\"}[5m])), 1)"},{"expr":"sum(rate(biqly_memory_recall_feedback_total{recall=\"false\",rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total{recall=\"false\"}[5m])), 1)"}]}
       ]
     }
   biqly-query.json: |

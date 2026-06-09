@@ -21,6 +21,21 @@ type ProcessContext struct {
 	ClarificationResolved bool
 	DatasourceID          string
 	clarificationRound    int
+	memoryRecallHitCount  int
+}
+
+func (pc *ProcessContext) SetMemoryRecallHitCount(count int) {
+	if pc == nil {
+		return
+	}
+	pc.memoryRecallHitCount = count
+}
+
+func (pc *ProcessContext) MemoryRecallHitCount() int {
+	if pc == nil {
+		return 0
+	}
+	return pc.memoryRecallHitCount
 }
 
 func buildProcessContext(req aiQueryRequest) *ProcessContext {

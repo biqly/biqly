@@ -42,7 +42,7 @@ func TestAIHandlerUsesCatalogClientForCatalogReadsAndHistory(t *testing.T) {
 	}
 
 	lq := integrationLogicalQuery()
-	handler.recordAIHistory(ctx, aiQueryRequest{DatasourceID: integrationDSID, Question: "orders by country"}, model, nil, &ai.Response{Result: &ai.AIResult{LogicalQuery: &lq}})
+	handler.recordAIHistory(ctx, aiQueryRequest{DatasourceID: integrationDSID, Question: "orders by country"}, model, nil, &ai.Response{Result: &ai.AIResult{LogicalQuery: &lq}}, nil)
 
 	for _, key := range []string{
 		"GET /internal/models",

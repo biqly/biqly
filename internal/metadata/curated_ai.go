@@ -130,15 +130,21 @@ func (r *Repository) InsertAIFeedback(ctx context.Context, question, datasourceI
 }
 
 // UpdateLatestAIQueryHistoryRating sets user_rating on the most recent ai_query_history row for a datasource, specific user, and question.
-func (r *Repository) UpdateLatestAIQueryHistoryRating(ctx context.Context, datasourceID, rating, userID, question string) error {
-	_, err := r.db.ExecContext(ctx,
+// Returns whether memory_recall_used was true on the updated row.
+func (r *Repository) UpdateLatestAIQueryHistoryRating(ctx context.Context, datasourceID, rating, userID, question string) (bool, error) {
+	var recallUsed bool
+	err := r.db.QueryRowContext(ctx,
 		`UPDATE ai_query_history SET user_rating = $1
 		 WHERE id = (SELECT id FROM ai_query_history
 		             WHERE datasource_id = $2::uuid AND user_id = $3 AND question = $4
-		             ORDER BY created_at DESC LIMIT 1)`,
+		             ORDER BY created_at DESC LIMIT 1)
+		 RETURNING memory_recall_used`,
 		rating, datasourceID, userID, question,
-	)
-	return err
+	).Scan(&recallUsed)
+	if err != nil {
+		return false, err
+	}
+	return recallUsed, nil
 }
 
 // ModelSuccessRateRow is aggregated AI query stats per model_id label.

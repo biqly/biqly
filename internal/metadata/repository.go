@@ -647,10 +647,10 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 			ai_response, logical_query, confidence_score, warnings,
 			outcome_status, retry_count, needs_clarification,
 			model_used, prompt_tokens, completion_tokens, token_count, cost_usd, latency_ms,
-			ab_experiment_id, ab_variant_id
+			ab_experiment_id, ab_variant_id, memory_recall_used, memory_recall_hit_count
 		)
 		VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9,
-			$10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+			$10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
 		RETURNING id, created_at
 	`
 	if err := r.db.QueryRowContext(
@@ -676,6 +676,8 @@ func (r *Repository) CreateAIQueryHistory(ctx context.Context, entry *AIQueryHis
 		entry.LatencyMs,
 		entry.ABExperimentID,
 		entry.ABVariantID,
+		entry.MemoryRecallUsed,
+		entry.MemoryRecallHitCount,
 	).Scan(&entry.ID, &entry.CreatedAt); err != nil {
 		return fmt.Errorf("insert AI query history: %w", err)
 	}
@@ -693,7 +695,8 @@ func (r *Repository) ListAIQueryHistory(ctx context.Context, userID string, limi
 	const baseQuery = `SELECT id, datasource_id, model_id, user_id, question, prompt_context,
 		       ai_response, logical_query, confidence_score, warnings, outcome_status,
 		       retry_count, needs_clarification, model_used, prompt_tokens, completion_tokens,
-		       token_count, cost_usd, latency_ms, created_at, ab_experiment_id, ab_variant_id FROM ai_query_history`
+		       token_count, cost_usd, latency_ms, created_at, ab_experiment_id, ab_variant_id,
+		       memory_recall_used, memory_recall_hit_count FROM ai_query_history`
 	const filteredQuery = baseQuery + ` WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`
 	const allQuery = baseQuery + ` ORDER BY created_at DESC LIMIT $1`
 
@@ -739,6 +742,7 @@ func scanAIHistoryEntry(s platformdb.Scanner) (AIQueryHistoryEntry, error) {
 		&promptCtx, &aiResp, &logicalQ, &confidence, &warnings, &outcome,
 		&retryCount, &needsClarification, &modelUsed, &promptTokens, &completionTokens,
 		&tokenCount, &cost, &latencyMs, &entry.CreatedAt, &abExpID, &abVarID,
+		&entry.MemoryRecallUsed, &entry.MemoryRecallHitCount,
 	); err != nil {
 		return entry, fmt.Errorf("scan AI history row: %w", err)
 	}

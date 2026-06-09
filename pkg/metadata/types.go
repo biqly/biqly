@@ -188,9 +188,11 @@ type AIQueryHistoryEntry struct {
 	TokenCount         *int      `json:"token_count" db:"token_count"`
 	CostUSD            *float64  `json:"cost_usd" db:"cost_usd"`
 	LatencyMs          *int      `json:"latency_ms" db:"latency_ms"`
-	ABExperimentID     *string   `json:"ab_experiment_id,omitempty" db:"ab_experiment_id"`
-	ABVariantID        *string   `json:"ab_variant_id,omitempty" db:"ab_variant_id"`
-	CreatedAt          time.Time `json:"created_at" db:"created_at"`
+	ABExperimentID        *string   `json:"ab_experiment_id,omitempty" db:"ab_experiment_id"`
+	ABVariantID           *string   `json:"ab_variant_id,omitempty" db:"ab_variant_id"`
+	MemoryRecallUsed      bool      `json:"memory_recall_used" db:"memory_recall_used"`
+	MemoryRecallHitCount  int       `json:"memory_recall_hit_count" db:"memory_recall_hit_count"`
+	CreatedAt             time.Time `json:"created_at" db:"created_at"`
 }
 
 // PermissionPolicyRecord captures a stored access policy as it lives in the

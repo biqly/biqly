@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	evalpkg "github.com/biqly/biqly/internal/ai/eval"
+	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/query"
 )
@@ -189,6 +190,47 @@ func TestAmbiguityGoldenRegressionGate(t *testing.T) {
 		if resp.Clarification == nil || !resp.Clarification.NeedsClarification {
 			t.Fatalf("[%s] expected NeedsClarification from ProcessQuestion", c.ID)
 		}
+	}
+}
+
+func TestMemoryRecallRegressionGate(t *testing.T) {
+	cfg := config.AIConfig{
+		Connection: config.AIConnectionConfig{Model: "stub"},
+		Generation: config.AIGenerationConfig{
+			MaxTokens:   2048,
+			Temperature: 0,
+			MaxRetries:  0,
+		},
+	}
+	c := evalpkg.MemoryRecallGoldenCase()
+	ctx := context.Background()
+
+	withoutRecall := NewServiceWithProvider(&cfg, query.NewValidator(1000), evalpkg.NewMemoryRecallStubProvider())
+	respNoRecall, err := withoutRecall.ProcessQuestion(ctx, c.Question, c.Model)
+	if err != nil {
+		t.Fatalf("ProcessQuestion without recall: %v", err)
+	}
+	if respNoRecall == nil || respNoRecall.Result == nil || respNoRecall.Result.LogicalQuery == nil {
+		t.Fatal("expected LogicalQuery without recall few-shot")
+	}
+	match, reason := evalpkg.LogicalQueryEqual(&c.Expected, respNoRecall.Result.LogicalQuery)
+	if match {
+		t.Fatalf("without recall few-shot should not match golden: %s", reason)
+	}
+
+	withRecall := NewServiceWithProvider(&cfg, query.NewValidator(1000), evalpkg.NewMemoryRecallStubProvider())
+	respRecall, err := withRecall.ProcessQuestion(ctx, c.Question, c.Model,
+		WithFewShotExamples([]prompt.FewShotExample{evalpkg.MemoryRecallFewShotExample()}),
+	)
+	if err != nil {
+		t.Fatalf("ProcessQuestion with recall: %v", err)
+	}
+	if respRecall == nil || respRecall.Result == nil || respRecall.Result.LogicalQuery == nil {
+		t.Fatal("expected LogicalQuery with recall few-shot")
+	}
+	match, reason = evalpkg.LogicalQueryEqual(&c.Expected, respRecall.Result.LogicalQuery)
+	if !match {
+		t.Fatalf("with recall few-shot should match golden: %s", reason)
 	}
 }
 
