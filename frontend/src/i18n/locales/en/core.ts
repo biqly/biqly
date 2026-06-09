@@ -435,6 +435,9 @@ export const core = {
     embedding_summary:
       'Embedded: {{tables}} tables · {{columns}} columns · {{locales}} locales × {{vectors}} vectors · {{model}}',
     sample_modal_title: 'Sample data — {{table}}',
+    sample_modal_heading: 'Sample data',
+    sample_modal_meta: '{{rows}} rows · {{cols}} columns',
+    sample_modal_empty: 'No sample rows were returned for this table.',
     clarify_default: 'Please clarify.',
     assistant_sql_preview: 'SQL: {{snippet}}…',
     assistant_executed: 'Query executed',

@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { useT } from '../../i18n'
 import type { QueryResultPayload } from '../../types/ai'
 import { normalizeAIQueryResponse } from '../../utils/normalizeAIQueryResponse'
 import { buildPivotTable } from '../../utils/pivotTable'
-import { formatResultCell } from '../../utils/resultCellFormat'
 import { ErrorAlert } from '../ui/ErrorAlert'
-import { LoadingOverlay } from '../ui/LoadingOverlay'
-import { Modal } from '../ui/Modal'
 import {
   AssistantMessageClarificationSections,
   AssistantMessageHeader,
@@ -17,75 +13,9 @@ import {
   AssistantMessageRunQuery,
 } from './assistantMessageCardSections'
 import { FeedbackSection } from './FeedbackSection'
-import type { AssistantMessageCardProps, FeedbackCatKey, SampleData } from './types'
+import { SampleDataModal } from './SampleDataModal'
+import type { AssistantMessageCardProps, FeedbackCatKey } from './types'
 import { AI_QUERY_TIMEOUT_MS } from './types'
-
-function SampleDataModal({
-  open,
-  onClose,
-  tableName,
-  datasourceId,
-  get,
-}: {
-  open: boolean
-  onClose: () => void
-  tableName: string
-  datasourceId: string
-  get: <T>(url: string) => Promise<T | null>
-}) {
-  const t = useT()
-  const [sample, setSample] = useState<SampleData | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (!open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSample(null)
-      return
-    }
-    setLoading(true)
-    const [schema, ...rest] = tableName.split('.')
-    const tName = rest.length > 0 ? rest.join('.') : schema
-    const url = `/api/datasources/${datasourceId}/tables/${schema ?? 'public'}/${tName}/sample`
-    void get<SampleData>(url).then((data) => {
-      setSample(data)
-      setLoading(false)
-    })
-  }, [datasourceId, get, open, tableName])
-
-  return (
-    <Modal
-      open={open}
-      title={t('ai_query.sample_modal_title', { table: tableName })}
-      onClose={onClose}
-      labelledBy="sample-data-title"
-    >
-      <LoadingOverlay loading={loading} />
-      {sample && (
-        <div className="results-table-scroll">
-          <table className="results-table">
-            <thead>
-              <tr>
-                {sample.columns.map((c) => (
-                  <th key={c.name}>{c.name}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sample.rows.map((row, i) => (
-                <tr key={i}>
-                  {row.map((cell, j) => (
-                    <td key={j}>{formatResultCell(cell, sample.columns[j]?.name ?? '', {})}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Modal>
-  )
-}
 
 function mapChartSuggestion(raw: string | undefined): 'bar' | 'line' | 'pie' | 'table' | null {
   if (!raw) {

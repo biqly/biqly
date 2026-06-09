@@ -1,0 +1,203 @@
+.modal-card--sample-data {
+  width: min(96vw, 72rem);
+  max-height: min(88vh, 52rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-card--sample-data .modal-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.modal-body--sample-data {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem 1.1rem 1.1rem;
+  min-height: 0;
+  flex: 1;
+}
+
+.sample-modal-subtitle {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-top: 0.35rem;
+  font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.sample-modal-schema {
+  color: var(--accent, #60a5fa);
+  font-weight: 600;
+}
+
+.sample-modal-sep {
+  color: var(--text-muted, var(--text-secondary));
+  opacity: 0.7;
+}
+
+.sample-modal-table {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.sample-modal-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sample-modal-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent, #60a5fa) 28%, var(--border));
+  background: color-mix(in srgb, var(--accent, #60a5fa) 8%, var(--bg-card-raised, var(--bg-card)));
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.sample-modal-table-wrap {
+  flex: 1;
+  min-height: 0;
+  max-height: min(62vh, 40rem);
+  overflow-x: auto;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--bg-card-raised, var(--bg-card));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 4%, transparent);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.sample-modal-table-wrap .results-table--sample-preview {
+  margin: 0;
+  min-width: 100%;
+  width: max-content;
+}
+
+.results-table--sample-preview thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.68rem;
+  background: color-mix(in srgb, var(--table-header-bg) 92%, var(--bg-card));
+  backdrop-filter: blur(6px);
+}
+
+.results-table--sample-preview td {
+  padding: 0.65rem 0.85rem;
+  vertical-align: top;
+}
+
+.results-table--sample-preview .sample-col--id {
+  width: 11rem;
+  max-width: 11rem;
+}
+
+.results-table--sample-preview .sample-col--handle {
+  width: 9rem;
+  max-width: 9rem;
+  white-space: nowrap;
+}
+
+.results-table--sample-preview .sample-col--text {
+  min-width: 22rem;
+  max-width: 36rem;
+}
+
+.sample-cell {
+  display: block;
+  color: var(--text-primary);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.sample-cell--empty {
+  color: var(--text-muted, var(--text-secondary));
+  opacity: 0.55;
+}
+
+.sample-cell--id {
+  font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.sample-cell--handle {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent, #60a5fa) 22%, var(--border));
+  background: color-mix(in srgb, var(--accent, #60a5fa) 6%, transparent);
+  color: var(--accent, #93c5fd);
+  font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  text-overflow: ellipsis;
+}
+
+.sample-cell--text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.results-table--sample-preview tbody tr:hover .sample-cell--text {
+  color: var(--text-primary);
+}
+
+.sample-modal-empty {
+  margin: 0.5rem 0 0;
+  padding: 1.25rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.55rem;
+  background: var(--bg-card-raised, var(--bg-card));
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .modal-card--sample-data {
+    width: min(100%, 100vw - 1rem);
+    max-height: 92vh;
+  }
+
+  .modal-body--sample-data {
+    padding: 0.75rem 0.85rem 0.9rem;
+  }
+
+  .sample-modal-table-wrap {
+    max-height: 58vh;
+  }
+
+  .results-table--sample-preview .sample-col--text {
+    min-width: 14rem;
+    max-width: 20rem;
+  }
+}

@@ -443,6 +443,9 @@ export const core: CoreDictionary = {
     embedding_summary:
       'Gömüldü: {{tables}} tablo · {{columns}} kolon · {{locales}} dil × {{vectors}} vektör · {{model}}',
     sample_modal_title: 'Örnek veri — {{table}}',
+    sample_modal_heading: 'Örnek veri',
+    sample_modal_meta: '{{rows}} satır · {{cols}} sütun',
+    sample_modal_empty: 'Bu tablo için örnek satır dönmedi.',
     clarify_default: 'Lütfen netleştirin.',
     assistant_sql_preview: 'SQL: {{snippet}}…',
     assistant_executed: 'Sorgu çalıştırıldı',

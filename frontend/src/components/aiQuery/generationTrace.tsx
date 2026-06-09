@@ -9,13 +9,19 @@ function formatConfidence(confidence: number): string {
   return `${Math.round(confidence * 100)}%`
 }
 
-export function GenerationTracePanel({ trace }: { trace: GenerationTrace }) {
+export function GenerationTracePanel({
+  trace,
+  defaultOpen = false,
+}: {
+  trace: GenerationTrace
+  defaultOpen?: boolean
+}) {
   const t = useT()
   const routeConfidence =
     trace.route_confidence != null ? formatConfidence(trace.route_confidence) : ''
 
   return (
-    <Collapsible title={t('ai_query.generation_trace_title')} defaultOpen={false}>
+    <Collapsible title={t('ai_query.generation_trace_title')} defaultOpen={defaultOpen}>
       <div className="generation-trace">
         {trace.routed_table ? (
           <p className="generation-trace__row">

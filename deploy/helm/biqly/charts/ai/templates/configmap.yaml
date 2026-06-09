@@ -11,3 +11,7 @@ data:
   {{- range $key, $value := .Values.config }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
+  {{- with .Values.ambiguity }}
+  BI_AI_AMBIGUITY_TIERED_ENABLED: {{ .tieredEnabled | toString | quote }}
+  BI_AI_AMBIGUITY_MAX_LLM_TIER_PER_QUESTION: {{ .maxLLMTierPerQuestion | toString | quote }}
+  {{- end }}

@@ -431,7 +431,7 @@ export function ClarificationCard({
       <button type="button" className="btn btn-skip" onClick={onSkip}>
         {t('ai_query.clarification_skip')}
       </button>
-      {generationTrace ? <GenerationTracePanel trace={generationTrace} /> : null}
+      {generationTrace ? <GenerationTracePanel trace={generationTrace} defaultOpen /> : null}
     </div>
   )
 }

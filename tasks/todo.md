@@ -206,22 +206,72 @@ Tüm P0–P7 maddeleri codebase'te uygulandı. Aşağıdaki denetim bulguları v
   - **Dosyalar:** `internal/http/handlers/semantic.go`, `internal/http/handlers/semantic_confirmed_queries_test.go`.
   - Gate'ler: gofmt ✓, lint-go 0 issues, race test (handlers/semantic/metadata) ✓, deadcode temiz.
 
-- [ ] **Generation trace clarification kartında gösterimi.** Mevcut `GenerationTracePanel` sadece
-  `!showClarification` (sonuç görünür, clarification değil) durumunda render ediliyor
-  (`assistantMessageCardSections.tsx:139`). Clarification kartında da trace gösterilmeli — kullanıcı
-  neden sorulduğunu anlasın (P6'nın kabul kriteri).
-  - **Dosyalar:** `frontend/src/components/aiQuery/assistantMessageCardSections.tsx:131-139`, trace'i
-    clarification durumunda da göster (expanded `AmbiguityDetail` ile).
+- [x] **Generation trace clarification kartında gösterimi.** ~~sadece `!showClarification`'da render~~ — premis
+  kısmen yanlıştı: `ClarificationCard` zaten `<GenerationTracePanel trace={generationTrace} />` render ediyordu
+  (`routingViz.tsx:434`, commit `21dbe948`), `assistantMessageCardSections.tsx:131` de `generation_trace`'i geçiriyordu.
+  Gerçek boşluk: clarification'daki trace `defaultOpen={false}` ile **collapsed** geliyordu → kullanıcı gerekçeyi anında görmüyordu.
+  Düzeltme:
+  - `GenerationTracePanel`'e `defaultOpen?: boolean` prop'u eklendi (varsayılan `false` → standalone sonuç görünümü collapsed kalır).
+  - `ClarificationCard` artık `defaultOpen` ile çağırıyor → clarification bağlamında trace/ambiguity gerekçesi açık geliyor (P6 kabul kriteri).
+  - **Dosyalar:** `frontend/src/components/aiQuery/generationTrace.tsx`, `routingViz.tsx`.
+  - Gate: `make check-frontend` exit 0 (lint 0, format:check temiz, knip:ci 0, test 99/99, build ✓).
 
-- [ ] **Golden case coverage — routing ambiguity (Tier 0).** Mevcut 5 golden case'in tamamı Tier 1/2
-  (glossary synonym + scope). Routing tablosundan gelen Tier 0 clarification case'i yok. En az 1 case
-  eklenmeli: birden fazla tablo adayı olan bir soru → routing clarification.
-  - **Dosyalar:** `internal/ai/eval/testdata/ambiguity_golden.json`, `internal/ai/eval/ambiguity_golden_models.go`.
+- [x] **Routing ambiguity (Tier 0) regresyon kapsamı.** ~~ambiguity_golden.json'a routing case ekle~~ —
+  premis mimari olarak yanlıştı: o suite tamamen `ambiguity.Analyze` (glossary/synonym/temporal/scope) tabanlı,
+  routing katmanını (`TableRouter` + datasource metadata) hiç çalıştırmıyor → routing case orada barınamaz.
+  Ayrıca routing→clarification eşlemesi zaten unit-test'liydi (`TestClarificationFromRoutingBuildsOptionsAndCandidates`
+  çoklu aday + `TestTableRouter_RouteNeedsClarificationForNoMatch` no-match).
+  Gerçek boşluk: `TableRouter.Route`'un *yarışan zayıf adaylar* (0<confidence<0.35) durumunda Tier-0 clarification
+  üretmesi yalnızca no-match için test ediliyordu. Eklenen test bunu kapatıyor:
+  - `TestTableRouter_RouteNeedsClarificationForCompetingCandidates` — iki tablo kolon-açıklamasıyla zayıf-eşit eşleşiyor
+    → `routeConfidence`=0.25 < `minRouteConfidence`(0.35) → `NeedsClarification=true`, ≥2 eşit-skorlu candidate, model nil.
+  - **Dosya:** `internal/ai/routing/route_clarification_test.go`.
+  - Gate: gofmt ✓, race test (routing) ✓, lint-go 0 issues, deadcode temiz. (eval'e dokunulmadı → eval-regression gerekmez.)
 
-- [ ] **Tiered config varsayılan değerleri.** `AmbiguityConfig.TieredEnabled` ve `MaxLLMTierPerQuestion`
-  config'de tanımlı ancak production values'da açıkça set edilmesi gerekebilir.
-  Helm values'ta `ai.ambiguity.tieredEnabled: true` + `maxLLMTierPerQuestion: 1` eklenmeli.
-  - **Dosyalar:** `deploy/helm/biqly/values.yaml`, `values-prod.yaml`.
+- [x] **Tiered config varsayılan değerleri.** `ai.ambiguity.tieredEnabled: true` +
+  `maxLLMTierPerQuestion: 1` umbrella + prod values ve ai subchart defaults; ConfigMap
+  `BI_AI_AMBIGUITY_TIERED_ENABLED` + `BI_AI_AMBIGUITY_MAX_LLM_TIER_PER_QUESTION` emit ediyor.
+  - **Dosyalar:** `deploy/helm/biqly/values.yaml`, `values-prod.yaml`, `charts/ai/values.yaml`, `charts/ai/templates/configmap.yaml`.
+
+### Frontend Denetim Bulguları (2026-06-09)
+
+Backend P0–P7 uygulandı, frontend karşılıkları denetlendi. Tamamlanan ve eksik olanlar:
+
+| Feature | Frontend Durum | Açık Nokta |
+|---|---|---|
+| P0 Clarification Round | ✅ Tam | `AIQuery.tsx:78,298,313` — state + gönderim + okuma tam |
+| P1 Hard Cap UX | ⚠️ Kısmi | Backend 2 round'da kesiyor ama frontend'de cap'e ulaşıldığında buton devre dışı bırakılmıyor / UX uyarı yok |
+| P2 Glossary AIContext | ✅ Tam | `Glossary.tsx:892-1043` — synonyms[], unit, null_meaning, business_rules[] form alanları + i18n |
+| P3 Memory Store visibility | ⚠️ Kısmi | Thumbs-up → backend otomatik depolar, ama kullanıcıya "öğrenildi" geri bildirimi yok; confirmed queries admin listesi yok |
+| P4 Enrich-Context | ✅ Tam | `GlossaryEnrichPanel.tsx` + endpoint'ler + i18n tam |
+| P5 Tiered Detection UI | ❌ Yok | Admin settings'de `TieredEnabled` / `MaxLLMTierPerQuestion` toggle yok, sadece env-var; i18n anahtarı yok |
+| P6 Generation Trace i18n | ⚠️ Kısmi | Trace panel tüm alanları render ediyor ama `columns_resolved` bölüm başlığı ve `ambiguity_detail` etiketi için i18n anahtarı eksik |
+
+#### Frontend için yeni maddeler:
+
+- [ ] **P1 — Hard cap UX göstergesi.** `clarificationRound >= 2` olduğunda clarification seçeneklerinin
+  yanında veya yerine "Maksimum netleştirme turuna ulaşıldı" mesajı gösterilmeli; yeni netleştirme gönderimi
+  engellenmeli (buton disable veya gizle).
+  - **Dosyalar:** `frontend/src/components/aiQuery/AIQuery.tsx` (round state burada),
+    `frontend/src/components/aiQuery/routingViz.tsx` (ClarificationCard render).
+
+- [ ] **P3 — Confirmed queries admin listesi + "öğrenildi" geri bildirimi.**
+  1. Admin settings veya datasource detail'da "Onaylanmış Sorgular" tablosu: soru, SQL, onay tarihi, pasif yap butonu.
+     Endpoint'ler hazır (`GET /api/admin/ai/confirmed-queries?datasource_id=...`).
+  2. Thumbs-up sonrası toast/badge: "Bu sorgu öğrenildi ve gelecekte benzer sorularda kullanılacak."
+  - **Dosyalar:** `frontend/src/components/settings/` veya yeni `ConfirmedQueriesPanel.tsx`,
+    `frontend/src/components/aiQuery/FeedbackSection.tsx` (toast entegrasyonu).
+
+- [ ] **P5 — Tiered ambiguity admin toggle.** `GET /api/admin/config` + `PUT /api/admin/config` üzerinden
+  `ambiguity.tieredEnabled` ve `ambiguity.maxLLMTierPerQuestion` okuma/yazma UI.
+  Mevcut admin settings sayfasına "Ambiguity Detection" bölümü eklenmeli.
+  - **Dosyalar:** `frontend/src/components/settings/Settings.tsx`,
+    i18n: `frontend/src/i18n/locales/en/core.ts`, `tr/core.ts`.
+
+- [ ] **P6 — Generation trace i18n eksikleri.** `columns_resolved` bölüm başlığı ve `ambiguity_detail`
+  etiketi için i18n anahtarları eklenecek (`generation_trace_columns`, `generation_trace_ambiguity_detail`).
+  - **Dosyalar:** `frontend/src/components/aiQuery/generationTrace.tsx:51-57` (columns list),
+    `frontend/src/i18n/locales/en/core.ts`, `tr/core.ts`.
 
 ---
 
