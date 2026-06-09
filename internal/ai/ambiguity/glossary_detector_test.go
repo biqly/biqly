@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/biqly/biqly/internal/ai/prompt"
+	pkgmetadata "github.com/biqly/biqly/pkg/metadata"
 )
 
 func TestDetectGlossary(t *testing.T) {
@@ -78,6 +79,35 @@ func TestDetectGlossary_EmptyGlossary(t *testing.T) {
 	got := DetectGlossary("Aktif müşterileri göster", nil, nil)
 	if len(got) != 0 {
 		t.Errorf("DetectGlossary() = %#v, want no ambiguities", got)
+	}
+}
+
+func TestDetectGlossary_AIContextSynonymCollision(t *testing.T) {
+	entries := prompt.GlossaryFromExternal([]prompt.ExternalGlossaryInput{
+		{
+			Term:       "ciro",
+			Definition: "net sales",
+			MapsToType: "metric",
+			MapsToName: "revenue",
+			AIContext:  &pkgmetadata.GlossaryAIContext{Synonyms: []string{"gelir"}},
+		},
+		{
+			Term:       "gelir",
+			Definition: "gross sales",
+			MapsToType: "metric",
+			MapsToName: "gross_revenue",
+		},
+	})
+
+	got := DetectGlossary("gelir ne kadar", entries, nil)
+	if len(got) != 1 {
+		t.Fatalf("DetectGlossary() len = %d, want 1 ambiguity", len(got))
+	}
+	if got[0].Term != "gelir" {
+		t.Errorf("term = %q, want gelir", got[0].Term)
+	}
+	if len(got[0].Interpretations) != 2 {
+		t.Fatalf("interpretations = %d, want 2", len(got[0].Interpretations))
 	}
 }
 

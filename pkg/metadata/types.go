@@ -135,19 +135,36 @@ type FewShotCuratedRow struct {
 	IsFavorite   bool            `json:"is_favorite"`
 }
 
+// GlossaryAIContext carries structured business semantics for a glossary term.
+type GlossaryAIContext struct {
+	Synonyms      []string `json:"synonyms,omitempty"`
+	Unit          string   `json:"unit,omitempty"`
+	NullMeaning   string   `json:"null_meaning,omitempty"`
+	BusinessRules []string `json:"business_rules,omitempty"`
+}
+
+// IsZero reports whether the context carries no structured fields.
+func (c *GlossaryAIContext) IsZero() bool {
+	if c == nil {
+		return true
+	}
+	return len(c.Synonyms) == 0 && c.Unit == "" && c.NullMeaning == "" && len(c.BusinessRules) == 0
+}
+
 // BusinessGlossaryRow is the API shape for a curated glossary term.
 type BusinessGlossaryRow struct {
-	ID           string    `json:"id"`
-	DatasourceID string    `json:"datasource_id"`
-	ModelID      string    `json:"model_id,omitempty"`
-	Term         string    `json:"term"`
-	Definition   string    `json:"definition,omitempty"`
-	MapsToType   string    `json:"maps_to_type"`
-	MapsToName   string    `json:"maps_to_name"`
-	Aliases      []string  `json:"aliases,omitempty"`
-	IsActive     bool      `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           string             `json:"id"`
+	DatasourceID string             `json:"datasource_id"`
+	ModelID      string             `json:"model_id,omitempty"`
+	Term         string             `json:"term"`
+	Definition   string             `json:"definition,omitempty"`
+	MapsToType   string             `json:"maps_to_type"`
+	MapsToName   string             `json:"maps_to_name"`
+	Aliases      []string           `json:"aliases,omitempty"`
+	AIContext    *GlossaryAIContext `json:"ai_context,omitempty"`
+	IsActive     bool               `json:"is_active"`
+	CreatedAt    time.Time          `json:"created_at"`
+	UpdatedAt    time.Time          `json:"updated_at"`
 }
 
 // AIQueryHistoryEntry represents one natural-language AI query attempt.

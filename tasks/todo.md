@@ -55,22 +55,14 @@ yapısal iş bağlamını Biqly glossary'e taşımak.
 **Neden:** Endüstri standardı semantic katmanlar `synonyms`, `units`, `null_meaning`, `business_rules`
 gibi yapısal metadata taşır. Biqly glossary flat key-value → belirsizlik azaltmak için daha zengin bağlam gerek.
 
-- [ ] `glossary_entries` tablosuna `ai_context JSONB` kolonu ekle (migration):
-  ```sql
-  ALTER TABLE glossary_entries ADD COLUMN ai_context JSONB;
-  -- Örnek değer:
-  -- {"synonyms": ["revenue", "gelir", "ciro"],
-  --  "unit": "TRY",
-  --  "null_meaning": "not yet invoiced",
-  --  "business_rules": ["exclude cancelled orders"]}
-  ```
-- [ ] `prompt.GlossaryEntry` struct'ına `AIContext` alanı ekle.
-- [ ] `loadGlossaryEntries` → `ai_context` kolonunu da oku.
-- [ ] Synonym detector → `ai_context.synonyms` alanından da eşleştirme yap.
-- [ ] LLM prompt → `ai_context` içeriğini prompt context'e dahil et (units, null_meaning, rules).
-- [ ] Admin UI → glossary edit form'una `ai_context` JSONB editor ekle (structured: synonyms[], unit, null_meaning, rules[]).
-- [ ] Test: synonym collision'da `ai_context.synonyms` üzerinden match geldiğinde ambiguity detection çalışıyor.
-- [ ] **Kabul:** Glossary artık synonyms, units, null semantics taşıyabiliyor; bunlar ambiguity + prompt'a entegre.
+- [x] `business_glossary_terms` tablosuna `ai_context JSONB` kolonu ekle (migration `043a`).
+- [x] `prompt.GlossaryEntry` + `ExternalGlossaryInput` struct'larına `AIContext` alanı ekle.
+- [x] `loadGlossaryEntries` → `ai_context` kolonunu da oku.
+- [x] `GlossaryFromExternal` → `ai_context.synonyms` üzerinden ek glossary entry'leri üret (ambiguity detector otomatik kullanır).
+- [x] LLM prompt → `ai_context` içeriğini prompt context'e dahil et (unit, null_meaning, business_rules).
+- [x] Admin UI → glossary edit form'una structured `ai_context` editor ekle.
+- [x] Test: `TestDetectGlossary_AIContextSynonymCollision`, `TestGlossaryFromExternalAIContextSynonyms`.
+- [x] **Kabul:** Glossary artık synonyms, units, null semantics taşıyabiliyor; bunlar ambiguity + prompt'a entegre.
 
 ### P3 — NL-SQL Memory Store (Öğrenme Döngüsü) [MEDIUM]
 

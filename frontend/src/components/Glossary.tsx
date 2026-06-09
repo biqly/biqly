@@ -7,7 +7,7 @@ import { useDatasources } from '../hooks/useDatasources'
 import { useModelDetail } from '../hooks/useModelDetail'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
-import type { BusinessGlossaryTerm } from '../types/glossary'
+import type { BusinessGlossaryTerm, GlossaryAIContext } from '../types/glossary'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
@@ -41,6 +41,12 @@ export default function Glossary() {
   const [formMapsToName, setFormMapsToName] = useState('')
   const [formAliases, setFormAliases] = useState<string[]>([])
   const [aliasInput, setAliasInput] = useState('')
+  const [formContextSynonyms, setFormContextSynonyms] = useState<string[]>([])
+  const [contextSynonymInput, setContextSynonymInput] = useState('')
+  const [formUnit, setFormUnit] = useState('')
+  const [formNullMeaning, setFormNullMeaning] = useState('')
+  const [formBusinessRules, setFormBusinessRules] = useState<string[]>([])
+  const [businessRuleInput, setBusinessRuleInput] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
 
   // Sidebar details for selecting model fields
@@ -86,6 +92,43 @@ export default function Glossary() {
     void loadTerms()
   }, [loadTerms])
 
+  const resetAIContextForm = () => {
+    setFormContextSynonyms([])
+    setContextSynonymInput('')
+    setFormUnit('')
+    setFormNullMeaning('')
+    setFormBusinessRules([])
+    setBusinessRuleInput('')
+  }
+
+  const applyAIContextToForm = (ctx?: GlossaryAIContext) => {
+    setFormContextSynonyms(ctx?.synonyms ?? [])
+    setContextSynonymInput('')
+    setFormUnit(ctx?.unit ?? '')
+    setFormNullMeaning(ctx?.null_meaning ?? '')
+    setFormBusinessRules(ctx?.business_rules ?? [])
+    setBusinessRuleInput('')
+  }
+
+  const buildAIContextPayload = (): GlossaryAIContext | undefined => {
+    const unit = formUnit.trim()
+    const nullMeaning = formNullMeaning.trim()
+    if (
+      formContextSynonyms.length === 0 &&
+      unit === '' &&
+      nullMeaning === '' &&
+      formBusinessRules.length === 0
+    ) {
+      return undefined
+    }
+    return {
+      synonyms: formContextSynonyms.length > 0 ? formContextSynonyms : undefined,
+      unit: unit || undefined,
+      null_meaning: nullMeaning || undefined,
+      business_rules: formBusinessRules.length > 0 ? formBusinessRules : undefined,
+    }
+  }
+
   const resetForm = () => {
     setFormTerm('')
     setFormDefinition('')
@@ -93,6 +136,7 @@ export default function Glossary() {
     setFormMapsToName('')
     setFormAliases([])
     setAliasInput('')
+    resetAIContextForm()
     setFormDatasourceId('')
     setFormModelId('')
     setEditId(null)
@@ -109,6 +153,7 @@ export default function Glossary() {
     setFormMapsToName('')
     setFormAliases([])
     setAliasInput('')
+    resetAIContextForm()
     setFormDatasourceId(selectedDatasourceId || (datasources[0]?.id ?? ''))
     setFormModelId(selectedModelId || '')
     setEditId(null)
@@ -126,6 +171,7 @@ export default function Glossary() {
     setFormMapsToName(term.maps_to_name)
     setFormAliases(term.aliases ?? [])
     setAliasInput('')
+    applyAIContextToForm(term.ai_context)
     setFormDatasourceId(term.datasource_id)
     setFormModelId(term.model_id ?? '')
     setFormError(null)
@@ -152,6 +198,44 @@ export default function Glossary() {
     setFormAliases(formAliases.filter((a) => a !== alias))
   }
 
+  const handleAddContextSynonym = () => {
+    const val = contextSynonymInput.trim()
+    if (val && !formContextSynonyms.includes(val)) {
+      setFormContextSynonyms([...formContextSynonyms, val])
+    }
+    setContextSynonymInput('')
+  }
+
+  const handleContextSynonymKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleAddContextSynonym()
+    }
+  }
+
+  const handleRemoveContextSynonym = (synonym: string) => {
+    setFormContextSynonyms(formContextSynonyms.filter((s) => s !== synonym))
+  }
+
+  const handleAddBusinessRule = () => {
+    const val = businessRuleInput.trim()
+    if (val && !formBusinessRules.includes(val)) {
+      setFormBusinessRules([...formBusinessRules, val])
+    }
+    setBusinessRuleInput('')
+  }
+
+  const handleBusinessRuleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleAddBusinessRule()
+    }
+  }
+
+  const handleRemoveBusinessRule = (rule: string) => {
+    setFormBusinessRules(formBusinessRules.filter((r) => r !== rule))
+  }
+
   const handleSave = async () => {
     setFormError(null)
     if (!formTerm.trim()) {
@@ -169,6 +253,7 @@ export default function Glossary() {
       maps_to_type: formMapsToType,
       maps_to_name: formMapsToName.trim(),
       aliases: formAliases,
+      ai_context: buildAIContextPayload(),
     }
 
     if (editId) {
@@ -655,6 +740,174 @@ export default function Glossary() {
                         color: 'var(--text-primary)',
                       }}
                     />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>{t('glossary.section_ai_context')}</label>
+                  <div className="form-group">
+                    <label htmlFor="gl-context-synonyms">
+                      {t('glossary.label_context_synonyms')}
+                    </label>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '0.4rem',
+                        padding: '0.4rem',
+                        border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        background: 'var(--bg-primary)',
+                        alignItems: 'center',
+                      }}
+                    >
+                      {formContextSynonyms.map((synonym) => (
+                        <span
+                          key={synonym}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            padding: '0.15rem 0.5rem',
+                            background: 'rgba(167,139,250,0.1)',
+                            border: '1px solid rgba(167,139,250,0.2)',
+                            borderRadius: '0.25rem',
+                            fontSize: '0.75rem',
+                            color: '#a78bfa',
+                          }}
+                        >
+                          {synonym}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveContextSynonym(synonym)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#a78bfa',
+                              cursor: 'pointer',
+                              fontSize: '0.8rem',
+                              fontWeight: 'bold',
+                              padding: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        id="gl-context-synonyms"
+                        type="text"
+                        value={contextSynonymInput}
+                        onChange={(e) => setContextSynonymInput(e.target.value)}
+                        onKeyDown={handleContextSynonymKeyDown}
+                        onBlur={handleAddContextSynonym}
+                        placeholder={t('glossary.placeholder_context_synonyms')}
+                        style={{
+                          border: 'none',
+                          background: 'transparent',
+                          outline: 'none',
+                          flex: '1',
+                          minWidth: '120px',
+                          fontSize: '0.8rem',
+                          padding: '0.1rem',
+                          color: 'var(--text-primary)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="modal-form-row">
+                    <div className="form-group">
+                      <label htmlFor="gl-unit">{t('glossary.label_unit')}</label>
+                      <input
+                        id="gl-unit"
+                        type="text"
+                        value={formUnit}
+                        onChange={(e) => setFormUnit(e.target.value)}
+                        placeholder={t('glossary.placeholder_unit')}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="gl-null-meaning">{t('glossary.label_null_meaning')}</label>
+                      <input
+                        id="gl-null-meaning"
+                        type="text"
+                        value={formNullMeaning}
+                        onChange={(e) => setFormNullMeaning(e.target.value)}
+                        placeholder={t('glossary.placeholder_null_meaning')}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="gl-business-rules">{t('glossary.label_business_rules')}</label>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '0.4rem',
+                        padding: '0.4rem',
+                        border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        background: 'var(--bg-primary)',
+                        alignItems: 'center',
+                      }}
+                    >
+                      {formBusinessRules.map((rule) => (
+                        <span
+                          key={rule}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            padding: '0.15rem 0.5rem',
+                            background: 'rgba(245,158,11,0.1)',
+                            border: '1px solid rgba(245,158,11,0.2)',
+                            borderRadius: '0.25rem',
+                            fontSize: '0.75rem',
+                            color: '#f59e0b',
+                          }}
+                        >
+                          {rule}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBusinessRule(rule)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#f59e0b',
+                              cursor: 'pointer',
+                              fontSize: '0.8rem',
+                              fontWeight: 'bold',
+                              padding: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        id="gl-business-rules"
+                        type="text"
+                        value={businessRuleInput}
+                        onChange={(e) => setBusinessRuleInput(e.target.value)}
+                        onKeyDown={handleBusinessRuleKeyDown}
+                        onBlur={handleAddBusinessRule}
+                        placeholder={t('glossary.placeholder_business_rules')}
+                        style={{
+                          border: 'none',
+                          background: 'transparent',
+                          outline: 'none',
+                          flex: '1',
+                          minWidth: '120px',
+                          fontSize: '0.8rem',
+                          padding: '0.1rem',
+                          color: 'var(--text-primary)',
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
 

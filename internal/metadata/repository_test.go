@@ -977,9 +977,9 @@ func TestBusinessGlossary(t *testing.T) {
 	}
 	state.queries = []queryMock{
 		{
-			Pattern: "SELECT id::text, datasource_id::text, COALESCE(model_id::text, ''), term, COALESCE(definition, ''), maps_to_type, maps_to_name, COALESCE(aliases, '{}'), is_active, created_at, updated_at FROM business_glossary_terms",
-			Cols:    []string{"id", "datasource_id", "model_id", "term", "definition", "maps_to_type", "maps_to_name", "aliases", "is_active", "created_at", "updated_at"},
-			Rows:    [][]driver.Value{{"bg-1", "ds-1", "m-1", "musteri", "user accounts table", "table", "users", `{customer,client}`, true, now, now}},
+			Pattern: "SELECT id::text, datasource_id::text, COALESCE(model_id::text, ''), term, COALESCE(definition, ''), maps_to_type, maps_to_name, COALESCE(aliases, '{}'), ai_context, is_active, created_at, updated_at FROM business_glossary_terms",
+			Cols:    []string{"id", "datasource_id", "model_id", "term", "definition", "maps_to_type", "maps_to_name", "aliases", "ai_context", "is_active", "created_at", "updated_at"},
+			Rows:    [][]driver.Value{{"bg-1", "ds-1", "m-1", "musteri", "user accounts table", "table", "users", `{customer,client}`, nil, true, now, now}},
 		},
 		{
 			Pattern: "INSERT INTO business_glossary_terms",

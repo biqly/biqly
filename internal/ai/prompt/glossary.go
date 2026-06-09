@@ -9,6 +9,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/semantic"
+	pkgmetadata "github.com/biqly/biqly/pkg/metadata"
 )
 
 const (
@@ -23,6 +24,7 @@ type GlossaryEntry struct {
 	MapsToType string // dimension | metric | model
 	MapsToName string
 	Source     string // catalog | glossary
+	AIContext  *pkgmetadata.GlossaryAIContext
 }
 
 // ExternalGlossaryInput is a curated term from the business_glossary_terms table.
@@ -32,6 +34,7 @@ type ExternalGlossaryInput struct {
 	MapsToType string
 	MapsToName string
 	Aliases    []string
+	AIContext  *pkgmetadata.GlossaryAIContext
 }
 
 // GlossaryFromSemanticModel derives term→field mappings from model/dimension/metric synonyms.
@@ -109,25 +112,35 @@ func metricGlossaryDef(m semantic.Metric) string {
 
 // GlossaryFromExternal converts DB rows into glossary entries (source=glossary).
 func GlossaryFromExternal(rows []ExternalGlossaryInput) []GlossaryEntry {
-	out := make([]GlossaryEntry, 0, len(rows)*2)
+	out := make([]GlossaryEntry, 0, len(rows)*3)
 	for _, row := range rows {
 		def := strings.TrimSpace(row.Definition)
-		addTerm := func(term string) {
+		ctx := row.AIContext
+		addTerm := func(term string, withContext bool) {
 			term = strings.TrimSpace(term)
 			if term == "" {
 				return
 			}
-			out = append(out, GlossaryEntry{
+			entry := GlossaryEntry{
 				Term:       term,
 				Definition: def,
 				MapsToType: row.MapsToType,
 				MapsToName: row.MapsToName,
 				Source:     "glossary",
-			})
+			}
+			if withContext && ctx != nil && !ctx.IsZero() {
+				entry.AIContext = ctx
+			}
+			out = append(out, entry)
 		}
-		addTerm(row.Term)
+		addTerm(row.Term, true)
 		for _, a := range row.Aliases {
-			addTerm(a)
+			addTerm(a, false)
+		}
+		if ctx != nil {
+			for _, syn := range ctx.Synonyms {
+				addTerm(syn, false)
+			}
 		}
 	}
 	return out
@@ -279,9 +292,33 @@ func (*Builder) writeBusinessGlossary(sb *bytes.Buffer, entries []GlossaryEntry)
 		if e.Source == "glossary" {
 			cur = " [curated]"
 		}
-		writePromptf(sb, "- **%s** → `%s` (%s)%s%s\n", e.Term, e.MapsToName, e.MapsToType, def, cur)
+		hints := glossaryAIContextHints(e.AIContext)
+		writePromptf(sb, "- **%s** → `%s` (%s)%s%s%s\n", e.Term, e.MapsToName, e.MapsToType, def, cur, hints)
 	}
 	writePromptString(sb, "\n")
+}
+
+func glossaryAIContextHints(ctx *pkgmetadata.GlossaryAIContext) string {
+	if ctx == nil || ctx.IsZero() {
+		return ""
+	}
+	var parts []string
+	if ctx.Unit != "" {
+		parts = append(parts, "unit: "+ctx.Unit)
+	}
+	if ctx.NullMeaning != "" {
+		parts = append(parts, "null: "+ctx.NullMeaning)
+	}
+	for _, rule := range ctx.BusinessRules {
+		rule = strings.TrimSpace(rule)
+		if rule != "" {
+			parts = append(parts, "rule: "+rule)
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return " {" + strings.Join(parts, "; ") + "}"
 }
 
 func truncateRunes(s string, maxRunes int) string {

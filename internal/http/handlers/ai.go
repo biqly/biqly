@@ -1198,6 +1198,7 @@ func (h *AIHandler) loadGlossaryEntries(ctx context.Context, model *semantic.Sem
 				MapsToType: r.MapsToType,
 				MapsToName: r.MapsToName,
 				Aliases:    r.Aliases,
+				AIContext:  r.AIContext,
 			})
 		}
 	}

@@ -6,25 +6,28 @@ import (
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/metadata"
+	pkgmetadata "github.com/biqly/biqly/pkg/metadata"
 )
 
 type createGlossaryRequest struct {
-	DatasourceID string   `json:"datasource_id"`
-	ModelID      string   `json:"model_id,omitempty"`
-	Term         string   `json:"term"`
-	Definition   string   `json:"definition,omitempty"`
-	MapsToType   string   `json:"maps_to_type"`
-	MapsToName   string   `json:"maps_to_name"`
-	Aliases      []string `json:"aliases,omitempty"`
+	DatasourceID string                         `json:"datasource_id"`
+	ModelID      string                         `json:"model_id,omitempty"`
+	Term         string                         `json:"term"`
+	Definition   string                         `json:"definition,omitempty"`
+	MapsToType   string                         `json:"maps_to_type"`
+	MapsToName   string                         `json:"maps_to_name"`
+	Aliases      []string                       `json:"aliases,omitempty"`
+	AIContext    *pkgmetadata.GlossaryAIContext `json:"ai_context,omitempty"`
 }
 
 type updateGlossaryRequest struct {
-	Term       string   `json:"term"`
-	Definition string   `json:"definition,omitempty"`
-	MapsToType string   `json:"maps_to_type"`
-	MapsToName string   `json:"maps_to_name"`
-	Aliases    []string `json:"aliases,omitempty"`
-	IsActive   *bool    `json:"is_active,omitempty"`
+	Term       string                         `json:"term"`
+	Definition string                         `json:"definition,omitempty"`
+	MapsToType string                         `json:"maps_to_type"`
+	MapsToName string                         `json:"maps_to_name"`
+	Aliases    []string                       `json:"aliases,omitempty"`
+	AIContext  *pkgmetadata.GlossaryAIContext `json:"ai_context,omitempty"`
+	IsActive   *bool                          `json:"is_active,omitempty"`
 }
 
 // BusinessGlossaryTerm is the wire format for a curated glossary row.
@@ -83,6 +86,7 @@ func (h *AIGlossaryHandler) CreateGlossary(w http.ResponseWriter, r *http.Reques
 		MapsToType:   input.MapsToType,
 		MapsToName:   input.MapsToName,
 		Aliases:      input.Aliases,
+		AIContext:    input.AIContext,
 	})
 	if err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to create glossary term", err)
@@ -98,6 +102,7 @@ func (h *AIGlossaryHandler) CreateGlossary(w http.ResponseWriter, r *http.Reques
 		MapsToType:   input.MapsToType,
 		MapsToName:   input.MapsToName,
 		Aliases:      input.Aliases,
+		AIContext:    input.AIContext,
 		IsActive:     true,
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -130,6 +135,7 @@ func (h *AIGlossaryHandler) UpdateGlossary(w http.ResponseWriter, r *http.Reques
 		MapsToType: input.MapsToType,
 		MapsToName: input.MapsToName,
 		Aliases:    input.Aliases,
+		AIContext:  input.AIContext,
 		IsActive:   input.IsActive,
 	}); err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update glossary term", err)
