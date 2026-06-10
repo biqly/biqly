@@ -556,20 +556,41 @@ yönetilemiyor.
       alanlar korunur, overlay kalkınca base'e döner. Gate'ler: lint-go 0, `make test-go`
       59 paket -race ✓, deadcode yeni bulgu yok, gofmt ✓.
 
-### DİL-3 — i18n: dinamik locale registry + katalog overlay [M]
-- [ ] `i18n_locales` tablosu: locale, label, short_label, question_letters,
-      question_signals JSONB, uses_metadata_translations, enabled. `SupportedLocales` +
-      `localeProfiles` + `ParseLocale` registry'den beslenir (embedded EN/TR her zaman
-      mevcut fallback).
-- [ ] `i18n_bundles` tablosu: locale + bundle JSONB (veya namespace bazlı satırlar) +
-      version. `i18n.T/Tf` lookup zinciri: DB bundle → embedded bundle → DefaultLocale → key.
-      TTL cache + invalidate (prompt store deseniyle aynı).
-- [ ] Admin: bundle import/export (JSON upload), eksik-anahtar raporu (EN'e göre coverage %).
-- [ ] `lingua.DetectQuestionLocale` registry'deki QuestionSignals/Letters ile çalışır →
-      yeni dil sinyalleri DB'den. (Sinyal listesi boşsa o locale soru metninden tespit edilmez,
-      X-Locale header'ı ile yine seçilebilir — kabul edilebilir başlangıç.)
-- [ ] **Kabul:** `INSERT INTO i18n_locales` + bundle upload ile yeni dil, backend release'i
-      olmadan API yanıtlarında (clarification metinleri dahil) çalışıyor.
+### DİL-3 — i18n: dinamik locale registry + katalog overlay [M] ✅ (2026-06-10)
+- [x] Migration `049a/b`: `i18n_locales` (profil + question_signals JSONB + enabled) ve
+      `i18n_bundles` (bundle JSONB + version; update'te version otomatik artar).
+      `metadata/i18n_runtime.go`: repo metotları + `NewI18nRuntimeProvider` adaptörü +
+      `SeedI18nLocales` (tablo boşsa embedded EN/TR profillerinden). Wiring tek helper'da:
+      `app/nl_runtime.go` `wireNLRuntime` (lexicon + i18n birlikte; setupAI ve
+      NewAIDependencies buradan çağırıyor — NewAIDependencies funlen fix'i de bu).
+- [x] `i18n/runtime.go`: `RuntimeProvider` arayüzü + 30s TTL snapshot + `InvalidateRuntime`.
+      `SupportedLocaleProfiles/Codes`, `LocaleProfileFor`, `IsSupported`, `ParseLocale`,
+      `FromContext` artık efektif (embedded ∪ registry) kümeden; yeni `ActiveLocales()`
+      (embedding refresh de bunu kullanıyor). EN devre dışı bırakılamaz (K8); provider
+      hatasında embedded'a düşülür. `T/Tf` zinciri: DB(loc) → embedded(loc) → DB(en) →
+      embedded(en) → key. i18n bağımlılıksız kaldı — provider implementasyonu metadata'da
+      (metadata→i18n yönü). Snapshot yenileme bilinçli request-scope'suz
+      (`nolint:contextcheck` gerekçeli, audit/db_writer emsali).
+- [x] Admin (AdminKeyMiddleware, `handlers/i18n_admin.go` + `ai_router.go`):
+      `GET/PUT /ai/admin/i18n/locales` (EN-disable reddi, locale/label validasyonu),
+      `GET/PUT /ai/admin/i18n/bundles/{locale}` (export DB→embedded fallback'li; import
+      string-leaf validasyonlu, version'lı), `GET /ai/admin/i18n/coverage/{locale}`
+      (efektif EN referansına göre eksik anahtar listesi + coverage %). Yazımlar
+      `i18n.InvalidateRuntime()` çağırıyor.
+- [x] `lingua.DetectQuestionLocale` zaten `SupportedLocaleProfiles()` okuyordu → registry
+      sinyalleri otomatik devrede. Test: `TestDetectQuestionLocaleUsesRegistrySignals`
+      (Almanca sinyaller kod değişikliği olmadan tespit ediliyor; embedded TR etkilenmiyor).
+- [x] **Kabul sağlandı:** `TestRuntimeRegistryAddsNewLocale` + `TestRuntimeBundleLookupChain` —
+      registry satırı + bundle upload ile "de" parse/context/profil/T() uçtan uca release'siz
+      çalışıyor; EN-disable engeli, provider-hata fallback'i, TTL/invalidate, bundle leaf
+      validasyonu ve coverage raporu testli. Gate'ler: lint-go 0, `make test-go` 59 paket
+      -race ✓, eval-regression ✓, deadcode yeni bulgu yok, gofmt ✓.
+      **Bilinen sınırlar:** (1) DB bundle'ları seed edilmez — embedded fallback tasarımı
+      (drift önler); coverage endpoint'i eksikleri raporlar. (2) Runtime provider yalnızca
+      monolith API (setupAI) + AI servisinde (NewAIDependencies) bağlı — catalog/query
+      servisleri embedded-only (kullanıcıya i18n metni üreten yüzeyleri yok denecek kadar az;
+      gerekirse `wireNLRuntime` iki satırla eklenir). (3) Yeni dilde bundle yüklenmezse
+      metinler zincir gereği EN döner — davranış, hata değil.
 
 ### DİL-4 — Prompt şablonları: yeni locale onboarding [S]
 - [ ] Zaten DB-backed; boşluk: embed'de olmayan locale için seed yok. `SeedPromptTemplatesFromEmbed`

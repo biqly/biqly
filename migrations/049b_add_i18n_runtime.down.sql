@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS i18n_bundles;
+DROP TABLE IF EXISTS i18n_locales;

@@ -5,6 +5,8 @@ import (
 )
 
 // embeddingLocalesWritten are persisted on each metadata embed refresh.
+// Uses the effective locale set so registry-added languages get embedding
+// vectors without a release.
 func embeddingLocalesWritten() []i18n.Locale {
-	return append([]i18n.Locale(nil), i18n.SupportedLocales...)
+	return i18n.ActiveLocales()
 }

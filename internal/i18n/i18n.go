@@ -30,8 +30,17 @@ const (
 	DefaultLocale        = LocaleEN
 )
 
-// SupportedLocales lists all locales that have an embedded bundle.
+// SupportedLocales lists the locales shipped with embedded bundles and
+// profiles. It is the seed/fallback base; the *effective* locale set may grow
+// at runtime via the DB-backed registry (SetRuntimeProvider) — use
+// ActiveLocales / SupportedLocaleProfiles / IsSupported for the live view.
 var SupportedLocales = []Locale{LocaleEN, LocaleTR}
+
+// ActiveLocales returns the effective locale set (embedded + enabled registry
+// rows) in priority order.
+func ActiveLocales() []Locale {
+	return append([]Locale(nil), currentRuntime().supported...)
+}
 
 // LocaleProfile contains UI labels and lightweight NL detection hints for one locale.
 type LocaleProfile struct {
@@ -70,27 +79,40 @@ var localeProfiles = map[Locale]LocaleProfile{
 	},
 }
 
-// SupportedLocaleProfiles returns profile data in SupportedLocales order.
+// SupportedLocaleProfiles returns effective profile data in priority order
+// (embedded locales first, registry-added locales after).
 func SupportedLocaleProfiles() []LocaleProfile {
-	out := make([]LocaleProfile, 0, len(SupportedLocales))
-	for _, loc := range SupportedLocales {
-		if profile, ok := LocaleProfileFor(loc); ok {
+	state := currentRuntime()
+	out := make([]LocaleProfile, 0, len(state.supported))
+	for _, loc := range state.supported {
+		if profile, ok := state.profiles[loc]; ok {
 			out = append(out, profile)
 		}
 	}
 	return out
 }
 
-// LocaleProfileFor returns the profile for a supported locale.
+// LocaleProfileFor returns the effective profile for a supported locale.
 func LocaleProfileFor(loc Locale) (LocaleProfile, bool) {
-	profile, ok := localeProfiles[loc]
+	profile, ok := currentRuntime().profiles[loc]
 	return profile, ok
 }
 
-// SupportedLocaleCodes returns supported locale codes in priority order.
-func SupportedLocaleCodes() []string {
-	out := make([]string, 0, len(SupportedLocales))
+// EmbeddedLocaleProfiles returns the compiled-in locale profiles in
+// SupportedLocales order — the seed source for the i18n_locales registry.
+func EmbeddedLocaleProfiles() []LocaleProfile {
+	out := make([]LocaleProfile, 0, len(SupportedLocales))
 	for _, loc := range SupportedLocales {
+		out = append(out, localeProfiles[loc])
+	}
+	return out
+}
+
+// SupportedLocaleCodes returns effective locale codes in priority order.
+func SupportedLocaleCodes() []string {
+	supported := currentRuntime().supported
+	out := make([]string, 0, len(supported))
+	for _, loc := range supported {
 		out = append(out, string(loc))
 	}
 	return out
@@ -129,15 +151,21 @@ func loadBundles() {
 	}
 }
 
-func getBundle(loc Locale) bundle {
+// embeddedBundle returns the compiled-in bundle for a locale, nil when the
+// locale ships no embedded catalog.
+func embeddedBundle(loc Locale) bundle {
 	bundlesOnce.Do(loadBundles)
 	if errBundles != nil {
 		return nil
 	}
-	if b, ok := bundles[loc]; ok {
-		return b
-	}
-	return bundles[DefaultLocale]
+	return bundles[loc]
+}
+
+// EmbeddedBundle exposes the compiled-in catalog for admin export/coverage
+// tooling. The returned map is shared — callers must treat it as read-only.
+func EmbeddedBundle(loc Locale) (map[string]any, bool) {
+	b := embeddedBundle(loc)
+	return b, b != nil
 }
 
 func lookup(b bundle, key string) (string, bool) {
@@ -161,18 +189,26 @@ func lookup(b bundle, key string) (string, bool) {
 	return s, ok
 }
 
-// T returns the localized message for the given key, falling back through
-// requested locale → DefaultLocale → the key itself.
+// T returns the localized message for the given key. Lookup chain per locale:
+// DB-managed bundle → embedded bundle; then the same chain for DefaultLocale;
+// finally the key itself (ADR-0001 K5).
 func T(loc Locale, key string) string {
-	if s, ok := lookup(getBundle(loc), key); ok {
+	if s, ok := lookupLocale(loc, key); ok {
 		return s
 	}
 	if loc != DefaultLocale {
-		if s, ok := lookup(getBundle(DefaultLocale), key); ok {
+		if s, ok := lookupLocale(DefaultLocale, key); ok {
 			return s
 		}
 	}
 	return key
+}
+
+func lookupLocale(loc Locale, key string) (string, bool) {
+	if s, ok := lookup(runtimeBundle(loc), key); ok {
+		return s, true
+	}
+	return lookup(embeddedBundle(loc), key)
 }
 
 // Tf returns the localized message and interpolates {{.Name}}-style
@@ -276,7 +312,7 @@ func parseFloatStrict(s string) (float64, error) {
 }
 
 func isSupported(loc Locale) bool {
-	return slices.Contains(SupportedLocales, loc)
+	return slices.Contains(currentRuntime().supported, loc)
 }
 
 type ctxKey struct{}

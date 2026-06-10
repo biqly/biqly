@@ -194,4 +194,10 @@ func registerAIAdminConfigRoutes(r chi.Router, aiHandler *handlers.AIHandler) {
 	r.Get("/ai/admin/lexicon", aiHandler.AdminListLexicon)
 	r.Put("/ai/admin/lexicon", aiHandler.AdminUpsertLexicon)
 	r.Post("/ai/admin/lexicon/reset", aiHandler.AdminResetLexiconDomain)
+	// Dynamic locale registry + message-bundle overlay (ADR-0001 K8, DİL-3).
+	r.Get("/ai/admin/i18n/locales", aiHandler.AdminListI18nLocales)
+	r.Put("/ai/admin/i18n/locales", aiHandler.AdminUpsertI18nLocales)
+	r.Get("/ai/admin/i18n/bundles/{locale}", aiHandler.AdminGetI18nBundle)
+	r.Put("/ai/admin/i18n/bundles/{locale}", aiHandler.AdminUpsertI18nBundle)
+	r.Get("/ai/admin/i18n/coverage/{locale}", aiHandler.AdminI18nCoverage)
 }
