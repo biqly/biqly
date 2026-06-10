@@ -1,6 +1,24 @@
 global:
   # prag is a single 4-core node; rollouts must not schedule a second pod (default
   # maxSurge 25% ≈ +1 replica) while the old one is still running.
+  # Resource requests tuned from kubectl top + kube-prometheus-stack (2026-06-10);
+  # leave ~2–3× headroom over observed peaks for burst (query rows, AI prompts).
+  dragonfly:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+  nats:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 128Mi
   deploymentStrategy:
     rollingUpdate:
       maxSurge: 0
@@ -45,10 +63,10 @@ global:
       resources:
         requests:
           cpu: 50m
-          memory: 96Mi
+          memory: 160Mi
         limits:
-          cpu: 750m
-          memory: 384Mi
+          cpu: 500m
+          memory: 256Mi
     tracing:
       enabled: true
       serviceName: biqly
@@ -90,11 +108,11 @@ auth:
   replicaCount: 1
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 25m
+      memory: 64Mi
     limits:
-      cpu: 1500m
-      memory: 768Mi
+      cpu: 500m
+      memory: 128Mi
   image:
     repository: auth
     tag: sha-38de6ea19634422920df5b7f49e8fad6b49ed3bf
@@ -115,11 +133,11 @@ mail:
   replicaCount: 1
   resources:
     requests:
-      cpu: 50m
+      cpu: 25m
       memory: 64Mi
     limits:
-      cpu: 750m
-      memory: 384Mi
+      cpu: 500m
+      memory: 128Mi
   smtp:
     enabled: true
   config:
@@ -139,11 +157,11 @@ frontend:
   replicaCount: 1
   resources:
     requests:
-      cpu: 25m
-      memory: 64Mi
+      cpu: 10m
+      memory: 32Mi
     limits:
-      cpu: 400m
-      memory: 192Mi
+      cpu: 200m
+      memory: 64Mi
   image:
     tag: sha-56b921c7800edf2ee5c29a91dfad5f764bdd9d87
 
@@ -152,11 +170,11 @@ catalog:
   replicaCount: 1
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 25m
+      memory: 64Mi
     limits:
-      cpu: 1000m
-      memory: 768Mi
+      cpu: 500m
+      memory: 256Mi
   image:
     tag: sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
   autoscaling:
@@ -167,11 +185,11 @@ query:
   replicaCount: 1
   resources:
     requests:
-      cpu: 200m
-      memory: 256Mi
+      cpu: 50m
+      memory: 128Mi
     limits:
-      cpu: 1500m
-      memory: 768Mi
+      cpu: 1000m
+      memory: 512Mi
   image:
     tag: sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
   autoscaling:
@@ -182,11 +200,11 @@ ai:
   replicaCount: 1
   resources:
     requests:
-      cpu: 250m
-      memory: 256Mi
+      cpu: 50m
+      memory: 128Mi
     limits:
-      cpu: 3000m
-      memory: 1536Mi
+      cpu: 1000m
+      memory: 512Mi
   image:
     tag: sha-91a9ff58d06ca78fdf3cf136c42c65c1e8b349a6
   rollout:
@@ -218,3 +236,13 @@ ai:
   ambiguity:
     tieredEnabled: true
     maxLLMTierPerQuestion: 1
+
+postgresql:
+  primary:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 192Mi
+      limits:
+        cpu: 500m
+        memory: 384Mi
