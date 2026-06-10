@@ -404,6 +404,7 @@ export const admin: AdminDictionary = {
     title: 'Platform Ayarları',
     description:
       'Yeni kullanıcıların platforma nasıl katılacağını belirleyin. Davet akışı bu ayardan bağımsız olarak çalışır.',
+    all_keys_reference: 'Tüm anahtarların referansı',
     self_signup_label: 'Kendi kendine kayıt (self sign-up)',
     self_signup_on_hint:
       'Kayıt sayfasına erişen herkes hesap oluşturabilir. OAuth ile giriş yeni kullanıcı kaydı da açabilir.',

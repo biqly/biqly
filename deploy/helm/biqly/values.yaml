@@ -1,3 +1,5 @@
+# For a comprehensive list of environment variables and dynamic database overrides,
+# see docs/configuration.md.
 global:
   namespace:
     create: true

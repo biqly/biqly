@@ -407,7 +407,15 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
       <div>
         <h2 style={{ margin: 0 }}>{t('admin.platform_settings.title')}</h2>
         <p className="form-hint" style={{ marginTop: 8 }}>
-          {t('admin.platform_settings.description')}
+          {t('admin.platform_settings.description')}{' '}
+          <a
+            href="https://github.com/biqly/biqly/blob/main/docs/configuration.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: 'var(--accent, #0066cc)', textDecoration: 'underline' }}
+          >
+            {t('admin.platform_settings.all_keys_reference')}
+          </a>
         </p>
       </div>
 

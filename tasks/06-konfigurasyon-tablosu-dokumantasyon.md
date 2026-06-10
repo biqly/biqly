@@ -62,11 +62,11 @@ Sadece `config.go` satırı yazmak yetmez — gerçek tüketim noktası yazılac
 
 ## Kabul Kriterleri
 
-- [ ] `docs/configuration.md` tüm `BI_AI_*` + `BI_PII_*` + memory anahtarlarını kapsıyor
+- [x] `docs/configuration.md` tüm `BI_AI_*` + `BI_PII_*` + memory anahtarlarını kapsıyor
       (config.go ile birebir; doc-test yeşil).
-- [ ] Her anahtarın gerçek tüketim noktası (dosya/fonksiyon) "Used In"de.
-- [ ] UI Editable = Yes işaretli anahtarlar 04'teki panelle birebir örtüşüyor.
-- [ ] Helm/kod default farkları Notes'ta açıklanmış.
+- [x] Her anahtarın gerçek tüketim noktası (dosya/fonksiyon) "Used In"de.
+- [x] UI Editable = Yes işaretli anahtarlar 04'teki panelle birebir örtüşüyor.
+- [x] Helm/kod default farkları Notes'ta açıklanmış.
 
 ## İlgili Dosyalar
 

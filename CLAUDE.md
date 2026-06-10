@@ -266,6 +266,8 @@ styling & coding conventions:
 
 ## deployment & infrastructure
 
+See [Configuration Parameters](docs/configuration.md) for a comprehensive list of environment variables and dynamic database overrides.
+
 the app runs in the **`biqly` kubernetes namespace** in the default kubeconfig cluster.
 
 ### deploy folder (`deploy/`)

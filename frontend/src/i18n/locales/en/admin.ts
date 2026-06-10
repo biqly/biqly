@@ -400,6 +400,7 @@ export const admin = {
     title: 'Platform Settings',
     description:
       'Control how new users can join the platform. Invitations always work regardless of this setting.',
+    all_keys_reference: 'All parameters reference',
     self_signup_label: 'Allow self-service sign-up',
     self_signup_on_hint:
       'Anyone with the sign-up page can create an account. OAuth sign-in can also register new users.',

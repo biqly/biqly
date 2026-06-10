@@ -185,6 +185,12 @@ migrations/
 
 `NNNa` = up, `NNNb` = down. Paired. Sequential numbering.
 
+### Configuration Documentation Alignment
+
+When adding or modifying any `BI_*` environment variables in `internal/config/config.go`, you must immediately update `docs/configuration.md` to document the key, its default value, Helm status, runtime override status, used-in path, and notes.
+
+**Rule**: The Go test `TestConfigDocSync` in `internal/config` automatically parses `config.go` and asserts that every environment variable key is documented in `docs/configuration.md`. Ensure this test passes (`go test ./internal/config/...`) before staging or committing any changes.
+
 ### Local DB Dependency
 
 Docker daemon must be running for migration testing. When Docker is unavailable:
