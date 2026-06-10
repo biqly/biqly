@@ -149,11 +149,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 		r.Post("/ai/enrich-context", enrichHandler.Analyze)
 		r.Post("/ai/enrich-context/apply", enrichHandler.Apply)
 
-		// NL→SQL memory store administration (P3) and runtime config (P5).
-		r.Get("/ai/confirmed-queries", aiHandler.AdminListConfirmedQueries)
-		r.Post("/ai/confirmed-queries/{id}/deactivate", aiHandler.AdminDeactivateConfirmedQuery)
-		r.Get("/ai/admin/config", aiHandler.AdminRuntimeConfig)
-		r.Put("/ai/admin/config", aiHandler.UpdateAdminRuntimeConfig)
+		registerAIAdminConfigRoutes(r, aiHandler)
 	})
 
 	examplesHandler := handlers.NewAIExamplesHandler(deps)
@@ -185,4 +181,17 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	timeGrainsHandler := handlers.NewAITimeGrainsHandler(deps)
 	r.Get("/ai/settings/time-grains", timeGrainsHandler.ListTimeGrains)
 	r.Put("/ai/settings/time-grains/{grain}", timeGrainsHandler.UpdateTimeGrain)
+}
+
+// registerAIAdminConfigRoutes wires the admin-key-protected runtime knobs:
+// NL→SQL memory store administration (P3), runtime config (P5), and the
+// locale-dimensioned NL lexicon (ADR-0001, DİL-1).
+func registerAIAdminConfigRoutes(r chi.Router, aiHandler *handlers.AIHandler) {
+	r.Get("/ai/confirmed-queries", aiHandler.AdminListConfirmedQueries)
+	r.Post("/ai/confirmed-queries/{id}/deactivate", aiHandler.AdminDeactivateConfirmedQuery)
+	r.Get("/ai/admin/config", aiHandler.AdminRuntimeConfig)
+	r.Put("/ai/admin/config", aiHandler.UpdateAdminRuntimeConfig)
+	r.Get("/ai/admin/lexicon", aiHandler.AdminListLexicon)
+	r.Put("/ai/admin/lexicon", aiHandler.AdminUpsertLexicon)
+	r.Post("/ai/admin/lexicon/reset", aiHandler.AdminResetLexiconDomain)
 }

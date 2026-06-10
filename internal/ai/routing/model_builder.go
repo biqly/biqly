@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/biqly/biqly/internal/ai/lexicon"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -188,25 +189,17 @@ func softDeleteColumnSynonyms(columnName, dataType string) []string {
 		n == "removed_at" || strings.HasSuffix(n, "_removed_at")
 	tsArchived := n == "archived_at" || strings.HasSuffix(n, "_archived_at")
 
+	// Column-name pattern rules stay in code; the language-bearing word lists
+	// come from the NL lexicon (ai_nl_lexicon, domain soft_delete).
 	switch {
 	case isTimeish && tsDeleted:
-		return []string{
-			"deleted", "removed", "trashed", "erased", "soft delete", "soft-delete",
-			"silinen", "silinmiş", "silindi", "silinmis", "kaldırılan", "kaldirilan",
-		}
+		return lexicon.Active().Terms(lexicon.DomainSoftDelete, "ts_deleted")
 	case isTimeish && tsArchived:
-		return []string{
-			"archived", "arşiv", "arsiv", "arşivlenmiş", "arsivlenmis",
-			"deleted", "silinen", "kaldırılan", "kaldirilan",
-		}
+		return lexicon.Active().Terms(lexicon.DomainSoftDelete, "ts_archived")
 	case isBool && (n == "is_deleted" || n == "is_removed" || n == "is_archived" || n == "deleted"):
-		return []string{
-			"deleted", "removed", "archived", "silinen", "silinmiş", "silinmis", "silindi", "kaldırılan", "kaldirilan",
-		}
+		return lexicon.Active().Terms(lexicon.DomainSoftDelete, "bool_deleted")
 	case isNum && (n == "delete_flag" || n == "deleted_flag" || n == "is_delete"):
-		return []string{
-			"deleted", "delete flag", "silinen", "silme bayrağı", "silme bayragi",
-		}
+		return lexicon.Active().Terms(lexicon.DomainSoftDelete, "num_delete_flag")
 	default:
 		return nil
 	}

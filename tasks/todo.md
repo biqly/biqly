@@ -458,6 +458,124 @@ sonunda filtresiz bare-count kaldı; `warnings_body` gösterildi ama zaman koşu
 
 ---
 
+## Dil Varlıklarının Koddan Çıkarılması — DB Tabanlı Lexicon/i18n Yol Haritası (2026-06-10)
+
+**Problem:** "aylık", "günlük", "geçen ay", "silinen" gibi doğal-dil tanımlamaları yalnızca
+EN+TR için kod içinde gömülü. Yeni bir dil eklemek bugün release gerektiriyor; runtime'da
+yönetilemiyor.
+
+**Best practice (hedef mimari):** İki varlık sınıfını ayır ve ikisini de *hibrit* yönet:
+1. **NL lexicon verisi** (synonym/phrase/intent token listeleri) = **data, kod değil** →
+   locale-boyutlu DB tabloları; kod yalnızca *seed + fallback* olarak embedded default taşır
+   (boot asla DB'ye bağımlı olmaz), üstüne DB overlay + cache + invalidation + admin CRUD.
+   Bu kalıp repoda zaten 3 yerde kurulu: `ai_time_grains` (dbTimeGrainStore), prompt
+   şablonları (`dbPromptStore`, versiyonlu, embed'den seed), `ai_runtime_config` (KV overlay).
+   Yapılacak iş büyük ölçüde **mevcut kalıbı kalan hardcoded varlıklara yaymak**.
+2. **Mesaj katalogları** (i18n bundle'ları) → embedded EN/TR fallback kalır, DB overlay +
+   dinamik locale registry ile yeni dil release'siz eklenir.
+
+**Envanter (2026-06-10, kod üzerinde doğrulandı):**
+
+| Varlık | Yer | Durum |
+|---|---|---|
+| Time-grain synonym'leri | `routing/time_grains.go` `DefaultTimeGrains` | ✅ DB-backed (`ai_time_grains`) ama synonym dizisi locale-karışık; seed EN+TR hardcoded |
+| Prompt şablonları (system_rules, repair, …) | `prompt/prompts/{en,tr}/*.tmpl` + `prompt_store.go` | ✅ DB-backed + versiyonlu; embed yalnızca en/tr, bilinmeyen locale EN'e düşer |
+| Routing lexicon (token/intent/metric synonym) | `routing_lexicon_default.json` + `BI_AI_ROUTING_LEXICON_PATH` | ⚠️ Dosya override var (ConfigMap ile release'siz) ama locale-boyutsuz, admin UI yok |
+| Glossary synonym'leri | `business_glossary_terms.ai_context` | ✅ DB-backed |
+| Vague temporal phrase'ler | `ambiguity/temporal_detector.go` `vagueTemporalPhrases` | ❌ Hardcoded (TR+EN) |
+| Soft-delete kelime listeleri | `routing/model_builder.go` `softDeleteColumnSynonyms` | ❌ Hardcoded |
+| Aggregation/intent token'ları ("kaç", "adet", "toplam", grain kelimeleri) | `routing/routing_budget.go` | ❌ Hardcoded |
+| Semanticgen grain/row-count synonym'leri | `semanticgen/generator.go` (~290-323) | ❌ Hardcoded (time_grains ile DUPLİKE — tek kaynağa inmeli) |
+| Locale registry + soru-dili sinyalleri | `i18n/i18n.go` `SupportedLocales`, `localeProfiles` (QuestionSignals/Letters) | ❌ Hardcoded |
+| Backend mesaj katalogları | `i18n/locales/{en,tr}.json` (embed) | ❌ Embedded — yeni dil = release |
+| Soru dili tespiti | `ai/lingua/locale.go` | ❌ localeProfiles sinyallerine bağlı (hardcoded) |
+| Prompt içi Go-üretimli bölümler (failure examples, planning steps) | `prompt/prompt_examples.go` | ❌ Hardcoded (EN gövde + TR ipuçları) |
+| Frontend katalogları | `frontend/src/i18n/locales/{en,tr}/` | ❌ Build-time bundle — yeni dil = frontend release |
+| Eval golden/edge case'leri | `internal/ai/eval/` | ✔️ Kodda kalması doğru (test varlığı) |
+
+### DİL-0 — Tasarım kararı + ADR [S] ✅ (2026-06-10)
+- [x] Karar: **generic tek tablo** `ai_nl_lexicon(locale, domain, key, value JSONB, is_active)`,
+      PK (locale, domain, key); 7 domain ve value şekilleri ADR K2 tablosunda.
+      `ai_time_grains` yapı tablosu olarak kalır, `synonyms` kolonu DİL-1'de `grain_synonym`
+      domain'ine taşınır (`synonyms_by_locale` alternatifi reddedildi — ADR K3).
+      Ek karar: eşleştirme **etkin locale'lerin birleşimi** üzerinde (K4, davranış-koruyucu).
+- [x] Fallback zinciri: lexicon DB → embedded default (boot DB'siz çalışır, K5);
+      cache 30s TTL + yazan replikada anında Invalidate (`ai_runtime_config` deseni, K6);
+      seed: domain boşsa embedded'dan idempotent doldurma + embedded'a sıfırlama endpoint'i (K7).
+- [x] **Kabul sağlandı:** `docs/adr/0001-db-backed-nl-lexicon-and-i18n.md` — şema (K1, K8
+      locale registry dahil), fallback (K5), cache (K6), seed/kurtarma (K7), admin yüzeyi (K9),
+      5 reddedilen alternatif ve riskler yazılı.
+
+### DİL-1 — `ai_nl_lexicon` altyapısı + ilk taşımalar [M]
+- [ ] Migration: `ai_nl_lexicon` tablosu + mevcut hardcoded listelerden idempotent seed
+      (SeedTimeGrains kalıbı: tablo boşsa embed'den doldur).
+- [ ] `LexiconStore` (List/Invalidate; dbTimeGrainStore kalıbı: double-checked cache,
+      DB hatasında embedded default'a düş).
+- [ ] `vagueTemporalPhrases` → DB (`domain=temporal_phrase`, value: `{phrase,
+      interpretation_keys[]}`); `DetectTemporal`/`MatchTemporalPhrases` store'dan okur.
+      Yorum etiketleri zaten i18n anahtarı (`clarification.temporal.*`) — metinler DİL-3'e bağımlı.
+- [ ] `softDeleteColumnSynonyms` kelime listeleri → DB (kolon-adı pattern kuralları kodda kalır,
+      yalnızca dil-taşıyan kelime listeleri taşınır).
+- [ ] `routing_budget.go` intent token'ları ("kaç", "adet", "toplam", grain kelime listesi)
+      → DB (`domain=intent_token`).
+- [ ] `semanticgen/generator.go` grain/row-count synonym duplikasyonu → time-grain store +
+      lexicon'dan beslenecek şekilde tek kaynağa indir.
+- [ ] Admin CRUD: `GET/PUT /api/ai/admin/lexicon?locale=&domain=` (AdminKeyMiddleware,
+      `ai_admin_config.go` kalıbı) + JSON import/export; PUT → Invalidate.
+- [ ] **Kabul:** yeni bir dilin lexicon'u yalnızca DB satırlarıyla eklenebiliyor; mevcut EN/TR
+      davranışı birebir korunuyor (mevcut testler yeşil); store DB yokken embedded ile çalışıyor.
+
+### DİL-2 — Routing lexicon'u DB overlay'e bağla [S]
+- [ ] `BI_AI_ROUTING_LEXICON_PATH` dosya override'ı korunur; üstüne `ai_nl_lexicon`
+      (`token_synonym`/`metric_synonym` domain'leri) overlay merge'ü eklenir
+      (`mergeRoutingLexicon` zaten mevcut). `sync.Once` → invalidate edilebilir cache'e çevir.
+- [ ] **Kabul:** routing synonym'leri admin endpoint'ten güncellenince pod restart'sız etkili.
+
+### DİL-3 — i18n: dinamik locale registry + katalog overlay [M]
+- [ ] `i18n_locales` tablosu: locale, label, short_label, question_letters,
+      question_signals JSONB, uses_metadata_translations, enabled. `SupportedLocales` +
+      `localeProfiles` + `ParseLocale` registry'den beslenir (embedded EN/TR her zaman
+      mevcut fallback).
+- [ ] `i18n_bundles` tablosu: locale + bundle JSONB (veya namespace bazlı satırlar) +
+      version. `i18n.T/Tf` lookup zinciri: DB bundle → embedded bundle → DefaultLocale → key.
+      TTL cache + invalidate (prompt store deseniyle aynı).
+- [ ] Admin: bundle import/export (JSON upload), eksik-anahtar raporu (EN'e göre coverage %).
+- [ ] `lingua.DetectQuestionLocale` registry'deki QuestionSignals/Letters ile çalışır →
+      yeni dil sinyalleri DB'den. (Sinyal listesi boşsa o locale soru metninden tespit edilmez,
+      X-Locale header'ı ile yine seçilebilir — kabul edilebilir başlangıç.)
+- [ ] **Kabul:** `INSERT INTO i18n_locales` + bundle upload ile yeni dil, backend release'i
+      olmadan API yanıtlarında (clarification metinleri dahil) çalışıyor.
+
+### DİL-4 — Prompt şablonları: yeni locale onboarding [S]
+- [ ] Zaten DB-backed; boşluk: embed'de olmayan locale için seed yok. `SeedPromptTemplatesFromEmbed`
+      → bilinmeyen locale'de EN içeriğinden satır oluştur + şablona "Respond in {{.Language}}"
+      yönergesi enjekte et (geçici köprü; kalıcısı admin'in o locale şablonlarını DB'de
+      versiyonlayarak düzenlemesi).
+- [ ] `prompt_examples.go` Go-üretimli bölümlerdeki dil-taşıyan örnek/ipuçlarını şablon
+      değişkenlerine veya lexicon'a taşı (en azından TR-specific parantez ipuçlarını).
+- [ ] **Kabul:** yeni locale'de prompt pipeline EN fallback + dil yönergesiyle çalışıyor;
+      admin DB'den o locale şablonunu iyileştirebiliyor.
+
+### DİL-5 — Frontend + kalite kapıları [M]
+- [ ] Frontend katalogları için karar: (a) `GET /api/i18n/bundle/{locale}` ile runtime fetch +
+      dil seçici registry'den (release'siz yeni dil, önerilen) vs (b) yeni dil için frontend
+      release'i kabul edilir (daha basit). Karar ADR'e.
+- [ ] Eval: locale-parametrik golden case altyapısı — yeni dil eklenince smoke set
+      (`ambiguity_golden.json` model_ref'leri locale'li varyant destekler hale gelir).
+- [ ] Regresyon bekçisi: dil-taşıyan literal'lerin koda geri sızmasını engelleyen lint/CI
+      kontrolü (basit script: `internal/ai/{routing,ambiguity}` + `internal/semanticgen` içinde
+      bilinen-dil kelime listesi taraması; eval/test dosyaları hariç).
+- [ ] Yeni dil onboarding runbook'u: registry kaydı → bundle → lexicon domain coverage
+      raporu → prompt şablonu → smoke eval (docs/).
+- [ ] **Kabul:** "yeni dil ekleme" adımlarının hiçbiri backend release gerektirmiyor
+      (frontend kararı (a) seçildiyse o da dahil); coverage raporu boş domain'leri gösteriyor.
+
+**Sıralama/bağımlılık:** DİL-0 → DİL-1 → (DİL-2 ‖ DİL-3) → DİL-4 → DİL-5.
+DİL-1 tek başına bile bu sohbetteki vaka sınıfını (grain/temporal kelimeleri) release'siz
+yönetilir yapar; DİL-3 olmadan netleştirme *metinleri* yeni dilde EN fallback olarak kalır.
+
+---
+
 ## AI Sorgu — Netleştirme (Clarification) Akışı Düzeltmeleri (2026-06-09)
 
 İki hata: (1) UI/UX — netleştirme kartı scroll'da ortada kalıyor; (2) Logic —

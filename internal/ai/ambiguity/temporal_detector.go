@@ -3,39 +3,24 @@ package ambiguity
 import (
 	"strings"
 
+	"github.com/biqly/biqly/internal/ai/lexicon"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
-type vagueTemporal struct {
-	phrase             string
-	interpretationKeys []string
-}
-
-var vagueTemporalPhrases = []vagueTemporal{
-	{phrase: "geçen ay", interpretationKeys: []string{"prev_calendar_month", "rolling_30d"}},
-	{phrase: "son zamanlarda", interpretationKeys: []string{"last_week", "last_month", "last_quarter"}},
-	{phrase: "yakın zamanda", interpretationKeys: []string{"last_week", "last_month"}},
-	{phrase: "geçen hafta", interpretationKeys: []string{"prev_calendar_week", "rolling_7d"}},
-	{phrase: "bu yıl", interpretationKeys: []string{"ytd", "last_12m"}},
-	{phrase: "last month", interpretationKeys: []string{"prev_calendar_month", "rolling_30d"}},
-	{phrase: "recently", interpretationKeys: []string{"last_week", "last_month"}},
-	{phrase: "lately", interpretationKeys: []string{"last_week", "last_month"}},
-	{phrase: "last week", interpretationKeys: []string{"prev_calendar_week", "rolling_7d"}},
-}
-
 // MatchTemporalPhrases returns the vague relative-time phrases ("geçen ay",
 // "last month", ...) present in the question, in detector order. Callers use
 // it to assert that a generated query actually carries a time condition.
+// Phrases come from the NL lexicon (ai_nl_lexicon, domain temporal_phrase).
 func MatchTemporalPhrases(question string) []string {
 	normalized := strings.ToLower(strings.TrimSpace(question))
 	if normalized == "" {
 		return nil
 	}
 	var phrases []string
-	for _, entry := range vagueTemporalPhrases {
-		if strings.Contains(normalized, entry.phrase) {
-			phrases = append(phrases, entry.phrase)
+	for _, entry := range lexicon.Active().TemporalPhrases() {
+		if strings.Contains(normalized, entry.Phrase) {
+			phrases = append(phrases, entry.Phrase)
 		}
 	}
 	return phrases
@@ -50,13 +35,13 @@ func DetectTemporal(locale i18n.Locale, question string, model *semantic.Semanti
 
 	dateDim, hasDateDim := firstDateDimension(model)
 	var ambiguities []Item
-	for _, entry := range vagueTemporalPhrases {
-		if !strings.Contains(normalized, entry.phrase) {
+	for _, entry := range lexicon.Active().TemporalPhrases() {
+		if !strings.Contains(normalized, entry.Phrase) {
 			continue
 		}
-		interpretations := temporalInterpretations(locale, entry.interpretationKeys, dateDim, hasDateDim)
+		interpretations := temporalInterpretations(locale, entry.InterpretationKeys, dateDim, hasDateDim)
 		ambiguities = append(ambiguities, Item{
-			Term:            entry.phrase,
+			Term:            entry.Phrase,
 			Type:            "temporal",
 			Interpretations: interpretations,
 		})

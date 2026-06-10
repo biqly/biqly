@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/biqly/biqly/internal/ai/lexicon"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -25,13 +26,10 @@ func pruneAutoSemanticModel(
 }
 
 func isCountLikeQuestion(question string, tokens map[string]struct{}) bool {
-	_, okKac := tokens["kaç"]
-	_, okAdet := tokens["adet"]
-	_, okCount := tokens["count"]
-	_, okQuantity := tokens["quantity"]
-	if okKac || okAdet || okCount || okQuantity {
+	if matchesLexiconTerm(question, tokens, lexicon.DomainIntentToken, "count") {
 		return true
 	}
+	// Structural multi-token patterns stay in code.
 	_, okHow := tokens["how"]
 	_, okMany := tokens["many"]
 	if okHow && okMany {
@@ -115,11 +113,30 @@ func isDateOrTimeDimension(d semantic.Dimension) bool {
 }
 
 func questionMentionsTimeGrain(tokens map[string]struct{}) bool {
-	for _, w := range []string{
-		"dün", "yesterday", "today", "bugün", "week", "hafta", "month", "ay",
-		"year", "yıl", "quarter", "daily", "günlük", "hourly", "saat",
-	} {
+	for _, w := range lexicon.Active().Terms(lexicon.DomainIntentToken, "time_grain_mention") {
 		if _, ok := tokens[w]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// matchesLexiconTerm reports whether any lexicon term for (domain, key) appears
+// in the question: single-word terms by whole-token membership, multi-word
+// terms by substring on the lowercased question.
+func matchesLexiconTerm(question string, tokens map[string]struct{}, domain, key string) bool {
+	var normalized string
+	for _, term := range lexicon.Active().Terms(domain, key) {
+		if !strings.Contains(term, " ") {
+			if _, ok := tokens[term]; ok {
+				return true
+			}
+			continue
+		}
+		if normalized == "" {
+			normalized = strings.ToLower(strings.TrimSpace(question))
+		}
+		if strings.Contains(normalized, term) {
 			return true
 		}
 	}
@@ -220,11 +237,13 @@ func scoreMetricForPrune(m semantic.Metric, tokens map[string]struct{}) float64 
 	}
 	switch {
 	case strings.HasPrefix(m.Name, "sum_"):
-		score += weightedTokenScore(tokens, "total", 1)
-		score += weightedTokenScore(tokens, "toplam", 1)
+		for _, term := range lexicon.Active().Terms(lexicon.DomainIntentToken, "total") {
+			score += weightedTokenScore(tokens, term, 1)
+		}
 	case strings.HasPrefix(m.Name, "avg_"):
-		score += weightedTokenScore(tokens, "average", 1)
-		score += weightedTokenScore(tokens, "ortalama", 1)
+		for _, term := range lexicon.Active().Terms(lexicon.DomainIntentToken, "average") {
+			score += weightedTokenScore(tokens, term, 1)
+		}
 	}
 	return score
 }

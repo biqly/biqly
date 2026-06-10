@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/biqly/biqly/internal/ai/lexicon"
 	"github.com/biqly/biqly/internal/metadata"
 )
 
@@ -49,10 +50,37 @@ var DefaultTimeGrains = []metadata.TimeGrain{
 	},
 }
 
+// applyLexiconGrainSynonyms unions each grain's synonyms with the NL lexicon's
+// grain_synonym terms (ADR-0001 K3 transition: the ai_time_grains.synonyms
+// column and the lexicon are merged until the column is retired).
+func applyLexiconGrainSynonyms(grains []metadata.TimeGrain) []metadata.TimeGrain {
+	out := make([]metadata.TimeGrain, len(grains))
+	copy(out, grains)
+	for i := range out {
+		extra := lexicon.Active().Terms(lexicon.DomainGrainSynonym, out[i].Grain)
+		if len(extra) == 0 {
+			continue
+		}
+		merged := make([]string, 0, len(out[i].Synonyms)+len(extra))
+		seen := make(map[string]struct{}, len(out[i].Synonyms)+len(extra))
+		for _, lists := range [2][]string{out[i].Synonyms, extra} {
+			for _, syn := range lists {
+				if _, ok := seen[syn]; ok {
+					continue
+				}
+				seen[syn] = struct{}{}
+				merged = append(merged, syn)
+			}
+		}
+		out[i].Synonyms = merged
+	}
+	return out
+}
+
 type staticTimeGrainStore struct{}
 
 func (staticTimeGrainStore) List(_ context.Context) ([]metadata.TimeGrain, error) {
-	return DefaultTimeGrains, nil
+	return applyLexiconGrainSynonyms(DefaultTimeGrains), nil
 }
 
 func (staticTimeGrainStore) Invalidate() {}
@@ -85,8 +113,7 @@ func NewDBTimeGrainStore(repo timeGrainRepo) TimeGrainStore {
 func (s *dbTimeGrainStore) List(ctx context.Context) ([]metadata.TimeGrain, error) {
 	s.mu.RLock()
 	if s.loaded {
-		res := make([]metadata.TimeGrain, len(s.cache))
-		copy(res, s.cache)
+		res := applyLexiconGrainSynonyms(s.cache)
 		s.mu.RUnlock()
 		return res, nil
 	}
@@ -97,28 +124,26 @@ func (s *dbTimeGrainStore) List(ctx context.Context) ([]metadata.TimeGrain, erro
 
 	// Double-checked locking
 	if s.loaded {
-		res := make([]metadata.TimeGrain, len(s.cache))
-		copy(res, s.cache)
-		return res, nil
+		return applyLexiconGrainSynonyms(s.cache), nil
 	}
 
 	grains, err := s.repo.ListTimeGrains(ctx)
 	if err != nil {
 		slog.WarnContext(ctx, "failed to list time grains from DB, falling back to static defaults", "error", err)
-		return DefaultTimeGrains, nil
+		return applyLexiconGrainSynonyms(DefaultTimeGrains), nil
 	}
 
 	if len(grains) == 0 {
 		// Table is empty, fallback to defaults
-		return DefaultTimeGrains, nil
+		return applyLexiconGrainSynonyms(DefaultTimeGrains), nil
 	}
 
 	s.cache = grains
 	s.loaded = true
 
-	res := make([]metadata.TimeGrain, len(s.cache))
-	copy(res, s.cache)
-	return res, nil
+	// Merge at serve time (not cache time) so lexicon updates propagate after
+	// their own cache window without requiring this store's Invalidate.
+	return applyLexiconGrainSynonyms(s.cache), nil
 }
 
 func (s *dbTimeGrainStore) Invalidate() {

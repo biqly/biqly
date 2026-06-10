@@ -13,6 +13,7 @@ import (
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/ai/abtest"
 	evalpkg "github.com/biqly/biqly/internal/ai/eval"
+	"github.com/biqly/biqly/internal/ai/lexicon"
 	"github.com/biqly/biqly/internal/ai/prompt"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/ai/routing"
@@ -447,6 +448,11 @@ func setupAI(
 	if err := routing.SeedTimeGrains(ctx, metaRepo); err != nil {
 		return aiBundle{}, fmt.Errorf("seed time grains: %w", err)
 	}
+
+	if err := lexicon.Seed(ctx, metaRepo); err != nil {
+		return aiBundle{}, fmt.Errorf("seed nl lexicon: %w", err)
+	}
+	lexicon.SetActive(lexicon.NewDBStore(metaRepo))
 
 	responseCache := newRedisResponseCache(ctx, cfg.Redis.DSN)
 

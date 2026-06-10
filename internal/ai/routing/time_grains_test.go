@@ -42,7 +42,16 @@ func TestStaticTimeGrainStore(t *testing.T) {
 	store := NewStaticTimeGrainStore()
 	grains, err := store.List(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DefaultTimeGrains, grains)
+	require.Equal(t, applyLexiconGrainSynonyms(DefaultTimeGrains), grains)
+
+	// The lexicon contributes terms beyond the legacy column defaults
+	// (e.g. "ay bazında" from the semanticgen list) — the merge must be live.
+	for _, g := range grains {
+		if g.Grain == "month" {
+			require.Contains(t, g.Synonyms, "ay bazında")
+			require.Contains(t, g.Synonyms, "per month")
+		}
+	}
 }
 
 func TestDBTimeGrainStore_FallbackToDefaultWhenError(t *testing.T) {
@@ -53,7 +62,7 @@ func TestDBTimeGrainStore_FallbackToDefaultWhenError(t *testing.T) {
 
 	grains, err := store.List(context.Background())
 	require.NoError(t, err) // Should fallback gracefully
-	require.Equal(t, DefaultTimeGrains, grains)
+	require.Equal(t, applyLexiconGrainSynonyms(DefaultTimeGrains), grains)
 	require.Equal(t, 1, repo.listCalls)
 }
 
@@ -65,7 +74,7 @@ func TestDBTimeGrainStore_FallbackToDefaultWhenEmpty(t *testing.T) {
 
 	grains, err := store.List(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DefaultTimeGrains, grains)
+	require.Equal(t, applyLexiconGrainSynonyms(DefaultTimeGrains), grains)
 	require.Equal(t, 1, repo.listCalls)
 }
 
@@ -82,17 +91,18 @@ func TestDBTimeGrainStore_CachingAndInvalidation(t *testing.T) {
 		listVal: customGrains,
 	}
 	store := NewDBTimeGrainStore(repo)
+	want := applyLexiconGrainSynonyms(customGrains)
 
 	// First list: reads from DB
 	g1, err := store.List(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, customGrains, g1)
+	require.Equal(t, want, g1)
 	require.Equal(t, 1, repo.listCalls)
 
 	// Second list: should use cache
 	g2, err := store.List(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, customGrains, g2)
+	require.Equal(t, want, g2)
 	require.Equal(t, 1, repo.listCalls)
 
 	// Invalidate cache
@@ -101,7 +111,7 @@ func TestDBTimeGrainStore_CachingAndInvalidation(t *testing.T) {
 	// Third list: reads from DB again
 	g3, err := store.List(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, customGrains, g3)
+	require.Equal(t, want, g3)
 	require.Equal(t, 2, repo.listCalls)
 }
 

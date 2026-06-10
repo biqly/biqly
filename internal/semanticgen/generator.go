@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/biqly/biqly/internal/ai/lexicon"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/google/uuid"
@@ -280,15 +281,16 @@ func appendDateGrainDimensions(dimensions []semantic.Dimension, modelID string, 
 	if !isDateType(col.DataType) {
 		return dimensions
 	}
+	// Grain structure (name + suffix) is code; the language-bearing synonym
+	// lists come from the NL lexicon (single source shared with routing).
 	grains := []struct {
-		name     string
-		suffix   string
-		synonyms []string
+		name   string
+		suffix string
 	}{
-		{"year", "_year", []string{"year", "years", "yearly", "annual", "yıl", "yil", "yıllık", "yillik", "per year", "by year", "yıl bazında"}},
-		{"quarter", "_quarter", []string{"quarter", "quarters", "qtr", "çeyrek", "ceyrek", "çeyreklik", "ceyreklik"}},
-		{"month", "_month", []string{"month", "months", "monthly", "ay", "aylık", "aylik", "per month", "by month", "ay bazında"}},
-		{"day", "_day", []string{"day", "days", "daily", "gün", "gun", "günlük", "gunluk", "per day", "by day", "günü", "gunu"}},
+		{"year", "_year"},
+		{"quarter", "_quarter"},
+		{"month", "_month"},
+		{"day", "_day"},
 	}
 	for _, grain := range grains {
 		if len(dimensions) >= maxDimensions {
@@ -303,7 +305,7 @@ func appendDateGrainDimensions(dimensions []semantic.Dimension, modelID string, 
 			ColumnRef:   base.ColumnRef,
 			Type:        string(semantic.DimensionTypeDate),
 			TimeGrain:   grain.name,
-			Synonyms:    dedupeStrings(append(synonyms(col.ColumnName+grain.suffix), grain.synonyms...)),
+			Synonyms:    dedupeStrings(append(synonyms(col.ColumnName+grain.suffix), lexicon.Active().Terms(lexicon.DomainGrainSynonym, grain.name)...)),
 			Description: col.Description,
 			IsActive:    true,
 		})
@@ -320,7 +322,7 @@ func countMetric(modelID string, names map[string]bool) semantic.Metric {
 		Label:       &label,
 		Expression:  "*",
 		Aggregation: string(semantic.AggCount),
-		Synonyms:    []string{"count", "total rows", "adet", "sayisi", "kac tane"},
+		Synonyms:    lexicon.Active().Terms(lexicon.DomainRowCount, "row_count"),
 		IsActive:    true,
 	}
 }

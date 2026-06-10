@@ -7,6 +7,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	evalpkg "github.com/biqly/biqly/internal/ai/eval"
+	"github.com/biqly/biqly/internal/ai/lexicon"
 	"github.com/biqly/biqly/internal/ai/prompt"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/ai/routing"
@@ -91,6 +92,12 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		_ = db.Close()
 		return nil, fmt.Errorf("seed time grains: %w", err)
 	}
+
+	if err := lexicon.Seed(ctx, metaRepo); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("seed nl lexicon: %w", err)
+	}
+	lexicon.SetActive(lexicon.NewDBStore(metaRepo))
 
 	var catalogHTTPClient *catalogclient.Client
 	if cfg.Services.CatalogURL != "" {
