@@ -542,11 +542,19 @@ yönetilemiyor.
       fallback testli (`TestDBStoreFallsBackToDefaultsOnError`). Gate'ler: lint-go 0,
       eval-regression ✓, deadcode yeni bulgu yok, jsonusage guard ✓ (sonic).
 
-### DİL-2 — Routing lexicon'u DB overlay'e bağla [S]
-- [ ] `BI_AI_ROUTING_LEXICON_PATH` dosya override'ı korunur; üstüne `ai_nl_lexicon`
-      (`token_synonym`/`metric_synonym` domain'leri) overlay merge'ü eklenir
-      (`mergeRoutingLexicon` zaten mevcut). `sync.Once` → invalidate edilebilir cache'e çevir.
-- [ ] **Kabul:** routing synonym'leri admin endpoint'ten güncellenince pod restart'sız etkili.
+### DİL-2 — Routing lexicon'u DB overlay'e bağla [S] ✅ (2026-06-10)
+- [x] `routing_lexicon.go`: `sync.Once` → mutex'li base+merged cache (30s `routingLexiconOverlayTTL`);
+      `ActiveRoutingLexicon` artık embedded+dosya base'inin üzerine `ai_nl_lexicon`
+      `token_synonym`/`metric_synonym` domain'lerini per-key replace ile bindiriyor
+      (`overlayRoutingLexicon`); DB satırı yoksa base aynen servis edilir (sıfır davranış farkı —
+      bu iki domain'in embedded seed'i bilinçli olarak boş). `BI_AI_ROUTING_LEXICON_PATH` dosya
+      override'ı korunuyor (`InitRoutingLexicon` base'i yeniler). Yeni `InvalidateRoutingLexicon()` —
+      admin lexicon PUT/reset `invalidateLexiconCaches` helper'ı ile hem lexicon store'u hem bu
+      merge'ü yazan replikada anında düşürüyor; diğer replikalar iki TTL penceresi içinde (≤60s) yakınsar.
+- [x] **Kabul sağlandı:** `TestActiveRoutingLexiconAppliesDBOverlay` — store'a "kunde"
+      token-synonym'ü verilince restart'sız görünür, base anahtarlar ("musteri") ve overlay-dışı
+      alanlar korunur, overlay kalkınca base'e döner. Gate'ler: lint-go 0, `make test-go`
+      59 paket -race ✓, deadcode yeni bulgu yok, gofmt ✓.
 
 ### DİL-3 — i18n: dinamik locale registry + katalog overlay [M]
 - [ ] `i18n_locales` tablosu: locale, label, short_label, question_letters,

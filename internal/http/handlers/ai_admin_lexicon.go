@@ -7,9 +7,17 @@ import (
 	"slices"
 
 	"github.com/biqly/biqly/internal/ai/lexicon"
+	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/bytedance/sonic"
 )
+
+// invalidateLexiconCaches refreshes this replica's lexicon-derived caches after
+// an admin write; other replicas converge within the store TTLs (ADR-0001 K6).
+func invalidateLexiconCaches() {
+	lexicon.Active().Invalidate()
+	routing.InvalidateRoutingLexicon()
+}
 
 // lexiconEntryWire is the admin wire shape of one ai_nl_lexicon row: the JSONB
 // value is exposed as typed fields so imports/exports stay human-editable.
@@ -104,7 +112,7 @@ func (h *AIHandler) AdminUpsertLexicon(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to save lexicon entries", err)
 		return
 	}
-	lexicon.Active().Invalidate()
+	invalidateLexiconCaches()
 	writeJSON(w, http.StatusOK, lexiconUpsertResponse{Updated: len(rows)})
 }
 
@@ -181,6 +189,6 @@ func (h *AIHandler) AdminResetLexiconDomain(w http.ResponseWriter, r *http.Reque
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to reset lexicon domain", err)
 		return
 	}
-	lexicon.Active().Invalidate()
+	invalidateLexiconCaches()
 	writeJSON(w, http.StatusOK, lexiconResetResponse{Domain: input.Domain, Restored: len(rows)})
 }

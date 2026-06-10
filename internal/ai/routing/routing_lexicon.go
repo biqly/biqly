@@ -2,10 +2,14 @@ package routing
 
 import (
 	"fmt"
-	"github.com/bytedance/sonic"
 	"log/slog"
+	"maps"
 	"os"
 	"sync"
+	"time"
+
+	"github.com/biqly/biqly/internal/ai/lexicon"
+	"github.com/bytedance/sonic"
 )
 
 // Lexicon RoutingLexicon holds token expansion and intent vocabulary for table routing.
@@ -24,21 +28,75 @@ type Lexicon struct {
 	ProductCatalogSubstrings []string            `json:"product_catalog_substrings"`
 }
 
+// routingLexiconOverlayTTL bounds how long a cached merge of the base lexicon
+// with the DB-backed NL lexicon overlay is served before re-merging. Stacked
+// with the lexicon store's own TTL, cross-replica convergence after an admin
+// write is at most the sum of the two windows (ADR-0001 K6).
+const routingLexiconOverlayTTL = 30 * time.Second
+
 var (
-	routingLexicon     *Lexicon
-	routingLexiconOnce sync.Once
-	errRoutingLexicon  error
+	routingLexiconMu     sync.Mutex
+	baseRoutingLexicon   *Lexicon
+	baseRoutingLoaded    bool
+	errRoutingLexicon    error
+	mergedRoutingLexicon *Lexicon
+	mergedRoutingExpires time.Time
 )
 
-// ActiveRoutingLexicon returns the active routing lexicon (embedded default or file override).
+// ActiveRoutingLexicon returns the active routing lexicon: embedded defaults,
+// optional file override (BI_AI_ROUTING_LEXICON_PATH), and the DB-backed NL
+// lexicon overlay (token_synonym / metric_synonym domains) merged on top.
 func ActiveRoutingLexicon() (*Lexicon, error) {
-	routingLexiconOnce.Do(func() {
-		routingLexicon, errRoutingLexicon = loadRoutingLexicon("")
-	})
+	routingLexiconMu.Lock()
+	defer routingLexiconMu.Unlock()
+	if !baseRoutingLoaded {
+		baseRoutingLexicon, errRoutingLexicon = loadRoutingLexicon("")
+		baseRoutingLoaded = true
+	}
 	if errRoutingLexicon != nil {
 		return nil, errRoutingLexicon
 	}
-	return routingLexicon, nil
+	if mergedRoutingLexicon != nil && time.Now().Before(mergedRoutingExpires) {
+		return mergedRoutingLexicon, nil
+	}
+	mergedRoutingLexicon = overlayRoutingLexicon(baseRoutingLexicon)
+	mergedRoutingExpires = time.Now().Add(routingLexiconOverlayTTL)
+	return mergedRoutingLexicon, nil
+}
+
+// overlayRoutingLexicon merges DB-managed token/metric synonyms onto a copy of
+// the base lexicon. Per-key entries replace the base entry (mergeRoutingLexicon
+// semantics); with no DB rows the base is returned as-is.
+func overlayRoutingLexicon(base *Lexicon) *Lexicon {
+	tokenOverlay := lexicon.Active().DomainTerms(lexicon.DomainTokenSynonym)
+	metricOverlay := lexicon.Active().DomainTerms(lexicon.DomainMetricSynonym)
+	if len(tokenOverlay) == 0 && len(metricOverlay) == 0 {
+		return base
+	}
+	merged := *base
+	merged.TokenSynonyms = overlaySynonymMap(base.TokenSynonyms, tokenOverlay)
+	merged.MetricSynonyms = overlaySynonymMap(base.MetricSynonyms, metricOverlay)
+	return &merged
+}
+
+func overlaySynonymMap(base, overlay map[string][]string) map[string][]string {
+	if len(overlay) == 0 {
+		return base
+	}
+	out := make(map[string][]string, len(base)+len(overlay))
+	maps.Copy(out, base)
+	maps.Copy(out, overlay)
+	return out
+}
+
+// InvalidateRoutingLexicon drops the cached overlay merge so the next lookup
+// re-reads the NL lexicon. Admin lexicon writes call this on the writing
+// replica; others converge within the TTL windows.
+func InvalidateRoutingLexicon() {
+	routingLexiconMu.Lock()
+	mergedRoutingLexicon = nil
+	mergedRoutingExpires = time.Time{}
+	routingLexiconMu.Unlock()
 }
 
 func activeRoutingLexicon() *Lexicon {
@@ -62,10 +120,13 @@ func InitRoutingLexicon(path string) error {
 	if err != nil {
 		return err
 	}
-	routingLexicon = lex
+	routingLexiconMu.Lock()
+	baseRoutingLexicon = lex
+	baseRoutingLoaded = true
 	errRoutingLexicon = nil
-	routingLexiconOnce = sync.Once{}
-	routingLexiconOnce.Do(func() {})
+	mergedRoutingLexicon = nil
+	mergedRoutingExpires = time.Time{}
+	routingLexiconMu.Unlock()
 	return nil
 }
 
