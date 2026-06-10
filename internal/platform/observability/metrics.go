@@ -18,6 +18,21 @@ import (
 var queryLatencyBuckets = []float64{0.01, 0.05, 0.1, 0.5, 1}
 var ambiguityLatencyMSBuckets = []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 2000, 5000}
 
+// aiStepNames bounds the step label on bi_ai_step_duration_seconds.
+var aiStepNames = []string{
+	"table_route",
+	"context_resolve",
+	"prompt_context",
+	"ambiguity",
+	"prompt_build",
+	"llm_generate",
+	"parse_validate",
+	"sql_dry_run",
+	"multi_candidate",
+	"query_compile",
+	"query_execute",
+}
+
 // Metrics holds every process-local Prometheus collector for the BI engine.
 // Construct it with NewMetrics (tests, isolated registries) or obtain the
 // process singleton with Default. All Record* methods are safe for concurrent
@@ -32,6 +47,7 @@ type Metrics struct {
 	aiRequestsTotal          prometheus.Counter
 	aiErrors                 prometheus.Counter
 	aiRequestDuration        prometheus.Histogram
+	aiStepDuration           *prometheus.HistogramVec
 	aiRetriesTotal           prometheus.Counter
 	aiClarifications         prometheus.Counter
 	llmRequestDuration       prometheus.Histogram
@@ -106,6 +122,11 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 		aiRequestDuration: f.NewHistogram(prometheus.HistogramOpts{
 			Name: "bi_ai_request_duration_seconds", Help: "AI text-to-query end-to-end latency in seconds.", Buckets: prometheus.DefBuckets,
 		}),
+		aiStepDuration: f.NewHistogramVec(prometheus.HistogramOpts{
+			Name:    "bi_ai_step_duration_seconds",
+			Help:    "AI request pipeline step latency in seconds (table_route, prompt_build, llm_generate, etc.).",
+			Buckets: prometheus.DefBuckets,
+		}, []string{"step"}),
 		aiRetriesTotal: f.NewCounter(prometheus.CounterOpts{
 			Name: "bi_ai_retries_total", Help: "Sum of LLM retry attempts across AI requests.",
 		}),
@@ -277,7 +298,15 @@ func (m *Metrics) RecordAIRequest(latencyMs int64, success bool, retryCount int,
 	}
 }
 
-// RecordLLMRequest records LLM-facing latency, token usage, and prompt build time.
+// RecordAIStep records latency for one AI pipeline step (see aiStepNames).
+func (m *Metrics) RecordAIStep(step string, latencyMs int64) {
+	if latencyMs < 0 {
+		return
+	}
+	m.aiStepDuration.WithLabelValues(BoundLabel(step, aiStepNames, "other")).Observe(msToSeconds(latencyMs))
+}
+
+// RecordLLMRequest records LLM provider round-trip latency, token usage, and prompt build time.
 func (m *Metrics) RecordLLMRequest(latencyMs int64, tokensUsed int, promptBuildMs int64) {
 	m.llmRequestDuration.Observe(msToSeconds(latencyMs))
 	if tokensUsed > 0 {

@@ -34,6 +34,7 @@ var ForbiddenMetricLabels = []string{
 // VecLabelLimits documents the maximum distinct values allowed per label on each
 // *_Vec metric owned by this package. Update when adding a new labeled metric.
 var VecLabelLimits = map[string]map[string]int{
+	"bi_ai_step_duration_seconds":        {"step": 12},
 	"biqly_ambiguity_by_source":          {"source": 3},
 	"biqly_ambiguity_tier":               {"tier": 4},
 	"bi_ai_repair_by_error_code_total":   {"code": 16},

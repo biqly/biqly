@@ -17,6 +17,7 @@ type memoryMetricsStub struct {
 }
 
 func (*memoryMetricsStub) RecordAIRequest(int64, bool, int, bool) {}
+func (*memoryMetricsStub) RecordAIStep(string, int64)             {}
 func (*memoryMetricsStub) RecordLLMRequest(int64, int, int64)     {}
 func (*memoryMetricsStub) RecordAmbiguityAnalysis(int64, string, bool) {
 }

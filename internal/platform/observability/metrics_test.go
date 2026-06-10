@@ -19,6 +19,8 @@ func TestMetricsRecord(t *testing.T) {
 	m.RecordQueryExecution(200, true, 7)
 	m.RecordQueryExecution(300, false, 0)
 	m.RecordLLMRequest(750, 1234, 50)
+	m.RecordAIStep("llm_generate", 420)
+	m.RecordAIStep("prompt_build", 50)
 	m.RecordAIRequest(120, true, 2, false)
 	m.RecordAIRequest(90, false, 0, true)
 	m.RecordAmbiguityAnalysis(12, "rule_based", true)

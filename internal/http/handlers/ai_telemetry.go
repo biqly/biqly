@@ -91,9 +91,14 @@ func (h *AIHandler) observeAIRequest(
 		totalWarnings = len(resp.Result.Warnings)
 	}
 
+	llmMs := latencyMs
+	if resp.Metadata != nil && resp.Metadata.LLMGenerateDurationMs > 0 {
+		llmMs = int64(resp.Metadata.LLMGenerateDurationMs)
+	}
+
 	if h.metrics != nil {
 		h.metrics.RecordAIRequest(latencyMs, success, retryCount, needsClarification)
-		h.metrics.RecordLLMRequest(latencyMs, totalTokens, promptBuildMs)
+		h.metrics.RecordLLMRequest(llmMs, totalTokens, promptBuildMs)
 		if repairAttempts > 0 {
 			h.metrics.RecordAIRepair(success, repairAttempts, repairErrorCodes)
 		}

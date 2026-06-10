@@ -16,7 +16,7 @@ spec:
           address: {{ .Values.rollout.analysis.prometheusAddress | quote }}
           query: |
             1 - (
-              sum(rate(bi_ai_errors[5m]))
+              sum(rate(bi_ai_errors_total[5m]))
               /
               clamp_min(sum(rate(bi_ai_requests_total[5m])), 1)
             )

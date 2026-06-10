@@ -1,5 +1,7 @@
 {{- if .Values.global.observability.dashboards.enabled }}
 {{- $ds := "{\"type\":\"prometheus\",\"uid\":\"prometheus\"}" -}}
+{{- $stepAvg := "sum by (step) (rate(bi_ai_step_duration_seconds_sum[5m])) / clamp_min(sum by (step) (rate(bi_ai_step_duration_seconds_count[5m])), 1)" -}}
+{{- $stepP95 := "histogram_quantile(0.95, sum by (le, step) (rate(bi_ai_step_duration_seconds_bucket[5m])))" -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -18,16 +20,35 @@ data:
       "uid": "biqly-ai",
       "schemaVersion": 39,
       "refresh": "30s",
+      "time": {"from": "now-6h", "to": "now"},
+      "tags": ["biqly", "ai"],
       "panels": [
-        {"type":"timeseries","title":"AI request rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(bi_ai_requests_total[5m]))"}]},
-        {"type":"timeseries","title":"AI success rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"1 - (sum(rate(bi_ai_errors_total[5m])) / clamp_min(sum(rate(bi_ai_requests_total[5m])), 1))"}]},
-        {"type":"timeseries","title":"Average LLM latency (s)","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(llm_request_duration_seconds_sum[5m])) / clamp_min(sum(rate(llm_request_duration_seconds_count[5m])), 1)"}]},
-        {"type":"timeseries","title":"Tokens used","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(llm_tokens_used_total[5m]))"}]},
-        {"type":"timeseries","title":"Clarifications","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(bi_ai_clarifications_total[5m]))"}]},
-        {"type":"timeseries","title":"Memory store confirmed","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_store_confirmed_total[5m]))"}]},
-        {"type":"timeseries","title":"Memory recall hits","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_store_recall_hits_total[5m]))"}]},
-        {"type":"timeseries","title":"Recall feedback thumbs-up rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_recall_feedback_total{rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total[5m])), 1)"}]},
-        {"type":"timeseries","title":"Recall vs no-recall thumbs-up rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_recall_feedback_total{recall=\"true\",rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total{recall=\"true\"}[5m])), 1)"},{"refId":"B","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_recall_feedback_total{recall=\"false\",rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total{recall=\"false\"}[5m])), 1)"}]}
+        {"type":"row","title":"Genel bakış","gridPos":{"h":1,"w":24,"x":0,"y":0},"collapsed":false},
+        {"type":"stat","title":"İstek / dk","gridPos":{"h":4,"w":6,"x":0,"y":1},"fieldConfig":{"defaults":{"unit":"reqpm","decimals":1}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(bi_ai_requests_total[5m])) * 60"}]},
+        {"type":"stat","title":"Başarı oranı","gridPos":{"h":4,"w":6,"x":6,"y":1},"fieldConfig":{"defaults":{"unit":"percentunit","min":0,"max":1,"thresholds":{"mode":"absolute","steps":[{"color":"red","value":null},{"color":"yellow","value":0.9},{"color":"green","value":0.95}]}}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"1 - (sum(rate(bi_ai_errors_total[5m])) / clamp_min(sum(rate(bi_ai_requests_total[5m])), 1))"}]},
+        {"type":"stat","title":"p95 uçtan uca (s)","gridPos":{"h":4,"w":6,"x":12,"y":1},"fieldConfig":{"defaults":{"unit":"s","decimals":2}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"histogram_quantile(0.95, sum(rate(bi_ai_request_duration_seconds_bucket[5m])) by (le))"}]},
+        {"type":"stat","title":"Token / s","gridPos":{"h":4,"w":6,"x":18,"y":1},"fieldConfig":{"defaults":{"unit":"short","decimals":0}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(llm_tokens_used_total[5m]))"}]},
+
+        {"type":"row","title":"Soru pipeline — hangi adımda ne kadar bekliyor?","gridPos":{"h":1,"w":24,"x":0,"y":5},"collapsed":false},
+        {"type":"timeseries","title":"Ortalama adım süresi (s)","description":"Her AI isteğinde ölçülen pipeline adımları: tablo yönlendirme, prompt hazırlığı, LLM çağrısı, doğrulama, SQL dry-run, derleme/çalıştırma.","gridPos":{"h":9,"w":24,"x":0,"y":6},"fieldConfig":{"defaults":{"unit":"s"}},"options":{"legend":{"displayMode":"table","placement":"bottom","calcs":["mean","max","last"]}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"{{ $stepAvg }}","legendFormat":"{{ "{{step}}" }}"}]},
+        {"type":"timeseries","title":"p95 adım süresi (s)","gridPos":{"h":8,"w":12,"x":0,"y":15},"fieldConfig":{"defaults":{"unit":"s"}},"options":{"legend":{"displayMode":"table","placement":"bottom","calcs":["max","last"]}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"{{ $stepP95 }}","legendFormat":"{{ "{{step}}" }}"}]},
+        {"type":"barchart","title":"Adım süre payı (ortalama)","gridPos":{"h":8,"w":12,"x":12,"y":15},"fieldConfig":{"defaults":{"unit":"s"}},"options":{"orientation":"horizontal","legend":{"displayMode":"list","placement":"bottom"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"{{ $stepAvg }}","legendFormat":"{{ "{{step}}" }}"}]},
+
+        {"type":"row","title":"LLM & prompt","gridPos":{"h":1,"w":24,"x":0,"y":23},"collapsed":false},
+        {"type":"timeseries","title":"Prompt oluşturma (s)","gridPos":{"h":7,"w":8,"x":0,"y":24},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(prompt_build_duration_seconds_sum[5m])) / clamp_min(sum(rate(prompt_build_duration_seconds_count[5m])), 1)"}]},
+        {"type":"timeseries","title":"LLM round-trip (s)","gridPos":{"h":7,"w":8,"x":8,"y":24},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"histogram_quantile(0.50, sum(rate(llm_request_duration_seconds_bucket[5m])) by (le))","legendFormat":"p50"},{"refId":"B","datasource":{{ $ds }},"expr":"histogram_quantile(0.95, sum(rate(llm_request_duration_seconds_bucket[5m])) by (le))","legendFormat":"p95"}]},
+        {"type":"timeseries","title":"Token kullanımı","gridPos":{"h":7,"w":8,"x":16,"y":24},"fieldConfig":{"defaults":{"unit":"short"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(llm_tokens_used_total[5m]))"}]},
+
+        {"type":"row","title":"Belirsizlik & onarım","gridPos":{"h":1,"w":24,"x":0,"y":31},"collapsed":false},
+        {"type":"timeseries","title":"Clarification oranı","gridPos":{"h":7,"w":8,"x":0,"y":32},"fieldConfig":{"defaults":{"unit":"short"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(bi_ai_clarifications_total[5m]))"}]},
+        {"type":"timeseries","title":"Ambiguity analiz süresi (ms)","gridPos":{"h":7,"w":8,"x":8,"y":32},"fieldConfig":{"defaults":{"unit":"ms"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"histogram_quantile(0.95, sum(rate(biqly_ambiguity_latency_ms_bucket[5m])) by (le))","legendFormat":"p95"}]},
+        {"type":"timeseries","title":"Ambiguity kaynağı","gridPos":{"h":7,"w":8,"x":16,"y":32},"fieldConfig":{"defaults":{"unit":"short"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum by (source) (rate(biqly_ambiguity_by_source[5m]))","legendFormat":"{{ "{{source}}" }}"}]},
+        {"type":"timeseries","title":"Retry & repair","gridPos":{"h":7,"w":12,"x":0,"y":39},"fieldConfig":{"defaults":{"unit":"short"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(bi_ai_retries_total[5m]))","legendFormat":"retries"},{"refId":"B","datasource":{{ $ds }},"expr":"sum(rate(bi_ai_repair_success_total[5m]))","legendFormat":"repair ok"}]},
+        {"type":"timeseries","title":"Repair hata kodları","gridPos":{"h":7,"w":12,"x":12,"y":39},"fieldConfig":{"defaults":{"unit":"short"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"topk(8, sum by (code) (rate(bi_ai_repair_by_error_code_total[5m])))","legendFormat":"{{ "{{code}}" }}"}]},
+
+        {"type":"row","title":"Hafıza (few-shot recall)","gridPos":{"h":1,"w":24,"x":0,"y":46},"collapsed":false},
+        {"type":"timeseries","title":"Memory store & recall","gridPos":{"h":7,"w":12,"x":0,"y":47},"fieldConfig":{"defaults":{"unit":"short"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_store_confirmed_total[5m]))","legendFormat":"confirmed"},{"refId":"B","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_store_recall_hits_total[5m]))","legendFormat":"recall hits"}]},
+        {"type":"timeseries","title":"Recall feedback","gridPos":{"h":7,"w":12,"x":12,"y":47},"fieldConfig":{"defaults":{"unit":"percentunit"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_recall_feedback_total{rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total[5m])), 1)","legendFormat":"thumbs up"},{"refId":"B","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_recall_feedback_total{recall=\"true\",rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total{recall=\"true\"}[5m])), 1)","legendFormat":"recall=on"},{"refId":"C","datasource":{{ $ds }},"expr":"sum(rate(biqly_memory_recall_feedback_total{recall=\"false\",rating=\"positive\"}[5m])) / clamp_min(sum(rate(biqly_memory_recall_feedback_total{recall=\"false\"}[5m])), 1)","legendFormat":"recall=off"}]}
       ]
     }
   biqly-query.json: |
@@ -36,12 +57,24 @@ data:
       "uid": "biqly-query",
       "schemaVersion": 39,
       "refresh": "30s",
+      "time": {"from": "now-6h", "to": "now"},
+      "tags": ["biqly", "query"],
       "panels": [
-        {"type":"timeseries","title":"Compile rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_compile_total[5m]))"}]},
-        {"type":"timeseries","title":"Compile error rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_compile_errors_total[5m])) / clamp_min(sum(rate(query_compile_total[5m])), 1)"}]},
-        {"type":"timeseries","title":"Average compile duration (s)","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_compile_duration_seconds_sum[5m])) / clamp_min(sum(rate(query_compile_duration_seconds_count[5m])), 1)"}]},
-        {"type":"timeseries","title":"Execute duration (s)","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_execute_duration_seconds_sum[5m])) / clamp_min(sum(rate(query_execute_duration_seconds_count[5m])), 1)"}]},
-        {"type":"timeseries","title":"Rows returned","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_rows_returned_total[5m]))"}]}
+        {"type":"row","title":"Derleme","gridPos":{"h":1,"w":24,"x":0,"y":0},"collapsed":false},
+        {"type":"stat","title":"Derleme / dk","gridPos":{"h":4,"w":6,"x":0,"y":1},"fieldConfig":{"defaults":{"unit":"short"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_compile_total[5m])) * 60"}]},
+        {"type":"stat","title":"Derleme hata %","gridPos":{"h":4,"w":6,"x":6,"y":1},"fieldConfig":{"defaults":{"unit":"percentunit","min":0,"max":1}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_compile_errors_total[5m])) / clamp_min(sum(rate(query_compile_total[5m])), 1)"}]},
+        {"type":"stat","title":"p95 derleme (s)","gridPos":{"h":4,"w":6,"x":12,"y":1},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"histogram_quantile(0.95, sum(rate(query_compile_duration_seconds_bucket[5m])) by (le))"}]},
+        {"type":"stat","title":"Satır / s","gridPos":{"h":4,"w":6,"x":18,"y":1},"fieldConfig":{"defaults":{"unit":"short"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_rows_returned_total[5m]))"}]},
+        {"type":"timeseries","title":"Derleme süresi","gridPos":{"h":8,"w":12,"x":0,"y":5},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"histogram_quantile(0.50, sum(rate(query_compile_duration_seconds_bucket[5m])) by (le))","legendFormat":"p50"},{"refId":"B","datasource":{{ $ds }},"expr":"histogram_quantile(0.95, sum(rate(query_compile_duration_seconds_bucket[5m])) by (le))","legendFormat":"p95"}]},
+        {"type":"timeseries","title":"Derleme hacmi","gridPos":{"h":8,"w":12,"x":12,"y":5},"fieldConfig":{"defaults":{"unit":"short"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_compile_total[5m]))","legendFormat":"compile"},{"refId":"B","datasource":{{ $ds }},"expr":"sum(rate(query_compile_errors_total[5m]))","legendFormat":"errors"}]},
+
+        {"type":"row","title":"Çalıştırma","gridPos":{"h":1,"w":24,"x":0,"y":13},"collapsed":false},
+        {"type":"stat","title":"Çalıştırma / dk","gridPos":{"h":4,"w":6,"x":0,"y":14},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_execute_total[5m])) * 60"}]},
+        {"type":"stat","title":"Çalıştırma hata %","gridPos":{"h":4,"w":6,"x":6,"y":14},"fieldConfig":{"defaults":{"unit":"percentunit"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_execute_errors_total[5m])) / clamp_min(sum(rate(query_execute_total[5m])), 1)"}]},
+        {"type":"stat","title":"p95 çalıştırma (s)","gridPos":{"h":4,"w":6,"x":12,"y":14},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"histogram_quantile(0.95, sum(rate(query_execute_duration_seconds_bucket[5m])) by (le))"}]},
+        {"type":"stat","title":"Ort. satır","gridPos":{"h":4,"w":6,"x":18,"y":14},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_rows_returned_total[5m])) / clamp_min(sum(rate(query_execute_total[5m])), 1)"}]},
+        {"type":"timeseries","title":"Çalıştırma süresi","gridPos":{"h":8,"w":12,"x":0,"y":18},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"histogram_quantile(0.50, sum(rate(query_execute_duration_seconds_bucket[5m])) by (le))","legendFormat":"p50"},{"refId":"B","datasource":{{ $ds }},"expr":"histogram_quantile(0.95, sum(rate(query_execute_duration_seconds_bucket[5m])) by (le))","legendFormat":"p95"}]},
+        {"type":"timeseries","title":"Dönen satırlar","gridPos":{"h":8,"w":12,"x":12,"y":18},"fieldConfig":{"defaults":{"unit":"short"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(query_rows_returned_total[5m]))"}]}
       ]
     }
   biqly-catalog.json: |
@@ -50,12 +83,22 @@ data:
       "uid": "biqly-catalog",
       "schemaVersion": 39,
       "refresh": "30s",
+      "time": {"from": "now-6h", "to": "now"},
+      "tags": ["biqly", "catalog"],
       "panels": [
-        {"type":"timeseries","title":"DB query rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(catalog_db_queries_total[5m]))"}]},
-        {"type":"timeseries","title":"DB error rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(catalog_db_query_errors_total[5m])) / clamp_min(sum(rate(catalog_db_queries_total[5m])), 1)"}]},
-        {"type":"timeseries","title":"Average DB duration (s)","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(catalog_db_query_duration_seconds_sum[5m])) / clamp_min(sum(rate(catalog_db_query_duration_seconds_count[5m])), 1)"}]},
-        {"type":"timeseries","title":"Model publish duration (s)","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(model_publish_duration_seconds_sum[5m])) / clamp_min(sum(rate(model_publish_duration_seconds_count[5m])), 1)"}]},
-        {"type":"timeseries","title":"Model publish error rate","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(model_publish_errors_total[5m])) / clamp_min(sum(rate(model_publish_total[5m])), 1)"}]}
+        {"type":"row","title":"Metadata DB","gridPos":{"h":1,"w":24,"x":0,"y":0},"collapsed":false},
+        {"type":"stat","title":"DB sorgu / dk","gridPos":{"h":4,"w":6,"x":0,"y":1},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(catalog_db_queries_total[5m])) * 60"}]},
+        {"type":"stat","title":"DB hata %","gridPos":{"h":4,"w":6,"x":6,"y":1},"fieldConfig":{"defaults":{"unit":"percentunit"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(catalog_db_query_errors_total[5m])) / clamp_min(sum(rate(catalog_db_queries_total[5m])), 1)"}]},
+        {"type":"stat","title":"p95 DB (s)","gridPos":{"h":4,"w":6,"x":12,"y":1},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"histogram_quantile(0.95, sum(rate(catalog_db_query_duration_seconds_bucket[5m])) by (le))"}]},
+        {"type":"stat","title":"Ort. DB (s)","gridPos":{"h":4,"w":6,"x":18,"y":1},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(catalog_db_query_duration_seconds_sum[5m])) / clamp_min(sum(rate(catalog_db_query_duration_seconds_count[5m])), 1)"}]},
+        {"type":"timeseries","title":"DB sorgu hacmi","gridPos":{"h":8,"w":12,"x":0,"y":5},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(catalog_db_queries_total[5m]))","legendFormat":"queries"},{"refId":"B","datasource":{{ $ds }},"expr":"sum(rate(catalog_db_query_errors_total[5m]))","legendFormat":"errors"}]},
+        {"type":"timeseries","title":"DB süre","gridPos":{"h":8,"w":12,"x":12,"y":5},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"histogram_quantile(0.95, sum(rate(catalog_db_query_duration_seconds_bucket[5m])) by (le))","legendFormat":"p95"}]},
+
+        {"type":"row","title":"Semantic model publish","gridPos":{"h":1,"w":24,"x":0,"y":13},"collapsed":false},
+        {"type":"stat","title":"Publish / dk","gridPos":{"h":4,"w":8,"x":0,"y":14},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(model_publish_total[5m])) * 60"}]},
+        {"type":"stat","title":"Publish hata %","gridPos":{"h":4,"w":8,"x":8,"y":14},"fieldConfig":{"defaults":{"unit":"percentunit"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(model_publish_errors_total[5m])) / clamp_min(sum(rate(model_publish_total[5m])), 1)"}]},
+        {"type":"stat","title":"p95 publish (s)","gridPos":{"h":4,"w":8,"x":16,"y":14},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"histogram_quantile(0.95, sum(rate(model_publish_duration_seconds_bucket[5m])) by (le))"}]},
+        {"type":"timeseries","title":"Publish süresi","gridPos":{"h":8,"w":24,"x":0,"y":18},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"sum(rate(model_publish_duration_seconds_sum[5m])) / clamp_min(sum(rate(model_publish_duration_seconds_count[5m])), 1)","legendFormat":"avg"},{"refId":"B","datasource":{{ $ds }},"expr":"histogram_quantile(0.95, sum(rate(model_publish_duration_seconds_bucket[5m])) by (le))","legendFormat":"p95"}]}
       ]
     }
   biqly-cardinality.json: |
@@ -64,11 +107,16 @@ data:
       "uid": "biqly-cardinality",
       "schemaVersion": 39,
       "refresh": "30s",
+      "time": {"from": "now-6h", "to": "now"},
+      "tags": ["biqly", "observability"],
       "panels": [
-        {"type":"timeseries","title":"Top metric series count","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"topk(15, bi_prom_metric_series_total)"}]},
-        {"type":"timeseries","title":"Label cardinality by metric","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"topk(20, bi_prom_label_cardinality)"}]},
-        {"type":"stat","title":"Metrics over series warn threshold","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"count(bi_prom_metric_series_total > 100)"}]},
-        {"type":"table","title":"High label cardinality","targets":[{"refId":"A","datasource":{{ $ds }},"expr":"bi_prom_label_cardinality > 16","format":"table","instant":true}]}
+        {"type":"row","title":"Prometheus cardinality","gridPos":{"h":1,"w":24,"x":0,"y":0},"collapsed":false},
+        {"type":"stat","title":"Yüksek seri sayılı metrikler","gridPos":{"h":4,"w":8,"x":0,"y":1},"fieldConfig":{"defaults":{"unit":"short","thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":1},{"color":"red","value":5}]}}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"count(bi_prom_metric_series_total > 100)"}]},
+        {"type":"stat","title":"Yüksek label cardinality","gridPos":{"h":4,"w":8,"x":8,"y":1},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"count(bi_prom_label_cardinality > 16)"}]},
+        {"type":"stat","title":"Toplam metrik ailesi","gridPos":{"h":4,"w":8,"x":16,"y":1},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"count(bi_prom_metric_series_total)"}]},
+        {"type":"timeseries","title":"En çok seri üreten metrikler","gridPos":{"h":10,"w":12,"x":0,"y":5},"fieldConfig":{"defaults":{"unit":"short"}},"options":{"legend":{"displayMode":"table","placement":"right","calcs":["last"]}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"topk(15, bi_prom_metric_series_total)","legendFormat":"{{ "{{metric}}" }}"}]},
+        {"type":"timeseries","title":"Label cardinality","gridPos":{"h":10,"w":12,"x":12,"y":5},"options":{"legend":{"displayMode":"table","placement":"right","calcs":["last"]}},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"topk(20, bi_prom_label_cardinality)","legendFormat":"{{ "{{metric}}" }}/{{ "{{label}}" }}"}]},
+        {"type":"table","title":"Label cardinality > 16","gridPos":{"h":10,"w":24,"x":0,"y":15},"targets":[{"refId":"A","datasource":{{ $ds }},"expr":"bi_prom_label_cardinality > 16","format":"table","instant":true}]}
       ]
     }
 {{- end }}

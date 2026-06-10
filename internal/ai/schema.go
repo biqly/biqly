@@ -39,6 +39,7 @@ type AIMetadata struct {
 	TokenUsage                  *providerpkg.TokenUsage     `json:"token_usage,omitempty"`
 	CostUSD                     float64                     `json:"cost_usd,omitempty"`
 	LatencyMs                   int                         `json:"latency_ms,omitempty"`
+	LLMGenerateDurationMs       int                         `json:"llm_generate_duration_ms,omitempty"`
 	RetryCount                  int                         `json:"retry_count,omitempty"`
 	TableRouting                *routing.TableRoutingResult `json:"table_routing,omitempty"`
 	ValidationResult            *ValidationExplainResult    `json:"validation_result,omitempty"`

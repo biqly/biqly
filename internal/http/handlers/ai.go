@@ -180,7 +180,11 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 	}
 
 	ctx := r.Context()
+	routeStart := time.Now()
 	model, routeResult, err := h.loadQueryModel(ctx, *req)
+	if h.metrics != nil {
+		h.metrics.RecordAIStep("table_route", time.Since(routeStart).Milliseconds())
+	}
 	if err != nil {
 		h.writeModelLoadError(ctx, w, *req, err)
 		return *req, nil, nil, nil, false
@@ -190,9 +194,13 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 		return *req, nil, nil, nil, false
 	}
 	pc := buildProcessContext(*req)
+	ctxStart := time.Now()
 	if err := h.resolveProcessContext(ctx, pc, model); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return *req, pc, nil, nil, false
+	}
+	if h.metrics != nil {
+		h.metrics.RecordAIStep("context_resolve", time.Since(ctxStart).Milliseconds())
 	}
 	pc.ApplyToRequest(req)
 	return *req, pc, model, routeResult, true
@@ -203,9 +211,13 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessConte
 	if pc != nil && pc.Question != "" {
 		question = pc.Question
 	}
+	promptCtxStart := time.Now()
 	catalog, external := h.loadGlossaryEntries(ctx, model)
-	opts := make([]ai.ProcessOption, 0, 6)
+	opts := make([]ai.ProcessOption, 0, 7)
 	fewShot, recallHits := h.loadFewShotExamples(ctx, model, question)
+	if h.metrics != nil {
+		h.metrics.RecordAIStep("prompt_context", time.Since(promptCtxStart).Milliseconds())
+	}
 	if pc != nil {
 		pc.SetMemoryRecallHitCount(recallHits)
 	}
@@ -232,9 +244,14 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessConte
 	}
 	var ambiguityObserver ai.AmbiguityAnalysisObserver
 	var tierRecorder func(tier string)
+	var stepObserver ai.AIStepObserver
 	if h.metrics != nil {
 		ambiguityObserver = h.metrics.RecordAmbiguityAnalysis
 		tierRecorder = h.metrics.RecordAmbiguityTier
+		stepObserver = h.metrics.RecordAIStep
+	}
+	if stepObserver != nil {
+		opts = append(opts, ai.WithAIStepObserver(stepObserver))
 	}
 	opts = append(opts, ambiguityProcessOptions(ambiguityCfg, pc, ambiguityObserver, tierRecorder)...)
 	return opts
@@ -439,7 +456,11 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 	}
 
 	if h.deps.QueryClient != nil {
+		compileStart := time.Now()
 		compiled, err := h.deps.QueryClient.DryRun(ctx, logicalQuery)
+		if h.metrics != nil {
+			h.metrics.RecordAIStep("query_compile", time.Since(compileStart).Milliseconds())
+		}
 		if err != nil {
 			slog.ErrorContext(ctx, "AI preview query service dry-run failed", "error", err)
 			resp.Result.Warnings = append(resp.Result.Warnings, "compilation failed")
@@ -458,7 +479,11 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 	}
 	defer closeResolvedDatasource(ctx, resolved)
 
+	compileStart := time.Now()
 	cq, se := h.deps.QueryService.CompileWithContext(ctx, logicalQuery, model, resolved.Driver)
+	if h.metrics != nil {
+		h.metrics.RecordAIStep("query_compile", time.Since(compileStart).Milliseconds())
+	}
 	if se != nil {
 		slog.ErrorContext(ctx, "AI preview compilation failed", "error", core.LogCause(se),
 			"model_id", model.ID,
@@ -497,7 +522,11 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 	driver := resolved.Driver
 	db := resolved.DB
 
+	compileStart := time.Now()
 	cq, se := h.deps.QueryService.CompileWithContext(ctx, logicalQuery, model, driver)
+	if h.metrics != nil {
+		h.metrics.RecordAIStep("query_compile", time.Since(compileStart).Milliseconds())
+	}
 	if se != nil {
 		persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, nil, nil, queryStatusFailed, core.ErrAsError(se))
 		writeServiceError(ctx, w, se,
@@ -513,7 +542,11 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 	if fp, fpErr := query.LogicalQueryFingerprint(logicalQuery, model); fpErr == nil {
 		ctx = observability.WithQueryFingerprint(ctx, fp)
 	}
+	execStart := time.Now()
 	result, err := h.deps.Executor.Execute(ctx, db, cq)
+	if h.metrics != nil {
+		h.metrics.RecordAIStep("query_execute", time.Since(execStart).Milliseconds())
+	}
 	if err != nil {
 		persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, nil, queryStatusFailed, err)
 		writeInternalError(ctx, w, http.StatusInternalServerError, "execution failed", err,
@@ -549,7 +582,11 @@ func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.Respo
 		resp.Result = &ai.AIResult{}
 	}
 
+	execStart := time.Now()
 	run, err := h.deps.QueryClient.Run(ctx, logicalQuery, 0, 0)
+	if h.metrics != nil {
+		h.metrics.RecordAIStep("query_execute", time.Since(execStart).Milliseconds())
+	}
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "query service execution failed", err)
 		return

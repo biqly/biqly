@@ -12,16 +12,14 @@ spec:
       rules:
         - alert: BiqlyAILLMLatencyHigh
           expr: |
-            sum(rate(llm_request_duration_seconds[5m]))
-            /
-            clamp_min(sum(rate(bi_ai_requests_total[5m])), 1) > 30
+            histogram_quantile(0.95, sum(rate(llm_request_duration_seconds_bucket[5m])) by (le)) > 30
           for: 5m
           labels:
             severity: warning
             service: ai
           annotations:
-            summary: "Biqly AI average LLM latency is above 30s"
-            description: "Current metrics are counters, so this approximates latency until histogram buckets are added."
+            summary: "Biqly AI p95 LLM round-trip latency is above 30s"
+            description: "LLM provider round-trip (llm_request_duration_seconds) p95 exceeded 30 seconds for 5 minutes."
         - alert: BiqlyAIErrorBudgetBurn
           expr: |
             sum(rate(bi_ai_errors_total[5m]))

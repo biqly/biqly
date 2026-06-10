@@ -142,6 +142,9 @@ type ProcessOption func(*processOptions)
 // AmbiguityAnalysisObserver records rule-based and LLM ambiguity passes.
 type AmbiguityAnalysisObserver func(latencyMs int64, source string, detected bool)
 
+// AIStepObserver records per-step pipeline latency for Prometheus dashboards.
+type AIStepObserver func(step string, latencyMs int64)
+
 type processOptions struct {
 	sqlValidator                 SQLValidator
 	fewShot                      []promptpkg.FewShotExample
@@ -159,6 +162,7 @@ type processOptions struct {
 	ambiguityLLMCheck            bool
 	ambiguityObserver            AmbiguityAnalysisObserver
 	ambiguityTierObserver        func(tier string)
+	stepObserver                 AIStepObserver
 }
 
 type tieredProcessOptions struct {
@@ -267,6 +271,11 @@ func WithAmbiguityTierObserver(observer func(tier string)) ProcessOption {
 	return func(o *processOptions) { o.ambiguityTierObserver = observer }
 }
 
+// WithAIStepObserver records per-step pipeline latency (prompt_build, llm_generate, etc.).
+func WithAIStepObserver(observer AIStepObserver) ProcessOption {
+	return func(o *processOptions) { o.stepObserver = observer }
+}
+
 // ProcessQuestion handles a natural language question. On parse or validation
 // failure the LLM is re-prompted with the prior output and error message, up
 // to s.maxRetries additional attempts.
@@ -369,6 +378,13 @@ func (s *Service) analyzeAmbiguity(ctx context.Context, question string, model *
 		span.SetAttributes(attribute.String("model.id", model.ID))
 	}
 
+	ambiguityStart := time.Now()
+	defer func() {
+		if options.stepObserver != nil {
+			options.stepObserver("ambiguity", time.Since(ambiguityStart).Milliseconds())
+		}
+	}()
+
 	source := "rule_based"
 	start := time.Now()
 	if options.ambiguityTierObserver != nil && !options.ambiguityInteractiveTier {
@@ -429,9 +445,10 @@ type genLoopState struct {
 	prompt             string
 	promptStats        promptpkg.Stats
 	repairDetails      []RepairDetail
+	llmGenerateMs      int64
 }
 
-func (s *Service) generateAtWithSpan(ctx context.Context, prompt string, temperature float64, attempt int) (providerpkg.GenerationResult, error) {
+func (s *Service) generateAtWithSpan(ctx context.Context, prompt string, temperature float64, attempt int, options *processOptions) (providerpkg.GenerationResult, int64, error) {
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.LLMGenerate")
 	defer span.End()
 	span.SetAttributes(
@@ -439,35 +456,45 @@ func (s *Service) generateAtWithSpan(ctx context.Context, prompt string, tempera
 		attribute.Int("ai.attempt", attempt),
 		attribute.Float64("ai.temperature", temperature),
 	)
+	start := time.Now()
 	gen, err := s.client.GenerateAt(ctx, prompt, temperature)
+	llmMs := time.Since(start).Milliseconds()
+	if options != nil && options.stepObserver != nil {
+		options.stepObserver("llm_generate", llmMs)
+	}
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
-		return providerpkg.GenerationResult{}, err
+		return providerpkg.GenerationResult{}, llmMs, err
 	}
 	if usage := providerpkg.TokenUsageFromGeneration(promptpkg.Stats{}, gen); usage != nil {
 		observability.SetAITokenAttributes(span, usage.Prompt, usage.Completion, usage.Total)
 	}
-	return gen, nil
+	return gen, llmMs, nil
 }
 
-func (s *Service) generateWithSpan(ctx context.Context, prompt string, attempt int) (providerpkg.GenerationResult, error) {
+func (s *Service) generateWithSpan(ctx context.Context, prompt string, attempt int, options *processOptions) (providerpkg.GenerationResult, int64, error) {
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.LLMGenerate")
 	defer span.End()
 	span.SetAttributes(
 		attribute.String("ai.model", s.queryModel),
 		attribute.Int("ai.attempt", attempt),
 	)
+	start := time.Now()
 	gen, err := s.client.Generate(ctx, prompt)
+	llmMs := time.Since(start).Milliseconds()
+	if options != nil && options.stepObserver != nil {
+		options.stepObserver("llm_generate", llmMs)
+	}
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
-		return providerpkg.GenerationResult{}, err
+		return providerpkg.GenerationResult{}, llmMs, err
 	}
 	if usage := providerpkg.TokenUsageFromGeneration(promptpkg.Stats{}, gen); usage != nil {
 		observability.SetAITokenAttributes(span, usage.Prompt, usage.Completion, usage.Total)
 	}
-	return gen, nil
+	return gen, llmMs, nil
 }
 
 // generateWithRetries runs single-shot generation plus the repair/retry loop. It
@@ -489,7 +516,8 @@ func (s *Service) generateWithRetries(
 	var validationErrors query.ValidationErrors
 
 	for attempt := range s.maxRetries + 1 {
-		gen, genErr := s.generateWithSpan(ctx, st.prompt, attempt)
+		gen, llmMs, genErr := s.generateWithSpan(ctx, st.prompt, attempt, options)
+		st.llmGenerateMs += llmMs
 		if genErr != nil {
 			span.RecordError(genErr)
 			span.SetStatus(codes.Error, genErr.Error())
@@ -498,13 +526,21 @@ func (s *Service) generateWithRetries(
 		st.lastGen = gen
 		st.lastRaw = gen.Content
 
+		parseStart := time.Now()
 		st.lq, st.warnings, st.validationErrCount, validationErrors, st.parseErr = s.parseAndValidate(gen.Content, model)
+		if options.stepObserver != nil {
+			options.stepObserver("parse_validate", time.Since(parseStart).Milliseconds())
+		}
 
 		// Dry-run check (e.g. EXPLAIN) only when the query parsed and passed
 		// semantic validation; otherwise the SQL would not be compilable anyway.
 		var sqlErr error
 		if st.parseErr == nil && st.validationErrCount == 0 && options.sqlValidator != nil {
+			sqlStart := time.Now()
 			sqlErr = options.sqlValidator(ctx, st.lq)
+			if options.stepObserver != nil {
+				options.stepObserver("sql_dry_run", time.Since(sqlStart).Milliseconds())
+			}
 			if sqlErr != nil {
 				st.warnings = append(st.warnings, "dry-run failed: "+sqlErr.Error())
 			}
@@ -598,6 +634,7 @@ func (*Service) buildSuccessResponse(ctx context.Context, question string, st *g
 			Prompt:                      st.prompt,
 			RawResponse:                 st.lastGen.Content,
 			RetryCount:                  retries,
+			LLMGenerateDurationMs:       int(st.llmGenerateMs),
 			PromptStats:                 &st.promptStats,
 			TokenUsage:                  providerpkg.TokenUsageFromGeneration(st.promptStats, st.lastGen),
 			PromptTemplateLocale:        templateLocale,
@@ -618,6 +655,7 @@ func (s *Service) buildFailureResponse(ctx context.Context, question string, mod
 		Prompt:                      st.prompt,
 		RawResponse:                 st.lastRaw,
 		RetryCount:                  s.maxRetries,
+		LLMGenerateDurationMs:       int(st.llmGenerateMs),
 		PromptStats:                 st.promptStats,
 		Gen:                         st.lastGen,
 		FailureReason:               failureReason,
@@ -692,6 +730,7 @@ type clarificationInputs struct {
 	Prompt                      string
 	RawResponse                 string
 	RetryCount                  int
+	LLMGenerateDurationMs       int
 	PromptStats                 promptpkg.Stats
 	Gen                         providerpkg.GenerationResult
 	Clarification               string
@@ -715,6 +754,7 @@ func newClarificationResponse(in *clarificationInputs) *AIResponse {
 			Prompt:                      in.Prompt,
 			RawResponse:                 in.RawResponse,
 			RetryCount:                  in.RetryCount,
+			LLMGenerateDurationMs:       in.LLMGenerateDurationMs,
 			PromptStats:                 &stats,
 			TokenUsage:                  providerpkg.TokenUsageFromGeneration(stats, in.Gen),
 			PromptTemplateLocale:        in.PromptTemplateLocale,
@@ -784,6 +824,9 @@ func (s *Service) buildPrompt(
 		prompt += block
 	}
 	buildDurationMs := time.Since(start).Milliseconds()
+	if options.stepObserver != nil {
+		options.stepObserver("prompt_build", buildDurationMs)
+	}
 	stats := promptpkg.MeasurePrompt(prompt, s.queryModel, tier, s.aiCfg)
 	stats.PromptBuildDurationMs = buildDurationMs
 	slog.InfoContext(ctx, "ai prompt context",
@@ -842,6 +885,13 @@ func (s *Service) tryMultiCandidate(
 	if n < 2 {
 		return nil, false
 	}
+
+	multiStart := time.Now()
+	defer func() {
+		if options.stepObserver != nil {
+			options.stepObserver("multi_candidate", time.Since(multiStart).Milliseconds())
+		}
+	}()
 
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.MultiCandidate")
 	defer span.End()
@@ -902,7 +952,7 @@ func (s *Service) generateMultiCandidate(
 	}
 	ch := make(chan genResult, 1)
 	go func() {
-		g, err := s.generateAtWithSpan(ctx, prompt, temp, idx)
+		g, _, err := s.generateAtWithSpan(ctx, prompt, temp, idx, options)
 		ch <- genResult{g, err}
 	}()
 
