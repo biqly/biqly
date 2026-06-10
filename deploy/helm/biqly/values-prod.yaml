@@ -33,7 +33,7 @@ global:
     BI_PII_DEFAULT_MASKING_STRATEGY: partial
   observability:
     serviceMonitor:
-      enabled: false
+      enabled: true
     prometheusRules:
       enabled: false
     alertmanager:
