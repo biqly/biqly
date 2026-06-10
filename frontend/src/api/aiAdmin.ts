@@ -35,22 +35,68 @@ export const deactivateConfirmedQuery = (id: string) =>
     adminOpts,
   )
 
+/** "environment" when env defaults apply; "database" when ai_runtime_config overrides. */
+export type RuntimeConfigSource = 'environment' | 'database'
+
 export interface AmbiguityAdminConfig {
+  check_enabled: boolean
+  confidence_threshold: number
+  max_options: number
   tiered_enabled: boolean
   max_llm_tier_per_question: number
   db_override: boolean
-  /** "environment" when env defaults apply; "database" when ai_runtime_config overrides. */
-  source?: 'environment' | 'database'
+  source?: RuntimeConfigSource
+  /** Per-knob source map, e.g. { tiered_enabled: 'database' }. */
+  sources?: Record<string, RuntimeConfigSource>
+}
+
+export interface PIIAdminConfig {
+  /** Read-only env kill switch (BI_PII_ENABLED) — not editable via this API. */
+  enabled: boolean
+  detection_threshold: number
+  db_override: boolean
+  source?: RuntimeConfigSource
+  sources?: Record<string, RuntimeConfigSource>
+}
+
+export interface MemoryAdminConfig {
+  recall_enabled: boolean
+  recall_limit: number
+  db_override: boolean
+  source?: RuntimeConfigSource
+  sources?: Record<string, RuntimeConfigSource>
 }
 
 export interface AIAdminRuntimeConfig {
   ambiguity: AmbiguityAdminConfig
+  pii: PIIAdminConfig
+  memory: MemoryAdminConfig
+}
+
+/**
+ * PUT body. Each provided domain REPLACES that domain's stored override row:
+ * omitted fields inside a provided domain fall back to environment defaults,
+ * and an empty object clears the domain's overrides entirely.
+ */
+export interface AIAdminRuntimeConfigUpdate {
+  ambiguity?: {
+    check_enabled?: boolean
+    confidence_threshold?: number
+    max_options?: number
+    tiered_enabled?: boolean
+    max_llm_tier_per_question?: number
+  }
+  pii?: {
+    detection_threshold?: number
+  }
+  memory?: {
+    recall_enabled?: boolean
+    recall_limit?: number
+  }
 }
 
 export const getAIAdminConfig = () =>
   apiFetch<AIAdminRuntimeConfig>('GET', `${AI_API_BASE}/admin/config`, undefined, adminOpts)
 
-export const updateAIAdminConfig = (ambiguity: {
-  tiered_enabled: boolean
-  max_llm_tier_per_question: number
-}) => apiFetch<AIAdminRuntimeConfig>('PUT', `${AI_API_BASE}/admin/config`, { ambiguity }, adminOpts)
+export const updateAIAdminConfig = (update: AIAdminRuntimeConfigUpdate) =>
+  apiFetch<AIAdminRuntimeConfig>('PUT', `${AI_API_BASE}/admin/config`, update, adminOpts)

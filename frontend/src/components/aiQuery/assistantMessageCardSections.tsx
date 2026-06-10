@@ -4,6 +4,7 @@ import type { PivotTableData } from '../../utils/pivotTable'
 import { ResultTable } from '../ResultTable'
 import { ChartContainer } from '../ui/ChartContainer'
 import { ChartTypeSelector } from '../ui/ChartTypeSelector'
+import { deriveClarificationStage, MAX_CLARIFICATION_ROUNDS } from './clarificationStage'
 import { GenerationTracePanel } from './generationTrace'
 import {
   CandidateComparisonPanel,
@@ -19,10 +20,6 @@ import { warningBodyKey } from './routingVizUtils'
 import type { AssistantMessageCardProps } from './types'
 
 type AssistantT = AssistantMessageCardProps['t']
-
-// Mirrors backend `maxClarificationRounds` (internal/http/handlers/ai_context.go):
-// at this round the server stops re-asking and answers with its best guess.
-const MAX_CLARIFICATION_ROUNDS = 2
 
 export function AssistantMessageHeader({
   result,
@@ -120,9 +117,7 @@ export function AssistantMessageClarificationSections({
   const showClarification =
     result.needs_clarification &&
     (clarificationOptions.length > 0 || result.clarification?.options?.length)
-  const clarificationRound = result.clarification_round ?? 0
-  const interactiveTier = clarificationRound === MAX_CLARIFICATION_ROUNDS
-  const capReached = clarificationRound > MAX_CLARIFICATION_ROUNDS
+  const stage = deriveClarificationStage(result.clarification_round)
 
   return (
     <>
@@ -136,8 +131,10 @@ export function AssistantMessageClarificationSections({
           options={clarificationOptions}
           clarification={result.clarification}
           generationTrace={result.generation_trace}
-          interactiveTier={interactiveTier}
-          capReached={capReached}
+          interactiveTier={stage.interactiveTier}
+          capReached={stage.capReached}
+          round={stage.displayRound}
+          maxRounds={MAX_CLARIFICATION_ROUNDS}
           onSelect={(choice) => onSelectClarification(choice, userQuestion)}
           onSkip={() => onSkipClarification(userQuestion)}
         />

@@ -968,6 +968,19 @@
   margin-bottom: 0.35rem;
 }
 
+/* "Round x/y" chip next to the clarification title */
+.clarification-round-indicator {
+  margin-left: auto;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* Hard-cap notice: shown on the final clarification round */
 .clarification-cap-notice {
   margin: 0 0 0.5rem;

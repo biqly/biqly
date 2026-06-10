@@ -37,7 +37,12 @@ export const admin = {
     col_actions: 'Actions',
     status_active: 'Active',
     status_inactive: 'Inactive',
+    status_active_aria: 'Active — used as a few-shot example',
+    status_inactive_aria: 'Inactive — excluded from recall',
     deactivate: 'Deactivate',
+    deactivate_confirm_title: 'Deactivate confirmed query?',
+    deactivate_confirm_message:
+      'The pair stays in history but will no longer be recalled as a few-shot example.',
     deactivated: 'Confirmed query deactivated.',
     empty: 'No confirmed queries for this datasource yet.',
   },
@@ -414,7 +419,36 @@ export const admin = {
     ambiguity_db_override_note:
       'Values are stored in the database and override environment defaults.',
     ambiguity_env_default_note: 'Values currently come from environment defaults.',
-    ambiguity_saved: 'Ambiguity settings saved.',
+    ambiguity_check_label: 'Ambiguity detection',
+    ambiguity_check_hint:
+      'Master switch for the pre-LLM ambiguity check. When off, questions go straight to generation.',
+    ambiguity_confidence_label: 'Confidence threshold',
+    ambiguity_confidence_hint:
+      'Detections below this confidence are dropped instead of asking the user (0.0–1.0).',
+    ambiguity_max_options_label: 'Max clarification options',
+    ambiguity_max_options_hint: 'How many options a clarification card may offer (1–10).',
+    pii_title: 'PII Detection',
+    pii_description:
+      'Tune how columns are flagged as personally identifiable information during scans.',
+    pii_enabled_on: 'PII detection is enabled.',
+    pii_enabled_off: 'PII detection is disabled.',
+    pii_enabled_env_note:
+      'The master switch is managed via Helm (BI_PII_ENABLED) and cannot be changed here.',
+    pii_threshold_label: 'Detection threshold',
+    pii_threshold_hint:
+      'Minimum confidence for a scan to flag a column as PII (higher = fewer, surer flags).',
+    memory_title: 'Memory (few-shot recall)',
+    memory_description:
+      'Confirmed NL→SQL pairs learned from thumbs-up feedback can be recalled into prompts as few-shot examples.',
+    memory_recall_label: 'Recall confirmed queries',
+    memory_recall_hint: 'Inject similar confirmed queries into the prompt as few-shot examples.',
+    memory_limit_label: 'Max recalled examples',
+    memory_limit_hint: 'How many confirmed queries may be recalled per question (1–10).',
+    source_db: 'DB',
+    source_env: 'Env',
+    source_db_aria: 'Value overridden from the database',
+    source_env_aria: 'Value comes from environment defaults',
+    runtime_saved: 'AI runtime settings saved.',
   },
   ldap: {
     title: 'LDAP / Directory sign-in',

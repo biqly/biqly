@@ -39,7 +39,12 @@ export const admin: AdminDictionary = {
     col_actions: 'İşlemler',
     status_active: 'Aktif',
     status_inactive: 'Pasif',
+    status_active_aria: 'Aktif — few-shot örnek olarak kullanılıyor',
+    status_inactive_aria: 'Pasif — hatırlamadan çıkarıldı',
     deactivate: 'Pasifleştir',
+    deactivate_confirm_title: 'Onaylanmış sorgu pasifleştirilsin mi?',
+    deactivate_confirm_message:
+      'Çift geçmişte kalır ancak artık few-shot örnek olarak geri çağrılmaz.',
     deactivated: 'Onaylanmış sorgu pasifleştirildi.',
     empty: 'Bu veri kaynağı için henüz onaylanmış sorgu yok.',
   },
@@ -418,7 +423,36 @@ export const admin: AdminDictionary = {
     ambiguity_db_override_note:
       'Değerler veritabanında saklanır ve ortam varsayılanlarını geçersiz kılar.',
     ambiguity_env_default_note: 'Değerler şu anda ortam varsayılanlarından geliyor.',
-    ambiguity_saved: 'Belirsizlik ayarları kaydedildi.',
+    ambiguity_check_label: 'Belirsizlik tespiti',
+    ambiguity_check_hint:
+      'LLM öncesi belirsizlik kontrolünün ana anahtarı. Kapalıyken sorular doğrudan üretime gider.',
+    ambiguity_confidence_label: 'Güven eşiği',
+    ambiguity_confidence_hint:
+      'Bu güvenin altındaki tespitler kullanıcıya sorulmak yerine atlanır (0.0–1.0).',
+    ambiguity_max_options_label: 'En fazla netleştirme seçeneği',
+    ambiguity_max_options_hint: 'Bir netleştirme kartının sunabileceği seçenek sayısı (1–10).',
+    pii_title: 'PII Tespiti',
+    pii_description:
+      'Taramalar sırasında kolonların kişisel veri (PII) olarak işaretlenme şeklini ayarlayın.',
+    pii_enabled_on: 'PII tespiti etkin.',
+    pii_enabled_off: 'PII tespiti devre dışı.',
+    pii_enabled_env_note:
+      'Ana anahtar Helm üzerinden yönetilir (BI_PII_ENABLED) ve buradan değiştirilemez.',
+    pii_threshold_label: 'Tespit eşiği',
+    pii_threshold_hint:
+      'Bir taramanın kolonu PII olarak işaretlemesi için gereken en düşük güven (yüksek = daha az ama daha emin işaret).',
+    memory_title: 'Hafıza (few-shot recall)',
+    memory_description:
+      'Beğeni geri bildiriminden öğrenilen onaylı NL→SQL çiftleri, prompt’a few-shot örnek olarak geri çağrılabilir.',
+    memory_recall_label: 'Onaylı sorguları geri çağır',
+    memory_recall_hint: 'Benzer onaylı sorguları prompt’a few-shot örnek olarak ekle.',
+    memory_limit_label: 'En fazla geri çağrılan örnek',
+    memory_limit_hint: 'Soru başına kaç onaylı sorgunun geri çağrılabileceği (1–10).',
+    source_db: 'DB',
+    source_env: 'Env',
+    source_db_aria: 'Değer veritabanından geçersiz kılınmış',
+    source_env_aria: 'Değer ortam varsayılanlarından geliyor',
+    runtime_saved: 'AI çalışma zamanı ayarları kaydedildi.',
   },
   ldap: {
     title: 'LDAP / Dizin ile giriş',

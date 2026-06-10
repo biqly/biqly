@@ -408,6 +408,8 @@ export const core = {
       'Enhanced agent disambiguation — we will use deeper analysis to resolve remaining ambiguities.',
     clarification_cap_reached:
       'Maximum clarification rounds reached — pick an option and we will answer with our best guess.',
+    clarification_round_indicator: 'Round {{current}}/{{max}}',
+    clarification_terms_label: 'Ambiguous terms',
     generation_trace_title: 'How it was understood',
     generation_trace_table: 'Routed to',
     generation_trace_confidence: 'Routing confidence {{value}}',

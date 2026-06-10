@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import type { ReactNode } from 'react'
+import { type ReactNode, useId } from 'react'
 
 import type { TranslationKey } from '../../i18n'
 import { useLocale, useT } from '../../i18n'
@@ -368,6 +368,44 @@ export function TableRoutingViz({
   )
 }
 
+// ClarificationRoundChip renders the "Round x/y" indicator next to the title.
+function ClarificationRoundChip({ round, maxRounds }: { round: number; maxRounds: number }) {
+  const t = useT()
+  if (round <= 0 || maxRounds <= 0) {
+    return null
+  }
+  return (
+    <span className="clarification-round-indicator">
+      {t('ai_query.clarification_round_indicator', { current: round, max: maxRounds })}
+    </span>
+  )
+}
+
+// AmbiguityTermsList summarizes the detected ambiguous terms (term + detector type).
+function AmbiguityTermsList({ clarification }: { clarification?: Clarification }) {
+  const t = useT()
+  if (clarification?.source !== 'ambiguity_analyzer') {
+    return null
+  }
+  const ambiguities = clarification.ambiguity_detail?.ambiguities ?? []
+  if (ambiguities.length === 0) {
+    return null
+  }
+  return (
+    <ul
+      className="clarification-ambiguity-terms"
+      aria-label={t('ai_query.clarification_terms_label')}
+    >
+      {ambiguities.map((item) => (
+        <li key={item.term}>
+          <strong>{item.term}</strong>
+          <span className="clarification-ambiguity-type">{item.type}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function ClarificationCard({
   question,
   options,
@@ -375,6 +413,8 @@ export function ClarificationCard({
   generationTrace,
   interactiveTier = false,
   capReached = false,
+  round = 0,
+  maxRounds = 0,
   onSelect,
   onSkip,
 }: {
@@ -384,17 +424,27 @@ export function ClarificationCard({
   generationTrace?: GenerationTrace
   interactiveTier?: boolean
   capReached?: boolean
+  /** 1-based clarification round for the "Round x/y" indicator; 0 hides it. */
+  round?: number
+  maxRounds?: number
   onSelect: (choice: string) => void
   onSkip: () => void
 }) {
   const t = useT()
+  const titleId = useId()
   const structured = (clarification?.options ?? []).filter((o) => o.label.trim())
   const useStructured = structured.length > 0
   const isAmbiguity = clarification?.source === 'ambiguity_analyzer'
-  const ambiguities = clarification?.ambiguity_detail?.ambiguities ?? []
   return (
-    <div className={`clarification-card${isAmbiguity ? ' clarification-card--ambiguity' : ''}`}>
-      <div className="clarification-title">{t('ai_query.clarification_title')}</div>
+    <div
+      className={`clarification-card${isAmbiguity ? ' clarification-card--ambiguity' : ''}`}
+      role="group"
+      aria-labelledby={titleId}
+    >
+      <div className="clarification-title" id={titleId}>
+        {t('ai_query.clarification_title')}
+        <ClarificationRoundChip round={round} maxRounds={maxRounds} />
+      </div>
       {interactiveTier && (
         <p className="clarification-cap-notice clarification-cap-notice--interactive" role="status">
           {t('ai_query.clarification_interactive_tier')}
@@ -406,16 +456,7 @@ export function ClarificationCard({
         </p>
       )}
       {clarification?.reason && <p className="clarification-reason">{clarification.reason}</p>}
-      {isAmbiguity && ambiguities.length > 0 ? (
-        <ul className="clarification-ambiguity-terms">
-          {ambiguities.map((item) => (
-            <li key={item.term}>
-              <strong>{item.term}</strong>
-              <span className="clarification-ambiguity-type">{item.type}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <AmbiguityTermsList clarification={clarification} />
       <p className="clarification-question">{question}</p>
       <div className="clarification-options">
         {useStructured

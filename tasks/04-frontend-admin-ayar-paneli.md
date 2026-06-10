@@ -90,13 +90,45 @@ frontend run test`; commit öncesi `make check-frontend` (lint + format + knip +
 
 ## Kabul Kriterleri
 
-- [ ] Admin → Platform Ayarları'nda üç bölüm (Ambiguity/PII/Memory) kaynak rozetleriyle görünüyor.
-- [ ] Save → backend'e PUT → toast → yeniden GET ile güncel değerler; hatalı değer alan
-      altında mesajla reddediliyor.
-- [ ] `admin:settings` izni olmayan kullanıcı formu düzenleyemiyor (salt-okunur).
-- [ ] ClarificationCard'da hardcoded/eksik string yok; EN ve TR tam; tur göstergesi çalışıyor.
-- [ ] Yeni bileşen testleri yeşil; `make check-frontend` temiz.
-- [ ] Klavye ile tüm form gezilebilir; axe-level bariz ihlal yok (unique id, label-for, aria).
+- [x] Admin → Platform Ayarları'nda üç bölüm (Ambiguity 5 knob / PII / Memory) alan-bazlı
+      DB/Env kaynak rozetleriyle görünüyor (`SourceBadge`, `sources` haritasından).
+- [x] Save → tek PUT (üç domain) → başarıda `runtime_saved` toast → yanıt state'e yazılıp
+      draft yeniden senkronize ediliyor; backend'in alan-bazlı 400 mesajı toast'ta gösteriliyor.
+      Client-side clamp (`buildRuntimeConfigUpdate`) aralık dışı değerin 400'e gitmesini önlüyor.
+- [x] Düzenleme yetkisi `hasPermission('ai:settings')` (super_admin otomatik geçer) — backend
+      `AdminAccessMiddleware` ile simetrik. İzinsiz kullanıcıya alanlar disabled.
+- [x] ClarificationCard: "Tur {{current}}/{{max}}" göstergesi (`clarification_round_indicator`,
+      EN+TR), terim listesine `aria-label` (`clarification_terms_label`), kart köküne
+      `role="group"` + `aria-labelledby`. Tur bilgisi backend'in `clarification_round` alanından
+      `deriveClarificationStage` ile türetiliyor (cap'te "2/2", cap sonrası gösterge sabit).
+- [x] Yeni testler yeşil (8 test: draft/clamp/round-stage); `make check-frontend` tam kapı temiz
+      (lint + format:check + knip + test + build, 2026-06-10).
+- [x] Form alanları `useId` ile benzersiz id, label-htmlFor eşleşmesi, rozetlerde aria-label,
+      hata mesajında `role="alert"`.
+
+## Uygulama Notları (2026-06-10)
+
+- **`useRuntimeConfig` hook'u** (`hooks/useRuntimeConfig.ts`): GET/PUT yaşam döngüsü +
+  test edilebilir saf yardımcılar (`draftFromConfig`, `buildRuntimeConfigUpdate`, `clampNumber`).
+  `save` throw eder ki panel backend'in alan-bazlı mesajını toast'layabilsin.
+- **Panel mimarisi**: ESLint `complexity ≤ 20` kuralı yüzünden runtime bölümü
+  `AIRuntimeSection` (yaşam döngüsü) + `AIRuntimeForm` (non-null props, salt sunum) olarak
+  ayrıldı; `ToggleField`/`NumberField`/`SourceBadge`/`SectionHeader` yeniden kullanılabilir
+  alt bileşenler. Eski `saveAmbiguity`/`ambiguity_saved` kaldırıldı (EN+TR).
+- **PII bölümü**: yalnızca `detection_threshold` düzenlenebilir; `BI_PII_ENABLED` durumu
+  salt-okunur metin + "Helm üzerinden yönetilir" notu (02'deki backend kararıyla uyumlu;
+  masking stratejisi kodda tüketilmediği için forma hiç konmadı).
+- **Test stratejisi**: repo'da Testing Library/jsdom yok — mevcut kalıba uyularak
+  (abExperimentPanelLogic.test.ts gibi) mantık saf fonksiyonlara çıkarılıp vitest ile test
+  edildi: `useRuntimeConfig.test.ts` (5) + `clarificationStage.test.ts` (4 senaryo).
+  Bileşen-render testleri için Testing Library yatırımı 07'deki Playwright kararıyla birlikte
+  ayrıca değerlendirilecek.
+- **ConfirmedQueriesPanel**: durum artık `admin-badge-active/inactive` rozeti (aria-label'lı);
+  pasifleştirme `useConfirm` dialoguyla onaylı (`deactivate_confirm_*` anahtarları EN+TR).
+- **Tur göstergesi mimarisi**: `clarificationStage.ts` — `MAX_CLARIFICATION_ROUNDS` sabiti ve
+  `deriveClarificationStage` tek kaynağa toplandı; assistantMessageCardSections içindeki kopya
+  mantık silindi. CSS: `.clarification-round-indicator` (aiQuery.css).
+- GenerationTracePanel `defaultOpen` clarification bağlamında zaten true idi — dokunulmadı.
 
 ## İlgili Dosyalar
 

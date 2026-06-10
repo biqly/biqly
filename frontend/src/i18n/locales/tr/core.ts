@@ -416,6 +416,8 @@ export const core: CoreDictionary = {
       'Gelişmiş agent netleştirmesi — kalan belirsizlikleri çözmek için daha derin analiz kullanılacak.',
     clarification_cap_reached:
       'Maksimum netleştirme turuna ulaşıldı — bir seçenek seçin, en iyi tahminimizle yanıtlayalım.',
+    clarification_round_indicator: 'Tur {{current}}/{{max}}',
+    clarification_terms_label: 'Belirsiz terimler',
     generation_trace_title: 'Nasıl anlaşıldı?',
     generation_trace_table: 'Yönlendirilen tablo',
     generation_trace_confidence: 'Yönlendirme güveni {{value}}',

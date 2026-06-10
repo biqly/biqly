@@ -5,6 +5,7 @@ import {
   deactivateConfirmedQuery,
   listConfirmedQueries,
 } from '../../api/aiAdmin'
+import { useConfirm } from '../../hooks/useConfirm'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
@@ -17,6 +18,7 @@ import { datasourceSelectOptions } from './adminSelectOptions'
 export function ConfirmedQueriesPanel() {
   const t = useT()
   const toast = useToast()
+  const confirm = useConfirm()
   const { datasources, loading: loadingDS } = useDatasources()
 
   const [selectedDS, setSelectedDS] = useState('')
@@ -55,6 +57,14 @@ export function ConfirmedQueriesPanel() {
   }, [selectedDS, load])
 
   const handleDeactivate = async (id: string) => {
+    const ok = await confirm({
+      title: t('admin.confirmed_queries.deactivate_confirm_title'),
+      message: t('admin.confirmed_queries.deactivate_confirm_message'),
+      variant: 'warning',
+    })
+    if (!ok) {
+      return
+    }
     setDeactivatingId(id)
     try {
       await deactivateConfirmedQuery(id)
@@ -128,9 +138,18 @@ export function ConfirmedQueriesPanel() {
                   </td>
                   <td className="admin-td-mono">{new Date(row.confirmed_at).toLocaleString()}</td>
                   <td className="admin-td">
-                    {row.is_active
-                      ? t('admin.confirmed_queries.status_active')
-                      : t('admin.confirmed_queries.status_inactive')}
+                    <span
+                      className={row.is_active ? 'admin-badge-active' : 'admin-badge-inactive'}
+                      aria-label={
+                        row.is_active
+                          ? t('admin.confirmed_queries.status_active_aria')
+                          : t('admin.confirmed_queries.status_inactive_aria')
+                      }
+                    >
+                      {row.is_active
+                        ? t('admin.confirmed_queries.status_active')
+                        : t('admin.confirmed_queries.status_inactive')}
+                    </span>
                   </td>
                   <td className="admin-td">
                     {row.is_active && (
