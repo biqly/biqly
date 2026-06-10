@@ -28,6 +28,12 @@ func DetectSynonyms(locale i18n.Locale, question string, model *semantic.Semanti
 	questionTokens := routing.TokenSet(question)
 	bySynonym := make(map[string][]synonymTarget)
 	for _, dimension := range model.Dimensions {
+		// Date-grain dimensions (TimeGrain set) carry bucketing words ("ay",
+		// "month", ...) as synonyms; every timestamp column gets the same set,
+		// so collisions among them are noise, not business-term ambiguity.
+		if dimension.TimeGrain != "" {
+			continue
+		}
 		addSynonymTargets(locale, bySynonym, question, questionTokens, "dimension", dimension.Name, dimension.Label, dimension.Description, dimension.Synonyms)
 	}
 	for _, metric := range model.Metrics {

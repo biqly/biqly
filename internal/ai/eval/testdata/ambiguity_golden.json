@@ -23,6 +23,13 @@
     "expected_type": "pass"
   },
   {
+    "id": "temporal-gecen-ay-tweets",
+    "question": "geçen ay kaç adet tweet atılmıştır",
+    "model_ref": "clarification_basic",
+    "expected_type": "clarification",
+    "expected_detail": "geçen ay"
+  },
+  {
     "id": "synonym-ciro-revenue",
     "question": "Ciro göster",
     "model_ref": "revenue_synonyms",

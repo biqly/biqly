@@ -43,12 +43,15 @@ type SemanticMapping struct {
 	Name string `json:"name"`
 }
 
-// AnalyzeSynonymHomonym runs tier-1 detectors: glossary collisions and synonym/homonym matches only.
+// AnalyzeSynonymHomonym runs tier-1 detectors: glossary collisions, synonym/homonym
+// matches, and vague temporal phrases — all deterministic and free. Scope detection
+// stays out of tier 1 because its heuristics are noisier.
 func AnalyzeSynonymHomonym(ctx context.Context, question string, model *semantic.SemanticModel, glossary []prompt.GlossaryEntry, confidenceThreshold float64) Result {
 	locale := i18n.FromContext(ctx)
 	return analyzeWithDetectors(ctx, []func(context.Context) []Item{
 		func(context.Context) []Item { return DetectGlossary(question, glossary, model) },
 		func(context.Context) []Item { return DetectSynonyms(locale, question, model) },
+		func(context.Context) []Item { return DetectTemporal(locale, question, model) },
 	}, confidenceThreshold, ruleBasedAnalysisTimeout)
 }
 

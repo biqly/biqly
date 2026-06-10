@@ -389,7 +389,9 @@ sonunda filtresiz bare-count kaldı; `warnings_body` gösterildi ama zaman koşu
 
 **Yapılacaklar:**
 
-- [ ] **VAKA-1 — Async job yoluna locale propagasyonu.** Job oluştururken request locale'ini
+- [x] **VAKA-1 — Async job yoluna locale propagasyonu.** (Tamamlandı — commit `1248cac0`:
+  `ai_jobs.locale` persist + worker'da `consumerContextForAIJob` ile `i18n.WithLocale`
+  enjeksiyonu + migration 047a/b + `ai_job_service_locale_test.go`.) Job oluştururken request locale'ini
   (`i18n.FromContext`) job kaydına persist et (`metadata.AIJob`'a `locale` alanı veya
   `RequestJSON` içine), worker'da `processJob` öncesi `i18n.WithLocale(ctx, job.Locale)` enjekte
   et — `UserID` ile birebir aynı kalıp. Test: TR locale ile submit edilen job'ın clarification
@@ -397,7 +399,11 @@ sonunda filtresiz bare-count kaldı; `warnings_body` gösterildi ama zaman koşu
   - **Dosyalar:** `internal/metadata/ai_jobs*.go` (+migration gerekirse), `internal/http/handlers/ai_jobs.go`
     (create), `ai_job_service.go` (inject), test.
 
-- [ ] **VAKA-2 — Date-grain synonym'leri belirsizlik tespitinden çıkar.** `DetectSynonyms`
+- [x] **VAKA-2 — Date-grain synonym'leri belirsizlik tespitinden çıkar.** (Tamamlandı —
+  `DetectSynonyms` artık `TimeGrain != ""` olan dimension'ları atlıyor; suffix yerine alan
+  bazlı ayrım: auto-generated grain dim'leri `model_builder.go` `TimeGrain` set ediyor, meşru
+  "ay" kolonları etmiyor. Testler: `TestDetectSynonyms_DateGrainDimensionsNotFlagged` +
+  `TestDetectSynonyms_PlainColumnNamedAyStillFlagged`.) `DetectSynonyms`
   auto-generated date-grain dimension'ların grain synonym'lerini ("ay", "gün", "yıl",
   "çeyrek", "saat" + EN karşılıkları) collision adayı saymasın: ya date-grain dim'leri
   (suffix `_month/_day/_quarter/_year/_hour`) detector'dan hariç tut, ya da soru içinde
@@ -406,7 +412,10 @@ sonunda filtresiz bare-count kaldı; `warnings_body` gösterildi ama zaman koşu
   meşru kolon adı olarak geçen durumlar etkilenmiyor.
   - **Dosyalar:** `internal/ai/ambiguity/synonym_detector.go`, `analyzer.go`, testler.
 
-- [ ] **VAKA-3 — Tiered modda temporal ifadeler için doğru tier.** "geçen ay" gibi kalıplar
+- [x] **VAKA-3 — Tiered modda temporal ifadeler için doğru tier.** (Tamamlandı —
+  `AnalyzeSynonymHomonym` artık `DetectTemporal`'ı da çalıştırıyor (scope hâlâ tier 1 dışı,
+  heuristiği daha gürültülü). Test: `TestAnalyzeSynonymHomonym_DetectsTemporalSkipsScope`;
+  golden: `ambiguity_golden.json` → `temporal-gecen-ay-tweets` TR case, `make eval-regression` ✓.) "geçen ay" gibi kalıplar
   Tier 1'de (deterministik, ücretsiz) `DetectTemporal` ile yakalanabilirken tiered mod onları
   tamamen atlıyor (P5 kabulünde "scope/temporal Tier 1'de atlanıyor" diye bilinçli yazılmıştı —
   bu vaka kararın yanlış olduğunu gösteriyor: temporal de deterministik ve ücretsiz).
@@ -415,7 +424,16 @@ sonunda filtresiz bare-count kaldı; `warnings_body` gösterildi ama zaman koşu
   - **Dosyalar:** `internal/ai/ambiguity/analyzer.go`, ilgili testler + `ambiguity_golden.json`'a
     TR temporal case.
 
-- [ ] **VAKA-4 — Temporal koşul sessizce düşmesin.** Soruda temporal phrase tespit edildiyse
+- [x] **VAKA-4 — Temporal koşul sessizce düşmesin.** (Tamamlandı —
+  `internal/ai/temporal_postcheck.go`: `applyTemporalFilterPostCheck` ProcessQuestion'ın üç
+  sonuç yolunda da (multi-candidate, retry-loop, failure) çalışıyor; soruda
+  `ambiguity.MatchTemporalPhrases` (yeni export) eşleşip nihai LogicalQuery'de hiçbir date-dim
+  WHERE/HAVING filtresi yoksa locale'li uyarı (`clarification.temporal_filter_missing`,
+  en+tr.json) ekleniyor ve confidence 0.5'e cap'leniyor (cap aynı zamanda response cache'e
+  girmesini engelliyor, eşik 0.85). Few-shot: `writeFailureExamples`'a "Relative time phrase
+  dropped" wrong/right çifti. Testler: `temporal_postcheck_test.go` (4 unit) +
+  `TestProcessQuestionWarnsWhenTemporalFilterDropped` (TR locale entegrasyon). Not: trace.go'ya
+  ayrı alan eklenmedi — uyarı `warnings` üzerinden kullanıcıya zaten görünür, minimum-kod tercihi.) Soruda temporal phrase tespit edildiyse
   (temporal detector pattern'leri) ve nihai LogicalQuery hiçbir tarih filtresi/grain filtresi
   içermiyorsa: özel uyarı ekle ("zaman koşulu sorguya uygulanamadı"), confidence'ı düşür ve/veya
   recovery seçenekleri sun — %90 güvenle filtresiz COUNT dönmek yanlış-doğru cevap üretiyor
@@ -425,7 +443,13 @@ sonunda filtresiz bare-count kaldı; `warnings_body` gösterildi ama zaman koşu
     (uyarı/trace alanı), few-shot seed + `internal/ai/eval/testdata/`, frontend uyarı metni
     gerekiyorsa `i18n/locales/{en,tr}/core.ts`.
 
-- [ ] **VAKA-5 (ikincil) — Netleştirme seçenek metinleri ham kolon description'ı.** Seçenek
+- [ ] **VAKA-5 (ikincil, değerlendirildi/ertelendi) — Netleştirme seçenek metinleri ham kolon
+  description'ı.** Değerlendirme (2026-06-10): VAKA-2 date-grain gürültü kartını tamamen,
+  VAKA-3 temporal kartı i18n kataloğundan (tr.json) ürettiği için bu vakadaki İngilizce teknik
+  metinler artık kullanıcıya ulaşmıyor. Kalan tek yüzey: kullanıcı tanımlı modellerdeki EN
+  description'lı gerçek synonym collision'ları — düşük frekans. `MetadataTranslator` benzeri
+  katman LLM çağrısı/cache karmaşası ekleyeceği için şimdilik uygulanmadı; gerçek vaka görülürse
+  ele alınacak. Seçenek
   etiketleri İngilizce metadata description'larından geliyor (örn. "The standardized,
   machine-readable timestamp..."); locale düzelse bile bu metinler İngilizce kalır ve son
   kullanıcı için fazla teknik. Routing'deki `MetadataTranslator` benzeri bir çeviri/sadeleştirme

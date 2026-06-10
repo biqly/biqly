@@ -309,6 +309,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	// the standard retry loop which handles single-shot generation + correction.
 	if s.multiCandidateCount > 1 {
 		if resp, ok := s.tryMultiCandidate(ctx, question, basePrompt, model, &options, &baseStats, filterSess, followIntent); ok {
+			applyTemporalFilterPostCheck(ctx, question, model, resp)
 			s.cacheResponse(ctx, cacheKey, resp)
 			return resp, nil
 		}
@@ -319,10 +320,13 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		return nil, err
 	}
 	if resp != nil {
+		applyTemporalFilterPostCheck(ctx, question, model, resp)
 		s.cacheResponse(ctx, cacheKey, resp)
 		return resp, nil
 	}
-	return s.buildFailureResponse(ctx, question, model, state), nil
+	failure := s.buildFailureResponse(ctx, question, model, state)
+	applyTemporalFilterPostCheck(ctx, question, model, failure)
+	return failure, nil
 }
 
 // checkAmbiguity runs the optional pre-LLM ambiguity analysis. It returns

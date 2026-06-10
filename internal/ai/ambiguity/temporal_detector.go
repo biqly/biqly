@@ -24,6 +24,23 @@ var vagueTemporalPhrases = []vagueTemporal{
 	{phrase: "last week", interpretationKeys: []string{"prev_calendar_week", "rolling_7d"}},
 }
 
+// MatchTemporalPhrases returns the vague relative-time phrases ("geçen ay",
+// "last month", ...) present in the question, in detector order. Callers use
+// it to assert that a generated query actually carries a time condition.
+func MatchTemporalPhrases(question string) []string {
+	normalized := strings.ToLower(strings.TrimSpace(question))
+	if normalized == "" {
+		return nil
+	}
+	var phrases []string
+	for _, entry := range vagueTemporalPhrases {
+		if strings.Contains(normalized, entry.phrase) {
+			phrases = append(phrases, entry.phrase)
+		}
+	}
+	return phrases
+}
+
 // DetectTemporal flags vague relative time phrases that need a concrete window.
 func DetectTemporal(locale i18n.Locale, question string, model *semantic.SemanticModel) []Item {
 	normalized := strings.ToLower(strings.TrimSpace(question))

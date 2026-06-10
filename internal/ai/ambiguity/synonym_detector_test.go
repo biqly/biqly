@@ -117,6 +117,39 @@ func TestDetectSynonyms_GenericSubstringTokensNotFlagged(t *testing.T) {
 	assertDetectSynonyms(t, genericTokenModel(), "kayıt sayısı today göster", nil)
 }
 
+func dateGrainModel() *semantic.SemanticModel {
+	grainSynonyms := []string{"month", "months", "monthly", "ay", "aylık", "aylik"}
+	return &semantic.SemanticModel{
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_month", TimeGrain: "month", Synonyms: grainSynonyms},
+			{Name: "updated_at_month", TimeGrain: "month", Synonyms: grainSynonyms},
+			{Name: "deleted_at_month", TimeGrain: "month", Synonyms: grainSynonyms},
+		},
+	}
+}
+
+// Auto-generated date-grain dimensions copy the same grain synonyms ("ay",
+// "month", ...) onto every timestamp column; a question like "geçen ay ..."
+// must not produce a many-way "semantic" collision out of them.
+func TestDetectSynonyms_DateGrainDimensionsNotFlagged(t *testing.T) {
+	assertDetectSynonyms(t, dateGrainModel(), "geçen ay kaç adet tweet atılmıştır", nil)
+}
+
+// A real business column whose synonym happens to be "ay" (no TimeGrain) keeps
+// colliding as before — only grain-generated dimensions are exempt.
+func TestDetectSynonyms_PlainColumnNamedAyStillFlagged(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Dimensions: []semantic.Dimension{
+			{Name: "dogum_ayi", Synonyms: []string{"ay"}},
+			{Name: "uyelik_ayi", Synonyms: []string{"ay"}},
+		},
+	}
+	got := DetectSynonyms(i18n.LocaleEN, "geçen ay kaç adet tweet atılmıştır", model)
+	if len(got) != 1 || got[0].Term != "ay" || len(got[0].Interpretations) != 2 {
+		t.Fatalf("expected one two-way ambiguity for plain 'ay' columns, got %#v", got)
+	}
+}
+
 func multiWordSynonymModel() *semantic.SemanticModel {
 	return &semantic.SemanticModel{
 		Dimensions: []semantic.Dimension{

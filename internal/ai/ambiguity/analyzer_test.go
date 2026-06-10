@@ -121,7 +121,7 @@ func TestFilterAmbiguities_RequiresTwoInterpretationsAboveThreshold(t *testing.T
 	}
 }
 
-func TestAnalyzeSynonymHomonym_SkipsTemporalAndScope(t *testing.T) {
+func TestAnalyzeSynonymHomonym_DetectsTemporalSkipsScope(t *testing.T) {
 	model := &semantic.SemanticModel{
 		Dimensions: []semantic.Dimension{
 			{Name: "order_date", Type: string(semantic.DimensionTypeDate)},
@@ -138,7 +138,18 @@ func TestAnalyzeSynonymHomonym_SkipsTemporalAndScope(t *testing.T) {
 		t.Fatal("full Analyze() should flag scope ambiguity")
 	}
 	if tier1.IsAmbiguous {
-		t.Fatalf("AnalyzeSynonymHomonym() = %#v, want no scope/temporal ambiguity", tier1)
+		t.Fatalf("AnalyzeSynonymHomonym() = %#v, want no scope ambiguity", tier1)
+	}
+
+	// Vague temporal phrases are deterministic and free to detect, so tier 1
+	// must surface them ("calendar month vs rolling 30 days") instead of
+	// letting an unfiltered query through.
+	temporal := AnalyzeSynonymHomonym(context.Background(), "geçen ay kaç adet tweet atılmıştır", model, nil, 0)
+	if !temporal.IsAmbiguous {
+		t.Fatalf("AnalyzeSynonymHomonym() = %#v, want temporal ambiguity for 'geçen ay'", temporal)
+	}
+	if len(temporal.Ambiguities) != 1 || temporal.Ambiguities[0].Type != "temporal" || temporal.Ambiguities[0].Term != "geçen ay" {
+		t.Fatalf("AnalyzeSynonymHomonym() ambiguities = %#v, want single temporal item for 'geçen ay'", temporal.Ambiguities)
 	}
 }
 

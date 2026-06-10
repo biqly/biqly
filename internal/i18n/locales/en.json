@@ -21,6 +21,7 @@
     "ambiguity_question_single": "What did you mean by \"{{.Term}}\"?",
     "ambiguity_question_multiple": "Please clarify the ambiguous terms in your question.",
     "needs_clarification_warning": "This question needs clarification before a query can be generated.",
+    "temporal_filter_missing": "The time condition \"{{.Phrase}}\" was not applied to the generated query — results cover all time. Try restating the date range explicitly (e.g. an exact start and end date).",
     "scope_apply_to_metric": "Apply the qualifier to metric {{.Metric}}",
     "synonym_fallback_dimension": "dimension {{.Name}}",
     "synonym_fallback_metric": "metric {{.Name}}",

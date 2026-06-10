@@ -132,6 +132,12 @@ func (*Builder) writeFailureExamples(sb *bytes.Buffer) {
 			note:  "Compare integers to `*_year` / `*_month` dimensions, or ISO strings to raw date columns.",
 		},
 		{
+			title: "Relative time phrase dropped (geçen ay / last month)",
+			bad:   `{"select":[{"type":"metric","name":"row_count"}],"limit":100}`,
+			good:  `{"select":[{"type":"metric","name":"row_count"}],"filters":[{"field":"order_date","operator":"between","value":["2026-04-01","2026-04-30"]}],"limit":100}`,
+			note:  "For \"geçen ay kaç sipariş verildi?\" / \"how many orders last month?\" the time phrase MUST become a date filter (between the first and last day of the period, anchored to ## Current Date/Time — here 2026-05-31). An unfiltered count is wrong even when it validates; keep the filter through every repair attempt.",
+		},
+		{
 			title: "Aggregate threshold in filters (pre-aggregation)",
 			bad:   `{"filters":[{"field":"order_count","operator":"gt","value":10}]}`,
 			good:  `{"having":[{"field":"order_count","operator":"gt","value":10}]}`,

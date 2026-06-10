@@ -13,6 +13,7 @@ import (
 	"github.com/biqly/biqly/internal/ai/prompt"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/config"
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/stretchr/testify/require"
@@ -245,6 +246,41 @@ func TestProcessQuestionSynonymOnlySkipsScopeAmbiguity(t *testing.T) {
 	}
 	if got := client.calls.Load(); got != 1 {
 		t.Errorf("ProcessQuestion() provider calls = %d, want 1 generation after tier-1 pass", got)
+	}
+}
+
+// Prod regression (zlitter_2): "geçen ay kaç adet tweet atılmıştır" produced an
+// unfiltered COUNT at 90% confidence. When generation drops the time condition,
+// the response must carry a localized warning and a capped confidence.
+func TestProcessQuestionWarnsWhenTemporalFilterDropped(t *testing.T) {
+	client := &scriptedProvider{
+		replies: []string{`{"select":[{"type":"metric","name":"row_count"}],"limit":100}`},
+	}
+	svc := NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), client)
+	model := &semantic.SemanticModel{
+		ID:           "model-uuid",
+		DatasourceID: "ds-uuid",
+		Dimensions:   []semantic.Dimension{{Name: "created_at", Type: string(semantic.DimensionTypeDate)}},
+		Metrics:      []semantic.Metric{{Name: "row_count", Aggregation: "count", Expression: "*"}},
+	}
+
+	ctx := i18n.WithLocale(context.Background(), i18n.LocaleTR)
+	resp, err := svc.ProcessQuestion(ctx, "geçen ay kaç adet tweet atılmıştır", model)
+	resp = requireProcessQuestionResponse(t, resp, err)
+	if resp.Result == nil || resp.Result.LogicalQuery == nil {
+		t.Fatal("expected a LogicalQuery result")
+	}
+	if resp.Result.Confidence > maxConfidenceWithoutTemporalFilter {
+		t.Fatalf("Confidence = %v, want <= %v when the time condition was dropped", resp.Result.Confidence, maxConfidenceWithoutTemporalFilter)
+	}
+	var found bool
+	for _, w := range resp.Result.Warnings {
+		if strings.Contains(w, "zaman koşulu") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("Warnings = %#v, want localized temporal-filter warning", resp.Result.Warnings)
 	}
 }
 
