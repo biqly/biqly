@@ -1,5 +1,4 @@
 import { getLocale } from '../i18n'
-import { resolveAdminApiKey } from '../utils/env'
 import { plainTextFromHTML } from '../utils/plainText'
 import { csrfFetch } from './csrf'
 
@@ -57,7 +56,7 @@ function buildFetchHeaders(
   if (!headers.has('X-Locale')) {
     headers.set('X-Locale', getLocale())
   }
-  const bearer = init?.token ?? globalAccessToken ?? (init?.useAdminKey ? resolveAdminApiKey() : '')
+  const bearer = init?.token ?? globalAccessToken
   if (bearer) {
     headers.set('Authorization', `Bearer ${bearer}`)
   }

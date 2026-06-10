@@ -2,7 +2,6 @@ import { useCallback, useRef, useState } from 'react'
 
 import type { RequestOptions } from '../api/apiClient'
 import { apiFetch } from '../api/apiClient'
-import { resolveAdminApiKey } from '../utils/env'
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -91,9 +90,9 @@ function withAdminHeaders(options?: RequestOptions): RequestOptions {
 }
 
 /**
- * useAdminApi is a convenience wrapper that automatically attaches the
- * BI_ADMIN_API_KEY as a Bearer token in the Authorization header.
- * All eval/history/regression endpoints require this header.
+ * useAdminApi routes admin/eval calls through the same JWT bearer as useApi
+ * (super_admin or ai:settings). The legacy BI_ADMIN_API_KEY browser injection
+ * path was removed — see tasks/05-devops-helm-config.md.
  */
 export function useAdminApi() {
   const api = useApi()
@@ -131,7 +130,7 @@ export function useAdminApi() {
     [baseDelete],
   )
 
-  const configured = resolveAdminApiKey().length > 0
+  const configured = true
 
   return { ...api, get, postData, putData, patchData, deleteData, configured }
 }

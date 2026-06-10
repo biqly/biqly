@@ -12,10 +12,10 @@ prod observability ayarlarını düzeltmek.
 | Bileşen | Durum | Konum |
 | --- | --- | --- |
 | AI config akışı: `global.config` + `ai.config` + `ambiguity.*` → ConfigMap → `envFrom` | ✅ Düzenli | `charts/ai/templates/configmap.yaml`, `deployment.yaml` |
-| `frontend.runtimeAdminKey` | 🔴 **Güvenlik sorunu**: init container `BI_ADMIN_API_KEY`'i `env-config.js` → `window.__BIQLY_ENV__.adminApiKey` olarak tarayıcıya veriyor. values-dev'de `enabled: true` | `charts/frontend/templates/deployment.yaml:45-83` |
+| `frontend.runtimeAdminKey` | ✅ Kaldırıldı (2026-06-10): init-container + env-config enjeksiyonu yok | `charts/frontend/templates/deployment.yaml` |
 | Migration: PreSync Job, sync-wave -10, catalog SHA lockstep | ✅ Sağlam — seed/init-container'a gerek yok | `templates/migrate-job.yaml` |
-| Prod tracing | ⚠️ `always_on` + `samplerArg: "1"` = **%100 sampling** (dev %25 ratio) | `values-prod.yaml` |
-| Prod Prometheus | ⚠️ `serviceMonitor.enabled: false`, `prometheusRules.enabled: false` prod'da — Tier-1/2 metrikleri prod'da scrape edilmiyor | `values-prod.yaml` |
+| Prod tracing | ✅ `parentbased_traceidratio` @ `0.1` (%10) | `values-prod.yaml` |
+| Prod Prometheus | ✅ `serviceMonitor` + `prometheusRules` prod'da açık | `values-prod.yaml`, `templates/servicemonitors.yaml`, `prometheus-rules.yaml` |
 | Secrets | ✅ Prod `createSecrets: false` (önceden oluşturulmuş); AI provider API key'leri DB'de AES şifreli | `templates/secrets.yaml` |
 
 ## Yapılacaklar
@@ -70,11 +70,41 @@ RBAC izni ekleniyor. Frontend'in paylaşılan anahtara ihtiyacı kalmıyor.
 
 ## Kabul Kriterleri
 
-- [ ] `env-config.js` hiçbir ortamda servis edilmiyor; admin paneli yalnız JWT ile çalışıyor.
-- [ ] `BI_ADMIN_API_KEY` rotate edildi.
-- [ ] Prod trace sampling oranlı (≤ %10); Jaeger/collector yükü düştü.
-- [ ] Prod'da `biqly_*` metrikleri bir backend'e akıyor ve Grafana çiziyor.
-- [ ] `helm lint` + `kubectl diff` temiz; dev rollout sorunsuz.
+- [x] Helm/K8s deploy'da `env-config.js` üretilmiyor ve nginx özel location'ı kaldırıldı;
+      admin API çağrıları yalnız oturum JWT'si ile (`apiClient` `resolveAdminApiKey` fallback'i yok).
+      `index.html` script tag'i kaldırıldı; prod `curl /env-config.js → 404` operasyonel doğrulama
+      ve anahtar rotate henüz yapılmadı.
+- [ ] `BI_ADMIN_API_KEY` rotate edildi (operasyonel — secret yenileme + AI pod rollout).
+- [x] Prod trace sampling oranlı (`parentbased_traceidratio` @ `0.1`; `always_on` kaldırıldı).
+- [x] Prod'da `serviceMonitor` + `prometheusRules` açık; Grafana'da yeni Tier-2 paneller (03 ile).
+- [ ] `helm lint` + `kubectl diff` bu oturumda çalıştırılmadı; ArgoCD sync sonrası doğrulanacak.
+
+## Uygulama Notları (2026-06-10)
+
+- **P0 — admin anahtarı tarayıcıya sızdırma kapatıldı (kod + Helm):** `runtimeAdminKey`
+  init-container, `emptyDir` web-root volume ve `frontend.runtimeAdminKey` values anahtarları
+  kaldırıldı (`charts/frontend/templates/deployment.yaml`, `charts/frontend/values.yaml`,
+  `values-prod.yaml`). Prod nginx `default.conf`'tan `/env-config.js` location silindi.
+  `apiClient.ts` artık `window.__BIQLY_ENV__.adminApiKey` / `resolveAdminApiKey()` fallback'i
+  kullanmıyor; admin endpoint'leri oturum JWT bearer ile gider (02 §3 `ai:settings` RBAC ile
+  simetrik). `useAdminApi().configured` sabit `true` — panel/eval UI anahtar env'i aramaz.
+- **P0 — kalan operasyonel adımlar:** `BI_ADMIN_API_KEY` rotate + prod'da
+  `curl https://abi.il1.nl/env-config.js → 404` smoke test henüz runbook'ta yapılmadı.
+  `frontend/public/env-config.js` ve `utils/env.ts` dead code olarak duruyor; temizlik 07'de
+  veya ayrı commit'te. Eval i18n uyarıları (`VITE_BI_ADMIN_API_KEY`) hâlâ eski metni taşıyor.
+- **Prod observability — scrape:** `values-prod.yaml` `serviceMonitor.enabled: true`
+  (önceki commit `467dcb8d`); aynı dosyada `prometheusRules.enabled: true` açıldı — mevcut
+  `templates/prometheus-rules.yaml` (LLM latency, AI/query/catalog SLO, embedding errors,
+  NATS DLQ, HTTP 5xx, DB pool) prod'da Prometheus Operator'a kayıt olur.
+- **Prod observability — tracing:** `always_on` / `samplerArg: "1"` geri alındı;
+  `parentbased_traceidratio` + `0.1` (%10) — Jaeger/OTLP upstream yükü düşürüldü.
+- **Grafana (03 ile birlikte, commit `bb251a1f`):** `grafana-dashboards.yaml`'a
+  "Önbellek & LLM tier verimi" satırı eklendi (embedding cache hit rate stat,
+  `biqly_ambiguity_llm_tier_yield_total`, `biqly_ambiguity_resolution_total`); memory
+  paneline `biqly_memory_recall_misses_total` serisi eklendi.
+- **Henüz yapılmadı:** ambiguity round-cap / recall-miss için özel `PrometheusRule` alert'leri
+  (§3 madde 3); `values.yaml` runtime-config yorumları (`docs/configuration.md` referansı);
+  seed mekanizması bilinçli olarak eklenmedi (§2 kararı aynen geçerli).
 
 ## İlgili Dosyalar
 

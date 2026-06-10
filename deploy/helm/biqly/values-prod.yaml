@@ -35,7 +35,7 @@ global:
     serviceMonitor:
       enabled: true
     prometheusRules:
-      enabled: false
+      enabled: true
     alertmanager:
       enabled: false
     logs:
@@ -59,8 +59,8 @@ global:
       otlpEndpoint: http://100.84.49.60:4318
       # Export every span while Jaeger / OTLP path is being validated. Revert to
       # parentbased_traceidratio (e.g. 0.1) once volume is acceptable on the cluster.
-      sampler: always_on
-      samplerArg: "1"
+      sampler: parentbased_traceidratio
+      samplerArg: "0.1"
       otlpHeadersSecret:
         name: biqly-otel-secrets
         key: OTEL_EXPORTER_OTLP_HEADERS
@@ -146,8 +146,7 @@ frontend:
       memory: 192Mi
   image:
     tag: sha-56b921c7800edf2ee5c29a91dfad5f764bdd9d87
-  runtimeAdminKey:
-    enabled: true
+
 
 catalog:
   replicaCount: 1
