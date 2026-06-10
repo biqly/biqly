@@ -32,11 +32,10 @@ global:
     BI_PII_AUTO_SCAN_ON_SYNC: "true"
     BI_PII_DEFAULT_MASKING_STRATEGY: partial
   observability:
-    # prag runs standalone prometheus/grafana (no kube-prometheus-stack CRDs).
     serviceMonitor:
-      enabled: false
+      enabled: true
     prometheusRules:
-      enabled: false
+      enabled: true
     alertmanager:
       enabled: false
     logs:

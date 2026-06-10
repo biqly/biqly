@@ -160,3 +160,19 @@ grafana-enable:
 
 grafana-dashboards-sync:
 	helm template biqly deploy/helm/biqly -f deploy/helm/biqly/values-prod.yaml -s templates/grafana-dashboards.yaml | kubectl apply -n biqly -f -
+
+monitoring-operator-install:
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
+	helm repo update prometheus-community
+	helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+		-n monitoring --create-namespace \
+		-f deploy/monitoring/kube-prometheus-stack-values.yaml
+	kubectl apply -f deploy/monitoring/grafana-datasources.yaml
+	kubectl rollout restart deployment/grafana -n monitoring
+	kubectl scale deployment/prometheus -n monitoring --replicas=0
+
+monitoring-operator-uninstall:
+	helm uninstall kube-prometheus-stack -n monitoring
+	kubectl scale deployment/prometheus -n monitoring --replicas=1
+	kubectl apply -f deploy/monitoring/grafana-datasources-legacy.yaml
+	kubectl rollout restart deployment/grafana -n monitoring
