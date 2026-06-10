@@ -129,6 +129,26 @@ func TestMetricsLabelCardinality(t *testing.T) {
 	}
 }
 
+func TestMetricsRecordTier3(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	m := NewMetrics(reg)
+
+	m.RecordRoutingGrainDetection("year")
+	m.RecordRoutingGrainDetection("month")
+	m.RecordRoutingGrainDetection("invalid_grain_here")
+	m.RecordSemanticModelGenerated(time.Second*2, 25, 8)
+	m.RecordFeedbackSubmitted("positive")
+	m.RecordFeedbackSubmitted("negative")
+	m.RecordFeedbackSubmitted("invalid_rating_here")
+
+	assertMetric(t, m.routingGrainDetections.WithLabelValues("year"), 1, "biqly_routing_grain_detections_total{grain=year}")
+	assertMetric(t, m.routingGrainDetections.WithLabelValues("month"), 1, "biqly_routing_grain_detections_total{grain=month}")
+	assertMetric(t, m.routingGrainDetections.WithLabelValues("none"), 1, "biqly_routing_grain_detections_total{grain=none}")
+	assertMetric(t, m.semanticgenModelsGenerated, 1, "biqly_semanticgen_models_generated_total")
+	assertMetric(t, m.feedbackSubmitted.WithLabelValues("positive"), 1, "biqly_feedback_submitted_total{rating=positive}")
+	assertMetric(t, m.feedbackSubmitted.WithLabelValues("negative"), 2, "biqly_feedback_submitted_total{rating=negative}")
+}
+
 func assertMetric(t *testing.T, collector prometheus.Collector, want float64, name string) {
 	t.Helper()
 	if got := testutil.ToFloat64(collector); got != want {

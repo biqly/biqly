@@ -34,6 +34,7 @@ func (*memoryMetricsStub) RecordEnrichContextApplyErrors(int)        {}
 func (*memoryMetricsStub) RecordMemoryStoreConfirmedEmbeddingError() {}
 func (*memoryMetricsStub) RecordAmbiguityClarificationRound(int)     {}
 func (*memoryMetricsStub) RecordAmbiguityResolution(string)          {}
+func (*memoryMetricsStub) RecordFeedbackSubmitted(string)            {}
 
 func TestAppendConfirmedFewShotAddsRecalledExamples(t *testing.T) {
 	db, state := setupMockDB(t)

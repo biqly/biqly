@@ -2400,24 +2400,24 @@ Alert'ler: `deploy/helm/biqly/templates/prometheus-rules.yaml`.
 
 ### Tier 3 — İyi olur (tuning & optimization)
 
-- [ ] **Routing grain detection** — Hangi grain'lerin ne sıklıkla sorulduğu bilinmiyor.
+- [x] **Routing grain detection** — Hangi grain'lerin ne sıklıkla sorulduğu bilinmiyor.
   - `biqly_routing_grain_detections_total` — CounterVec, label: `grain` (year/quarter/month/day/none).
   - **Dosyalar:** `internal/ai/routing/time_grains.go`.
 
-- [ ] **Semantic model generation metrikleri** — `internal/semanticgen/` paketinde sıfır metrik.
+- [x] **Semantic model generation metrikleri** — `internal/semanticgen/` paketinde sıfır metrik.
   - `biqly_semanticgen_models_generated_total` — Counter.
   - `biqly_semanticgen_duration_seconds` — Histogram.
   - `biqly_semanticgen_dimensions_generated_histogram` — Histogram (dimension sayısı dağılımı).
   - `biqly_semanticgen_metrics_generated_histogram` — Histogram.
   - **Dosyalar:** `internal/semanticgen/generator.go`, `internal/platform/observability/metrics.go`.
 
-- [ ] **Feedback raw total** — Toplam feedback sayısı bağımsız metrik değil.
+- [x] **Feedback raw total** — Toplam feedback sayısı bağımsız metrik değil.
   - `biqly_feedback_submitted_total` — CounterVec, label: `rating` (positive/negative).
   - **Dosyalar:** `internal/http/handlers/ai_examples.go`, `internal/platform/observability/metrics.go`.
 
 ### Grafana Dashboard Güncellemeleri
 
-- [ ] **Biqly AI** dashboard'ına eklenecek paneller:
+- [x] **Biqly AI** dashboard'ına eklenecek paneller:
   - LLM errors by provider (stacked bar)
   - LLM retry rate (line)
   - Token split: prompt vs completion (stacked area)
@@ -2426,7 +2426,7 @@ Alert'ler: `deploy/helm/biqly/templates/prometheus-rules.yaml`.
   - Embedding API error rate
   - Clarification rounds distribution
   - LLM response cache hit rate
-- [ ] **Biqly Infrastructure** dashboard (yeni):
+- [x] **Biqly Infrastructure** dashboard (yeni):
   - HTTP request rate by route group
   - HTTP 5xx error rate by route
   - DB pool: open/in-use/idle connections (gauge)
@@ -2434,7 +2434,7 @@ Alert'ler: `deploy/helm/biqly/templates/prometheus-rules.yaml`.
   - NATS publish/consume rate
   - NATS DLQ moves
   - NATS consumer pending
-- [ ] **Yeni alert rule'lar:**
+- [x] **Yeni alert rule'lar:**
   - `BiqlyHTTP5xxRateHigh` — HTTP 5xx oranı > %1 (5dk)
   - `BiqlyEmbeddingAPIErrors` — Embedding hata oranı > %5 (5dk)
   - `BiqlyDBPoolExhaustion` — Pool in-use/open > %90 (3dk)

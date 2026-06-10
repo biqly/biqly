@@ -6,9 +6,11 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/biqly/biqly/internal/ai/lexicon"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/google/uuid"
 )
@@ -29,7 +31,17 @@ type GeneratedModel struct {
 	Warnings []string                `json:"warnings,omitempty"`
 }
 
-func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Column, relations []metadata.Relation, opts GenerateModelOptions) (*GeneratedModel, error) {
+func GenerateModelFromMetadata(tables []metadata.Table, columns []metadata.Column, relations []metadata.Relation, opts GenerateModelOptions) (res *GeneratedModel, err error) {
+	start := time.Now()
+	defer func() {
+		if err == nil && res != nil && res.Model != nil {
+			observability.Default().RecordSemanticModelGenerated(
+				time.Since(start),
+				len(res.Model.Dimensions),
+				len(res.Model.Metrics),
+			)
+		}
+	}()
 	if opts.DatasourceID == "" {
 		return nil, errors.New("datasource_id is required")
 	}

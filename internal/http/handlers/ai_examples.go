@@ -244,6 +244,9 @@ func (h *AIExamplesHandler) SubmitFeedback(w http.ResponseWriter, r *http.Reques
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to submit feedback", err)
 		return
 	}
+	if h.metrics != nil {
+		h.metrics.RecordFeedbackSubmitted(input.Rating)
+	}
 	recallUsed, err := h.deps.MetaRepo.UpdateLatestAIQueryHistoryRating(ctx, input.DatasourceID, input.Rating, bimw.UserID(ctx), input.Question)
 	if err != nil {
 		slog.WarnContext(ctx, "update latest AI query history rating", "datasource_id", input.DatasourceID, "err", err)

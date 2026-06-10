@@ -31,6 +31,28 @@ spec:
             service: ai
           annotations:
             summary: "Biqly AI error rate is burning the 95% success SLO"
+        - alert: BiqlyEmbeddingAPIErrors
+          expr: |
+            sum(rate(biqly_embedding_api_errors_total[5m]))
+            /
+            clamp_min(sum(rate(biqly_embedding_api_duration_seconds_count[5m])), 1) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            service: ai
+          annotations:
+            summary: "Biqly Embedding API error rate is high (> 5%)"
+            description: "Embedding API error rate exceeded 5% for 5 minutes."
+        - alert: BiqlyRoutingConfidenceLow
+          expr: |
+            histogram_quantile(0.50, sum(rate(biqly_routing_confidence_histogram_bucket[15m])) by (le)) < 0.5
+          for: 15m
+          labels:
+            severity: warning
+            service: ai
+          annotations:
+            summary: "Biqly Routing p50 confidence is low (< 0.5)"
+            description: "p50 routing confidence is below 0.5 for the last 15 minutes."
     - name: biqly.query
       rules:
         - alert: BiqlyQueryCompileLatencyHigh
@@ -79,4 +101,40 @@ spec:
             service: catalog
           annotations:
             summary: "Biqly Catalog error rate is burning the 95% success SLO"
+    - name: biqly.infrastructure
+      rules:
+        - alert: BiqlyHTTP5xxRateHigh
+          expr: |
+            sum(rate(biqly_http_requests_total{status_class="5xx"}[5m]))
+            /
+            clamp_min(sum(rate(biqly_http_requests_total[5m])), 1) > 0.01
+          for: 5m
+          labels:
+            severity: critical
+            service: gateway
+          annotations:
+            summary: "Biqly HTTP 5xx error rate is high (> 1%)"
+            description: "HTTP 5xx rate exceeded 1% for 5 minutes."
+        - alert: BiqlyDBPoolExhaustion
+          expr: |
+            biqly_db_pool_in_use
+            /
+            clamp_min(biqly_db_pool_open_connections, 1) > 0.90
+          for: 3m
+          labels:
+            severity: warning
+            service: db
+          annotations:
+            summary: "Biqly DB connection pool is near exhaustion (> 90%)"
+            description: "Database connection pool in-use count is more than 90% of open connections for 3 minutes."
+        - alert: BiqlyNATSDLQMoves
+          expr: |
+            sum(rate(biqly_nats_dlq_moves_total[5m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            service: queue
+          annotations:
+            summary: "Biqly NATS messages are moving to DLQ"
+            description: "NATS dead letter queue moves have occurred in the last 5 minutes."
 {{- end }}

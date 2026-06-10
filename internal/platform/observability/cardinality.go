@@ -48,6 +48,8 @@ var VecLabelLimits = map[string]map[string]int{
 	"biqly_embedding_api_duration_seconds": {"operation": 4},
 	"biqly_embedding_api_errors_total":     {"operation": 4, "error_type": 5},
 	"biqly_ambiguity_resolution_total":     {"outcome": 2},
+	"biqly_routing_grain_detections_total": {"grain": 6},
+	"biqly_feedback_submitted_total":       {"rating": 2},
 }
 
 var cardinalityRegistered sync.Map

@@ -136,3 +136,14 @@ func TestSeedTimeGrains(t *testing.T) {
 		require.Equal(t, len(DefaultTimeGrains), repo.upsertCalls)
 	})
 }
+
+func TestDetectAndRecordTimeGrains(t *testing.T) {
+	r := NewTableRouter(nil)
+	require.NotNil(t, r)
+	ctx := context.Background()
+
+	// Verify no panic and runs successfully
+	r.detectAndRecordTimeGrains(ctx, "show me sales by year")
+	r.detectAndRecordTimeGrains(ctx, "monthly active users")
+	r.detectAndRecordTimeGrains(ctx, "some query without any time grains")
+}

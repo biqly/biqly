@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -188,6 +189,7 @@ func (r *TableRouter) Route(
 	includeBaseTables bool,
 	includeViews bool,
 ) (model *semantic.SemanticModel, result *TableRoutingResult, err error) {
+	r.detectAndRecordTimeGrains(ctx, question)
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.TableRoute")
 	defer func() {
 		if result != nil {
@@ -528,4 +530,42 @@ func (r *TableRouter) embeddingSignals(ctx context.Context, datasourceID, questi
 		}
 	}
 	return signals
+}
+
+func (r *TableRouter) detectAndRecordTimeGrains(ctx context.Context, question string) {
+	grains := r.loadTimeGrains(ctx)
+	if len(grains) == 0 {
+		observability.Default().RecordRoutingGrainDetection("none")
+		return
+	}
+
+	qTokens := tokenSet(question)
+	normQ := strings.ToLower(turkishLowerReplacer.Replace(question))
+	detected := false
+
+	for _, tg := range grains {
+		matched := false
+		for _, syn := range tg.Synonyms {
+			s := strings.ToLower(turkishLowerReplacer.Replace(syn))
+			if strings.Contains(s, " ") {
+				if strings.Contains(normQ, s) {
+					matched = true
+					break
+				}
+			} else {
+				if _, ok := qTokens[s]; ok {
+					matched = true
+					break
+				}
+			}
+		}
+		if matched {
+			observability.Default().RecordRoutingGrainDetection(tg.Grain)
+			detected = true
+		}
+	}
+
+	if !detected {
+		observability.Default().RecordRoutingGrainDetection("none")
+	}
 }

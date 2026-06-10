@@ -19,6 +19,7 @@ type AIMetricsRecorder interface {
 	RecordEnrichContextApplyErrors(count int)
 	RecordAmbiguityClarificationRound(round int)
 	RecordAmbiguityResolution(outcome string)
+	RecordFeedbackSubmitted(rating string)
 }
 
 // CatalogMetricsRecorder records Catalog Service process metrics.

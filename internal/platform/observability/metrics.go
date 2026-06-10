@@ -118,6 +118,13 @@ type Metrics struct {
 	enrichContextSuggestionsGenerated prometheus.Counter
 	enrichContextSuggestLatency       prometheus.Histogram
 	enrichContextApplyErrors          prometheus.Counter
+
+	routingGrainDetections         *prometheus.CounterVec
+	semanticgenModelsGenerated     prometheus.Counter
+	semanticgenDuration            prometheus.Histogram
+	semanticgenDimensionsGenerated prometheus.Histogram
+	semanticgenMetricsGenerated    prometheus.Histogram
+	feedbackSubmitted              *prometheus.CounterVec
 }
 
 // NewMetrics registers every collector against reg and returns the bundle.
@@ -234,6 +241,7 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 	registerExtendedAIMetrics(f, m)
 	registerTier1Metrics(f, m)
 	registerTier2Metrics(f, m)
+	registerTier3Metrics(f, m)
 	if g, ok := reg.(prometheus.Gatherer); ok {
 		registerCardinalityCollector(reg, g)
 	}
