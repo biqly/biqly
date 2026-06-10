@@ -111,8 +111,11 @@ type Metrics struct {
 	memoryRecallMisses                prometheus.Counter
 	memoryRecallLatency               prometheus.Histogram
 	memoryStoreConfirmedEmbedErrors   prometheus.Counter
+	embeddingCacheHits                prometheus.Counter
+	embeddingCacheMisses              prometheus.Counter
 	ambiguityClarificationRounds      prometheus.Histogram
 	ambiguityResolutionTotal          *prometheus.CounterVec
+	ambiguityLLMTierYield             *prometheus.CounterVec
 	llmResponseCacheHits              prometheus.Counter
 	llmResponseCacheMisses            prometheus.Counter
 	enrichContextSuggestionsGenerated prometheus.Counter

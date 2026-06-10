@@ -82,15 +82,22 @@ func rankConfirmed(
 		return out
 	}
 
-	vecs, err := embedder.Embed(observability.ContextWithEmbeddingOperation(ctx, "memory_store"), []string{question})
-	if err != nil || len(vecs) == 0 || len(vecs[0]) == 0 {
-		out := make([]rankedConfirmed, 0, len(rows))
-		for _, row := range rows {
-			out = append(out, rankedConfirmed{row: row, score: 0})
+	qVec, cached := questionEmbedCache.get(embedder.Model(), question)
+	if cached {
+		observability.Default().RecordEmbeddingCacheHit()
+	} else {
+		observability.Default().RecordEmbeddingCacheMiss()
+		vecs, err := embedder.Embed(observability.ContextWithEmbeddingOperation(ctx, "memory_store"), []string{question})
+		if err != nil || len(vecs) == 0 || len(vecs[0]) == 0 {
+			out := make([]rankedConfirmed, 0, len(rows))
+			for _, row := range rows {
+				out = append(out, rankedConfirmed{row: row, score: 0})
+			}
+			return out
 		}
-		return out
+		qVec = vecs[0]
+		questionEmbedCache.put(embedder.Model(), question, qVec)
 	}
-	qVec := vecs[0]
 
 	ranked := make([]rankedConfirmed, 0, len(rows))
 	for _, row := range rows {

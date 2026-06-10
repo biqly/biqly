@@ -53,10 +53,7 @@ func newService(cfg *config.AIConfig, validator *query.Validator, provider provi
 	if maxR <= 0 {
 		maxR = 80000
 	}
-	retries := cfg.Generation.MaxRetries
-	if retries < 0 {
-		retries = 0
-	}
+	retries := max(cfg.Generation.MaxRetries, 0)
 	queryView := cfg.ResolvedQuery()
 	return &Service{
 		client:              provider,
@@ -413,6 +410,16 @@ func (s *Service) analyzeAmbiguity(ctx context.Context, question string, model *
 		llmResult, err := ambiguitypkg.NewLLMAnalyzer(s.client).Analyze(analysisCtx, i18n.FromContext(ctx), question, model, glossary)
 		cancel()
 		source = "llm"
+		yield := "empty"
+		switch {
+		case errors.Is(err, context.DeadlineExceeded):
+			yield = "timeout"
+		case err != nil:
+			yield = "error"
+		case llmResult.IsAmbiguous:
+			yield = "found"
+		}
+		observability.Default().RecordAmbiguityLLMTierYield(yield)
 		if err != nil {
 			cacheable = false
 			slog.WarnContext(ctx, "LLM ambiguity analysis failed", "error", err)

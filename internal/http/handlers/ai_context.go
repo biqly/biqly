@@ -15,6 +15,11 @@ const maxClarificationRounds = 2
 
 // ProcessContext holds per-turn AI query processing state shared by sync HTTP and
 // async job paths. ClarificationResolved is set only by Resolve.
+//
+// Contract: clarification resolution happens exclusively through
+// ProcessContext.Resolve (wrapped by resolveProcessContext on both paths). Do
+// not add new resolution entry points — sync/async parity depends on it and is
+// guarded by TestProcessContextSyncAsyncIdenticalBehavior.
 type ProcessContext struct {
 	Question              string
 	ClarificationChoice   string

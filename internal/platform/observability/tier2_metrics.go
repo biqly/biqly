@@ -9,6 +9,7 @@ import (
 var (
 	ambiguityResolutionOutcomes        = []string{"resolved", "abandoned"}
 	ambiguityClarificationRoundBuckets = []float64{1, 2, 3, 4, 5}
+	ambiguityLLMTierYieldOutcomes      = []string{"found", "empty", "timeout", "error"}
 )
 
 type tier2MetricsFactory interface {
@@ -53,6 +54,12 @@ func registerTier2Metrics(f tier2MetricsFactory, m *Metrics) {
 	m.memoryStoreConfirmedEmbedErrors = f.NewCounter(prometheus.CounterOpts{
 		Name: "biqly_memory_store_confirmed_embedding_errors_total", Help: "Total embedding generation errors when storing confirmed queries.",
 	})
+	m.embeddingCacheHits = f.NewCounter(prometheus.CounterOpts{
+		Name: "biqly_embedding_cache_hits_total", Help: "Total question embedding requests served from the in-process cache.",
+	})
+	m.embeddingCacheMisses = f.NewCounter(prometheus.CounterOpts{
+		Name: "biqly_embedding_cache_misses_total", Help: "Total question embedding requests that required an embedding API call.",
+	})
 
 	// Clarification metrics
 	m.ambiguityClarificationRounds = f.NewHistogram(prometheus.HistogramOpts{
@@ -63,6 +70,10 @@ func registerTier2Metrics(f tier2MetricsFactory, m *Metrics) {
 	m.ambiguityResolutionTotal = f.NewCounterVec(prometheus.CounterOpts{
 		Name: "biqly_ambiguity_resolution_total",
 		Help: "Total ambiguity clarifications by outcome (resolved or abandoned).",
+	}, []string{"outcome"})
+	m.ambiguityLLMTierYield = f.NewCounterVec(prometheus.CounterOpts{
+		Name: "biqly_ambiguity_llm_tier_yield_total",
+		Help: "LLM ambiguity tier outcomes (found, empty, timeout, error) — measures what the LLM tier actually contributes.",
 	}, []string{"outcome"})
 
 	// LLM response cache metrics
@@ -148,6 +159,31 @@ func (m *Metrics) RecordMemoryStoreConfirmedEmbeddingError() {
 		return
 	}
 	m.memoryStoreConfirmedEmbedErrors.Inc()
+}
+
+// RecordEmbeddingCacheHit records a question embedding served from cache.
+func (m *Metrics) RecordEmbeddingCacheHit() {
+	if m == nil {
+		return
+	}
+	m.embeddingCacheHits.Inc()
+}
+
+// RecordEmbeddingCacheMiss records a question embedding that needed an API call.
+func (m *Metrics) RecordEmbeddingCacheMiss() {
+	if m == nil {
+		return
+	}
+	m.embeddingCacheMisses.Inc()
+}
+
+// RecordAmbiguityLLMTierYield records what the LLM ambiguity tier produced.
+func (m *Metrics) RecordAmbiguityLLMTierYield(outcome string) {
+	if m == nil {
+		return
+	}
+	cleanOutcome := BoundLabel(outcome, ambiguityLLMTierYieldOutcomes, "error")
+	m.ambiguityLLMTierYield.WithLabelValues(cleanOutcome).Inc()
 }
 
 // RecordAmbiguityClarificationRound records the round number returned to the user.

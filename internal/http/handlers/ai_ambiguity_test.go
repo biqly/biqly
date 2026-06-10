@@ -156,6 +156,69 @@ func TestAmbiguityHardCapStopsAfterMaxRounds(t *testing.T) {
 	}
 }
 
+// TestAmbiguityMultiRoundProgression walks a full clarification session the way
+// the wire does: each clarification response carries the next round number,
+// which the client echoes back via ClarificationRound. Rounds 0..max-1 run the
+// normal checks, round==max runs the Tier 3 interactive pass, and the round
+// after that bypasses ambiguity entirely. buildProcessContext is shared by the
+// sync and async paths, so this covers both.
+func TestAmbiguityMultiRoundProgression(t *testing.T) {
+	cfg := config.AmbiguityConfig{
+		CheckEnabled:          true,
+		LLMEnabled:            true,
+		TieredEnabled:         true,
+		MaxLLMTierPerQuestion: 1,
+	}
+
+	round := 0
+	for round < maxClarificationRounds {
+		pc := buildProcessContext(aiQueryRequest{Question: "Ciro göster", ClarificationRound: round})
+		if !pc.ShouldCheckAmbiguity(cfg) {
+			t.Fatalf("round %d: ShouldCheckAmbiguity() = false, want true", round)
+		}
+		if pc.ShouldUseInteractiveTier(cfg) {
+			t.Fatalf("round %d: ShouldUseInteractiveTier() = true, want false", round)
+		}
+
+		resp := &ai.Response{
+			Clarification: &ai.ClarificationResponse{
+				NeedsClarification: true,
+				Clarification:      &ai.Clarification{Source: "ambiguity_analyzer"},
+			},
+		}
+		attachAmbiguityClarificationRound(pc, resp)
+		if got, want := resp.Clarification.ClarificationRound, round+1; got != want {
+			t.Fatalf("round %d: wire ClarificationRound = %d, want %d", round, got, want)
+		}
+		round = resp.Clarification.ClarificationRound // client echoes the wire round back
+	}
+
+	interactive := buildProcessContext(aiQueryRequest{Question: "Ciro göster", ClarificationRound: round})
+	if !interactive.ShouldCheckAmbiguity(cfg) || !interactive.ShouldUseInteractiveTier(cfg) {
+		t.Fatalf("round %d: expected Tier 3 interactive pass at the cap boundary", round)
+	}
+	if interactive.ShouldUseLLMAmbiguityTier(cfg) {
+		t.Fatalf("round %d: ShouldUseLLMAmbiguityTier() = true, want false past MaxLLMTierPerQuestion", round)
+	}
+
+	resp := &ai.Response{
+		Clarification: &ai.ClarificationResponse{
+			NeedsClarification: true,
+			Clarification:      &ai.Clarification{Source: "ambiguity_analyzer"},
+		},
+	}
+	attachAmbiguityClarificationRound(interactive, resp)
+	round = resp.Clarification.ClarificationRound
+
+	bypassed := buildProcessContext(aiQueryRequest{Question: "Ciro göster", ClarificationRound: round})
+	if bypassed.ShouldCheckAmbiguity(cfg) {
+		t.Fatalf("round %d: ShouldCheckAmbiguity() = true, want false past the interactive tier", round)
+	}
+	if !bypassed.AmbiguityCapReached(cfg) {
+		t.Fatalf("round %d: AmbiguityCapReached() = false, want true", round)
+	}
+}
+
 func TestProcessContextResolvePartialKeepsFlagUnset(t *testing.T) {
 	pc := &ProcessContext{
 		Question:            "Ciro ve aktif müşterileri göster",
