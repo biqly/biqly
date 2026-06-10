@@ -506,24 +506,41 @@ yönetilemiyor.
       locale registry dahil), fallback (K5), cache (K6), seed/kurtarma (K7), admin yüzeyi (K9),
       5 reddedilen alternatif ve riskler yazılı.
 
-### DİL-1 — `ai_nl_lexicon` altyapısı + ilk taşımalar [M]
-- [ ] Migration: `ai_nl_lexicon` tablosu + mevcut hardcoded listelerden idempotent seed
-      (SeedTimeGrains kalıbı: tablo boşsa embed'den doldur).
-- [ ] `LexiconStore` (List/Invalidate; dbTimeGrainStore kalıbı: double-checked cache,
-      DB hatasında embedded default'a düş).
-- [ ] `vagueTemporalPhrases` → DB (`domain=temporal_phrase`, value: `{phrase,
-      interpretation_keys[]}`); `DetectTemporal`/`MatchTemporalPhrases` store'dan okur.
-      Yorum etiketleri zaten i18n anahtarı (`clarification.temporal.*`) — metinler DİL-3'e bağımlı.
-- [ ] `softDeleteColumnSynonyms` kelime listeleri → DB (kolon-adı pattern kuralları kodda kalır,
-      yalnızca dil-taşıyan kelime listeleri taşınır).
-- [ ] `routing_budget.go` intent token'ları ("kaç", "adet", "toplam", grain kelime listesi)
-      → DB (`domain=intent_token`).
-- [ ] `semanticgen/generator.go` grain/row-count synonym duplikasyonu → time-grain store +
-      lexicon'dan beslenecek şekilde tek kaynağa indir.
-- [ ] Admin CRUD: `GET/PUT /api/ai/admin/lexicon?locale=&domain=` (AdminKeyMiddleware,
-      `ai_admin_config.go` kalıbı) + JSON import/export; PUT → Invalidate.
-- [ ] **Kabul:** yeni bir dilin lexicon'u yalnızca DB satırlarıyla eklenebiliyor; mevcut EN/TR
-      davranışı birebir korunuyor (mevcut testler yeşil); store DB yokken embedded ile çalışıyor.
+### DİL-1 — `ai_nl_lexicon` altyapısı + ilk taşımalar [M] ✅ (2026-06-10)
+- [x] Migration `048a/b`: `ai_nl_lexicon(locale, domain, key, value JSONB, is_active,
+      updated_at)` PK(locale,domain,key) + domain index; Go seed `lexicon.Seed`
+      (tablo boşsa embedded default'lardan idempotent doldurma) — wiring: `setupAI`
+      (dependencies.go) + `NewAIDependencies` (ai_dependencies.go), SeedTimeGrains'in yanında.
+- [x] Yeni paket `internal/ai/lexicon`: `Store` arayüzü (TemporalPhrases/Terms/DomainTerms/
+      Invalidate), `NewStaticStore` (embedded), `NewDBStore` (30s TTL + Invalidate, hata/boş
+      domain'de per-domain embedded fallback — ADR K5/K6), `Active()/SetActive()` süreç-geneli
+      kayıt (prompt store deseni). Repo katmanı: `metadata/ai_nl_lexicon.go`
+      (List/ListActive/Count/Upsert/ReplaceDomain). Eşleştirme locale-birleşimi (K4);
+      `Terms` snapshot'ı korumak için kopya döndürür.
+- [x] `vagueTemporalPhrases` → lexicon (`temporal_phrase` domain'i); `DetectTemporal` +
+      `MatchTemporalPhrases` store'dan okuyor. Kabul testi:
+      `TestTemporalPhrasesComeFromLexiconStore` — store'a Almanca "letzten monat" verilince
+      kod değişikliği olmadan tespit ediliyor.
+- [x] `softDeleteColumnSynonyms` kelime listeleri → lexicon (`soft_delete`, 4 kural anahtarı);
+      kolon-adı pattern kuralları kodda kaldı. (Not: ts_archived listesinin *sırası* en→tr
+      birleşimine değişti, küme aynı.)
+- [x] `routing_budget.go`: count/total/average intent token'ları + `questionMentionsTimeGrain`
+      listesi → lexicon (`intent_token`); how+many / number+of yapısal çiftleri kodda.
+- [x] `semanticgen/generator.go`: grain synonym + row-count listeleri lexicon'dan (tek kaynak);
+      `time_grains.go` her iki store'da serve-time merge (`applyLexiconGrainSynonyms`, K3 geçişi —
+      `ai_time_grains.synonyms` kolonu deprecate edilene dek birleşim).
+      **Bilinçli süperset:** kanonik grain listesi = eski routing ∪ semanticgen listeleri
+      (routing "ay bazında"yı, semanticgen "per month"u kazandı).
+- [x] Admin CRUD (AdminKeyMiddleware): `GET/PUT /api/ai/admin/lexicon?locale=&domain=`
+      (export/import, domain+locale+value şema validasyonu) + `POST /api/ai/admin/lexicon/reset`
+      (domain'i embedded default'a sıfırlama — ADR K7); PUT/reset → `lexicon.Active().Invalidate()`.
+      Dosyalar: `handlers/ai_admin_lexicon.go`, `ai_router.go` (`registerAIAdminConfigRoutes`
+      helper'ına çıkarıldı, funlen).
+- [x] **Kabul sağlandı:** yeni dil yalnızca DB satırlarıyla eklenebiliyor (de-locale store/fallback
+      testleri); EN/TR davranışı korunuyor (59 paket -race yeşil; tek bilinçli fark yukarıdaki
+      süperset — time_grains testleri merge sözleşmesine güncellendi); DB yokken embedded
+      fallback testli (`TestDBStoreFallsBackToDefaultsOnError`). Gate'ler: lint-go 0,
+      eval-regression ✓, deadcode yeni bulgu yok, jsonusage guard ✓ (sonic).
 
 ### DİL-2 — Routing lexicon'u DB overlay'e bağla [S]
 - [ ] `BI_AI_ROUTING_LEXICON_PATH` dosya override'ı korunur; üstüne `ai_nl_lexicon`

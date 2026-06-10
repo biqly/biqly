@@ -1,11 +1,11 @@
 package lexicon
 
-// Embedded defaults: seed source for ai_nl_lexicon and fallback when the DB is
-// unreachable or a domain is empty (ADR-0001 K5). The per-locale split is for
-// management; matching uses the union, which must stay equal to the previously
-// hardcoded mixed-locale lists (behavior-preserving). token_synonym and
-// metric_synonym ship no defaults here: the routing lexicon JSON remains their
-// source until DİL-2.
+// DefaultEntries returns embedded lexicon rows used to seed ai_nl_lexicon and as
+// fallback when the DB is unreachable or a domain is empty (ADR-0001 K5). The
+// per-locale split is for management; matching uses the union, which must stay
+// equal to the previously hardcoded mixed-locale lists (behavior-preserving).
+// token_synonym and metric_synonym ship no defaults here: the routing lexicon
+// JSON remains their source until DİL-2.
 func DefaultEntries() []Entry {
 	return []Entry{
 		// --- temporal_phrase (from internal/ai/ambiguity/temporal_detector.go) ---

@@ -2,11 +2,11 @@ package lexicon
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/bytedance/sonic"
 )
 
 // nlLexiconValue is the JSONB payload of one ai_nl_lexicon row.
@@ -17,7 +17,7 @@ type nlLexiconValue struct {
 
 // EntryToMetadata converts a lexicon entry to its DB row form.
 func EntryToMetadata(e Entry) (metadata.NLLexiconEntry, error) {
-	raw, err := json.Marshal(nlLexiconValue{Terms: e.Terms, InterpretationKeys: e.InterpretationKeys})
+	raw, err := sonic.Marshal(nlLexiconValue{Terms: e.Terms, InterpretationKeys: e.InterpretationKeys})
 	if err != nil {
 		return metadata.NLLexiconEntry{}, fmt.Errorf("encode nl lexicon value %s/%s/%s: %w", e.Locale, e.Domain, e.Key, err)
 	}
@@ -32,7 +32,7 @@ func EntryToMetadata(e Entry) (metadata.NLLexiconEntry, error) {
 
 func entryFromMetadata(row metadata.NLLexiconEntry) (Entry, error) {
 	var value nlLexiconValue
-	if err := json.Unmarshal(row.Value, &value); err != nil {
+	if err := sonic.Unmarshal(row.Value, &value); err != nil {
 		return Entry{}, fmt.Errorf("decode nl lexicon value: %w", err)
 	}
 	return Entry{

@@ -2,12 +2,12 @@ package lexicon
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"slices"
 	"testing"
 
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/bytedance/sonic"
 )
 
 func TestStaticStoreServesUnionOfLocales(t *testing.T) {
@@ -72,7 +72,7 @@ func (f *fakeLexiconRepo) ListActiveNLLexicon(context.Context) ([]metadata.NLLex
 
 func mustRow(t *testing.T, locale, domain, key string, value any) metadata.NLLexiconEntry {
 	t.Helper()
-	raw, err := json.Marshal(value)
+	raw, err := sonic.Marshal(value)
 	if err != nil {
 		t.Fatal(err)
 	}
