@@ -156,6 +156,22 @@ func decodeJSONAllowEmpty[T any](w http.ResponseWriter, r *http.Request) (*T, bo
 	return &v, true
 }
 
+// readRequestBody buffers the size-capped request body for handlers that need
+// to decode parts of it separately (e.g. strict per-domain decoding).
+func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONRequestBytes)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		if isMaxBytesError(err) {
+			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
+		} else {
+			writeError(w, http.StatusBadRequest, "invalid request body")
+		}
+		return nil, false
+	}
+	return body, true
+}
+
 func isMaxBytesError(err error) bool {
 	_, ok := errors.AsType[*http.MaxBytesError](err)
 	return ok

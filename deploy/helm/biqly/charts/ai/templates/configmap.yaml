@@ -15,3 +15,7 @@ data:
   BI_AI_AMBIGUITY_TIERED_ENABLED: {{ .tieredEnabled | toString | quote }}
   BI_AI_AMBIGUITY_MAX_LLM_TIER_PER_QUESTION: {{ .maxLLMTierPerQuestion | toString | quote }}
   {{- end }}
+  {{- with .Values.memory }}
+  BI_AI_MEMORY_RECALL_ENABLED: {{ .recallEnabled | toString | quote }}
+  BI_AI_MEMORY_RECALL_LIMIT: {{ .recallLimit | toString | quote }}
+  {{- end }}

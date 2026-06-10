@@ -37,9 +37,15 @@ image:
   pullPolicy: IfNotPresent
 service:
   port: 8082
+# Ambiguity & memory knobs are environment FALLBACKS: rows in the
+# ai_runtime_config table (Administration → Platform Settings, or
+# PUT /api/ai/admin/config) override them at runtime without a rollout.
 ambiguity:
   tieredEnabled: true
   maxLLMTierPerQuestion: 1
+memory:
+  recallEnabled: true
+  recallLimit: 5
 config:
   BI_HTTP_PORT: "8082"
   BI_CATALOG_SERVICE_URL: http://biqly-catalog:8080

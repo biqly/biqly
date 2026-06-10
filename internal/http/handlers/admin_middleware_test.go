@@ -123,3 +123,80 @@ func TestAdminKeyMiddleware_RejectsWrongKey(t *testing.T) {
 		t.Fatalf("expected 401 with wrong key, got %d", w.Code)
 	}
 }
+
+// permStubServer fakes the auth service's permission check endpoint.
+func permStubServer(t *testing.T, allowed bool) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/internal/auth/check-permission" {
+			t.Fatalf("unexpected auth call: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if allowed {
+			_, _ = w.Write([]byte(`{"allowed":true}`))
+		} else {
+			_, _ = w.Write([]byte(`{"allowed":false}`))
+		}
+	}))
+}
+
+func rbacUserContext() context.Context {
+	ctx := context.WithValue(context.Background(), bimw.UserIDKey, "u-1")
+	return context.WithValue(ctx, bimw.UserRolesKey, []string{"admin"})
+}
+
+func TestAdminAccessMiddleware_RBACPermissionGrantsAccess(t *testing.T) {
+	srv := permStubServer(t, true)
+	defer srv.Close()
+	client := bimw.NewAuthClient(srv.URL, "tok")
+
+	h := AdminAccessMiddleware("s3cret", client, "ai:settings")(adminTestHandler())
+	r := httptest.NewRequestWithContext(rbacUserContext(), http.MethodGet, "/api/ai/admin/config", nil)
+	r.Header.Set("Authorization", "Bearer some.session.jwt")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for JWT with ai:settings permission, got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
+func TestAdminAccessMiddleware_RBACPermissionDenied(t *testing.T) {
+	srv := permStubServer(t, false)
+	defer srv.Close()
+	client := bimw.NewAuthClient(srv.URL, "tok")
+
+	h := AdminAccessMiddleware("s3cret", client, "ai:settings")(adminTestHandler())
+	r := httptest.NewRequestWithContext(rbacUserContext(), http.MethodGet, "/api/ai/admin/config", nil)
+	r.Header.Set("Authorization", "Bearer some.session.jwt")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for JWT without ai:settings permission, got %d", w.Code)
+	}
+}
+
+func TestAdminAccessMiddleware_AdminKeyStillPassesBeforeRBAC(t *testing.T) {
+	// A valid shared key must not require an auth-service round trip.
+	h := AdminAccessMiddleware("s3cret", bimw.NewAuthClient("http://127.0.0.1:1", "tok"), "ai:settings")(adminTestHandler())
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ai/admin/config", nil)
+	r.Header.Set("X-Admin-Key", "s3cret")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 with valid admin key, got %d", w.Code)
+	}
+}
+
+func TestAdminAccessMiddleware_AnonymousStillRejected(t *testing.T) {
+	srv := permStubServer(t, true)
+	defer srv.Close()
+	client := bimw.NewAuthClient(srv.URL, "tok")
+
+	h := AdminAccessMiddleware("s3cret", client, "ai:settings")(adminTestHandler())
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ai/admin/config", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for anonymous caller, got %d", w.Code)
+	}
+}

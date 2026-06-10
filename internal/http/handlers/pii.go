@@ -25,19 +25,11 @@ func NewPIIHandler(deps *app.CatalogDeps) *PIIHandler {
 }
 
 // runPIIScan executes a PII detection scan over a resolved datasource using
-// its live connection for sample data. Threshold and sample limit come from
-// the PII config section; zero values fall back to package defaults.
+// its live connection for sample data. The threshold resolves DB runtime
+// overrides → PII config section → package defaults (see
+// effectivePIIScanSettings); zero values fall back to package defaults.
 func runPIIScan(ctx context.Context, deps *app.CatalogDeps, resolved *app.ResolvedDatasource) (*pii.ScanSummary, error) {
-	threshold := pii.DefaultThreshold
-	sampleLimit := pii.DefaultSampleLimit
-	if deps.Config != nil {
-		if deps.Config.PII.DetectionThreshold > 0 {
-			threshold = deps.Config.PII.DetectionThreshold
-		}
-		if deps.Config.PII.SampleDataLimit > 0 {
-			sampleLimit = deps.Config.PII.SampleDataLimit
-		}
-	}
+	threshold, sampleLimit := effectivePIIScanSettings(ctx, deps.MetaRepo, deps.Config)
 	detector := pii.NewDetector(threshold)
 	scanner := pii.NewScanner(detector, deps.MetaRepo, sampleLimit)
 	fetch := pii.NewDBSampleFetcher(resolved.DB, resolved.Driver.Dialect())

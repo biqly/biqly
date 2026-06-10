@@ -262,6 +262,14 @@ type AmbiguityConfig struct {
 	MaxLLMTierPerQuestion int
 }
 
+// AIMemoryConfig groups the NL→SQL confirmed-query memory recall knobs.
+type AIMemoryConfig struct {
+	// RecallEnabled toggles confirmed-query few-shot recall injection.
+	RecallEnabled bool
+	// RecallLimit caps recalled confirmed examples appended to the prompt.
+	RecallLimit int
+}
+
 // AIConnectionConfig groups shared LLM HTTP connection settings. Provider/model
 // selection is sourced from ai_providers / ai_models via ProviderStore; only
 // HTTPTimeoutSeconds and RateLimitPerMinute are environment-driven operational knobs.
@@ -307,6 +315,7 @@ type AIConfig struct {
 	Translation TranslationConfig
 	Routing     RoutingConfig
 	Ambiguity   AmbiguityConfig
+	Memory      AIMemoryConfig
 }
 
 // AIQueryView is the resolved NL-to-LogicalQuery path (BI_AI_QUERY_* overrides applied).
@@ -507,6 +516,10 @@ func loadAIConfigFromEnv() AIConfig {
 			LLMEnabled:            getEnvAsBool("BI_AI_AMBIGUITY_LLM_ENABLED", false),
 			TieredEnabled:         getEnvAsBool("BI_AI_AMBIGUITY_TIERED_ENABLED", false),
 			MaxLLMTierPerQuestion: getEnvAsInt("BI_AI_AMBIGUITY_MAX_LLM_TIER_PER_QUESTION", 1),
+		},
+		Memory: AIMemoryConfig{
+			RecallEnabled: getEnvAsBool("BI_AI_MEMORY_RECALL_ENABLED", true),
+			RecallLimit:   getEnvAsInt("BI_AI_MEMORY_RECALL_LIMIT", 5),
 		},
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"testing"
+	"time"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/metadata"
@@ -87,4 +88,16 @@ func TestAppendConfirmedFewShotAddsRecalledExamples(t *testing.T) {
 	assert.Equal(t, "monthly sales", out[0].Question)
 	assert.Equal(t, 1, hits)
 	assert.Equal(t, 1, metrics.recallHits)
+}
+
+// A recall_enabled=false runtime override turns confirmed-query recall off
+// without touching the few-shot pipeline.
+func TestAppendConfirmedFewShotRespectsRecallDisabled(t *testing.T) {
+	h := &AIHandler{deps: (&app.Dependencies{MetaRepo: metadata.NewRepository(nil)}).AIDeps()}
+	h.memoryOverridesCache.cached = memoryOverrides{RecallEnabled: new(false)}
+	h.memoryOverridesCache.expires = time.Now().Add(time.Minute)
+
+	out, hits := h.appendConfirmedFewShot(context.Background(), &semantic.SemanticModel{ID: "m-1"}, "monthly sales", nil)
+	assert.Empty(t, out)
+	assert.Zero(t, hits)
 }

@@ -54,9 +54,10 @@ type AIHandler struct {
 	metrics              AIMetricsRecorder
 	activeClarifications sync.Map
 
-	// ambiguityOverridesCache memoizes DB-managed ambiguity config overrides
-	// (see ai_admin_config.go) so per-request reads stay off the database.
-	ambiguityOverridesCache ambiguityOverridesCache
+	// Runtime config override caches (see ai_admin_config.go) memoize the
+	// DB-managed domains so per-request reads stay off the database.
+	ambiguityOverridesCache runtimeOverrides[ambiguityOverrides]
+	memoryOverridesCache    runtimeOverrides[memoryOverrides]
 }
 
 // SetAuthClient wires the auth service client for user model access checks.

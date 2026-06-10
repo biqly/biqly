@@ -21,7 +21,11 @@ func (h *AIHandler) appendConfirmedFewShot(
 	if model == nil || h.deps == nil || h.deps.MetaRepo == nil {
 		return out, 0
 	}
-	remaining := fewShotLimit - len(out)
+	memCfg := h.effectiveMemoryConfig(ctx)
+	if !memCfg.RecallEnabled {
+		return out, 0
+	}
+	remaining := min(fewShotLimit-len(out), memCfg.RecallLimit)
 	if remaining <= 0 {
 		return out, 0
 	}

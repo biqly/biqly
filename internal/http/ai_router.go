@@ -100,7 +100,9 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	r.Put("/ai/user-preferences", aiHandler.PutUserAIPreferences)
 	r.Delete("/ai/user-preferences/{purpose}", aiHandler.DeleteUserAIPreference)
 	r.Group(func(r chi.Router) {
-		r.Use(handlers.AdminKeyMiddleware(deps.Config.Security.AdminAPIKey))
+		// Admin endpoints accept super_admin JWTs, the shared admin key
+		// (machine-to-machine), or JWTs whose RBAC grants ai:settings.
+		r.Use(handlers.AdminAccessMiddleware(deps.Config.Security.AdminAPIKey, authClient, "ai:settings"))
 		if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {
 			r.Get("/ai/jobs/admin/stale", deps.AIJobsHTTP.AdminListStale)
 			r.Post("/ai/jobs/admin/cancel-all-stale", deps.AIJobsHTTP.AdminCancelAllStale)
