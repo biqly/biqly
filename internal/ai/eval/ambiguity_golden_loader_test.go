@@ -16,6 +16,7 @@ func TestLoadDefaultAmbiguityGoldenCases(t *testing.T) {
 	for _, c := range cases {
 		ids[c.ID] = struct{}{}
 		assert.NotEmpty(t, c.Question)
+		assert.Equal(t, AmbiguityDefaultLocale, c.Locale)
 		assert.NotNil(t, c.Model)
 	}
 	assert.Contains(t, ids, "glossary-active-customers")
@@ -25,4 +26,25 @@ func TestLoadDefaultAmbiguityGoldenCases(t *testing.T) {
 func TestLoadAmbiguityGoldenCases_RejectsUnknownModelRef(t *testing.T) {
 	_, err := LoadAmbiguityGoldenCases([]byte(`[{"id":"x","question":"q","model_ref":"missing","expected_type":"pass"}]`))
 	require.Error(t, err)
+}
+
+func TestFilterAmbiguityGoldenCasesByLocale(t *testing.T) {
+	cases := []AmbiguityGoldenCase{
+		{ID: "tr-clarification", Locale: "tr", ExpectedType: AmbiguityExpectedClarification},
+		{ID: "tr-pass", Locale: "tr", ExpectedType: AmbiguityExpectedPass},
+		{ID: "de-clarification", Locale: "de", ExpectedType: AmbiguityExpectedClarification},
+	}
+
+	trCases := FilterAmbiguityGoldenCasesByLocale(cases, "tr")
+	require.NoError(t, ValidateAmbiguityGoldenLocaleCoverage(trCases))
+	assert.Equal(t, 2, len(trCases))
+	assert.Equal(t, 1, len(FilterAmbiguityGoldenCasesByLocale(cases, "de")))
+	assert.Equal(t, 3, len(FilterAmbiguityGoldenCasesByLocale(cases, "")))
+}
+
+func TestValidateAmbiguityGoldenLocaleCoverage_RejectsIncompleteLocale(t *testing.T) {
+	cases := []AmbiguityGoldenCase{
+		{ID: "de-clarification", Locale: "de", ExpectedType: AmbiguityExpectedClarification},
+	}
+	require.Error(t, ValidateAmbiguityGoldenLocaleCoverage(cases))
 }

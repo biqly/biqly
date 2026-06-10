@@ -2,10 +2,12 @@ package eval
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	ambiguitypkg "github.com/biqly/biqly/internal/ai/ambiguity"
+	"github.com/biqly/biqly/internal/i18n"
 )
 
 // AmbiguityGoldenCaseResult is the outcome for one ambiguity golden case.
@@ -22,6 +24,58 @@ type AmbiguityGoldenSuiteResult struct {
 	Passed int
 }
 
+// AmbiguityGoldenCaseContext returns a context carrying the case locale.
+func AmbiguityGoldenCaseContext(ctx context.Context, c AmbiguityGoldenCase) context.Context {
+	if strings.TrimSpace(c.Locale) == "" {
+		return ctx
+	}
+	return i18n.WithLocale(ctx, i18n.ParseLocale(c.Locale))
+}
+
+// FilterAmbiguityGoldenCasesByLocale returns only cases for the requested locale.
+// An empty locale keeps the full suite for CI's default all-locale run.
+func FilterAmbiguityGoldenCasesByLocale(cases []AmbiguityGoldenCase, locale string) []AmbiguityGoldenCase {
+	locale = strings.TrimSpace(locale)
+	if locale == "" {
+		return cases
+	}
+
+	out := make([]AmbiguityGoldenCase, 0, len(cases))
+	for _, c := range cases {
+		if strings.EqualFold(c.Locale, locale) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// ValidateAmbiguityGoldenLocaleCoverage ensures each locale has at least one
+// smoke case for every expected_type. This catches half-added locales before CI.
+func ValidateAmbiguityGoldenLocaleCoverage(cases []AmbiguityGoldenCase) error {
+	byLocale := make(map[string]map[string]bool)
+	for _, c := range cases {
+		locale := normalizeAmbiguityGoldenLocale(c.Locale)
+		types, ok := byLocale[locale]
+		if !ok {
+			types = make(map[string]bool, 2)
+			byLocale[locale] = types
+		}
+		types[c.ExpectedType] = true
+	}
+	if len(byLocale) == 0 {
+		return errors.New("no ambiguity golden cases")
+	}
+
+	for locale, types := range byLocale {
+		for _, expectedType := range []string{AmbiguityExpectedClarification, AmbiguityExpectedPass} {
+			if !types[expectedType] {
+				return fmt.Errorf("locale %q missing smoke case for expected_type %q", locale, expectedType)
+			}
+		}
+	}
+	return nil
+}
+
 // RunAmbiguityGoldenAnalysis asserts rule-based ambiguity detection for cases
 // with expected_type clarification or pass.
 func RunAmbiguityGoldenAnalysis(ctx context.Context, cases []AmbiguityGoldenCase) AmbiguityGoldenSuiteResult {
@@ -31,7 +85,8 @@ func RunAmbiguityGoldenAnalysis(ctx context.Context, cases []AmbiguityGoldenCase
 			continue
 		}
 		cr := AmbiguityGoldenCaseResult{Case: c}
-		got := ambiguitypkg.Analyze(ctx, c.Question, c.Model, c.Glossary, 0)
+		caseCtx := AmbiguityGoldenCaseContext(ctx, c)
+		got := ambiguitypkg.Analyze(caseCtx, c.Question, c.Model, c.Glossary, 0)
 		switch c.ExpectedType {
 		case AmbiguityExpectedClarification:
 			if !got.IsAmbiguous {
@@ -63,7 +118,8 @@ func AmbiguityGoldenChoiceCases(ctx context.Context, cases []AmbiguityGoldenCase
 		if c.ClarificationChoice == "" || c.Expected == nil {
 			continue
 		}
-		resolved, err := ambiguitypkg.Resolve(ctx, c.Question, c.ClarificationChoice, c.Model, c.Glossary)
+		caseCtx := AmbiguityGoldenCaseContext(ctx, c)
+		resolved, err := ambiguitypkg.Resolve(caseCtx, c.Question, c.ClarificationChoice, c.Model, c.Glossary)
 		if err != nil {
 			return nil, fmt.Errorf("[%s] resolve choice: %w", c.ID, err)
 		}
@@ -97,7 +153,8 @@ func RunAmbiguityGoldenChoiceSuite(ctx context.Context, processor QuestionProces
 		source := byID[sourceID]
 		cr := AmbiguityGoldenCaseResult{Case: source}
 
-		analysis := ambiguitypkg.Analyze(ctx, source.Question, source.Model, source.Glossary, 0)
+		analysisCtx := AmbiguityGoldenCaseContext(ctx, source)
+		analysis := ambiguitypkg.Analyze(analysisCtx, source.Question, source.Model, source.Glossary, 0)
 		if !analysis.IsAmbiguous {
 			cr.Reason = "expected ambiguous question before choice resolution"
 			cr.Passed = false

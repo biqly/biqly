@@ -82,6 +82,9 @@ jobs:
           install-mode: goinstall
           args: --timeout=5m
 
+      - name: Locale literal regression guard (baseline mode)
+        run: make lint-locale-literals
+
   frontend:
     name: Frontend (Vite + TS)
     runs-on: [ubuntu-24.04-arm]

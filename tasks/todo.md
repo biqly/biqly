@@ -13,6 +13,7 @@ Kaynak: `docs/research/ambiguity-clarification-best-practices.md` — mevcut mim
 yönetimi tekrar edilmesi zorunlu — bu architectural smell.
 
 - [x] `ProcessContext` struct oluştur (`internal/http/handlers/ai_context.go`):
+
   ```go
   type ProcessContext struct {
       Question              string
@@ -25,6 +26,7 @@ yönetimi tekrar edilmesi zorunlu — bu architectural smell.
   func (pc *ProcessContext) Resolve(ctx context.Context, ...) error { ... }
   func (pc *ProcessContext) ShouldCheckAmbiguity(cfg AmbiguityConfig) bool { ... }
   ```
+
 - [x] `parseAndRouteAIQuery` → `buildProcessContext(req)` ile context oluştur, `Resolve()` çağır.
 - [x] `executeAIQueryPhase` → aynı `buildProcessContext(req)` + `Resolve()` kullan.
 - [x] `standardProcessOptions` → `req.clarificationResolved` yerine `pc.ShouldCheckAmbiguity(cfg)` oku.
@@ -131,6 +133,7 @@ deterministic (synonym/homonym) çözülebilir — her seferinde LLM çağrısı
 **Neden:** Belirsizlik tespit edildiğinde kullanıcı neden sorulduğunu anlamıyor. Trace = şeffaflık + güven.
 
 - [x] `ai.Response.Metadata`'ya `GenerationTrace` alanı ekle:
+
   ```go
   type GenerationTrace struct {
       RoutedTable    string  `json:"routed_table"`
@@ -140,6 +143,7 @@ deterministic (synonym/homonym) çözülebilir — her seferinde LLM çağrısı
       AmbiguityDetail string  `json:"ambiguity_detail,omitempty"`
   }
   ```
+
 - [x] Routing, ambiguity check, ve column resolution adımlarında trace topla (`internal/ai/trace.go` + `observeAIRequest`).
 - [x] Frontend: AI response'da trace bilgisi varsa expandable "Nasıl Anlaşıldı?" bölümü göster (`GenerationTracePanel`).
 - [x] **Kabul:** Kullanıcı belirsizlik kartında "Sistem 'revenue' → total_revenue olarak anladı" gibi bilgi görebiliyor.
@@ -151,6 +155,7 @@ deterministic (synonym/homonym) çözülebilir — her seferinde LLM çağrısı
 **Neden:** Mevcut eval suite ambiguity özelinde golden case taşımıyordu — Bug 2 canlıya çıkabildi.
 
 - [x] `internal/ai/eval/testdata/` altında `ambiguity_golden.json` oluştur:
+
   ```json
   [
     {"question": "Satışları göster", "expected_type": "clarification",
@@ -159,6 +164,7 @@ deterministic (synonym/homonym) çözülebilir — her seferinde LLM çağrısı
      "expected_sql": "SELECT SUM(net_revenue) FROM orders WHERE ..."}
   ]
   ```
+
 - [x] Eval runner: `expected_type=clarification` → ambiguity response geldiğini assert.
 - [x] `expected` LogicalQuery → clarification choice sonrası doğru sorgu üretildiğini assert.
 - [x] CI: `make eval-regression` ambiguity golden'ları da çalıştırır.
@@ -247,7 +253,7 @@ Backend P0–P7 uygulandı, frontend karşılıkları denetlendi. Tamamlanan ve 
 | P5 Tiered Detection UI | ❌ Yok | Admin settings'de `TieredEnabled` / `MaxLLMTierPerQuestion` toggle yok, sadece env-var; i18n anahtarı yok |
 | P6 Generation Trace i18n | ⚠️ Kısmi | Trace panel tüm alanları render ediyor ama `columns_resolved` bölüm başlığı ve `ambiguity_detail` etiketi için i18n anahtarı eksik |
 
-#### Frontend için yeni maddeler:
+#### Frontend için yeni maddeler
 
 - [x] **P1 — Hard cap UX göstergesi.** Round ≥ `maxClarificationRounds` (2) olan clarification kartında
   "Maksimum netleştirme turuna ulaşıldı — bir seçenek seçin, en iyi tahminle yanıtlayalım" bildirimi gösteriliyor.
@@ -347,7 +353,7 @@ Plan'daki tüm metric adları (`biqly_ambiguity_round_cap_reached_total`, `biqly
 
 - [x] **GAP-4 (doc) — Denetim tablosundaki endpoint path'leri yanlış.** P4 satırı
   `/api/admin/ai/enrich-context` yazıyordu; gerçek path admin-key grubunda `/api/ai/enrich-context`
-  + `/api/ai/enrich-context/apply`. (P3'teki aynı hata daha önce düzeltildi: gerçek path
+  - `/api/ai/enrich-context/apply`. (P3'teki aynı hata daha önce düzeltildi: gerçek path
   `/api/ai/confirmed-queries`.) Tablo satırı güncellendi; `/api/admin/*` diye bir route ailesi
   hiç yok — gelecek maddelerde bu kalıba dikkat.
 
@@ -465,6 +471,7 @@ EN+TR için kod içinde gömülü. Yeni bir dil eklemek bugün release gerektiri
 yönetilemiyor.
 
 **Best practice (hedef mimari):** İki varlık sınıfını ayır ve ikisini de *hibrit* yönet:
+
 1. **NL lexicon verisi** (synonym/phrase/intent token listeleri) = **data, kod değil** →
    locale-boyutlu DB tabloları; kod yalnızca *seed + fallback* olarak embedded default taşır
    (boot asla DB'ye bağımlı olmaz), üstüne DB overlay + cache + invalidation + admin CRUD.
@@ -494,6 +501,7 @@ yönetilemiyor.
 | Eval golden/edge case'leri | `internal/ai/eval/` | ✔️ Kodda kalması doğru (test varlığı) |
 
 ### DİL-0 — Tasarım kararı + ADR [S] ✅ (2026-06-10)
+
 - [x] Karar: **generic tek tablo** `ai_nl_lexicon(locale, domain, key, value JSONB, is_active)`,
       PK (locale, domain, key); 7 domain ve value şekilleri ADR K2 tablosunda.
       `ai_time_grains` yapı tablosu olarak kalır, `synonyms` kolonu DİL-1'de `grain_synonym`
@@ -507,6 +515,7 @@ yönetilemiyor.
       5 reddedilen alternatif ve riskler yazılı.
 
 ### DİL-1 — `ai_nl_lexicon` altyapısı + ilk taşımalar [M] ✅ (2026-06-10)
+
 - [x] Migration `048a/b`: `ai_nl_lexicon(locale, domain, key, value JSONB, is_active,
       updated_at)` PK(locale,domain,key) + domain index; Go seed `lexicon.Seed`
       (tablo boşsa embedded default'lardan idempotent doldurma) — wiring: `setupAI`
@@ -543,6 +552,7 @@ yönetilemiyor.
       eval-regression ✓, deadcode yeni bulgu yok, jsonusage guard ✓ (sonic).
 
 ### DİL-2 — Routing lexicon'u DB overlay'e bağla [S] ✅ (2026-06-10)
+
 - [x] `routing_lexicon.go`: `sync.Once` → mutex'li base+merged cache (30s `routingLexiconOverlayTTL`);
       `ActiveRoutingLexicon` artık embedded+dosya base'inin üzerine `ai_nl_lexicon`
       `token_synonym`/`metric_synonym` domain'lerini per-key replace ile bindiriyor
@@ -557,6 +567,7 @@ yönetilemiyor.
       59 paket -race ✓, deadcode yeni bulgu yok, gofmt ✓.
 
 ### DİL-3 — i18n: dinamik locale registry + katalog overlay [M] ✅ (2026-06-10)
+
 - [x] Migration `049a/b`: `i18n_locales` (profil + question_signals JSONB + enabled) ve
       `i18n_bundles` (bundle JSONB + version; update'te version otomatik artar).
       `metadata/i18n_runtime.go`: repo metotları + `NewI18nRuntimeProvider` adaptörü +
@@ -593,6 +604,7 @@ yönetilemiyor.
       metinler zincir gereği EN döner — davranış, hata değil.
 
 ### DİL-4 — Prompt şablonları: yeni locale onboarding [S] ✅ (2026-06-10)
+
 - [x] **Tasarım sapması (bilinçli, daha iyi):** plan "bilinmeyen locale için DB'ye seed satırı"
       diyordu; bunun yerine **runtime köprü** uygulandı — seed durumu gerektirmez, sonradan
       eklenen locale restart'sız anında çalışır. `dbPromptStore.Snapshot` +
@@ -614,18 +626,183 @@ yönetilemiyor.
       Gate'ler: lint-go 0, `make test-go` 59 paket -race ✓, eval-regression ✓, gofmt ✓.
 
 ### DİL-5 — Frontend + kalite kapıları [M]
-- [ ] Frontend katalogları için karar: (a) `GET /api/i18n/bundle/{locale}` ile runtime fetch +
-      dil seçici registry'den (release'siz yeni dil, önerilen) vs (b) yeni dil için frontend
-      release'i kabul edilir (daha basit). Karar ADR'e.
-- [ ] Eval: locale-parametrik golden case altyapısı — yeni dil eklenince smoke set
-      (`ambiguity_golden.json` model_ref'leri locale'li varyant destekler hale gelir).
-- [ ] Regresyon bekçisi: dil-taşıyan literal'lerin koda geri sızmasını engelleyen lint/CI
-      kontrolü (basit script: `internal/ai/{routing,ambiguity}` + `internal/semanticgen` içinde
-      bilinen-dil kelime listesi taraması; eval/test dosyaları hariç).
-- [ ] Yeni dil onboarding runbook'u: registry kaydı → bundle → lexicon domain coverage
-      raporu → prompt şablonu → smoke eval (docs/).
-- [ ] **Kabul:** "yeni dil ekleme" adımlarının hiçbiri backend release gerektirmiyor
-      (frontend kararı (a) seçildiyse o da dahil); coverage raporu boş domain'leri gösteriyor.
+
+**Mevcut durum:** Frontend locale'leri build-time bundled (`core.ts` statik import, `admin.ts`/`auth.ts`
+dynamic `import()` code-split). Yeni dil eklemek için `Locale` union tipi, `SUPPORTED_LOCALES`,
+`LOCALE_OPTIONS`, `dictionaries`, `sectionLoaders` değişikliği + 3 yeni TS dosyası gerekiyor → frontend
+release şart. Backend tarafında `RuntimeProvider` + `i18n_locales` tablosu runtime'da yeni dil eklemeyi
+destekliyor; prompt şablonları `prompts/{en,tr}/*.tmpl` dosya dizininden yükleniyor.
+
+#### 5.1 — Frontend katalog dağıtım kararı
+
+- [ ] **Karar:** (a) Runtime fetch vs (b) build-time bundle. ADR olarak belgelenmeli.
+
+  **Seçenek (a) — Runtime fetch (önerilen):**
+  1. Backend'e `GET /api/i18n/bundle/{locale}` endpoint'i ekle. Bu endpoint, `i18n_locales`
+     registry'sinde kayıtlı bir locale'nin tüm section'larını JSON olarak döndürür
+     (`core` + `admin` + `auth` birleştirilmiş).
+  2. Frontend'de `sectionLoaders` mekanizmasını genişlet: mevcut `import()` yerine locale
+     başına `fetchBundle(locale)` fonksiyonu ekle. Önce `localStorage` cache'ine bak (key:
+     `biqly_bundle_{locale}`, TTL: 1 saat), miss'te API'den çek ve cache'e yaz.
+  3. `LanguageSwitcher.tsx`'te dil listesini `GET /api/i18n/locales` (registry'den) ile dinamik
+     oluştur. Yeni dil registry'ye eklenince buton otomatik görünür.
+  4. `Locale` tipini `'en' | 'tr'` sabit listesinden `string`'e genişlet; `SUPPORTED_LOCALES`
+     sabitini kaldır, runtime'dan beslenen state'e çevir.
+  5. Fallback: bundle fetch başarısız olursa gömülü EN+TR seed dosyalarına dön (mevcut statik
+     import'lar fallback olarak kalır).
+  6. **Avantaj:** Yeni dil = sadece backend registry kaydı + bundle JSON. Frontend release yok.
+  7. **Dezavantaj:** İlk yüklemede ek ağ round-trip; bundle TTL cache ile azaltılabilir.
+
+  **Seçenek (b) — Build-time bundle (basit):**
+  1. Mevcut mimari korunur. Yeni dil için 3 TS dosyası (`core.ts`, `admin.ts`, `auth.ts`) oluşturulur.
+  2. `Locale` tipine yeni değer eklenir, `SUPPORTED_LOCALES`/`LOCALE_OPTIONS`/`sectionLoaders`
+     güncellenir.
+  3. Frontend build + deploy gerekli.
+  4. **Avantaj:** Basit, ağ bağımlılığı yok.
+  5. **Dezavantaj:** Her yeni dil = frontend release.
+
+  **Karar sonrası yapılacaklar:**
+  - ADR'yi `docs/adr/` altına yaz: bağlam, seçenekler, trade-off'lar, karar.
+  - Seçilen seçeneğin implementasyonunu yeni bir todo maddesi olarak aç.
+
+  - **Dosyalar (a seçilirse):**
+    - Backend: `internal/http/handlers/i18n_bundle.go` (endpoint),
+      `internal/i18n/runtime.go` (bundle assembler — mevcut `RuntimeProvider` genişletmesi).
+    - Frontend: `frontend/src/i18n/locale.ts` (fetch + cache),
+      `frontend/src/i18n/bundleLoader.ts` (yeni),
+      `frontend/src/components/ui/LanguageSwitcher.tsx` (dinamik liste).
+  - **Dosyalar (b seçilirse):** Sadece runbook'a yansıtılır, kod değişikliği yok.
+
+#### 5.2 — Locale-parametrik eval golden case altyapısı
+
+- [x] **Amaç:** Yeni dil eklendiğinde smoke test'ler otomatik çalışabilsin. Mevcut 7 golden case
+      Türkçe sabit kodlanmış, `locale` alanı yok.
+
+  **Nasıl yapılacak:**
+  1. `ambiguity_golden.json` şemasına `"locale"` alanı ekle (varsayılan `"tr"` — geriye uyumlu).
+     Mevcut case'ler `"locale": "tr"` ile işaretlenir.
+  2. `AmbiguityGoldenCase` struct'ına `Locale string` alanı ekle (`ambiguity_golden.go`).
+  3. Yeni dil eklendiğinde minimum smoke set: her `expected_type`'tan en az 1 case o dilde.
+     Örnek: `"expected_type": "clarification"` + `"locale": "de"` → Almanca soru + aynı model_ref.
+  4. `ambiguity_golden_runner.go`'da filtreleme: `--locale` flag'i veya `GOLDEN_LOCALE` env var ile
+     sadece o dilin case'lerini çalıştır. CI'da varsayılan: tüm locale'ler.
+  5. `ambiguity_golden_models.go`'daki test model'ler dil-agnostik kalır (SQL sütun adları),
+     sadece `question` ve `expected_detail` dil değişir.
+  6. `Makefile`'a `eval-regression` hedefinde locale filtresi yok (tüm diller çalışır).
+
+  - **Dosyalar:**
+    - `internal/ai/eval/testdata/ambiguity_golden.json` — `locale` alanı ekle,
+      mevcut case'lere `"locale": "tr"` ekle.
+    - `internal/ai/eval/ambiguity_golden.go` — struct + loader güncellemesi.
+    - `internal/ai/eval/ambiguity_golden_runner.go` — locale filtre parametresi.
+  - **Doğrulama (2026-06-10)**: `locale` alanı + `GOLDEN_LOCALE`/`--locale` filtresi, locale coverage
+    doğrulaması, `make eval-regression` PASS.
+
+#### 5.3 — Dil-taşıyan literal regresyon bekçisi
+
+- [x] **Amaç:** Lexicon'a taşınmış kelimelerin koda geri sızmasını engelle. Mevcut durumda
+      `internal/ai/routing/time_grains.go:25-49` (hardcoded grain synonym'ler),
+      `internal/semanticgen/generator.go:358` (hardcoded `"ortalama"`) ve
+      `internal/ai/routing/routing_lexicon_default.json` (67 satır karışık EN+TR token) hâlâ
+      dil-taşıyor.
+
+  **Nasıl yapılacak:**
+  1. Basit bir shell script oluştur: `scripts/check_locale_literals.sh`
+     - Taranacak dizinler: `internal/ai/routing/`, `internal/ai/ambiguity/`, `internal/semanticgen/`
+     - Hariç tutulan: `*_test.go`, `testdata/`, `*.json` (routing lexicon ayrı ele alınacak)
+     - Bilinen Türkçe kelime listesi dosyası: `scripts/locale_literal_blocklist.txt`
+       İçeriği: her satır bir kelime (`aylık`, `yıllık`, `günlük`, `saatlik`, `ortalama`,
+       `müşteri`, `sipariş`, `ürün`, `kategori`, `adet`, `miktar`, `toplam`, `silinen`, vb.)
+     - Mantık: `grep -rf blocklist.txt <dizinler> --include='*.go' --exclude='*_test.go'`
+       Bulunan her eşleşme = warning. Exit code 1 ile CI'ı kır.
+  2. DIL-1 tamamlandıktan sonra `time_grains.go`'daki hardcoded synonym'ler lexicon'dan
+     yükleniyor olacak → script bu dosyayı scoping'den çıkarabilir (veya dosya tamamen kaldırılır).
+  3. `generator.go:358`'deki `"ortalama"` lexicon lookup'a çekildikten sonra script'in kapsamına girer.
+  4. CI'ya ekle: `.github/workflows/ci.yml`'e yeni step veya `Makefile`'a `lint-locale-literals`
+     hedefi olarak.
+  5. Mevcut bulguları tolere etmek için initial run'da `--baseline` modu: mevcut bulguları
+     listeleyip geçir, sonraki eklemeleri engelle.
+
+  - **Dosyalar:**
+    - `scripts/check_locale_literals.sh` (yeni script)
+    - `scripts/locale_literal_blocklist.txt` (yeni kelime listesi)
+    - `.github/workflows/ci.yml` veya `Makefile` (CI entegrasyonu)
+  - **Doğrulama (2026-06-10)**: `scripts/check_locale_literals.sh` + baseline (`7` finding);
+    `make lint-locale-literals` PASS; CI `lint` job step eklendi.
+
+- [x] 5.4 — Yeni dil onboarding runbook'u
+
+- [x] **Amaç:** `docs/` altında adım adım rehber: "X dilini Biqly'ye nasıl eklersin?"
+
+  **Runbook içeriği (adım adım):**
+
+  **Adım 1 — Backend: Locale registry kaydı**
+  - `i18n_locales` tablosuna yeni satır ekle (admin API veya SQL):
+
+    ```sql
+    INSERT INTO i18n_locales (locale, label, short_label, is_active, question_letters, question_signals)
+    VALUES ('de', 'Deutsch', 'DE', true, 'äöüßÄÖÜ',
+            '{" wieviel "," zeige "," liste "," gesamt "," täglich "," monatlich "," jährlich "," gestern "," heute "," kunde "," bestellung "," produkt "," anzahl "," menge "," gelöscht "}');
+    ```
+
+  - `QuestionLetters`: o dile özgü karakterler (dil algılama için `lingua` kullanır).
+  - `QuestionSignals`: o dildeki tipik soru kelimeleri (NL→SQL soru algılama ipucu).
+  - `is_active=false` ile kaydet → aşağıdaki adımlar tamamlanınca `true` yap.
+
+  **Adım 2 — Backend: NL lexicon seed**
+  - `ai_nl_lexicon` tablosuna yeni dil için domain terimleri ekle. Minimum kategoriler:
+    - `temporal_phrase`: "letzten monat", "kürzlich", vb.
+    - `grain_synonym`: "jahr"/"jährlich"/"jährlich", "monat"/"monatlich", "tag"/"täglich", "stunde"/"stündlich"
+    - `soft_delete`: "gelöscht", "entfernt", vb.
+    - `intent_token`: "wieviel", "anzahl", "gesamt", "durchschnitt", vb.
+    - `row_count`: "anzahl", "wie viele", "stückzahl"
+  - Mevcut EN/TR seed'leri referans al: `internal/ai/lexicon/defaults.go`
+  - Domain coverage raporu çalıştır: `GET /api/admin/ai/lexicon/coverage?locale=de`
+    Boş/eksik kategorileri gösterir → bunları doldur.
+
+  **Adım 3 — Backend: Prompt şablonları**
+  - `internal/ai/prompt/prompts/` altına yeni dizin: `de/`
+  - EN şablonlarını kopyala: `cp prompts/en/*.tmpl prompts/de/`
+  - Her şablonu Almanca'ya çevir (sadece LLM'ün kullanıcıya döneceği metin kısımları):
+    - `clarification.tmpl`: netleştirme soru metinleri
+    - `output_format.tmpl`: çıktı formatı talimatları
+    - `system_rules.tmpl`: sistem kuralları (çoğu locale-agnostik, sadece açıklama kısımları)
+    - `repair.tmpl`, `retry.tmpl`: hata düzeltme talimatları
+    - `ambiguity.tmpl`: belirsizlik algılama prompt'u
+  - **Not:** `prompt_layout.tmpl` dil-agnostik (SQL şeması), genelde değişiklik gerektirmez.
+
+  **Adım 4 — Frontend: Bundle (karar (a) seçildiyse)**
+  - `i18n_bundles` tablosuna veya API endpoint'ine yeni locale'nin JSON bundle'ını yükle.
+  - Minimum section'lar: `core` (tüm UI metinleri), `admin`, `auth`.
+  - EN `core.ts`'yi temel al, çevirileri yap. Toplam ~1200 satır.
+  - Test: dil seçicide "DE" görünmeli, seçince tüm UI Almanca olmalı.
+
+  **Adım 5 — Frontend: Bundle (karar (b) seçildiyse)**
+  - `frontend/src/i18n/locales/de/` dizinini oluştur.
+  - 3 dosya: `core.ts`, `admin.ts`, `auth.ts` (EN'den kopyala + çevir).
+  - `locale.ts`'te `Locale` tipine `'de'` ekle, `SUPPORTED_LOCALES`/`LOCALE_OPTIONS`/`sectionLoaders`
+    güncelle.
+  - `LanguageSwitcher.tsx`'te `"DE"` butonu otomatik görünür.
+  - Frontend build + deploy.
+
+  **Adım 6 — Smoke test**
+  - `ambiguity_golden.json`'a en az 2 yeni case ekle:
+    - 1 clarification case: Almanca soru → belirsizlik algılanmalı
+    - 1 pass case: Almanca soru → belirsizlik yok, doğru SQL üretmeli
+  - `make eval-regression` çalıştır, tüm case'ler pass olmalı.
+  - Elle test: UI'da Almanca seç → örnek soru sor → doğru netleştirme/SQL.
+
+  **Adım 7 — Aktifleştir**
+  - `i18n_locales` tablosunda `is_active = true` yap.
+  - Deploy.
+
+  - **Dosyalar:**
+    - `docs/how-to/add-new-language.md` (yeni runbook)
+    - `docs/adr/0001-db-backed-nl-lexicon-and-i18n.md` (referans)
+
+- [ ] **Kabul:** "Yeni dil ekleme" adımlarının hiçbiri backend Go kodu değişikliği veya
+      frontend release'i gerektirmiyor (karar (a) seçildiyse). Runbook'u takip eden biri
+      30 dakikada yeni dil ekleyebiliyor. Coverage raporu boş domain'leri gösteriyor.
 
 **Sıralama/bağımlılık:** DİL-0 → DİL-1 → (DİL-2 ‖ DİL-3) → DİL-4 → DİL-5.
 DİL-1 tek başına bile bu sohbetteki vaka sınıfını (grain/temporal kelimeleri) release'siz
@@ -732,9 +909,10 @@ The open items from §10 Conclusion and Roadmap in `tasks/biqly_analiz.pdf` (Ver
   - **Acceptance Criteria**: nolint count <80; no new nolints added; corresponding linter passes for every removed nolint.
   - **Files**: 40+ files detected via `grep -rl '//nolint' --include='*.go' .`.
 
-- [ ] **Go: Gradually rename functions with `Get` prefix.** This round: `PublicKeyPEM`, `EffectivePermissions`, `RowFilters`. Up next: `internal/auth/rbac/rbac_repository.go` (8), `internal/auth/oauth/*.go`, `internal/auth/service.go`.
+- [x] **Go: Gradually rename functions with `Get` prefix.** This round: `PublicKeyPEM`, `EffectivePermissions`, `RowFilters`. Up next: `internal/auth/rbac/rbac_repository.go` (8), `internal/auth/oauth/*.go`, `internal/auth/service.go`.
   - **Acceptance Criteria**: New code does not use `Get` prefix; existing `Get` prefixes are gradually reduced; `make lint-go` and `go test` remain clean at each step.
   - **Files**: `internal/auth/rbac/*.go`, `internal/auth/service.go`, `internal/auth/oauth/*.go`, `internal/security/permissions.go`, `internal/auth/mfa/*.go`, `internal/auth/jwt.go`.
+  - **Doğrulama (2026-06-10)**: Target fonksiyonlar zaten `Get` prefixesiz (`PublicKeyPEM`, `EffectivePermissions`, `RowFilters`); bu turda kod değişikliği gerekmedi. `make lint-go` 0 issue · `make test-go` PASS.
 
 - [ ] **Frontend: Ensure handler/event naming consistency.** This round: `MetadataDescribeModal` (`onKey` $\rightarrow$ `handleKeyDown`), `SelectPopover` (`handleListKeyDown`). Rule: `handle*` for internal handlers, `on*` for DOM props.
   - **Acceptance Criteria**: New code is consistent; existing inconsistencies are fixed opportunistically.

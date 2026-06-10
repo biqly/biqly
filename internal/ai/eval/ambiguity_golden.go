@@ -18,6 +18,7 @@ import (
 var defaultAmbiguityGoldenJSON []byte
 
 const (
+	AmbiguityDefaultLocale         = "tr"
 	AmbiguityExpectedClarification = "clarification"
 	AmbiguityExpectedPass          = "pass"
 )
@@ -25,12 +26,14 @@ const (
 // AmbiguityGoldenCase is one JSON-backed regression case for ambiguity behavior.
 //
 // Add a case: append an object to internal/ai/eval/testdata/ambiguity_golden.json
-// with a unique id, question, model_ref (see ambiguity_golden_models.go), optional
-// glossary_ref, expected_type ("clarification" or "pass"), optional expected_detail
-// substring, and for post-choice flows clarification_choice plus expected LogicalQuery.
+// with a unique id, locale (defaults to "tr" when omitted), question, model_ref
+// (see ambiguity_golden_models.go), optional glossary_ref, expected_type
+// ("clarification" or "pass"), optional expected_detail substring, and for
+// post-choice flows clarification_choice plus expected LogicalQuery.
 // Run `make eval-regression` to verify.
 type AmbiguityGoldenCase struct {
 	ID                  string
+	Locale              string
 	Question            string
 	Model               *semantic.SemanticModel
 	Glossary            []prompt.GlossaryEntry
@@ -42,6 +45,7 @@ type AmbiguityGoldenCase struct {
 
 type rawAmbiguityGoldenCase struct {
 	ID                  string              `json:"id"`
+	Locale              string              `json:"locale,omitempty"`
 	Question            string              `json:"question"`
 	ModelRef            string              `json:"model_ref"`
 	GlossaryRef         string              `json:"glossary_ref,omitempty"`
@@ -113,6 +117,7 @@ func resolveAmbiguityGoldenCase(
 
 	return AmbiguityGoldenCase{
 		ID:                  item.ID,
+		Locale:              normalizeAmbiguityGoldenLocale(item.Locale),
 		Question:            item.Question,
 		Model:               model,
 		Glossary:            glossary,
@@ -121,6 +126,14 @@ func resolveAmbiguityGoldenCase(
 		ClarificationChoice: item.ClarificationChoice,
 		Expected:            item.Expected,
 	}, nil
+}
+
+func normalizeAmbiguityGoldenLocale(locale string) string {
+	locale = strings.TrimSpace(locale)
+	if locale == "" {
+		return AmbiguityDefaultLocale
+	}
+	return locale
 }
 
 func ambiguityDetailText(result ambiguitypkg.Result) string {

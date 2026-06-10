@@ -1,6 +1,7 @@
 [
   {
     "id": "glossary-active-customers",
+    "locale": "tr",
     "question": "aktif müşteriler",
     "model_ref": "clarification_basic",
     "glossary_ref": "active_customers",
@@ -9,6 +10,7 @@
   },
   {
     "id": "scope-large-orders",
+    "locale": "tr",
     "question": "büyük siparişler",
     "model_ref": "clarification_basic",
     "glossary_ref": "active_customers",
@@ -17,6 +19,7 @@
   },
   {
     "id": "specific-last-30-days",
+    "locale": "tr",
     "question": "son 30 günde sipariş veren müşteriler",
     "model_ref": "clarification_basic",
     "glossary_ref": "active_customers",
@@ -24,6 +27,7 @@
   },
   {
     "id": "temporal-gecen-ay-tweets",
+    "locale": "tr",
     "question": "geçen ay kaç adet tweet atılmıştır",
     "model_ref": "clarification_basic",
     "expected_type": "clarification",
@@ -31,6 +35,7 @@
   },
   {
     "id": "synonym-ciro-revenue",
+    "locale": "tr",
     "question": "Ciro göster",
     "model_ref": "revenue_synonyms",
     "expected_type": "clarification",
@@ -38,6 +43,7 @@
   },
   {
     "id": "choice-net-revenue",
+    "locale": "tr",
     "question": "Ciro göster",
     "model_ref": "gross_net_revenue",
     "expected_type": "clarification",

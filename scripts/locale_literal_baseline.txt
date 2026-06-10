@@ -1,0 +1,7 @@
+internal/ai/routing/model_builder.go:178:// softDeleteColumnSynonyms adds NL phrases so questions like "silinen tweet"
+internal/ai/routing/model_builder.go:210:// refers to the entity generically ("customer" / "müşteri") routes to the
+internal/ai/routing/time_grains.go:25:		Synonyms:     []string{"year", "years", "yearly", "annual", "yıl", "yil", "yıllık", "yillik", "per year", "by year"},
+internal/ai/routing/time_grains.go:37:		Synonyms:     []string{"month", "months", "monthly", "ay", "aylık", "aylik", "per month", "by month"},
+internal/ai/routing/time_grains.go:43:		Synonyms:     []string{"day", "days", "daily", "gün", "gun", "günlük", "gunluk", "per day", "by day", "günü", "gunu"},
+internal/ai/routing/time_grains.go:49:		Synonyms:     []string{"hour", "hours", "hourly", "saat", "saatlik", "saatte", "saatli", "per hour", "by hour"},
+internal/semanticgen/generator.go:358:			Synonyms:    append(synonyms(col.ColumnName), "average "+strings.ToLower(label), "ortalama "+strings.ToLower(label)),

@@ -2,12 +2,16 @@ package ai
 
 import (
 	"context"
+	"flag"
+	"os"
+	"strings"
 	"testing"
 
 	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/query"
+	"github.com/stretchr/testify/require"
 )
 
 // Accuracy thresholds that gate the build. Adjust deliberately — lowering
@@ -17,6 +21,25 @@ const (
 	goldenExecutionThreshold = 1.00
 	benchmarkPassThreshold   = 1.00
 )
+
+var ambiguityGoldenLocale = flag.String("locale", os.Getenv("GOLDEN_LOCALE"), "filter ambiguity golden cases by locale")
+
+func selectedAmbiguityGoldenCases(t *testing.T, cases []evalpkg.AmbiguityGoldenCase) []evalpkg.AmbiguityGoldenCase {
+	t.Helper()
+	locale := strings.TrimSpace(*ambiguityGoldenLocale)
+	if locale == "" {
+		require.NoError(t, evalpkg.ValidateAmbiguityGoldenLocaleCoverage(cases))
+		return cases
+	}
+	filtered := evalpkg.FilterAmbiguityGoldenCasesByLocale(cases, locale)
+	if len(filtered) == 0 {
+		t.Fatalf("no ambiguity golden cases for locale %q", locale)
+	}
+	if err := evalpkg.ValidateAmbiguityGoldenLocaleCoverage(filtered); err != nil {
+		t.Fatal(err)
+	}
+	return filtered
+}
 
 func TestResultSetEqualBaseline(t *testing.T) {
 	a := &query.Result{
@@ -134,6 +157,7 @@ func TestAmbiguityGoldenRegressionGate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load ambiguity golden cases: %v", err)
 	}
+	cases = selectedAmbiguityGoldenCases(t, cases)
 
 	ctx := context.Background()
 	analysis := evalpkg.RunAmbiguityGoldenAnalysis(ctx, cases)
