@@ -84,7 +84,9 @@ function formatDuration(ms: number, t: Translate): string {
 }
 
 function jobTotalMs(job: TrackedAIJob, now: number): number | null {
-  const start = Date.parse(job.started_at ?? job.created_at)
+  // From created_at, not started_at, so queue wait is included and the total
+  // matches the per-step breakdown (which starts at "queued").
+  const start = Date.parse(job.created_at)
   if (Number.isNaN(start)) {
     return null
   }

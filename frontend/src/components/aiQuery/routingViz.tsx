@@ -554,7 +554,7 @@ export function CostBadge({
     return null
   }
   const parts: string[] = []
-  if (latencyMs !== undefined && latencyMs > 0) {
+  if (latencyMs !== undefined && latencyMs >= 50) {
     parts.push(t('ai_query.cost_sec', { s: (latencyMs / 1000).toFixed(1) }))
   }
   if (tokenUsage) {

@@ -21,6 +21,41 @@ import type { AssistantMessageCardProps } from './types'
 
 type AssistantT = AssistantMessageCardProps['t']
 
+function confidenceLevel(value: number): 'high' | 'mid' | 'low' {
+  if (value >= 0.7) {
+    return 'high'
+  }
+  return value >= 0.4 ? 'mid' : 'low'
+}
+
+// Compact one-line summary shown on every response; the rest lives behind
+// the details toggle.
+export function AssistantMessageSummary({ result, t }: { result: AIQueryResponse; t: AssistantT }) {
+  return (
+    <div className="assistant-summary">
+      {result.confidence !== undefined && (
+        <span
+          className={`assistant-summary__confidence assistant-summary__confidence--${confidenceLevel(result.confidence)}`}
+        >
+          {t('ai_query.summary_confidence', {
+            pct: Math.round(result.confidence * 100),
+          })}
+        </span>
+      )}
+      <CostBadge
+        latencyMs={result.latency_ms}
+        tokenUsage={result.token_usage}
+        costUsd={result.cost_usd}
+      />
+      {result.retry_count !== undefined && result.retry_count > 0 && (
+        <span className="retry-badge retry-badge--inline">
+          {t('ai_query.retry_badge', { n: result.retry_count })}
+        </span>
+      )}
+    </div>
+  )
+}
+
 export function AssistantMessageHeader({
   result,
   aiRuntime,
@@ -35,16 +70,8 @@ export function AssistantMessageHeader({
       {result.confidence !== undefined && (
         <ConfidenceBar value={result.confidence} breakdown={result.confidence_breakdown} />
       )}
-      <CostBadge
-        latencyMs={result.latency_ms}
-        tokenUsage={result.token_usage}
-        costUsd={result.cost_usd}
-      />
       <PromptStatsPanel stats={result.prompt_stats} tokenUsage={result.token_usage} />
       <ModelUsedBadge result={result} aiRuntime={aiRuntime} t={t} />
-      {result.retry_count !== undefined && result.retry_count > 0 && (
-        <div className="retry-badge">{t('ai_query.retry_badge', { n: result.retry_count })}</div>
-      )}
     </>
   )
 }
@@ -101,7 +128,6 @@ export function AssistantMessageClarificationSections({
   onSelectClarification,
   onSkipClarification,
   onUseCandidate,
-  onSampleData,
   t,
 }: {
   result: AIQueryResponse
@@ -109,7 +135,6 @@ export function AssistantMessageClarificationSections({
   onSelectClarification: AssistantMessageCardProps['onSelectClarification']
   onSkipClarification: AssistantMessageCardProps['onSkipClarification']
   onUseCandidate: (index: number) => void
-  onSampleData: (tableName: string) => void
   t: AssistantT
 }) {
   const clarificationOptions =
@@ -142,10 +167,6 @@ export function AssistantMessageClarificationSections({
       {result.candidates && result.candidates.length > 1 && !result.needs_clarification && (
         <CandidateComparisonPanel candidates={result.candidates} onUse={onUseCandidate} />
       )}
-      {result.generation_trace && !showClarification ? (
-        <GenerationTracePanel trace={result.generation_trace} />
-      ) : null}
-      <AssistantTableRoutingSection result={result} onSampleData={onSampleData} t={t} />
     </>
   )
 }
@@ -278,15 +299,21 @@ function WarningsPanel({ result, t }: { result: AIQueryResponse; t: AssistantT }
 
 export function AssistantMessageQueryDetails({
   result,
+  onSampleData,
   t,
   localeTag,
 }: {
   result: AIQueryResponse
+  onSampleData: (tableName: string) => void
   t: AssistantT
   localeTag: string
 }) {
   return (
     <>
+      {result.generation_trace && !result.needs_clarification ? (
+        <GenerationTracePanel trace={result.generation_trace} />
+      ) : null}
+      <AssistantTableRoutingSection result={result} onSampleData={onSampleData} t={t} />
       <ValidationPlanSection result={result} t={t} />
       <WindowFieldBadges result={result} t={t} />
       {result.logical_query && (

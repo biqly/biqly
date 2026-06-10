@@ -23,6 +23,7 @@ function pickClarification(
   | 'clarification_question'
   | 'clarification_options'
   | 'clarification_round'
+  | 'resolved_question'
   | 'clarification'
 > {
   const clar = nested ?? raw
@@ -46,6 +47,12 @@ function pickClarification(
         ? (raw.clarification_options as string[])
         : undefined,
     clarification_round: clarificationRound,
+    resolved_question:
+      typeof clar.resolved_question === 'string'
+        ? clar.resolved_question
+        : typeof raw.resolved_question === 'string'
+          ? raw.resolved_question
+          : undefined,
     clarification:
       clar.clarification != null
         ? (clar.clarification as AIQueryResponse['clarification'])

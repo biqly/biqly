@@ -11,11 +11,58 @@ import {
   AssistantMessageQueryDetails,
   AssistantMessageResults,
   AssistantMessageRunQuery,
+  AssistantMessageSummary,
 } from './assistantMessageCardSections'
 import { FeedbackSection } from './FeedbackSection'
 import { SampleDataModal } from './SampleDataModal'
 import type { AssistantMessageCardProps, FeedbackCatKey } from './types'
 import { AI_QUERY_TIMEOUT_MS } from './types'
+
+function AssistantCardTop({
+  result,
+  showDetails,
+  onToggle,
+  t,
+}: {
+  result: NonNullable<ReturnType<typeof normalizeAIQueryResponse>>
+  showDetails: boolean
+  onToggle: () => void
+  t: AssistantMessageCardProps['t']
+}) {
+  const warningCount = result.warnings?.length ?? 0
+  return (
+    <div className="assistant-card__top">
+      <AssistantMessageSummary result={result} t={t} />
+      <button
+        type="button"
+        className="assistant-card__details-toggle"
+        aria-expanded={showDetails}
+        onClick={onToggle}
+      >
+        <span aria-hidden="true">☰</span>
+        {showDetails ? t('ai_query.details_hide') : t('ai_query.details_show')}
+        {!showDetails && warningCount > 0 ? ` (${warningCount})` : ''}
+      </button>
+    </div>
+  )
+}
+
+function AssistantRunPrompt({
+  result,
+  loading,
+  onRunQuery,
+  t,
+}: {
+  result: NonNullable<ReturnType<typeof normalizeAIQueryResponse>>
+  loading: boolean
+  onRunQuery: () => void
+  t: AssistantMessageCardProps['t']
+}) {
+  if (result.result || !result.sql) {
+    return null
+  }
+  return <AssistantMessageRunQuery loading={loading} onRunQuery={onRunQuery} t={t} />
+}
 
 function mapChartSuggestion(raw: string | undefined): 'bar' | 'line' | 'pie' | 'table' | null {
   if (!raw) {
@@ -54,6 +101,11 @@ export function AssistantMessageCard({
   const [error, setError] = useState<string | null>(null)
   const [sampleModalOpen, setSampleModalOpen] = useState(false)
   const [sampleModalTable, setSampleModalTable] = useState('')
+  // Details start open only when there is no answer to show (hard failure),
+  // so the diagnostics are immediately visible.
+  const [showDetails, setShowDetails] = useState(
+    () => !result?.result && !result?.sql && !result?.needs_clarification,
+  )
 
   const pivotTable = useMemo(() => {
     const hint = result?.result?.pivot_hint
@@ -152,30 +204,41 @@ export function AssistantMessageCard({
 
   return (
     <div className="assistant-card">
-      <AssistantMessageHeader result={result} aiRuntime={aiRuntime} t={t} />
+      <AssistantCardTop
+        result={result}
+        showDetails={showDetails}
+        onToggle={() => setShowDetails((v) => !v)}
+        t={t}
+      />
+      {showDetails && <AssistantMessageHeader result={result} aiRuntime={aiRuntime} t={t} />}
       <AssistantMessageClarificationSections
         result={result}
-        userQuestion={userQuestion}
+        userQuestion={result.resolved_question ?? userQuestion}
         onSelectClarification={onSelectClarification}
         onSkipClarification={onSkipClarification}
         onUseCandidate={handleUseCandidate}
-        onSampleData={(tableName) => {
-          setSampleModalTable(tableName)
-          setSampleModalOpen(true)
+        t={t}
+      />
+      {showDetails && (
+        <AssistantMessageQueryDetails
+          result={result}
+          onSampleData={(tableName) => {
+            setSampleModalTable(tableName)
+            setSampleModalOpen(true)
+          }}
+          t={t}
+          localeTag={localeTag}
+        />
+      )}
+      <AssistantRunPrompt
+        result={result}
+        loading={loading}
+        onRunQuery={() => {
+          void runQuery()
         }}
         t={t}
       />
-      <AssistantMessageQueryDetails result={result} t={t} localeTag={localeTag} />
-      {!result.result && result.sql && (
-        <AssistantMessageRunQuery
-          loading={loading}
-          onRunQuery={() => {
-            void runQuery()
-          }}
-          t={t}
-        />
-      )}
-      {error && <ErrorAlert error={error} />}
+      <ErrorAlert error={error} />
       {resultWithPayload && (
         <AssistantMessageResults
           result={resultWithPayload}

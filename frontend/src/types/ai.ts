@@ -230,6 +230,8 @@ export interface AIQueryResponse {
   clarification_question?: string
   clarification_options?: string[]
   clarification_round?: number
+  /** Question text after earlier clarification rounds; echo back with the next choice. */
+  resolved_question?: string
   clarification?: Clarification
   // Multi-candidate
   candidates?: LogicalQueryCandidate[]

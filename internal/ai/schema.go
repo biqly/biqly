@@ -69,6 +69,10 @@ type ClarificationResponse struct {
 	ClarificationOptions  []string       `json:"clarification_options,omitempty"`
 	ClarificationRound    int            `json:"clarification_round,omitempty"`
 	Clarification         *Clarification `json:"clarification,omitempty"`
+	// ResolvedQuestion is the question text after applying earlier
+	// clarification choices. Follow-up rounds MUST send this (not the
+	// original question) so option keys resolve against the same analysis.
+	ResolvedQuestion string `json:"resolved_question,omitempty"`
 }
 
 // Response is the output from the AI query endpoint.

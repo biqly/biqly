@@ -147,6 +147,9 @@ func attachAmbiguityClarificationRound(pc *ProcessContext, resp *ai.Response) {
 		return
 	}
 	resp.Clarification.ClarificationRound = pc.nextAmbiguityClarificationRound()
+	// Option keys are positional against the analysis of pc.Question (which
+	// already includes earlier round rewrites); the client must echo it back.
+	resp.Clarification.ResolvedQuestion = pc.Question
 }
 
 func (h *AIHandler) resolveProcessContext(ctx context.Context, pc *ProcessContext, model *semantic.SemanticModel) error {
