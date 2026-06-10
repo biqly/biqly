@@ -4,31 +4,31 @@ helm:
     value: ghcr.io/biqly/ai
     forcestring: true
   - name: ai.image.tag
-    value: sha-38be0c37a5a39d81299876b29bd23d398ea742e5
+    value: sha-cff23e8a6ff33e3e7cd68a4baf8044e836941a94
     forcestring: true
   - name: auth.image.repository
     value: ghcr.io/biqly/auth
     forcestring: true
   - name: auth.image.tag
-    value: sha-38be0c37a5a39d81299876b29bd23d398ea742e5
+    value: sha-cff23e8a6ff33e3e7cd68a4baf8044e836941a94
     forcestring: true
   - name: auth.migrate.image.repository
     value: ghcr.io/biqly/auth
     forcestring: true
   - name: auth.migrate.image.tag
-    value: sha-38be0c37a5a39d81299876b29bd23d398ea742e5
+    value: sha-cff23e8a6ff33e3e7cd68a4baf8044e836941a94
     forcestring: true
   - name: catalog.image.repository
     value: ghcr.io/biqly/catalog
     forcestring: true
   - name: catalog.image.tag
-    value: sha-38be0c37a5a39d81299876b29bd23d398ea742e5
+    value: sha-cff23e8a6ff33e3e7cd68a4baf8044e836941a94
     forcestring: true
   - name: frontend.image.repository
     value: ghcr.io/biqly/frontend
     forcestring: true
   - name: frontend.image.tag
-    value: sha-38be0c37a5a39d81299876b29bd23d398ea742e5
+    value: sha-cff23e8a6ff33e3e7cd68a4baf8044e836941a94
     forcestring: true
   - name: global.migrate.image.repository
     value: ghcr.io/biqly/migrate
@@ -40,17 +40,17 @@ helm:
     value: ghcr.io/biqly/mail
     forcestring: true
   - name: mail.image.tag
-    value: sha-38be0c37a5a39d81299876b29bd23d398ea742e5
+    value: sha-cff23e8a6ff33e3e7cd68a4baf8044e836941a94
     forcestring: true
   - name: mail.migrate.image.repository
     value: ghcr.io/biqly/mail
     forcestring: true
   - name: mail.migrate.image.tag
-    value: sha-38be0c37a5a39d81299876b29bd23d398ea742e5
+    value: sha-cff23e8a6ff33e3e7cd68a4baf8044e836941a94
     forcestring: true
   - name: query.image.repository
     value: ghcr.io/biqly/query
     forcestring: true
   - name: query.image.tag
-    value: sha-38be0c37a5a39d81299876b29bd23d398ea742e5
+    value: sha-cff23e8a6ff33e3e7cd68a4baf8044e836941a94
     forcestring: true
