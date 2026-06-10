@@ -10,7 +10,9 @@ global:
         memory: 128Mi
       limits:
         cpu: 500m
-        memory: 256Mi
+        # Dragonfly v1.38+ needs ~256Mi per IO thread *plus* maxmemory (~80% of cgroup).
+        # 256Mi limit crashes: "There are 1 threads, so 256.00MiB are required. Exiting..."
+        memory: 512Mi
   nats:
     resources:
       requests:
