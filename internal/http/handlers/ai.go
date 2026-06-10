@@ -1265,10 +1265,13 @@ func (h *AIHandler) loadGlossaryEntries(ctx context.Context, model *semantic.Sem
 	if model == nil {
 		return nil, nil
 	}
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.GlossaryLoad")
+	defer span.End()
 	catalog := prompt.GlossaryFromSemanticModel(model)
 	var ext []prompt.ExternalGlossaryInput
 	rows, err := h.listBusinessGlossary(ctx, model.DatasourceID, model.ID)
 	if err != nil {
+		span.RecordError(err)
 		slog.WarnContext(ctx, "load business glossary failed", "error", err)
 	} else {
 		for _, r := range rows {
@@ -1282,6 +1285,10 @@ func (h *AIHandler) loadGlossaryEntries(ctx context.Context, model *semantic.Sem
 			})
 		}
 	}
+	span.SetAttributes(
+		attribute.Int("ai.glossary.catalog", len(catalog)),
+		attribute.Int("ai.glossary.external", len(ext)),
+	)
 	return catalog, prompt.GlossaryFromExternal(ext)
 }
 

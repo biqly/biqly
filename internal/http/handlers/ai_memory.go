@@ -6,6 +6,9 @@ import (
 	"errors"
 	"log/slog"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/biqly/biqly/internal/ai/memory"
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/metadata"
@@ -29,13 +32,20 @@ func (h *AIHandler) appendConfirmedFewShot(
 	if remaining <= 0 {
 		return out, 0
 	}
+	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.MemoryRecall")
+	defer span.End()
 	modelHash := memory.SemanticModelHashForModel(model)
 	candidates, err := h.deps.MetaRepo.ListActiveConfirmedQueries(ctx, model.DatasourceID, model.ID, modelHash, metadata.ConfirmedQueriesCandidatePool)
 	if err != nil {
+		span.RecordError(err)
 		slog.WarnContext(ctx, "load confirmed few-shot examples failed", "error", err)
 		return out, 0
 	}
 	recalled, hitCount := memory.RecallFewShot(ctx, h.deps.Embedder, candidates, question, remaining)
+	span.SetAttributes(
+		attribute.Int("ai.memory.candidates", len(candidates)),
+		attribute.Int("ai.memory.hits", hitCount),
+	)
 	if len(recalled) == 0 {
 		return out, 0
 	}

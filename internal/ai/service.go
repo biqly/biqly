@@ -569,14 +569,17 @@ func (s *Service) generateWithRetries(
 		}
 
 		// Re-prompt with the failure context for the next attempt.
+		repairCtx, repairSpan := otel.Tracer("biqly/ai").Start(ctx, "ai.Repair")
+		repairSpan.SetAttributes(attribute.Int("ai.repair.attempt", attempt+1))
 		failureMsg := failureMessageFor(st.parseErr, sqlErr, st.warnings)
 		st.retryWarnings = append(st.retryWarnings, fmt.Sprintf("retry %d (context %s): %s", attempt+1, promptpkg.ContextTierLabel(contextTierForAttempt(attempt+1)), failureMsg))
 		nextTier := contextTierForAttempt(attempt + 1)
-		expanded, _ := s.buildPrompt(ctx, question, model, nextTier, options, filterSess, followIntent)
+		expanded, _ := s.buildPrompt(repairCtx, question, model, nextTier, options, filterSess, followIntent)
 		locale := promptpkg.LocaleForQuestion(question, i18n.FromContext(ctx))
 
-		st.prompt = s.buildNextAttemptPrompt(ctx, locale, expanded, gen.Content, failureMsg, validationErrors, attempt, st)
+		st.prompt = s.buildNextAttemptPrompt(repairCtx, locale, expanded, gen.Content, failureMsg, validationErrors, attempt, st)
 		st.promptStats = promptpkg.MeasurePrompt(st.prompt, s.queryModel, nextTier, s.aiCfg)
+		repairSpan.End()
 	}
 
 	return nil, st, nil
