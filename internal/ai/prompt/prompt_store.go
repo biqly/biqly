@@ -36,10 +36,19 @@ func (s embedPromptStore) Template(ctx context.Context, loc i18n.Locale, name st
 }
 
 func (embedPromptStore) Snapshot(_ context.Context, loc i18n.Locale, name string) TemplateSnapshot {
+	if loc == "" {
+		loc = i18n.DefaultLocale
+	}
+	content := promptTemplateFromEmbedExact(loc, name)
+	if content == "" && loc != i18n.DefaultLocale {
+		if base := promptTemplateFromEmbedExact(i18n.DefaultLocale, name); base != "" {
+			content = base + languageBridgeNote(loc, name)
+		}
+	}
 	return TemplateSnapshot{
 		Name:    name,
 		Locale:  loc,
-		Content: promptTemplateFromEmbed(loc, name),
+		Content: content,
 		Version: 1,
 	}
 }
@@ -180,19 +189,29 @@ func (s *dbPromptStore) Snapshot(ctx context.Context, loc i18n.Locale, name stri
 		slog.WarnContext(ctx, "prompt template db load failed", "name", name, "locale", loc, "error", err)
 		body = ""
 	}
+	resolvedLoc := loc
 	if body == "" && loc != i18n.DefaultLocale {
 		body, version, err = s.load(ctx, name, i18n.DefaultLocale)
 		if err != nil {
 			slog.WarnContext(ctx, "prompt template default-locale db load failed", "name", name, "locale", i18n.DefaultLocale, "error", err)
 			body = ""
 		}
+		resolvedLoc = i18n.DefaultLocale
 	}
 	if body == "" {
-		body = promptTemplateFromEmbed(loc, name)
+		body = promptTemplateFromEmbedExact(loc, name)
+		resolvedLoc = loc
 		if body == "" {
-			body = promptTemplateFromEmbed(i18n.DefaultLocale, name)
+			body = promptTemplateFromEmbedExact(i18n.DefaultLocale, name)
+			resolvedLoc = i18n.DefaultLocale
 		}
 		version = 1
+	}
+	// A locale without its own template gets the EN content plus the language
+	// bridge note; an admin-authored row for this locale takes precedence and
+	// drops the note (DİL-4).
+	if body != "" && resolvedLoc != loc {
+		body += languageBridgeNote(loc, name)
 	}
 	snap := TemplateSnapshot{Name: name, Locale: loc, Content: body, Version: version}
 	s.cache[key] = snap

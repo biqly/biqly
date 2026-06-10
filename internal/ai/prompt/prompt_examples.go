@@ -4,7 +4,28 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+
+	"github.com/biqly/biqly/internal/ai/lexicon"
 )
+
+// lexiconHintSamples quotes representative NL lexicon terms (head + tail of
+// the locale union, so every active language contributes) for prompt hints —
+// the vocabulary follows the admin-managed lexicon instead of hardcoded TR/EN
+// word lists (DİL-4).
+func lexiconHintSamples(perDomain int, pairs ...[2]string) string {
+	var samples []string
+	for _, pair := range pairs {
+		terms := lexicon.Active().Terms(pair[0], pair[1])
+		if len(terms) > 2*perDomain {
+			terms = append(append([]string(nil), terms[:perDomain]...), terms[len(terms)-perDomain:]...)
+		}
+		samples = append(samples, terms...)
+	}
+	for i, sample := range samples {
+		samples[i] = "“" + sample + "”"
+	}
+	return strings.Join(samples, ", ")
+}
 
 // normalizeDialectName maps datasource driver types and few-shot dialect labels
 // to a canonical key used for prompt example selection.
@@ -179,7 +200,8 @@ func (*Builder) writePlanningSteps(sb *bytes.Buffer) {
 	}{
 		{
 			title: "1. Parse the question",
-			body:  "Identify intent: aggregate (how many/total/average), list/detail, trend over time, ranking (top/highest/most), comparison, or filter-only. Note Turkish/English time phrases and entity words (müşteri, sipariş, silinen, aylık, …).",
+			body: "Identify intent: aggregate (how many/total/average), list/detail, trend over time, ranking (top/highest/most), comparison, or filter-only. Note time phrases and entity words in the user's language (e.g. " +
+				lexiconHintSamples(1, [2]string{lexicon.DomainIntentToken, "count"}, [2]string{lexicon.DomainSoftDelete, "ts_deleted"}, [2]string{lexicon.DomainGrainSynonym, "month"}) + ", …).",
 		},
 		{
 			title: "2. Map entities to tables",
@@ -195,7 +217,8 @@ func (*Builder) writePlanningSteps(sb *bytes.Buffer) {
 		},
 		{
 			title: "5. Decide filters vs group_by",
-			body:  "Period constraints (“in 2026”, “May 2024”, “last quarter”) → `filters` on grain or ISO date dimensions. Breakdown triggers (“by month”, “per customer”, “bazında”, “aylık”) → matching dimensions in **both** `select` and `group_by`. Soft-delete wording → deletion-indicator filters per Rules.",
+			body: "Period constraints (“in 2026”, “May 2024”, “last quarter”) → `filters` on grain or ISO date dimensions. Breakdown triggers (“per customer”, " +
+				lexiconHintSamples(2, [2]string{lexicon.DomainGrainSynonym, "month"}) + ") → matching dimensions in **both** `select` and `group_by`. Soft-delete wording → deletion-indicator filters per Rules.",
 		},
 		{
 			title: "6. Post-aggregation and windows",

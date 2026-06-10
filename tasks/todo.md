@@ -592,15 +592,26 @@ yönetilemiyor.
       gerekirse `wireNLRuntime` iki satırla eklenir). (3) Yeni dilde bundle yüklenmezse
       metinler zincir gereği EN döner — davranış, hata değil.
 
-### DİL-4 — Prompt şablonları: yeni locale onboarding [S]
-- [ ] Zaten DB-backed; boşluk: embed'de olmayan locale için seed yok. `SeedPromptTemplatesFromEmbed`
-      → bilinmeyen locale'de EN içeriğinden satır oluştur + şablona "Respond in {{.Language}}"
-      yönergesi enjekte et (geçici köprü; kalıcısı admin'in o locale şablonlarını DB'de
-      versiyonlayarak düzenlemesi).
-- [ ] `prompt_examples.go` Go-üretimli bölümlerdeki dil-taşıyan örnek/ipuçlarını şablon
-      değişkenlerine veya lexicon'a taşı (en azından TR-specific parantez ipuçlarını).
-- [ ] **Kabul:** yeni locale'de prompt pipeline EN fallback + dil yönergesiyle çalışıyor;
-      admin DB'den o locale şablonunu iyileştirebiliyor.
+### DİL-4 — Prompt şablonları: yeni locale onboarding [S] ✅ (2026-06-10)
+- [x] **Tasarım sapması (bilinçli, daha iyi):** plan "bilinmeyen locale için DB'ye seed satırı"
+      diyordu; bunun yerine **runtime köprü** uygulandı — seed durumu gerektirmez, sonradan
+      eklenen locale restart'sız anında çalışır. `dbPromptStore.Snapshot` +
+      `embedPromptStore.Snapshot` artık hangi locale'den çözümlediğini izliyor; kendi şablonu
+      olmayan locale EN içeriği + `languageBridgeNote` ("## User Language — write every
+      user-facing text in <Label>") alıyor. Not yalnızca kullanıcı-metni taşıyan bölümlere
+      (`system_rules`, `clarification`) ekleniyor; admin o locale için DB satırı yazınca
+      (versiyonlu, mevcut prompt-templates admin API'si) öncelik onda ve not düşüyor.
+      Dil etiketi `i18n.LocaleProfileFor`'dan (DİL-3 registry) geliyor.
+      Dosyalar: `prompt/prompt_templates.go` (`promptTemplateFromEmbedExact` +
+      `languageBridgeNote`), `prompt/prompt_store.go` (iki Snapshot).
+- [x] `prompt_examples.go` TR-hardcoded ipuçları lexicon'a bağlandı: planning steps 1 ve 5'teki
+      "(müşteri, sipariş, silinen, aylık, …)" / ("bazında", "aylık") örnekleri artık
+      `lexiconHintSamples` ile `intent_token/soft_delete/grain_synonym` domain union'ından
+      (baş+son örnekleme → her aktif dil temsil edilir) üretiliyor.
+- [x] **Kabul sağlandı:** `TestDBPromptStoreUnknownLocaleGetsLanguageBridge` ("de" → EN+not;
+      admin "de" satırı yazınca not düşer), `TestEmbedPromptStoreUnknownLocaleGetsLanguageBridge`,
+      `TestDBPromptStoreEmbeddedLocaleHasNoBridge`, `TestLexiconHintSamplesSpansLocales`.
+      Gate'ler: lint-go 0, `make test-go` 59 paket -race ✓, eval-regression ✓, gofmt ✓.
 
 ### DİL-5 — Frontend + kalite kapıları [M]
 - [ ] Frontend katalogları için karar: (a) `GET /api/i18n/bundle/{locale}` ile runtime fetch +
