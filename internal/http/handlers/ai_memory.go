@@ -81,6 +81,9 @@ func (h *AIExamplesHandler) storeConfirmedQueryOnPositiveFeedback(
 		vecs, embedErr := h.deps.Embedder.Embed(ctx, []string{question})
 		if embedErr != nil {
 			slog.WarnContext(ctx, "embed confirmed query question", "error", embedErr)
+			if metrics != nil {
+				metrics.RecordMemoryStoreConfirmedEmbeddingError()
+			}
 		} else if len(vecs) > 0 {
 			embedding = vecs[0]
 		}

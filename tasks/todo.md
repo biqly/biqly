@@ -2360,7 +2360,7 @@ Alert'ler: `deploy/helm/biqly/templates/prometheus-rules.yaml`.
 
 ### Tier 2 — Önemli (business insight & debugging)
 
-- [ ] **NATS queue metrikleri** — Publish/consume sadece trace span'larında. DLQ move'lar loglanıyor.
+- [x] **NATS queue metrikleri** — Publish/consume sadece trace span'larında. DLQ move'lar loglanıyor.
   - `biqly_nats_publish_total` / `biqly_nats_publish_errors_total` — Counter.
   - `biqly_nats_publish_duration_seconds` — Histogram.
   - `biqly_nats_consume_total` / `biqly_nats_consume_errors_total` — Counter.
@@ -2370,7 +2370,7 @@ Alert'ler: `deploy/helm/biqly/templates/prometheus-rules.yaml`.
     DLQ move sayacı zaten log mevcut → log yanına metric ekle.
   - **Dosyalar:** `internal/queue/nats.go`, `internal/platform/observability/metrics.go`.
 
-- [ ] **Memory recall miss sayacı** — Sadece hit sayılıyor, miss yok → hit rate hesaplanamıyor.
+- [x] **Memory recall miss sayacı** — Sadece hit sayılıyor, miss yok → hit rate hesaplanamıyor.
   - `biqly_memory_recall_misses_total` — Counter.
   - `biqly_memory_recall_latency_ms` — Histogram (embed + sort süresi).
   - `biqly_memory_store_confirmed_embedding_errors_total` — Counter.
@@ -2379,19 +2379,19 @@ Alert'ler: `deploy/helm/biqly/templates/prometheus-rules.yaml`.
   - **Dosyalar:** `internal/ai/memory/recall.go`, `internal/http/handlers/ai_memory.go`,
     `internal/platform/observability/metrics.go`.
 
-- [ ] **Clarification round dağılımı** — Kullanıcıların kaç turda netleştirdiği/terk ettiği bilinmiyor.
+- [x] **Clarification round dağılımı** — Kullanıcıların kaç turda netleştirdiği/terk ettiği bilinmiyor.
   - `biqly_ambiguity_clarification_rounds_histogram` — Histogram, bucket'lar: `[1, 2, 3, 4, 5]`.
   - `biqly_ambiguity_resolution_total` — CounterVec, label: `outcome` (resolved/abandoned).
   - **Nasıl:** `ai.go` handler'ında clarification response döndüğünde round sayısını histogramla.
     Abandon: kullanıcı clarification'a cevap vermeden yeni soru sorduğunda (session bazlı tracking).
   - **Dosyalar:** `internal/http/handlers/ai.go`, `internal/platform/observability/metrics.go`.
 
-- [ ] **LLM response cache metrikleri** — `service.go`'da cache hit sadece loglanıyor.
+- [x] **LLM response cache metrikleri** — `service.go`'da cache hit sadece loglanıyor.
   - `biqly_llm_response_cache_hits_total` / `biqly_llm_response_cache_misses_total` — Counter.
   - **Nasıl:** `internal/ai/service.go`'da cache lookup noktasına counter ekle.
   - **Dosyalar:** `internal/ai/service.go`, `internal/platform/observability/metrics.go`.
 
-- [ ] **Enrich context suggestion latency** — En pahalı operasyon ölçülmüyor.
+- [x] **Enrich context suggestion latency** — En pahalı operasyon ölçülmüyor.
   - `biqly_enrich_context_suggestions_generated_total` — Counter.
   - `biqly_enrich_context_suggest_latency_seconds` — Histogram.
   - `biqly_enrich_context_apply_errors_total` — Counter.

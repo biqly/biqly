@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/ai/prompt"
@@ -25,10 +26,17 @@ func RecallFewShot(
 	candidates []metadata.ConfirmedQueryRow,
 	question string,
 	limit int,
-) ([]prompt.FewShotExample, int) {
+) (examples []prompt.FewShotExample, count int) {
 	if limit <= 0 || len(candidates) == 0 {
 		return nil, 0
 	}
+	start := time.Now()
+	defer func() {
+		observability.Default().RecordMemoryRecallLatency(time.Since(start))
+		if len(examples) == 0 {
+			observability.Default().RecordMemoryRecallMiss()
+		}
+	}()
 	question = trimQuestion(question)
 	questionHash := metadata.QuestionHash(question)
 

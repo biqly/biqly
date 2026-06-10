@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/biqly/biqly/internal/ai/jsonextract"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/bytedance/sonic"
 )
@@ -51,7 +53,9 @@ func suggestForGaps(ctx context.Context, client providerpkg.Provider, model *sem
 		fmt.Fprintf(&b, "- id=%s kind=%s summary=%q detail=%q\n", g.ID, g.Kind, g.Summary, g.Detail)
 	}
 
+	start := time.Now()
 	gen, err := client.Generate(ctx, b.String())
+	observability.Default().RecordEnrichContextSuggestLatency(time.Since(start))
 	if err != nil {
 		return nil, fmt.Errorf("ai suggest: %w", err)
 	}
@@ -74,5 +78,6 @@ func suggestForGaps(ctx context.Context, client providerpkg.Provider, model *sem
 		}
 		out = append(out, Suggestion{GapID: s.GapID, Text: strings.TrimSpace(s.Text)})
 	}
+	observability.Default().RecordEnrichContextSuggestionsGenerated(len(out))
 	return out, nil
 }

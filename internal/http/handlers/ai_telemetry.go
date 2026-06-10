@@ -7,6 +7,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/ai/routing"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -97,13 +98,7 @@ func (h *AIHandler) observeAIRequest(
 		llmMs = int64(resp.Metadata.LLMGenerateDurationMs)
 	}
 
-	if h.metrics != nil {
-		h.metrics.RecordAIRequest(latencyMs, success, retryCount, needsClarification)
-		h.metrics.RecordLLMRequest(llmMs, promptTokens, completionTokens, promptBuildMs)
-		if repairAttempts > 0 {
-			h.metrics.RecordAIRepair(success, repairAttempts, repairErrorCodes)
-		}
-	}
+	h.recordMetricsAndState(ctx, req, resp, pc, latencyMs, llmMs, promptBuildMs, success, needsClarification, retryCount, promptTokens, completionTokens, repairAttempts, repairErrorCodes)
 
 	logArgs := []any{
 		"datasource_id", req.DatasourceID,
@@ -126,6 +121,42 @@ func (h *AIHandler) observeAIRequest(
 
 	h.recordAIHistory(ctx, req, model, routeResult, resp, pc)
 	return resp
+}
+
+func (h *AIHandler) recordMetricsAndState(
+	ctx context.Context,
+	req aiQueryRequest,
+	resp *ai.Response,
+	pc *ProcessContext,
+	latencyMs, llmMs, promptBuildMs int64,
+	success, needsClarification bool,
+	retryCount, promptTokens, completionTokens, repairAttempts int,
+	repairErrorCodes []string,
+) {
+	if h.metrics == nil {
+		return
+	}
+	h.metrics.RecordAIRequest(latencyMs, success, retryCount, needsClarification)
+	h.metrics.RecordLLMRequest(llmMs, promptTokens, completionTokens, promptBuildMs)
+	if repairAttempts > 0 {
+		h.metrics.RecordAIRepair(success, repairAttempts, repairErrorCodes)
+	}
+	if isAmbiguityAnalyzerClarification(resp) {
+		h.metrics.RecordAmbiguityClarificationRound(pc.nextAmbiguityClarificationRound())
+		userID := bimw.UserID(ctx)
+		if userID != "" {
+			h.activeClarifications.Store(userID, clarificationState{
+				Question: req.Question,
+				Round:    pc.nextAmbiguityClarificationRound(),
+			})
+		}
+	} else if req.ClarificationChoice != "" && !needsClarification {
+		h.metrics.RecordAmbiguityResolution("resolved")
+		userID := bimw.UserID(ctx)
+		if userID != "" {
+			h.activeClarifications.Delete(userID)
+		}
+	}
 }
 
 func attachGenerationTrace(routeResult *routing.TableRoutingResult, model *semantic.SemanticModel, resp *ai.Response) {

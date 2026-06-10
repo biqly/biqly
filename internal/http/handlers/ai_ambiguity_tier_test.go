@@ -29,8 +29,12 @@ func (*tierMetricsStub) RecordMemoryStoreConfirmed()        {}
 func (*tierMetricsStub) RecordMemoryStoreRecall(int)        {}
 func (*tierMetricsStub) RecordMemoryRecallFeedback(bool, string) {
 }
-func (*tierMetricsStub) RecordEnrichContextGaps(int)    {}
-func (*tierMetricsStub) RecordEnrichContextApplied(int) {}
+func (*tierMetricsStub) RecordEnrichContextGaps(int)               {}
+func (*tierMetricsStub) RecordEnrichContextApplied(int)            {}
+func (*tierMetricsStub) RecordEnrichContextApplyErrors(int)        {}
+func (*tierMetricsStub) RecordMemoryStoreConfirmedEmbeddingError() {}
+func (*tierMetricsStub) RecordAmbiguityClarificationRound(int)     {}
+func (*tierMetricsStub) RecordAmbiguityResolution(string)          {}
 
 func TestTierZeroClarificationIfNeeded(t *testing.T) {
 	db, state := setupMockDB(t)

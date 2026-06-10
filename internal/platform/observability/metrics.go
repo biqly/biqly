@@ -100,6 +100,24 @@ type Metrics struct {
 	routingDecisionsTotal      *prometheus.CounterVec
 	embeddingAPIDuration       *prometheus.HistogramVec
 	embeddingAPIErrorsTotal    *prometheus.CounterVec
+
+	natsPublishTotal                  prometheus.Counter
+	natsPublishErrors                 prometheus.Counter
+	natsPublishDuration               prometheus.Histogram
+	natsConsumeTotal                  prometheus.Counter
+	natsConsumeErrors                 prometheus.Counter
+	natsDLQMoves                      prometheus.Counter
+	natsConsumerPending               prometheus.Gauge
+	memoryRecallMisses                prometheus.Counter
+	memoryRecallLatency               prometheus.Histogram
+	memoryStoreConfirmedEmbedErrors   prometheus.Counter
+	ambiguityClarificationRounds      prometheus.Histogram
+	ambiguityResolutionTotal          *prometheus.CounterVec
+	llmResponseCacheHits              prometheus.Counter
+	llmResponseCacheMisses            prometheus.Counter
+	enrichContextSuggestionsGenerated prometheus.Counter
+	enrichContextSuggestLatency       prometheus.Histogram
+	enrichContextApplyErrors          prometheus.Counter
 }
 
 // NewMetrics registers every collector against reg and returns the bundle.
@@ -215,6 +233,7 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 	}
 	registerExtendedAIMetrics(f, m)
 	registerTier1Metrics(f, m)
+	registerTier2Metrics(f, m)
 	if g, ok := reg.(prometheus.Gatherer); ok {
 		registerCardinalityCollector(reg, g)
 	}

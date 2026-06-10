@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -39,13 +40,19 @@ const (
 	aiPhaseRun
 )
 
+type clarificationState struct {
+	Question string
+	Round    int
+}
+
 // AIHandler handles AI text-to-query operations.
 type AIHandler struct {
-	service     *ai.Service
-	tableRouter *routing.TableRouter
-	deps        *app.AIDeps
-	authClient  *bimw.AuthClient
-	metrics     AIMetricsRecorder
+	service              *ai.Service
+	tableRouter          *routing.TableRouter
+	deps                 *app.AIDeps
+	authClient           *bimw.AuthClient
+	metrics              AIMetricsRecorder
+	activeClarifications sync.Map
 
 	// ambiguityOverridesCache memoizes DB-managed ambiguity config overrides
 	// (see ai_admin_config.go) so per-request reads stay off the database.
@@ -180,6 +187,9 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 	}
 
 	ctx := r.Context()
+	if req.ClarificationChoice == "" {
+		h.checkAndRecordAbandon(ctx)
+	}
 	routeStart := time.Now()
 	model, routeResult, err := h.loadQueryModel(ctx, *req)
 	if h.metrics != nil {
@@ -204,6 +214,19 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 	}
 	pc.ApplyToRequest(req)
 	return *req, pc, model, routeResult, true
+}
+
+func (h *AIHandler) checkAndRecordAbandon(ctx context.Context) {
+	userID := bimw.UserID(ctx)
+	if userID == "" {
+		return
+	}
+	if _, exists := h.activeClarifications.Load(userID); exists {
+		if h.metrics != nil {
+			h.metrics.RecordAmbiguityResolution("abandoned")
+		}
+		h.activeClarifications.Delete(userID)
+	}
 }
 
 func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessContext, req aiQueryRequest, model *semantic.SemanticModel) []ai.ProcessOption {

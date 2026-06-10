@@ -21,15 +21,19 @@ func (*memoryMetricsStub) RecordAIStep(string, int64)              {}
 func (*memoryMetricsStub) RecordLLMRequest(int64, int, int, int64) {}
 func (*memoryMetricsStub) RecordAmbiguityAnalysis(int64, string, bool) {
 }
-func (*memoryMetricsStub) RecordAmbiguityTier(string)              {}
-func (*memoryMetricsStub) RecordAmbiguityClarified()               {}
-func (*memoryMetricsStub) RecordAmbiguityRoundCapReached()         {}
-func (*memoryMetricsStub) RecordAIRepair(bool, int, []string)      {}
-func (*memoryMetricsStub) RecordMemoryStoreConfirmed()             {}
-func (m *memoryMetricsStub) RecordMemoryStoreRecall(count int)     { m.recallHits += count }
-func (*memoryMetricsStub) RecordMemoryRecallFeedback(bool, string) {}
-func (*memoryMetricsStub) RecordEnrichContextGaps(int)             {}
-func (*memoryMetricsStub) RecordEnrichContextApplied(int)          {}
+func (*memoryMetricsStub) RecordAmbiguityTier(string)                {}
+func (*memoryMetricsStub) RecordAmbiguityClarified()                 {}
+func (*memoryMetricsStub) RecordAmbiguityRoundCapReached()           {}
+func (*memoryMetricsStub) RecordAIRepair(bool, int, []string)        {}
+func (*memoryMetricsStub) RecordMemoryStoreConfirmed()               {}
+func (m *memoryMetricsStub) RecordMemoryStoreRecall(count int)       { m.recallHits += count }
+func (*memoryMetricsStub) RecordMemoryRecallFeedback(bool, string)   {}
+func (*memoryMetricsStub) RecordEnrichContextGaps(int)               {}
+func (*memoryMetricsStub) RecordEnrichContextApplied(int)            {}
+func (*memoryMetricsStub) RecordEnrichContextApplyErrors(int)        {}
+func (*memoryMetricsStub) RecordMemoryStoreConfirmedEmbeddingError() {}
+func (*memoryMetricsStub) RecordAmbiguityClarificationRound(int)     {}
+func (*memoryMetricsStub) RecordAmbiguityResolution(string)          {}
 
 func TestAppendConfirmedFewShotAddsRecalledExamples(t *testing.T) {
 	db, state := setupMockDB(t)

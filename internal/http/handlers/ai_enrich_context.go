@@ -60,8 +60,13 @@ func (h *EnrichContextHandler) Apply(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(r.Context(), w, http.StatusBadRequest, "enrich-context apply failed", err)
 		return
 	}
-	if h.metrics != nil && result.Applied > 0 {
-		h.metrics.RecordEnrichContextApplied(result.Applied)
+	if h.metrics != nil {
+		if result.Applied > 0 {
+			h.metrics.RecordEnrichContextApplied(result.Applied)
+		}
+		if len(result.Errors) > 0 {
+			h.metrics.RecordEnrichContextApplyErrors(len(result.Errors))
+		}
 	}
 	writeJSON(w, http.StatusOK, result)
 }

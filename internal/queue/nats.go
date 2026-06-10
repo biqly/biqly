@@ -13,6 +13,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/biqly/biqly/internal/platform/observability"
 )
 
 const aiJobMaxDeliver = 3
@@ -72,7 +74,11 @@ func ConnectNATS(cfg NATSConfig) (*NATSQueue, error) {
 	return &NATSQueue{nc: nc, js: js, stream: cfg.Stream, subj: cfg.Subject}, nil
 }
 
-func (q *NATSQueue) Publish(ctx context.Context, jobID string) error {
+func (q *NATSQueue) Publish(ctx context.Context, jobID string) (err error) {
+	start := time.Now()
+	defer func() {
+		observability.Default().RecordNATSPublish(time.Since(start), err == nil)
+	}()
 	ctx, span := otel.Tracer("biqly/queue").Start(ctx, "nats.publish "+q.subj,
 		trace.WithSpanKind(trace.SpanKindProducer),
 		trace.WithAttributes(
@@ -81,7 +87,7 @@ func (q *NATSQueue) Publish(ctx context.Context, jobID string) error {
 			attribute.String("messaging.destination.name", q.subj),
 		))
 	defer span.End()
-	if _, err := q.js.Publish(ctx, q.subj, []byte(jobID)); err != nil {
+	if _, err = q.js.Publish(ctx, q.subj, []byte(jobID)); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return fmt.Errorf("publish ai job: %w", err)
@@ -103,11 +109,33 @@ func (q *NATSQueue) Subscribe(ctx context.Context, group string, handler func(ct
 	if err != nil {
 		return fmt.Errorf("create consumer: %w", err)
 	}
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				cctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+				info, err := cons.Info(cctx)
+				cancel()
+				if err == nil {
+					observability.Default().RecordNATSConsumerPending(info.NumPending)
+				}
+			}
+		}
+	}()
 	_, err = cons.Consume(func(msg jetstream.Msg) {
 		jobID := string(msg.Data())
 		hctx, cancel := context.WithTimeout(ctx, 35*time.Minute)
 		defer cancel()
+		var consumeErr error
+		defer func() {
+			observability.Default().RecordNATSConsume(consumeErr == nil)
+		}()
 		if err := handler(hctx, jobID); err != nil {
+			consumeErr = err
 			q.handleAIJobFailure(ctx, msg, jobID)
 			return
 		}
@@ -130,6 +158,7 @@ func (q *NATSQueue) handleAIJobFailure(ctx context.Context, msg jetstream.Msg, j
 		slog.Error("publish ai job to dlq", "job_id", jobID, "error", dlqErr)
 	} else {
 		slog.Warn("ai job moved to dlq after max deliveries", "job_id", jobID, "deliveries", meta.NumDelivered)
+		observability.Default().RecordNATSDLQMove()
 	}
 	if termErr := msg.Term(); termErr != nil {
 		slog.Warn("term ai job message after dlq", "job_id", jobID, "error", termErr)

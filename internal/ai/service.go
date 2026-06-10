@@ -307,8 +307,10 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		cacheKey = GenerateCacheKey(question, model.ID, options.deniedFields)
 		if cachedResp, err := s.cache.Get(ctx, cacheKey); err == nil && cachedResp != nil {
 			slog.InfoContext(ctx, "LLM Response Cache hit", "question", question, "key", cacheKey)
+			observability.Default().RecordLLMResponseCacheHit()
 			return cachedResp, nil
 		}
+		observability.Default().RecordLLMResponseCacheMiss()
 	}
 
 	basePrompt, baseStats := s.buildPrompt(ctx, question, model, 0, &options, filterSess, followIntent)
