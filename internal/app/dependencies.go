@@ -38,6 +38,7 @@ import (
 	"github.com/biqly/biqly/pkg/catalogclient"
 	"github.com/biqly/biqly/pkg/queryclient"
 	_ "github.com/jackc/pgx/v5/stdlib" // PostgreSQL driver registration
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -256,6 +257,16 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 
 	validator, executor := provideQueryEngine(cfg)
 	poolCache := datasource.NewPoolCache()
+	observability.RegisterDBPoolMetrics(prometheus.DefaultRegisterer, "datasource", func() observability.DBPoolSnapshot {
+		open, inUse, idle, waitCount, waitDuration := poolCache.AggregatedStats()
+		return observability.DBPoolSnapshot{
+			OpenConnections: open,
+			InUse:           inUse,
+			Idle:            idle,
+			WaitCount:       waitCount,
+			WaitDuration:    waitDuration,
+		}
+	})
 	auditLogger := audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(ctx, db, slog.Default()))
 
 	driftRepo := drift.NewRepository(db)
@@ -340,6 +351,7 @@ func openMetadataDB(ctx context.Context, cfg *config.Config) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open metadata db: %w", err)
 	}
+	observability.RegisterDBPoolMetrics(prometheus.DefaultRegisterer, "metadata", observability.DBPoolStatsFromDB(db))
 	return db, nil
 }
 

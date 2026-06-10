@@ -16,9 +16,9 @@ type tierMetricsStub struct {
 	tiers []string
 }
 
-func (*tierMetricsStub) RecordAIRequest(int64, bool, int, bool) {}
-func (*tierMetricsStub) RecordAIStep(string, int64)             {}
-func (*tierMetricsStub) RecordLLMRequest(int64, int, int64)     {}
+func (*tierMetricsStub) RecordAIRequest(int64, bool, int, bool)  {}
+func (*tierMetricsStub) RecordAIStep(string, int64)              {}
+func (*tierMetricsStub) RecordLLMRequest(int64, int, int, int64) {}
 func (*tierMetricsStub) RecordAmbiguityAnalysis(int64, string, bool) {
 }
 func (m *tierMetricsStub) RecordAmbiguityTier(tier string)  { m.tiers = append(m.tiers, tier) }

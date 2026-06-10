@@ -36,7 +36,7 @@ func TestExecHTTPPostRetryBytesRetries503(t *testing.T) {
 		apiErr := http.ErrServerClosed
 		_ = respBody
 		return nil, apiErr, isRetriableHTTPStatus(status)
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("execHTTPPostRetryBytes: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestExecHTTPPostRetryBytesNoRetryOn400(t *testing.T) {
 			return nil, nil, false
 		}
 		return nil, http.ErrServerClosed, isRetriableHTTPStatus(status)
-	})
+	}, nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}

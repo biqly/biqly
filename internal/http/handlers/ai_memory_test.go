@@ -16,9 +16,9 @@ type memoryMetricsStub struct {
 	recallHits int
 }
 
-func (*memoryMetricsStub) RecordAIRequest(int64, bool, int, bool) {}
-func (*memoryMetricsStub) RecordAIStep(string, int64)             {}
-func (*memoryMetricsStub) RecordLLMRequest(int64, int, int64)     {}
+func (*memoryMetricsStub) RecordAIRequest(int64, bool, int, bool)  {}
+func (*memoryMetricsStub) RecordAIStep(string, int64)              {}
+func (*memoryMetricsStub) RecordLLMRequest(int64, int, int, int64) {}
 func (*memoryMetricsStub) RecordAmbiguityAnalysis(int64, string, bool) {
 }
 func (*memoryMetricsStub) RecordAmbiguityTier(string)              {}

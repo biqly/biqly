@@ -34,11 +34,19 @@ var ForbiddenMetricLabels = []string{
 // VecLabelLimits documents the maximum distinct values allowed per label on each
 // *_Vec metric owned by this package. Update when adding a new labeled metric.
 var VecLabelLimits = map[string]map[string]int{
-	"bi_ai_step_duration_seconds":        {"step": 12},
-	"biqly_ambiguity_by_source":          {"source": 3},
-	"biqly_ambiguity_tier":               {"tier": 4},
-	"bi_ai_repair_by_error_code_total":   {"code": 16},
-	"biqly_memory_recall_feedback_total": {"recall": 2, "rating": 2},
+	"bi_ai_step_duration_seconds":          {"step": 12},
+	"biqly_ambiguity_by_source":            {"source": 3},
+	"biqly_ambiguity_tier":                 {"tier": 4},
+	"bi_ai_repair_by_error_code_total":     {"code": 16},
+	"biqly_memory_recall_feedback_total":   {"recall": 2, "rating": 2},
+	"biqly_http_request_duration_seconds":  {"method": 8, "route_group": 20},
+	"biqly_http_requests_total":            {"method": 8, "status_class": 5},
+	"biqly_llm_errors_total":               {"provider": 3, "error_type": 5},
+	"biqly_llm_retries_total":              {"provider": 3},
+	"biqly_routing_confidence_histogram":   {"ranking_method": 4},
+	"biqly_routing_decisions_total":        {"method": 4, "outcome": 3},
+	"biqly_embedding_api_duration_seconds": {"operation": 4},
+	"biqly_embedding_api_errors_total":     {"operation": 4, "error_type": 5},
 }
 
 var cardinalityRegistered sync.Map

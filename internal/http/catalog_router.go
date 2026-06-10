@@ -20,6 +20,7 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 	r.Use(bimw.RealIP)
 	r.Use(requestLoggerMiddleware)
 	r.Use(middleware.Recoverer)
+	r.Use(HTTPMetricsMiddleware(GetMetrics()))
 	r.Use(middleware.Timeout(60 * time.Second))
 	r.Use(bimw.Locale)
 	r.Use(serviceCORS(deps))

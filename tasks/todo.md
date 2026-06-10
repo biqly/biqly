@@ -2284,6 +2284,165 @@ Verification:
 - `GOCACHE=/private/tmp/biqly-gocache go test ./internal/ai ./internal/query ./internal/core ./internal/security ./internal/http/handlers ./internal/http -count=1`
 - `git diff --check`
 
+## Metrik Önerileri — Grafana/Prometheus (2026-06-10)
+
+**Mevcut durum:** 52 metrik, 4 Grafana dashboard, 6 alert rule, alertmanager webhook.
+Metrikler: `internal/platform/observability/metrics.go` (core+extended), `internal/auth/metrics.go`,
+`internal/auth/rbac/metrics.go`. Dashboard'lar: `deploy/helm/biqly/templates/grafana-dashboards.yaml`.
+Alert'ler: `deploy/helm/biqly/templates/prometheus-rules.yaml`.
+
+### Tier 1 — Kritik (operasyonel kör noktalar)
+
+- [x] **HTTP request metrikleri** — Mevcut HTTP endpoint'lerinin %90'ında Prometheus metriği yok.
+  Sadece `/api/catalog/*` rotalarında `CatalogMetricsMiddleware` var. AI, query, admin, internal
+  endpoint'leri için hiçbir HTTP seviyesi metrik yok (latency, error rate, status code).
+  - `biqly_http_request_duration_seconds` — Histogram, labellar: `method`, `route_group` (bounded:
+    `/api/ai/query`, `/api/ai/preview`, `/api/catalog/*`, `/api/admin/*` gibi gruplanmış).
+    Cardinality guard: `route_group` max 20 değer.
+  - `biqly_http_requests_total` — CounterVec, labellar: `method`, `status_class` (`2xx`/`4xx`/`5xx`).
+  - **Nasıl:** Mevcut `CatalogMetricsMiddleware` pattern'ini genelleştir. Root handler'a ekle.
+    Chi router'dan route pattern'ini al (`chi.RouteContext(r.Context()).RoutePattern()`),
+    raw path yerine pattern'i label olarak kullan.
+  - **Dosyalar:** `internal/http/metrics_middleware.go` (yeni),
+    `internal/http/router.go` (middleware wrap), `internal/platform/observability/metrics.go`.
+
+- [x] **LLM hata/retry metrikleri (provider seviyesi)** — `llm_request_duration_seconds` provider/model
+  label'ı olmadan kaydediliyor. Provider seviyesi retry'lar (429, 502, 503, 504) sadece loglanıyor.
+  - `biqly_llm_errors_total` — CounterVec, labellar: `provider` (openai/anthropic),
+    `error_type` (rate_limit/network/auth/parse/other).
+  - `biqly_llm_retries_total` — CounterVec, label: `provider`.
+  - `biqly_llm_tokens_prompt_total` / `biqly_llm_tokens_completion_total` — Counter (mevcut
+    `llm_tokens_used_total` prompt/completion ayırmıyor; maliyet analizi için split gerek).
+  - **Nasıl:** `internal/ai/provider/` altındaki `execRetry` ve API call wrapper'larına metric
+    recording ekle. Provider interface'den dönen error'ları kategorize et.
+  - **Dosyalar:** `internal/ai/provider/base_provider.go`, `internal/platform/observability/metrics.go`.
+
+- [x] **DB connection pool metrikleri** — `database/sql` pool istatistikleri (`db.Stats()`:
+  OpenConnections, InUse, Idle, WaitCount, WaitDuration) hiç export edilmiyor.
+  Pool exhaustion tespit edilemez.
+  - `biqly_db_pool_open_connections` — GaugeFunc, label: `pool` (metadata/auth/datasource).
+  - `biqly_db_pool_in_use` — GaugeFunc, label: `pool`.
+  - `biqly_db_pool_wait_count_total` — CounterFunc, label: `pool`.
+  - `biqly_db_pool_wait_duration_seconds_total` — CounterFunc, label: `pool`.
+  - **Nasıl:** Mevcut pattern: `cmd/auth/main.go:233`'teki `auth_active_sessions` GaugeFunc
+    yaklaşımını takip et. Her DB pool için `prometheus.NewGaugeFunc` ile `db.Stats()` sar.
+  - **Dosyalar:** `internal/platform/observability/db_pool_metrics.go` (yeni),
+    `internal/platform/db/` (pool referansları).
+
+- [x] **Routing confidence histogram** — Routing kalitesi sadece trace span'larında
+  (`ai.route.confidence`). Dashboard'da görünmüyor, zaman içindeki degradasyon tespit edilemez.
+  - `biqly_routing_confidence_histogram` — Histogram, label: `ranking_method`
+    (keyword/hybrid/manual/semantic).
+  - `biqly_routing_decisions_total` — CounterVec, labellar: `method`, `outcome`
+    (success/clarification/error).
+  - **Nasıl:** `internal/ai/routing/` modülünde routing sonucu alındığında metric record.
+    Confidence 0.0-1.0 arası → histogram bucket'ları: `[0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 0.99]`.
+  - **Dosyalar:** `internal/ai/routing/route.go` veya `router.go`,
+    `internal/platform/observability/metrics.go`.
+
+- [x] **Embedding API latency/errors** — Embedding çağrıları sadece trace span'larında.
+  API çökerse routing sessizce keyword-only fallback'e döner, metrik yok.
+  - `biqly_embedding_api_duration_seconds` — Histogram, label: `operation`
+    (route_recall/memory_store/metadata_embed).
+  - `biqly_embedding_api_errors_total` — CounterVec, labellar: `operation`, `error_type`.
+  - **Nasıl:** `internal/ai/provider/base_provider.go`'daki `embed()` fonksiyonuna metric
+    recording ekle (retry wrapper'ın içine veya dışına).
+  - **Dosyalar:** `internal/ai/provider/base_provider.go`,
+    `internal/platform/observability/metrics.go`.
+
+**Review (2026-06-10):** Tier 1 tamamlandı.
+- `HTTPMetricsMiddleware` → api/ai/catalog/query/auth router'larına eklendi; `biqly_http_*` metrikleri.
+- Provider `execRetry` → `biqly_llm_errors_total`, `biqly_llm_retries_total`, token split counters.
+- `RegisterDBPoolMetrics` → metadata (`openMetadataDB`), auth (`cmd/auth`), datasource (`PoolCache.AggregatedStats`).
+- `TableRouter.Route` defer → `biqly_routing_confidence_histogram`, `biqly_routing_decisions_total`.
+- `baseEmbedder.embed` + `ContextWithEmbeddingOperation` → `biqly_embedding_api_*`.
+- Test: `tier1_metrics_test.go`, `metrics_middleware_test.go`; `make lint-go` + targeted `go test` yeşil.
+
+### Tier 2 — Önemli (business insight & debugging)
+
+- [ ] **NATS queue metrikleri** — Publish/consume sadece trace span'larında. DLQ move'lar loglanıyor.
+  - `biqly_nats_publish_total` / `biqly_nats_publish_errors_total` — Counter.
+  - `biqly_nats_publish_duration_seconds` — Histogram.
+  - `biqly_nats_consume_total` / `biqly_nats_consume_errors_total` — Counter.
+  - `biqly_nats_dlq_moves_total` — Counter.
+  - `biqly_nats_consumer_pending` — Gauge (JetStream consumer pending count).
+  - **Nasıl:** `internal/queue/nats.go`'daki publish/consume wrapper'lara metric recording ekle.
+    DLQ move sayacı zaten log mevcut → log yanına metric ekle.
+  - **Dosyalar:** `internal/queue/nats.go`, `internal/platform/observability/metrics.go`.
+
+- [ ] **Memory recall miss sayacı** — Sadece hit sayılıyor, miss yok → hit rate hesaplanamıyor.
+  - `biqly_memory_recall_misses_total` — Counter.
+  - `biqly_memory_recall_latency_ms` — Histogram (embed + sort süresi).
+  - `biqly_memory_store_confirmed_embedding_errors_total` — Counter.
+  - **Nasıl:** `internal/ai/memory/recall.go`'da `Recall()` fonksiyonunda results boş dönerse miss
+    counter'ı artır. Embedding hatası `ai_memory.go:83`'te loglanıyor → metric ekle.
+  - **Dosyalar:** `internal/ai/memory/recall.go`, `internal/http/handlers/ai_memory.go`,
+    `internal/platform/observability/metrics.go`.
+
+- [ ] **Clarification round dağılımı** — Kullanıcıların kaç turda netleştirdiği/terk ettiği bilinmiyor.
+  - `biqly_ambiguity_clarification_rounds_histogram` — Histogram, bucket'lar: `[1, 2, 3, 4, 5]`.
+  - `biqly_ambiguity_resolution_total` — CounterVec, label: `outcome` (resolved/abandoned).
+  - **Nasıl:** `ai.go` handler'ında clarification response döndüğünde round sayısını histogramla.
+    Abandon: kullanıcı clarification'a cevap vermeden yeni soru sorduğunda (session bazlı tracking).
+  - **Dosyalar:** `internal/http/handlers/ai.go`, `internal/platform/observability/metrics.go`.
+
+- [ ] **LLM response cache metrikleri** — `service.go`'da cache hit sadece loglanıyor.
+  - `biqly_llm_response_cache_hits_total` / `biqly_llm_response_cache_misses_total` — Counter.
+  - **Nasıl:** `internal/ai/service.go`'da cache lookup noktasına counter ekle.
+  - **Dosyalar:** `internal/ai/service.go`, `internal/platform/observability/metrics.go`.
+
+- [ ] **Enrich context suggestion latency** — En pahalı operasyon ölçülmüyor.
+  - `biqly_enrich_context_suggestions_generated_total` — Counter.
+  - `biqly_enrich_context_suggest_latency_seconds` — Histogram.
+  - `biqly_enrich_context_apply_errors_total` — Counter.
+  - **Nasıl:** `internal/ai/enrichcontext/suggest.go`'da LLM call öncesi/sonrası timer.
+  - **Dosyalar:** `internal/ai/enrichcontext/suggest.go`, `internal/platform/observability/metrics.go`.
+
+### Tier 3 — İyi olur (tuning & optimization)
+
+- [ ] **Routing grain detection** — Hangi grain'lerin ne sıklıkla sorulduğu bilinmiyor.
+  - `biqly_routing_grain_detections_total` — CounterVec, label: `grain` (year/quarter/month/day/none).
+  - **Dosyalar:** `internal/ai/routing/time_grains.go`.
+
+- [ ] **Semantic model generation metrikleri** — `internal/semanticgen/` paketinde sıfır metrik.
+  - `biqly_semanticgen_models_generated_total` — Counter.
+  - `biqly_semanticgen_duration_seconds` — Histogram.
+  - `biqly_semanticgen_dimensions_generated_histogram` — Histogram (dimension sayısı dağılımı).
+  - `biqly_semanticgen_metrics_generated_histogram` — Histogram.
+  - **Dosyalar:** `internal/semanticgen/generator.go`, `internal/platform/observability/metrics.go`.
+
+- [ ] **Feedback raw total** — Toplam feedback sayısı bağımsız metrik değil.
+  - `biqly_feedback_submitted_total` — CounterVec, label: `rating` (positive/negative).
+  - **Dosyalar:** `internal/http/handlers/ai_examples.go`, `internal/platform/observability/metrics.go`.
+
+### Grafana Dashboard Güncellemeleri
+
+- [ ] **Biqly AI** dashboard'ına eklenecek paneller:
+  - LLM errors by provider (stacked bar)
+  - LLM retry rate (line)
+  - Token split: prompt vs completion (stacked area)
+  - Routing confidence distribution (histogram heatmap)
+  - Embedding API latency p95
+  - Embedding API error rate
+  - Clarification rounds distribution
+  - LLM response cache hit rate
+- [ ] **Biqly Infrastructure** dashboard (yeni):
+  - HTTP request rate by route group
+  - HTTP 5xx error rate by route
+  - DB pool: open/in-use/idle connections (gauge)
+  - DB pool wait count & duration
+  - NATS publish/consume rate
+  - NATS DLQ moves
+  - NATS consumer pending
+- [ ] **Yeni alert rule'lar:**
+  - `BiqlyHTTP5xxRateHigh` — HTTP 5xx oranı > %1 (5dk)
+  - `BiqlyEmbeddingAPIErrors` — Embedding hata oranı > %5 (5dk)
+  - `BiqlyDBPoolExhaustion` — Pool in-use/open > %90 (3dk)
+  - `BiqlyNATSDLQMoves` — DLQ move > 0 (5dk)
+  - `BiqlyRoutingConfidenceLow` — p50 confidence < 0.5 (15dk)
+
+---
+
 ## GO_PERF_TODO Continuation
 
 Success criteria:

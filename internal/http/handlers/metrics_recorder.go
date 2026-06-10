@@ -4,7 +4,7 @@ package handlers
 type AIMetricsRecorder interface {
 	RecordAIRequest(latencyMs int64, success bool, retryCount int, clarification bool)
 	RecordAIStep(step string, latencyMs int64)
-	RecordLLMRequest(latencyMs int64, tokensUsed int, promptBuildMs int64)
+	RecordLLMRequest(latencyMs int64, promptTokens, completionTokens int, promptBuildMs int64)
 	RecordAmbiguityAnalysis(latencyMs int64, source string, detected bool)
 	RecordAmbiguityTier(tier string)
 	RecordAmbiguityClarified()

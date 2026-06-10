@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"strconv"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/singleflight"
 )
@@ -92,6 +93,31 @@ func (p *PoolCache) Invalidate(datasourceID string) {
 			}
 		}
 	}
+}
+
+// AggregatedStats sums sql.DB.Stats across every cached datasource pool.
+func (p *PoolCache) AggregatedStats() (open, inUse, idle int, waitCount int64, waitDuration time.Duration) {
+	if p == nil {
+		return 0, 0, 0, 0, 0
+	}
+	p.mu.RLock()
+	pools := make([]*sql.DB, 0, len(p.pools))
+	for _, db := range p.pools {
+		pools = append(pools, db)
+	}
+	p.mu.RUnlock()
+	for _, db := range pools {
+		if db == nil {
+			continue
+		}
+		s := db.Stats()
+		open += s.OpenConnections
+		inUse += s.InUse
+		idle += s.Idle
+		waitCount += s.WaitCount
+		waitDuration += s.WaitDuration
+	}
+	return open, inUse, idle, waitCount, waitDuration
 }
 
 // Close drains and closes every cached pool. Safe to call multiple times.

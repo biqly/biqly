@@ -33,6 +33,7 @@ func Router(deps *app.Dependencies) http.Handler {
 	r.Use(bimw.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(HTTPMetricsMiddleware(GetMetrics()))
 	r.Use(bimw.SecurityHeaders(bimw.SecurityHeadersConfig{
 		HSTSEnabled:           deps.Config.HTTP.HSTSEnabled,
 		HSTSIncludeSubdomains: true,

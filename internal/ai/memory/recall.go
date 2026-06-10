@@ -9,11 +9,12 @@ import (
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/ai/routing"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
 type rankedConfirmed struct {
-	row  metadata.ConfirmedQueryRow
+	row   metadata.ConfirmedQueryRow
 	score float64
 }
 
@@ -73,7 +74,7 @@ func rankConfirmed(
 		return out
 	}
 
-	vecs, err := embedder.Embed(ctx, []string{question})
+	vecs, err := embedder.Embed(observability.ContextWithEmbeddingOperation(ctx, "memory_store"), []string{question})
 	if err != nil || len(vecs) == 0 || len(vecs[0]) == 0 {
 		out := make([]rankedConfirmed, 0, len(rows))
 		for _, row := range rows {

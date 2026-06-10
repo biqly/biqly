@@ -94,4 +94,3 @@ func registerAIProxyRoutesWithDatasourceGuard(r chi.Router, aiURL string, dsAcce
 	r.Handle("/ai", proxy)
 	r.Handle("/ai/*", proxy)
 }
-

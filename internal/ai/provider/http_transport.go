@@ -52,22 +52,22 @@ func execHTTPPost(ctx context.Context, client *http.Client, spec httpPostSpec) (
 	return resp.StatusCode, respBody, nil
 }
 
-func execHTTPPostRetry(ctx context.Context, client *http.Client, spec httpPostSpec, handle func(status int, body []byte) (GenerationResult, error, bool)) (GenerationResult, error) {
+func execHTTPPostRetry(ctx context.Context, client *http.Client, spec httpPostSpec, handle func(status int, body []byte) (GenerationResult, error, bool), onRetry func()) (GenerationResult, error) {
 	return execLLMHTTPRetry(ctx, func() (GenerationResult, error, bool) {
 		status, respBody, err := execHTTPPost(ctx, client, spec)
 		if err != nil {
 			return GenerationResult{}, err, isRetriableNetErr(err)
 		}
 		return handle(status, respBody)
-	})
+	}, onRetry)
 }
 
-func execHTTPPostRetryBytes(ctx context.Context, client *http.Client, spec httpPostSpec, handle func(status int, body []byte) ([]byte, error, bool)) ([]byte, error) {
+func execHTTPPostRetryBytes(ctx context.Context, client *http.Client, spec httpPostSpec, handle func(status int, body []byte) ([]byte, error, bool), onRetry func()) ([]byte, error) {
 	return execRetry(ctx, func() ([]byte, error, bool) {
 		status, respBody, err := execHTTPPost(ctx, client, spec)
 		if err != nil {
 			return nil, err, isRetriableNetErr(err)
 		}
 		return handle(status, respBody)
-	})
+	}, onRetry)
 }

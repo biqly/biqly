@@ -89,6 +89,17 @@ type Metrics struct {
 	modelPublishes       prometheus.Counter
 	modelPublishErrors   prometheus.Counter
 	modelPublishDuration prometheus.Histogram
+
+	httpRequestDuration        *prometheus.HistogramVec
+	httpRequestsTotal          *prometheus.CounterVec
+	llmErrorsTotal             *prometheus.CounterVec
+	llmRetriesTotal            *prometheus.CounterVec
+	llmTokensPromptTotal       prometheus.Counter
+	llmTokensCompletionTotal   prometheus.Counter
+	routingConfidenceHistogram *prometheus.HistogramVec
+	routingDecisionsTotal      *prometheus.CounterVec
+	embeddingAPIDuration       *prometheus.HistogramVec
+	embeddingAPIErrorsTotal    *prometheus.CounterVec
 }
 
 // NewMetrics registers every collector against reg and returns the bundle.
@@ -203,6 +214,7 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 		}),
 	}
 	registerExtendedAIMetrics(f, m)
+	registerTier1Metrics(f, m)
 	if g, ok := reg.(prometheus.Gatherer); ok {
 		registerCardinalityCollector(reg, g)
 	}
@@ -307,11 +319,13 @@ func (m *Metrics) RecordAIStep(step string, latencyMs int64) {
 }
 
 // RecordLLMRequest records LLM provider round-trip latency, token usage, and prompt build time.
-func (m *Metrics) RecordLLMRequest(latencyMs int64, tokensUsed int, promptBuildMs int64) {
+func (m *Metrics) RecordLLMRequest(latencyMs int64, promptTokens, completionTokens int, promptBuildMs int64) {
 	m.llmRequestDuration.Observe(msToSeconds(latencyMs))
-	if tokensUsed > 0 {
-		m.llmTokensUsed.Add(float64(tokensUsed))
+	total := promptTokens + completionTokens
+	if total > 0 {
+		m.llmTokensUsed.Add(float64(total))
 	}
+	m.RecordLLMProviderTokens(promptTokens, completionTokens)
 	m.promptBuildSeconds.Observe(msToSeconds(promptBuildMs))
 }
 

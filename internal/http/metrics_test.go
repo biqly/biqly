@@ -19,7 +19,7 @@ func TestMetricsHandlerExposesPrometheus(t *testing.T) {
 	m.RecordModelPublish(250, true)
 	m.RecordQueryCompile(125, true)
 	m.RecordQueryExecution(200, true, 7)
-	m.RecordLLMRequest(750, 1234, 50)
+	m.RecordLLMRequest(750, 800, 434, 50)
 	m.RecordAIRequest(120, true, 1, false)
 
 	rec := httptest.NewRecorder()

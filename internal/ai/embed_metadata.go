@@ -13,6 +13,7 @@ import (
 	"github.com/biqly/biqly/internal/ai/lingua"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/platform/observability"
 )
 
 // MetadataWriter is the subset of metadata.Repository the EmbedMetadataService
@@ -323,7 +324,7 @@ func embedInBatches(ctx context.Context, embedder Embedder, texts []string, batc
 		if end > len(texts) {
 			end = len(texts)
 		}
-		batch, err := embedder.Embed(ctx, texts[start:end])
+		batch, err := embedder.Embed(observability.ContextWithEmbeddingOperation(ctx, "metadata_embed"), texts[start:end])
 		if err != nil {
 			return nil, err
 		}

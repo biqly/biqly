@@ -24,7 +24,7 @@ func BenchmarkMetricsRecordConcurrent(b *testing.B) {
 		for pb.Next() {
 			m.RecordQuery(42, true, false)
 			m.RecordAIRequest(120, true, 0, false)
-			m.RecordLLMRequest(95, 512, 8)
+			m.RecordLLMRequest(95, 300, 212, 8)
 		}
 	})
 }

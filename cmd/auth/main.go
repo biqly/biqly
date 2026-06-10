@@ -93,6 +93,7 @@ func newAuthRuntime(cfg *biqauth.Config) (*authRuntime, error) {
 	}
 	configureDB(db)
 	registerSessionGauge(db)
+	observability.RegisterDBPoolMetrics(prometheus.DefaultRegisterer, "auth", observability.DBPoolStatsFromDB(db))
 
 	redisClient, err := newRedisClient(cfg.RedisDSN)
 	if err != nil {
@@ -282,6 +283,7 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 	r.Use(bimw.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(bihttp.HTTPMetricsMiddleware(bihttp.GetMetrics()))
 	r.Use(middleware.Timeout(30 * time.Second))
 
 	r.Use(bimw.SecurityHeaders(bimw.SecurityHeadersConfig{

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -61,11 +62,14 @@ func (p *baseProvider) generateAt(ctx context.Context, prompt string, temperatur
 		headers = map[string]string{}
 	}
 
+	var lastStatus int
+	onRetry := func() { recordLLMRetry(p.logName) }
 	result, err = execHTTPPostRetry(ctx, p.http.client, httpPostSpec{
 		URL:     p.http.url(p.hooks.path),
 		Headers: headers,
 		Body:    body,
 	}, func(status int, respBody []byte) (GenerationResult, error, bool) {
+		lastStatus = status
 		if status == http.StatusOK {
 			gen, parseErr := p.hooks.parse(respBody)
 			if parseErr != nil {
@@ -75,12 +79,14 @@ func (p *baseProvider) generateAt(ctx context.Context, prompt string, temperatur
 		}
 		apiErr := fmt.Errorf("API error %d: %s", status, string(respBody))
 		return GenerationResult{}, apiErr, isRetriableHTTPStatus(status)
-	})
+	}, onRetry)
 	if err != nil {
+		recordLLMError(p.logName, err, lastStatus)
 		return GenerationResult{}, err
 	}
 	if usage := TokenUsageFromGeneration(promptpkg.Stats{EstPromptTokens: estPrompt}, result); usage != nil {
 		observability.SetAITokenAttributes(span, usage.Prompt, usage.Completion, usage.Total)
+		recordLLMProviderTokens(usage.Prompt, usage.Completion)
 	}
 	logLLMCompletion(ctx, p.logName, p.model, estPrompt, result)
 	return result, nil
@@ -127,17 +133,29 @@ func (e *baseEmbedder) embed(ctx context.Context, texts []string) (out [][]float
 		headers = map[string]string{}
 	}
 
+	start := time.Now()
+	var lastStatus int
 	respBody, err := execHTTPPostRetryBytes(ctx, e.http.client, httpPostSpec{
 		URL:     e.http.url(e.hooks.path),
 		Headers: headers,
 		Body:    body,
 	}, func(status int, respBody []byte) ([]byte, error, bool) {
+		lastStatus = status
 		if status == http.StatusOK {
 			return respBody, nil, false
 		}
 		apiErr := fmt.Errorf("embedding API error %d: %s", status, string(respBody))
 		return nil, apiErr, isRetriableHTTPStatus(status)
-	})
+	}, func() { recordLLMRetry("openai") })
+	if err != nil && lastStatus > 0 {
+		err = fmt.Errorf("embedding API error %d: %w", lastStatus, err)
+	}
+	observability.Default().RecordEmbeddingAPI(
+		observability.EmbeddingOperationFromContext(ctx),
+		time.Since(start).Milliseconds(),
+		err,
+		lastStatus,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -61,7 +61,7 @@ func (h *AIHandler) observeAIRequest(
 
 	var retryCount int
 	var needsClarification bool
-	var totalTokens int
+	var promptTokens, completionTokens int
 	var promptBuildMs int64
 	var confidence float64
 	var totalWarnings int
@@ -71,7 +71,8 @@ func (h *AIHandler) observeAIRequest(
 	if resp.Metadata != nil {
 		retryCount = resp.Metadata.RetryCount
 		if resp.Metadata.TokenUsage != nil {
-			totalTokens = resp.Metadata.TokenUsage.Total
+			promptTokens = resp.Metadata.TokenUsage.Prompt
+			completionTokens = resp.Metadata.TokenUsage.Completion
 		}
 		if resp.Metadata.PromptStats != nil {
 			promptBuildMs = resp.Metadata.PromptStats.PromptBuildDurationMs
@@ -98,7 +99,7 @@ func (h *AIHandler) observeAIRequest(
 
 	if h.metrics != nil {
 		h.metrics.RecordAIRequest(latencyMs, success, retryCount, needsClarification)
-		h.metrics.RecordLLMRequest(llmMs, totalTokens, promptBuildMs)
+		h.metrics.RecordLLMRequest(llmMs, promptTokens, completionTokens, promptBuildMs)
 		if repairAttempts > 0 {
 			h.metrics.RecordAIRepair(success, repairAttempts, repairErrorCodes)
 		}

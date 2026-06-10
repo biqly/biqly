@@ -18,11 +18,14 @@ const llmHTTPMaxAttempts = 4
 // returns retry=true for transient HTTP/network failures. Backoff is
 // 250ms × 2^(attempt-1) with ±25% uniform jitter so simultaneously failing
 // callers do not synchronize a retry storm against the upstream.
-func execRetry[T any](ctx context.Context, op func() (T, error, bool)) (T, error) {
+func execRetry[T any](ctx context.Context, op func() (T, error, bool), onRetry func()) (T, error) {
 	var zero T
 	var lastErr error
 	for attempt := range llmHTTPMaxAttempts {
 		if attempt > 0 {
+			if onRetry != nil {
+				onRetry()
+			}
 			delay := jitteredBackoff(attempt)
 			if err := sleepCtx(ctx, delay); err != nil {
 				return zero, err
@@ -57,8 +60,8 @@ func cryptoRandomUnitFloat() float64 {
 	return float64(n.Int64()) / 1_000_000
 }
 
-func execLLMHTTPRetry(ctx context.Context, op func() (GenerationResult, error, bool)) (GenerationResult, error) {
-	return execRetry(ctx, op)
+func execLLMHTTPRetry(ctx context.Context, op func() (GenerationResult, error, bool), onRetry func()) (GenerationResult, error) {
+	return execRetry(ctx, op, onRetry)
 }
 
 func sleepCtx(ctx context.Context, d time.Duration) error {

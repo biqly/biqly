@@ -14,6 +14,7 @@ import (
 	"github.com/biqly/biqly/internal/ai/lingua"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/semantic"
 )
 
@@ -195,6 +196,14 @@ func (r *TableRouter) Route(
 				attribute.String("ai.ranking_method", result.RankingMethod),
 				attribute.Bool("ai.route.needs_clarification", result.NeedsClarification),
 			)
+			observability.Default().RecordRoutingResult(
+				result.RankingMethod,
+				result.Confidence,
+				result.NeedsClarification,
+				err != nil,
+			)
+		} else if err != nil {
+			observability.Default().RecordRoutingResult("", 0, false, true)
 		}
 		if err != nil {
 			span.RecordError(err)
@@ -484,7 +493,7 @@ func (r *TableRouter) embeddingSignals(ctx context.Context, datasourceID, questi
 	if (tableErr != nil || len(storedTables) == 0) && (columnErr != nil || len(storedColumns) == 0) {
 		return embeddingSignals{}
 	}
-	qVecs, err := r.embedder.Embed(ctx, []string{question})
+	qVecs, err := r.embedder.Embed(observability.ContextWithEmbeddingOperation(ctx, "route_recall"), []string{question})
 	if err != nil || len(qVecs) == 0 || len(qVecs[0]) == 0 {
 		if err != nil {
 			span.RecordError(err)

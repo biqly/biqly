@@ -18,7 +18,7 @@ func TestMetricsRecord(t *testing.T) {
 	m.RecordQueryCompile(25, false)
 	m.RecordQueryExecution(200, true, 7)
 	m.RecordQueryExecution(300, false, 0)
-	m.RecordLLMRequest(750, 1234, 50)
+	m.RecordLLMRequest(750, 800, 434, 50)
 	m.RecordAIStep("llm_generate", 420)
 	m.RecordAIStep("prompt_build", 50)
 	m.RecordAIRequest(120, true, 2, false)
@@ -50,6 +50,12 @@ func TestMetricsRecord(t *testing.T) {
 	}
 	if got := testutil.ToFloat64(m.llmTokensUsed); got != 1234 {
 		t.Fatalf("llm_tokens_used_total = %v, want 1234", got)
+	}
+	if got := testutil.ToFloat64(m.llmTokensPromptTotal); got != 800 {
+		t.Fatalf("biqly_llm_tokens_prompt_total = %v, want 800", got)
+	}
+	if got := testutil.ToFloat64(m.llmTokensCompletionTotal); got != 434 {
+		t.Fatalf("biqly_llm_tokens_completion_total = %v, want 434", got)
 	}
 	if got := testutil.ToFloat64(m.aiRequestsTotal); got != 2 {
 		t.Fatalf("bi_ai_requests_total = %v, want 2", got)

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/biqly/biqly/internal/metadata"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/biqly/biqly/internal/metadata"
 	"github.com/go-chi/chi/v5"
 )
 
