@@ -47,6 +47,10 @@ export function jobIsActive(job: AIJob): boolean {
 
 export type TrackedAIJob = AIJob & {
   questionPreview?: string
+  /** Client-side per-phase durations in ms, keyed by phase name. */
+  phaseTimings?: Record<string, number>
+  /** Epoch ms when the current phase was first observed client-side. */
+  phaseEnteredAt?: number
 }
 
 export type { JobCallbacks } from './jobWaiter'
@@ -71,6 +75,7 @@ interface AIJobsContextValue {
   minimized: boolean
   setMinimized: (v: boolean) => void
   dismissJob: (id: string) => void
+  dismissFinishedJobs: () => void
   cancelJob: (id: string) => Promise<boolean>
   cancelAllActiveJobs: () => Promise<number>
   listStaleJobs: (olderMinutes?: number) => Promise<AIJob[]>
@@ -207,13 +212,27 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     if (!isValidJobId(job.id)) {
       return
     }
+    const now = Date.now()
     setJobs((prev) => {
       const idx = prev.findIndex((j) => j.id === job.id)
       if (idx === -1) {
-        return [job, ...prev].slice(0, 12)
+        return [{ phaseTimings: {}, phaseEnteredAt: now, ...job }, ...prev].slice(0, 12)
+      }
+      const existing = prev[idx]
+      if (!existing) {
+        return prev
+      }
+      const timings = { ...(existing.phaseTimings ?? {}) }
+      let enteredAt = existing.phaseEnteredAt ?? now
+      if (existing.phase !== job.phase) {
+        timings[existing.phase] = (timings[existing.phase] ?? 0) + (now - enteredAt)
+        enteredAt = now
+      }
+      if (TERMINAL.has(job.status) && timings[job.phase] === undefined) {
+        timings[job.phase] = now - enteredAt
       }
       const next = [...prev]
-      next[idx] = { ...next[idx], ...job }
+      next[idx] = { ...existing, ...job, phaseTimings: timings, phaseEnteredAt: enteredAt }
       return next
     })
   }, [])
@@ -297,7 +316,10 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       }
       if (TERMINAL.has(data.status)) {
         finishJob(data)
-        if (data.status === 'failed' || data.status === 'succeeded') {
+        // Best practice: only interrupt the user for failures. Successful
+        // results already surface in the requesting UI; the tray FAB reflects
+        // the completed state without stealing focus.
+        if (data.status === 'failed') {
           setMinimized(false)
         }
       }
@@ -354,7 +376,6 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       upsertJob(trackedJobFromAIJob(job))
       startPolling(job.id)
     }
-    setMinimized(false)
   }, [sessionId, startPolling, upsertJob])
 
   useEffect(() => {
@@ -415,7 +436,6 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         return null
       }
       upsertJob({ ...data, questionPreview: jobQuestionPreview(kind, request) })
-      setMinimized(false)
       startPolling(data.id)
       return new Promise<TResult | null>((resolve) => {
         const waiter = createJobWaiter<TResult>(resolve, callbacks)
@@ -437,6 +457,10 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     },
     [stopPolling],
   )
+
+  const dismissFinishedJobs = useCallback(() => {
+    setJobs((prev) => prev.filter((j) => !TERMINAL.has(j.status)))
+  }, [])
 
   const cancelJob = useCallback(
     async (id: string) => {
@@ -560,7 +584,6 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       const runId = ++bulkRunIdRef.current
       setBulkRunning(true)
       setBulkSummary(null)
-      setMinimized(false)
 
       const queue = buildInitialBulkQueue(targets, skipExisting, opts.skipExistingMessage)
       setBulkEntries(queue)
@@ -625,6 +648,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       minimized,
       setMinimized,
       dismissJob,
+      dismissFinishedJobs,
       cancelJob,
       cancelAllActiveJobs,
       listStaleJobs,
@@ -644,6 +668,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       expanded,
       minimized,
       dismissJob,
+      dismissFinishedJobs,
       cancelJob,
       cancelAllActiveJobs,
       listStaleJobs,

@@ -1,6 +1,6 @@
 import '../styles/ai-jobs.css'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { jobQuestionPreview, type TrackedAIJob, useAIJobs } from '../hooks/useAIJobs'
 import { type TranslationKey, useT } from '../i18n'
@@ -23,6 +23,8 @@ type PipelinePhase =
   | (typeof PIPELINE_PHASES)[number]
   | (typeof DESCRIBE_PHASES)[number]
   | (typeof EMBED_PHASES)[number]
+
+type Translate = (key: TranslationKey, params?: Record<string, string | number>) => string
 
 function phasesForJob(job: TrackedAIJob): readonly PipelinePhase[] {
   if (job.kind === 'describe' || job.kind === 'describe_batch') {
@@ -54,6 +56,58 @@ function isActive(job: TrackedAIJob): boolean {
   return job.status === 'pending' || job.status === 'queued' || job.status === 'running'
 }
 
+/** Ticking clock for live durations; updates only while a job is active. */
+function useNowWhile(active: boolean): number {
+  const [now, setNow] = useState(0)
+  useEffect(() => {
+    if (!active) {
+      return
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNow(Date.now())
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [active])
+  return now
+}
+
+function formatDuration(ms: number, t: Translate): string {
+  const totalSec = Math.max(0, ms) / 1000
+  if (totalSec < 60) {
+    const s = totalSec < 10 ? totalSec.toFixed(1) : String(Math.round(totalSec))
+    return t('ai_jobs.duration_s', { s })
+  }
+  return t('ai_jobs.duration_m', {
+    m: Math.floor(totalSec / 60),
+    s: Math.round(totalSec % 60),
+  })
+}
+
+function jobTotalMs(job: TrackedAIJob, now: number): number | null {
+  const start = Date.parse(job.started_at ?? job.created_at)
+  if (Number.isNaN(start)) {
+    return null
+  }
+  if (isActive(job)) {
+    return now > 0 ? now - start : null
+  }
+  const end = Date.parse(job.finished_at ?? job.updated_at)
+  return Number.isNaN(end) ? null : end - start
+}
+
+function jobStatusKey(job: TrackedAIJob): TranslationKey | null {
+  if (job.status === 'succeeded') {
+    return 'ai_jobs.completed'
+  }
+  if (job.status === 'failed') {
+    return 'ai_jobs.failed'
+  }
+  if (job.status === 'cancelled') {
+    return 'ai_jobs.cancelled'
+  }
+  return null
+}
+
 function describeBatchScopeLine(job: TrackedAIJob): string | null {
   if (job.kind !== 'describe_batch' || !job.scope_schemas?.length) {
     return null
@@ -77,12 +131,13 @@ function describeBatchQueueLine(
   return { current, next }
 }
 
-function JobPipeline({ job }: { job: TrackedAIJob }) {
+function JobPipeline({ job, now }: { job: TrackedAIJob; now: number }) {
   const t = useT()
   const phases = phasesForJob(job)
   const current = phaseIndex(phases, job.phase)
   const done = job.status === 'succeeded'
   const failed = job.status === 'failed'
+  const active = isActive(job)
 
   return (
     <ol className="ai-job-pipeline" aria-label={t('ai_jobs.pipeline_aria')}>
@@ -95,10 +150,16 @@ function JobPipeline({ job }: { job: TrackedAIJob }) {
         } else if (idx === current) {
           state = 'current'
         }
+        const recorded = job.phaseTimings?.[phase]
+        let duration: string | null = recorded != null ? formatDuration(recorded, t) : null
+        if (state === 'current' && active && job.phaseEnteredAt != null && now > 0) {
+          duration = formatDuration(now - job.phaseEnteredAt, t)
+        }
         return (
           <li key={phase} className={`ai-job-pipeline__step ai-job-pipeline__step--${state}`}>
             <span className="ai-job-pipeline__dot" aria-hidden="true" />
             <span className="ai-job-pipeline__label">{t(phaseLabelKey(job, phase))}</span>
+            {duration && <span className="ai-job-pipeline__time">{duration}</span>}
           </li>
         )
       })}
@@ -106,14 +167,26 @@ function JobPipeline({ job }: { job: TrackedAIJob }) {
   )
 }
 
-function JobCardBody({ job }: { job: TrackedAIJob }) {
+function JobCardBody({ job, now }: { job: TrackedAIJob; now: number }) {
   const t = useT()
   const queueLine = describeBatchQueueLine(job)
+  const scopeLine = describeBatchScopeLine(job)
   const active = isActive(job)
+  const total = jobTotalMs(job, now)
 
   return (
     <div className="ai-job-card__body">
-      <JobPipeline job={job} />
+      <JobPipeline job={job} now={now} />
+      {total != null && (
+        <p className="ai-job-card__total">
+          <span>{t('ai_jobs.total_label')}</span>
+          <span className="ai-job-card__total-time">{formatDuration(total, t)}</span>
+        </p>
+      )}
+      {scopeLine && (
+        <p className="ai-job-card__hint">{t('ai_jobs.scope_schemas', { schemas: scopeLine })}</p>
+      )}
+      {job.phase_message && active && <p className="ai-job-card__hint">{job.phase_message}</p>}
       {queueLine?.current && (
         <p className="ai-job-card__hint">
           {t('ai_jobs.queue_current', { table: queueLine.current })}
@@ -132,7 +205,6 @@ function JobCardBody({ job }: { job: TrackedAIJob }) {
           {(job.error_message ?? job.phase_message) || t('ai_jobs.cancelled')}
         </p>
       )}
-      {job.status === 'succeeded' && <p className="ai-job-card__ok">{t('ai_jobs.completed')}</p>}
       {active && job.status === 'queued' && (
         <p className="ai-job-card__hint">{t('ai_jobs.stuck_hint')}</p>
       )}
@@ -140,35 +212,67 @@ function JobCardBody({ job }: { job: TrackedAIJob }) {
   )
 }
 
+function jobCardModifier(job: TrackedAIJob): string {
+  if (isActive(job)) {
+    return ' ai-job-card--active'
+  }
+  if (job.status === 'failed') {
+    return ' ai-job-card--failed'
+  }
+  if (job.status === 'succeeded') {
+    return ' ai-job-card--done'
+  }
+  return ''
+}
+
 function JobCard({
   job,
-  expanded,
+  now,
+  open,
+  onToggle,
   onDismiss,
   onCancel,
   cancelling,
 }: {
   job: TrackedAIJob
-  expanded: boolean
+  now: number
+  open: boolean
+  onToggle: () => void
   onDismiss: () => void
   onCancel?: () => void
   cancelling?: boolean
 }) {
   const t = useT()
   const active = isActive(job)
-  const scopeLine = describeBatchScopeLine(job)
   const kindLabel = jobKindLabel(job, t)
+  const statusKey = jobStatusKey(job)
+  const total = jobTotalMs(job, now)
+
+  const metaParts = [kindLabel]
+  if (active) {
+    metaParts.push(`${job.progress_pct}%`)
+  } else if (statusKey) {
+    metaParts.push(t(statusKey))
+  }
+  if (total != null) {
+    metaParts.push(formatDuration(total, t))
+  }
 
   return (
-    <article className={`ai-job-card${active ? ' ai-job-card--active' : ''}`}>
+    <article className={`ai-job-card${jobCardModifier(job)}`}>
       <header className="ai-job-card__head">
-        <div className="ai-job-card__titles">
-          <strong className="ai-job-card__title">{job.questionPreview ?? kindLabel}</strong>
-          <span className="ai-job-card__meta">
-            {kindLabel} · {job.progress_pct}%
-            {scopeLine ? ` · ${t('ai_jobs.scope_schemas', { schemas: scopeLine })}` : ''}
-            {job.phase_message ? ` · ${job.phase_message}` : ''}
+        <button
+          type="button"
+          className="ai-job-card__toggle"
+          onClick={onToggle}
+          aria-expanded={open}
+        >
+          <span className="ai-job-card__chevron" aria-hidden="true" />
+          <span className="ai-job-card__titles">
+            <strong className="ai-job-card__title">{job.questionPreview ?? kindLabel}</strong>
+            <span className="ai-job-card__meta">{metaParts.join(' · ')}</span>
           </span>
-        </div>
+        </button>
         <div className="ai-job-card__actions">
           {active && onCancel && (
             <button
@@ -192,7 +296,18 @@ function JobCard({
           )}
         </div>
       </header>
-      {expanded && <JobCardBody job={job} />}
+      {active && (
+        <div
+          className="ai-job-card__progress"
+          role="progressbar"
+          aria-valuenow={job.progress_pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <span style={{ width: `${Math.min(100, Math.max(0, job.progress_pct))}%` }} />
+        </div>
+      )}
+      {open && <JobCardBody job={job} now={now} />}
     </article>
   )
 }
@@ -250,6 +365,7 @@ export default function AIJobTracker() {
     minimized,
     setMinimized,
     dismissJob,
+    dismissFinishedJobs,
     cancelJob,
     cancelAllActiveJobs,
     listStaleJobs,
@@ -259,6 +375,7 @@ export default function AIJobTracker() {
   const [manageBusy, setManageBusy] = useState(false)
   const [showStale, setShowStale] = useState(false)
   const [staleJobs, setStaleJobs] = useState<TrackedAIJob[]>([])
+  const [cardOverrides, setCardOverrides] = useState<Record<string, boolean>>({})
 
   const loadStale = useCallback(async () => {
     const list = await listStaleJobs(15)
@@ -282,43 +399,51 @@ export default function AIJobTracker() {
     await loadStale()
   }, [showStale, loadStale])
 
-  const visible = useMemo(
-    () => jobs.filter((j) => isActive(j) || j.status === 'failed' || j.status === 'cancelled'),
-    [jobs],
-  )
-  const primary = visible[0] ?? jobs[0]
+  const activeCount = useMemo(() => jobs.filter(isActive).length, [jobs])
+  const failedCount = useMemo(() => jobs.filter((j) => j.status === 'failed').length, [jobs])
+  const finishedCount = jobs.length - activeCount
+  const primary = jobs.find(isActive) ?? jobs[0]
+  const now = useNowWhile(activeCount > 0 && !minimized)
 
   if (!jobs.length) {
     return null
   }
 
-  const activeCount = jobs.filter(isActive).length
-
   if (minimized) {
     return (
       <button
         type="button"
-        className="ai-job-fab"
-        onClick={() => {
-          setMinimized(false)
-          setExpanded(false)
-        }}
+        className={`ai-job-fab${failedCount > 0 ? ' ai-job-fab--alert' : ''}`}
+        onClick={() => setMinimized(false)}
         aria-expanded="false"
         aria-label={t('ai_jobs.fab_aria', { count: activeCount })}
       >
-        <span className="ai-job-fab__pulse" aria-hidden="true" />
+        <span
+          className={`ai-job-fab__pulse${activeCount === 0 ? ' ai-job-fab__pulse--idle' : ''}`}
+          aria-hidden="true"
+        />
         <span className="ai-job-fab__label">
           {activeCount > 0
             ? t('ai_jobs.fab_running', { count: activeCount })
             : t('ai_jobs.fab_done')}
         </span>
-        {primary && <span className="ai-job-fab__pct">{primary.progress_pct}%</span>}
+        {activeCount > 0 && primary && (
+          <span className="ai-job-fab__pct">{primary.progress_pct}%</span>
+        )}
       </button>
     )
   }
 
   return (
-    <section className="ai-job-panel" aria-live="polite">
+    <section
+      className="ai-job-panel"
+      aria-live="polite"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          setMinimized(true)
+        }
+      }}
+    >
       <header className="ai-job-panel__head">
         <div>
           <h2 className="ai-job-panel__title">{t('ai_jobs.panel_title')}</h2>
@@ -335,15 +460,16 @@ export default function AIJobTracker() {
             onClick={() => setExpanded(!expanded)}
             aria-expanded={expanded}
           >
-            {expanded ? t('ai_jobs.collapse') : t('ai_jobs.expand')}
+            {expanded ? t('ai_jobs.tools_hide') : t('ai_jobs.tools')}
           </button>
           <button
             type="button"
-            className="btn btn-sm btn-ghost"
+            className="btn btn-sm btn-ghost ai-job-panel__minimize"
             onClick={() => setMinimized(true)}
             aria-label={t('ai_jobs.minimize')}
+            title={t('ai_jobs.minimize')}
           >
-            _
+            —
           </button>
         </div>
       </header>
@@ -360,6 +486,16 @@ export default function AIJobTracker() {
               }}
             >
               {t('ai_jobs.manage_cancel_all_active')}
+            </button>
+          )}
+          {finishedCount > 0 && (
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost"
+              disabled={manageBusy}
+              onClick={dismissFinishedJobs}
+            >
+              {t('ai_jobs.clear_done')}
             </button>
           )}
           <button
@@ -394,11 +530,18 @@ export default function AIJobTracker() {
         </div>
       )}
       <div className="ai-job-panel__list">
-        {(expanded ? jobs : jobs.slice(0, 1)).map((job) => (
+        {jobs.map((job) => (
           <JobCard
             key={job.id}
             job={job}
-            expanded={expanded || jobs.length === 1}
+            now={now}
+            open={cardOverrides[job.id] ?? (isActive(job) || job.status === 'failed')}
+            onToggle={() =>
+              setCardOverrides((prev) => ({
+                ...prev,
+                [job.id]: !(prev[job.id] ?? (isActive(job) || job.status === 'failed')),
+              }))
+            }
             onDismiss={() => dismissJob(job.id)}
             onCancel={
               isActive(job)
