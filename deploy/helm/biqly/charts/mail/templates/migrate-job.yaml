@@ -8,7 +8,7 @@ metadata:
   annotations:
     argocd.argoproj.io/hook: PreSync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
-    argocd.argoproj.io/sync-wave: "-9"
+    argocd.argoproj.io/sync-wave: "-8"
     helm.sh/hook: pre-install,pre-upgrade
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
     helm.sh/hook-weight: "-9"
@@ -50,12 +50,7 @@ spec:
                   name: {{ .Values.global.secretNames.mailDB }}
                   key: BI_MAIL_DB_DSN
           resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 250m
-              memory: 256Mi
+            {{- toYaml .Values.global.migrate.resources | nindent 12 }}
           securityContext:
             runAsNonRoot: true
             runAsUser: 65532

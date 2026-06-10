@@ -107,6 +107,14 @@ global:
       tag: latest
       pullPolicy: IfNotPresent
     backoffLimit: 3
+    # Low requests: PreSync hooks must schedule on a nearly-full single node (prag).
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
   backup:
     enabled: false
     schedule: "0 2 * * *"
