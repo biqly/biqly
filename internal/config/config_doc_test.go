@@ -32,8 +32,7 @@ func TestConfigDocSync(t *testing.T) {
 	}
 
 	// 3. Read docs/configuration.md
-	docPath := filepath.Join("..", "..", "docs", "configuration.md")
-	docBytes, err := os.ReadFile(docPath)
+	docBytes, err := os.ReadFile(filepath.Join("..", "..", "docs", "configuration.md"))
 	if err != nil {
 		t.Fatalf("failed to read docs/configuration.md: %v", err)
 	}
