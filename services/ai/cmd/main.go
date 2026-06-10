@@ -62,6 +62,7 @@ func main() {
 		deps.AIJobQueue = pub
 		aiHandler := handlers.NewAIHandler(deps.AIDeps())
 		aiHandler.SetAuthClient(authClient)
+		aiHandler.SetAIMetricsRecorder(httprouter.GetMetrics())
 		jobSvc := handlers.NewAIJobService(deps.MetaRepo, pub, aiHandler)
 		deps.AIJobService = jobSvc
 		deps.AIJobsHTTP = handlers.NewAIJobsHandler(jobSvc)

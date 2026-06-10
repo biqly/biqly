@@ -224,7 +224,17 @@ export function MetadataTablesPanel({
                       {tab.schema_name}.{tab.table_name}
                     </button>
                   </td>
-                  <td className="metadata-col-type">{tab.table_type}</td>
+                  <td className="metadata-col-type">
+                    <span
+                      className={`metadata-type-badge${
+                        tab.table_type.toUpperCase().includes('VIEW')
+                          ? ' metadata-type-badge--view'
+                          : ''
+                      }`}
+                    >
+                      {tab.table_type}
+                    </span>
+                  </td>
                   <MetadataDescriptionCell
                     kind="table"
                     entityId={tab.id}
@@ -239,10 +249,17 @@ export function MetadataTablesPanel({
                   <td className="actions">
                     <button
                       type="button"
-                      className="btn btn-sm"
+                      className="metadata-row-action"
                       onClick={() => onDescribeOpen(tab)}
+                      aria-label={t('metadata.btn_ai_describe_aria', {
+                        name: `${tab.schema_name}.${tab.table_name}`,
+                      })}
+                      title={t('metadata.btn_ai_describe')}
                     >
-                      {t('metadata.btn_ai_describe')}
+                      <span aria-hidden="true">✨</span>
+                      <span className="metadata-row-action__label">
+                        {t('metadata.btn_ai_describe')}
+                      </span>
                     </button>
                   </td>
                 </tr>

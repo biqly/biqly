@@ -537,6 +537,9 @@ func (s *Service) generateWithRetries(
 
 		parseStart := time.Now()
 		st.lq, st.warnings, st.validationErrCount, validationErrors, st.parseErr = s.parseAndValidate(gen.Content, model)
+		if st.parseErr != nil && gen.FinishReason == "length" {
+			st.parseErr = fmt.Errorf("%w (completion truncated by max_tokens, finish_reason=length)", st.parseErr)
+		}
 		if options.stepObserver != nil {
 			options.stepObserver("parse_validate", time.Since(parseStart).Milliseconds())
 		}

@@ -104,3 +104,45 @@ func TestTokenUsageFromGenerationPrefersAPI(t *testing.T) {
 		t.Fatalf("TokenUsageFromGeneration estimate fallback = %+v, want %+v", est, wantEstimate)
 	}
 }
+
+func TestParseOpenAIResponseReasoningFallback(t *testing.T) {
+	tests := []struct {
+		name        string
+		body        string
+		wantContent string
+		wantFinish  string
+	}{
+		{
+			name:        "empty content falls back to reasoning_content",
+			body:        `{"choices":[{"message":{"content":"","reasoning_content":"thinking... {\"limit\":5}"},"finish_reason":"length"}]}`,
+			wantContent: `thinking... {"limit":5}`,
+			wantFinish:  "length",
+		},
+		{
+			name:        "empty content falls back to reasoning",
+			body:        `{"choices":[{"message":{"content":"","reasoning":"{\"limit\":7}"},"finish_reason":"stop"}]}`,
+			wantContent: `{"limit":7}`,
+			wantFinish:  "stop",
+		},
+		{
+			name:        "content wins over reasoning channels",
+			body:        `{"choices":[{"message":{"content":"{\"limit\":1}","reasoning_content":"ignored"},"finish_reason":"stop"}]}`,
+			wantContent: `{"limit":1}`,
+			wantFinish:  "stop",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gen, err := parseOpenAIResponse([]byte(tt.body))
+			if err != nil {
+				t.Fatalf("parseOpenAIResponse: %v", err)
+			}
+			if gen.Content != tt.wantContent {
+				t.Errorf("Content = %q, want %q", gen.Content, tt.wantContent)
+			}
+			if gen.FinishReason != tt.wantFinish {
+				t.Errorf("FinishReason = %q, want %q", gen.FinishReason, tt.wantFinish)
+			}
+		})
+	}
+}

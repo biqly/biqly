@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"log/slog"
+	"unicode/utf8"
 
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 )
@@ -10,7 +11,10 @@ import (
 // GenerationResult is the outcome of a single LLM completion call.
 type GenerationResult struct {
 	Content string
-	Usage   *TokenUsage
+	// FinishReason is the provider-reported stop cause (e.g. "stop",
+	// "length"); "length" means the completion was truncated by max_tokens.
+	FinishReason string
+	Usage        *TokenUsage
 }
 
 // TokenUsage tracks LLM token consumption.
@@ -63,6 +67,8 @@ func logLLMCompletion(ctx context.Context, provider, model string, estPromptToke
 		"model", model,
 		"est_prompt_tokens", estPromptTokens,
 		"tokens_from_api", fromAPI,
+		"finish_reason", result.FinishReason,
+		"content_runes", utf8.RuneCountInString(result.Content),
 	}
 	if usage != nil {
 		args = append(args,

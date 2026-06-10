@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/bytedance/sonic"
 
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
@@ -77,7 +79,14 @@ type openAIResponse struct {
 	Choices []struct {
 		Message struct {
 			Content string `json:"content"`
+			// Reasoning models served via vLLM/SGLang/DeepSeek-style APIs put
+			// chain-of-thought in reasoning_content; Ollama/OpenRouter use
+			// reasoning. Content can arrive empty when the completion budget
+			// runs out mid-thought.
+			ReasoningContent string `json:"reasoning_content"`
+			Reasoning        string `json:"reasoning"`
 		} `json:"message"`
+		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage *struct {
 		PromptTokens     int `json:"prompt_tokens"`
@@ -126,7 +135,18 @@ func parseOpenAIResponse(respBody []byte) (GenerationResult, error) {
 	if len(aiResp.Choices) == 0 {
 		return GenerationResult{}, errors.New("no choices in response")
 	}
-	gen := GenerationResult{Content: aiResp.Choices[0].Message.Content}
+	choice := aiResp.Choices[0]
+	content := choice.Message.Content
+	if strings.TrimSpace(content) == "" {
+		// Fall back to the reasoning channel so downstream JSON extraction
+		// still has a chance when the final answer never reached content.
+		if r := choice.Message.ReasoningContent; strings.TrimSpace(r) != "" {
+			content = r
+		} else if r := choice.Message.Reasoning; strings.TrimSpace(r) != "" {
+			content = r
+		}
+	}
+	gen := GenerationResult{Content: content, FinishReason: choice.FinishReason}
 	if aiResp.Usage != nil {
 		gen.Usage = newTokenUsage(aiResp.Usage.PromptTokens, aiResp.Usage.CompletionTokens, aiResp.Usage.TotalTokens)
 	}
