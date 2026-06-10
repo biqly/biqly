@@ -11,6 +11,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/core"
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/queue"
 	"github.com/google/uuid"
@@ -54,6 +55,7 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 		ID:              uuid.NewString(),
 		ClientSessionID: sessionID,
 		UserID:          userIDPtr,
+		Locale:          string(i18n.FromContext(ctx)),
 		Kind:            kind,
 		Status:          metadata.AIJobStatusQueued,
 		Phase:           "queued",
@@ -236,12 +238,9 @@ func (s *AIJobService) Process(ctx context.Context, jobID string) error {
 			slog.WarnContext(ctx, "ai job progress update failed", "job_id", jobID, "error", uerr)
 		}
 	}
-	// Re-attach the submitting user's identity so per-user model preferences
-	// (resolved by the AI provider store) apply inside the async worker, which
-	// otherwise runs with a bare consumer context.
-	if job.UserID != nil && *job.UserID != "" {
-		ctx = ai.WithUserID(ctx, *job.UserID)
-	}
+	// Re-attach request-scoped values stripped by the async worker's bare consumer
+	// context: user identity for per-user model preferences, locale for i18n strings.
+	ctx = consumerContextForAIJob(ctx, job)
 	raw, err := s.processJob(ctx, job, report)
 	if err != nil {
 		job, getErr := s.repo.GetAIJob(ctx, jobID)
@@ -311,6 +310,19 @@ func (s *AIJobService) processJob(ctx context.Context, job *metadata.AIJob, repo
 	default:
 		return nil, fmt.Errorf("unknown job kind %q", job.Kind)
 	}
+}
+
+func consumerContextForAIJob(ctx context.Context, job *metadata.AIJob) context.Context {
+	if job == nil {
+		return ctx
+	}
+	if job.UserID != nil && *job.UserID != "" {
+		ctx = ai.WithUserID(ctx, *job.UserID)
+	}
+	if loc := strings.TrimSpace(job.Locale); loc != "" {
+		ctx = i18n.WithLocale(ctx, i18n.ParseLocale(loc))
+	}
+	return ctx
 }
 
 func (s *AIJobService) StartConsumer(ctx context.Context, group string) error {

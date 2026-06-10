@@ -1170,7 +1170,7 @@ func TestAIFeedbackAndUsageRepository(t *testing.T) {
 }
 
 func aiJobRow(now time.Time) []driver.Value {
-	return []driver.Value{"job-1", "sess-1", "describe", "pending", "routing", "", 5, "ds-1", "{schema1}", []byte(`{}`), []byte(`{}`), []byte(`{}`), "", now, now, now, now, nil}
+	return []driver.Value{"job-1", "sess-1", "describe", "pending", "routing", "", 5, "ds-1", "{schema1}", []byte(`{}`), []byte(`{}`), []byte(`{}`), "", now, now, now, now, nil, "tr"}
 }
 
 func testAIJobLifecycle(ctx context.Context, t *testing.T, repo *Repository, dsID string) {
@@ -1186,6 +1186,7 @@ func testAIJobLifecycle(ctx context.Context, t *testing.T, repo *Repository, dsI
 		DatasourceID:    &dsID,
 		ScopeSchemas:    []string{"schema1"},
 		RequestJSON:     json.RawMessage(`{}`),
+		Locale:          "tr",
 	}
 	err := repo.CreateAIJob(ctx, job)
 	assert.NoError(t, err)
@@ -1193,6 +1194,7 @@ func testAIJobLifecycle(ctx context.Context, t *testing.T, repo *Repository, dsI
 	gotJob, err := repo.GetAIJob(ctx, "job-1")
 	assert.NoError(t, err)
 	assert.Equal(t, "job-1", gotJob.ID)
+	assert.Equal(t, "tr", gotJob.Locale)
 
 	jobs, err := repo.ListAIJobsBySession(ctx, "sess-1", true, 10)
 	assert.NoError(t, err)
@@ -1268,7 +1270,7 @@ func TestAIJobRepository(t *testing.T) {
 	state.queries = []queryMock{
 		{
 			Pattern: "SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct",
-			Cols:    []string{"id", "client_session_id", "kind", "status", "phase", "phase_message", "progress_pct", "datasource_id", "scope_schemas", "progress_json", "request_json", "result_json", "error_message", "created_at", "updated_at", "started_at", "finished_at", "user_id"},
+			Cols:    []string{"id", "client_session_id", "kind", "status", "phase", "phase_message", "progress_pct", "datasource_id", "scope_schemas", "progress_json", "request_json", "result_json", "error_message", "created_at", "updated_at", "started_at", "finished_at", "user_id", "locale"},
 			Rows:    [][]driver.Value{aiJobRow(now)},
 		},
 		{
@@ -1278,8 +1280,8 @@ func TestAIJobRepository(t *testing.T) {
 		},
 		{
 			Pattern: "SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct",
-			Cols:    []string{"id", "client_session_id", "kind", "status", "phase", "phase_message", "progress_pct", "datasource_id", "scope_schemas", "progress_json", "request_json", "result_json", "error_message", "created_at", "updated_at", "started_at", "finished_at", "user_id"},
-			Rows:    [][]driver.Value{{"job-stale", "sess-1", "describe", "pending", "routing", "", 5, "ds-1", "{schema1}", []byte(`{}`), []byte(`{}`), []byte(`{}`), "", now, now, now, now, nil}},
+			Cols:    []string{"id", "client_session_id", "kind", "status", "phase", "phase_message", "progress_pct", "datasource_id", "scope_schemas", "progress_json", "request_json", "result_json", "error_message", "created_at", "updated_at", "started_at", "finished_at", "user_id", "locale"},
+			Rows:    [][]driver.Value{{"job-stale", "sess-1", "describe", "pending", "routing", "", 5, "ds-1", "{schema1}", []byte(`{}`), []byte(`{}`), []byte(`{}`), "", now, now, now, now, nil, nil}},
 		},
 		{
 			Pattern: "WITH my_job AS",

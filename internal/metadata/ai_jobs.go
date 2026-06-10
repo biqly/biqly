@@ -25,6 +25,7 @@ type AIJob struct {
 	ID              string          `json:"id"`
 	ClientSessionID string          `json:"client_session_id"`
 	UserID          *string         `json:"user_id,omitempty"`
+	Locale          string          `json:"locale,omitempty"`
 	Kind            string          `json:"kind"`
 	Status          string          `json:"status"`
 	Phase           string          `json:"phase"`
@@ -53,10 +54,10 @@ func (r *Repository) CreateAIJob(ctx context.Context, job *AIJob) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO ai_jobs (
 			id, client_session_id, kind, status, phase, phase_message, progress_pct,
-			datasource_id, scope_schemas, request_json, user_id
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid, $9, $10::jsonb, $11)`,
+			datasource_id, scope_schemas, request_json, user_id, locale
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid, $9, $10::jsonb, $11, $12)`,
 		job.ID, job.ClientSessionID, job.Kind, job.Status, job.Phase, job.PhaseMessage, job.ProgressPct,
-		job.DatasourceID, pgarray.Strings(scopeSchemas), job.RequestJSON, job.UserID,
+		job.DatasourceID, pgarray.Strings(scopeSchemas), job.RequestJSON, job.UserID, nullableLocale(job.Locale),
 	)
 	if err != nil {
 		return fmt.Errorf("create ai job: %w", err)
@@ -68,7 +69,7 @@ func (r *Repository) GetAIJob(ctx context.Context, id string) (*AIJob, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
 		       datasource_id, scope_schemas, progress_json,
-		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id
+		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id, locale
 		FROM ai_jobs WHERE id = $1`, id)
 	return scanAIJob(row)
 }
@@ -80,7 +81,7 @@ func (r *Repository) ListAIJobsBySession(ctx context.Context, sessionID string, 
 	q := `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
 		       datasource_id, scope_schemas, progress_json,
-		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id
+		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id, locale
 		FROM ai_jobs
 		WHERE client_session_id = $1`
 	if activeOnly {
@@ -141,7 +142,7 @@ func (r *Repository) FindConflictingDescribeBatch(
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
 		       datasource_id, scope_schemas, progress_json,
-		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id
+		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id, locale
 		FROM ai_jobs
 		WHERE kind = 'describe_batch'
 		  AND status IN ('pending', 'queued', 'running')
@@ -176,7 +177,7 @@ func (r *Repository) FindConflictingEmbedMetadata(
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
 		       datasource_id, scope_schemas, progress_json,
-		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id
+		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id, locale
 		FROM ai_jobs
 		WHERE kind = 'embed_metadata'
 		  AND status IN ('pending', 'queued', 'running')
@@ -255,7 +256,7 @@ func (r *Repository) ListStaleAIJobs(ctx context.Context, sessionID string, olde
 	q := `
 		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
 		       datasource_id, scope_schemas, progress_json,
-		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id
+		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id, locale
 		FROM ai_jobs
 		WHERE status IN ($1, $2, $3) AND updated_at < $4`
 	args := []any{AIJobStatusPending, AIJobStatusQueued, AIJobStatusRunning, cutoff}
@@ -417,6 +418,13 @@ func nullableRawJSON(raw json.RawMessage) any {
 	return raw
 }
 
+func nullableLocale(locale string) any {
+	if strings.TrimSpace(locale) == "" {
+		return nil
+	}
+	return strings.TrimSpace(locale)
+}
+
 type aiJobScanner interface {
 	Scan(dest ...any) error
 }
@@ -430,10 +438,11 @@ func scanAIJobFromScanner(scanner aiJobScanner) (*AIJob, error) {
 	var scope pgarray.StringArray
 	var started, finished sql.NullTime
 	var userID sql.NullString
+	var locale sql.NullString
 	err := scanner.Scan(
 		&job.ID, &job.ClientSessionID, &job.Kind, &job.Status, &job.Phase, &job.PhaseMessage, &job.ProgressPct,
 		&dsID, &scope, &progress,
-		&job.RequestJSON, &result, &errMsg, &job.CreatedAt, &job.UpdatedAt, &started, &finished, &userID,
+		&job.RequestJSON, &result, &errMsg, &job.CreatedAt, &job.UpdatedAt, &started, &finished, &userID, &locale,
 	)
 	if err != nil {
 		return nil, err
@@ -461,6 +470,9 @@ func scanAIJobFromScanner(scanner aiJobScanner) (*AIJob, error) {
 	}
 	if userID.Valid {
 		job.UserID = new(userID.String)
+	}
+	if locale.Valid {
+		job.Locale = locale.String
 	}
 	return &job, nil
 }
