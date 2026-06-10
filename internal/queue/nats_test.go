@@ -54,7 +54,8 @@ func TestNATSQueueCloseNilConn(t *testing.T) {
 }
 
 type mockJetStream struct {
-	publish func(ctx context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error)
+	publish        func(ctx context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error)
+	createConsumer func(ctx context.Context, stream string, cfg jetstream.ConsumerConfig) (jetstream.Consumer, error)
 }
 
 func (m *mockJetStream) Publish(ctx context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error) {
@@ -68,7 +69,10 @@ func (*mockJetStream) CreateOrUpdateStream(context.Context, jetstream.StreamConf
 	return nil, errors.New("not implemented")
 }
 
-func (*mockJetStream) CreateOrUpdateConsumer(context.Context, string, jetstream.ConsumerConfig) (jetstream.Consumer, error) {
+func (m *mockJetStream) CreateOrUpdateConsumer(ctx context.Context, stream string, cfg jetstream.ConsumerConfig) (jetstream.Consumer, error) {
+	if m.createConsumer != nil {
+		return m.createConsumer(ctx, stream, cfg)
+	}
 	return nil, errors.New("not implemented")
 }
 
@@ -164,4 +168,128 @@ func TestHandleAIJobFailureNakError(t *testing.T) {
 	}
 	q.handleAIJobFailure(context.Background(), msg, "job-1")
 	assert.Equal(t, 1, msg.nakCalls)
+}
+
+type mockConsumer struct {
+	jetstream.Consumer
+	consumeFunc func(jetstream.MessageHandler, ...jetstream.PullConsumeOpt) (jetstream.ConsumeContext, error)
+}
+
+func (*mockConsumer) Info(context.Context) (*jetstream.ConsumerInfo, error) {
+	return &jetstream.ConsumerInfo{NumPending: 5}, nil
+}
+
+func (m *mockConsumer) Consume(handler jetstream.MessageHandler, opts ...jetstream.PullConsumeOpt) (jetstream.ConsumeContext, error) {
+	if m.consumeFunc != nil {
+		return m.consumeFunc(handler, opts...)
+	}
+	return &mockConsumeContext{}, nil
+}
+
+type mockConsumeContext struct{}
+
+func (*mockConsumeContext) Stop()                   {}
+func (*mockConsumeContext) Drain()                  {}
+func (*mockConsumeContext) Closed() <-chan struct{} { return nil }
+
+func TestNATSQueueSubscribeSuccess(t *testing.T) {
+	mockCons := &mockConsumer{
+		consumeFunc: func(handler jetstream.MessageHandler, _ ...jetstream.PullConsumeOpt) (jetstream.ConsumeContext, error) {
+			msg := &mockMsg{meta: &jetstream.MsgMetadata{NumDelivered: 1}}
+			handler(msg)
+			return &mockConsumeContext{}, nil
+		},
+	}
+
+	q := &NATSQueue{
+		js: &mockJetStream{
+			createConsumer: func(_ context.Context, stream string, cfg jetstream.ConsumerConfig) (jetstream.Consumer, error) {
+				assert.Equal(t, "test-stream", stream)
+				assert.Equal(t, "test-subj", cfg.FilterSubject)
+				return mockCons, nil
+			},
+		},
+		stream: "test-stream",
+		subj:   "test-subj",
+	}
+
+	handlerCalled := false
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := q.Subscribe(ctx, "test-group", func(_ context.Context, jobID string) error {
+		handlerCalled = true
+		assert.Equal(t, "job-1", jobID)
+		return nil
+	})
+
+	require.NoError(t, err)
+	assert.True(t, handlerCalled)
+}
+
+func TestNATSQueueSubscribeCreateConsumerError(t *testing.T) {
+	q := &NATSQueue{
+		js: &mockJetStream{
+			createConsumer: func(_ context.Context, _ string, _ jetstream.ConsumerConfig) (jetstream.Consumer, error) {
+				return nil, errors.New("create consumer failed")
+			},
+		},
+		stream: "test-stream",
+		subj:   "test-subj",
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := q.Subscribe(ctx, "test-group", func(_ context.Context, _ string) error {
+		return nil
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "create consumer failed")
+}
+
+func TestNATSQueueSubscribeHandlerError(t *testing.T) {
+	mockCons := &mockConsumer{
+		consumeFunc: func(handler jetstream.MessageHandler, _ ...jetstream.PullConsumeOpt) (jetstream.ConsumeContext, error) {
+			msg := &mockMsg{meta: &jetstream.MsgMetadata{NumDelivered: 1}}
+			handler(msg)
+			return &mockConsumeContext{}, nil
+		},
+	}
+
+	q := &NATSQueue{
+		js: &mockJetStream{
+			createConsumer: func(_ context.Context, _ string, _ jetstream.ConsumerConfig) (jetstream.Consumer, error) {
+				return mockCons, nil
+			},
+		},
+		stream: "test-stream",
+		subj:   "test-subj",
+	}
+
+	handlerCalled := false
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := q.Subscribe(ctx, "test-group", func(_ context.Context, _ string) error {
+		handlerCalled = true
+		return errors.New("handler error")
+	})
+
+	require.NoError(t, err)
+	assert.True(t, handlerCalled)
+}
+
+func TestConnectNATS_Errors(t *testing.T) {
+	// Empty URL error
+	q, err := ConnectNATS(NATSConfig{URL: ""})
+	assert.Nil(t, q)
+	assert.EqualError(t, err, "nats url is empty")
+
+	// Invalid URL connection error
+	q2, err2 := ConnectNATS(NATSConfig{URL: "nats://127.0.0.1:23456"})
+	assert.Nil(t, q2)
+	assert.Error(t, err2)
+	assert.Contains(t, err2.Error(), "nats connect")
 }
