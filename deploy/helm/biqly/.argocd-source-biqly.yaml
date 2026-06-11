@@ -58,5 +58,5 @@ helm:
     value: ghcr.io/biqly/worker
     forcestring: true
   - name: worker.image.tag
-    value: sha-fc2a2ce9c46a3fa53257d5cc39826bfbc9cdd5b3
+    value: sha-0f38581fb1567c5735ad38ba329ee0df48d556eb
     forcestring: true
