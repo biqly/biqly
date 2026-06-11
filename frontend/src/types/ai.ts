@@ -259,6 +259,9 @@ export interface ConversationMessage {
   content: string
   timestamp: string
   ai_response?: AIQueryResponse
+  /** Backend AI job that produced (or will produce) this turn; used to
+   * re-attach results after a page refresh and to dedupe applied results. */
+  job_id?: string
 }
 
 export interface Conversation {

@@ -49,6 +49,36 @@ function generateId(): string {
   return `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+/** Append a job's assistant message to its conversation, or return null when
+ * nothing should change: unknown conversation, no user turn tagged with the
+ * job (legacy turns), or the result was already applied (idempotency). */
+export function withAssistantMessageForJob(
+  conversations: Conversation[],
+  conversationId: string,
+  jobId: string,
+  message: Omit<ConversationMessage, 'timestamp' | 'job_id' | 'role'>,
+): Conversation[] | null {
+  const conv = conversations.find((c) => c.id === conversationId)
+  if (!conv) {
+    return null
+  }
+  const hasUserTurn = conv.messages.some((m) => m.role === 'user' && m.job_id === jobId)
+  const alreadyApplied = conv.messages.some((m) => m.role === 'assistant' && m.job_id === jobId)
+  if (!hasUserTurn || alreadyApplied) {
+    return null
+  }
+  const ts = new Date().toISOString()
+  const msg: ConversationMessage = {
+    ...message,
+    role: 'assistant',
+    job_id: jobId,
+    timestamp: ts,
+  }
+  return conversations.map((c) =>
+    c.id === conversationId ? { ...c, messages: [...c.messages, msg], updated_at: ts } : c,
+  )
+}
+
 export function useConversation() {
   const [initialConversations] = useState(loadConversations)
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
@@ -81,8 +111,8 @@ export function useConversation() {
   }, [])
 
   const addMessage = useCallback(
-    (message: Omit<ConversationMessage, 'timestamp'>) => {
-      let targetId = activeConversationId
+    (message: Omit<ConversationMessage, 'timestamp'>, conversationId?: string) => {
+      let targetId = conversationId ?? activeConversationId
       if (!targetId) {
         const conv = createConversation()
         targetId = conv.id
@@ -102,8 +132,27 @@ export function useConversation() {
         saveConversations(updated)
         return updated
       })
+      return targetId
     },
     [activeConversationId, createConversation],
+  )
+
+  const appendAssistantForJob = useCallback(
+    (
+      conversationId: string,
+      jobId: string,
+      message: Omit<ConversationMessage, 'timestamp' | 'job_id' | 'role'>,
+    ) => {
+      setConversations((prev) => {
+        const updated = withAssistantMessageForJob(prev, conversationId, jobId, message)
+        if (!updated) {
+          return prev
+        }
+        saveConversations(updated)
+        return updated
+      })
+    },
+    [],
   )
 
   const deleteConversation = useCallback(
@@ -165,6 +214,7 @@ export function useConversation() {
     setActiveConversationId,
     createConversation,
     addMessage,
+    appendAssistantForJob,
     deleteConversation,
     renameConversation,
     clearConversation,

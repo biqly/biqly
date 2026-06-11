@@ -13,9 +13,15 @@ import {
 import { fetchJSON, type FetchJSONResult } from '../api/apiClient'
 import { useAuth } from '../components/auth/AuthProvider'
 import type { BulkEntry } from '../components/metadata/bulkProgress'
+import { useT } from '../i18n'
 import type { AIJob, AIJobKind, AIJobListResponse, AIQueryResponse } from '../types/ai'
+import type { DescribeBatchResult } from '../types/metadata'
 import { getAIClientSessionId } from '../utils/aiSession'
-import { buildInitialBulkQueue, runBulkDescribeEnqueue } from './bulkDescribeRunner'
+import {
+  applyBatchResultToQueue,
+  buildInitialBulkQueue,
+  runBulkDescribeEnqueue,
+} from './bulkDescribeRunner'
 import { createJobWaiter, type JobCallbacks, type JobWaiterHandle } from './jobWaiter'
 export { fetchJSON }
 export type { FetchJSONResult }
@@ -158,6 +164,11 @@ function parseResult<TResult>(job: AIJob): TResult | null {
 export function AIJobsProvider({ children }: { children: ReactNode }) {
   const sessionId = useMemo(() => getAIClientSessionId(), [])
   const { accessToken } = useAuth()
+  const t = useT()
+  const tRef = useRef(t)
+  useEffect(() => {
+    tRef.current = t
+  }, [t])
   const [jobs, setJobs] = useState<TrackedAIJob[]>([])
   const [expanded, setExpanded] = useState(false)
   const [minimized, setMinimized] = useState(true)
@@ -359,6 +370,64 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     [ensurePollLoop, pollJob],
   )
 
+  // Rebuild the bulk-describe progress UI for a batch job that survived a page
+  // refresh: the job keeps running server-side, but the in-memory queue state
+  // is gone. Reconstruct it from request_json + progress_json and register a
+  // waiter so the final result/summary is applied when the job finishes.
+  const resumeBulkBatchJob = useCallback(
+    (job: AIJob) => {
+      if (bulkBatchJobIdRef.current) {
+        return
+      }
+      const req = job.request_json
+      if (!req || typeof req !== 'object') {
+        return
+      }
+      const tables = (req as { tables?: unknown }).tables
+      if (!Array.isArray(tables)) {
+        return
+      }
+      const queue: BulkEntry[] = []
+      for (const item of tables) {
+        if (!item || typeof item !== 'object') {
+          continue
+        }
+        const { schema, table } = item as { schema?: unknown; table?: unknown }
+        if (typeof schema === 'string' && typeof table === 'string') {
+          queue.push({ schema, table, status: 'pending' })
+        }
+      }
+      if (queue.length === 0) {
+        return
+      }
+      const entries = applyBulkProgressFromJob(job, queue)
+      bulkBatchJobIdRef.current = job.id
+      bulkCancelRef.current = false
+      bulkEntriesRef.current = entries
+      setBulkEntries(entries)
+      setBulkSummary(null)
+      setBulkRunning(true)
+      const waiter = createJobWaiter<DescribeBatchResult>((batch) => {
+        bulkBatchJobIdRef.current = null
+        if (batch) {
+          const translate = tRef.current
+          const queueCopy = [...bulkEntriesRef.current]
+          const summary = applyBatchResultToQueue(queueCopy, batch, {
+            skipExistingMessage: translate('metadata.bulk_skip_has_desc'),
+            networkErrorMessage: translate('metadata.bulk_network_error'),
+            okColumnsMessage: (cols) => translate('metadata.bulk_ok_columns', { cols }),
+          })
+          bulkEntriesRef.current = queueCopy
+          setBulkEntries(queueCopy)
+          setBulkSummary(summary)
+        }
+        setBulkRunning(false)
+      })
+      callbacksRef.current.set(job.id, waiter)
+    },
+    [applyBulkProgressFromJob],
+  )
+
   const resumeActiveJobs = useCallback(async () => {
     const { data, status, error } = await fetchJSON<{ jobs: AIJob[] }>(
       `/api/ai/jobs?client_session_id=${encodeURIComponent(sessionId)}&active=true`,
@@ -373,10 +442,13 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       if (!isValidJobId(job.id)) {
         continue
       }
+      if (job.kind === 'describe_batch') {
+        resumeBulkBatchJob(job)
+      }
       upsertJob(trackedJobFromAIJob(job))
       startPolling(job.id)
     }
-  }, [sessionId, startPolling, upsertJob])
+  }, [resumeBulkBatchJob, sessionId, startPolling, upsertJob])
 
   useEffect(() => {
     isMountedRef.current = true
@@ -436,6 +508,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         return null
       }
       upsertJob({ ...data, questionPreview: jobQuestionPreview(kind, request) })
+      callbacks?.onEnqueued?.(data)
       startPolling(data.id)
       return new Promise<TResult | null>((resolve) => {
         const waiter = createJobWaiter<TResult>(resolve, callbacks)

@@ -183,6 +183,25 @@ export default function Metadata() {
     [jobs],
   )
 
+  // Refresh descriptions when a bulk run finishes. Needed for runs resumed
+  // after a page refresh, where the modal's onFinished callback no longer
+  // exists; for normal runs the extra fetch is harmless.
+  const prevBulkRunningRef = useRef(bulkRunning)
+  useEffect(() => {
+    const wasRunning = prevBulkRunningRef.current
+    prevBulkRunningRef.current = bulkRunning
+    if (!wasRunning || bulkRunning || !bulkSummary || !datasourceId) {
+      return
+    }
+    void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts).then(
+      (fresh) => {
+        if (fresh) {
+          setTables(fresh)
+        }
+      },
+    )
+  }, [bulkRunning, bulkSummary, datasourceId, descriptionLocaleOpts, get])
+
   const refreshTables = () => {
     void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts).then(
       (fresh) => {

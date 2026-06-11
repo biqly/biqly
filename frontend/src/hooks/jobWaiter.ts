@@ -1,4 +1,8 @@
+import type { AIJob } from '../types/ai'
+
 export interface JobCallbacks<TResult = unknown> {
+  /** Fired once the job row exists server-side (before completion). */
+  onEnqueued?: (job: AIJob) => void
   onComplete?: (result: TResult) => void
   onError?: (message: string) => void
 }

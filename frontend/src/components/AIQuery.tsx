@@ -1,8 +1,9 @@
 import '../styles/aiQuery.css'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 
+import { fetchJSON } from '../api/apiClient'
 import { jobIsActive, useAIJobs } from '../hooks/useAIJobs'
 import { useApi } from '../hooks/useApi'
 import { useConversation } from '../hooks/useConversation'
@@ -11,6 +12,8 @@ import { useQueryParam } from '../hooks/useQueryParam'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useLocale, useT } from '../i18n'
 import type {
+  AIJob,
+  AIJobListResponse,
   AIQueryRequest,
   AIQueryResponse,
   AIRuntimeSettings,
@@ -27,12 +30,14 @@ import { embeddingSummary } from './aiQuery/routingViz'
 import { SidebarConversationItem } from './aiQuery/SidebarConversationItem'
 import type { TableOption } from './aiQuery/types'
 import { AI_METADATA_EMBED_TIMEOUT_MS, AI_QUERY_TIMEOUT_MS } from './aiQuery/types'
+import { useAuth } from './auth/AuthProvider'
 
 export default function AIQuery() {
   const t = useT()
   const [locale] = useLocale()
   const localeTag = localeNumberTag(locale)
-  const { runJob, jobs } = useAIJobs()
+  const { runJob, jobs, sessionId } = useAIJobs()
+  const { accessToken } = useAuth()
   const { get, postData, loading, error, abort } = useApi()
   const { postData: postEmbedData, loading: embeddingLoading, error: embeddingError } = useApi()
   const {
@@ -42,6 +47,7 @@ export default function AIQuery() {
     setActiveConversationId,
     createConversation,
     addMessage,
+    appendAssistantForJob,
     deleteConversation,
     renameConversation,
     updateMessageResponse,
@@ -75,21 +81,63 @@ export default function AIQuery() {
   const [queryAction, setQueryAction] = useState<'preview' | 'execute' | null>(null)
   const [jobError, setJobError] = useState<string | null>(null)
   const [aiElapsedMs, setAiElapsedMs] = useState(0)
-  const [clarificationRound, setClarificationRound] = useState(0)
 
-  const aiBusy = queryAction !== null
+  // Derive the clarification round from the conversation itself so it survives
+  // page refreshes and conversation switches.
+  const clarificationRound = useMemo(() => {
+    const lastAssistant = [...(activeConversation?.messages ?? [])]
+      .reverse()
+      .find((m) => m.role === 'assistant')
+    const res = lastAssistant?.ai_response
+    return res?.needs_clarification ? (res.clarification_round ?? 0) : 0
+  }, [activeConversation])
+
+  // A query job for the active conversation that is still queued/running —
+  // present after a page refresh even though local submit state was lost.
+  const activeConversationJob = useMemo(() => {
+    if (!activeConversationId) {
+      return null
+    }
+    return (
+      jobs.find((j) => {
+        if (j.kind !== 'run' && j.kind !== 'preview' && j.kind !== 'query') {
+          return false
+        }
+        if (!jobIsActive(j)) {
+          return false
+        }
+        const req = j.request_json
+        return (
+          !!req &&
+          typeof req === 'object' &&
+          (req as { conversation_id?: unknown }).conversation_id === activeConversationId
+        )
+      }) ?? null
+    )
+  }, [jobs, activeConversationId])
+
+  const effectiveQueryAction =
+    queryAction ??
+    (activeConversationJob
+      ? activeConversationJob.kind === 'preview'
+        ? 'preview'
+        : 'execute'
+      : null)
+  const aiBusy = effectiveQueryAction !== null
   const displayElapsedMs = aiBusy ? aiElapsedMs : 0
+
+  const busyJobStartedAt = activeConversationJob?.created_at ?? null
 
   useEffect(() => {
     if (!aiBusy) {
       return
     }
-    const t0 = performance.now()
+    const startedAtMs = busyJobStartedAt ? new Date(busyJobStartedAt).getTime() : Date.now()
     const id = window.setInterval(() => {
-      setAiElapsedMs(Math.round(performance.now() - t0))
+      setAiElapsedMs(Math.max(0, Math.round(Date.now() - startedAtMs)))
     }, 200)
     return () => window.clearInterval(id)
-  }, [aiBusy])
+  }, [aiBusy, busyJobStartedAt])
 
   const setDatasourceId = useCallback(
     (id: string) => {
@@ -284,9 +332,9 @@ export default function AIQuery() {
   }
 
   const requestBody = (
-    q = question,
+    q: string,
+    conversationId: string,
     clarificationChoice?: string,
-    round = clarificationRound,
   ): AIQueryRequest => {
     const isComposite = semanticModelId.startsWith('composite:')
     return {
@@ -295,81 +343,135 @@ export default function AIQuery() {
       composite_id: isComposite ? semanticModelId.slice('composite:'.length) : undefined,
       question: q,
       clarification_choice: clarificationChoice,
-      clarification_round: round > 0 ? round : undefined,
+      clarification_round: clarificationRound > 0 ? clarificationRound : undefined,
       tables: autoTableRouting ? undefined : effectiveSelectedTables,
       include_base_tables: includeBaseTables,
       include_views: includeViews,
-      conversation_id: activeConversation?.id,
+      conversation_id: conversationId,
       prior_turns: includePastQueries ? recentPriorTurns : undefined,
     }
   }
 
-  const applyAIResponse = (q: string, res: unknown) => {
-    const flat = normalizeAIQueryResponse(res)
-    if (!flat) {
-      return
-    }
-    if (flat.needs_clarification) {
-      if (typeof flat.clarification_round === 'number') {
-        setClarificationRound(flat.clarification_round)
+  const assistantContentFor = useCallback(
+    (flat: AIQueryResponse): string => {
+      if (flat.needs_clarification) {
+        return flat.clarification_question ?? t('ai_query.clarify_default')
       }
-      addMessage({ role: 'user', content: q })
-      addMessage({
-        role: 'assistant',
-        content: flat.clarification_question ?? t('ai_query.clarify_default'),
-        ai_response: flat,
-      })
+      return flat.sql
+        ? t('ai_query.assistant_sql_preview', { snippet: flat.sql.slice(0, 120) })
+        : t('ai_query.assistant_executed')
+    },
+    [t],
+  )
+
+  // Write a finished job's outcome into its conversation. Idempotent (keyed by
+  // job id), so it is safe to run for live polls, resumed jobs after a page
+  // refresh, and jobs that finished while this page was closed.
+  const applyJobOutcome = useCallback(
+    (job: AIJob) => {
+      if (job.kind !== 'run' && job.kind !== 'preview' && job.kind !== 'query') {
+        return
+      }
+      const req = job.request_json
+      const convId =
+        req && typeof req === 'object'
+          ? (req as { conversation_id?: unknown }).conversation_id
+          : undefined
+      if (typeof convId !== 'string' || !convId) {
+        return
+      }
+      if (job.status === 'succeeded') {
+        const flat = normalizeAIQueryResponse(job.result_json)
+        if (!flat) {
+          return
+        }
+        appendAssistantForJob(convId, job.id, {
+          content: assistantContentFor(flat),
+          ai_response: flat,
+        })
+      } else if (job.status === 'failed') {
+        appendAssistantForJob(convId, job.id, {
+          content: t('ai_query.job_failed_message', { error: job.error_message ?? '' }),
+        })
+      } else if (job.status === 'cancelled') {
+        appendAssistantForJob(convId, job.id, {
+          content: t('ai_query.job_cancelled_message'),
+        })
+      }
+    },
+    [appendAssistantForJob, assistantContentFor, t],
+  )
+
+  // Live sweep: attach results as tracked jobs reach a terminal state.
+  useEffect(() => {
+    for (const job of jobs) {
+      if (job.status === 'succeeded' || job.status === 'failed' || job.status === 'cancelled') {
+        applyJobOutcome(job)
+      }
+    }
+  }, [jobs, applyJobOutcome])
+
+  // One-time sweep for jobs that finished while the page was closed: fetch the
+  // session's recent jobs and attach any outcome the conversation is missing.
+  const sweptFinishedJobsRef = useRef(false)
+  useEffect(() => {
+    if (!accessToken || sweptFinishedJobsRef.current) {
       return
     }
-    setClarificationRound(0)
-    addMessage({ role: 'user', content: q })
-    const summary = flat.sql
-      ? t('ai_query.assistant_sql_preview', { snippet: flat.sql.slice(0, 120) })
-      : t('ai_query.assistant_executed')
-    addMessage({ role: 'assistant', content: summary, ai_response: flat })
-  }
+    sweptFinishedJobsRef.current = true
+    void fetchJSON<AIJobListResponse>(
+      `/api/ai/jobs?client_session_id=${encodeURIComponent(sessionId)}`,
+    ).then(({ data, error: listError }) => {
+      if (listError || !data?.jobs) {
+        return
+      }
+      // The API returns newest-first; apply oldest-first so multiple missed
+      // answers land in chronological order.
+      for (const job of [...data.jobs].reverse()) {
+        if (job.status === 'succeeded' || job.status === 'failed' || job.status === 'cancelled') {
+          applyJobOutcome(job)
+        }
+      }
+    })
+  }, [accessToken, applyJobOutcome, sessionId])
 
   const sendQuery = async (q: string, execute: boolean, clarificationChoice?: string) => {
     if (!q.trim()) {
       return
     }
-    let effectiveRound = clarificationRound
-    if (!clarificationChoice) {
-      const lastAssistant = [...(activeConversation?.messages ?? [])]
-        .reverse()
-        .find((m) => m.role === 'assistant')
-      const continuingClarification = Boolean(lastAssistant?.ai_response?.needs_clarification)
-      if (!continuingClarification) {
-        effectiveRound = 0
-        setClarificationRound(0)
-      }
-    }
+    const convId = activeConversation?.id ?? createConversation().id
+    const body = requestBody(q, convId, clarificationChoice)
     setQueryAction(execute ? 'execute' : 'preview')
     setJobError(null)
     try {
-      const body = requestBody(q, clarificationChoice, effectiveRound)
       const kind = execute ? 'run' : 'preview'
       const outcome = await runJob(kind, body, {
+        onEnqueued: (job) => {
+          // Persist the question immediately, linked to the job, so both
+          // survive a page refresh; the job sweep attaches the answer later.
+          addMessage({ role: 'user', content: q, job_id: job.id }, convId)
+          setQuestion('')
+        },
         onError: (message) => setJobError(message),
       })
       if (outcome === 'fallback') {
+        addMessage({ role: 'user', content: q }, convId)
         const endpoint = execute ? '/api/ai/query/run' : '/api/ai/query/preview'
         const res = await postData<AIQueryResponse>(endpoint, body, {
           timeout: AI_QUERY_TIMEOUT_MS,
         })
-        if (!res) {
+        const flat = normalizeAIQueryResponse(res)
+        if (!flat) {
           return
         }
-        applyAIResponse(q, res)
+        addMessage(
+          { role: 'assistant', content: assistantContentFor(flat), ai_response: flat },
+          convId,
+        )
         setQuestion('')
-        return
       }
-      if (!outcome) {
-        return
-      }
-      setJobError(null)
-      applyAIResponse(q, outcome)
-      setQuestion('')
+      // Job outcomes (success, failure, cancellation) reach the conversation
+      // through the job sweep above.
     } finally {
       setQueryAction(null)
     }
@@ -468,7 +570,7 @@ export default function AIQuery() {
           loading={loading}
           error={error}
           jobError={jobError}
-          queryAction={queryAction}
+          queryAction={effectiveQueryAction}
           aiElapsedMs={displayElapsedMs}
           includePastQueries={includePastQueries}
           setIncludePastQueries={setIncludePastQueries}

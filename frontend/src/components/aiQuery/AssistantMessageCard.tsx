@@ -64,6 +64,15 @@ function AssistantRunPrompt({
   return <AssistantMessageRunQuery loading={loading} onRunQuery={onRunQuery} t={t} />
 }
 
+/** Failure/cancellation notes persisted from background jobs carry plain
+ * text without a structured ai_response. */
+function AssistantPlainNote({ content }: { content: string }) {
+  if (!content) {
+    return null
+  }
+  return <ErrorAlert error={content} />
+}
+
 function mapChartSuggestion(raw: string | undefined): 'bar' | 'line' | 'pie' | 'table' | null {
   if (!raw) {
     return null
@@ -135,7 +144,7 @@ export function AssistantMessageCard({
   }, [result?.visualization_hint?.chart_type, result?.result?.chart_suggestions])
 
   if (!result) {
-    return null
+    return <AssistantPlainNote content={message.content} />
   }
 
   const handleUseCandidate = (i: number) => {
