@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { useT } from '../../i18n'
 import type { SemanticJoin } from '../../types/semantic'
 import { formatResultCell } from '../../utils/resultCellFormat'
 import { tableKey } from '../modeling/utils'
 import { Modal } from '../ui/Modal'
-import { PaginationControls } from '../ui/PaginationControls'
 import { rowTitleFor } from './rowTitle'
+import { TableBrowserCellValue } from './TableBrowserCellValue'
 import { buildTableRowsUrl, type TableRowsResult } from './useTableBrowserQueryState'
 
 const RELATED_PAGE_SIZE = 25
@@ -226,7 +226,7 @@ function RelatedLinkCard({
   )
 }
 
-/** Related rows list for 1:N / N:N drill-through, paginated. */
+/** Related rows list for 1:N / N:N drill-through, loaded as the modal scroll reaches the end. */
 function RelatedListView({
   frame,
   datasourceId,
@@ -242,46 +242,84 @@ function RelatedListView({
   formatInt: (n: number) => string
   onOpenRow: (frame: RowFrame) => void
 }) {
-  const [page, setPage] = useState(0)
-  const [data, setData] = useState<TableRowsResult | null>(null)
+  const [columns, setColumns] = useState<string[]>([])
+  const [rows, setRows] = useState<unknown[][]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [exhausted, setExhausted] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const requestIdRef = useRef(0)
+
+  const fetchPage = useCallback(
+    async (offset: number, requestId: number) => {
+      const res = await postData<TableRowsResult>(
+        buildTableRowsUrl(datasourceId, frame.schema, frame.table),
+        eqFilterBody(frame.filterColumn, frame.filterValue, RELATED_PAGE_SIZE, offset),
+      )
+      if (requestIdRef.current !== requestId) {
+        return
+      }
+      const nextRows = res?.rows ?? []
+      setColumns(res?.columns?.map((c) => c.name) ?? [])
+      setTotal(res?.total ?? null)
+      setExhausted(nextRows.length < RELATED_PAGE_SIZE)
+      setRows((prev) => (offset === 0 ? nextRows : [...prev, ...nextRows]))
+    },
+    [datasourceId, frame.schema, frame.table, frame.filterColumn, frame.filterValue, postData],
+  )
 
   useEffect(() => {
-    let cancelled = false
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRows([])
+    setColumns([])
+    setTotal(null)
+    setExhausted(false)
     setLoading(true)
-    void postData<TableRowsResult>(
-      buildTableRowsUrl(datasourceId, frame.schema, frame.table),
-      eqFilterBody(
-        frame.filterColumn,
-        frame.filterValue,
-        RELATED_PAGE_SIZE,
-        page * RELATED_PAGE_SIZE,
-      ),
-    ).then((res) => {
-      if (!cancelled) {
-        setData(res)
+    void fetchPage(0, requestId).finally(() => {
+      if (requestIdRef.current === requestId) {
         setLoading(false)
       }
     })
     return () => {
-      cancelled = true
+      requestIdRef.current += 1
     }
-  }, [
-    datasourceId,
-    frame.schema,
-    frame.table,
-    frame.filterColumn,
-    frame.filterValue,
-    page,
-    postData,
-  ])
+  }, [fetchPage])
 
-  const columns = useMemo(() => data?.columns?.map((c) => c.name) ?? [], [data?.columns])
-  const totalPages =
-    data?.total != null ? Math.max(1, Math.ceil(data.total / RELATED_PAGE_SIZE)) : 1
+  const hasMore = !exhausted && (total == null ? rows.length > 0 : rows.length < total)
 
-  if (loading && !data) {
+  const loadMore = useCallback(() => {
+    if (loading || loadingMore || !hasMore) {
+      return
+    }
+    const requestId = requestIdRef.current
+    setLoadingMore(true)
+    void fetchPage(rows.length, requestId).finally(() => {
+      if (requestIdRef.current === requestId) {
+        setLoadingMore(false)
+      }
+    })
+  }, [fetchPage, hasMore, loading, loadingMore, rows.length])
+
+  useEffect(() => {
+    const target = loadMoreRef.current
+    if (!target || !hasMore) {
+      return
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        loadMore()
+      }
+    })
+    observer.observe(target)
+    return () => {
+      observer.disconnect()
+    }
+  }, [hasMore, loadMore])
+
+  if (loading && rows.length === 0) {
     return <p className="row-modal-related-card__empty">{t('table_browser.loading')}</p>
   }
   return (
@@ -298,7 +336,7 @@ function RelatedListView({
             </tr>
           </thead>
           <tbody>
-            {(data?.rows ?? []).map((row, i) => (
+            {rows.map((row, i) => (
               <tr
                 key={i}
                 className="table-browser-data-row"
@@ -315,8 +353,8 @@ function RelatedListView({
                 {columns.map((c, j) => {
                   const display = formatResultCell(row[j], c, {})
                   return (
-                    <td key={c} title={display}>
-                      {display}
+                    <td key={c}>
+                      <TableBrowserCellValue value={display} />
                     </td>
                   )
                 })}
@@ -327,21 +365,17 @@ function RelatedListView({
       </div>
       <div className="row-modal-list__footer">
         <span className="table-browser-range">
-          {data?.total != null
-            ? t('table_browser.related_count', { count: formatInt(data.total) })
+          {total != null
+            ? t('table_browser.range_of_total', {
+                start: formatInt(rows.length > 0 ? 1 : 0),
+                end: formatInt(rows.length),
+                total: formatInt(total),
+              })
             : ''}
         </span>
-        {totalPages > 1 && (
-          <PaginationControls
-            currentPage={page + 1}
-            totalPages={totalPages}
-            onPageChange={(p) => setPage(p - 1)}
-            disabled={loading}
-            size="sm"
-            formatNumber={formatInt}
-          />
-        )}
+        {loadingMore && <span className="table-browser-range">{t('table_browser.loading')}</span>}
       </div>
+      <div ref={loadMoreRef} className="row-modal-list__sentinel" aria-hidden="true" />
     </div>
   )
 }
@@ -431,7 +465,7 @@ export function TableBrowserRowModal({
     >
       {frames.length > 1 && (
         <div className="row-modal-nav">
-          <button type="button" className="btn btn-sm btn-ghost" onClick={popFrame}>
+          <button type="button" className="row-modal-back" onClick={popFrame}>
             ‹ {t('table_browser.back')}
           </button>
           <span className="row-modal-nav__path">
@@ -458,7 +492,11 @@ export function TableBrowserRowModal({
               return (
                 <div key={colName} className="table-browser-detail-item">
                   <span className="table-browser-detail-label">{colName}</span>
-                  <span className="table-browser-detail-value">{display}</span>
+                  <TableBrowserCellValue
+                    value={display}
+                    className="table-browser-detail-value"
+                    multiline
+                  />
                 </div>
               )
             })}

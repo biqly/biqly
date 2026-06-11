@@ -69,14 +69,10 @@ function parseNumeric(value: unknown): number | null {
 /** Surrogate keys and numeric IDs: no thousand separators (e.g. 11091 not 11,091). */
 function isIdentifierLikeColumn(name: string): boolean {
   const u = name.toUpperCase()
-  if (
-    u === 'ID' ||
-    u === 'ROW' ||
-    u === 'YEAR' ||
-    u === 'MONTH' ||
-    u === 'QUARTER' ||
-    u === 'WEEK'
-  ) {
+  if (u === 'ID') {
+    return true
+  }
+  if (u === 'ROW' || u === 'YEAR' || u === 'MONTH' || u === 'QUARTER' || u === 'WEEK') {
     return false
   }
   if (u.endsWith('_ID') || u.endsWith('_KEY')) {

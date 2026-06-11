@@ -5,6 +5,7 @@ import { formatResultCell } from '../../utils/resultCellFormat'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { PaginationControls } from '../ui/PaginationControls'
 import { Select } from '../ui/Select'
+import { TableBrowserCellValue } from './TableBrowserCellValue'
 import type { TableBrowserFilter } from './tableBrowserFilterHandlers'
 import { TableBrowserFilterPopover } from './TableBrowserFilterPopover'
 import { formatTableBrowserFilterValue, tableBrowserOperatorLabel } from './tableBrowserFilterUtils'
@@ -342,8 +343,8 @@ export function TableBrowserModelContent({
                           const cell = j != null ? row[j] : null
                           const display = formatResultCell(cell, colName, {})
                           return (
-                            <td key={colName} title={display}>
-                              {display}
+                            <td key={colName}>
+                              <TableBrowserCellValue value={display} />
                             </td>
                           )
                         })}

@@ -8,6 +8,7 @@ describe('formatResultCell', () => {
   })
 
   it('keeps identifier-like and calendar values ungrouped', () => {
+    expect(formatResultCell(2065028874262421800, 'ID')).toBe('2065028874262421800')
     expect(formatResultCell(11091, 'customer_id')).toBe('11091')
     expect(formatResultCell(2025, 'order_year')).toBe('2025')
   })

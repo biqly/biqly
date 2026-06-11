@@ -2475,6 +2475,7 @@ Alert'ler: `deploy/helm/biqly/templates/prometheus-rules.yaml`.
     `internal/platform/observability/metrics.go`.
 
 **Review (2026-06-10):** Tier 1 tamamlandı.
+
 - `HTTPMetricsMiddleware` → api/ai/catalog/query/auth router'larına eklendi; `biqly_http_*` metrikleri.
 - Provider `execRetry` → `biqly_llm_errors_total`, `biqly_llm_retries_total`, token split counters.
 - `RegisterDBPoolMetrics` → metadata (`openMetadataDB`), auth (`cmd/auth`), datasource (`PoolCache.AggregatedStats`).
@@ -2748,3 +2749,18 @@ Verification:
 Notes:
 
 - Playwright opened the local app but redirected to `/auth/signin`, and Chrome DevTools was not reachable on `127.0.0.1:9222`, so authenticated visual verification was not available in this session.
+
+## Table Browser Row Modal UX Plan
+
+Success criteria:
+
+- Row detail and related-list modals use a taller, cleaner layout with one vertical scroll container.
+- Back navigation stays compact and consistent at every drill depth.
+- Related-list drilldowns append more rows as the user scrolls instead of showing pagination controls.
+- ID-like primary/foreign key columns render without thousands separators, including bare `ID`.
+- Truncated row/table values expose a polished hover/focus popover instead of relying on raw browser titles.
+
+- [x] Inspect current row modal, table cell, formatter, and CSS behavior.
+- [x] Update row modal navigation, layout, scroll, infinite loading, and overflow popover UI.
+- [x] Fix ID-like numeric formatting and add regression coverage.
+- [x] Run focused frontend verification and document results.
