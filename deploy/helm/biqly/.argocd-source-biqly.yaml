@@ -28,7 +28,7 @@ helm:
     value: ghcr.io/biqly/frontend
     forcestring: true
   - name: frontend.image.tag
-    value: sha-4abc32935a5a0a6ef7195a00bdc8f7ca33e3815c
+    value: sha-591dbb2f4cc0d9d1dc4dd33e81ac1547ef60ce88
     forcestring: true
   - name: global.migrate.image.repository
     value: ghcr.io/biqly/migrate
