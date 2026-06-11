@@ -44,9 +44,5 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end -}}
 
 {{- define "worker.secretChecksum" -}}
-{{- if .Values.global.secrets.createSecrets -}}
-{{- include (print $.Template.BasePath "/secret.yaml") . | sha256sum -}}
-{{- else -}}
-{{- printf "%s-%s-%s" .Values.global.secretNames.db .Values.global.secretNames.security .Values.global.secretNames.authSecret | sha256sum -}}
-{{- end -}}
+{{- printf "%s-%s-%s-%s-%s-%s" .Values.global.secretNames.db .Values.global.secretNames.security .Values.global.secretNames.authSecret (default "" .Values.global.secrets.BI_METADATA_DB_DSN) (default "" .Values.global.secrets.BI_ENCRYPTION_KEY) (default "" .Values.global.secrets.BI_AUTH_INTERNAL_TOKEN) | sha256sum -}}
 {{- end -}}

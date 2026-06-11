@@ -26,6 +26,11 @@ const config: AIAdminRuntimeConfig = {
     db_override: false,
     source: 'environment',
   },
+  queue: {
+    concurrency: 1,
+    db_override: false,
+    source: 'environment',
+  },
 }
 
 describe('draftFromConfig', () => {
@@ -40,6 +45,7 @@ describe('draftFromConfig', () => {
       },
       pii: { detection_threshold: 0.6 },
       memory: { recall_enabled: true, recall_limit: 5 },
+      queue: { concurrency: 1 },
     })
   })
 })
@@ -51,6 +57,7 @@ describe('buildRuntimeConfigUpdate', () => {
       ambiguity: draft.ambiguity,
       pii: draft.pii,
       memory: draft.memory,
+      queue: draft.queue,
     })
   })
 
@@ -61,6 +68,7 @@ describe('buildRuntimeConfigUpdate', () => {
     draft.ambiguity.max_llm_tier_per_question = 99
     draft.pii.detection_threshold = 0
     draft.memory.recall_limit = -3
+    draft.queue.concurrency = 99
 
     const update = buildRuntimeConfigUpdate(draft)
     expect(update.ambiguity?.confidence_threshold).toBe(1)
@@ -68,6 +76,7 @@ describe('buildRuntimeConfigUpdate', () => {
     expect(update.ambiguity?.max_llm_tier_per_question).toBe(10)
     expect(update.pii?.detection_threshold).toBe(0.05)
     expect(update.memory?.recall_limit).toBe(1)
+    expect(update.queue?.concurrency).toBe(10)
   })
 })
 

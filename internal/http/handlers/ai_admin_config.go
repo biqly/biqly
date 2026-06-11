@@ -22,6 +22,7 @@ const (
 	ambiguityRuntimeConfigKey = "ambiguity"
 	piiRuntimeConfigKey       = "pii"
 	memoryRuntimeConfigKey    = "memory"
+	queueRuntimeConfigKey     = "queue"
 )
 
 // maxLLMTierPerQuestionLimit caps the admin-settable LLM tier round budget.
@@ -32,6 +33,9 @@ const maxAmbiguityOptionsLimit = 10
 
 // maxMemoryRecallLimit caps the admin-settable recalled few-shot examples.
 const maxMemoryRecallLimit = 10
+
+// maxQueueConcurrencyLimit caps the admin-settable concurrent job limit.
+const maxQueueConcurrencyLimit = 10
 
 // Wire field sources reported per knob so the UI can badge where a value
 // comes from. "environment" covers both explicit env vars and code defaults —
@@ -64,12 +68,36 @@ type memoryOverrides struct {
 	RecallLimit   *int  `json:"recall_limit,omitempty"`
 }
 
+// queueOverrides is the DB-managed subset of the NATS config's concurrency.
+type queueOverrides struct {
+	Concurrency *int `json:"concurrency,omitempty"`
+}
+
 func (h *AIHandler) loadAmbiguityOverrides(ctx context.Context) ambiguityOverrides {
 	return h.ambiguityOverridesCache.load(ctx, h.metaRepo(), ambiguityRuntimeConfigKey)
 }
 
 func (h *AIHandler) loadMemoryOverrides(ctx context.Context) memoryOverrides {
 	return h.memoryOverridesCache.load(ctx, h.metaRepo(), memoryRuntimeConfigKey)
+}
+
+func (h *AIHandler) loadQueueOverrides(ctx context.Context) queueOverrides {
+	return h.queueOverridesCache.load(ctx, h.metaRepo(), queueRuntimeConfigKey)
+}
+
+func (h *AIHandler) EffectiveConcurrency(ctx context.Context) int {
+	limit := 1
+	if h.deps != nil && h.deps.Config != nil {
+		limit = h.deps.Config.NATS.Concurrency
+	}
+	if limit <= 0 {
+		limit = 1
+	}
+	ov := h.loadQueueOverrides(ctx)
+	if ov.Concurrency != nil {
+		return *ov.Concurrency
+	}
+	return limit
 }
 
 func (h *AIHandler) metaRepo() *metadata.Repository {
@@ -169,10 +197,19 @@ type adminMemoryConfig struct {
 	Sources       map[string]string `json:"sources"`
 }
 
+// adminQueueConfig is the wire shape of the admin-tunable queue knobs.
+type adminQueueConfig struct {
+	Concurrency int               `json:"concurrency"`
+	DBOverride  bool              `json:"db_override"`
+	Source      string            `json:"source"`
+	Sources     map[string]string `json:"sources"`
+}
+
 type adminRuntimeConfigResponse struct {
 	Ambiguity adminAmbiguityConfig `json:"ambiguity"`
 	PII       adminPIIConfig       `json:"pii"`
 	Memory    adminMemoryConfig    `json:"memory"`
+	Queue     adminQueueConfig     `json:"queue"`
 }
 
 func fieldSource(overridden bool) string {
@@ -233,6 +270,13 @@ func (h *AIHandler) adminRuntimeConfigResponse(ctx context.Context) adminRuntime
 	}
 	memSource, memOverride := domainSource(memSources)
 
+	queueOv := h.loadQueueOverrides(ctx)
+	queueEff := h.EffectiveConcurrency(ctx)
+	queueSources := map[string]string{
+		"concurrency": fieldSource(queueOv.Concurrency != nil),
+	}
+	queueSource, queueOverride := domainSource(queueSources)
+
 	return adminRuntimeConfigResponse{
 		Ambiguity: h.effectiveAmbiguitySettings(ctx),
 		PII: adminPIIConfig{
@@ -248,6 +292,12 @@ func (h *AIHandler) adminRuntimeConfigResponse(ctx context.Context) adminRuntime
 			DBOverride:    memOverride,
 			Source:        memSource,
 			Sources:       memSources,
+		},
+		Queue: adminQueueConfig{
+			Concurrency: queueEff,
+			DBOverride:  queueOverride,
+			Source:      queueSource,
+			Sources:     queueSources,
 		},
 	}
 }
@@ -265,6 +315,7 @@ type adminRuntimeConfigUpdateRequest struct {
 	Ambiguity json.RawMessage `json:"ambiguity,omitempty"`
 	PII       json.RawMessage `json:"pii,omitempty"`
 	Memory    json.RawMessage `json:"memory,omitempty"`
+	Queue     json.RawMessage `json:"queue,omitempty"`
 }
 
 // strictUnmarshalJSON decodes data into v, rejecting unknown fields so typos
@@ -298,6 +349,13 @@ func validatePIIOverrides(ov piiOverrides) string {
 func validateMemoryOverrides(ov memoryOverrides) string {
 	if ov.RecallLimit != nil && (*ov.RecallLimit < 1 || *ov.RecallLimit > maxMemoryRecallLimit) {
 		return "memory.recall_limit must be between 1 and 10"
+	}
+	return ""
+}
+
+func validateQueueOverrides(ov queueOverrides) string {
+	if ov.Concurrency != nil && (*ov.Concurrency < 1 || *ov.Concurrency > maxQueueConcurrencyLimit) {
+		return "queue.concurrency must be between 1 and 10"
 	}
 	return ""
 }
@@ -347,8 +405,8 @@ func (h *AIHandler) UpdateAdminRuntimeConfig(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusBadRequest, "invalid request body: unknown or malformed field")
 		return
 	}
-	if input.Ambiguity == nil && input.PII == nil && input.Memory == nil {
-		writeError(w, http.StatusBadRequest, "at least one config domain (ambiguity, pii, memory) is required")
+	if input.Ambiguity == nil && input.PII == nil && input.Memory == nil && input.Queue == nil {
+		writeError(w, http.StatusBadRequest, "at least one config domain (ambiguity, pii, memory, queue) is required")
 		return
 	}
 
@@ -356,7 +414,7 @@ func (h *AIHandler) UpdateAdminRuntimeConfig(w http.ResponseWriter, r *http.Requ
 		key string
 		ov  any
 	}
-	updates := make([]domainUpdate, 0, 3)
+	updates := make([]domainUpdate, 0, 4)
 	if input.Ambiguity != nil {
 		ov, msg := decodeDomainOverrides("ambiguity", input.Ambiguity, validateAmbiguityOverrides)
 		if msg != "" {
@@ -381,6 +439,14 @@ func (h *AIHandler) UpdateAdminRuntimeConfig(w http.ResponseWriter, r *http.Requ
 		}
 		updates = append(updates, domainUpdate{key: memoryRuntimeConfigKey, ov: ov})
 	}
+	if input.Queue != nil {
+		ov, msg := decodeDomainOverrides("queue", input.Queue, validateQueueOverrides)
+		if msg != "" {
+			writeError(w, http.StatusBadRequest, msg)
+			return
+		}
+		updates = append(updates, domainUpdate{key: queueRuntimeConfigKey, ov: ov})
+	}
 
 	ctx := r.Context()
 	changes := make(map[string]any, len(updates))
@@ -394,6 +460,7 @@ func (h *AIHandler) UpdateAdminRuntimeConfig(w http.ResponseWriter, r *http.Requ
 	}
 	h.ambiguityOverridesCache.invalidate()
 	h.memoryOverridesCache.invalidate()
+	h.queueOverridesCache.invalidate()
 
 	if h.deps.AuditLogger != nil {
 		h.deps.AuditLogger.Log(ctx, audit.Event{

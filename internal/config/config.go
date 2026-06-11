@@ -91,6 +91,7 @@ type NATSConfig struct {
 	Stream        string
 	Subject       string
 	ConsumerGroup string
+	Concurrency   int
 }
 
 // JobsConfig toggles background AI job processing.
@@ -437,6 +438,7 @@ func loadConfigFromEnv() *Config {
 			Stream:        getEnv("BI_NATS_STREAM", "BIQLY_AI_JOBS"),
 			Subject:       getEnv("BI_NATS_SUBJECT", "biqly.ai.jobs"),
 			ConsumerGroup: getEnv("BI_NATS_CONSUMER_GROUP", "biqly-ai-workers"),
+			Concurrency:   getEnvAsInt("BI_AI_JOBS_CONCURRENCY", 1),
 		},
 		Jobs: JobsConfig{
 			Enabled:         getEnvAsBool("BI_AI_JOBS_ENABLED", true),

@@ -5,15 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/bytedance/sonic"
 	"log/slog"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/queue"
+	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 )
 
@@ -325,6 +327,55 @@ func consumerContextForAIJob(ctx context.Context, job *metadata.AIJob) context.C
 	return ctx
 }
 
+type dynamicSemaphore struct {
+	mu     sync.Mutex
+	active int
+	ch     chan struct{}
+	limit  func() int
+}
+
+func newDynamicSemaphore(limitFn func() int) *dynamicSemaphore {
+	return &dynamicSemaphore{
+		ch:    make(chan struct{}, 1),
+		limit: limitFn,
+	}
+}
+
+func (s *dynamicSemaphore) Acquire(ctx context.Context) error {
+	for {
+		s.mu.Lock()
+		lim := s.limit()
+		if lim <= 0 {
+			lim = 1
+		}
+		if s.active < lim {
+			s.active++
+			s.mu.Unlock()
+			return nil
+		}
+		s.mu.Unlock()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-s.ch:
+			// check again
+		case <-time.After(1 * time.Second):
+			// check periodically in case the limit has increased
+		}
+	}
+}
+
+func (s *dynamicSemaphore) Release() {
+	s.mu.Lock()
+	s.active--
+	s.mu.Unlock()
+	select {
+	case s.ch <- struct{}{}:
+	default:
+	}
+}
+
 func (s *AIJobService) StartConsumer(ctx context.Context, group string) error {
 	if s.publisher == nil {
 		return nil
@@ -333,7 +384,19 @@ func (s *AIJobService) StartConsumer(ctx context.Context, group string) error {
 	if !ok {
 		return nil
 	}
+
+	sem := newDynamicSemaphore(func() int {
+		if s.ai == nil {
+			return 1
+		}
+		return s.ai.EffectiveConcurrency(ctx)
+	})
+
 	return consumer.Subscribe(ctx, group, func(cctx context.Context, jobID string) error {
+		if err := sem.Acquire(cctx); err != nil {
+			return err
+		}
+		defer sem.Release()
 		return s.Process(cctx, jobID)
 	})
 }

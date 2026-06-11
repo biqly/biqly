@@ -23,6 +23,9 @@ export interface RuntimeConfigDraft {
     recall_enabled: boolean
     recall_limit: number
   }
+  queue: {
+    concurrency: number
+  }
 }
 
 export function draftFromConfig(config: AIAdminRuntimeConfig): RuntimeConfigDraft {
@@ -38,6 +41,9 @@ export function draftFromConfig(config: AIAdminRuntimeConfig): RuntimeConfigDraf
     memory: {
       recall_enabled: config.memory.recall_enabled,
       recall_limit: config.memory.recall_limit,
+    },
+    queue: {
+      concurrency: config.queue.concurrency,
     },
   }
 }
@@ -69,6 +75,9 @@ export function buildRuntimeConfigUpdate(draft: RuntimeConfigDraft): AIAdminRunt
     memory: {
       recall_enabled: draft.memory.recall_enabled,
       recall_limit: clampNumber(draft.memory.recall_limit, 1, 10),
+    },
+    queue: {
+      concurrency: clampNumber(draft.queue.concurrency, 1, 10),
     },
   }
 }

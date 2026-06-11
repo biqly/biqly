@@ -67,10 +67,18 @@ export interface MemoryAdminConfig {
   sources?: Record<string, RuntimeConfigSource>
 }
 
+export interface QueueAdminConfig {
+  concurrency: number
+  db_override: boolean
+  source?: RuntimeConfigSource
+  sources?: Record<string, RuntimeConfigSource>
+}
+
 export interface AIAdminRuntimeConfig {
   ambiguity: AmbiguityAdminConfig
   pii: PIIAdminConfig
   memory: MemoryAdminConfig
+  queue: QueueAdminConfig
 }
 
 /**
@@ -92,6 +100,9 @@ export interface AIAdminRuntimeConfigUpdate {
   memory?: {
     recall_enabled?: boolean
     recall_limit?: number
+  }
+  queue?: {
+    concurrency?: number
   }
 }
 

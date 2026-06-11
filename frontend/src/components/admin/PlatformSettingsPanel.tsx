@@ -482,6 +482,120 @@ function MemorySettingsCard({
   )
 }
 
+interface QueueSettingsCardProps {
+  draft: RuntimeConfigDraft
+  canEditRuntime: boolean
+  sources?: Record<string, RuntimeConfigSource>
+  setQueue: (patch: Partial<RuntimeConfigDraft['queue']>) => void
+  t: TFunction
+}
+
+function QueueSettingsCard({
+  draft,
+  canEditRuntime,
+  sources,
+  setQueue,
+  t,
+}: QueueSettingsCardProps) {
+  const queueSources = sources ?? {}
+  return (
+    <div
+      className="admin-card"
+      style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
+    >
+      <h3 style={{ margin: 0 }}>{t('admin.platform_settings.queue_title')}</h3>
+
+      <StepperField
+        label={t('admin.platform_settings.queue_concurrency_label')}
+        hint={t('admin.platform_settings.queue_concurrency_hint')}
+        value={draft.queue.concurrency}
+        min={1}
+        max={10}
+        disabled={!canEditRuntime}
+        source={queueSources.concurrency}
+        onChange={(v) => setQueue({ concurrency: v })}
+      />
+    </div>
+  )
+}
+
+interface RuntimeSettingsSectionProps {
+  config: AIAdminRuntimeConfig
+  draft: RuntimeConfigDraft
+  canEditRuntime: boolean
+  savingRuntime: boolean
+  onSaveRuntime: () => void
+  setPII: (patch: Partial<RuntimeConfigDraft['pii']>) => void
+  setMemory: (patch: Partial<RuntimeConfigDraft['memory']>) => void
+  setQueue: (patch: Partial<RuntimeConfigDraft['queue']>) => void
+  t: TFunction
+}
+
+function RuntimeSettingsSection({
+  config,
+  draft,
+  canEditRuntime,
+  savingRuntime,
+  onSaveRuntime,
+  setPII,
+  setMemory,
+  setQueue,
+  t,
+}: RuntimeSettingsSectionProps) {
+  const piiSources = config.pii.sources ?? {}
+  const memorySources = config.memory.sources ?? {}
+  const queueSources = config.queue.sources ?? {}
+  const anyDBOverride =
+    config.ambiguity.db_override ||
+    config.pii.db_override ||
+    config.memory.db_override ||
+    config.queue.db_override
+
+  return (
+    <>
+      <PIISettingsCard
+        config={config}
+        draft={draft}
+        canEditRuntime={canEditRuntime}
+        sources={piiSources}
+        setPII={setPII}
+        t={t}
+      />
+      <MemorySettingsCard
+        draft={draft}
+        canEditRuntime={canEditRuntime}
+        sources={memorySources}
+        setMemory={setMemory}
+        t={t}
+      />
+      <QueueSettingsCard
+        draft={draft}
+        canEditRuntime={canEditRuntime}
+        sources={queueSources}
+        setQueue={setQueue}
+        t={t}
+      />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <p className="form-hint" style={{ margin: 0 }}>
+          {anyDBOverride
+            ? t('admin.platform_settings.ambiguity_db_override_note')
+            : t('admin.platform_settings.ambiguity_env_default_note')}
+        </p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className="admin-btn-primary"
+            disabled={savingRuntime || !canEditRuntime}
+            onClick={onSaveRuntime}
+          >
+            {savingRuntime ? t('common.saving') : t('common.save')}
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
 export function PlatformSettingsPanel({ token }: { token: string }) {
   const t = useT()
   const toast = useToast()
@@ -516,6 +630,8 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
     setDraft((d) => (d ? { ...d, pii: { ...d.pii, ...patch } } : d))
   const setMemory = (patch: Partial<RuntimeConfigDraft['memory']>) =>
     setDraft((d) => (d ? { ...d, memory: { ...d.memory, ...patch } } : d))
+  const setQueue = (patch: Partial<RuntimeConfigDraft['queue']>) =>
+    setDraft((d) => (d ? { ...d, queue: { ...d.queue, ...patch } } : d))
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -567,11 +683,6 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
   }
 
   const ambiguitySources = config?.ambiguity.sources ?? {}
-  const piiSources = config?.pii.sources ?? {}
-  const memorySources = config?.memory.sources ?? {}
-  const anyDBOverride = config
-    ? config.ambiguity.db_override || config.pii.db_override || config.memory.db_override
-    : false
 
   return (
     <div className="page-stack" style={{ maxWidth: 1000, width: '100%' }}>
@@ -637,40 +748,17 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
         {/* RIGHT COLUMN */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {config && draft && (
-            <>
-              <PIISettingsCard
-                config={config}
-                draft={draft}
-                canEditRuntime={canEditRuntime}
-                sources={piiSources}
-                setPII={setPII}
-                t={t}
-              />
-              <MemorySettingsCard
-                draft={draft}
-                canEditRuntime={canEditRuntime}
-                sources={memorySources}
-                setMemory={setMemory}
-                t={t}
-              />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <p className="form-hint" style={{ margin: 0 }}>
-                  {anyDBOverride
-                    ? t('admin.platform_settings.ambiguity_db_override_note')
-                    : t('admin.platform_settings.ambiguity_env_default_note')}
-                </p>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    type="button"
-                    className="admin-btn-primary"
-                    disabled={savingRuntime || !canEditRuntime}
-                    onClick={() => void handleSaveRuntime()}
-                  >
-                    {savingRuntime ? t('common.saving') : t('common.save')}
-                  </button>
-                </div>
-              </div>
-            </>
+            <RuntimeSettingsSection
+              config={config}
+              draft={draft}
+              canEditRuntime={canEditRuntime}
+              savingRuntime={savingRuntime}
+              onSaveRuntime={() => void handleSaveRuntime()}
+              setPII={setPII}
+              setMemory={setMemory}
+              setQueue={setQueue}
+              t={t}
+            />
           )}
         </div>
       </div>

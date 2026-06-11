@@ -22,7 +22,17 @@ func newAIHandlerWithRepo(repo *metadata.Repository) *AIHandler {
 	cfg.AI.Ambiguity = config.AmbiguityConfig{TieredEnabled: false, MaxLLMTierPerQuestion: 1}
 	cfg.AI.Memory = config.AIMemoryConfig{RecallEnabled: true, RecallLimit: 5}
 	cfg.PII = config.PIIConfig{Enabled: true, DetectionThreshold: 0.6}
+	cfg.NATS.Concurrency = 2
 	return &AIHandler{deps: (&app.Dependencies{MetaRepo: repo, Config: cfg}).AIDeps()}
+}
+
+func TestEffectiveQueueConfigAppliesOverrides(t *testing.T) {
+	h := newAIHandlerWithRepo(nil)
+	h.queueOverridesCache.cached = queueOverrides{Concurrency: new(5)}
+	h.queueOverridesCache.expires = time.Now().Add(time.Minute)
+
+	eff := h.EffectiveConcurrency(context.Background())
+	assert.Equal(t, 5, eff, "override should set concurrency to 5")
 }
 
 // DB overrides take precedence over environment defaults; unset fields keep them.
@@ -90,6 +100,9 @@ func TestAdminRuntimeConfigReturnsEnvDefaults(t *testing.T) {
 	assert.True(t, resp.Memory.RecallEnabled)
 	assert.Equal(t, 5, resp.Memory.RecallLimit)
 	assert.False(t, resp.Memory.DBOverride)
+
+	assert.Equal(t, 2, resp.Queue.Concurrency)
+	assert.False(t, resp.Queue.DBOverride)
 }
 
 // PUT persists the overrides, invalidates the cache, and echoes the stored values.
@@ -169,6 +182,14 @@ func TestUpdateAdminRuntimeConfigValidation(t *testing.T) {
 		"recall limit out of range": {
 			body:    `{"memory":{"recall_limit":99}}`,
 			wantMsg: "recall_limit",
+		},
+		"queue concurrency zero": {
+			body:    `{"queue":{"concurrency":0}}`,
+			wantMsg: "concurrency must be between 1 and 10",
+		},
+		"queue concurrency out of range": {
+			body:    `{"queue":{"concurrency":11}}`,
+			wantMsg: "concurrency must be between 1 and 10",
 		},
 	} {
 		rec := httptest.NewRecorder()

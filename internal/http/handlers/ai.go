@@ -58,6 +58,7 @@ type AIHandler struct {
 	// DB-managed domains so per-request reads stay off the database.
 	ambiguityOverridesCache runtimeOverrides[ambiguityOverrides]
 	memoryOverridesCache    runtimeOverrides[memoryOverrides]
+	queueOverridesCache     runtimeOverrides[queueOverrides]
 }
 
 // SetAuthClient wires the auth service client for user model access checks.
