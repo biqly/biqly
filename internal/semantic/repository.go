@@ -3,6 +3,7 @@ package semantic
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -692,12 +693,71 @@ func (r *Repository) snapshotByVersion(ctx context.Context, modelID string, vers
 }
 
 func decodeModelSnapshot(raw []byte) (*SemanticModel, error) {
+	raw, dimensionExprs, metricExprs, err := stripSnapshotExprNodes(raw)
+	if err != nil {
+		return nil, err
+	}
 	var model SemanticModel
 	if err := sonic.Unmarshal(raw, &model); err != nil {
 		return nil, fmt.Errorf("decode model snapshot: %w", err)
 	}
+	for i := range model.Dimensions {
+		if i < len(dimensionExprs) {
+			model.Dimensions[i].CalculatedExpr = decodeExprNodeJSON(dimensionExprs[i])
+		}
+	}
+	for i := range model.Metrics {
+		if i < len(metricExprs) {
+			model.Metrics[i].Expr = decodeExprNodeJSON(metricExprs[i])
+		}
+	}
 	hydrateExpressionASTs(&model)
 	return &model, nil
+}
+
+func stripSnapshotExprNodes(raw []byte) ([]byte, [][]byte, [][]byte, error) {
+	var root map[string]json.RawMessage
+	if err := sonic.Unmarshal(raw, &root); err != nil {
+		return nil, nil, nil, fmt.Errorf("decode model snapshot: %w", err)
+	}
+
+	dimensionExprs, err := stripExprNodeArray(root, "dimensions", "calculated_expr")
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	metricExprs, err := stripExprNodeArray(root, "metrics", "expr")
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	stripped, err := sonic.Marshal(root)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("encode model snapshot without expression ASTs: %w", err)
+	}
+	return stripped, dimensionExprs, metricExprs, nil
+}
+
+func stripExprNodeArray(root map[string]json.RawMessage, arrayKey, exprKey string) ([][]byte, error) {
+	rawArray, ok := root[arrayKey]
+	if !ok || len(rawArray) == 0 || string(rawArray) == "null" {
+		return nil, nil
+	}
+	var rows []map[string]json.RawMessage
+	if err := sonic.Unmarshal(rawArray, &rows); err != nil {
+		return nil, fmt.Errorf("decode model snapshot %s: %w", arrayKey, err)
+	}
+	exprs := make([][]byte, len(rows))
+	for i := range rows {
+		if rawExpr, ok := rows[i][exprKey]; ok {
+			exprs[i] = append([]byte(nil), rawExpr...)
+			delete(rows[i], exprKey)
+		}
+	}
+	stripped, err := sonic.Marshal(rows)
+	if err != nil {
+		return nil, fmt.Errorf("encode model snapshot %s: %w", arrayKey, err)
+	}
+	root[arrayKey] = stripped
+	return exprs, nil
 }
 
 func modelSelectSQL() string {

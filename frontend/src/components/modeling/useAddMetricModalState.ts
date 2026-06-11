@@ -12,6 +12,7 @@ import {
   buildMetricSubmitPayload,
   parseMetricExpressionParts,
 } from './addMetricUtils'
+import { buildModelTableKeys } from './modelingTableCards'
 
 const METRIC_AGGREGATION_OPTIONS = [
   { value: 'count', label: 'count' },
@@ -58,16 +59,8 @@ export function useAddMetricModalState(
   )
 
   const modelTableKeys = useMemo(() => {
-    const keys = new Set<string>()
-    keys.add(`${model.base_schema}.${model.base_table}`)
-    ;(model.joins ?? []).forEach((j) => {
-      if (j.is_active !== false) {
-        keys.add(`${j.from_schema ?? model.base_schema}.${j.from_table}`)
-        keys.add(`${j.to_schema ?? model.base_schema}.${j.to_table}`)
-      }
-    })
-    return keys
-  }, [model])
+    return buildModelTableKeys(model, includedTables)
+  }, [model, includedTables])
 
   const availableSchemas = useMemo(() => {
     const schemas = new Set<string>()

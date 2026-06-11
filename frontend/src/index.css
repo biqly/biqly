@@ -3834,3 +3834,71 @@ body.modeling-grabbing * {
   font-size: 0.68rem;
   color: var(--text-muted);
 }
+
+/* ─── Schema Tag Layout in Sidebar ────────────────────────────── */
+.modeling-schema-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.modeling-schema-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--bg-card-raised);
+  color: var(--text-secondary);
+  transition: all 120ms ease;
+  user-select: none;
+}
+
+.modeling-schema-tag--active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card-raised));
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.modeling-schema-tag:not(.modeling-schema-tag--active) .modeling-schema-tag__name {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.modeling-schema-tag__name {
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modeling-schema-tag__toggle {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  transition:
+    background-color 100ms ease,
+    color 100ms ease;
+}
+
+.modeling-schema-tag__toggle:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+}

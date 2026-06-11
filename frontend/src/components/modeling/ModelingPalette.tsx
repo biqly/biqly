@@ -308,19 +308,22 @@ export function ModelingPalette({
           {activeTab === 'tables' && (
             <div className="modeling-join-list">
               <h3>{t('modeling.schemas_heading')}</h3>
-              {Array.from(new Set(tables.map((table) => table.schema_name)))
-                .sort()
-                .map((schemaName) => {
-                  const isExcluded = excludedSchemas.has(schemaName)
-                  return (
-                    <div
-                      className={`modeling-join-pill ${isExcluded ? '' : 'modeling-join-pill--active'}`}
-                      key={`schema-${schemaName}`}
-                    >
-                      <div className="modeling-join-pill-header">
-                        <strong>{schemaName}</strong>
+              <div className="modeling-schema-tag-list">
+                {Array.from(new Set(tables.map((table) => table.schema_name)))
+                  .sort()
+                  .map((schemaName) => {
+                    const isExcluded = excludedSchemas.has(schemaName)
+                    return (
+                      <div
+                        className={`modeling-schema-tag ${isExcluded ? '' : 'modeling-schema-tag--active'}`}
+                        key={`schema-${schemaName}`}
+                      >
+                        <span className="modeling-schema-tag__name" title={schemaName}>
+                          {schemaName}
+                        </span>
                         <button
-                          className={isExcluded ? 'modeling-add-btn' : 'modeling-delete-btn'}
+                          type="button"
+                          className="modeling-schema-tag__toggle"
                           onClick={() => onSchemaToggle(schemaName, isExcluded)}
                           title={
                             isExcluded
@@ -331,14 +334,9 @@ export function ModelingPalette({
                           {isExcluded ? '+' : '×'}
                         </button>
                       </div>
-                      <span className="modeling-join-meta">
-                        {isExcluded
-                          ? t('modeling.schema_excluded_status')
-                          : t('modeling.schema_included_status')}
-                      </span>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+              </div>
 
               <h3>{t('modeling.datasource_tables_heading')}</h3>
               {tables.length === 0 ? (
