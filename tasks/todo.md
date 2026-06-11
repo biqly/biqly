@@ -26,6 +26,19 @@
   - Worker imajı `sha-fc2a2ce9` (eski) — snapshot decode fix'i (f660ec15) içermiyor; bu yüzden `zlitter_2` yüklenemeyip auto'ya düşülüyor. Bu fix push'lanınca build-worker.yml yeni imaj üretir, image-updater bump'lar.
   - Catalog: `failed to list few-shot examples` / `failed to list glossary` 500'leri ve `auto:...` model ID'sinin uuid kolonlarına parametre olarak geçmesi (few-shot/history okumaları) — non-fatal ama gürültülü.
 
+## İkinci 404 dalgası: ExprNode JSON decode (2026-06-11, deploy sonrası)
+
+### Tespit
+
+- İlk fix deploy edildikten sonra dry-run 404 devam etti — ama nedeni değişti: worker artık auto'ya düşmüyor (`zlitter_2` yükleniyor), query servisi modeli catalog'dan **200** ile alıyor, fakat **client-side decode** patlıyor.
+- `Metric.Expr` / `Dimension.CalculatedExpr` `ExprNode` interface alanları; `expr`/`calculated_expr` içeren her modelin düz `json.Unmarshal`'ı "cannot unmarshal into ExprNode" hatasıyla başarısız → `ErrLoadSemanticModel` → 404. f660ec15 yalnızca DB snapshot yolunu strip/re-attach ile yamamıştı; catalog HTTP yolu (`queryCatalogAdapter.GetPublishedFullModel`) açıkta kalmış.
+- Cluster tarafında ayrıca: canlı ImageUpdater CR'de `worker` alias'ı yoktu (`deploy/argocd/image-updater.yaml` hiç apply edilmemiş; Argo CD yalnızca helm path'ini sync ediyor) — apply edildi, worker `sha-0f38581f`'e güncellendi.
+
+### Fix
+
+- [x] `pkg/semantic/json.go`: `Dimension.UnmarshalJSON` + `Metric.UnmarshalJSON` — expr alanını `json.RawMessage` ile gölgeleyip `UnmarshalExprNode` ile decode eder; parse edilemeyen AST nil'e düşer (Expression string'i kaynak, hydration yeniden parse eder). Catalog HTTP, snapshot ve inline-model decode yollarının tamamını kökten düzeltir.
+- [x] Round-trip + invalid-expr testleri (`pkg/semantic/json_test.go`); `make lint-go` 0 issue, `make test-go` PASS, deadcode temiz.
+
 ## AI Jobs: Refresh Resume + Admin Job Yönetimi (2026-06-11)
 
 ### Tespit Özeti
