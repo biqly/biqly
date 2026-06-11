@@ -291,6 +291,17 @@ func (h *MetadataHandler) GetTableSample(w http.ResponseWriter, r *http.Request)
 	}
 	table := known[idx]
 
+	columns, err := h.deps.MetaRepo.ListColumns(ctx, datasourceID, table.SchemaName, table.TableName)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list columns", err)
+		return
+	}
+	piiConfig, err := h.tablePIIMaskingConfig(ctx, datasourceID)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to resolve pii policy", err)
+		return
+	}
+
 	resolved, err := h.deps.ResolveDatasourceDB(ctx, datasourceID)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to open connection", err)
@@ -302,7 +313,12 @@ func (h *MetadataHandler) GetTableSample(w http.ResponseWriter, r *http.Request)
 	// metadata record, so no request input reaches the query.
 	d := resolved.Driver.Dialect()
 	tableRef := d.QuoteIdentSegment(table.SchemaName) + "." + d.QuoteIdentSegment(table.TableName)
-	query := d.SelectWithLimit([]string{"*"}, tableRef, tableSampleRowLimit)
+	projection := buildTableRowsProjection(d, columns, piiConfig)
+	if len(projection) == 0 {
+		writeJSON(w, http.StatusOK, &sampleData{Columns: []sampleColumn{}, Rows: [][]any{}})
+		return
+	}
+	query := d.SelectWithLimit(projection, tableRef, tableSampleRowLimit)
 
 	sample, err := querySampleRows(ctx, resolved.DB, query)
 	if err != nil {

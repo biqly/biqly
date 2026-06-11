@@ -1,5 +1,100 @@
 # Todo list
 
+## Güvenlik İncelemesi — Table Browser & Metadata (2026-06-11)
+
+Kaynak: 591dbb2f (`feat(metadata): table display expressions and table browser row modal`) commit'i + ilgili route'lar üzerinde yapılan detaylı güvenlik incelemesi (2 bağımsız doğrulama turu, her bulgu 8/10 güvenle teyit edildi).
+
+### S0 — PII Maskeleme Bypass: `BrowseTableRows` rows endpoint'i [HIGH]
+
+**Bulgu:** Yeni `POST /api/datasources/{id}/tables/{schema}/{table}/rows` endpoint'i
+(`internal/http/handlers/metadata_rows.go`) müşteri DB'sine `SELECT *` atıp satırları
+olduğu gibi dönüyor. Route yalnızca `RequireDatasourceAccess(authClient, "read")` ile
+korunuyor; query path'inin uyguladığı rol bazlı PII maskeleme
+(`internal/core/pii_policy.go` → `query.PIIMaskingConfig`, compiler'da mask/hide +
+hidden kolonda filtre reddi) burada **hiç uygulanmıyor**.
+
+**Saldırı yolu:** Datasource'a read erişimi olan bir `analyst`/`viewer`, `/query`'de
+maskeli/gizli göreceği PII kolonlarını (tckn, email vb.) bu endpoint'ten ham olarak okur;
+`contains`/`starts_with`/`gt` filtreleri + `order_by` + offset sayfalama ile değer
+enumeration ve tam tablo exfiltration yapabilir (sayfa başına 200 satır).
+Mevcut `GetTableSample` (50 satır, filtresiz) aynı açığı zaten taşıyordu; yeni endpoint
+filtre/sıralama/sayfalama ile istismar edilebilirliği ciddi şekilde artırdı.
+
+- [x] `PIIPolicyService` (MaskingConfig) bağımlılığını `MetadataHandler` deps'ine ekle.
+- [x] `BrowseTableRows`'ta `SELECT *` yerine `columns` listesinden açık projection kur:
+  `hidden` kolonları projection'dan çıkar, `masked` kolonlara query path'teki maskeleme
+  ifadesini uygula, `raw` kolonları olduğu gibi geçir.
+- [x] `hidden` (ve tercihen `masked`) kolonları hedefleyen `filters` ve `order_by`
+  isteklerini 400 ile reddet — compiler'daki "hidden kolonda filtre reddi" kuralının aynısı.
+- [x] `include_total` COUNT sorgusundaki WHERE'e de aynı kuralı uygula (gizli kolon
+  predicate'iyle count sızdırılamasın).
+- [x] Aynı maskelemeyi `GetTableSample`'a da uygula (`internal/http/handlers/metadata.go`).
+- [x] Regresyon testi: viewer/analyst rolüyle PII kolonlu tabloda browse → hidden kolon
+  yok, masked kolon maskeli, hidden kolona filtre → 400.
+- [x] **Kabul:** `/query` ile rows-browse aynı kullanıcı için aynı PII görünürlüğünü verir;
+  hiçbir rol browse üzerinden query'de göremediği veriyi göremez.
+
+#### Uygulama planı (Codex, 2026-06-11)
+
+- [x] RED: `metadata_rows_test.go` içinde projection + predicate reddi testleriyle mevcut `SELECT *` açığını yakala.
+- [x] GREEN: `CatalogDeps` üzerinden `PIIPolicyService`'i metadata handler'a taşı.
+- [x] GREEN: rows/sample için explicit projection üret; hidden kolonları çıkar, masked kolonları dialect mask expression + alias ile döndür.
+- [x] GREEN: hidden ve masked kolonlara filter/order_by isteklerini 400'e düşür; aynı WHERE kuralını `include_total` COUNT için kullan.
+- [x] VERIFY: focused Go testleri + gofmt + `git diff --check`.
+
+#### Sonuç (Codex, 2026-06-11)
+
+- `BrowseTableRows` ve `GetTableSample` artık `PIIPolicyService.MaskingConfig` ile aynı PII görünürlüğünü uygular.
+- Hidden PII kolonları projection dışı kalır; masked kolonlar dialect mask expression ile stable alias altında döner.
+- Filter/order_by masked veya hidden PII kolon hedeflediğinde 400 döner; `include_total` COUNT aynı validated WHERE'i kullandığı için protected predicate sızdırmaz.
+- Doğrulama: `go test ./internal/http/handlers -run 'TestBuildTableRows(Projection|WhereRejectsProtected|OrderRejectsProtected|WherePredicates|WhereMultiChip|WhereRejectsUnknown)' -count=1`; `go test ./internal/http/handlers ./internal/app -count=1`; `make lint-go`; `git diff --check`.
+
+### S1 — Eksik Yetkilendirme: metadata yazma/enumeration route'ları [MEDIUM]
+
+**Bulgu:** `internal/http/catalog_router.go` içinde `PATCH /metadata/tables/{id}`
+(`UpdateTableDescription` — 591dbb2f ile `display_expression` da yazılabilir oldu),
+`PATCH /metadata/columns/{id}`, translation route'ları ve metadata search/list route'ları
+yalnızca JWT ile korunuyor; `RequirePermission` veya `RequireDatasourceAccess` yok,
+handler içinde de yetki kontrolü yapılmıyor. Açık önceden vardı; 591dbb2f yazılabilir
+yüzeyi genişletti.
+
+**Saldırı yolu:** Hiçbir datasource grant'i olmayan herhangi bir authenticated kullanıcı,
+search route'undan tablo UUID'lerini enumerate edip **tüm tenant'ların** tablo
+description/label/display_expression alanlarını değiştirebilir (cross-tenant metadata
+tahrifatı, yanıltıcı UI). Not: `display_expression` client'ta eval'siz tokenizer ile
+işlenip React text node olarak render ediliyor — XSS/SQLi/exfil yolu doğrulanmadı,
+etki bütünlük (integrity) seviyesinde.
+
+- [ ] Metadata mutasyon route'larını datasource kapsamlı yetkiye bağla: table/column ID
+  üzerinden sahibi datasource'u resolve edip `CheckDatasourceAccess(level=write)` uygula
+  (URL'de datasource id olmadığından handler içinde veya ID-resolve eden yeni bir
+  middleware ile; `PATCH /metadata/columns/{id}/pii` route'unun `RequirePermission`
+  kullanımı örnek alınabilir).
+- [ ] Metadata search/list route'larını da yetki kapsamına al — cross-tenant tablo UUID
+  enumeration kapatılsın (kullanıcının erişebildiği datasource'larla sınırla).
+- [ ] Regresyon testi: grant'siz kullanıcı PATCH `/metadata/tables/{id}` → 403;
+  search sonuçları erişilebilir datasource'larla sınırlı.
+- [ ] **Kabul:** Metadata okuma/yazma, çağıranın datasource erişim seviyesiyle tutarlı;
+  JWT tek başına yeterli değil.
+
+### S2 — Sertleştirme (hardening, doğrudan açık değil) [LOW]
+
+- [ ] `display_expression` için server-side format doğrulaması ekle
+  (`UpdateTableDescription`): frontend tokenizer'ın grameriyle aynı kurallar
+  (kolon token + tırnaklı literal + `+`) ve makul uzunluk limiti — ileride başka bir
+  consumer'ın bu alanı güvenle kullanabilmesi için.
+- [ ] `writeInternalError`'ın müşteri DB driver hata metnini client'a sızdırmadığını
+  doğrula; sızdırıyorsa generic mesaj + log'a detay şeklinde ayır
+  (`metadata_rows.go` "failed to fetch/count table rows" yolları).
+
+**Temiz çıkan kontroller (aksiyon gerekmez):** SQL injection (identifier'lar introspect
+edilmiş metadata'dan + `QuoteIdentSegment` tüm dialect'lerde doğru escape ediyor; değerler
+parametre bind'li; `order_dir` whitelist; limit/offset int) ✓ · `display_expression`
+client değerlendirmesi eval'siz/`new Function`'sız ✓ · Yeni frontend kodunda
+`dangerouslySetInnerHTML`/`innerHTML` yok, React escape ✓ · `check-semgrep-sarif.py`
+değişikliği yalnızca nosemgrep'li (suppressed) bulguları SARIF'ten ayıklıyor, aktif bulgu
+gate'i değişmedi ✓
+
 ## Ambiguity & Clarification — Best Practices Uygulama Planı (2026-06-09)
 
 Kaynak: `docs/research/ambiguity-clarification-best-practices.md` — mevcut mimari vs endüstri standartları karşılaştırması.

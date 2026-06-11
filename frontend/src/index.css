@@ -3235,10 +3235,10 @@ body.modeling-grabbing * {
      fixed-height flex container would squash groups into empty clipped bars.
      Keeping them unshrinkable lets the list scroll instead. */
   flex: 0 0 auto;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--border);
   border-radius: 8px;
   margin-bottom: 0.4rem;
-  background: var(--surface, #fff);
+  background: var(--bg-card);
   overflow: hidden;
 }
 

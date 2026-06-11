@@ -65,6 +65,7 @@ type Dependencies struct {
 	Encryptor     *security.Encryption
 	EvalRepo      *evalpkg.EvalRepository
 	AuditLogger   *audit.Logger
+	PIIPolicies   *core.PIIPolicyService
 	// Embedder is the embeddings provider used for vector-based table
 	// retrieval. nil when no API key is configured — callers MUST tolerate
 	// nil (the table router falls back to keyword scoring).
@@ -103,6 +104,7 @@ type CatalogDeps struct {
 	QueryService  *core.QueryService
 	DashboardRepo *dashboard.Repository
 	AuditLogger   *audit.Logger
+	PIIPolicies   *core.PIIPolicyService
 	DriftRepo     *drift.Repository
 	DriftDetector *drift.Detector
 	DriftNotifier *drift.Notifier
@@ -121,6 +123,7 @@ func (d *Dependencies) CatalogDeps() *CatalogDeps {
 		QueryService:  d.QueryService,
 		DashboardRepo: d.DashboardRepo,
 		AuditLogger:   d.AuditLogger,
+		PIIPolicies:   d.PIIPolicies,
 		DriftRepo:     d.DriftRepo,
 		DriftDetector: d.DriftDetector,
 		DriftNotifier: d.DriftNotifier,
@@ -274,6 +277,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	mailClient := mail.NewAPIClient(cfg.Mail.ServiceURL, cfg.Mail.InternalToken, nil)
 	driftNotifier := drift.NewNotifier(mailClient, nil)
 
+	piiPolicies := providePIIPolicyService(cfg, metaRepo, auditLogger)
 	queryService := core.NewQueryService(&core.QueryServiceDeps{
 		Models:      semanticRepo,
 		Composites:  compositeRepo,
@@ -284,7 +288,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		History:     metaRepo,
 		Encryptor:   encryptor,
 		Pools:       poolCache,
-		PIIPolicies: providePIIPolicyService(cfg, metaRepo, auditLogger),
+		PIIPolicies: piiPolicies,
 	})
 
 	aiBits, err := setupAI(ctx, cfg, db, metaRepo, reg, encryptor, poolCache)
@@ -318,6 +322,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		Encryptor:       encryptor,
 		EvalRepo:        aiBits.evalRepo,
 		AuditLogger:     auditLogger,
+		PIIPolicies:     piiPolicies,
 		Embedder:        aiBits.embedder,
 		AIEmbedMeta:     aiBits.embedMeta,
 		TimeGrains:      aiBits.timeGrains,

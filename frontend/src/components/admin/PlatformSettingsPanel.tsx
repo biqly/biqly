@@ -86,13 +86,12 @@ function ToggleField({
   )
 }
 
-function NumberField({
+function StepperField({
   label,
   hint,
   value,
   min,
   max,
-  step = 1,
   disabled,
   source,
   onChange,
@@ -102,28 +101,148 @@ function NumberField({
   value: number
   min: number
   max: number
-  step?: number
   disabled: boolean
   source?: RuntimeConfigSource
   onChange: (value: number) => void
 }) {
   const inputId = useId()
+  const decrement = () => {
+    if (value > min) {
+      onChange(value - 1)
+    }
+  }
+  const increment = () => {
+    if (value < max) {
+      onChange(value + 1)
+    }
+  }
+
   return (
     <label className="admin-form-label" style={{ gap: 4, maxWidth: 360 }} htmlFor={inputId}>
       <span className="admin-label-text">
         {label}
         <SourceBadge source={source} />
       </span>
-      <input
-        id={inputId}
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        disabled={disabled}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: 4 }}>
+        <button
+          type="button"
+          className="admin-btn-secondary"
+          onClick={decrement}
+          disabled={disabled || value <= min}
+          style={{
+            padding: '4px 12px',
+            height: '34px',
+            minHeight: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.1rem',
+            fontWeight: 700,
+            margin: 0,
+          }}
+        >
+          -
+        </button>
+        <input
+          id={inputId}
+          type="number"
+          min={min}
+          max={max}
+          value={value}
+          onChange={(e) => {
+            const val = Number(e.target.value)
+            if (!isNaN(val) && val >= min && val <= max) {
+              onChange(val)
+            }
+          }}
+          disabled={disabled}
+          className="admin-input"
+          style={{
+            textAlign: 'center',
+            height: '34px',
+            maxWidth: '4.5rem',
+            margin: 0,
+          }}
+        />
+        <button
+          type="button"
+          className="admin-btn-secondary"
+          onClick={increment}
+          disabled={disabled || value >= max}
+          style={{
+            padding: '4px 12px',
+            height: '34px',
+            minHeight: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.1rem',
+            fontWeight: 700,
+            margin: 0,
+          }}
+        >
+          +
+        </button>
+      </div>
+      <span className="form-hint" style={{ margin: 0 }}>
+        {hint}
+      </span>
+    </label>
+  )
+}
+
+function PercentageField({
+  label,
+  hint,
+  value,
+  disabled,
+  source,
+  onChange,
+}: {
+  label: string
+  hint: string
+  value: number
+  disabled: boolean
+  source?: RuntimeConfigSource
+  onChange: (value: number) => void
+}) {
+  const inputId = useId()
+  const pctValue = Math.round(value * 100)
+
+  return (
+    <label className="admin-form-label" style={{ gap: 4, maxWidth: 360 }} htmlFor={inputId}>
+      <span className="admin-label-text">
+        {label}
+        <SourceBadge source={source} />
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: 4 }}>
+        <input
+          id={inputId}
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={pctValue}
+          onChange={(e) => onChange(Number(e.target.value) / 100)}
+          disabled={disabled}
+          style={{ flex: 1, height: '6px', cursor: 'pointer', accentColor: 'var(--accent)' }}
+        />
+        <div
+          style={{
+            minWidth: '3.5rem',
+            textAlign: 'center',
+            padding: '4px 8px',
+            background: 'var(--bg-card-raised)',
+            border: '1px solid var(--border)',
+            borderRadius: '6px',
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            color: 'var(--text-primary)',
+          }}
+        >
+          {pctValue}%
+        </div>
+      </div>
       <span className="form-hint" style={{ margin: 0 }}>
         {hint}
       </span>
@@ -175,108 +294,126 @@ function AIRuntimeForm({
 
   return (
     <>
-      <ToggleField
-        label={t('admin.platform_settings.ambiguity_check_label')}
-        hint={t('admin.platform_settings.ambiguity_check_hint')}
-        checked={draft.ambiguity.check_enabled}
-        disabled={disabled}
-        source={ambiguitySources.check_enabled}
-        onChange={(v) => setAmbiguity({ check_enabled: v })}
-      />
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '1.25rem',
+          alignItems: 'start',
+          marginTop: '1rem',
+          marginBottom: '1rem',
+        }}
+      >
+        {/* Ambiguity card */}
+        <div
+          className="admin-card"
+          style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}
+        >
+          <h3 style={{ margin: 0 }}>{t('admin.platform_settings.ambiguity_title')}</h3>
+          <ToggleField
+            label={t('admin.platform_settings.ambiguity_check_label')}
+            hint={t('admin.platform_settings.ambiguity_check_hint')}
+            checked={draft.ambiguity.check_enabled}
+            disabled={disabled}
+            source={ambiguitySources.check_enabled}
+            onChange={(v) => setAmbiguity({ check_enabled: v })}
+          />
 
-      <ToggleField
-        label={t('admin.platform_settings.ambiguity_tiered_label')}
-        hint={t('admin.platform_settings.ambiguity_tiered_hint')}
-        checked={draft.ambiguity.tiered_enabled}
-        disabled={disabled}
-        source={ambiguitySources.tiered_enabled}
-        onChange={(v) => setAmbiguity({ tiered_enabled: v })}
-      />
+          <ToggleField
+            label={t('admin.platform_settings.ambiguity_tiered_label')}
+            hint={t('admin.platform_settings.ambiguity_tiered_hint')}
+            checked={draft.ambiguity.tiered_enabled}
+            disabled={disabled}
+            source={ambiguitySources.tiered_enabled}
+            onChange={(v) => setAmbiguity({ tiered_enabled: v })}
+          />
 
-      <NumberField
-        label={t('admin.platform_settings.ambiguity_max_llm_label')}
-        hint={t('admin.platform_settings.ambiguity_max_llm_hint')}
-        value={draft.ambiguity.max_llm_tier_per_question}
-        min={0}
-        max={10}
-        disabled={disabled}
-        source={ambiguitySources.max_llm_tier_per_question}
-        onChange={(v) => setAmbiguity({ max_llm_tier_per_question: v })}
-      />
+          <StepperField
+            label={t('admin.platform_settings.ambiguity_max_llm_label')}
+            hint={t('admin.platform_settings.ambiguity_max_llm_hint')}
+            value={draft.ambiguity.max_llm_tier_per_question}
+            min={0}
+            max={10}
+            disabled={disabled}
+            source={ambiguitySources.max_llm_tier_per_question}
+            onChange={(v) => setAmbiguity({ max_llm_tier_per_question: v })}
+          />
 
-      <NumberField
-        label={t('admin.platform_settings.ambiguity_confidence_label')}
-        hint={t('admin.platform_settings.ambiguity_confidence_hint')}
-        value={draft.ambiguity.confidence_threshold}
-        min={0}
-        max={1}
-        step={0.05}
-        disabled={disabled}
-        source={ambiguitySources.confidence_threshold}
-        onChange={(v) => setAmbiguity({ confidence_threshold: v })}
-      />
+          <PercentageField
+            label={t('admin.platform_settings.ambiguity_confidence_label')}
+            hint={t('admin.platform_settings.ambiguity_confidence_hint')}
+            value={draft.ambiguity.confidence_threshold}
+            disabled={disabled}
+            source={ambiguitySources.confidence_threshold}
+            onChange={(v) => setAmbiguity({ confidence_threshold: v })}
+          />
 
-      <NumberField
-        label={t('admin.platform_settings.ambiguity_max_options_label')}
-        hint={t('admin.platform_settings.ambiguity_max_options_hint')}
-        value={draft.ambiguity.max_options}
-        min={1}
-        max={10}
-        disabled={disabled}
-        source={ambiguitySources.max_options}
-        onChange={(v) => setAmbiguity({ max_options: v })}
-      />
+          <StepperField
+            label={t('admin.platform_settings.ambiguity_max_options_label')}
+            hint={t('admin.platform_settings.ambiguity_max_options_hint')}
+            value={draft.ambiguity.max_options}
+            min={1}
+            max={10}
+            disabled={disabled}
+            source={ambiguitySources.max_options}
+            onChange={(v) => setAmbiguity({ max_options: v })}
+          />
+        </div>
 
-      <SectionHeader
-        title={t('admin.platform_settings.pii_title')}
-        description={t('admin.platform_settings.pii_description')}
-      />
+        {/* Right column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* PII Card */}
+          <div
+            className="admin-card"
+            style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}
+          >
+            <h3 style={{ margin: 0 }}>{t('admin.platform_settings.pii_title')}</h3>
+            <p className="form-hint" style={{ margin: 0 }}>
+              {config.pii.enabled
+                ? t('admin.platform_settings.pii_enabled_on')
+                : t('admin.platform_settings.pii_enabled_off')}{' '}
+              {t('admin.platform_settings.pii_enabled_env_note')}
+            </p>
+            <PercentageField
+              label={t('admin.platform_settings.pii_threshold_label')}
+              hint={t('admin.platform_settings.pii_threshold_hint')}
+              value={draft.pii.detection_threshold}
+              disabled={disabled}
+              source={piiSources.detection_threshold}
+              onChange={(v) => setPII({ detection_threshold: v })}
+            />
+          </div>
 
-      <p className="form-hint" style={{ margin: 0 }}>
-        {config.pii.enabled
-          ? t('admin.platform_settings.pii_enabled_on')
-          : t('admin.platform_settings.pii_enabled_off')}{' '}
-        {t('admin.platform_settings.pii_enabled_env_note')}
-      </p>
+          {/* Memory Card */}
+          <div
+            className="admin-card"
+            style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}
+          >
+            <h3 style={{ margin: 0 }}>{t('admin.platform_settings.memory_title')}</h3>
+            <ToggleField
+              label={t('admin.platform_settings.memory_recall_label')}
+              hint={t('admin.platform_settings.memory_recall_hint')}
+              checked={draft.memory.recall_enabled}
+              disabled={disabled}
+              source={memorySources.recall_enabled}
+              onChange={(v) => setMemory({ recall_enabled: v })}
+            />
 
-      <NumberField
-        label={t('admin.platform_settings.pii_threshold_label')}
-        hint={t('admin.platform_settings.pii_threshold_hint')}
-        value={draft.pii.detection_threshold}
-        min={0.05}
-        max={1}
-        step={0.05}
-        disabled={disabled}
-        source={piiSources.detection_threshold}
-        onChange={(v) => setPII({ detection_threshold: v })}
-      />
+            <StepperField
+              label={t('admin.platform_settings.memory_limit_label')}
+              hint={t('admin.platform_settings.memory_limit_hint')}
+              value={draft.memory.recall_limit}
+              min={1}
+              max={10}
+              disabled={disabled}
+              source={memorySources.recall_limit}
+              onChange={(v) => setMemory({ recall_limit: v })}
+            />
+          </div>
+        </div>
+      </div>
 
-      <SectionHeader
-        title={t('admin.platform_settings.memory_title')}
-        description={t('admin.platform_settings.memory_description')}
-      />
-
-      <ToggleField
-        label={t('admin.platform_settings.memory_recall_label')}
-        hint={t('admin.platform_settings.memory_recall_hint')}
-        checked={draft.memory.recall_enabled}
-        disabled={disabled}
-        source={memorySources.recall_enabled}
-        onChange={(v) => setMemory({ recall_enabled: v })}
-      />
-
-      <NumberField
-        label={t('admin.platform_settings.memory_limit_label')}
-        hint={t('admin.platform_settings.memory_limit_hint')}
-        value={draft.memory.recall_limit}
-        min={1}
-        max={10}
-        disabled={disabled}
-        source={memorySources.recall_limit}
-        onChange={(v) => setMemory({ recall_limit: v })}
-      />
-
-      <p className="form-hint" style={{ margin: 0 }}>
+      <p className="form-hint" style={{ margin: 0, marginBottom: '1rem' }}>
         {anyDBOverride
           ? t('admin.platform_settings.ambiguity_db_override_note')
           : t('admin.platform_settings.ambiguity_env_default_note')}
@@ -285,7 +422,7 @@ function AIRuntimeForm({
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           type="button"
-          className="btn btn-primary"
+          className="admin-btn-primary"
           disabled={saving || disabled}
           onClick={onSave}
         >

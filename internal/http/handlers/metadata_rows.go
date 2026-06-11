@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/query"
+	"github.com/biqly/biqly/internal/security/pii"
 	"github.com/bytedance/sonic"
 )
 
@@ -101,15 +104,23 @@ func buildTableRowsWhere(
 	d dialect.Dialect,
 	filters []tableRowsFilter,
 	columnSet map[string]bool,
+	protectedColumnSets ...map[string]bool,
 ) (string, []any, error) {
 	if len(filters) == 0 {
 		return "", nil, nil
+	}
+	var protected map[string]bool
+	if len(protectedColumnSets) > 0 {
+		protected = protectedColumnSets[0]
 	}
 	var clauses []string
 	var args []any
 	for _, f := range filters {
 		if !columnSet[f.Column] {
 			return "", nil, fmt.Errorf("unknown filter column %q", f.Column)
+		}
+		if protected[f.Column] {
+			return "", nil, fmt.Errorf("cannot filter on protected PII column %q", f.Column)
 		}
 		col := d.QuoteIdentSegment(f.Column)
 		values := filterValues(f.Value)
@@ -130,9 +141,97 @@ func buildTableRowsWhere(
 	return " WHERE " + strings.Join(clauses, " AND "), args, nil
 }
 
+func validateTableRowsOrderBy(orderBy string, columnSet, protectedColumnSet map[string]bool) error {
+	if orderBy == "" {
+		return nil
+	}
+	if !columnSet[orderBy] {
+		return fmt.Errorf("unknown order_by column %q", orderBy)
+	}
+	if protectedColumnSet[orderBy] {
+		return fmt.Errorf("cannot order by protected PII column %q", orderBy)
+	}
+	return nil
+}
+
+func buildTableRowsColumnSets(columns []metadata.Column, piiConfig *query.PIIMaskingConfig) (map[string]bool, map[string]bool) {
+	columnSet := make(map[string]bool, len(columns))
+	protectedColumnSet := make(map[string]bool)
+	for _, c := range columns {
+		columnSet[c.ColumnName] = true
+		access, _, ok := piiAccessForColumn(piiConfig, c)
+		if ok && access != pii.AccessRaw {
+			protectedColumnSet[c.ColumnName] = true
+		}
+	}
+	return columnSet, protectedColumnSet
+}
+
+func buildTableRowsProjection(d dialect.Dialect, columns []metadata.Column, piiConfig *query.PIIMaskingConfig) []string {
+	projection := make([]string, 0, len(columns))
+	for _, c := range columns {
+		col := d.QuoteIdentSegment(c.ColumnName)
+		access, piiType, ok := piiAccessForColumn(piiConfig, c)
+		if !ok || access == pii.AccessRaw {
+			projection = append(projection, col)
+			continue
+		}
+		if access == pii.AccessMasked {
+			masked := piiMaskingStrategy(piiConfig).MaskExpression(col, piiType, d)
+			projection = append(projection, masked+" AS "+d.QuoteIdentSegment(c.ColumnName))
+		}
+	}
+	return projection
+}
+
+func piiAccessForColumn(cfg *query.PIIMaskingConfig, c metadata.Column) (access, piiType string, ok bool) {
+	if cfg == nil {
+		return "", "", false
+	}
+	refs := []string{
+		c.SchemaName + "." + c.TableName + "." + c.ColumnName,
+		c.TableName + "." + c.ColumnName,
+		c.ColumnName,
+	}
+	for _, ref := range refs {
+		if info, found := cfg.ColumnInfo[ref]; found {
+			return pii.EffectiveColumnAccess(info.Access, info.Strategy), info.PIIType, true
+		}
+		if access, found := cfg.ColumnAccess[ref]; found {
+			return pii.EffectiveColumnAccess(access, piiColumnStrategy(cfg, refs)), cfg.ColumnTypes[ref], true
+		}
+	}
+	return "", "", false
+}
+
+func piiColumnStrategy(cfg *query.PIIMaskingConfig, refs []string) string {
+	for _, ref := range refs {
+		if strategy, found := cfg.ColumnStrategies[ref]; found {
+			return strategy
+		}
+	}
+	return ""
+}
+
+func piiMaskingStrategy(cfg *query.PIIMaskingConfig) pii.MaskingStrategy {
+	if cfg != nil && cfg.Strategy != nil {
+		return cfg.Strategy
+	}
+	return pii.DefaultMaskingStrategy{}
+}
+
+func (h *MetadataHandler) tablePIIMaskingConfig(ctx context.Context, datasourceID string) (*query.PIIMaskingConfig, error) {
+	if h.deps == nil || h.deps.PIIPolicies == nil {
+		return nil, nil //nolint:nilnil // optional masking config
+	}
+	return h.deps.PIIPolicies.MaskingConfig(ctx, datasourceID)
+}
+
 // BrowseTableRows returns a filtered, sorted, paginated slice of a single
 // introspected table plus an optional total count.
 // POST /datasources/{id}/tables/{schema}/{table}/rows
+//
+//nolint:funlen
 func (h *MetadataHandler) BrowseTableRows(w http.ResponseWriter, r *http.Request) {
 	datasourceID, ok := requireURLParam(w, r, "id")
 	if !ok {
@@ -171,9 +270,10 @@ func (h *MetadataHandler) BrowseTableRows(w http.ResponseWriter, r *http.Request
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list columns", err)
 		return
 	}
-	columnSet := make(map[string]bool, len(columns))
-	for _, c := range columns {
-		columnSet[c.ColumnName] = true
+	piiConfig, err := h.tablePIIMaskingConfig(ctx, datasourceID)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to resolve pii policy", err)
+		return
 	}
 
 	resolved, err := h.deps.ResolveDatasourceDB(ctx, datasourceID)
@@ -185,8 +285,10 @@ func (h *MetadataHandler) BrowseTableRows(w http.ResponseWriter, r *http.Request
 
 	d := resolved.Driver.Dialect()
 	tableRef := d.QuoteIdentSegment(table.SchemaName) + "." + d.QuoteIdentSegment(table.TableName)
+	columnSet, protectedColumnSet := buildTableRowsColumnSets(columns, piiConfig)
+	projection := buildTableRowsProjection(d, columns, piiConfig)
 
-	where, args, err := buildTableRowsWhere(d, req.Filters, columnSet)
+	where, args, err := buildTableRowsWhere(d, req.Filters, columnSet, protectedColumnSet)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -194,8 +296,8 @@ func (h *MetadataHandler) BrowseTableRows(w http.ResponseWriter, r *http.Request
 
 	orderClause := ""
 	if req.OrderBy != "" {
-		if !columnSet[req.OrderBy] {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("unknown order_by column %q", req.OrderBy))
+		if err := validateTableRowsOrderBy(req.OrderBy, columnSet, protectedColumnSet); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		dir := "ASC"
@@ -212,14 +314,18 @@ func (h *MetadataHandler) BrowseTableRows(w http.ResponseWriter, r *http.Request
 	limit = min(limit, tableBrowseMaxLimit)
 	offset := max(req.Offset, 0)
 
-	query := "SELECT * FROM " + tableRef + where + orderClause + " " + d.LimitOffset(limit, offset)
-	data, err := querySampleRows(ctx, resolved.DB, query, args...)
-	if err != nil {
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to fetch table rows", err)
-		return
+	resp := tableRowsResponse{Columns: []sampleColumn{}, Rows: [][]any{}}
+	if len(projection) > 0 {
+		sqlQuery := "SELECT " + strings.Join(projection, ", ") + " FROM " + tableRef + where + orderClause + " " + d.LimitOffset(limit, offset)
+		data, err := querySampleRows(ctx, resolved.DB, sqlQuery, args...)
+		if err != nil {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to fetch table rows", err)
+			return
+		}
+		resp.Columns = data.Columns
+		resp.Rows = data.Rows
 	}
 
-	resp := tableRowsResponse{Columns: data.Columns, Rows: data.Rows}
 	if req.IncludeTotal {
 		var total int64
 		// Identifiers come from validated metadata records; values are bound.

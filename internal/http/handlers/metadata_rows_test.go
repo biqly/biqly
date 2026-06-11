@@ -5,6 +5,9 @@ import (
 	"testing"
 
 	"github.com/biqly/biqly/internal/dialect"
+	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/query"
+	"github.com/biqly/biqly/internal/security/pii"
 )
 
 func TestBuildTableRowsWhereRejectsUnknownColumn(t *testing.T) {
@@ -58,4 +61,63 @@ func TestBuildTableRowsWhereMultiChipBecomesOrGroup(t *testing.T) {
 	if len(args) != 2 {
 		t.Errorf("expected 2 args, got %#v", args)
 	}
+}
+
+func TestBuildTableRowsProjectionAppliesPIIMasking(t *testing.T) {
+	emailType := pii.TypeEmail
+	tcknType := pii.TypeTCKimlikNo
+	columns := []metadata.Column{
+		{SchemaName: "public", TableName: "customers", ColumnName: "id"},
+		{SchemaName: "public", TableName: "customers", ColumnName: "email", PIIType: &emailType},
+		{SchemaName: "public", TableName: "customers", ColumnName: "tckn", PIIType: &tcknType},
+	}
+	access, types := pii.BuildColumnAccessMaps(pii.RoleViewer, columns, nil)
+	cfg := &query.PIIMaskingConfig{ColumnAccess: access, ColumnTypes: types}
+
+	projection := buildTableRowsProjection(dialect.Postgres, columns, cfg)
+
+	if strings.Contains(strings.Join(projection, ", "), `"tckn"`) {
+		t.Fatalf("hidden column must not be projected: %#v", projection)
+	}
+	if !containsProjection(projection, `"id"`) {
+		t.Fatalf("raw column missing from projection: %#v", projection)
+	}
+	if !containsProjection(projection, `AS "email"`) || !containsProjection(projection, "'***'") {
+		t.Fatalf("masked column must be projected as masked expression with stable alias: %#v", projection)
+	}
+}
+
+func TestBuildTableRowsWhereRejectsProtectedPIIColumns(t *testing.T) {
+	cols := map[string]bool{"email": true, "tckn": true}
+	protected := map[string]bool{"email": true, "tckn": true}
+
+	_, _, err := buildTableRowsWhere(dialect.Postgres, []tableRowsFilter{
+		{Column: "email", Operator: "eq", Value: "alice@example.com"},
+	}, cols, protected)
+	if err == nil {
+		t.Fatal("expected masked column filter to be rejected")
+	}
+
+	_, _, err = buildTableRowsWhere(dialect.Postgres, []tableRowsFilter{
+		{Column: "tckn", Operator: "eq", Value: "10000000146"},
+	}, cols, protected)
+	if err == nil {
+		t.Fatal("expected hidden column filter to be rejected")
+	}
+}
+
+func TestBuildTableRowsOrderRejectsProtectedPIIColumns(t *testing.T) {
+	err := validateTableRowsOrderBy("email", map[string]bool{"email": true}, map[string]bool{"email": true})
+	if err == nil {
+		t.Fatal("expected masked order_by column to be rejected")
+	}
+}
+
+func containsProjection(projection []string, want string) bool {
+	for _, expr := range projection {
+		if strings.Contains(expr, want) {
+			return true
+		}
+	}
+	return false
 }

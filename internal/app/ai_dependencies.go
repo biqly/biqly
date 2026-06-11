@@ -34,6 +34,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 
 	validator, executor := provideQueryEngine(cfg)
 	auditLogger := audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(ctx, db, slog.Default()))
+	piiPolicies := providePIIPolicyService(cfg, metaRepo, auditLogger)
 	queryService := core.NewQueryService(&core.QueryServiceDeps{
 		Models:      semanticRepo,
 		Composites:  semantic.NewCompositeRepository(db),
@@ -43,7 +44,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		Executor:    executor,
 		History:     metaRepo,
 		Encryptor:   encryptor,
-		PIIPolicies: providePIIPolicyService(cfg, metaRepo, auditLogger),
+		PIIPolicies: piiPolicies,
 	})
 
 	providerStore := provideProviderStore(ctx, cfg, db, encryptor)
@@ -136,6 +137,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		Encryptor:       encryptor,
 		EvalRepo:        evalpkg.NewEvalRepository(db),
 		AuditLogger:     auditLogger,
+		PIIPolicies:     piiPolicies,
 		Embedder:        embedder,
 		AIEmbedMeta:     embedMeta,
 		Jobs:            cfg.Jobs,
