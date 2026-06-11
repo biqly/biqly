@@ -10,6 +10,7 @@ import { useDatasources } from '../../hooks/useDatasources'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
 import { LoadingScreen } from '../ui/LoadingScreen'
+import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
 import { datasourceSelectOptions } from './adminSelectOptions'
 
@@ -25,6 +26,21 @@ export function ConfirmedQueriesPanel() {
   const [rows, setRows] = useState<ConfirmedQuery[]>([])
   const [loading, setLoading] = useState(false)
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null)
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
+
+  const totalPages = Math.ceil(rows.length / pageSize)
+
+  const displayedRows = useMemo(() => {
+    return rows.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  }, [rows, currentPage, pageSize])
+
+  const handleDatasourceChange = useCallback((datasourceId: string) => {
+    setSelectedDS(datasourceId)
+    setCurrentPage(1)
+  }, [])
 
   useEffect(() => {
     const firstDS = datasources[0]
@@ -95,7 +111,7 @@ export function ConfirmedQueriesPanel() {
         <span className="admin-label-text">{t('admin.confirmed_queries.datasource')}</span>
         <Select
           value={selectedDS}
-          onChange={setSelectedDS}
+          onChange={handleDatasourceChange}
           options={dsOptions}
           ariaLabel={t('admin.confirmed_queries.datasource')}
         />
@@ -118,7 +134,7 @@ export function ConfirmedQueriesPanel() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {displayedRows.map((row) => (
                 <tr key={row.id}>
                   <td className="admin-td">{row.nl_query}</td>
                   <td className="admin-td-mono">
@@ -167,6 +183,14 @@ export function ConfirmedQueriesPanel() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={rows.length}
+            itemsPerPage={pageSize}
+            alwaysShow
+          />
         </div>
       )}
     </div>

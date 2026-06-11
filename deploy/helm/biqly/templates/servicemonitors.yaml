@@ -1,6 +1,6 @@
 {{- if .Values.global.observability.serviceMonitor.enabled }}
 {{- $root := . -}}
-{{- range $component, $cfg := dict "catalog" .Values.catalog "query" .Values.query "ai" .Values.ai }}
+{{- range $component, $cfg := dict "catalog" .Values.catalog "query" .Values.query "ai" .Values.ai "worker" .Values.worker }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

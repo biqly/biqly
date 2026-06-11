@@ -527,6 +527,10 @@
   background: rgba(245, 158, 11, 0.12);
   color: var(--warning, #d97706);
 }
+.ai-history__status--active {
+  background: rgba(79, 70, 229, 0.12);
+  color: var(--primary, #4f46e5);
+}
 
 .ai-history__mono {
   font-family: var(--font-mono, monospace);

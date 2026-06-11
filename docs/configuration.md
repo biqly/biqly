@@ -25,6 +25,7 @@ This document catalogs all environment variables used by the Biqly platform. It 
 | `BI_NATS_SUBJECT` | `"biqly.ai.jobs"` | `"biqly.ai.jobs"` | No | `internal/queue/nats.go` | No | NATS subject routing key. |
 | `BI_NATS_CONSUMER_GROUP` | `"biqly-ai-workers"` | `"biqly-ai-workers"` | No | `internal/queue/nats.go` | No | NATS consumer group. |
 | `BI_AI_JOBS_ENABLED` | `true` | `true` | No | `internal/app` / workers | No | Toggle processing of async AI jobs on NATS queues. |
+| `BI_AI_JOBS_CONSUMER_ENABLED` | `true` | `false` (AI API), `true` (worker) | No | `cmd/api`, `services/ai/cmd`, `cmd/worker` | No | Enables the in-process AI job consumer; disable on API pods when standalone workers are deployed. |
 | `BI_QUERY_TIMEOUT_SECONDS` | `30` | `30` | No | `internal/query` | No | Maximum time limit for query execution on databases. |
 | `BI_QUERY_MAX_ROWS` | `10000` | `10000` | No | `internal/query` | No | Maximum rows returned by query execution to avoid OOM. |
 | `BI_QUERY_MAX_RUNTIME_SECONDS` | `60` | `60` | No | `internal/query` | No | Maximum runtime for a single query execution. |

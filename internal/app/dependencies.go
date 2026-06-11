@@ -233,6 +233,7 @@ type AIJobsHTTPHandler interface {
 	ListStale(http.ResponseWriter, *http.Request)
 	CancelBatch(http.ResponseWriter, *http.Request)
 	CancelActive(http.ResponseWriter, *http.Request)
+	AdminList(http.ResponseWriter, *http.Request)
 	AdminListStale(http.ResponseWriter, *http.Request)
 	AdminCancelAllStale(http.ResponseWriter, *http.Request)
 	DescribeBatchConflict(http.ResponseWriter, *http.Request)
@@ -431,7 +432,7 @@ func setupAI(
 		describeModel = describeCfg.Connection.Model
 	}
 
-	translator := ai.NewTranslationServiceFromConfig(effectiveCfg)
+	translator := ai.NewTranslationServiceFromProviderStore(providerStore, effectiveCfg)
 	describer := ai.NewDescribeService(client, metaRepo, reg, translator, 10, cfg.AI.Describe.MaxCellRunes, cfg.AI.Describe.MaxSampleRows, encryptor).
 		WithModel(describeModel).
 		WithPoolCache(poolCache)

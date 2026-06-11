@@ -10,7 +10,7 @@ import {
   useRuntimeConfig,
 } from '../../hooks/useRuntimeConfig'
 import { useToast } from '../../hooks/useToast'
-import { useT } from '../../i18n'
+import { type TFunction, useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { ReadOnlyNote } from './ReadOnlyNote'
@@ -225,7 +225,8 @@ function PercentageField({
           value={pctValue}
           onChange={(e) => onChange(Number(e.target.value) / 100)}
           disabled={disabled}
-          style={{ flex: 1, height: '6px', cursor: 'pointer', accentColor: 'var(--accent)' }}
+          className="admin-range-slider"
+          style={{ flex: 1, cursor: 'pointer' }}
         />
         <div
           style={{
@@ -250,195 +251,256 @@ function PercentageField({
   )
 }
 
-function SectionHeader({ title, description }: { title: string; description: string }) {
-  return (
-    <div style={{ marginTop: 24 }}>
-      <h2 style={{ margin: 0 }}>{title}</h2>
-      <p className="form-hint" style={{ marginTop: 8 }}>
-        {description}
-      </p>
-    </div>
-  )
+interface GeneralSettingsCardProps {
+  selfSignupEnabled: boolean
+  setSelfSignupEnabled: (v: boolean) => void
+  canEdit: boolean
+  saving: boolean
+  updatedAt: string | null
+  onSave: () => void
+  t: TFunction
 }
 
-// AIRuntimeForm renders the editable ambiguity / PII / memory knobs once the
-// runtime config and its editable draft are loaded (props are non-null here).
-function AIRuntimeForm({
-  config,
-  draft,
-  setDraft,
-  disabled,
+function GeneralSettingsCard({
+  selfSignupEnabled,
+  setSelfSignupEnabled,
+  canEdit,
   saving,
+  updatedAt,
   onSave,
-}: {
-  config: AIAdminRuntimeConfig
-  draft: RuntimeConfigDraft
-  setDraft: (updater: (d: RuntimeConfigDraft | null) => RuntimeConfigDraft | null) => void
-  disabled: boolean
-  saving: boolean
-  onSave: () => void
-}) {
-  const t = useT()
-  const setAmbiguity = (patch: Partial<RuntimeConfigDraft['ambiguity']>) =>
-    setDraft((d) => (d ? { ...d, ambiguity: { ...d.ambiguity, ...patch } } : d))
-  const setPII = (patch: Partial<RuntimeConfigDraft['pii']>) =>
-    setDraft((d) => (d ? { ...d, pii: { ...d.pii, ...patch } } : d))
-  const setMemory = (patch: Partial<RuntimeConfigDraft['memory']>) =>
-    setDraft((d) => (d ? { ...d, memory: { ...d.memory, ...patch } } : d))
-
-  const ambiguitySources = config.ambiguity.sources ?? {}
-  const piiSources = config.pii.sources ?? {}
-  const memorySources = config.memory.sources ?? {}
-  const anyDBOverride =
-    config.ambiguity.db_override || config.pii.db_override || config.memory.db_override
-
+  t,
+}: GeneralSettingsCardProps) {
   return (
-    <>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '1.25rem',
-          alignItems: 'start',
-          marginTop: '1rem',
-          marginBottom: '1rem',
-        }}
-      >
-        {/* Ambiguity card */}
-        <div
-          className="admin-card"
-          style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}
-        >
-          <h3 style={{ margin: 0 }}>{t('admin.platform_settings.ambiguity_title')}</h3>
-          <ToggleField
-            label={t('admin.platform_settings.ambiguity_check_label')}
-            hint={t('admin.platform_settings.ambiguity_check_hint')}
-            checked={draft.ambiguity.check_enabled}
-            disabled={disabled}
-            source={ambiguitySources.check_enabled}
-            onChange={(v) => setAmbiguity({ check_enabled: v })}
-          />
+    <div
+      className="admin-card"
+      style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
+    >
+      <h3 style={{ margin: 0 }}>{t('admin.platform_settings.title')}</h3>
 
-          <ToggleField
-            label={t('admin.platform_settings.ambiguity_tiered_label')}
-            hint={t('admin.platform_settings.ambiguity_tiered_hint')}
-            checked={draft.ambiguity.tiered_enabled}
-            disabled={disabled}
-            source={ambiguitySources.tiered_enabled}
-            onChange={(v) => setAmbiguity({ tiered_enabled: v })}
-          />
+      <label style={toggleCardStyle}>
+        <input
+          type="checkbox"
+          checked={selfSignupEnabled}
+          onChange={(e) => setSelfSignupEnabled(e.target.checked)}
+          disabled={!canEdit}
+          style={{ marginTop: 3 }}
+        />
+        <span>
+          <strong style={{ display: 'block', marginBottom: 4 }}>
+            {t('admin.platform_settings.self_signup_label')}
+          </strong>
+          <span className="form-hint" style={{ margin: 0 }}>
+            {selfSignupEnabled
+              ? t('admin.platform_settings.self_signup_on_hint')
+              : t('admin.platform_settings.self_signup_off_hint')}
+          </span>
+        </span>
+      </label>
 
-          <StepperField
-            label={t('admin.platform_settings.ambiguity_max_llm_label')}
-            hint={t('admin.platform_settings.ambiguity_max_llm_hint')}
-            value={draft.ambiguity.max_llm_tier_per_question}
-            min={0}
-            max={10}
-            disabled={disabled}
-            source={ambiguitySources.max_llm_tier_per_question}
-            onChange={(v) => setAmbiguity({ max_llm_tier_per_question: v })}
-          />
-
-          <PercentageField
-            label={t('admin.platform_settings.ambiguity_confidence_label')}
-            hint={t('admin.platform_settings.ambiguity_confidence_hint')}
-            value={draft.ambiguity.confidence_threshold}
-            disabled={disabled}
-            source={ambiguitySources.confidence_threshold}
-            onChange={(v) => setAmbiguity({ confidence_threshold: v })}
-          />
-
-          <StepperField
-            label={t('admin.platform_settings.ambiguity_max_options_label')}
-            hint={t('admin.platform_settings.ambiguity_max_options_hint')}
-            value={draft.ambiguity.max_options}
-            min={1}
-            max={10}
-            disabled={disabled}
-            source={ambiguitySources.max_options}
-            onChange={(v) => setAmbiguity({ max_options: v })}
-          />
-        </div>
-
-        {/* Right column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* PII Card */}
-          <div
-            className="admin-card"
-            style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}
-          >
-            <h3 style={{ margin: 0 }}>{t('admin.platform_settings.pii_title')}</h3>
-            <p className="form-hint" style={{ margin: 0 }}>
-              {config.pii.enabled
-                ? t('admin.platform_settings.pii_enabled_on')
-                : t('admin.platform_settings.pii_enabled_off')}{' '}
-              {t('admin.platform_settings.pii_enabled_env_note')}
-            </p>
-            <PercentageField
-              label={t('admin.platform_settings.pii_threshold_label')}
-              hint={t('admin.platform_settings.pii_threshold_hint')}
-              value={draft.pii.detection_threshold}
-              disabled={disabled}
-              source={piiSources.detection_threshold}
-              onChange={(v) => setPII({ detection_threshold: v })}
-            />
-          </div>
-
-          {/* Memory Card */}
-          <div
-            className="admin-card"
-            style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}
-          >
-            <h3 style={{ margin: 0 }}>{t('admin.platform_settings.memory_title')}</h3>
-            <ToggleField
-              label={t('admin.platform_settings.memory_recall_label')}
-              hint={t('admin.platform_settings.memory_recall_hint')}
-              checked={draft.memory.recall_enabled}
-              disabled={disabled}
-              source={memorySources.recall_enabled}
-              onChange={(v) => setMemory({ recall_enabled: v })}
-            />
-
-            <StepperField
-              label={t('admin.platform_settings.memory_limit_label')}
-              hint={t('admin.platform_settings.memory_limit_hint')}
-              value={draft.memory.recall_limit}
-              min={1}
-              max={10}
-              disabled={disabled}
-              source={memorySources.recall_limit}
-              onChange={(v) => setMemory({ recall_limit: v })}
-            />
-          </div>
-        </div>
-      </div>
-
-      <p className="form-hint" style={{ margin: 0, marginBottom: '1rem' }}>
-        {anyDBOverride
-          ? t('admin.platform_settings.ambiguity_db_override_note')
-          : t('admin.platform_settings.ambiguity_env_default_note')}
-      </p>
+      {updatedAt && (
+        <p className="form-hint" style={{ margin: 0 }}>
+          {t('admin.platform_settings.last_updated', {
+            date: new Date(updatedAt).toLocaleString(),
+          })}
+        </p>
+      )}
 
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           type="button"
           className="admin-btn-primary"
-          disabled={saving || disabled}
+          disabled={saving || !canEdit}
           onClick={onSave}
         >
           {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>
-    </>
+    </div>
   )
 }
 
-// AIRuntimeSection owns the runtime-config lifecycle (load → draft → save) so
-// the parent panel stays simple.
-function AIRuntimeSection({ canEdit }: { canEdit: boolean }) {
+interface AmbiguitySettingsCardProps {
+  draft: RuntimeConfigDraft
+  canEditRuntime: boolean
+  sources?: Record<string, RuntimeConfigSource>
+  setAmbiguity: (patch: Partial<RuntimeConfigDraft['ambiguity']>) => void
+  t: TFunction
+}
+
+function AmbiguitySettingsCard({
+  draft,
+  canEditRuntime,
+  sources,
+  setAmbiguity,
+  t,
+}: AmbiguitySettingsCardProps) {
+  const ambiguitySources = sources ?? {}
+  return (
+    <div
+      className="admin-card"
+      style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
+    >
+      <h3 style={{ margin: 0 }}>{t('admin.platform_settings.ambiguity_title')}</h3>
+
+      <ToggleField
+        label={t('admin.platform_settings.ambiguity_check_label')}
+        hint={t('admin.platform_settings.ambiguity_check_hint')}
+        checked={draft.ambiguity.check_enabled}
+        disabled={!canEditRuntime}
+        source={ambiguitySources.check_enabled}
+        onChange={(v) => setAmbiguity({ check_enabled: v })}
+      />
+
+      <ToggleField
+        label={t('admin.platform_settings.ambiguity_tiered_label')}
+        hint={t('admin.platform_settings.ambiguity_tiered_hint')}
+        checked={draft.ambiguity.tiered_enabled}
+        disabled={!canEditRuntime}
+        source={ambiguitySources.tiered_enabled}
+        onChange={(v) => setAmbiguity({ tiered_enabled: v })}
+      />
+
+      <StepperField
+        label={t('admin.platform_settings.ambiguity_max_llm_label')}
+        hint={t('admin.platform_settings.ambiguity_max_llm_hint')}
+        value={draft.ambiguity.max_llm_tier_per_question}
+        min={0}
+        max={10}
+        disabled={!canEditRuntime}
+        source={ambiguitySources.max_llm_tier_per_question}
+        onChange={(v) => setAmbiguity({ max_llm_tier_per_question: v })}
+      />
+
+      <PercentageField
+        label={t('admin.platform_settings.ambiguity_confidence_label')}
+        hint={t('admin.platform_settings.ambiguity_confidence_hint')}
+        value={draft.ambiguity.confidence_threshold}
+        disabled={!canEditRuntime}
+        source={ambiguitySources.confidence_threshold}
+        onChange={(v) => setAmbiguity({ confidence_threshold: v })}
+      />
+
+      <StepperField
+        label={t('admin.platform_settings.ambiguity_max_options_label')}
+        hint={t('admin.platform_settings.ambiguity_max_options_hint')}
+        value={draft.ambiguity.max_options}
+        min={1}
+        max={10}
+        disabled={!canEditRuntime}
+        source={ambiguitySources.max_options}
+        onChange={(v) => setAmbiguity({ max_options: v })}
+      />
+    </div>
+  )
+}
+
+interface PIISettingsCardProps {
+  config: AIAdminRuntimeConfig
+  draft: RuntimeConfigDraft
+  canEditRuntime: boolean
+  sources?: Record<string, RuntimeConfigSource>
+  setPII: (patch: Partial<RuntimeConfigDraft['pii']>) => void
+  t: TFunction
+}
+
+function PIISettingsCard({
+  config,
+  draft,
+  canEditRuntime,
+  sources,
+  setPII,
+  t,
+}: PIISettingsCardProps) {
+  const piiSources = sources ?? {}
+  return (
+    <div
+      className="admin-card"
+      style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
+    >
+      <h3 style={{ margin: 0 }}>{t('admin.platform_settings.pii_title')}</h3>
+      <p className="form-hint" style={{ margin: 0 }}>
+        {config.pii.enabled
+          ? t('admin.platform_settings.pii_enabled_on')
+          : t('admin.platform_settings.pii_enabled_off')}{' '}
+        {t('admin.platform_settings.pii_enabled_env_note')}
+      </p>
+      <PercentageField
+        label={t('admin.platform_settings.pii_threshold_label')}
+        hint={t('admin.platform_settings.pii_threshold_hint')}
+        value={draft.pii.detection_threshold}
+        disabled={!canEditRuntime}
+        source={piiSources.detection_threshold}
+        onChange={(v) => setPII({ detection_threshold: v })}
+      />
+    </div>
+  )
+}
+
+interface MemorySettingsCardProps {
+  draft: RuntimeConfigDraft
+  canEditRuntime: boolean
+  sources?: Record<string, RuntimeConfigSource>
+  setMemory: (patch: Partial<RuntimeConfigDraft['memory']>) => void
+  t: TFunction
+}
+
+function MemorySettingsCard({
+  draft,
+  canEditRuntime,
+  sources,
+  setMemory,
+  t,
+}: MemorySettingsCardProps) {
+  const memorySources = sources ?? {}
+  return (
+    <div
+      className="admin-card"
+      style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
+    >
+      <h3 style={{ margin: 0 }}>{t('admin.platform_settings.memory_title')}</h3>
+
+      <ToggleField
+        label={t('admin.platform_settings.memory_recall_label')}
+        hint={t('admin.platform_settings.memory_recall_hint')}
+        checked={draft.memory.recall_enabled}
+        disabled={!canEditRuntime}
+        source={memorySources.recall_enabled}
+        onChange={(v) => setMemory({ recall_enabled: v })}
+      />
+
+      <StepperField
+        label={t('admin.platform_settings.memory_limit_label')}
+        hint={t('admin.platform_settings.memory_limit_hint')}
+        value={draft.memory.recall_limit}
+        min={1}
+        max={10}
+        disabled={!canEditRuntime}
+        source={memorySources.recall_limit}
+        onChange={(v) => setMemory({ recall_limit: v })}
+      />
+    </div>
+  )
+}
+
+export function PlatformSettingsPanel({ token }: { token: string }) {
   const t = useT()
   const toast = useToast()
-  const { config, error, saving, save } = useRuntimeConfig()
+  const { isSuperAdmin, hasPermission } = useAuth()
+
+  const canEdit = isSuperAdmin
+  const canEditRuntime = hasPermission('ai:settings')
+
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [selfSignupEnabled, setSelfSignupEnabled] = useState(true)
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null)
+
+  const {
+    config,
+    error: runtimeError,
+    saving: savingRuntime,
+    save: saveRuntime,
+  } = useRuntimeConfig()
   const [draft, setDraft] = useState<RuntimeConfigDraft | null>(null)
 
   useEffect(() => {
@@ -448,59 +510,12 @@ function AIRuntimeSection({ canEdit }: { canEdit: boolean }) {
     }
   }, [config])
 
-  const handleSave = async () => {
-    if (!draft) {
-      return
-    }
-    try {
-      await save(buildRuntimeConfigUpdate(draft))
-      toast.success(t('admin.platform_settings.runtime_saved'))
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
-    }
-  }
-
-  return (
-    <>
-      <SectionHeader
-        title={t('admin.platform_settings.ambiguity_title')}
-        description={t('admin.platform_settings.ambiguity_description')}
-      />
-      {error && (
-        <p
-          className="form-hint"
-          style={{ margin: 0, color: 'var(--danger, #c0392b)' }}
-          role="alert"
-        >
-          {error}
-        </p>
-      )}
-      {config && draft && (
-        <AIRuntimeForm
-          config={config}
-          draft={draft}
-          setDraft={setDraft}
-          disabled={!canEdit}
-          saving={saving}
-          onSave={() => void handleSave()}
-        />
-      )}
-    </>
-  )
-}
-
-export function PlatformSettingsPanel({ token }: { token: string }) {
-  const t = useT()
-  const toast = useToast()
-  const { isSuperAdmin, hasPermission } = useAuth()
-  // Platform (auth) settings are super-admin only; the AI runtime section is
-  // also editable with the ai:settings RBAC permission (enforced server-side).
-  const canEdit = isSuperAdmin
-  const canEditRuntime = hasPermission('ai:settings')
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [selfSignupEnabled, setSelfSignupEnabled] = useState(true)
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null)
+  const setAmbiguity = (patch: Partial<RuntimeConfigDraft['ambiguity']>) =>
+    setDraft((d) => (d ? { ...d, ambiguity: { ...d.ambiguity, ...patch } } : d))
+  const setPII = (patch: Partial<RuntimeConfigDraft['pii']>) =>
+    setDraft((d) => (d ? { ...d, pii: { ...d.pii, ...patch } } : d))
+  const setMemory = (patch: Partial<RuntimeConfigDraft['memory']>) =>
+    setDraft((d) => (d ? { ...d, memory: { ...d.memory, ...patch } } : d))
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -535,12 +550,31 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
     }
   }
 
+  const handleSaveRuntime = async () => {
+    if (!draft) {
+      return
+    }
+    try {
+      await saveRuntime(buildRuntimeConfigUpdate(draft))
+      toast.success(t('admin.platform_settings.runtime_saved'))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   if (loading) {
     return <LoadingScreen minHeight="200px" />
   }
 
+  const ambiguitySources = config?.ambiguity.sources ?? {}
+  const piiSources = config?.pii.sources ?? {}
+  const memorySources = config?.memory.sources ?? {}
+  const anyDBOverride = config
+    ? config.ambiguity.db_override || config.pii.db_override || config.memory.db_override
+    : false
+
   return (
-    <div className="page-stack" style={{ maxWidth: 640 }}>
+    <div className="page-stack" style={{ maxWidth: 1000, width: '100%' }}>
       <div>
         <h2 style={{ margin: 0 }}>{t('admin.platform_settings.title')}</h2>
         <p className="form-hint" style={{ marginTop: 8 }}>
@@ -558,46 +592,88 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
 
       {!canEdit && <ReadOnlyNote />}
 
-      <label style={toggleCardStyle}>
-        <input
-          type="checkbox"
-          checked={selfSignupEnabled}
-          onChange={(e) => setSelfSignupEnabled(e.target.checked)}
-          disabled={!canEdit}
-          style={{ marginTop: 3 }}
-        />
-        <span>
-          <strong style={{ display: 'block', marginBottom: 4 }}>
-            {t('admin.platform_settings.self_signup_label')}
-          </strong>
-          <span className="form-hint" style={{ margin: 0 }}>
-            {selfSignupEnabled
-              ? t('admin.platform_settings.self_signup_on_hint')
-              : t('admin.platform_settings.self_signup_off_hint')}
-          </span>
-        </span>
-      </label>
-
-      {updatedAt && (
-        <p className="form-hint" style={{ margin: 0 }}>
-          {t('admin.platform_settings.last_updated', {
-            date: new Date(updatedAt).toLocaleString(),
-          })}
+      {runtimeError && (
+        <p
+          className="form-hint"
+          style={{ margin: 0, color: 'var(--danger, #c0392b)' }}
+          role="alert"
+        >
+          {runtimeError}
         </p>
       )}
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          type="button"
-          className="btn btn-primary"
-          disabled={saving || !canEdit}
-          onClick={() => void save()}
-        >
-          {saving ? t('common.saving') : t('common.save')}
-        </button>
-      </div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: '1.5rem',
+          alignItems: 'start',
+          width: '100%',
+          marginTop: '1.5rem',
+        }}
+      >
+        {/* LEFT COLUMN */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <GeneralSettingsCard
+            selfSignupEnabled={selfSignupEnabled}
+            setSelfSignupEnabled={setSelfSignupEnabled}
+            canEdit={canEdit}
+            saving={saving}
+            updatedAt={updatedAt}
+            onSave={() => void save()}
+            t={t}
+          />
+          {config && draft && (
+            <AmbiguitySettingsCard
+              draft={draft}
+              canEditRuntime={canEditRuntime}
+              sources={ambiguitySources}
+              setAmbiguity={setAmbiguity}
+              t={t}
+            />
+          )}
+        </div>
 
-      <AIRuntimeSection canEdit={canEditRuntime} />
+        {/* RIGHT COLUMN */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {config && draft && (
+            <>
+              <PIISettingsCard
+                config={config}
+                draft={draft}
+                canEditRuntime={canEditRuntime}
+                sources={piiSources}
+                setPII={setPII}
+                t={t}
+              />
+              <MemorySettingsCard
+                draft={draft}
+                canEditRuntime={canEditRuntime}
+                sources={memorySources}
+                setMemory={setMemory}
+                t={t}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <p className="form-hint" style={{ margin: 0 }}>
+                  {anyDBOverride
+                    ? t('admin.platform_settings.ambiguity_db_override_note')
+                    : t('admin.platform_settings.ambiguity_env_default_note')}
+                </p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="admin-btn-primary"
+                    disabled={savingRuntime || !canEditRuntime}
+                    onClick={() => void handleSaveRuntime()}
+                  >
+                    {savingRuntime ? t('common.saving') : t('common.save')}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

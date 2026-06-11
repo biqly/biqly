@@ -1,23 +1,40 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/biqly/biqly/internal/audit"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/go-chi/chi/v5"
 )
 
 type AIJobsHandler struct {
-	svc *AIJobService
+	svc   *AIJobService
+	audit *audit.Logger
 }
 
-func NewAIJobsHandler(svc *AIJobService) *AIJobsHandler {
-	return &AIJobsHandler{svc: svc}
+func NewAIJobsHandler(svc *AIJobService, auditLog *audit.Logger) *AIJobsHandler {
+	return &AIJobsHandler{svc: svc, audit: auditLog}
+}
+
+// aiJobsAdminRole reports whether the caller may manage other users' jobs.
+func aiJobsAdminRole(ctx context.Context) bool {
+	return bimw.HasRole(ctx, bimw.RoleSuperAdmin) || bimw.HasRole(ctx, "admin")
+}
+
+// aiJobOwnedBy matches a job to its creator: by user id, or by client session
+// for legacy jobs enqueued without one.
+func aiJobOwnedBy(job *metadata.AIJob, userID, sessionID string) bool {
+	if userID != "" && job.UserID != nil && *job.UserID == userID {
+		return true
+	}
+	return sessionID != "" && job.ClientSessionID == sessionID
 }
 
 func (h *AIJobsHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +112,19 @@ func (h *AIJobsHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 func (h *AIJobsHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	job, err := h.svc.Cancel(r.Context(), id)
+	ctx := r.Context()
+	existing, err := h.svc.repo.GetAIJob(ctx, id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "job not found")
+		return
+	}
+	isAdmin := aiJobsAdminRole(ctx)
+	owned := aiJobOwnedBy(existing, bimw.UserID(ctx), r.URL.Query().Get("client_session_id"))
+	if !isAdmin && !owned {
+		writeError(w, http.StatusForbidden, "not allowed to cancel this job")
+		return
+	}
+	job, err := h.svc.Cancel(ctx, id)
 	if err != nil {
 		if err.Error() == "job cannot be cancelled" {
 			writeError(w, http.StatusConflict, err.Error())
@@ -104,17 +133,52 @@ func (h *AIJobsHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "job not found")
 		return
 	}
+	if isAdmin && !owned {
+		h.logAdminCancel(ctx, existing)
+	}
 	writeJSON(w, http.StatusOK, job)
 }
 
-func (h *AIJobsHandler) List(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.URL.Query().Get("client_session_id")
-	if sessionID == "" {
-		writeError(w, http.StatusBadRequest, "client_session_id is required")
+// logAdminCancel records an audit event when an admin cancels another user's
+// job — admin interventions on foreign jobs must stay traceable.
+func (h *AIJobsHandler) logAdminCancel(ctx context.Context, job *metadata.AIJob) {
+	if h.audit == nil {
 		return
 	}
+	details := map[string]any{"job_id": job.ID, "kind": job.Kind}
+	if job.UserID != nil {
+		details["owner_user_id"] = *job.UserID
+	}
+	h.audit.Log(ctx, audit.Event{
+		UserID:    bimw.UserID(ctx),
+		EventType: audit.EventAIJobCancelled,
+		Details:   details,
+	})
+}
+
+func (h *AIJobsHandler) List(w http.ResponseWriter, r *http.Request) {
 	activeOnly := r.URL.Query().Get("active") == "true"
-	jobs, err := h.svc.repo.ListAIJobsBySession(r.Context(), sessionID, activeOnly, 50)
+	var (
+		jobs []metadata.AIJob
+		err  error
+	)
+	if r.URL.Query().Get("scope") == "user" {
+		// User scope spans every client session of the caller, so a refreshed
+		// page or a second tab can re-attach to jobs started elsewhere.
+		userID := bimw.UserID(r.Context())
+		if userID == "" {
+			writeError(w, http.StatusBadRequest, "authenticated user required for scope=user")
+			return
+		}
+		jobs, err = h.svc.repo.ListAIJobsByUser(r.Context(), userID, activeOnly, 50)
+	} else {
+		sessionID := r.URL.Query().Get("client_session_id")
+		if sessionID == "" {
+			writeError(w, http.StatusBadRequest, "client_session_id is required")
+			return
+		}
+		jobs, err = h.svc.repo.ListAIJobsBySession(r.Context(), sessionID, activeOnly, 50)
+	}
 	if err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "list jobs failed", err)
 		return
@@ -169,6 +233,8 @@ func (h *AIJobsHandler) ListStale(w http.ResponseWriter, r *http.Request) {
 
 type cancelAIJobsRequest struct {
 	IDs []string `json:"ids"`
+	// ClientSessionID lets callers claim legacy jobs that have no user_id.
+	ClientSessionID string `json:"client_session_id,omitempty"`
 }
 
 func (h *AIJobsHandler) CancelBatch(w http.ResponseWriter, r *http.Request) {
@@ -182,9 +248,19 @@ func (h *AIJobsHandler) CancelBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "ids is required")
 		return
 	}
-	n, err := h.svc.repo.CancelAIJobs(r.Context(), req.IDs)
+	ctx := r.Context()
+	var (
+		n   int
+		err error
+	)
+	if aiJobsAdminRole(ctx) {
+		n, err = h.svc.repo.CancelAIJobs(ctx, req.IDs)
+	} else {
+		// Non-admins can only cancel jobs they own.
+		n, err = h.svc.repo.CancelAIJobsOwned(ctx, req.IDs, bimw.UserID(ctx), req.ClientSessionID)
+	}
 	if err != nil {
-		writeInternalError(r.Context(), w, http.StatusInternalServerError, "cancel jobs failed", err)
+		writeInternalError(ctx, w, http.StatusInternalServerError, "cancel jobs failed", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"cancelled": n})
@@ -211,6 +287,31 @@ func (h *AIJobsHandler) CancelActive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"cancelled": n})
+}
+
+// AdminList returns jobs across all users and sessions, active first, for the
+// admin AI jobs panel. Guarded by AdminAccessMiddleware on the route.
+func (h *AIJobsHandler) AdminList(w http.ResponseWriter, r *http.Request) {
+	limit := 200
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 {
+			limit = n
+		}
+	}
+	jobs, err := h.svc.repo.ListAIJobsAdmin(r.Context(), metadata.AIJobsAdminFilter{
+		Status: r.URL.Query().Get("status"),
+		Kind:   r.URL.Query().Get("kind"),
+		UserID: r.URL.Query().Get("user_id"),
+		Limit:  limit,
+	})
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "list jobs failed", err)
+		return
+	}
+	if jobs == nil {
+		jobs = []metadata.AIJob{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"jobs": jobs})
 }
 
 func (h *AIJobsHandler) AdminListStale(w http.ResponseWriter, r *http.Request) {

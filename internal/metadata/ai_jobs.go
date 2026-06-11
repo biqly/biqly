@@ -74,22 +74,66 @@ func (r *Repository) GetAIJob(ctx context.Context, id string) (*AIJob, error) {
 	return scanAIJob(row)
 }
 
+const aiJobsSelect = `
+	SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
+	       datasource_id, scope_schemas, progress_json,
+	       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id, locale
+	FROM ai_jobs`
+
+const (
+	aiJobsBySessionQuery = aiJobsSelect + ` WHERE client_session_id = $1`
+	aiJobsByUserQuery    = aiJobsSelect + ` WHERE user_id = $1`
+)
+
 func (r *Repository) ListAIJobsBySession(ctx context.Context, sessionID string, activeOnly bool, limit int) ([]AIJob, error) {
+	return r.listAIJobs(ctx, aiJobsBySessionQuery, sessionID, activeOnly, limit)
+}
+
+// ListAIJobsByUser returns the user's jobs across every client session, so a
+// page refresh (new tab, new browser) can re-attach to work started elsewhere.
+func (r *Repository) ListAIJobsByUser(ctx context.Context, userID string, activeOnly bool, limit int) ([]AIJob, error) {
+	return r.listAIJobs(ctx, aiJobsByUserQuery, userID, activeOnly, limit)
+}
+
+func (r *Repository) listAIJobs(ctx context.Context, baseQuery, value string, activeOnly bool, limit int) ([]AIJob, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	q := `
-		SELECT id, client_session_id, kind, status, phase, phase_message, progress_pct,
-		       datasource_id, scope_schemas, progress_json,
-		       request_json, result_json, error_message, created_at, updated_at, started_at, finished_at, user_id, locale
-		FROM ai_jobs
-		WHERE client_session_id = $1`
+	q := baseQuery
 	if activeOnly {
 		q += ` AND status IN ('pending', 'queued', 'running')`
 	}
 	q += ` ORDER BY created_at DESC LIMIT $2`
+	return r.queryAIJobs(ctx, limit, q, value, limit)
+}
 
-	rows, err := r.db.QueryContext(ctx, q, sessionID, limit)
+// AIJobsAdminFilter narrows the cross-user admin job listing. Empty fields
+// match everything.
+type AIJobsAdminFilter struct {
+	Status string
+	Kind   string
+	UserID string
+	Limit  int
+}
+
+// ListAIJobsAdmin returns jobs across all users and sessions for the admin
+// panel: active jobs first, newest first within each group.
+func (r *Repository) ListAIJobsAdmin(ctx context.Context, f AIJobsAdminFilter) ([]AIJob, error) {
+	limit := f.Limit
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	q := aiJobsSelect + `
+	WHERE ($1 = '' OR status = $1)
+	  AND ($2 = '' OR kind = $2)
+	  AND ($3 = '' OR user_id = $3)
+	ORDER BY (status IN ('pending', 'queued', 'running')) DESC, created_at DESC
+	LIMIT $4`
+	return r.queryAIJobs(ctx, limit, q, f.Status, f.Kind, f.UserID, limit)
+}
+
+func (r *Repository) queryAIJobs(ctx context.Context, capacity int, q string, args ...any) ([]AIJob, error) {
+	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list ai jobs: %w", err)
 	}
@@ -99,7 +143,7 @@ func (r *Repository) ListAIJobsBySession(ctx context.Context, sessionID string, 
 		}
 	}()
 
-	out := make([]AIJob, 0, limit)
+	out := make([]AIJob, 0, capacity)
 	for rows.Next() {
 		job, err := scanAIJobRows(rows)
 		if err != nil {
@@ -305,6 +349,31 @@ func (r *Repository) CancelAIJobs(ctx context.Context, ids []string) (int, error
 	n, err := res.RowsAffected()
 	if err != nil {
 		return 0, fmt.Errorf("cancel ai jobs rows: %w", err)
+	}
+	return int(n), nil
+}
+
+// CancelAIJobsOwned cancels only the subset of ids the caller owns — matched
+// by user_id or, for legacy jobs without one, by client session id. Used by
+// the non-admin batch-cancel endpoint so users cannot cancel others' jobs.
+func (r *Repository) CancelAIJobsOwned(ctx context.Context, ids []string, userID, sessionID string) (int, error) {
+	if len(ids) == 0 || (userID == "" && sessionID == "") {
+		return 0, nil
+	}
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE ai_jobs
+		SET status = $1, phase = 'cancelled', phase_message = 'cancelled by user',
+		    progress_pct = 0, finished_at = NOW(), updated_at = NOW()
+		WHERE id = ANY($2) AND status IN ($3, $4, $5)
+		  AND (($6 <> '' AND user_id = $6) OR ($7 <> '' AND client_session_id = $7))`,
+		AIJobStatusCancelled, pgarray.Strings(ids), AIJobStatusPending, AIJobStatusQueued, AIJobStatusRunning,
+		userID, sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("cancel owned ai jobs: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("cancel owned ai jobs rows: %w", err)
 	}
 	return int(n), nil
 }

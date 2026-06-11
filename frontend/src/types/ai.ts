@@ -113,6 +113,7 @@ export interface DescribeBatchJobProgress {
 export interface AIJob {
   id: string
   client_session_id: string
+  user_id?: string | null
   kind: AIJobKind
   status: AIJobStatus
   phase: string
@@ -132,6 +133,13 @@ export interface AIJob {
 
 export interface AIJobListResponse {
   jobs: AIJob[]
+}
+
+export interface AIQueueStatus {
+  total_pending: number
+  my_position?: number
+  my_job_id?: string
+  my_job_status: AIJobStatus | 'idle'
 }
 
 export interface PriorTurn {

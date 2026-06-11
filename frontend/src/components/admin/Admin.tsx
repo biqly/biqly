@@ -55,6 +55,9 @@ const AIHistoryPanel = lazyWithPreload(() =>
 const AIUsageAdminPanel = lazyWithPreload(() =>
   import('./AIUsageAdminPanel').then((m) => ({ default: m.AIUsageAdminPanel })),
 )
+const AIJobsAdminPanel = lazyWithPreload(() =>
+  import('./AIJobsAdminPanel').then((m) => ({ default: m.AIJobsAdminPanel })),
+)
 const SharedResourcesList = lazyWithPreload(() =>
   import('../sharing/SharedResourcesList').then((m) => ({ default: m.SharedResourcesList })),
 )
@@ -89,6 +92,7 @@ const pendingStyle: React.CSSProperties = { padding: 24 }
 // token (or extra wiring) keep explicit branches in Admin below.
 const PROPLESS_TAB_PANELS: Partial<Record<AdminTab, ComponentType>> = {
   ai_usage: AIUsageAdminPanel,
+  ai_jobs: AIJobsAdminPanel,
   ai_history: AIHistoryPanel,
   sharing: SharedResourcesList,
   ai_providers: AIProvidersPanel,
@@ -102,6 +106,7 @@ const TAB_COMPONENTS: Record<AdminTab, AdminLazyPanel> = {
   datasource_access: DatasourceAccessPanel,
   workspaces: WorkspacesPanel,
   ai_usage: AIUsageAdminPanel,
+  ai_jobs: AIJobsAdminPanel,
   ai_history: AIHistoryPanel,
   sharing: SharedResourcesList,
   audit_log: AuditLogPanel,

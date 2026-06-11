@@ -26,6 +26,7 @@ const (
 	EventPIIMaskingApplied EventType = "pii.masking_applied"
 
 	EventAIConfigUpdated EventType = "ai.config_updated"
+	EventAIJobCancelled  EventType = "ai.job_cancelled"
 
 	EventDriftDetected EventType = "drift.drift_detected"
 	EventDriftResolved EventType = "drift.drift_resolved"
@@ -77,7 +78,7 @@ func (l *Logger) Log(ctx context.Context, event Event) {
 		l.logger.ErrorContext(ctx, "audit", attrs...)
 	case EventQueryExecuted, EventQueryCompiled, EventDatasourceSync, EventAIGenerated, EventInternalRequest,
 		EventPIIScanCompleted, EventPIIPolicyUpdated, EventPIIMaskingApplied, EventAIConfigUpdated,
-		EventDriftDetected, EventDriftResolved:
+		EventAIJobCancelled, EventDriftDetected, EventDriftResolved:
 		l.logger.InfoContext(ctx, "audit", attrs...)
 	default:
 		l.logger.InfoContext(ctx, "audit", attrs...)

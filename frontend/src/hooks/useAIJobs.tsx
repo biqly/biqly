@@ -14,7 +14,13 @@ import { fetchJSON, type FetchJSONResult } from '../api/apiClient'
 import { useAuth } from '../components/auth/AuthProvider'
 import type { BulkEntry } from '../components/metadata/bulkProgress'
 import { useT } from '../i18n'
-import type { AIJob, AIJobKind, AIJobListResponse, AIQueryResponse } from '../types/ai'
+import type {
+  AIJob,
+  AIJobKind,
+  AIJobListResponse,
+  AIQueryResponse,
+  AIQueueStatus,
+} from '../types/ai'
 import type { DescribeBatchResult } from '../types/metadata'
 import { getAIClientSessionId } from '../utils/aiSession'
 import {
@@ -76,6 +82,7 @@ export interface BulkDescribeTarget {
 interface AIJobsContextValue {
   sessionId: string
   jobs: TrackedAIJob[]
+  queueStatus: AIQueueStatus | null
   expanded: boolean
   setExpanded: (v: boolean) => void
   minimized: boolean
@@ -143,6 +150,31 @@ export function jobQuestionPreview(kind: AIJobKind, req: unknown): string {
   return `${q.slice(0, 77)}…`
 }
 
+/** List the caller's AI jobs: user scope first (all sessions of the user),
+ * falling back to the client-session scope for backends without scope=user.
+ * Returns null on failure so callers can retry later. */
+export async function fetchOwnAIJobs(opts: {
+  token: string
+  sessionId: string
+  activeOnly: boolean
+}): Promise<AIJob[] | null> {
+  const qs = opts.activeOnly ? '&active=true' : ''
+  const userRes = await fetchJSON<AIJobListResponse>(`/api/ai/jobs?scope=user${qs}`, {
+    token: opts.token,
+  })
+  if (!userRes.error && userRes.status < 400 && userRes.data?.jobs) {
+    return userRes.data.jobs
+  }
+  const sessRes = await fetchJSON<AIJobListResponse>(
+    `/api/ai/jobs?client_session_id=${encodeURIComponent(opts.sessionId)}${qs}`,
+    { token: opts.token },
+  )
+  if (!sessRes.error && sessRes.status < 400 && sessRes.data?.jobs) {
+    return sessRes.data.jobs
+  }
+  return null
+}
+
 export function trackedJobFromAIJob(job: AIJob): TrackedAIJob {
   const questionPreview =
     job.request_json && typeof job.request_json === 'object'
@@ -170,6 +202,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     tRef.current = t
   }, [t])
   const [jobs, setJobs] = useState<TrackedAIJob[]>([])
+  const [queueStatus, setQueueStatus] = useState<AIQueueStatus | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [minimized, setMinimized] = useState(true)
   const [bulkEntries, setBulkEntries] = useState<BulkEntry[]>([])
@@ -428,27 +461,26 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     [applyBulkProgressFromJob],
   )
 
-  const resumeActiveJobs = useCallback(async () => {
-    const { data, status, error } = await fetchJSON<{ jobs: AIJob[] }>(
-      `/api/ai/jobs?client_session_id=${encodeURIComponent(sessionId)}&active=true`,
-    )
-    if (error) {
-      return
-    }
-    if (status === 404 || !data?.jobs.length) {
-      return
-    }
-    for (const job of data.jobs) {
-      if (!isValidJobId(job.id)) {
-        continue
+  const resumeActiveJobs = useCallback(
+    async (token: string): Promise<boolean> => {
+      const activeJobs = await fetchOwnAIJobs({ token, sessionId, activeOnly: true })
+      if (!activeJobs) {
+        return false
       }
-      if (job.kind === 'describe_batch') {
-        resumeBulkBatchJob(job)
+      for (const job of activeJobs) {
+        if (!isValidJobId(job.id)) {
+          continue
+        }
+        if (job.kind === 'describe_batch') {
+          resumeBulkBatchJob(job)
+        }
+        upsertJob(trackedJobFromAIJob(job))
+        startPolling(job.id)
       }
-      upsertJob(trackedJobFromAIJob(job))
-      startPolling(job.id)
-    }
-  }, [resumeBulkBatchJob, sessionId, startPolling, upsertJob])
+      return true
+    },
+    [resumeBulkBatchJob, sessionId, startPolling, upsertJob],
+  )
 
   useEffect(() => {
     isMountedRef.current = true
@@ -467,8 +499,9 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
 
   // Resume active jobs only once an access token is available. The provider
   // mounts before AuthProvider hydrates the session, so firing the request
-  // unauthenticated would return 401. Reset on sign-out so a later sign-in
-  // resumes again.
+  // unauthenticated would return 401. The token is passed explicitly because
+  // this child effect can run before the parent provider's own effects.
+  // Reset on sign-out (and on failure, so the next token change retries).
   useEffect(() => {
     if (!accessToken) {
       resumedRef.current = false
@@ -478,8 +511,48 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       return
     }
     resumedRef.current = true
-    void resumeActiveJobs()
+    void resumeActiveJobs(accessToken).then((ok) => {
+      if (!ok) {
+        resumedRef.current = false
+      }
+    })
   }, [accessToken, resumeActiveJobs])
+
+  const hasQueuedJob = useMemo(
+    () => jobs.some((job) => jobIsActive(job) && job.phase === 'queued'),
+    [jobs],
+  )
+
+  useEffect(() => {
+    if (!hasQueuedJob) {
+      return
+    }
+
+    let cancelled = false
+    const loadQueueStatus = async () => {
+      const { data, status, error } = await fetchJSON<AIQueueStatus>(
+        `/api/ai/jobs/queue/status?client_session_id=${encodeURIComponent(sessionId)}`,
+        accessToken ? { token: accessToken } : undefined,
+      )
+      if (cancelled) {
+        return
+      }
+      if (error || status === 404 || status === 405 || !data) {
+        setQueueStatus(null)
+        return
+      }
+      setQueueStatus(data)
+    }
+
+    void loadQueueStatus()
+    const id = window.setInterval(() => {
+      void loadQueueStatus()
+    }, POLL_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [accessToken, hasQueuedJob, sessionId])
 
   const runJob = useCallback(
     async <TRequest extends object, TResult = AIQueryResponse>(
@@ -538,7 +611,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const cancelJob = useCallback(
     async (id: string) => {
       const { data, status, error } = await fetchJSON<AIJob>(
-        `/api/ai/jobs/${encodeURIComponent(id)}`,
+        `/api/ai/jobs/${encodeURIComponent(id)}?client_session_id=${encodeURIComponent(sessionId)}`,
         {
           method: 'DELETE',
         },
@@ -557,7 +630,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       }
       return true
     },
-    [finishJob, pollJob, upsertJob],
+    [finishJob, pollJob, sessionId, upsertJob],
   )
 
   useEffect(() => {
@@ -610,7 +683,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         '/api/ai/jobs/cancel-batch',
         {
           method: 'POST',
-          body: JSON.stringify({ ids }),
+          body: JSON.stringify({ ids, client_session_id: sessionId }),
         },
       )
       if (error) {
@@ -624,7 +697,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       }
       return data.cancelled
     },
-    [pollJob],
+    [pollJob, sessionId],
   )
 
   const cancelBulkDescribe = useCallback(() => {
@@ -716,6 +789,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     () => ({
       sessionId,
       jobs,
+      queueStatus: hasQueuedJob ? queueStatus : null,
       expanded,
       setExpanded,
       minimized,
@@ -738,6 +812,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     [
       sessionId,
       jobs,
+      queueStatus,
+      hasQueuedJob,
       expanded,
       minimized,
       dismissJob,

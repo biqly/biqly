@@ -3,8 +3,7 @@ import '../styles/aiQuery.css'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 
-import { fetchJSON } from '../api/apiClient'
-import { jobIsActive, useAIJobs } from '../hooks/useAIJobs'
+import { fetchOwnAIJobs, jobIsActive, useAIJobs } from '../hooks/useAIJobs'
 import { useApi } from '../hooks/useApi'
 import { useConversation } from '../hooks/useConversation'
 import { useDatasources } from '../hooks/useDatasources'
@@ -13,7 +12,6 @@ import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useLocale, useT } from '../i18n'
 import type {
   AIJob,
-  AIJobListResponse,
   AIQueryRequest,
   AIQueryResponse,
   AIRuntimeSettings,
@@ -412,22 +410,23 @@ export default function AIQuery() {
   }, [jobs, applyJobOutcome])
 
   // One-time sweep for jobs that finished while the page was closed: fetch the
-  // session's recent jobs and attach any outcome the conversation is missing.
+  // caller's recent jobs and attach any outcome the conversation is missing.
+  // The token is passed explicitly (child effects can run before AuthProvider's
+  // own effects); on failure the ref resets so the next token change retries.
   const sweptFinishedJobsRef = useRef(false)
   useEffect(() => {
     if (!accessToken || sweptFinishedJobsRef.current) {
       return
     }
     sweptFinishedJobsRef.current = true
-    void fetchJSON<AIJobListResponse>(
-      `/api/ai/jobs?client_session_id=${encodeURIComponent(sessionId)}`,
-    ).then(({ data, error: listError }) => {
-      if (listError || !data?.jobs) {
+    void fetchOwnAIJobs({ token: accessToken, sessionId, activeOnly: false }).then((recent) => {
+      if (!recent) {
+        sweptFinishedJobsRef.current = false
         return
       }
       // The API returns newest-first; apply oldest-first so multiple missed
       // answers land in chronological order.
-      for (const job of [...data.jobs].reverse()) {
+      for (const job of [...recent].reverse()) {
         if (job.status === 'succeeded' || job.status === 'failed' || job.status === 'cancelled') {
           applyJobOutcome(job)
         }

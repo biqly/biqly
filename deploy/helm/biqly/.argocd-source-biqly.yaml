@@ -6,6 +6,12 @@ helm:
   - name: ai.image.tag
     value: sha-bee0eb39274aeec443f75f35a2b8246266adda3f
     forcestring: true
+  - name: worker.image.repository
+    value: ghcr.io/biqly/worker
+    forcestring: true
+  - name: worker.image.tag
+    value: sha-bee0eb39274aeec443f75f35a2b8246266adda3f
+    forcestring: true
   - name: auth.image.repository
     value: ghcr.io/biqly/auth
     forcestring: true

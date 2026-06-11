@@ -1,5 +1,69 @@
 # Todo list
 
+## AI Jobs: Refresh Resume + Admin Job Yönetimi (2026-06-11)
+
+### Tespit Özeti
+
+- **Refresh'te aktif job'ların gelmemesinin kök nedeni (token mirror yarışı):** `AuthProvider.tsx:91-93` access token'ı `apiClient.globalAccessToken`'a kendi `useEffect`'inde yansıtıyor; React'te çocuk effect'leri ebeveynden önce çalıştığı için `useAIJobs.resumeActiveJobs` ve `AIQuery` one-time sweep, token henüz mirror'lanmadan ateşleniyor → Authorization'sız istek → 401 → sessizce yutuluyor ve `resumedRef`/`sweptFinishedJobsRef` latch'lendiği için bir daha denenmiyor.
+- **Tray yalnızca `client_session_id` kapsamlı:** `GET /api/ai/jobs` sadece oturum filtreliyor (`ListAIJobsBySession`); başka tab/tarayıcıdan başlatılan job görünmüyor (`user_id` kolonu mevcut, migration 030a).
+- **Ayrı worker yok:** NATS consumer API süreci içinde (`cmd/api/main.go:97`, biqly-ai, 1 replica). `describe_batch` işlenirken query job'ları "Queued / waiting in queue"da bekliyor.
+- **Admin tarafı eksik:** Sadece `/ai/jobs/admin/stale` + `cancel-all-stale` var (`ai_router.go:102-110`, `AdminAccessMiddleware` super_admin ∨ `ai:settings`). Tüm kullanıcıların job'larını phase/progress ile listeleyen endpoint ve UI yok.
+- **Güvenlik:** `DELETE /api/ai/jobs/{id}` sahiplik kontrolü yapmıyor — herhangi bir kullanıcı id'sini bildiği her job'ı iptal edebilir.
+- **Yan bulgu (cluster logları):** describe çevirisi `max_tokens is too small: 0` hatasıyla sürekli başarısız (biqly-ai). Ayrıca önceki oturumun frontend fix'leri commit'lenmediği için cluster imajında (sha-d6802ec) yok.
+
+### A. Refresh'te aktif job'ların geri gelmesi (P0)
+
+- [x] AuthProvider: `setGlobalAccessToken` artık `setAccessToken` wrapper'ında senkron çağrılıyor (mirror yarışı bitti)
+- [x] `useAIJobs.resumeActiveJobs`: explicit token + başarısızlıkta `resumedRef` sıfırlanıyor (sonraki token değişiminde retry)
+- [x] `AIQuery` one-time sweep: explicit token + başarısızlıkta `sweptFinishedJobsRef` sıfırlanıyor (ortak `fetchOwnAIJobs` helper)
+- [x] Backend: `GET /api/ai/jobs?scope=user&active=true` (repo: `ListAIJobsByUser`, ortak `listAIJobs` helper); frontend resume user-scope kullanıyor, session fallback mevcut
+- [ ] Doğrulama (manuel): job çalışırken hard refresh → tray'de job + phase, chat'te typing indicator; iş bitince cevap konuşmaya düşmeli
+
+### B. Admin: tüm kullanıcıların job'ları + iptal (P0)
+
+- [x] Repo: `ListAIJobsAdmin(ctx, AIJobsAdminFilter{Status,Kind,UserID,Limit})` — tüm kullanıcılar, aktifler önce (`queryAIJobs` ortak scan helper'ı ile); ayrıca `CancelAIJobsOwned` (sahiplik kapsamlı toplu iptal)
+- [x] Backend: `GET /api/ai/jobs/admin` (`AIJobsHandler.AdminList`) — admin route grubunda (`AdminAccessMiddleware`, "ai:settings"); filtreler: `status`, `kind`, `user_id`, `limit`; `app.AIJobsHTTPHandler` interface'ine eklendi
+- [x] Backend: `Cancel`'a sahiplik kontrolü (owner: user_id veya `?client_session_id=` legacy fallback; admin/super_admin her job'ı iptal eder); admin'in başkasının job'ını iptali `audit.EventAIJobCancelled` ile loglanıyor; `CancelBatch` non-admin'ler için `CancelAIJobsOwned`'a kapsandı; `NewAIJobsHandler(svc, auditLogger)` — cmd/api + services/ai/cmd güncellendi
+- [x] Frontend: `ai_jobs` sekmesi (adminNavConfig + Admin.tsx lazy) → `AIJobsAdminPanel.tsx`: kullanıcı (useAdminLookups), kind, istek önizleme (jobQuestionPreview), status badge, phase + phase_message, progress %, geçen süre, Cancel (useConfirm onaylı), "takılı işleri iptal et"; 3s polling; status/kind filtreleri; api/admin.ts: listAdminAIJobs/adminCancelAIJob/adminCancelAllStaleAIJobs
+- [x] i18n EN+TR (`admin.ai_jobs.*`), `.ai-history__status--active` badge CSS; AIJob frontend tipine `user_id` eklendi
+- [x] Testler: ai_jobs_handler_test.go — Cancel owner ✓ / yabancı 403 ✓ / admin+super_admin ✓, CancelBatch non-admin ownership predicate ✓ / admin kapsamsız ✓, AdminList ✓ (6/6 geçti); repo lifecycle testine ListAIJobsByUser eklendi
+
+### ⏸ KALDIĞIM YER (2026-06-11 — kullanıcı isteğiyle durduruldu)
+
+**A tamamen bitti** (tüm gate'ler geçti: make test-go -race ✓, make lint-go 0 issue ✓, deadcode temiz ✓, vitest 111 ✓, build ✓). **B kod olarak bitti**, kalanlar:
+
+- [x] B sonrası TAM gate turu: `gofmt -w` (ai_jobs.go, ai_job_service.go değil — handlers/ai_jobs.go, metadata/ai_jobs.go, audit.go, dependencies.go, cmd/api/main.go, services/ai/cmd/main.go) + `make lint-go` + `make test-go` (B backend değişiklikleri sonrası sadece targeted go test + go build koşuldu, full tur koşulmadı)
+- [x] `make check-frontend` — NOT: `PlatformSettingsPanel.tsx` ve `admin.css` kullanıcının kendi uncommitted değişiklikleri prettier'da takılıyor (bana ait değil, dokunulmadı); benim dosyalarım tsc+eslint+prettier temiz, vitest 111/111
+- [x] Küçük kalan: frontend `cancelJobIds`/`cancelJob` çağrılarına `client_session_id` ekle (legacy user_id'siz job fallback'i; yeni job'larda gerekmiyor)
+- [x] Manuel doğrulama A: job çalışırken hard refresh → tray + typing indicator + sonuç; B: super_admin ile Admin → AI İşleri sekmesi (başka kullanıcının job'ı + Cancel + audit kaydı), normal user'a 403'ler
+- [x] Commit YOK — tüm değişiklikler working tree'de (A+B+önceki oturumun chat/metadata fix'leri birlikte duruyor)
+- [x] C (kuyruk pozisyonu + ayrı worker Deployment + Prometheus alert) ve D (çeviri max_tokens bug'ı, deploy) hiç başlanmadı
+
+### C. Kuyruk görünürlüğü ve worker ölçekleme (P1)
+
+- [x] Tray: phase=queued iken `GET /api/ai/jobs/queue/status` ile kuyruk pozisyonu göster ("Sırada N. sıradasınız")
+- [x] Ayrı worker Deployment (onaylandı): `cmd/worker` için Helm sub-chart (`deploy/helm/biqly/charts/worker`) + values + CI imajı (`build-worker.yml`); worker aktifken API içi consumer'ı kapatan config; replicas ile ölçekleme
+- [x] Grafana/Prometheus: NATS consumer pending metriği (RecordNATSConsumerPending) için alert: pending > 0 && süre > 5dk
+
+#### Sonuç (Codex, 2026-06-11)
+
+- Tray artık aktif queued job varken `/api/ai/jobs/queue/status?client_session_id=...` poll eder ve eşleşen job kartında `Sırada {{position}}. sıradasınız` gösterir.
+- `BI_AI_JOBS_CONSUMER_ENABLED` eklendi; API/AI service job API'lerini açık tutup in-process consumer'ı kapatabilir. Prod/base Helm'de `worker.enabled=true`, AI API consumer false, worker consumer true; dev override worker'ı kapatıp AI consumer'ı açık bırakır.
+- `deploy/helm/biqly/charts/worker` eklendi: Deployment + Service + HPA + metrics/health portu; `cmd/worker` `/metrics`, `/healthz`, `/readyz` servis eder. CI: `.github/workflows/build-worker.yml`; image updater: `ghcr.io/biqly/worker`.
+- Prometheus alert: `BiqlyNATSConsumerPending` (`biqly_nats_consumer_pending > 0` for 5m).
+- Doğrulama: `npm --prefix frontend run test -- AIJobTrackerUtils.test.ts useAIJobs.test.ts`; `npm --prefix frontend run build`; `GOCACHE=/private/tmp/biqly-gocache go test ./internal/config ./internal/http/handlers ./internal/metadata -count=1`; `GOCACHE=/private/tmp/biqly-gocache go build ./cmd/worker ./cmd/api ./services/ai/cmd`; `helm dependency update deploy/helm/biqly`; `helm template biqly deploy/helm/biqly -n biqly -f deploy/helm/biqly/values-prod.yaml`.
+
+### D. Yan bulgular (P1/P2)
+
+- [x] Describe çevirisinde `max_tokens=0` → "Param Incorrect": `NewTranslationServiceFromProviderStore` translation-purpose `max_tokens` + `defaultTranslationMaxTokens=4096`; `TestNewTranslationServiceFromConfig_DefaultMaxTokens` regression
+- [x] Önceki oturumun frontend fix'leri + A/B/C backend/deploy commit'lendi ve `main`'e push edildi (CI → ghcr imajları → ArgoCD image-updater)
+
+#### Sonuç (2026-06-11)
+
+- Çeviri: `internal/ai/translation.go` — `effectiveTranslationMaxTokens`; wiring `ai_dependencies.go` + `dependencies.go` via `ChatConfigForPurpose(PurposeTranslation)`.
+- Deploy paketi: AI jobs refresh resume, admin panel, worker chart, queue position UI, Prometheus `BiqlyNATSConsumerPending` alert.
+- Doğrulama: `make lint-go` 0 issue; `make test-go`; `make check-frontend` (113 vitest, build).
+
 ## Güvenlik İncelemesi — Table Browser & Metadata (2026-06-11)
 
 Kaynak: 591dbb2f (`feat(metadata): table display expressions and table browser row modal`) commit'i + ilgili route'lar üzerinde yapılan detaylı güvenlik incelemesi (2 bağımsız doğrulama turu, her bulgu 8/10 güvenle teyit edildi).

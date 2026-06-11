@@ -6,6 +6,7 @@ export type AdminTab =
   | 'datasource_access'
   | 'workspaces'
   | 'ai_history'
+  | 'ai_jobs'
   | 'ai_usage'
   | 'sharing'
   | 'audit_log'
@@ -24,6 +25,7 @@ export const ADMIN_TAB_LABEL_KEYS = {
   datasource_access: 'admin.tabs.datasource_access',
   workspaces: 'admin.tabs.workspaces',
   ai_history: 'admin.ai_history.title',
+  ai_jobs: 'admin.ai_jobs.title',
   ai_usage: 'admin.ai_usage.title',
   sharing: 'admin.sharing.title',
   audit_log: 'admin.tabs.audit_log',
@@ -53,6 +55,7 @@ export const ADMIN_NAV_GROUPS: { id: string; labelKey: TranslationKey; tabs: Adm
     labelKey: 'admin.nav.ai',
     tabs: [
       'ai_providers',
+      'ai_jobs',
       'ai_usage',
       'ai_history',
       'ai_confirmed',

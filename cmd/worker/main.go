@@ -3,16 +3,20 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/http/handlers"
 	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/queue"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -66,6 +70,8 @@ func main() {
 
 	slog.Info("worker started", "nats_url", cfg.NATS.URL, "group", cfg.NATS.ConsumerGroup)
 
+	metricsSrv := startMetricsServer(cfg.HTTPAddr())
+
 	go func() {
 		if err := jobSvc.StartConsumer(ctx, cfg.NATS.ConsumerGroup); err != nil && ctx.Err() == nil {
 			slog.Error("ai job consumer stopped", "error", err)
@@ -77,5 +83,36 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+		slog.Warn("worker metrics server shutdown error", "error", err)
+	}
 	slog.Info("worker shutting down")
+}
+
+func startMetricsServer(addr string) *http.Server {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  30 * time.Second,
+	}
+	go func() {
+		slog.Info("worker metrics server started", "addr", addr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("worker metrics server stopped", "error", err)
+			os.Exit(1)
+		}
+	}()
+	return srv
 }

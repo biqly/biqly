@@ -104,6 +104,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 		// (machine-to-machine), or JWTs whose RBAC grants ai:settings.
 		r.Use(handlers.AdminAccessMiddleware(deps.Config.Security.AdminAPIKey, authClient, "ai:settings"))
 		if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {
+			r.Get("/ai/jobs/admin", deps.AIJobsHTTP.AdminList)
 			r.Get("/ai/jobs/admin/stale", deps.AIJobsHTTP.AdminListStale)
 			r.Post("/ai/jobs/admin/cancel-all-stale", deps.AIJobsHTTP.AdminCancelAllStale)
 			r.Post("/ai/jobs/admin/cancel-batch", deps.AIJobsHTTP.CancelBatch)

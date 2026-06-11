@@ -64,7 +64,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 
 	poolCache := datasource.NewPoolCache()
 
-	translator := ai.NewTranslationServiceFromConfig(effectiveCfg)
+	translator := ai.NewTranslationServiceFromProviderStore(providerStore, effectiveCfg)
 	describer := ai.NewDescribeService(aiClient, metaRepo, reg, translator, 10, cfg.AI.Describe.MaxCellRunes, cfg.AI.Describe.MaxSampleRows, encryptor).
 		WithModel(describeModel).
 		WithPoolCache(poolCache)

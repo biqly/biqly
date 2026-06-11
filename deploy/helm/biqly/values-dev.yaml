@@ -18,4 +18,8 @@ ai:
   replicaCount: 1
   autoscaling:
     enabled: false
-  config: {}
+  config:
+    BI_AI_JOBS_CONSUMER_ENABLED: "true"
+
+worker:
+  enabled: false

@@ -470,6 +470,7 @@ ai:
     maxLLMTierPerQuestion: 1
   config:
     BI_HTTP_PORT: "8082"
+    BI_AI_JOBS_CONSUMER_ENABLED: "false"
     BI_CATALOG_SERVICE_URL: http://biqly-catalog:8080
     BI_QUERY_SERVICE_URL: http://biqly-query:8081
     BI_AUTH_SERVICE_URL: http://biqly-auth:8889
@@ -506,3 +507,32 @@ ai:
         - pause:
             duration: 10m
         - setWeight: 100
+
+worker:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: worker
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8083
+  config:
+    BI_HTTP_PORT: "8083"
+    BI_AI_JOBS_ENABLED: "true"
+    BI_AI_JOBS_CONSUMER_ENABLED: "true"
+    BI_CATALOG_SERVICE_URL: http://biqly-catalog:8080
+    BI_QUERY_SERVICE_URL: http://biqly-query:8081
+    BI_AUTH_SERVICE_URL: http://biqly-auth:8889
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70

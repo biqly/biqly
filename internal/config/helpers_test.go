@@ -245,3 +245,23 @@ func TestLoadDevelopmentAllowsAuthDisabled(t *testing.T) {
 		t.Fatal("expected auth disabled in development when BI_AUTH_ENABLED=false")
 	}
 }
+
+func TestLoadAIJobsConsumerEnabled(t *testing.T) {
+	t.Setenv("BI_ENCRYPTION_KEY", "a-real-32-byte-key-value-1234567")
+	t.Setenv("BI_METADATA_DB_DSN", "postgres://example/db?sslmode=disable")
+	t.Setenv("BI_ENV", "development")
+	t.Setenv("BI_AUTH_ENABLED", "false")
+	t.Setenv("BI_AI_JOBS_CONSUMER_ENABLED", "false")
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if !cfg.Jobs.Enabled {
+		t.Fatal("BI_AI_JOBS_CONSUMER_ENABLED must not disable job APIs")
+	}
+	if cfg.Jobs.ConsumerEnabled {
+		t.Fatal("expected AI job consumer disabled")
+	}
+}

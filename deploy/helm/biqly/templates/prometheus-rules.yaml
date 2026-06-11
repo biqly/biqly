@@ -137,4 +137,14 @@ spec:
           annotations:
             summary: "Biqly NATS messages are moving to DLQ"
             description: "NATS dead letter queue moves have occurred in the last 5 minutes."
+        - alert: BiqlyNATSConsumerPending
+          expr: |
+            biqly_nats_consumer_pending > 0
+          for: 5m
+          labels:
+            severity: warning
+            service: queue
+          annotations:
+            summary: "Biqly NATS consumer has pending messages"
+            description: "NATS AI job consumer pending count has stayed above zero for more than 5 minutes."
 {{- end }}

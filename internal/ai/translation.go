@@ -14,6 +14,9 @@ import (
 const (
 	defaultTranslationTargetLanguage = "Turkish"
 	defaultTranslationTargetCode     = "tr"
+	// OpenAI-compatible backends reject max_tokens=0 ("Param Incorrect"); metadata
+	// translation payloads can be large, so keep a generous completion budget.
+	defaultTranslationMaxTokens = 4096
 )
 
 // TranslationService normalizes AI-generated metadata descriptions into a target language.
@@ -26,9 +29,38 @@ type TranslationService struct {
 
 // NewTranslationServiceFromConfig returns nil when the optional translation layer is not configured.
 func NewTranslationServiceFromConfig(cfg config.AIConfig) *TranslationService {
+	return newTranslationServiceFromConfig(cfg, config.AIConfig{})
+}
+
+// NewTranslationServiceFromProviderStore layers the translation-purpose model's
+// generation knobs from the provider store over env config.
+func NewTranslationServiceFromProviderStore(store *ProviderStore, cfg config.AIConfig) *TranslationService {
+	purposeCfg := config.AIConfig{}
+	if store != nil {
+		if pcfg, ok := store.ChatConfigForPurpose(PurposeTranslation); ok {
+			purposeCfg = pcfg
+		}
+	}
+	return newTranslationServiceFromConfig(cfg, purposeCfg)
+}
+
+func newTranslationServiceFromConfig(cfg, purposeCfg config.AIConfig) *TranslationService {
 	tr := cfg.ResolvedTranslation()
 	if !tr.Configured() {
 		return nil
+	}
+
+	gen := purposeCfg.Generation
+	if gen.MaxTokens <= 0 {
+		gen.MaxTokens = cfg.Generation.MaxTokens
+	}
+	gen.MaxTokens = effectiveTranslationMaxTokens(gen.MaxTokens)
+	gen.Temperature = 0
+	if gen.TopP <= 0 {
+		gen.TopP = cfg.Generation.TopP
+	}
+	if gen.NumCtx <= 0 {
+		gen.NumCtx = cfg.Generation.NumCtx
 	}
 
 	translationCfg := config.AIConfig{
@@ -39,12 +71,7 @@ func NewTranslationServiceFromConfig(cfg config.AIConfig) *TranslationService {
 			Model:              tr.Model,
 			HTTPTimeoutSeconds: int(tr.HTTPTimeout.Seconds()),
 		},
-		Generation: config.AIGenerationConfig{
-			MaxTokens:   cfg.Generation.MaxTokens,
-			Temperature: 0,
-			TopP:        cfg.Generation.TopP,
-			NumCtx:      cfg.Generation.NumCtx,
-		},
+		Generation: gen,
 	}
 	return NewTranslationService(
 		providerpkg.NewClient(translationCfg),
@@ -52,6 +79,13 @@ func NewTranslationServiceFromConfig(cfg config.AIConfig) *TranslationService {
 		cfg.Translation.TargetLanguage,
 		cfg.Translation.TargetCode,
 	)
+}
+
+func effectiveTranslationMaxTokens(maxTokens int) int {
+	if maxTokens > 0 {
+		return maxTokens
+	}
+	return defaultTranslationMaxTokens
 }
 
 // NewTranslationService wires a translation provider. Tests pass a fake provider here.

@@ -592,6 +592,7 @@ export const core = {
     scope_schemas: 'schemas: {{schemas}}',
     queue_current: 'Current: {{table}}',
     queue_next: 'Up next: {{tables}}',
+    queue_position: 'You are {{position}} in line',
     manage_stale: 'Show stuck jobs',
     manage_stale_hide: 'Hide stuck jobs',
     manage_cancel_all_active: 'Cancel all active',

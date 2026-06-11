@@ -23,6 +23,12 @@ spec:
             helm:
               name: ai.image.repository
               tag: ai.image.tag
+        - alias: worker
+          imageName: ghcr.io/biqly/worker
+          manifestTargets:
+            helm:
+              name: worker.image.repository
+              tag: worker.image.tag
         - alias: query
           imageName: ghcr.io/biqly/query
           manifestTargets:

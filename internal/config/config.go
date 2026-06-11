@@ -95,7 +95,8 @@ type NATSConfig struct {
 
 // JobsConfig toggles background AI job processing.
 type JobsConfig struct {
-	Enabled bool
+	Enabled         bool
+	ConsumerEnabled bool
 }
 
 // HTTPConfig holds HTTP server configuration.
@@ -438,7 +439,8 @@ func loadConfigFromEnv() *Config {
 			ConsumerGroup: getEnv("BI_NATS_CONSUMER_GROUP", "biqly-ai-workers"),
 		},
 		Jobs: JobsConfig{
-			Enabled: getEnvAsBool("BI_AI_JOBS_ENABLED", true),
+			Enabled:         getEnvAsBool("BI_AI_JOBS_ENABLED", true),
+			ConsumerEnabled: getEnvAsBool("BI_AI_JOBS_CONSUMER_ENABLED", true),
 		},
 		Auth: AuthConfig{
 			Enabled:       getEnvAsBool("BI_AUTH_ENABLED", false),

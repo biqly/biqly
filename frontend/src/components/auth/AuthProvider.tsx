@@ -72,7 +72,7 @@ const TOKEN_REFRESH_MS = 14 * 60 * 1000
 export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [accessToken, setAccessTokenState] = useState<string | null>(null)
   const [roles, setRoles] = useState<string[]>([])
   const [permissions, setPermissions] = useState<string[]>([])
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
@@ -88,9 +88,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Mirror the session token into the apiClient module so every fetch —
   // including call sites that don't thread the token explicitly — sends
   // Authorization. Required now that the backend enforces JWTs on /api.
-  useEffect(() => {
-    setGlobalAccessToken(accessToken)
-  }, [accessToken])
+  // The mirror must happen synchronously with the state update: child
+  // components' effects run before this provider's own effects, so a
+  // useEffect-based mirror would let them fire requests with a stale
+  // (null) module token and get 401s.
+  const setAccessToken = useCallback((token: string | null) => {
+    setGlobalAccessToken(token)
+    setAccessTokenState(token)
+  }, [])
 
   const clearAuth = useCallback(() => {
     setUser(null)
@@ -99,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPermissions([])
     setIsSuperAdmin(false)
     localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY)
-  }, [])
+  }, [setAccessToken])
 
   // loadPermissions fetches the caller's effective permissions so the UI can
   // disable controls the user is not allowed to use. Failure is non-fatal:
@@ -131,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       await loadPermissions(accToken)
     },
-    [clearAuth, loadPermissions],
+    [clearAuth, loadPermissions, setAccessToken],
   )
 
   const hasPermission = useCallback(
@@ -267,7 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', refreshIfStale)
       window.removeEventListener('focus', refreshIfStale)
     }
-  }, [accessToken, clearAuth, loadPermissions, navigate])
+  }, [accessToken, clearAuth, loadPermissions, navigate, setAccessToken])
 
   return (
     <AuthContext.Provider

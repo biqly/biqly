@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { jobQuestionPreview, type TrackedAIJob, useAIJobs } from '../hooks/useAIJobs'
 import { type TranslationKey, useT } from '../i18n'
-import { jobKindLabel } from './AIJobTrackerUtils'
+import type { AIQueueStatus } from '../types/ai'
+import { jobKindLabel, queuePositionLine } from './AIJobTrackerUtils'
 
 const PIPELINE_PHASES = [
   'queued',
@@ -169,10 +170,19 @@ function JobPipeline({ job, now }: { job: TrackedAIJob; now: number }) {
   )
 }
 
-function JobCardBody({ job, now }: { job: TrackedAIJob; now: number }) {
+function JobCardBody({
+  job,
+  now,
+  queueStatus,
+}: {
+  job: TrackedAIJob
+  now: number
+  queueStatus: AIQueueStatus | null
+}) {
   const t = useT()
   const queueLine = describeBatchQueueLine(job)
   const scopeLine = describeBatchScopeLine(job)
+  const queuePosition = queuePositionLine(job, queueStatus, t)
   const active = isActive(job)
   const total = jobTotalMs(job, now)
 
@@ -197,6 +207,7 @@ function JobCardBody({ job, now }: { job: TrackedAIJob; now: number }) {
       {queueLine?.next && (
         <p className="ai-job-card__hint">{t('ai_jobs.queue_next', { tables: queueLine.next })}</p>
       )}
+      {queuePosition && <p className="ai-job-card__hint">{queuePosition}</p>}
       {job.status === 'failed' && job.error_message && (
         <p className="ai-job-card__error" role="alert">
           {job.error_message}
@@ -235,6 +246,7 @@ function JobCard({
   onDismiss,
   onCancel,
   cancelling,
+  queueStatus,
 }: {
   job: TrackedAIJob
   now: number
@@ -243,6 +255,7 @@ function JobCard({
   onDismiss: () => void
   onCancel?: () => void
   cancelling?: boolean
+  queueStatus: AIQueueStatus | null
 }) {
   const t = useT()
   const active = isActive(job)
@@ -309,7 +322,7 @@ function JobCard({
           <span style={{ width: `${Math.min(100, Math.max(0, job.progress_pct))}%` }} />
         </div>
       )}
-      {open && <JobCardBody job={job} now={now} />}
+      {open && <JobCardBody job={job} now={now} queueStatus={queueStatus} />}
     </article>
   )
 }
@@ -372,6 +385,7 @@ export default function AIJobTracker() {
     cancelAllActiveJobs,
     listStaleJobs,
     cancelJobIds,
+    queueStatus,
   } = useAIJobs()
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [manageBusy, setManageBusy] = useState(false)
@@ -554,6 +568,7 @@ export default function AIJobTracker() {
                 : undefined
             }
             cancelling={cancellingId === job.id}
+            queueStatus={queueStatus}
           />
         ))}
       </div>

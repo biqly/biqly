@@ -1,3 +1,4 @@
+import type { AIJob } from '../types/ai'
 import type {
   AIHistoryEntry,
   AIQueueStatus,
@@ -560,6 +561,45 @@ export async function getAIHistoryDetail(token: string, id: string): Promise<AIH
   return apiFetch<AIHistoryEntry>(
     'GET',
     `/api/ai/history/detail?id=${encodeURIComponent(id)}`,
+    undefined,
+    { token },
+  )
+}
+
+// === AI jobs (admin) ===
+
+export async function listAdminAIJobs(
+  token: string,
+  opts: { status?: string; kind?: string; userId?: string; limit?: number } = {},
+): Promise<{ jobs: AIJob[] }> {
+  const params = new URLSearchParams()
+  if (opts.status) {
+    params.set('status', opts.status)
+  }
+  if (opts.kind) {
+    params.set('kind', opts.kind)
+  }
+  if (opts.userId) {
+    params.set('user_id', opts.userId)
+  }
+  if (opts.limit) {
+    params.set('limit', String(opts.limit))
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return apiFetch<{ jobs: AIJob[] }>('GET', `/api/ai/jobs/admin${suffix}`, undefined, { token })
+}
+
+export async function adminCancelAIJob(token: string, id: string): Promise<AIJob> {
+  return apiFetch<AIJob>('DELETE', `/api/ai/jobs/${encodeURIComponent(id)}`, undefined, { token })
+}
+
+export async function adminCancelAllStaleAIJobs(
+  token: string,
+  olderMinutes = 15,
+): Promise<{ cancelled: number; matched: number }> {
+  return apiFetch<{ cancelled: number; matched: number }>(
+    'POST',
+    `/api/ai/jobs/admin/cancel-all-stale?older_minutes=${olderMinutes}`,
     undefined,
     { token },
   )

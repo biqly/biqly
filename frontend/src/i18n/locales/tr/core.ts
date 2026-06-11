@@ -601,6 +601,7 @@ export const core: CoreDictionary = {
     scope_schemas: 'şemalar: {{schemas}}',
     queue_current: 'Şu an: {{table}}',
     queue_next: 'Sırada: {{tables}}',
+    queue_position: 'Sırada {{position}}. sıradasınız',
     manage_stale: 'Takılı işleri göster',
     manage_stale_hide: 'Takılı işleri gizle',
     manage_cancel_all_active: 'Tüm aktif işleri iptal et',

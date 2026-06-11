@@ -1200,6 +1200,10 @@ func testAIJobLifecycle(ctx context.Context, t *testing.T, repo *Repository, dsI
 	assert.NoError(t, err)
 	assert.Len(t, jobs, 1)
 
+	userJobs, err := repo.ListAIJobsByUser(ctx, "user-1", true, 10)
+	assert.NoError(t, err)
+	assert.Len(t, userJobs, 1)
+
 	err = repo.UpdateAIJobProgress(ctx, "job-1", "running", "routing", "routing update", 50)
 	assert.NoError(t, err)
 

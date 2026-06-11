@@ -1,5 +1,6 @@
 import type { TrackedAIJob } from '../hooks/useAIJobsUtils'
 import type { TranslationKey } from '../i18n/locale'
+import type { AIQueueStatus } from '../types/ai'
 
 type JobT = (key: TranslationKey, params?: Record<string, string | number>) => string
 
@@ -18,4 +19,21 @@ export function jobKindLabel(job: TrackedAIJob, t: JobT): string {
     default:
       return t('ai_jobs.kind_query')
   }
+}
+
+export function queuePositionLine(
+  job: TrackedAIJob,
+  status: AIQueueStatus | null,
+  t: JobT,
+): string | null {
+  if (!status?.my_position || job.phase !== 'queued') {
+    return null
+  }
+  if (job.status !== 'pending' && job.status !== 'queued') {
+    return null
+  }
+  if (status.my_job_id && status.my_job_id !== job.id) {
+    return null
+  }
+  return t('ai_jobs.queue_position', { position: status.my_position })
 }

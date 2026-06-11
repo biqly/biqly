@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/biqly/biqly/internal/config"
 	httprouter "github.com/biqly/biqly/internal/http"
 	"github.com/biqly/biqly/internal/http/handlers"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/platform/logger"
 	"github.com/biqly/biqly/internal/platform/observability"
 )
@@ -53,25 +55,9 @@ func main() {
 	authClient := httprouter.NewAuthClient(deps)
 	deps.WireAIUserResolver(authClient)
 
-	if deps.Jobs.Enabled {
-		pub, qerr := app.NewAIJobQueue(cfg)
-		if qerr != nil {
-			slog.Error("failed to create ai job queue", "error", qerr)
-			os.Exit(1)
-		}
-		deps.AIJobQueue = pub
-		aiHandler := handlers.NewAIHandler(deps.AIDeps())
-		aiHandler.SetAuthClient(authClient)
-		aiHandler.SetAIMetricsRecorder(httprouter.GetMetrics())
-		jobSvc := handlers.NewAIJobService(deps.MetaRepo, pub, aiHandler)
-		deps.AIJobService = jobSvc
-		deps.AIJobsHTTP = handlers.NewAIJobsHandler(jobSvc)
-		consumerCtx := context.Background()
-		if err := jobSvc.StartConsumer(consumerCtx, cfg.NATS.ConsumerGroup); err != nil {
-			slog.Error("failed to start ai job consumer", "error", err)
-			os.Exit(1)
-		}
-		slog.Info("ai job consumer started", "nats_url", cfg.NATS.URL)
+	if err := wireAIJobs(cfg, deps, authClient); err != nil {
+		slog.Error("failed to initialize ai jobs", "error", err)
+		os.Exit(1)
 	}
 
 	router := httprouter.AIRouter(deps)
@@ -103,4 +89,32 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("AI Service stopped gracefully")
+}
+
+func wireAIJobs(cfg *config.Config, deps *app.Dependencies, authClient *bimw.AuthClient) error {
+	if !deps.Jobs.Enabled {
+		return nil
+	}
+	pub, err := app.NewAIJobQueue(cfg)
+	if err != nil {
+		return fmt.Errorf("create ai job queue: %w", err)
+	}
+	deps.AIJobQueue = pub
+	aiHandler := handlers.NewAIHandler(deps.AIDeps())
+	aiHandler.SetAuthClient(authClient)
+	aiHandler.SetAIMetricsRecorder(httprouter.GetMetrics())
+	jobSvc := handlers.NewAIJobService(deps.MetaRepo, pub, aiHandler)
+	deps.AIJobService = jobSvc
+	deps.AIJobsHTTP = handlers.NewAIJobsHandler(jobSvc, deps.AuditLogger)
+
+	if !cfg.Jobs.ConsumerEnabled {
+		slog.Info("ai job consumer disabled", "nats_url", cfg.NATS.URL)
+		return nil
+	}
+	consumerCtx := context.Background()
+	if err := jobSvc.StartConsumer(consumerCtx, cfg.NATS.ConsumerGroup); err != nil {
+		return fmt.Errorf("start ai job consumer: %w", err)
+	}
+	slog.Info("ai job consumer started", "nats_url", cfg.NATS.URL)
+	return nil
 }
