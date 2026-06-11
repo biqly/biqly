@@ -5,6 +5,8 @@ export interface TableRow extends Omit<Table, 'columns' | 'table_type' | 'descri
   table_type: string
   description: string | null
   label?: string | null
+  /** Row display label template, e.g. `author_name + " " + screen_name`. */
+  display_expression?: string | null
 }
 
 export interface ColumnRow {

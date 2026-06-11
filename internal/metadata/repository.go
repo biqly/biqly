@@ -351,6 +351,16 @@ func (r *Repository) UpdateTableDescriptionAndLabel(ctx context.Context, id stri
 	return nil
 }
 
+// UpdateTableDisplayExpression sets (or clears, when nil) the display
+// expression used to label rows of this table in UIs.
+func (r *Repository) UpdateTableDisplayExpression(ctx context.Context, id string, expr *string) error {
+	const q = `UPDATE tables SET display_expression = $2, updated_at = now() WHERE id = $1`
+	if _, err := r.db.ExecContext(ctx, q, id, expr); err != nil {
+		return fmt.Errorf("update table display expression: %w", err)
+	}
+	return nil
+}
+
 func derefStringOrEmpty(p *string) any {
 	if p == nil {
 		return ""
@@ -811,7 +821,7 @@ func scanAIHistoryEntry(s platformdb.Scanner) (AIQueryHistoryEntry, error) {
 
 func scanTable(s platformdb.Scanner) (Table, error) {
 	var t Table
-	if err := s.Scan(&t.ID, &t.DatasourceID, &t.SchemaID, &t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Description, &t.Label, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	if err := s.Scan(&t.ID, &t.DatasourceID, &t.SchemaID, &t.SchemaName, &t.TableName, &t.TableType, &t.RowEstimate, &t.Description, &t.Label, &t.DisplayExpression, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return t, fmt.Errorf("scan table: %w", err)
 	}
 	return t, nil

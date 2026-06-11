@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+
 import type { useT } from '../../i18n'
 import { Select } from '../ui/Select'
 
@@ -40,8 +42,30 @@ export function TableBrowserFilterPopover({
   onCaseSensitiveChange: (checked: boolean) => void
   onSave: () => void
 }) {
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // Dismiss on outside click or Escape; the popover otherwise traps the page.
+  useEffect(() => {
+    const onPointerDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        onClose()
+      }
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [onClose])
+
   return (
-    <div className="filter-popover" style={{ width: '18rem' }}>
+    <div ref={rootRef} className="filter-popover" style={{ width: '18rem' }}>
       <div
         className="filter-popover-header"
         style={{

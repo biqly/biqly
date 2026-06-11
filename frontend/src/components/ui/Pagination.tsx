@@ -60,13 +60,10 @@ export function Pagination({
       </div>
       <PaginationControls
         currentPage={currentPage}
-        safeTotalPages={safeTotalPages}
-        singlePage={singlePage}
+        totalPages={safeTotalPages}
         onPageChange={onPageChange}
-        prevLabel={t('table_browser.prev_page')}
-        nextLabel={t('table_browser.next_page')}
-        firstTitle={t('table_browser.first_page')}
-        lastTitle={t('table_browser.last_page')}
+        disabled={singlePage}
+        size="sm"
       />
     </div>
   )

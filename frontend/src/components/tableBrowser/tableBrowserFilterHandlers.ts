@@ -1,4 +1,3 @@
-import type { SemanticDimension } from '../../types/semantic'
 import { buildFilterSaveValue, parseFilterChips } from './tableBrowserFilterUtils'
 
 export interface TableBrowserFilter {
@@ -77,7 +76,7 @@ export function saveTableBrowserFilter(params: {
   }
 }
 
-export function defaultFilterField(activeDimensions: SemanticDimension[]): string {
+export function defaultFilterField(activeDimensions: { name: string }[]): string {
   return activeDimensions[0]?.name ?? ''
 }
 

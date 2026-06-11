@@ -1,7 +1,6 @@
 import { type DragEvent, useCallback, useMemo, useState } from 'react'
 
 import type { TFunction } from '../../i18n'
-import type { SemanticDimension } from '../../types/semantic'
 import {
   defaultFilterField,
   filterPopoverStateForAdd,
@@ -29,7 +28,7 @@ export function useTableBrowserFilterState({
   modelId,
   selectedTableKey,
 }: {
-  activeDimensions: SemanticDimension[]
+  activeDimensions: { name: string; label?: string | null }[]
   t: TFunction
   onFiltersChange: (filters: TableBrowserFilter[]) => void
   dimensionNamesKey: string

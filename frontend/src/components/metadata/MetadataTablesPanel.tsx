@@ -38,6 +38,7 @@ export function MetadataTablesPanel({
   onDescribeOpen,
   onStartEditColumn,
   onEditColumnChange,
+  onSaveDisplayExpression,
 }: {
   t: ReturnType<typeof useT>
   locale: Locale
@@ -67,6 +68,7 @@ export function MetadataTablesPanel({
   onDescribeOpen: (tab: TableRow) => void
   onStartEditColumn: (c: ColumnRow) => void
   onEditColumnChange: (columnId: string, value: string) => void
+  onSaveDisplayExpression: (tab: TableRow, expr: string) => Promise<boolean>
 }) {
   return (
     <div className="card">
@@ -273,6 +275,7 @@ export function MetadataTablesPanel({
                     onEditChange={onEditColumnChange}
                     onSave={onSaveDescription}
                     onCancelEdit={onCancelEdit}
+                    onSaveDisplayExpression={onSaveDisplayExpression}
                   />
                 )}
               </Fragment>

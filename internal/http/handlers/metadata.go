@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/i18n"
@@ -100,6 +101,9 @@ func (h *MetadataHandler) SearchTables(w http.ResponseWriter, r *http.Request) {
 type updateDescriptionRequest struct {
 	Description *string `json:"description,omitempty"`
 	Label       *string `json:"label,omitempty"`
+	// DisplayExpression sets the row display label template for a table;
+	// an empty string clears it.
+	DisplayExpression *string `json:"display_expression,omitempty"`
 }
 
 // UpdateTableDescription edits the description and/or label of a single table row.
@@ -117,6 +121,17 @@ func (h *MetadataHandler) UpdateTableDescription(w http.ResponseWriter, r *http.
 	if req.Description != nil || req.Label != nil {
 		if err := h.deps.MetaRepo.UpdateTableDescriptionAndLabel(r.Context(), id, req.Description, req.Label); err != nil {
 			writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update table description", err)
+			return
+		}
+	}
+	if req.DisplayExpression != nil {
+		expr := strings.TrimSpace(*req.DisplayExpression)
+		var exprPtr *string
+		if expr != "" {
+			exprPtr = &expr
+		}
+		if err := h.deps.MetaRepo.UpdateTableDisplayExpression(r.Context(), id, exprPtr); err != nil {
+			writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update table display expression", err)
 			return
 		}
 	}
@@ -300,8 +315,8 @@ func (h *MetadataHandler) GetTableSample(w http.ResponseWriter, r *http.Request)
 // querySampleRows runs query and scans every column into a generic grid,
 // converting driver []byte cells (e.g. MySQL text) to strings so they
 // serialize as readable JSON rather than base64.
-func querySampleRows(ctx context.Context, db *sql.DB, query string) (_ *sampleData, err error) {
-	rows, err := db.QueryContext(ctx, query) // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
+func querySampleRows(ctx context.Context, db *sql.DB, query string, args ...any) (_ *sampleData, err error) {
+	rows, err := db.QueryContext(ctx, query, args...) // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
 	if err != nil {
 		return nil, fmt.Errorf("query sample rows: %w", err)
 	}

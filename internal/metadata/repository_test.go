@@ -480,9 +480,9 @@ func TestListTables_And_GetTable(t *testing.T) {
 	state.queries = []queryMock{
 		{
 			Pattern: "SELECT id, datasource_id, schema_id, schema_name, table_name, table_type, row_estimate, description, label",
-			Cols:    []string{"id", "datasource_id", "schema_id", "schema_name", "table_name", "table_type", "row_estimate", "description", "label", "created_at", "updated_at"},
+			Cols:    []string{"id", "datasource_id", "schema_id", "schema_name", "table_name", "table_type", "row_estimate", "description", "label", "display_expression", "created_at", "updated_at"},
 			Rows: [][]driver.Value{
-				{"t-1", "ds-1", "sch-1", "public", "users", "BASE TABLE", rowEst, desc, lbl, now, now},
+				{"t-1", "ds-1", "sch-1", "public", "users", "BASE TABLE", rowEst, desc, lbl, nil, now, now},
 			},
 		},
 	}
@@ -680,9 +680,9 @@ func TestSearchColumns_And_Tables(t *testing.T) {
 		},
 		{
 			Pattern: "FROM tables",
-			Cols:    []string{"id", "datasource_id", "schema_id", "schema_name", "table_name", "table_type", "row_estimate", "description", "label", "created_at", "updated_at"},
+			Cols:    []string{"id", "datasource_id", "schema_id", "schema_name", "table_name", "table_type", "row_estimate", "description", "label", "display_expression", "created_at", "updated_at"},
 			Rows: [][]driver.Value{
-				{"t-1", "ds-1", "sch-1", "public", "users", "BASE TABLE", rowEst, desc, "lbl", now, now},
+				{"t-1", "ds-1", "sch-1", "public", "users", "BASE TABLE", rowEst, desc, "lbl", nil, now, now},
 			},
 		},
 	}

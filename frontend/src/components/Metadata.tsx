@@ -339,6 +339,22 @@ export default function Metadata() {
           onEditColumnChange={(columnId, value) =>
             setEditing({ kind: 'column', id: columnId, value })
           }
+          onSaveDisplayExpression={async (tab, expr) => {
+            const res = await patchData<TableRow>(`/api/metadata/tables/${tab.id}`, {
+              display_expression: expr,
+            })
+            if (!res) {
+              return false
+            }
+            setTables((prev) =>
+              prev.map((row) =>
+                row.id === tab.id
+                  ? { ...row, display_expression: res.display_expression ?? null }
+                  : row,
+              ),
+            )
+            return true
+          }}
         />
       )}
 

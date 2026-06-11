@@ -1,19 +1,15 @@
 import type { DragEvent } from 'react'
 
 import type { useT } from '../../i18n'
-import type { SemanticDimension, SemanticModelDetail } from '../../types/semantic'
 import { formatResultCell } from '../../utils/resultCellFormat'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { PaginationControls } from '../ui/PaginationControls'
 import { Select } from '../ui/Select'
 import type { TableBrowserFilter } from './tableBrowserFilterHandlers'
 import { TableBrowserFilterPopover } from './TableBrowserFilterPopover'
 import { formatTableBrowserFilterValue, tableBrowserOperatorLabel } from './tableBrowserFilterUtils'
 import { buildTableBrowserRangeLabel } from './tableBrowserRangeLabel'
-
-interface QueryBuilderResult {
-  columns?: { name: string; type?: string }[]
-  rows?: unknown[][]
-}
+import type { TableRowsResult, TableSort } from './useTableBrowserQueryState'
 
 function ValidationErrorBanner({
   error,
@@ -51,9 +47,7 @@ function ValidationErrorBanner({
 
 export function TableBrowserModelContent({
   t,
-  modelDetail: _modelDetail,
-  datasourceId: _datasourceId,
-  activeDimensions,
+  browserFields,
   filters,
   popoverOpen,
   popoverField,
@@ -79,9 +73,8 @@ export function TableBrowserModelContent({
   rangeEnd,
   rowCount,
   totalRows,
-  pageList,
-  lastPageIndex,
-  hasNext,
+  totalPages,
+  sort,
   pageSizeOptions,
   formatInt,
   columnIndexByName,
@@ -102,14 +95,13 @@ export function TableBrowserModelContent({
   onColumnDragOver,
   onColumnDrop,
   onColumnDragEnd,
+  onToggleSort,
   onRowClick,
   onPageSizeChange,
   onGoToPage,
 }: {
   t: ReturnType<typeof useT>
-  modelDetail: SemanticModelDetail
-  datasourceId: string
-  activeDimensions: SemanticDimension[]
+  browserFields: { name: string }[]
   filters: TableBrowserFilter[]
   popoverOpen: boolean
   popoverField: string
@@ -124,7 +116,7 @@ export function TableBrowserModelContent({
   error: string | null
   showTablePanel: boolean
   showInitialPlaceholder: boolean
-  result: QueryBuilderResult | null
+  result: TableRowsResult | null
   fetching: boolean
   displayColumnNames: string[]
   dragColumn: string | null
@@ -135,9 +127,8 @@ export function TableBrowserModelContent({
   rangeEnd: number
   rowCount: number
   totalRows: number | null
-  pageList: (number | 'gap')[] | null
-  lastPageIndex: number | null
-  hasNext: boolean
+  totalPages: number | null
+  sort: TableSort | null
   pageSizeOptions: { value: string; label: string }[]
   formatInt: (n: number) => string
   columnIndexByName: Map<string, number>
@@ -158,6 +149,7 @@ export function TableBrowserModelContent({
   onColumnDragOver: (colName: string) => (e: DragEvent) => void
   onColumnDrop: (colName: string) => (e: DragEvent) => void
   onColumnDragEnd: () => void
+  onToggleSort: (colName: string) => void
   onRowClick: (rowIndex: number, row: unknown[]) => void
   onPageSizeChange: (size: number) => void
   onGoToPage: (page: number) => void
@@ -171,7 +163,7 @@ export function TableBrowserModelContent({
     totalRows,
   )
 
-  if (activeDimensions.length === 0) {
+  if (browserFields.length === 0) {
     return (
       <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
         {t('table_browser.no_columns_for_table')}
@@ -274,35 +266,61 @@ export function TableBrowserModelContent({
                   <thead>
                     <tr>
                       <th scope="col" className="table-browser-col-index"></th>
-                      {displayColumnNames.map((colName) => (
-                        <th
-                          key={colName}
-                          scope="col"
-                          draggable={!fetching}
-                          className={`table-browser-th th-clickable${dragColumn === colName ? ' is-dragging' : ''}${dropTargetColumn === colName ? ' is-drop-target' : ''}`}
-                          onDragStart={onColumnDragStart(colName)}
-                          onDragOver={onColumnDragOver(colName)}
-                          onDrop={onColumnDrop(colName)}
-                          onDragEnd={onColumnDragEnd}
-                          onClick={() => !fetching && onOpenAddFilter(colName)}
-                          title={t('table_browser.filter_by_column', { column: colName })}
-                        >
-                          <span className="table-browser-th-inner">
-                            <span
-                              className="table-browser-th-grip"
-                              aria-hidden="true"
-                              title={t('table_browser.drag_column')}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              ⋮⋮
+                      {displayColumnNames.map((colName) => {
+                        const sorted = sort?.column === colName ? sort.dir : null
+                        return (
+                          <th
+                            key={colName}
+                            scope="col"
+                            draggable={!fetching}
+                            aria-sort={
+                              sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : undefined
+                            }
+                            className={`table-browser-th th-clickable${dragColumn === colName ? ' is-dragging' : ''}${dropTargetColumn === colName ? ' is-drop-target' : ''}`}
+                            onDragStart={onColumnDragStart(colName)}
+                            onDragOver={onColumnDragOver(colName)}
+                            onDrop={onColumnDrop(colName)}
+                            onDragEnd={onColumnDragEnd}
+                            onClick={() => !fetching && onToggleSort(colName)}
+                            title={t('table_browser.sort_hint')}
+                          >
+                            <span className="table-browser-th-inner">
+                              <span
+                                className="table-browser-th-grip"
+                                aria-hidden="true"
+                                title={t('table_browser.drag_column')}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                ⋮⋮
+                              </span>
+                              <span className="table-browser-th-label">
+                                {getDimensionLabel(colName)}
+                              </span>
+                              {sorted && (
+                                <span className="table-browser-th-sort" aria-hidden="true">
+                                  {sorted === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                className="table-browser-th-filter"
+                                aria-label={t('table_browser.filter_column_aria', {
+                                  column: colName,
+                                })}
+                                title={t('table_browser.filter_by_column', { column: colName })}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (!fetching) {
+                                    onOpenAddFilter(colName)
+                                  }
+                                }}
+                              >
+                                ▼
+                              </button>
                             </span>
-                            <span className="table-browser-th-label">
-                              {getDimensionLabel(colName)}
-                            </span>
-                            <span className="th-chevron">▼</span>
-                          </span>
-                        </th>
-                      ))}
+                          </th>
+                        )
+                      })}
                     </tr>
                   </thead>
                   <tbody>
@@ -352,83 +370,13 @@ export function TableBrowserModelContent({
                     size="sm"
                   />
                 </div>
-                <nav
-                  className="table-browser-page-nav"
-                  aria-label={t('table_browser.pagination_nav')}
-                >
-                  <button
-                    type="button"
-                    className="table-browser-page-btn table-browser-page-btn--icon"
-                    disabled={page === 0 || fetching}
-                    onClick={() => onGoToPage(0)}
-                    title={t('table_browser.first_page')}
-                    aria-label={t('table_browser.first_page')}
-                  >
-                    «
-                  </button>
-                  <button
-                    type="button"
-                    className="table-browser-page-btn table-browser-page-btn--icon"
-                    disabled={page === 0 || fetching}
-                    onClick={() => onGoToPage(page - 1)}
-                    title={t('table_browser.prev_page')}
-                    aria-label={t('table_browser.prev_page')}
-                  >
-                    ‹
-                  </button>
-                  {pageList ? (
-                    <div className="table-browser-page-list" role="list">
-                      {pageList.map((token, idx) =>
-                        token === 'gap' ? (
-                          <span
-                            key={`gap-${idx}`}
-                            className="table-browser-page-gap"
-                            aria-hidden="true"
-                          >
-                            …
-                          </span>
-                        ) : (
-                          <button
-                            key={token}
-                            type="button"
-                            role="listitem"
-                            className={`table-browser-page-num-btn${token === page ? ' is-active' : ''}`}
-                            disabled={fetching || token === page}
-                            onClick={() => onGoToPage(token)}
-                            aria-label={t('table_browser.go_to_page', { page: token + 1 })}
-                            aria-current={token === page ? 'page' : undefined}
-                          >
-                            {formatInt(token + 1)}
-                          </button>
-                        ),
-                      )}
-                    </div>
-                  ) : (
-                    <span className="table-browser-page-num">
-                      {t('table_browser.page_number', { page: formatInt(page + 1) })}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    className="table-browser-page-btn table-browser-page-btn--icon"
-                    disabled={!hasNext || fetching}
-                    onClick={() => onGoToPage(page + 1)}
-                    title={t('table_browser.next_page')}
-                    aria-label={t('table_browser.next_page')}
-                  >
-                    ›
-                  </button>
-                  <button
-                    type="button"
-                    className="table-browser-page-btn table-browser-page-btn--icon"
-                    disabled={lastPageIndex == null || page >= lastPageIndex || fetching}
-                    onClick={() => lastPageIndex != null && onGoToPage(lastPageIndex)}
-                    title={t('table_browser.last_page')}
-                    aria-label={t('table_browser.last_page')}
-                  >
-                    »
-                  </button>
-                </nav>
+                <PaginationControls
+                  currentPage={page + 1}
+                  totalPages={totalPages ?? page + 1}
+                  onPageChange={(p) => onGoToPage(p - 1)}
+                  disabled={fetching}
+                  formatNumber={formatInt}
+                />
               </div>
             </div>
           ) : null}

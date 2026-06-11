@@ -1,59 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import type { SemanticDimension, SemanticMetric } from '../../types/semantic'
-import { buildQueryPayload } from '../queryBuilder/logicalQuery'
-
 const DEFAULT_PAGE_SIZE = 50
 
-interface QueryBuilderResult {
-  columns?: { name: string; type?: string }[]
+export interface TableRowsResult {
+  columns?: { name: string }[]
   rows?: unknown[][]
+  total?: number | null
 }
 
-type PageToken = number | 'gap'
-
-function resolveCountMetric(metrics: SemanticMetric[] | undefined): string | null {
-  if (!metrics?.length) {
-    return null
-  }
-  const byName = metrics.find((m) => m.name === 'row_count' || m.name === 'count')
-  if (byName) {
-    return byName.name
-  }
-  const countAgg = metrics.find((m) => m.aggregation === 'count')
-  return countAgg?.name ?? null
-}
-
-function parseCountValue(rows: unknown[][] | undefined): number | null {
-  if (!rows?.length) {
-    return null
-  }
-  const cell = rows[0]?.[0]
-  const n = typeof cell === 'number' ? cell : Number(cell)
-  return Number.isFinite(n) ? Math.trunc(n) : null
-}
-
-function buildPageList(currentPage: number, totalPages: number): PageToken[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, i) => i)
-  }
-  const pages = new Set<number>([0, totalPages - 1, currentPage])
-  if (currentPage > 0) {
-    pages.add(currentPage - 1)
-  }
-  if (currentPage < totalPages - 1) {
-    pages.add(currentPage + 1)
-  }
-  const sorted = [...pages].sort((a, b) => a - b)
-  const out: PageToken[] = []
-  for (let i = 0; i < sorted.length; i++) {
-    const p = sorted[i]!
-    if (i > 0 && p - sorted[i - 1]! > 1) {
-      out.push('gap')
-    }
-    out.push(p)
-  }
-  return out
+export interface TableSort {
+  column: string
+  dir: 'asc' | 'desc'
 }
 
 interface FilterPayloadItem {
@@ -64,11 +21,54 @@ interface FilterPayloadItem {
   caseSensitive?: boolean
 }
 
+export function buildTableRowsUrl(datasourceId: string, schema: string, table: string): string {
+  return `/api/datasources/${encodeURIComponent(datasourceId)}/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/rows`
+}
+
+export function tableRowsBody(
+  filterPayload: FilterPayloadItem[],
+  sort: TableSort | null,
+  limit: number,
+  offset: number,
+): Record<string, unknown> {
+  return {
+    filters: filterPayload.map((f) => ({
+      column: f.field,
+      operator: f.operator,
+      value: f.value,
+      case_sensitive: f.caseSensitive ?? false,
+    })),
+    order_by: sort?.column ?? '',
+    order_dir: sort?.dir ?? '',
+    limit,
+    offset,
+    include_total: true,
+  }
+}
+
+function derivePaging(totalRows: number | null, page: number, pageSize: number, rowCount: number) {
+  const rangeStart = rowCount > 0 ? page * pageSize + 1 : 0
+  const rangeEnd = page * pageSize + rowCount
+  const totalPages =
+    totalRows != null && totalRows > 0
+      ? Math.ceil(totalRows / pageSize)
+      : totalRows === 0
+        ? 0
+        : null
+  const lastPageIndex = totalPages != null && totalPages > 0 ? totalPages - 1 : null
+  const hasNext = lastPageIndex != null ? page < lastPageIndex : rowCount === pageSize
+  return { rangeStart, rangeEnd, totalPages, lastPageIndex, hasNext }
+}
+
+/**
+ * Fetches the selected table's own rows (independent of the model's base
+ * table) through the metadata rows endpoint, with server-side filtering,
+ * sorting and pagination.
+ */
 export function useTableBrowserQueryState({
   datasourceId,
-  modelId,
-  modelMetrics,
-  orderedDimensions,
+  schema,
+  table,
   filterPayload,
   columnOrder,
   postData,
@@ -76,52 +76,33 @@ export function useTableBrowserQueryState({
   filtersKey,
 }: {
   datasourceId: string
-  modelId: string
-  modelMetrics: SemanticMetric[] | undefined
-  orderedDimensions: SemanticDimension[]
+  schema: string
+  table: string
   filterPayload: FilterPayloadItem[]
   columnOrder: string[]
   postData: <T>(url: string, body: unknown) => Promise<T | null>
   onPageReset: () => void
   filtersKey: string
 }) {
-  const queryScopeKey = `${datasourceId}:${modelId}:${filtersKey}:${columnOrder.join('\0')}`
+  const [sortState, setSortState] = useState<{ key: string; sort: TableSort | null }>({
+    key: '',
+    sort: null,
+  })
+  const tableScopeKey = `${datasourceId}:${schema}.${table}`
+  const sort = sortState.key === tableScopeKey ? sortState.sort : null
+  const sortKey = sort ? `${sort.column}:${sort.dir}` : ''
+  const queryScopeKey = `${tableScopeKey}:${filtersKey}:${sortKey}`
+
   const [resultState, setResultState] = useState<{
     key: string
-    result: QueryBuilderResult | null
-    totalRows: number | null
-  }>({ key: '', result: null, totalRows: null })
+    result: TableRowsResult | null
+  }>({ key: '', result: null })
   const result = resultState.key === queryScopeKey ? resultState.result : null
-  const totalRows = resultState.key === queryScopeKey ? resultState.totalRows : null
+  const totalRows = result?.total ?? null
   const [pageState, setPageState] = useState({ key: queryScopeKey, page: 0 })
   const page = pageState.key === queryScopeKey ? pageState.page : 0
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE)
   const [fetching, setFetching] = useState(false)
-
-  const countMetricName = useMemo(() => resolveCountMetric(modelMetrics), [modelMetrics])
-
-  const queryBase = useMemo(() => {
-    if (!datasourceId || !modelId || orderedDimensions.length === 0) {
-      return null
-    }
-    return {
-      datasourceId,
-      modelId,
-      mode: 'simple' as const,
-      filters: filterPayload,
-      groupBy: [] as string[],
-      having: [],
-      orderBy: '',
-      orderDir: 'asc' as const,
-      windowFunctions: [],
-      ctes: [],
-      selectItems: orderedDimensions.map((d) => ({
-        id: d.id,
-        type: 'dimension' as const,
-        name: d.name,
-      })),
-    }
-  }, [datasourceId, modelId, orderedDimensions, filterPayload])
 
   const displayColumnNames = useMemo(() => {
     const fromResult = result?.columns?.map((c) => c.name) ?? []
@@ -144,58 +125,20 @@ export function useTableBrowserQueryState({
     return m
   }, [result?.columns])
 
-  const runCountQuery = useCallback(async () => {
-    if (!queryBase || !countMetricName) {
-      void Promise.resolve().then(() =>
-        setResultState((prev) =>
-          prev.key === queryScopeKey ? { ...prev, totalRows: null } : prev,
-        ),
-      )
-      return
-    }
-    const countRes = await postData<QueryBuilderResult>(
-      '/api/query/run',
-      buildQueryPayload({
-        ...queryBase,
-        selectItems: [{ id: 'count', type: 'metric', name: countMetricName }],
-        limit: 1,
-        offset: 0,
-      }),
-    )
-    if (countRes) {
-      setResultState((prev) =>
-        prev.key === queryScopeKey ? { ...prev, totalRows: parseCountValue(countRes.rows) } : prev,
-      )
-    }
-  }, [queryBase, countMetricName, postData, queryScopeKey])
-
   const runDataQuery = useCallback(async () => {
-    if (!queryBase) {
+    if (!datasourceId || !schema || !table) {
       return
     }
     void Promise.resolve().then(() => setFetching(true))
-    const dataRes = await postData<QueryBuilderResult>(
-      '/api/query/run',
-      buildQueryPayload({
-        ...queryBase,
-        limit: pageSize,
-        offset: page * pageSize,
-      }),
+    const dataRes = await postData<TableRowsResult>(
+      buildTableRowsUrl(datasourceId, schema, table),
+      tableRowsBody(filterPayload, sort, pageSize, page * pageSize),
     )
     if (dataRes) {
-      setResultState((prev) => ({
-        key: queryScopeKey,
-        result: dataRes,
-        totalRows: prev.key === queryScopeKey ? prev.totalRows : null,
-      }))
+      setResultState({ key: queryScopeKey, result: dataRes })
     }
     setFetching(false)
-  }, [queryBase, page, pageSize, postData, queryScopeKey])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void runCountQuery()
-  }, [runCountQuery])
+  }, [datasourceId, schema, table, filterPayload, sort, page, pageSize, postData, queryScopeKey])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -203,23 +146,12 @@ export function useTableBrowserQueryState({
   }, [runDataQuery])
 
   const rowCount = result?.rows?.length ?? 0
-  const rangeStart = rowCount > 0 ? page * pageSize + 1 : 0
-  const rangeEnd = page * pageSize + rowCount
-  const totalPages =
-    totalRows != null && totalRows > 0
-      ? Math.ceil(totalRows / pageSize)
-      : totalRows === 0
-        ? 0
-        : null
-  const lastPageIndex = totalPages != null && totalPages > 0 ? totalPages - 1 : null
-  const hasNext = lastPageIndex != null ? page < lastPageIndex : rowCount === pageSize
-
-  const pageList = useMemo(() => {
-    if (totalPages == null || totalPages <= 1) {
-      return null
-    }
-    return buildPageList(page, totalPages)
-  }, [page, totalPages])
+  const { rangeStart, rangeEnd, totalPages, lastPageIndex, hasNext } = derivePaging(
+    totalRows,
+    page,
+    pageSize,
+    rowCount,
+  )
 
   const setPage = useCallback(
     (next: number) => {
@@ -236,12 +168,32 @@ export function useTableBrowserQueryState({
     [setPage],
   )
 
+  const toggleSort = useCallback(
+    (column: string) => {
+      setSortState((prev) => {
+        const current = prev.key === tableScopeKey ? prev.sort : null
+        let next: TableSort | null
+        if (current?.column !== column) {
+          next = { column, dir: 'asc' }
+        } else if (current.dir === 'asc') {
+          next = { column, dir: 'desc' }
+        } else {
+          next = null
+        }
+        return { key: tableScopeKey, sort: next }
+      })
+      setPageState({ key: '', page: 0 })
+      onPageReset()
+    },
+    [onPageReset, tableScopeKey],
+  )
+
   const hasTableData = Boolean(result?.columns?.length)
   const showInitialPlaceholder = fetching && !hasTableData
   const showTablePanel = hasTableData || showInitialPlaceholder
 
   const resetQueryState = useCallback(() => {
-    setResultState({ key: queryScopeKey, result: null, totalRows: null })
+    setResultState({ key: queryScopeKey, result: null })
     setPageState({ key: queryScopeKey, page: 0 })
   }, [queryScopeKey])
 
@@ -257,10 +209,12 @@ export function useTableBrowserQueryState({
     rowCount,
     rangeStart,
     rangeEnd,
-    pageList,
+    totalPages,
     lastPageIndex,
     hasNext,
     goToPage,
+    sort,
+    toggleSort,
     showTablePanel,
     showInitialPlaceholder,
     resetQueryState,

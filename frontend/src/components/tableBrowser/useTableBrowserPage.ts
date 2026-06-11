@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useApi } from '../../hooks/useApi'
@@ -6,10 +6,10 @@ import { useDatasources } from '../../hooks/useDatasources'
 import { useModelDetail } from '../../hooks/useModelDetail'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
 import { useLocale, useT } from '../../i18n'
-import type { SemanticDimension, SemanticModelDetail } from '../../types/semantic'
+import type { ColumnRow, SemanticModelDetail, TableRow } from '../../types/semantic'
 import { pickPublishedModelId, pickValidIdOrFirst } from '../../utils/effectiveSelection'
 import { localeNumberTag } from '../../utils/formatters'
-import { columnRefMatchesTable, splitTableKey, tableKey } from '../modeling/utils'
+import { splitTableKey, tableKey } from '../modeling/utils'
 import { useTableBrowserFilterState } from './useTableBrowserFilterState'
 import { useTableBrowserQueryState } from './useTableBrowserQueryState'
 
@@ -18,6 +18,11 @@ const PAGE_SIZE_OPTIONS = [25, 50, 100] as const
 export interface DetailRowState {
   displayIndex: number
   row: unknown[]
+}
+
+export interface BrowserField {
+  name: string
+  label?: string | null
 }
 
 function collectModelTables(model: SemanticModelDetail): { value: string; label: string }[] {
@@ -65,7 +70,7 @@ export function useTableBrowserPage() {
   const [locale] = useLocale()
   const localeTag = localeNumberTag(locale)
   const formatInt = useCallback((n: number) => n.toLocaleString(localeTag), [localeTag])
-  const { postData, error } = useApi()
+  const { get, postData, error } = useApi()
 
   const { datasources, loading: dsLoading } = useDatasources()
   const [selectedDatasourceId, setSelectedDatasourceId] = useState('')
@@ -94,7 +99,73 @@ export function useTableBrowserPage() {
     () => resolveSelectedTableKey(defaultTableKey, selectedTableKeyInput, tableOptions),
     [defaultTableKey, selectedTableKeyInput, tableOptions],
   )
+  const { schema: selectedSchema, table: selectedTable } = useMemo(
+    () => splitTableKey(selectedTableKey),
+    [selectedTableKey],
+  )
   const [detailRow, setDetailRow] = useState<DetailRowState | null>(null)
+
+  // Physical columns of the selected table: the browser shows the table's own
+  // data, independent of the semantic model's base table.
+  const [tableColumnsState, setTableColumnsState] = useState<{ key: string; cols: ColumnRow[] }>({
+    key: '',
+    cols: [],
+  })
+  const columnsScopeKey = `${datasourceId}:${selectedTableKey}`
+  const tableColumns = useMemo(
+    () => (tableColumnsState.key === columnsScopeKey ? tableColumnsState.cols : []),
+    [tableColumnsState, columnsScopeKey],
+  )
+  useEffect(() => {
+    if (!datasourceId || !selectedSchema || !selectedTable) {
+      return
+    }
+    let cancelled = false
+    void get<ColumnRow[]>(
+      `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(selectedSchema)}&table=${encodeURIComponent(selectedTable)}`,
+    ).then((data) => {
+      if (!cancelled) {
+        setTableColumnsState({ key: columnsScopeKey, cols: data ?? [] })
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [get, datasourceId, selectedSchema, selectedTable, columnsScopeKey])
+
+  // Table metadata (description/label/display_expression) for modal titles.
+  const [tablesMetaState, setTablesMetaState] = useState<{ key: string; tables: TableRow[] }>({
+    key: '',
+    tables: [],
+  })
+  const tablesMeta = useMemo(
+    () => (tablesMetaState.key === datasourceId ? tablesMetaState.tables : []),
+    [tablesMetaState, datasourceId],
+  )
+  useEffect(() => {
+    if (!datasourceId) {
+      return
+    }
+    let cancelled = false
+    void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((data) => {
+      if (!cancelled) {
+        setTablesMetaState({ key: datasourceId, tables: data ?? [] })
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [get, datasourceId])
+
+  const displayExpressionByTable = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const tab of tablesMeta) {
+      if (tab.display_expression) {
+        m.set(tableKey(tab.schema_name, tab.table_name), tab.display_expression)
+      }
+    }
+    return m
+  }, [tablesMeta])
 
   const setDatasourceId = useCallback((id: string) => {
     setSelectedDatasourceId(id)
@@ -118,58 +189,33 @@ export function useTableBrowserPage() {
     setDetailRow(null)
   }, [])
 
-  const activeDimensions = useMemo(() => {
-    if (!modelDetail || !selectedTableKey) {
-      return []
-    }
-    const { schema, table } = splitTableKey(selectedTableKey)
-    return (modelDetail.dimensions ?? []).filter(
-      (d) =>
-        d.is_active !== false &&
-        columnRefMatchesTable(d.column_ref, schema, table, modelDetail.base_schema),
-    )
-  }, [modelDetail, selectedTableKey])
+  const browserFields: BrowserField[] = useMemo(
+    () => tableColumns.map((c) => ({ name: c.column_name, label: c.column_name })),
+    [tableColumns],
+  )
 
-  const dimensionNamesKey = useMemo(
+  const fieldNamesKey = useMemo(
     () =>
-      activeDimensions
+      browserFields
         .map((d) => d.name)
         .sort()
         .join('\0'),
-    [activeDimensions],
+    [browserFields],
   )
 
   const filterState = useTableBrowserFilterState({
-    activeDimensions,
+    activeDimensions: browserFields,
     t,
     onFiltersChange,
-    dimensionNamesKey,
+    dimensionNamesKey: fieldNamesKey,
     modelId,
     selectedTableKey,
   })
 
-  const orderedDimensions = useMemo(() => {
-    const byName = new Map(activeDimensions.map((d) => [d.name, d]))
-    const ordered: SemanticDimension[] = []
-    for (const name of filterState.columnOrder) {
-      const d = byName.get(name)
-      if (d) {
-        ordered.push(d)
-      }
-    }
-    for (const d of activeDimensions) {
-      if (!filterState.columnOrder.includes(d.name)) {
-        ordered.push(d)
-      }
-    }
-    return ordered
-  }, [activeDimensions, filterState.columnOrder])
-
   const queryState = useTableBrowserQueryState({
     datasourceId,
-    modelId,
-    modelMetrics: modelDetail?.metrics,
-    orderedDimensions,
+    schema: selectedSchema,
+    table: selectedTable,
     filterPayload: filterState.filterPayload,
     columnOrder: filterState.columnOrder,
     postData,
@@ -211,15 +257,19 @@ export function useTableBrowserPage() {
     setModelId,
     modelDetail,
     selectedTableKey,
+    selectedSchema,
+    selectedTable,
     setSelectedTableKey,
     tableOptions,
-    activeDimensions,
+    browserFields,
+    displayExpressionByTable,
     error,
     detailRow,
     setDetailRow,
     openModeling,
     pageSizeOptions,
     formatInt,
+    postData,
     ...filterState,
     ...queryState,
     displayColumnNames: queryState.displayColumnNames,

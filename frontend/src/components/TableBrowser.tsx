@@ -1,96 +1,32 @@
 import '../styles/tableBrowser.css'
 
+import { useMemo } from 'react'
+
 import { useT } from '../i18n'
 import { modelListHint, modelListLabel } from '../types/semantic'
-import { formatResultCell } from '../utils/resultCellFormat'
 import { TableBrowserModelContent } from './tableBrowser/TableBrowserModelContent'
+import { TableBrowserRowModal } from './tableBrowser/TableBrowserRowModal'
 import { useTableBrowserPage } from './tableBrowser/useTableBrowserPage'
 import { LoadingScreen } from './ui/LoadingScreen'
-import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
-
-const PREFERRED_TITLE_COLUMN_PATTERNS = [
-  /^(title|name|label|subject|headline|heading|display_name)$/,
-  /^(text|body|content|message|description|caption|summary)$/,
-  /(_|^)(title|name|label|subject)$/,
-  /(_|^)(text|body|content|message|description)$/,
-]
-
-const ID_COLUMN_PATTERNS = [/^(id|uuid|pk)$/, /(_|^)id$/]
-
-function singularize(name: string): string {
-  const n = name.toLowerCase()
-  if (n.endsWith('ies')) {
-    return `${n.slice(0, -3)}y`
-  }
-  if (n.endsWith('s') && !n.endsWith('ss')) {
-    return n.slice(0, -1)
-  }
-  return n
-}
-
-function buildRowModalTitle(
-  row: unknown[],
-  columns: string[],
-  fallback: string,
-  tableKeyValue?: string | null,
-): string {
-  const stringValues: { name: string; value: string }[] = []
-  for (let i = 0; i < columns.length; i++) {
-    const v = row[i]
-    if (v == null) {
-      continue
-    }
-    const s = typeof v === 'string' ? v : typeof v === 'number' ? String(v) : ''
-    const trimmed = s.trim()
-    if (!trimmed) {
-      continue
-    }
-    const colName = columns[i]
-    if (!colName) {
-      continue
-    }
-    stringValues.push({ name: colName.toLowerCase(), value: trimmed })
-  }
-  if (stringValues.length === 0) {
-    return fallback
-  }
-
-  const truncate = (s: string) => (s.length > 80 ? `${s.slice(0, 77).trimEnd()}…` : s)
-
-  for (const pattern of PREFERRED_TITLE_COLUMN_PATTERNS) {
-    const hit = stringValues.find((c) => pattern.test(c.name))
-    if (hit) {
-      return truncate(hit.value)
-    }
-  }
-
-  if (tableKeyValue) {
-    const lastSegment = tableKeyValue.split('.').pop() ?? tableKeyValue
-    const singular = singularize(lastSegment)
-    const pkHit = stringValues.find(
-      (c) =>
-        c.name === `${singular}_id` ||
-        c.name === `${lastSegment.toLowerCase()}_id` ||
-        c.name === 'id',
-    )
-    if (pkHit) {
-      return truncate(`${pkHit.name} ${pkHit.value}`)
-    }
-  }
-
-  for (const pattern of ID_COLUMN_PATTERNS) {
-    const hit = stringValues.find((c) => pattern.test(c.name))
-    if (hit) {
-      return truncate(`${hit.name} ${hit.value}`)
-    }
-  }
-  return fallback
-}
 
 export default function TableBrowser() {
   const t = useT()
   const page = useTableBrowserPage()
+
+  const modalFrame = useMemo(() => {
+    const cols = page.result?.columns
+    if (!page.detailRow || !cols) {
+      return null
+    }
+    return {
+      kind: 'row' as const,
+      schema: page.selectedSchema,
+      table: page.selectedTable,
+      columns: cols.map((c) => c.name),
+      row: page.detailRow.row,
+    }
+  }, [page.detailRow, page.result, page.selectedSchema, page.selectedTable])
 
   if (page.loading) {
     return <LoadingScreen minHeight="300px" />
@@ -145,9 +81,7 @@ export default function TableBrowser() {
       {page.modelDetail ? (
         <TableBrowserModelContent
           t={page.t}
-          modelDetail={page.modelDetail}
-          datasourceId={page.datasourceId}
-          activeDimensions={page.activeDimensions}
+          browserFields={page.browserFields}
           filters={page.filters}
           popoverOpen={page.popoverOpen}
           popoverField={page.popoverField}
@@ -173,9 +107,8 @@ export default function TableBrowser() {
           rangeEnd={page.rangeEnd}
           rowCount={page.rowCount}
           totalRows={page.totalRows}
-          pageList={page.pageList}
-          lastPageIndex={page.lastPageIndex}
-          hasNext={page.hasNext}
+          totalPages={page.totalPages}
+          sort={page.sort}
           pageSizeOptions={page.pageSizeOptions}
           formatInt={page.formatInt}
           columnIndexByName={page.columnIndexByName}
@@ -196,6 +129,7 @@ export default function TableBrowser() {
           onColumnDragOver={page.handleColumnDragOver}
           onColumnDrop={page.handleColumnDrop}
           onColumnDragEnd={page.handleColumnDragEnd}
+          onToggleSort={page.toggleSort}
           onRowClick={(rowIndex, row) =>
             page.setDetailRow({ displayIndex: page.page * page.pageSize + rowIndex + 1, row })
           }
@@ -211,49 +145,25 @@ export default function TableBrowser() {
         </p>
       )}
 
-      <Modal
-        open={page.detailRow != null && page.result?.columns != null}
-        title={
-          page.detailRow && page.result?.columns
-            ? buildRowModalTitle(
-                page.detailRow.row,
-                page.result.columns.map((c) => c.name),
-                t('table_browser.row_detail_title', {
-                  n: page.formatInt(page.detailRow.displayIndex),
-                }),
-                page.selectedTableKey || page.modelDetail?.base_table,
-              )
+      <TableBrowserRowModal
+        open={modalFrame != null}
+        onClose={() => page.setDetailRow(null)}
+        datasourceId={page.datasourceId}
+        joins={page.modelDetail?.joins ?? []}
+        baseSchema={page.modelDetail?.base_schema ?? ''}
+        displayExpressionByTable={page.displayExpressionByTable}
+        initialFrame={modalFrame}
+        fallbackTitle={
+          page.detailRow
+            ? t('table_browser.row_detail_title', {
+                n: page.formatInt(page.detailRow.displayIndex),
+              })
             : t('table_browser.row_detail')
         }
-        subtitle={page.selectedTableKey || page.modelDetail?.base_table}
-        onClose={() => page.setDetailRow(null)}
-        bodyClassName="table-browser-detail-modal-body"
-      >
-        {page.detailRow && page.result?.columns && (
-          <div
-            className="table-browser-detail-grid"
-            role="region"
-            aria-label={t('table_browser.row_detail')}
-          >
-            {page.displayColumnNames.map((colName) => {
-              const j = page.columnIndexByName.get(colName)
-              const display = formatResultCell(
-                j != null ? page.detailRow!.row[j] : null,
-                colName,
-                {},
-              )
-              return (
-                <div key={colName} className="table-browser-detail-item">
-                  <span className="table-browser-detail-label">
-                    {page.getDimensionLabel(colName)}
-                  </span>
-                  <span className="table-browser-detail-value">{display}</span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </Modal>
+        postData={page.postData}
+        t={page.t}
+        formatInt={page.formatInt}
+      />
     </div>
   )
 }

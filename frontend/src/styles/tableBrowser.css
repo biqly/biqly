@@ -732,3 +732,187 @@
   text-align: center;
   padding: 0 0.35rem;
 }
+
+/* ─── Kolon başlığı: sıralama + filtre düğmesi ─────────────────── */
+
+.table-browser-th-sort {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.table-browser-th-filter {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.58rem;
+  padding: 0.1rem 0.2rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.table-browser-th:hover .table-browser-th-filter,
+.table-browser-th-filter:focus-visible {
+  opacity: 1;
+}
+
+.table-browser-th-filter:hover {
+  color: var(--accent);
+}
+
+/* ─── Üst menü: selectler içerik kadar, sabit maksimum ─────────── */
+
+.table-browser-toolbar-field {
+  max-width: 22rem;
+  flex: 1 1 14rem;
+}
+
+/* ─── Satır detay modalı: geniş + ilişkili tablolar paneli ─────── */
+
+.modal-card--xl {
+  width: min(68rem, 94vw);
+  max-width: 94vw;
+}
+
+.row-modal-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.row-modal-nav__path {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-modal-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 19rem);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .row-modal-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.row-modal-related {
+  display: grid;
+  gap: 0.6rem;
+  border-left: 1px solid var(--border);
+  padding-left: 1rem;
+}
+
+@media (max-width: 860px) {
+  .row-modal-related {
+    border-left: none;
+    padding-left: 0;
+  }
+}
+
+.row-modal-related__title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.row-modal-related-card {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--bg-card-raised);
+  padding: 0.6rem 0.7rem;
+}
+
+.row-modal-related-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.row-modal-related-card__table {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.76rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-modal-related-card__badge {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+.row-modal-related-card__on {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.row-modal-related-card__empty {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.row-modal-related-card__value {
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.15rem 0;
+  overflow-wrap: anywhere;
+}
+
+.row-modal-related-card__value:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.row-modal-related-card__value:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.row-modal-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.row-modal-list__scroll {
+  overflow: auto;
+  max-height: 55vh;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.row-modal-list__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}

@@ -48,17 +48,21 @@ type Schema struct {
 
 // Table represents a database table.
 type Table struct {
-	ID           string    `json:"id" db:"id"`
-	DatasourceID string    `json:"datasource_id" db:"datasource_id"`
-	SchemaID     string    `json:"schema_id" db:"schema_id"`
-	SchemaName   string    `json:"schema_name" db:"schema_name"`
-	TableName    string    `json:"table_name" db:"table_name"`
-	TableType    string    `json:"table_type" db:"table_type"`
-	RowEstimate  *int64    `json:"row_estimate" db:"row_estimate"`
-	Description  *string   `json:"description" db:"description"`
-	Label        *string   `json:"label" db:"label"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	ID           string  `json:"id" db:"id"`
+	DatasourceID string  `json:"datasource_id" db:"datasource_id"`
+	SchemaID     string  `json:"schema_id" db:"schema_id"`
+	SchemaName   string  `json:"schema_name" db:"schema_name"`
+	TableName    string  `json:"table_name" db:"table_name"`
+	TableType    string  `json:"table_type" db:"table_type"`
+	RowEstimate  *int64  `json:"row_estimate" db:"row_estimate"`
+	Description  *string `json:"description" db:"description"`
+	Label        *string `json:"label" db:"label"`
+	// DisplayExpression labels a single row of this table in UIs: column
+	// tokens and quoted string literals joined with '+', evaluated client-side
+	// (e.g. `author_name + " " + screen_name`). Never interpolated into SQL.
+	DisplayExpression *string   `json:"display_expression,omitempty" db:"display_expression"`
+	CreatedAt         time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // Column represents a column within a table.
@@ -169,30 +173,30 @@ type BusinessGlossaryRow struct {
 
 // AIQueryHistoryEntry represents one natural-language AI query attempt.
 type AIQueryHistoryEntry struct {
-	ID                 string    `json:"id" db:"id"`
-	DatasourceID       string    `json:"datasource_id" db:"datasource_id"`
-	ModelID            *string   `json:"model_id" db:"model_id"`
-	UserID             *string   `json:"user_id" db:"user_id"`
-	Question           string    `json:"question" db:"question"`
-	PromptContext      any       `json:"prompt_context" db:"prompt_context"`
-	AIResponse         any       `json:"ai_response" db:"ai_response"`
-	LogicalQuery       any       `json:"logical_query" db:"logical_query"`
-	ConfidenceScore    *float64  `json:"confidence_score" db:"confidence_score"`
-	Warnings           []string  `json:"warnings" db:"warnings"`
-	OutcomeStatus      string    `json:"outcome_status" db:"outcome_status"`
-	RetryCount         int       `json:"retry_count" db:"retry_count"`
-	NeedsClarification bool      `json:"needs_clarification" db:"needs_clarification"`
-	ModelUsed          *string   `json:"model_used" db:"model_used"`
-	PromptTokens       *int      `json:"prompt_tokens" db:"prompt_tokens"`
-	CompletionTokens   *int      `json:"completion_tokens" db:"completion_tokens"`
-	TokenCount         *int      `json:"token_count" db:"token_count"`
-	CostUSD            *float64  `json:"cost_usd" db:"cost_usd"`
-	LatencyMs          *int      `json:"latency_ms" db:"latency_ms"`
-	ABExperimentID        *string   `json:"ab_experiment_id,omitempty" db:"ab_experiment_id"`
-	ABVariantID           *string   `json:"ab_variant_id,omitempty" db:"ab_variant_id"`
-	MemoryRecallUsed      bool      `json:"memory_recall_used" db:"memory_recall_used"`
-	MemoryRecallHitCount  int       `json:"memory_recall_hit_count" db:"memory_recall_hit_count"`
-	CreatedAt             time.Time `json:"created_at" db:"created_at"`
+	ID                   string    `json:"id" db:"id"`
+	DatasourceID         string    `json:"datasource_id" db:"datasource_id"`
+	ModelID              *string   `json:"model_id" db:"model_id"`
+	UserID               *string   `json:"user_id" db:"user_id"`
+	Question             string    `json:"question" db:"question"`
+	PromptContext        any       `json:"prompt_context" db:"prompt_context"`
+	AIResponse           any       `json:"ai_response" db:"ai_response"`
+	LogicalQuery         any       `json:"logical_query" db:"logical_query"`
+	ConfidenceScore      *float64  `json:"confidence_score" db:"confidence_score"`
+	Warnings             []string  `json:"warnings" db:"warnings"`
+	OutcomeStatus        string    `json:"outcome_status" db:"outcome_status"`
+	RetryCount           int       `json:"retry_count" db:"retry_count"`
+	NeedsClarification   bool      `json:"needs_clarification" db:"needs_clarification"`
+	ModelUsed            *string   `json:"model_used" db:"model_used"`
+	PromptTokens         *int      `json:"prompt_tokens" db:"prompt_tokens"`
+	CompletionTokens     *int      `json:"completion_tokens" db:"completion_tokens"`
+	TokenCount           *int      `json:"token_count" db:"token_count"`
+	CostUSD              *float64  `json:"cost_usd" db:"cost_usd"`
+	LatencyMs            *int      `json:"latency_ms" db:"latency_ms"`
+	ABExperimentID       *string   `json:"ab_experiment_id,omitempty" db:"ab_experiment_id"`
+	ABVariantID          *string   `json:"ab_variant_id,omitempty" db:"ab_variant_id"`
+	MemoryRecallUsed     bool      `json:"memory_recall_used" db:"memory_recall_used"`
+	MemoryRecallHitCount int       `json:"memory_recall_hit_count" db:"memory_recall_hit_count"`
+	CreatedAt            time.Time `json:"created_at" db:"created_at"`
 }
 
 // PermissionPolicyRecord captures a stored access policy as it lives in the
