@@ -3,7 +3,7 @@ import type { SemanticDimension, SemanticMetric } from '../../types/semantic'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import type { SelectItem } from './types'
-import type { dimOptionsForGroupRow, metricFieldOptions } from './utils'
+import { type dimOptionsForGroupRow, getFieldLabel, type metricFieldOptions } from './utils'
 
 interface SummarizeStepProps {
   selectItems: SelectItem[]
@@ -23,6 +23,8 @@ interface SummarizeStepProps {
     groupBy: string[],
     i: number,
   ) => ReturnType<typeof dimOptionsForGroupRow>
+  fieldLabelMode: 'technical' | 'human'
+  setGroupBy: (v: string[]) => void
   t: TFunction
 }
 
@@ -40,6 +42,8 @@ export function SummarizeStep({
   onClear,
   metricFieldOptions,
   dimOptionsForGroupRow,
+  fieldLabelMode,
+  setGroupBy,
   t,
 }: SummarizeStepProps) {
   return (
@@ -123,6 +127,32 @@ export function SummarizeStep({
           <button type="button" className="notebook-add-btn" onClick={addGroupByRow}>
             +
           </button>
+        </div>
+      </div>
+      <div className="notebook-summarize-available">
+        <div className="notebook-summarize-available__title">
+          {t('query_builder.available_columns') || 'Available Columns (Dimensions)'}
+        </div>
+        <div className="notebook-summarize-available__list">
+          {dimensions.map((d) => {
+            const isSelected = groupBy.includes(d.name)
+            return (
+              <button
+                key={d.name}
+                type="button"
+                className={`notebook-dimension-badge ${isSelected ? 'notebook-dimension-badge--active' : ''}`}
+                onClick={() => {
+                  if (isSelected) {
+                    setGroupBy(groupBy.filter((g) => g !== d.name))
+                  } else {
+                    setGroupBy([...groupBy.filter(Boolean), d.name])
+                  }
+                }}
+              >
+                {getFieldLabel(d.name, d.label, fieldLabelMode)}
+              </button>
+            )
+          })}
         </div>
       </div>
     </NotebookStep>

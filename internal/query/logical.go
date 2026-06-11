@@ -54,6 +54,8 @@ const (
 	OpBetween    = logicalquery.OpBetween
 	OpIsNull     = logicalquery.OpIsNull
 	OpIsNotNull  = logicalquery.OpIsNotNull
+	OpIsEmpty    = logicalquery.OpIsEmpty
+	OpIsNotEmpty = logicalquery.OpIsNotEmpty
 )
 
 // Re-exported SELECT item kinds.

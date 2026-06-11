@@ -66,6 +66,14 @@ func filterPredicate(d dialect.Dialect, col string, f tableRowsFilter, value str
 		return col + " < " + ph(value), nil
 	case "lte":
 		return col + " <= " + ph(value), nil
+	case "is_null":
+		return col + " IS NULL", nil
+	case "is_not_null":
+		return col + " IS NOT NULL", nil
+	case "is_empty":
+		return col + " = ''", nil
+	case "is_not_empty":
+		return col + " <> ''", nil
 	case "contains", "starts_with", "ends_with":
 		pattern := value
 		switch f.Operator {

@@ -25,10 +25,26 @@ export function buildQueryPayload(state: QueryBuilderFormState) {
     datasource_id: datasourceId,
     model_id: modelId,
     filters: filters
-      .filter((f) => f.field && f.value)
+      .filter((f) => {
+        if (!f.field) {
+          return false
+        }
+        const valuelessOps = ['is_null', 'is_not_null', 'is_empty', 'is_not_empty']
+        if (valuelessOps.includes(f.operator)) {
+          return true
+        }
+        return !!f.value
+      })
       .map((f) => {
+        const valuelessOps = ['is_null', 'is_not_null', 'is_empty', 'is_not_empty']
         let parsedValue: unknown = f.value
-        if (typeof f.value === 'string' && f.value.startsWith('[') && f.value.endsWith(']')) {
+        if (valuelessOps.includes(f.operator)) {
+          parsedValue = null
+        } else if (
+          typeof f.value === 'string' &&
+          f.value.startsWith('[') &&
+          f.value.endsWith(']')
+        ) {
           try {
             parsedValue = JSON.parse(f.value)
           } catch {

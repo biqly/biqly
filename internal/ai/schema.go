@@ -260,7 +260,7 @@ const LogicalQuerySchema = `{
         "required": ["field", "operator"],
         "properties": {
           "field": {"type": "string"},
-          "operator": {"type": "string", "enum": ["eq","neq","gt","gte","lt","lte","in","not_in","contains","starts_with","ends_with","between","is_null","is_not_null"]},
+          "operator": {"type": "string", "enum": ["eq","neq","gt","gte","lt","lte","in","not_in","contains","starts_with","ends_with","between","is_null","is_not_null","is_empty","is_not_empty"]},
           "value": {}
         }
       }

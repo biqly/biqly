@@ -79,8 +79,8 @@ describe('groupBy row state', () => {
   })
 
   it('excludes dimensions already chosen in other rows', () => {
-    const optionsRow0 = dimOptionsForGroupRow(dimensions, ['region', ''], 0)
-    const optionsRow1 = dimOptionsForGroupRow(dimensions, ['region', ''], 1)
+    const optionsRow0 = dimOptionsForGroupRow(dimensions, ['region', ''], 0, [])
+    const optionsRow1 = dimOptionsForGroupRow(dimensions, ['region', ''], 1, [])
 
     expect(optionsRow0.map((o) => o.value)).toContain('region')
     expect(optionsRow1.map((o) => o.value)).not.toContain('region')

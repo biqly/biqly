@@ -205,6 +205,8 @@ const (
 	OpBetween    = "between"
 	OpIsNull     = "is_null"
 	OpIsNotNull  = "is_not_null"
+	OpIsEmpty    = "is_empty"
+	OpIsNotEmpty = "is_not_empty"
 )
 
 // Select types.

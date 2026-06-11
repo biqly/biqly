@@ -24,20 +24,38 @@ export function isCrossSchemaJoin(j: SemanticJoin, baseSchema?: string): boolean
   return fromS !== toS
 }
 
-export function dimFieldOptions(dims: SemanticDimension[]) {
+import type { SelectItem } from './types'
+
+export function getFieldLabel(
+  name: string,
+  label?: string | null,
+  mode: 'technical' | 'human' = 'human',
+): string {
+  if (mode === 'technical') {
+    return name
+  }
+  return label?.trim() ? label : name
+}
+
+export function dimFieldOptions(dims: SemanticDimension[], mode: 'technical' | 'human' = 'human') {
   return dims.map((d) => ({
     value: d.name,
-    label: d.label?.trim() ? `${d.name} (${d.label})` : d.name,
+    label: getFieldLabel(d.name, d.label, mode),
     hint: d.type,
   }))
 }
 
-export function metricFieldOptions(metrics: SemanticMetric[]) {
-  return metrics.map((m) => ({
-    value: m.name,
-    label: m.label?.trim() ? `${m.name} (${m.label})` : m.name,
-    hint: m.aggregation,
-  }))
+export function metricFieldOptions(
+  metrics: SemanticMetric[],
+  mode: 'technical' | 'human' = 'human',
+) {
+  return metrics
+    .filter((m) => m.name !== 'count' && m.aggregation !== 'count')
+    .map((m) => ({
+      value: m.name,
+      label: getFieldLabel(m.name, m.label, mode),
+      hint: m.aggregation,
+    }))
 }
 
 export function metricDisplayName(metric: SemanticMetric) {
@@ -52,21 +70,24 @@ export function orderByFieldOptions(
   dims: SemanticDimension[],
   metrics: SemanticMetric[],
   t: Translate,
+  mode: 'technical' | 'human' = 'human',
 ) {
   const out: { value: string; label: string; hint: string }[] = []
   for (const d of dims) {
     out.push({
       value: d.name,
-      label: d.label?.trim() ? `${d.name} (${d.label})` : d.name,
+      label: getFieldLabel(d.name, d.label, mode),
       hint: t('query_builder.order_hint_dimension', { detail: d.type }),
     })
   }
   for (const m of metrics) {
-    out.push({
-      value: m.name,
-      label: m.label?.trim() ? `${m.name} (${m.label})` : m.name,
-      hint: t('query_builder.order_hint_metric', { detail: m.aggregation }),
-    })
+    if (m.name !== 'count' && m.aggregation !== 'count') {
+      out.push({
+        value: m.name,
+        label: getFieldLabel(m.name, m.label, mode),
+        hint: t('query_builder.order_hint_metric', { detail: m.aggregation }),
+      })
+    }
   }
   return out
 }
@@ -75,25 +96,52 @@ export function filterFieldOptions(
   dims: SemanticDimension[],
   metrics: SemanticMetric[],
   t: Translate,
+  mode: 'technical' | 'human' = 'human',
 ) {
-  return orderByFieldOptions(dims, metrics, t)
+  return orderByFieldOptions(dims, metrics, t, mode)
 }
 
 export function dimOptionsForGroupRow(
   dimensions: SemanticDimension[],
   groupBy: string[],
   rowIndex: number,
-): { value: string; label: string; hint: string }[] {
+  selectItems: SelectItem[],
+  mode: 'technical' | 'human' = 'human',
+): { value: string; label: string; hint: string; disabled?: boolean }[] {
   const chosenElsewhere = new Set(
     groupBy.filter((g, j) => j !== rowIndex && g !== '').map((g) => g),
   )
-  return dimensions
-    .filter((d) => !chosenElsewhere.has(d.name) || d.name === groupBy[rowIndex])
-    .map((d) => ({
-      value: d.name,
-      label: d.label?.trim() ? `${d.name} (${d.label})` : d.name,
-      hint: d.type,
-    }))
+
+  const availableDims = dimensions.filter(
+    (d) => !chosenElsewhere.has(d.name) || d.name === groupBy[rowIndex],
+  )
+
+  const selectedDimNames = selectItems
+    .filter((item) => item.type === 'dimension' && item.name)
+    .map((item) => item.name)
+
+  const selectedDimSet = new Set(selectedDimNames)
+
+  const selectedList = availableDims.filter((d) => selectedDimSet.has(d.name))
+  const unselectedList = availableDims.filter((d) => !selectedDimSet.has(d.name))
+
+  selectedList.sort((a, b) => selectedDimNames.indexOf(a.name) - selectedDimNames.indexOf(b.name))
+
+  const selectedOptions = selectedList.map((d) => ({
+    value: d.name,
+    label: getFieldLabel(d.name, d.label, mode),
+    hint: d.type,
+    disabled: false,
+  }))
+
+  const unselectedOptions = unselectedList.map((d) => ({
+    value: d.name,
+    label: getFieldLabel(d.name, d.label, mode),
+    hint: d.type,
+    disabled: true,
+  }))
+
+  return [...selectedOptions, ...unselectedOptions]
 }
 
 export function parseCTEBody(raw: string): Omit<CTE, 'name'> {

@@ -31,7 +31,7 @@ export function FieldsStep({
   t,
 }: FieldsStepProps) {
   return (
-    <NotebookStep label="Fields" themeClass="fields">
+    <NotebookStep label="Dimensions" themeClass="fields">
       {selectItems.map((item, i) => (
         <div
           key={item.id}

@@ -19,7 +19,7 @@ var havingOps = []string{OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte, OpBetween, OpIsN
 var validFilterOps = []string{
 	OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte,
 	OpIn, OpNotIn, OpContains, OpStartsWith, OpEndsWith,
-	OpBetween, OpIsNull, OpIsNotNull,
+	OpBetween, OpIsNull, OpIsNotNull, OpIsEmpty, OpIsNotEmpty,
 }
 
 // Validator validates a LogicalQuery against a semantic model and config.

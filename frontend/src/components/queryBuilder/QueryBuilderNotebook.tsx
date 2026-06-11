@@ -69,6 +69,7 @@ export function QueryBuilderNotebook({
   runQuery,
   sqlVisible,
   onToggleSql,
+  fieldLabelMode,
   t,
 }: {
   modelDetail: SemanticModelDetail
@@ -122,6 +123,7 @@ export function QueryBuilderNotebook({
   runQuery: () => void | Promise<void>
   sqlVisible: boolean
   onToggleSql: () => void | Promise<void>
+  fieldLabelMode: 'technical' | 'human'
   t: MetadataTFunction
 }) {
   return (
@@ -140,19 +142,17 @@ export function QueryBuilderNotebook({
           onClear={() => setFilters([])}
           t={t}
         />
-        {!isSummarized && (
-          <FieldsStep
-            selectItems={selectItems}
-            dimensions={dimensions ?? []}
-            metrics={metrics ?? []}
-            updateSelectItem={updateSelectItem}
-            removeSelectItem={removeSelectItem}
-            addSelectItem={addSelectItem}
-            dimFieldOptions={dimFieldOptions}
-            metricFieldOptions={metricFieldOptions}
-            t={t}
-          />
-        )}
+        <FieldsStep
+          selectItems={selectItems}
+          dimensions={dimensions ?? []}
+          metrics={metrics ?? []}
+          updateSelectItem={updateSelectItem}
+          removeSelectItem={removeSelectItem}
+          addSelectItem={addSelectItem}
+          dimFieldOptions={(dims) => dimFieldOptions(dims, fieldLabelMode)}
+          metricFieldOptions={(mets) => metricFieldOptions(mets, fieldLabelMode)}
+          t={t}
+        />
         <SummarizeStep
           selectItems={selectItems}
           groupBy={groupBy}
@@ -169,8 +169,12 @@ export function QueryBuilderNotebook({
             setGroupBy([])
             setSelectItems([])
           }}
-          metricFieldOptions={metricFieldOptions}
-          dimOptionsForGroupRow={dimOptionsForGroupRow}
+          metricFieldOptions={(mets) => metricFieldOptions(mets, fieldLabelMode)}
+          dimOptionsForGroupRow={(dims, gb, index) =>
+            dimOptionsForGroupRow(dims, gb, index, selectItems, fieldLabelMode)
+          }
+          fieldLabelMode={fieldLabelMode}
+          setGroupBy={setGroupBy}
           t={t}
         />
         <SortStep

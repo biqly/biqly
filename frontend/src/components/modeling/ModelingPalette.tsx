@@ -210,7 +210,7 @@ export function ModelingPalette({
     const grouped = new Map<string, T[]>()
     items.forEach((item) => {
       const key = resolveKey(item)
-      if (!key || !scopedTableKeys.has(key)) {
+      if (!key || !tableByKey.has(key)) {
         return
       }
       const bucket = grouped.get(key)

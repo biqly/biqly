@@ -3180,6 +3180,11 @@ body.modeling-grabbing * {
   color: white;
 }
 
+.modeling-tab--active .modeling-tab__count {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
 .modeling-tab:hover:not(.modeling-tab--active) {
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-card-raised));
 }
@@ -3804,7 +3809,7 @@ body.modeling-grabbing * {
 
 .metadata-display-expr__input {
   flex: 1;
-  min-width: 0;
+  min-width: 18rem;
   font-family: var(--font-mono, monospace);
   font-size: 0.78rem;
   padding: 0.35rem 0.55rem;

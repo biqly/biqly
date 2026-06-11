@@ -1,6 +1,6 @@
 import '../styles/queryBuilder.css'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useApi } from '../hooks/useApi'
 import { useArrayState } from '../hooks/useArrayState'
@@ -53,6 +53,7 @@ interface QueryExplainResponse {
   compiled_sql?: string
 }
 
+// eslint-disable-next-line complexity
 export default function QueryBuilder() {
   const t = useT()
   const { postData, loading, error } = useApi()
@@ -119,23 +120,27 @@ export default function QueryBuilder() {
 
   // Notebook Summarize Step Toggle State
   const [isSummarized, setIsSummarized] = useState(false)
+  const [fieldLabelMode, setFieldLabelMode] = useState<'human' | 'technical'>('human')
 
   const dimensions = useMemo(() => modelDetail?.dimensions ?? [], [modelDetail])
   const metrics = useMemo(() => modelDetail?.metrics ?? [], [modelDetail])
   const filterFieldOpts = useMemo(
-    () => filterFieldOptions(dimensions, metrics, t),
-    [dimensions, metrics, t],
+    () => filterFieldOptions(dimensions, metrics, t, fieldLabelMode),
+    [dimensions, metrics, t, fieldLabelMode],
   )
 
   const orderByOpts = useMemo(() => {
-    const fields = orderByFieldOptions(dimensions, metrics, t)
+    const fields = orderByFieldOptions(dimensions, metrics, t, fieldLabelMode)
     if (fields.length === 0) {
       return []
     }
     return [{ value: '', label: t('query_builder.order_none'), hint: '' }, ...fields]
-  }, [dimensions, metrics, t])
+  }, [dimensions, metrics, t, fieldLabelMode])
 
-  const metricOptsHaving = useMemo(() => metricFieldOptions(metrics), [metrics])
+  const metricOptsHaving = useMemo(
+    () => metricFieldOptions(metrics, fieldLabelMode),
+    [metrics, fieldLabelMode],
+  )
 
   const createSemanticModel = async () => {
     if (!datasourceId || generatingModel) {
@@ -164,54 +169,7 @@ export default function QueryBuilder() {
   }
 
   const toggleSummarize = () => {
-    setIsSummarized((prev) => {
-      const next = !prev
-      if (next) {
-        // Transitioning to summarized mode:
-        // Find dimensions and metrics in selectItems
-        const rawDims = selectItems
-          .filter((item) => item.type === 'dimension' && item.name)
-          .map((item) => item.name)
-
-        if (rawDims.length > 0) {
-          setGroupBy(rawDims)
-        } else {
-          const firstDim = dimensions[0]?.name
-          setGroupBy(firstDim ? [firstDim] : [])
-        }
-
-        const rawMetrics = selectItems.filter((item) => item.type === 'metric')
-        if (rawMetrics.length > 0) {
-          setSelectItems(rawMetrics)
-        } else {
-          const firstMetric = metrics[0]?.name
-          setSelectItems(firstMetric ? [{ id: newRowId(), type: 'metric', name: firstMetric }] : [])
-        }
-      } else {
-        // Transitioning to raw mode:
-        // Move groupBy dimensions and metrics back to selectItems
-        const nextSelectItems: SelectItem[] = []
-        for (const name of groupBy) {
-          if (name) {
-            nextSelectItems.push({ id: newRowId(), type: 'dimension', name })
-          }
-        }
-        for (const item of selectItems) {
-          if (item.type === 'metric') {
-            nextSelectItems.push(item)
-          }
-        }
-        if (nextSelectItems.length === 0) {
-          const firstDim = dimensions[0]?.name
-          if (firstDim) {
-            nextSelectItems.push({ id: newRowId(), type: 'dimension', name: firstDim })
-          }
-        }
-        setSelectItems(nextSelectItems)
-        setGroupBy([])
-      }
-      return next
-    })
+    setIsSummarized((prev) => !prev)
   }
 
   const addSelectItem = () => selectItemsState.add({ id: newRowId(), type: 'dimension', name: '' })
@@ -331,6 +289,34 @@ export default function QueryBuilder() {
     }
   }
 
+  // Auto-compile SQL when inputs change and SQL preview is visible
+  useEffect(() => {
+    if (!sqlVisible || !datasourceId || !modelId) {
+      return
+    }
+    const payload = buildPayload()
+    const timer = setTimeout(() => {
+      void compileSql(payload)
+    }, 300)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    sqlVisible,
+    datasourceId,
+    modelId,
+    selectItems,
+    filters,
+    groupBy,
+    orderBy,
+    orderDir,
+    limit,
+    having,
+    windowFunctions,
+    ctes,
+    isSummarized,
+    mode,
+  ])
+
   const chartData = useMemo(() => rowsToChartData(result?.rows), [result?.rows])
 
   if (dsLoading || modelsLoading || (modelId ? modelDetailLoading : false)) {
@@ -361,6 +347,20 @@ export default function QueryBuilder() {
                   label: modelListLabel(m),
                   hint: modelListHint(m),
                 }))}
+                size="sm"
+              />
+            )}
+            {datasourceId && modelId && (
+              <Select
+                value={fieldLabelMode}
+                onChange={setFieldLabelMode}
+                options={[
+                  { value: 'human', label: t('query_builder.label_mode_human') || 'Display Names' },
+                  {
+                    value: 'technical',
+                    label: t('query_builder.label_mode_technical') || 'Technical Names',
+                  },
+                ]}
                 size="sm"
               />
             )}
@@ -462,6 +462,7 @@ export default function QueryBuilder() {
                 runQuery={runQuery}
                 sqlVisible={sqlVisible}
                 onToggleSql={toggleSqlPreview}
+                fieldLabelMode={fieldLabelMode}
                 t={t}
               />
             )}

@@ -182,6 +182,8 @@ func TestCompiler_FilterOperators(t *testing.T) {
 		{"between", OpBetween, []any{"2026-01-01", "2026-12-31"}, "BETWEEN"},
 		{"is_null", OpIsNull, nil, "IS NULL"},
 		{"is_not_null", OpIsNotNull, nil, "IS NOT NULL"},
+		{"is_empty", OpIsEmpty, nil, "= ''"},
+		{"is_not_empty", OpIsNotEmpty, nil, "!= ''"},
 	}
 
 	for _, tt := range tests {

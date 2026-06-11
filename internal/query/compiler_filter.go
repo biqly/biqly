@@ -28,6 +28,8 @@ func init() {
 		OpBetween:    (*Compiler).buildBetweenOperatorFilter,
 		OpIsNull:     (*Compiler).buildIsNullFilter,
 		OpIsNotNull:  (*Compiler).buildIsNotNullFilter,
+		OpIsEmpty:    (*Compiler).buildIsEmptyFilter,
+		OpIsNotEmpty: (*Compiler).buildIsNotEmptyFilter,
 	}
 }
 
@@ -197,6 +199,14 @@ func (*Compiler) buildIsNullFilter(_ Filter, lhsSQL string, _ *semantic.Semantic
 
 func (*Compiler) buildIsNotNullFilter(_ Filter, lhsSQL string, _ *semantic.SemanticModel, _ *[]any) (string, []any, error) {
 	return lhsSQL + " IS NOT NULL", nil, nil
+}
+
+func (*Compiler) buildIsEmptyFilter(_ Filter, lhsSQL string, _ *semantic.SemanticModel, _ *[]any) (string, []any, error) {
+	return lhsSQL + " = ''", nil, nil
+}
+
+func (*Compiler) buildIsNotEmptyFilter(_ Filter, lhsSQL string, _ *semantic.SemanticModel, _ *[]any) (string, []any, error) {
+	return lhsSQL + " != ''", nil, nil
 }
 
 func (c *Compiler) buildInFilter(lhsSQL string, value any, args *[]any) (string, []any, error) {
