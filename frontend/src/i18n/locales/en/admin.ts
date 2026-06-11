@@ -476,7 +476,8 @@ export const admin = {
     memory_limit_hint: 'How many confirmed queries may be recalled per question (1–10).',
     queue_title: 'AI Jobs Queue',
     queue_concurrency_label: 'Max concurrent jobs',
-    queue_concurrency_hint: 'How many background AI jobs the queue can process in parallel per worker (1–10).',
+    queue_concurrency_hint:
+      'How many background AI jobs the queue can process in parallel per worker (1–10).',
     source_db: 'DB',
     source_env: 'Env',
     source_db_aria: 'Value overridden from the database',
