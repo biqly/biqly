@@ -139,13 +139,14 @@ func registerCatalogCompositeRoutes(r chi.Router, deps *app.CatalogDeps) {
 
 func registerCatalogMetadataRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
 	metaHandler := handlers.NewMetadataHandler(deps)
+	metaHandler.SetDatasourceAccessChecker(authClient)
 	piiHandler := handlers.NewPIIHandler(deps)
-	r.Get("/datasources/{id}/tables", metaHandler.ListTables)
+	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Get("/datasources/{id}/tables", metaHandler.ListTables)
 	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Get("/datasources/{id}/tables/{schema}/{table}/sample", metaHandler.GetTableSample)
 	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Post("/datasources/{id}/tables/{schema}/{table}/rows", metaHandler.BrowseTableRows)
-	r.Get("/datasources/{id}/columns", metaHandler.ListColumns)
-	r.Get("/metadata/columns/search", metaHandler.SearchColumns)
-	r.Get("/metadata/tables/search", metaHandler.SearchTables)
+	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Get("/datasources/{id}/columns", metaHandler.ListColumns)
+	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Get("/metadata/columns/search", metaHandler.SearchColumns)
+	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Get("/metadata/tables/search", metaHandler.SearchTables)
 	r.Patch("/metadata/tables/{id}", metaHandler.UpdateTableDescription)
 	r.Patch("/metadata/columns/{id}", metaHandler.UpdateColumnDescription)
 	r.Get("/metadata/tables/{id}/translations", metaHandler.GetTableTranslations)

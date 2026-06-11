@@ -3,12 +3,16 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/biqly/biqly/internal/app"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 )
@@ -18,12 +22,80 @@ const tableSampleRowLimit = 50
 
 // MetadataHandler exposes endpoints for browsing and editing introspected metadata.
 type MetadataHandler struct {
-	deps *app.CatalogDeps
+	deps          *app.CatalogDeps
+	accessChecker metadataDatasourceAccessChecker
+}
+
+type metadataDatasourceAccessChecker interface {
+	CheckDatasourceAccess(ctx context.Context, userID, datasourceID, level string) (bool, error)
 }
 
 // NewMetadataHandler creates a new metadata handler.
 func NewMetadataHandler(deps *app.CatalogDeps) *MetadataHandler {
 	return &MetadataHandler{deps: deps}
+}
+
+// SetDatasourceAccessChecker enables handler-level checks for metadata routes
+// that carry table/column IDs instead of datasource IDs.
+func (h *MetadataHandler) SetDatasourceAccessChecker(checker metadataDatasourceAccessChecker) {
+	h.accessChecker = checker
+}
+
+func (h *MetadataHandler) requireDatasourceAccess(w http.ResponseWriter, r *http.Request, datasourceID, level string) bool {
+	if h.accessChecker == nil || bimw.HasRole(r.Context(), bimw.RoleSuperAdmin) {
+		return true
+	}
+	userID := bimw.UserID(r.Context())
+	if userID == "" {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return false
+	}
+	allowed, err := h.accessChecker.CheckDatasourceAccess(r.Context(), userID, datasourceID, level)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "datasource access check failed")
+		return false
+	}
+	if !allowed {
+		writeError(w, http.StatusForbidden, "datasource access denied")
+		return false
+	}
+	return true
+}
+
+func (h *MetadataHandler) requireTableAccess(w http.ResponseWriter, r *http.Request, id, level string) bool {
+	t, err := h.deps.MetaRepo.GetTable(r.Context(), id)
+	if err != nil {
+		writeEntityNotFound(w, "table")
+		return false
+	}
+	if !h.requireDatasourceAccess(w, r, t.DatasourceID, level) {
+		return false
+	}
+	return true
+}
+
+func (h *MetadataHandler) requireColumnAccess(w http.ResponseWriter, r *http.Request, id, level string) bool {
+	c, err := h.deps.MetaRepo.GetColumn(r.Context(), id)
+	if err != nil {
+		writeEntityNotFound(w, "column")
+		return false
+	}
+	if !h.requireDatasourceAccess(w, r, c.DatasourceID, level) {
+		return false
+	}
+	return true
+}
+
+func (h *MetadataHandler) requireMetadataEntityAccess(w http.ResponseWriter, r *http.Request, entityType, id, level string) bool {
+	switch entityType {
+	case metadata.EntityTypeTable:
+		return h.requireTableAccess(w, r, id, level)
+	case metadata.EntityTypeColumn:
+		return h.requireColumnAccess(w, r, id, level)
+	default:
+		writeError(w, http.StatusBadRequest, "unsupported metadata entity type")
+		return false
+	}
 }
 
 // ListTables returns all introspected tables for a datasource (optionally filtered by schema).
@@ -106,6 +178,82 @@ type updateDescriptionRequest struct {
 	DisplayExpression *string `json:"display_expression,omitempty"`
 }
 
+const maxDisplayExpressionRunes = 512
+
+var displayExpressionColumnTokenRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+func validateDisplayExpression(expr string) error {
+	if expr == "" {
+		return nil
+	}
+	if utf8.RuneCountInString(expr) > maxDisplayExpressionRunes {
+		return fmt.Errorf("display_expression must be at most %d characters", maxDisplayExpressionRunes)
+	}
+	parts, err := splitDisplayExpressionParts(expr)
+	if err != nil {
+		return err
+	}
+	if len(parts) == 0 {
+		return nil
+	}
+	for _, part := range parts {
+		if isDisplayExpressionLiteral(part) {
+			continue
+		}
+		if !displayExpressionColumnTokenRE.MatchString(part) {
+			return fmt.Errorf("invalid display_expression token %q", part)
+		}
+	}
+	return nil
+}
+
+func splitDisplayExpressionParts(expr string) ([]string, error) {
+	parts := make([]string, 0, 4)
+	var current strings.Builder
+	var quote rune
+	for _, ch := range expr {
+		if quote != 0 {
+			current.WriteRune(ch)
+			if ch == quote {
+				quote = 0
+			}
+			continue
+		}
+		switch ch {
+		case '"', '\'':
+			quote = ch
+			current.WriteRune(ch)
+		case '+':
+			part := strings.TrimSpace(current.String())
+			if part == "" {
+				return nil, errors.New("display_expression contains an empty segment")
+			}
+			parts = append(parts, part)
+			current.Reset()
+		default:
+			current.WriteRune(ch)
+		}
+	}
+	if quote != 0 {
+		return nil, errors.New("display_expression contains an unterminated literal")
+	}
+	part := strings.TrimSpace(current.String())
+	if part == "" {
+		return nil, errors.New("display_expression contains an empty segment")
+	}
+	parts = append(parts, part)
+	return parts, nil
+}
+
+func isDisplayExpressionLiteral(part string) bool {
+	if len(part) < 2 {
+		return false
+	}
+	first := part[0]
+	last := part[len(part)-1]
+	return (first == '"' && last == '"') || (first == '\'' && last == '\'')
+}
+
 // UpdateTableDescription edits the description and/or label of a single table row.
 func (h *MetadataHandler) UpdateTableDescription(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
@@ -113,6 +261,9 @@ func (h *MetadataHandler) UpdateTableDescription(w http.ResponseWriter, r *http.
 		return
 	}
 
+	if !h.requireTableAccess(w, r, id, "write") {
+		return
+	}
 	req, ok := decodeJSON[updateDescriptionRequest](w, r)
 	if !ok {
 		return
@@ -126,6 +277,10 @@ func (h *MetadataHandler) UpdateTableDescription(w http.ResponseWriter, r *http.
 	}
 	if req.DisplayExpression != nil {
 		expr := strings.TrimSpace(*req.DisplayExpression)
+		if err := validateDisplayExpression(expr); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		var exprPtr *string
 		if expr != "" {
 			exprPtr = &expr
@@ -151,6 +306,9 @@ func (h *MetadataHandler) UpdateColumnDescription(w http.ResponseWriter, r *http
 		return
 	}
 
+	if !h.requireColumnAccess(w, r, id, "write") {
+		return
+	}
 	req, ok := decodeJSON[updateDescriptionRequest](w, r)
 	if !ok {
 		return
@@ -176,6 +334,9 @@ type translationUpsertRequest map[string]map[string]string
 func (h *MetadataHandler) putTranslations(w http.ResponseWriter, r *http.Request, entityType string) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {
+		return
+	}
+	if !h.requireMetadataEntityAccess(w, r, entityType, id, "write") {
 		return
 	}
 	req, ok := decodeJSON[translationUpsertRequest](w, r)
@@ -216,6 +377,9 @@ func (h *MetadataHandler) GetTableTranslations(w http.ResponseWriter, r *http.Re
 	if !ok {
 		return
 	}
+	if !h.requireMetadataEntityAccess(w, r, metadata.EntityTypeTable, id, "read") {
+		return
+	}
 	rows, err := h.deps.MetaRepo.ListEntityTranslations(r.Context(), metadata.EntityTypeTable, id)
 	if err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list table translations", err, "entity_id", id)
@@ -233,6 +397,9 @@ func (h *MetadataHandler) PutTableTranslations(w http.ResponseWriter, r *http.Re
 func (h *MetadataHandler) GetColumnTranslations(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
 	if !ok {
+		return
+	}
+	if !h.requireMetadataEntityAccess(w, r, metadata.EntityTypeColumn, id, "read") {
 		return
 	}
 	rows, err := h.deps.MetaRepo.ListEntityTranslations(r.Context(), metadata.EntityTypeColumn, id)

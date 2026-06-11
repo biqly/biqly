@@ -65,27 +65,56 @@ tahrifatı, yanıltıcı UI). Not: `display_expression` client'ta eval'siz token
 işlenip React text node olarak render ediliyor — XSS/SQLi/exfil yolu doğrulanmadı,
 etki bütünlük (integrity) seviyesinde.
 
-- [ ] Metadata mutasyon route'larını datasource kapsamlı yetkiye bağla: table/column ID
+- [x] Metadata mutasyon route'larını datasource kapsamlı yetkiye bağla: table/column ID
   üzerinden sahibi datasource'u resolve edip `CheckDatasourceAccess(level=write)` uygula
   (URL'de datasource id olmadığından handler içinde veya ID-resolve eden yeni bir
   middleware ile; `PATCH /metadata/columns/{id}/pii` route'unun `RequirePermission`
   kullanımı örnek alınabilir).
-- [ ] Metadata search/list route'larını da yetki kapsamına al — cross-tenant tablo UUID
+- [x] Metadata search/list route'larını da yetki kapsamına al — cross-tenant tablo UUID
   enumeration kapatılsın (kullanıcının erişebildiği datasource'larla sınırla).
-- [ ] Regresyon testi: grant'siz kullanıcı PATCH `/metadata/tables/{id}` → 403;
+- [x] Regresyon testi: grant'siz kullanıcı PATCH `/metadata/tables/{id}` → 403;
   search sonuçları erişilebilir datasource'larla sınırlı.
-- [ ] **Kabul:** Metadata okuma/yazma, çağıranın datasource erişim seviyesiyle tutarlı;
+- [x] **Kabul:** Metadata okuma/yazma, çağıranın datasource erişim seviyesiyle tutarlı;
   JWT tek başına yeterli değil.
+
+#### Uygulama planı (Codex, 2026-06-11)
+
+- [x] RED: UUID tabanlı table/column mutation guard'ı ve datasource-scoped search route auth'u için test yaz.
+- [x] GREEN: `MetadataHandler`'a test edilebilir datasource access checker ekle; table/column ID'den datasource resolve edip `read`/`write` kontrolü yap.
+- [x] GREEN: `PATCH /metadata/tables/{id}`, `PATCH /metadata/columns/{id}`, `PUT /translations` route'larını `write`; `GET /translations` route'larını `read` guard'ına bağla.
+- [x] GREEN: `/datasources/{id}/tables`, `/datasources/{id}/columns`, `/metadata/*/search` route'larını `RequireDatasourceAccess(..., "read")` ile sınırla.
+- [x] VERIFY: focused handler/router tests + gofmt + `make lint-go` + `git diff --check`.
+
+#### Sonuç (Codex, 2026-06-11)
+
+- Metadata search/list route'ları artık datasource `read` erişimi olmadan handler'a düşmez.
+- UUID tabanlı table/column mutation route'ları entity datasource'unu resolve edip `write` erişimi kontrol eder.
+- Translation GET route'ları `read`, PUT route'ları `write` kontrol eder; denied erişimde mutation/translation query'si çalışmaz.
+- Doğrulama: `go test ./internal/http/handlers ./internal/http -count=1`; `make lint-go`; `git diff --check`.
 
 ### S2 — Sertleştirme (hardening, doğrudan açık değil) [LOW]
 
-- [ ] `display_expression` için server-side format doğrulaması ekle
+- [x] `display_expression` için server-side format doğrulaması ekle
   (`UpdateTableDescription`): frontend tokenizer'ın grameriyle aynı kurallar
   (kolon token + tırnaklı literal + `+`) ve makul uzunluk limiti — ileride başka bir
   consumer'ın bu alanı güvenle kullanabilmesi için.
-- [ ] `writeInternalError`'ın müşteri DB driver hata metnini client'a sızdırmadığını
+- [x] `writeInternalError`'ın müşteri DB driver hata metnini client'a sızdırmadığını
   doğrula; sızdırıyorsa generic mesaj + log'a detay şeklinde ayır
   (`metadata_rows.go` "failed to fetch/count table rows" yolları).
+
+#### Uygulama planı (Codex, 2026-06-11)
+
+- [x] RED: `display_expression` validasyon testleri yaz; bozuk/çok uzun expression `UpdateTableDescription` içinde 400 dönmeli.
+- [x] RED: `metadata_rows.go` fetch/count hata yollarının response body'de driver detayını döndürmediğini kanıtlayan test yaz.
+- [x] GREEN: Frontend tokenizer gramerine uygun server-side validator ekle: kolon token veya tek/çift tırnaklı literal, `+` ile birleşim, boş ifade clear, makul uzunluk limiti.
+- [x] VERIFY: focused handler tests + gofmt + `make lint-go` + `git diff --check`.
+
+#### Sonuç (Codex, 2026-06-11)
+
+- `display_expression` artık server-side doğrulanır: boş string clear eder; dolu ifade en fazla 512 karakterdir; parçalar `+` ile birleşen kolon token'ları veya tek/çift tırnaklı literal'ler olmalıdır.
+- Geçersiz/çok uzun expression `UpdateTableDescription` içinde 400 döner ve `display_expression` update'i çalışmaz.
+- `BrowseTableRows` fetch ve `include_total` count hata yolları, müşteri DB driver detayını response body'ye sızdırmadan yalnız public mesaj döndürdüğü regresyon testleriyle doğrulandı.
+- Doğrulama: `go test ./internal/http/handlers ./internal/http -count=1`; `make lint-go`; `git diff --check`.
 
 **Temiz çıkan kontroller (aksiyon gerekmez):** SQL injection (identifier'lar introspect
 edilmiş metadata'dan + `QuoteIdentSegment` tüm dialect'lerde doğru escape ediyor; değerler

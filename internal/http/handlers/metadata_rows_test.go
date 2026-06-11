@@ -1,13 +1,24 @@
 package handlers
 
 import (
+	"context"
+	"database/sql"
+	"database/sql/driver"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/security/pii"
+	"github.com/go-chi/chi/v5"
 )
 
 func TestBuildTableRowsWhereRejectsUnknownColumn(t *testing.T) {
@@ -121,3 +132,183 @@ func containsProjection(projection []string, want string) bool {
 	}
 	return false
 }
+
+type failingRowsDriver struct{}
+
+func (failingRowsDriver) Type() string { return "failing_rows" }
+func (failingRowsDriver) Ping(context.Context, string) error {
+	return nil
+}
+func (failingRowsDriver) Open(context.Context, string) (*sql.DB, error) {
+	return sql.Open("failing_rows_sql", "")
+}
+func (failingRowsDriver) Introspect(context.Context, *sql.DB) (*datasource.IntrospectionResult, error) {
+	return &datasource.IntrospectionResult{}, nil
+}
+func (failingRowsDriver) Dialect() dialect.Dialect { return dialect.Postgres }
+
+type failingRowsSQLDriver struct{}
+
+func (failingRowsSQLDriver) Open(string) (driver.Conn, error) { return failingRowsConn{}, nil }
+
+type failingRowsConn struct{}
+
+func (failingRowsConn) Prepare(string) (driver.Stmt, error) { return nil, driver.ErrSkip }
+func (failingRowsConn) Close() error                        { return nil }
+func (failingRowsConn) Begin() (driver.Tx, error)           { return nil, driver.ErrSkip }
+
+func (failingRowsConn) QueryContext(context.Context, string, []driver.NamedValue) (driver.Rows, error) {
+	return nil, errors.New("customer-db-secret: permission denied on payroll.salaries")
+}
+
+type failingCountDriver struct{}
+
+func (failingCountDriver) Type() string { return "failing_count" }
+func (failingCountDriver) Ping(context.Context, string) error {
+	return nil
+}
+func (failingCountDriver) Open(context.Context, string) (*sql.DB, error) {
+	return sql.Open("failing_count_sql", "")
+}
+func (failingCountDriver) Introspect(context.Context, *sql.DB) (*datasource.IntrospectionResult, error) {
+	return &datasource.IntrospectionResult{}, nil
+}
+func (failingCountDriver) Dialect() dialect.Dialect { return dialect.Postgres }
+
+type failingCountSQLDriver struct{}
+
+func (failingCountSQLDriver) Open(string) (driver.Conn, error) { return failingCountConn{}, nil }
+
+type failingCountConn struct{}
+
+func (failingCountConn) Prepare(string) (driver.Stmt, error) { return nil, driver.ErrSkip }
+func (failingCountConn) Close() error                        { return nil }
+func (failingCountConn) Begin() (driver.Tx, error)           { return nil, driver.ErrSkip }
+
+func (failingCountConn) QueryContext(_ context.Context, sqlQuery string, _ []driver.NamedValue) (driver.Rows, error) {
+	if strings.Contains(sqlQuery, "COUNT") {
+		return nil, errors.New("customer-db-secret: count denied on payroll.salaries")
+	}
+	return &fakeSampleRows{
+		cols: []string{"email"},
+		rows: [][]driver.Value{{"alice@example.com"}},
+	}, nil
+}
+
+var registerFailingRowsSQLDriver sync.Once
+var registerFailingCountSQLDriver sync.Once
+
+func TestBrowseTableRowsDoesNotLeakDriverError(t *testing.T) {
+	registerFailingRowsSQLDriver.Do(func() {
+		sql.Register("failing_rows_sql", failingRowsSQLDriver{})
+	})
+
+	db, state := setupMockDB(t)
+	now := time.Now()
+	state.queries = []queryMock{
+		{
+			Pattern: "FROM tables WHERE datasource_id",
+			Cols:    metadataTableCols(),
+			Rows: [][]driver.Value{
+				{"table-1", "ds-1", "schema-1", "public", "orders", "BASE TABLE", nil, nil, nil, nil, now, now},
+			},
+		},
+		{
+			Pattern: "FROM columns",
+			Cols:    metadataColumnCols(),
+			Rows: [][]driver.Value{
+				{"col-1", "ds-1", "table-1", "public", "orders", "email", "text", true, nil, nil, nil, nil, nil, nil, false, false, nil, nil, nil, now, nil, nil, nil, nil, nil},
+			},
+		},
+		{
+			Pattern: "FROM datasources WHERE id",
+			Cols:    metadataDatasourceCols(),
+			Rows: [][]driver.Value{
+				{"ds-1", "Failing DS", "failing_rows", "postgres://secret@db", "{}", true, nil, now, now, nil, nil, nil, nil, nil, nil, []byte("{}"), "raw"},
+			},
+		},
+	}
+	reg := datasource.NewRegistry()
+	reg.Register(failingRowsDriver{})
+	handler := NewMetadataHandler(&app.CatalogDeps{MetaRepo: metadata.NewRepository(db), DriverReg: reg})
+	router := chi.NewRouter()
+	router.Post("/datasources/{id}/tables/{schema}/{table}/rows", handler.BrowseTableRows)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/datasources/ds-1/tables/public/orders/rows", strings.NewReader(`{"limit":1}`))
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("BrowseTableRows failing driver status = %d, want %d", rec.Code, http.StatusInternalServerError)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "failed to fetch table rows") {
+		t.Fatalf("BrowseTableRows failing driver body = %q, want public message", body)
+	}
+	if strings.Contains(body, "customer-db-secret") || strings.Contains(body, "payroll.salaries") {
+		t.Fatalf("BrowseTableRows response leaked driver error detail: %q", body)
+	}
+}
+
+func TestBrowseTableRowsCountDoesNotLeakDriverError(t *testing.T) {
+	registerFailingCountSQLDriver.Do(func() {
+		sql.Register("failing_count_sql", failingCountSQLDriver{})
+	})
+
+	db, state := setupMockDB(t)
+	now := time.Now()
+	state.queries = []queryMock{
+		{
+			Pattern: "FROM tables WHERE datasource_id",
+			Cols:    metadataTableCols(),
+			Rows: [][]driver.Value{
+				{"table-1", "ds-1", "schema-1", "public", "orders", "BASE TABLE", nil, nil, nil, nil, now, now},
+			},
+		},
+		{
+			Pattern: "FROM columns",
+			Cols:    metadataColumnCols(),
+			Rows: [][]driver.Value{
+				{"col-1", "ds-1", "table-1", "public", "orders", "email", "text", true, nil, nil, nil, nil, nil, nil, false, false, nil, nil, nil, now, nil, nil, nil, nil, nil},
+			},
+		},
+		{
+			Pattern: "FROM datasources WHERE id",
+			Cols:    metadataDatasourceCols(),
+			Rows: [][]driver.Value{
+				{"ds-1", "Failing DS", "failing_count", "postgres://secret@db", "{}", true, nil, now, now, nil, nil, nil, nil, nil, nil, []byte("{}"), "raw"},
+			},
+		},
+	}
+	reg := datasource.NewRegistry()
+	reg.Register(failingCountDriver{})
+	handler := NewMetadataHandler(&app.CatalogDeps{MetaRepo: metadata.NewRepository(db), DriverReg: reg})
+	router := chi.NewRouter()
+	router.Post("/datasources/{id}/tables/{schema}/{table}/rows", handler.BrowseTableRows)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/datasources/ds-1/tables/public/orders/rows", strings.NewReader(`{"limit":1,"include_total":true}`))
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("BrowseTableRows count failing driver status = %d, want %d", rec.Code, http.StatusInternalServerError)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "failed to count table rows") {
+		t.Fatalf("BrowseTableRows count failing driver body = %q, want public message", body)
+	}
+	if strings.Contains(body, "customer-db-secret") || strings.Contains(body, "payroll.salaries") {
+		t.Fatalf("BrowseTableRows count response leaked driver error detail: %q", body)
+	}
+}
+
+func metadataDatasourceCols() []string {
+	return []string{"id", "name", "type", "dsn_encrypted", "config", "is_active", "last_sync_at", "created_at", "updated_at", "host", "port", "username", "password_encrypted", "database_name", "ssl_mode", "connection_params", "dsn_mode"}
+}
+
+var _ datasource.Driver = failingRowsDriver{}
+var _ datasource.Driver = failingCountDriver{}
+var _ driver.Driver = failingRowsSQLDriver{}
+var _ driver.Driver = failingCountSQLDriver{}
+var _ driver.QueryerContext = failingRowsConn{}
+var _ driver.QueryerContext = failingCountConn{}
