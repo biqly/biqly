@@ -124,8 +124,17 @@ func (s *QueryService) openPool(ctx context.Context, driver datasource.Driver, d
 }
 
 func (s *QueryService) Compile(ctx context.Context, lq *query.LogicalQuery) (*CompileResult, *ServiceError) {
+	return s.CompileWithModel(ctx, lq, nil)
+}
+
+// CompileWithModel is Compile with an optional inline semantic model. When
+// inline is non-nil it is used directly instead of loading the model
+// referenced by lq.ModelID/lq.CompositeID from the catalog — required for
+// synthetic auto-routing models ("auto:" ID prefix) that exist only in the
+// caller's memory.
+func (s *QueryService) CompileWithModel(ctx context.Context, lq *query.LogicalQuery, inline *semantic.SemanticModel) (*CompileResult, *ServiceError) {
 	lq.EnsureVersion()
-	loaded, se := s.loadContext(ctx, lq)
+	loaded, se := s.loadContext(ctx, lq, inline)
 	if se != nil {
 		return nil, se
 	}
@@ -165,8 +174,14 @@ func (s *QueryService) CompileWithContext(ctx context.Context, lq *query.Logical
 }
 
 func (s *QueryService) Run(ctx context.Context, lq *query.LogicalQuery) (*RunResult, *ServiceError) {
+	return s.RunWithModel(ctx, lq, nil)
+}
+
+// RunWithModel is Run with an optional inline semantic model; see
+// CompileWithModel for when to pass a non-nil model.
+func (s *QueryService) RunWithModel(ctx context.Context, lq *query.LogicalQuery, inline *semantic.SemanticModel) (*RunResult, *ServiceError) {
 	lq.EnsureVersion()
-	compiled, se := s.Compile(ctx, lq)
+	compiled, se := s.CompileWithModel(ctx, lq, inline)
 	if se != nil {
 		return nil, se
 	}
@@ -251,13 +266,17 @@ func (s *QueryService) loadSemanticModel(ctx context.Context, lq *query.LogicalQ
 	return model, nil
 }
 
-func (s *QueryService) loadContext(ctx context.Context, lq *query.LogicalQuery) (*CompileResult, *ServiceError) {
+func (s *QueryService) loadContext(ctx context.Context, lq *query.LogicalQuery, inline *semantic.SemanticModel) (*CompileResult, *ServiceError) {
 	if lq.DatasourceID == "" {
 		return nil, ToServiceError(ErrDatasourceIDRequired)
 	}
-	model, se := s.loadSemanticModel(ctx, lq)
-	if se != nil {
-		return nil, se
+	model := inline
+	if model == nil {
+		var se *ServiceError
+		model, se = s.loadSemanticModel(ctx, lq)
+		if se != nil {
+			return nil, se
+		}
 	}
 	ds, err := s.datasources.GetDatasource(ctx, lq.DatasourceID)
 	if err != nil {

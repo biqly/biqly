@@ -406,7 +406,7 @@ func (h *AIHandler) resolveRunPhaseProcessOptions(ctx context.Context, pc *Proce
 			pc.SetMemoryRecallHitCount(recallHits)
 		}
 		return nil, []ai.ProcessOption{
-			ai.WithSQLValidator(newQueryClientDryRunValidator(h.deps.QueryClient)),
+			ai.WithSQLValidator(newQueryClientDryRunValidator(h.deps.QueryClient, model)),
 			ai.WithTargetDialect(h.datasourceDialectName(ctx, req.DatasourceID)),
 			ai.WithFewShotExamples(fewShot),
 		}, nil
@@ -482,7 +482,7 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 
 	if h.deps.QueryClient != nil {
 		compileStart := time.Now()
-		compiled, err := h.deps.QueryClient.DryRun(ctx, logicalQuery)
+		compiled, err := h.deps.QueryClient.DryRunWithModel(ctx, logicalQuery, inlineAutoModel(model))
 		if h.metrics != nil {
 			h.metrics.RecordAIStep("query_compile", time.Since(compileStart).Milliseconds())
 		}
@@ -608,7 +608,7 @@ func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.Respo
 	}
 
 	execStart := time.Now()
-	run, err := h.deps.QueryClient.Run(ctx, logicalQuery, 0, 0)
+	run, err := h.deps.QueryClient.RunWithModel(ctx, logicalQuery, inlineAutoModel(model), 0, 0)
 	if h.metrics != nil {
 		h.metrics.RecordAIStep("query_execute", time.Since(execStart).Milliseconds())
 	}

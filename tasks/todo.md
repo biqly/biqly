@@ -1,5 +1,31 @@
 # Todo list
 
+## AI job "queryclient: 404: resource not found" fix (2026-06-11)
+
+### Tespit
+
+- Worker/AI servisi QueryClient modunda (`query_url: http://biqly-query:8081`) dry-run/run'ı Query Engine'e devrediyor ve istekte yalnızca `LogicalQuery` gönderiyor.
+- Auto table-routing soruları için semantic model sentetik (`auto:public.timeline_tweets,public.profiles`) ve yalnızca AI sürecinin belleğinde; Query Engine `GetPublishedFullModel(lq.ModelID)` ile katalogdan yükleyemeyince 404 → job 3 denemede DLQ'ya düşüyor.
+- Tetikleyici zincir: tercih edilen model (`zlitter_2`) snapshot decode hatasıyla yüklenemeyince auto context'e düşülüyor — ama Auto-detect UI'da seçilebilir bir mod, bağımsız düzeltilmeli.
+
+### Plan
+
+- [x] `pkg/internalapi`: Compile/Run/DryRun isteklerine opsiyonel inline `model` alanı
+- [x] `pkg/queryclient`: `CompileWithModel` / `RunWithModel` / `DryRunWithModel` varyantları
+- [x] `internal/core.QueryService`: `CompileWithModel` / `RunWithModel` (inline model katalog lookup'ını atlar)
+- [x] `internal/http/handlers/internal_query.go`: `req.Model`'i compile/run'a geçir
+- [x] AI tarafı: `inlineAutoModel` helper'ı; QueryClient çağrı noktaları (`ai.go`, `ai_job_exec.go`, `ai_dryrun.go`) auto modelde modeli inline gönderir
+- [x] Testler + lint + gofmt + deadcode
+
+### Review
+
+- Inline model yalnızca `auto:` öneki taşıyan sentetik modellerde gönderiliyor; yayınlanmış modeller eskisi gibi katalogdan ID ile yüklenir (davranış değişmedi).
+- `make lint-go` 0 issue, `make test-go` PASS (-race), deadcode'da dokunulan dosyalarda yeni bulgu yok; gograph_review blast radius beklendiği gibi (wire tipleri + queryclient SDK + core + AI çağrı noktaları).
+- Yeni testler: `TestQueryServiceCompileWithModelSkipsCatalog` (katalog lookup başarısızken inline model derlenir), `TestDryRunWithModel_SendsInlineModel` (wire serialize).
+- İkincil bulgular (ayrı iş):
+  - Worker imajı `sha-fc2a2ce9` (eski) — snapshot decode fix'i (f660ec15) içermiyor; bu yüzden `zlitter_2` yüklenemeyip auto'ya düşülüyor. Bu fix push'lanınca build-worker.yml yeni imaj üretir, image-updater bump'lar.
+  - Catalog: `failed to list few-shot examples` / `failed to list glossary` 500'leri ve `auto:...` model ID'sinin uuid kolonlarına parametre olarak geçmesi (few-shot/history okumaları) — non-fatal ama gürültülü.
+
 ## AI Jobs: Refresh Resume + Admin Job Yönetimi (2026-06-11)
 
 ### Tespit Özeti

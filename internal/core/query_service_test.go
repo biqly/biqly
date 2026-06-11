@@ -3,6 +3,7 @@ package core_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 
 	"github.com/biqly/biqly/internal/core"
@@ -40,6 +41,49 @@ func TestQueryServiceCompileUsesSameSQLAsCompiler(t *testing.T) {
 	if got.Compiled.SQL != want.SQL {
 		t.Errorf("QueryService.Compile(%+v) SQL = %q, want %q", lq, got.Compiled.SQL, want.SQL)
 	}
+}
+
+// TestQueryServiceCompileWithModelSkipsCatalog proves an inline model (auto
+// table routing produces models that only exist in the caller's memory)
+// compiles without a catalog lookup: the model loader always errors, so a
+// catalog hit would fail the compile.
+func TestQueryServiceCompileWithModelSkipsCatalog(t *testing.T) {
+	ctx := context.Background()
+	model := coreTestModel()
+	model.ID = "auto:public.orders,public.customers"
+	lq := coreTestLogicalQuery()
+	lq.ModelID = model.ID
+	registry := datasource.NewRegistry()
+	registry.Register(fakeDriver{dialect: dialect.PostgresDialect{}})
+
+	service := core.NewQueryService(&core.QueryServiceDeps{
+		Models:      failingModelLoader{},
+		Datasources: fakeDatasourceLoader{datasource: metadata.Datasource{ID: "ds1", Type: "postgres"}},
+		Drivers:     registry,
+		Validator:   query.NewValidator(1000),
+		Executor:    query.NewExecutor(1000, 0),
+	})
+
+	if _, se := service.Compile(ctx, &lq); se == nil {
+		t.Fatal("Compile without inline model: error = nil, want catalog lookup failure")
+	}
+
+	got, se := service.CompileWithModel(ctx, &lq, model)
+	if se != nil {
+		t.Fatalf("CompileWithModel(%+v) error = %v, want nil", lq, se)
+	}
+	if got.Compiled.SQL == "" {
+		t.Error("CompileWithModel returned empty SQL")
+	}
+	if got.Model != model {
+		t.Error("CompileWithModel did not use the inline model")
+	}
+}
+
+type failingModelLoader struct{}
+
+func (failingModelLoader) GetPublishedFullModel(context.Context, string) (*semantic.SemanticModel, error) {
+	return nil, errors.New("model not found")
 }
 
 func coreTestLogicalQuery() query.LogicalQuery {

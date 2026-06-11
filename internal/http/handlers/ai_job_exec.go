@@ -127,7 +127,7 @@ func (h *AIHandler) finishAIPreviewResult(ctx context.Context, req aiQueryReques
 	}
 
 	if h.deps.QueryClient != nil {
-		compiled, err := h.deps.QueryClient.DryRun(ctx, logicalQuery)
+		compiled, err := h.deps.QueryClient.DryRunWithModel(ctx, logicalQuery, inlineAutoModel(model))
 		if err != nil {
 			resp.Result.Warnings = append(resp.Result.Warnings, "compilation failed")
 		} else {
@@ -208,7 +208,7 @@ func (h *AIHandler) finishAIRunResultWithQueryClient(ctx context.Context, resp *
 		resp.Result = &ai.AIResult{}
 	}
 
-	run, err := h.deps.QueryClient.Run(ctx, logicalQuery, 0, 0)
+	run, err := h.deps.QueryClient.RunWithModel(ctx, logicalQuery, inlineAutoModel(model), 0, 0)
 	if err != nil {
 		return nil, err
 	}

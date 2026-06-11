@@ -35,4 +35,10 @@ type internalEvalRepo interface {
 type internalQueryRunner interface {
 	Compile(ctx context.Context, lq *query.LogicalQuery) (*core.CompileResult, *core.ServiceError)
 	Run(ctx context.Context, lq *query.LogicalQuery) (*core.RunResult, *core.ServiceError)
+	// CompileWithModel and RunWithModel accept an optional inline semantic
+	// model (nil loads the model referenced by the LogicalQuery from the
+	// catalog) so callers can compile synthetic auto-routing models that are
+	// not persisted.
+	CompileWithModel(ctx context.Context, lq *query.LogicalQuery, inline *semantic.SemanticModel) (*core.CompileResult, *core.ServiceError)
+	RunWithModel(ctx context.Context, lq *query.LogicalQuery, inline *semantic.SemanticModel) (*core.RunResult, *core.ServiceError)
 }

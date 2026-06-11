@@ -41,8 +41,8 @@ func (h *InternalQueryHandler) SetQueryMetricsRecorder(m QueryMetricsRecorder) {
 // returns the parameterized SQL. It DOES NOT execute the query, so it is
 // safe to call from any caller that needs a deterministic SQL fingerprint
 // without touching user data.
-func (h *InternalQueryHandler) compileToSQL(w http.ResponseWriter, r *http.Request, lq *query.LogicalQuery) (string, []any, string, bool) {
-	result, ok := h.compileLogicalQuery(w, r, lq)
+func (h *InternalQueryHandler) compileToSQL(w http.ResponseWriter, r *http.Request, lq *query.LogicalQuery, inline *semantic.SemanticModel) (string, []any, string, bool) {
+	result, ok := h.compileLogicalQuery(w, r, lq, inline)
 	if !ok {
 		return "", nil, "", false
 	}
@@ -63,7 +63,7 @@ func (h *InternalQueryHandler) Compile(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sql, args, fingerprint, ok := h.compileToSQL(w, r, &req.LogicalQuery)
+	sql, args, fingerprint, ok := h.compileToSQL(w, r, &req.LogicalQuery, req.Model)
 	if !ok {
 		return
 	}
@@ -83,7 +83,7 @@ func (h *InternalQueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	start := time.Now()
-	result, se := h.query.Run(r.Context(), &req.LogicalQuery)
+	result, se := h.query.RunWithModel(r.Context(), &req.LogicalQuery, req.Model)
 	rows := 0
 	if result != nil && result.Result != nil {
 		rows = result.Result.Stats.RowCount
@@ -132,7 +132,7 @@ func (h *InternalQueryHandler) DryRun(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	sql, args, fingerprint, ok := h.compileToSQL(w, r, &req.LogicalQuery)
+	sql, args, fingerprint, ok := h.compileToSQL(w, r, &req.LogicalQuery, req.Model)
 	if !ok {
 		return
 	}
@@ -147,9 +147,10 @@ func (h *InternalQueryHandler) compileLogicalQuery(
 	w http.ResponseWriter,
 	r *http.Request,
 	lq *query.LogicalQuery,
+	inline *semantic.SemanticModel,
 ) (*core.CompileResult, bool) {
 	start := time.Now()
-	result, se := h.query.Compile(r.Context(), lq)
+	result, se := h.query.CompileWithModel(r.Context(), lq, inline)
 	if h.metrics != nil {
 		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
 	}

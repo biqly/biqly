@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/core"
@@ -22,9 +23,21 @@ func newSQLDryRunValidator(service *core.QueryService, db *sql.DB, driver dataso
 	}
 }
 
-func newQueryClientDryRunValidator(client *queryclient.Client) ai.SQLValidator {
+func newQueryClientDryRunValidator(client *queryclient.Client, model *semantic.SemanticModel) ai.SQLValidator {
+	inline := inlineAutoModel(model)
 	return func(ctx context.Context, lq *query.LogicalQuery) error {
-		_, err := client.DryRun(ctx, lq)
+		_, err := client.DryRunWithModel(ctx, lq, inline)
 		return err
 	}
+}
+
+// inlineAutoModel returns model when it is a synthetic auto-routing model
+// (ID prefixed "auto:") that exists only in this process and therefore must
+// travel inline to the Query Engine. Published models return nil so the
+// engine loads them from the catalog by LogicalQuery.ModelID.
+func inlineAutoModel(model *semantic.SemanticModel) *semantic.SemanticModel {
+	if model != nil && strings.HasPrefix(model.ID, "auto:") {
+		return model
+	}
+	return nil
 }

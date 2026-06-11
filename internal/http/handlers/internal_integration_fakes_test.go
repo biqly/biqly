@@ -125,6 +125,10 @@ type integrationQueryRunner struct {
 }
 
 func (r integrationQueryRunner) Compile(ctx context.Context, lq *query.LogicalQuery) (*core.CompileResult, *core.ServiceError) {
+	return r.CompileWithModel(ctx, lq, nil)
+}
+
+func (r integrationQueryRunner) CompileWithModel(ctx context.Context, lq *query.LogicalQuery, inline *semantic.SemanticModel) (*core.CompileResult, *core.ServiceError) {
 	if r.compile != nil {
 		return r.compile, nil
 	}
@@ -134,11 +138,15 @@ func (r integrationQueryRunner) Compile(ctx context.Context, lq *query.LogicalQu
 		Drivers:     integrationDriverRegistry(),
 		Validator:   query.NewValidator(1000),
 		Executor:    query.NewExecutor(1000, 0),
-	}).Compile(ctx, lq)
+	}).CompileWithModel(ctx, lq, inline)
 }
 
 func (r integrationQueryRunner) Run(ctx context.Context, lq *query.LogicalQuery) (*core.RunResult, *core.ServiceError) {
-	compiled, se := r.Compile(ctx, lq)
+	return r.RunWithModel(ctx, lq, nil)
+}
+
+func (r integrationQueryRunner) RunWithModel(ctx context.Context, lq *query.LogicalQuery, inline *semantic.SemanticModel) (*core.RunResult, *core.ServiceError) {
+	compiled, se := r.CompileWithModel(ctx, lq, inline)
 	if se != nil {
 		return nil, se
 	}

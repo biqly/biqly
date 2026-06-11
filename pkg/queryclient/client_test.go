@@ -16,6 +16,7 @@ import (
 	"github.com/biqly/biqly/pkg/logicalquery"
 	pkgquery "github.com/biqly/biqly/pkg/query"
 	"github.com/biqly/biqly/pkg/queryclient"
+	"github.com/biqly/biqly/pkg/semantic"
 )
 
 // testToken is the bearer token every test server asserts. Centralised so
@@ -189,6 +190,26 @@ func TestDryRun_HitsDryRunPath(t *testing.T) {
 	}
 	if out.SQL == "" || out.Fingerprint != "fp" {
 		t.Errorf("unexpected response: %+v", out)
+	}
+}
+
+func TestDryRunWithModel_SendsInlineModel(t *testing.T) {
+	model := &semantic.SemanticModel{ID: "auto:public.orders", Name: "auto:public.orders"}
+	c := fakeServer(t, func(w http.ResponseWriter, r *http.Request) {
+		var req internalapi.DryRunRequest
+		if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if req.Model == nil || req.Model.ID != model.ID {
+			t.Errorf("inline model lost: %+v", req.Model)
+		}
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(internalapi.DryRunResponse{
+			SQL: "EXPLAIN SELECT 1", Fingerprint: "fp",
+		})
+	})
+
+	if _, err := c.DryRunWithModel(context.Background(), sampleLQ(), model); err != nil {
+		t.Fatalf("DryRunWithModel() error: %v", err)
 	}
 }
 
