@@ -568,6 +568,15 @@
   outline: none;
 }
 
+.chat-composer__input:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.chat-composer:has(.chat-composer__input:disabled) {
+  opacity: 0.75;
+}
+
 .chat-composer__bar {
   display: flex;
   align-items: center;

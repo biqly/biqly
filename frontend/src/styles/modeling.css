@@ -177,3 +177,92 @@
 .modeling-enum-row input {
   width: 100%;
 }
+
+/* ─── Join türü segment seçici (Manuel İlişki) ─────────────────── */
+
+.join-type-segment {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.join-type-segment__option {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg-card-raised);
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    color 120ms ease,
+    background 120ms ease;
+}
+
+.join-type-segment__option:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.join-type-segment__option--active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.join-type-segment__option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ─── Canlı join önizleme ──────────────────────────────────────── */
+
+.join-preview {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+.join-preview__flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.join-preview__table {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.76rem;
+  color: var(--text-primary);
+  background: var(--bg-card-raised);
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.join-preview__icon {
+  display: inline-flex;
+  color: var(--accent);
+}
+
+.join-preview__on {
+  display: block;
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}

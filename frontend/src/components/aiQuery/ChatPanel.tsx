@@ -224,6 +224,7 @@ export function ChatPanel({
             placeholder={t('ai_query.placeholder')}
             rows={2}
             autoComplete="off"
+            disabled={queryAction !== null}
           />
           <div className="chat-composer__bar">
             <div className="chat-composer__options">

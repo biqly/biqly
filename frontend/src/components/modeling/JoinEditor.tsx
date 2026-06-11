@@ -1,8 +1,24 @@
 import type { TranslationKey } from '../../i18n'
 import type { ColumnRow } from '../../types/semantic'
+import { joinTypeHintKey } from '../ui/joinType'
+import { JoinTypeIcon } from '../ui/JoinTypeIcon'
 import { Select, type SelectOption } from '../ui/Select'
 import type { JoinForm } from './types'
 import { formatDataType } from './utils'
+
+const JOIN_TYPES = ['LEFT', 'INNER', 'RIGHT'] as const
+
+const CARDINALITY_OPTIONS = [
+  { value: 'many_to_one', label: 'N:1 · many_to_one' },
+  { value: 'one_to_many', label: '1:N · one_to_many' },
+  { value: 'one_to_one', label: '1:1 · one_to_one' },
+  { value: 'many_to_many', label: 'N:N · many_to_many' },
+]
+
+function shortTableName(qualified: string): string {
+  const idx = qualified.lastIndexOf('.')
+  return idx === -1 ? qualified : qualified.slice(idx + 1)
+}
 
 type Translate = (key: TranslationKey, vars?: Record<string, string | number>) => string
 
@@ -45,6 +61,7 @@ export function JoinEditor({
   onSave,
   t,
 }: JoinEditorProps) {
+  const previewHintKey = joinTypeHintKey(joinForm.joinType)
   return (
     <aside
       className={`modeling-editor ${open ? '' : 'modeling-side--collapsed'}`}
@@ -123,33 +140,58 @@ export function JoinEditor({
             </small>
           )}
         </div>
-        <div className="modeling-editor-grid">
-          <div className="form-group">
-            <label>{t('modeling.join_type_label')}</label>
-            <Select
-              value={joinForm.joinType}
-              options={[
-                { value: 'LEFT', label: 'LEFT' },
-                { value: 'INNER', label: 'INNER' },
-                { value: 'RIGHT', label: 'RIGHT' },
-              ]}
-              onChange={(v) => onChange({ joinType: v })}
-            />
-          </div>
-          <div className="form-group">
-            <label>{t('modeling.cardinality')}</label>
-            <Select
-              value={joinForm.relationship}
-              options={[
-                { value: 'many_to_one', label: 'many_to_one' },
-                { value: 'one_to_many', label: 'one_to_many' },
-                { value: 'one_to_one', label: 'one_to_one' },
-                { value: 'many_to_many', label: 'many_to_many' },
-              ]}
-              onChange={(v) => onChange({ relationship: v })}
-            />
+        <div className="form-group">
+          <label id="join-type-label">{t('modeling.join_type_label')}</label>
+          <div className="join-type-segment" role="radiogroup" aria-labelledby="join-type-label">
+            {JOIN_TYPES.map((jt) => {
+              const hintKey = joinTypeHintKey(jt)
+              return (
+                <button
+                  key={jt}
+                  type="button"
+                  role="radio"
+                  aria-checked={joinForm.joinType === jt}
+                  className={`join-type-segment__option${
+                    joinForm.joinType === jt ? ' join-type-segment__option--active' : ''
+                  }`}
+                  title={hintKey ? t(hintKey) : undefined}
+                  onClick={() => onChange({ joinType: jt })}
+                >
+                  <JoinTypeIcon type={jt} />
+                  <span>{jt}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
+        <div className="form-group">
+          <label>{t('modeling.cardinality')}</label>
+          <Select
+            value={joinForm.relationship}
+            options={CARDINALITY_OPTIONS}
+            onChange={(v) => onChange({ relationship: v as JoinForm['relationship'] })}
+          />
+        </div>
+        {joinForm.fromTable && joinForm.toTable && (
+          <div className="join-preview" aria-live="polite">
+            <div className="join-preview__flow">
+              <span className="join-preview__table">{shortTableName(joinForm.fromTable)}</span>
+              <span
+                className="join-preview__icon"
+                title={previewHintKey ? t(previewHintKey) : undefined}
+              >
+                <JoinTypeIcon type={joinForm.joinType} size={22} />
+              </span>
+              <span className="join-preview__table">{shortTableName(joinForm.toTable)}</span>
+            </div>
+            {fromColumnValue && toColumnValue && (
+              <code className="join-preview__on">
+                ON {shortTableName(joinForm.fromTable)}.{fromColumnValue} ={' '}
+                {shortTableName(joinForm.toTable)}.{toColumnValue}
+              </code>
+            )}
+          </div>
+        )}
         <button
           className="btn btn-primary"
           type="button"

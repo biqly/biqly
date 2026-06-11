@@ -421,7 +421,30 @@
 
 .visualize-btn-container {
   display: flex;
+  align-items: center;
+  gap: 0.6rem;
   margin-top: 1.25rem;
+}
+
+.qb-sql-toggle {
+  font-family: var(--font-mono, monospace);
+}
+
+.qb-sql-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.qb-sql-card__head h2 {
+  margin: 0;
+}
+
+.join-type-icon {
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .visualize-btn {
@@ -506,6 +529,9 @@
 }
 
 .notebook-join-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;

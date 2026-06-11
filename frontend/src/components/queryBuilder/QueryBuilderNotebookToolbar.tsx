@@ -91,11 +91,15 @@ export function QueryBuilderVisualizeFooter({
   show,
   loading,
   onRun,
+  sqlVisible,
+  onToggleSql,
   t,
 }: {
   show: boolean
   loading: boolean
   onRun: () => void
+  sqlVisible: boolean
+  onToggleSql: () => void
   t: MetadataTFunction
 }) {
   if (!show) {
@@ -105,6 +109,15 @@ export function QueryBuilderVisualizeFooter({
     <div className="visualize-btn-container">
       <button type="button" className="visualize-btn" onClick={onRun} disabled={loading}>
         {loading ? t('query_builder.running') : 'Visualize'}
+      </button>
+      <button
+        type="button"
+        className={`toolbar-btn qb-sql-toggle${sqlVisible ? ' active' : ''}`}
+        onClick={onToggleSql}
+        aria-pressed={sqlVisible}
+      >
+        <span aria-hidden="true">{'</>'}</span>{' '}
+        {sqlVisible ? t('query_builder.hide_sql') : t('query_builder.show_sql')}
       </button>
     </div>
   )

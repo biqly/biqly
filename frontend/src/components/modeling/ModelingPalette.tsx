@@ -272,40 +272,36 @@ export function ModelingPalette({
           <h2>{model?.label ?? model?.name ?? t('modeling.no_model_selected')}</h2>
           <p>{t('modeling.semantic_description')}</p>
         </div>
-        <div className="modeling-stat-grid">
-          <div>
-            <strong>{usedTableCount}</strong>
-            <span>{t('modeling.tab_short_tables')}</span>
-          </div>
-          <div>
-            <strong>{joins.length}</strong>
-            <span>{t('modeling.tab_short_rel')}</span>
-          </div>
-          <div>
-            <strong>{visibleDimsCount}</strong>
-            <span>{t('modeling.tab_short_dim')}</span>
-          </div>
-          <div>
-            <strong>{visibleMetricsCount}</strong>
-            <span>{t('modeling.tab_short_metric')}</span>
-          </div>
-        </div>
-
         <div className="modeling-tabs">
-          {(['tables', 'joins', 'dimensions', 'metrics'] as const).map((tab) => (
-            <button
-              className={`modeling-tab ${activeTab === tab ? 'modeling-tab--active' : ''}`}
-              key={tab}
-              onClick={() => onTabChange(tab)}
-              title={t(`modeling.${tab}_tab`)}
-            >
-              {t(
-                tab === 'joins'
-                  ? 'modeling.tab_short_rel'
-                  : `modeling.tab_short_${tab === 'dimensions' ? 'dim' : tab === 'metrics' ? 'metric' : 'tables'}`,
-              )}
-            </button>
-          ))}
+          {(['tables', 'joins', 'dimensions', 'metrics'] as const).map((tab) => {
+            const count =
+              tab === 'tables'
+                ? usedTableCount
+                : tab === 'joins'
+                  ? joins.length
+                  : tab === 'dimensions'
+                    ? visibleDimsCount
+                    : visibleMetricsCount
+            return (
+              <button
+                className={`modeling-tab ${activeTab === tab ? 'modeling-tab--active' : ''}`}
+                key={tab}
+                onClick={() => onTabChange(tab)}
+                title={t(`modeling.${tab}_tab`)}
+              >
+                {t(
+                  tab === 'joins'
+                    ? 'modeling.tab_short_rel'
+                    : `modeling.tab_short_${tab === 'dimensions' ? 'dim' : tab === 'metrics' ? 'metric' : 'tables'}`,
+                )}
+                <span
+                  className={`modeling-tab__count${count === 0 ? ' modeling-tab__count--zero' : ''}`}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
         <div className="modeling-tab-content">

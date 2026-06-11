@@ -67,6 +67,8 @@ export function QueryBuilderNotebook({
   toggleSummarize,
   loading,
   runQuery,
+  sqlVisible,
+  onToggleSql,
   t,
 }: {
   modelDetail: SemanticModelDetail
@@ -118,6 +120,8 @@ export function QueryBuilderNotebook({
   toggleSummarize: () => void
   loading: boolean
   runQuery: () => void | Promise<void>
+  sqlVisible: boolean
+  onToggleSql: () => void | Promise<void>
   t: MetadataTFunction
 }) {
   return (
@@ -126,7 +130,7 @@ export function QueryBuilderNotebook({
         <NotebookStep label="Data" themeClass="data">
           <span className="notebook-tag notebook-tag--blue">{modelDetail.base_table}</span>
         </NotebookStep>
-        <QueryBuilderNotebookJoins joins={modelDetail.joins ?? []} />
+        <QueryBuilderNotebookJoins joins={modelDetail.joins ?? []} t={t} />
         <FilterStep
           filters={filters}
           filterFieldOpts={filterFieldOpts}
@@ -253,6 +257,10 @@ export function QueryBuilderNotebook({
         loading={loading}
         onRun={() => {
           void runQuery()
+        }}
+        sqlVisible={sqlVisible}
+        onToggleSql={() => {
+          void onToggleSql()
         }}
         t={t}
       />

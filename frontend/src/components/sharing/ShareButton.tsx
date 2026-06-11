@@ -13,14 +13,31 @@ interface Props {
   resourceType: string
   resourceID: string
   onShared?: () => void
+  /** Controlled open state; when provided together with onOpenChange the
+   * built-in trigger can be hidden and the modal driven externally. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  showTrigger?: boolean
 }
 
 const LOOKUP_PAGE_SIZE = 500
 
-export function ShareButton({ resourceType, resourceID, onShared }: Props) {
+export function ShareButton({
+  resourceType,
+  resourceID,
+  onShared,
+  open: openProp,
+  onOpenChange,
+  showTrigger = true,
+}: Props) {
   const t = useT()
   const { accessToken } = useAuth()
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = openProp ?? internalOpen
+  const setOpen = (v: boolean) => {
+    setInternalOpen(v)
+    onOpenChange?.(v)
+  }
   const [mode, setMode] = useState<'user' | 'workspace'>('user')
   const [targetID, setTargetID] = useState('')
   const [permission, setPermission] = useState<'view' | 'execute' | 'edit'>('view')
@@ -104,21 +121,23 @@ export function ShareButton({ resourceType, resourceID, onShared }: Props) {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="share-btn">
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-          <polyline points="16 6 12 2 8 6" />
-          <line x1="12" y1="2" x2="12" y2="15" />
-        </svg>
-        {t('admin.sharing.share')}
-      </button>
+      {showTrigger && (
+        <button onClick={() => setOpen(true)} className="share-btn">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+            <polyline points="16 6 12 2 8 6" />
+            <line x1="12" y1="2" x2="12" y2="15" />
+          </svg>
+          {t('admin.sharing.share')}
+        </button>
+      )}
 
       {open && (
         <div className="share-modal__overlay" onClick={closeModal}>

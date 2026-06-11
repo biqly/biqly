@@ -114,6 +114,7 @@ export default function QueryBuilder() {
   const { items: ctes } = cteState
   const [result, setResult] = useState<QueryBuilderResult | null>(null)
   const [sql, setSql] = useState('')
+  const [sqlVisible, setSqlVisible] = useState(false)
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>('bar')
 
   // Notebook Summarize Step Toggle State
@@ -276,7 +277,7 @@ export default function QueryBuilder() {
   }
   const removeCTE = (i: number) => cteState.remove(i)
 
-  const runQuery = async () => {
+  const buildPayload = () => {
     const querySelectItems = isSummarized
       ? [
           ...groupBy.filter(Boolean).map((g) => ({
@@ -288,7 +289,7 @@ export default function QueryBuilder() {
         ]
       : selectItems
 
-    const payload = buildQueryPayload({
+    return buildQueryPayload({
       datasourceId,
       modelId,
       mode,
@@ -303,12 +304,27 @@ export default function QueryBuilder() {
       windowFunctions,
       ctes,
     })
+  }
 
+  const compileSql = async (payload: ReturnType<typeof buildPayload>) => {
     const explainRes = await postData<QueryExplainResponse>('/api/query/explain', payload)
     if (explainRes?.compiled_sql) {
       setSql(explainRes.compiled_sql)
     }
+  }
 
+  const toggleSqlPreview = async () => {
+    if (sqlVisible) {
+      setSqlVisible(false)
+      return
+    }
+    await compileSql(buildPayload())
+    setSqlVisible(true)
+  }
+
+  const runQuery = async () => {
+    const payload = buildPayload()
+    await compileSql(payload)
     const res = await postData<QueryBuilderResult>('/api/query/run', payload)
     if (res) {
       setResult(res)
@@ -444,6 +460,8 @@ export default function QueryBuilder() {
                 toggleSummarize={toggleSummarize}
                 loading={loading}
                 runQuery={runQuery}
+                sqlVisible={sqlVisible}
+                onToggleSql={toggleSqlPreview}
                 t={t}
               />
             )}
@@ -453,9 +471,18 @@ export default function QueryBuilder() {
       </div>
 
       {/* SQL Preview */}
-      {sql && (
-        <div className="card">
-          <h2>{t('query_builder.generated_sql')}</h2>
+      {sqlVisible && sql && (
+        <div className="card qb-sql-card">
+          <div className="qb-sql-card__head">
+            <h2>{t('query_builder.generated_sql')}</h2>
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost"
+              onClick={() => setSqlVisible(false)}
+            >
+              {t('query_builder.hide_sql')}
+            </button>
+          </div>
           <div className="sql-preview">{sql}</div>
         </div>
       )}

@@ -1,7 +1,10 @@
+import { useState } from 'react'
+
 import type { useT } from '../../i18n'
 import type { Datasource } from '../../types/metadata'
 import type { SemanticModelDetail } from '../../types/semantic'
 import { ShareButton } from '../sharing/ShareButton'
+import { ActionMenu } from '../ui/ActionMenu'
 import { Select } from '../ui/Select'
 
 export function ModelingToolbar({
@@ -35,6 +38,9 @@ export function ModelingToolbar({
   onPublishModel: () => void
   onRemoveModel: () => void
 }) {
+  const [shareOpen, setShareOpen] = useState(false)
+  const isPublished = model?.status === 'published'
+
   return (
     <section className="modeling-toolbar">
       <div className="form-group">
@@ -51,17 +57,28 @@ export function ModelingToolbar({
       </div>
       <div className="form-group">
         <label htmlFor="modeling-model">{t('modeling.model_label')}</label>
-        <Select
-          id="modeling-model"
-          name="model"
-          value={modelId}
-          onChange={onModelChange}
-          placeholder={
-            models.length === 0 ? t('modeling.no_models') : t('modeling.model_placeholder')
-          }
-          header={t('modeling.model_header')}
-          options={models.map((m) => ({ value: m.id, label: m.label ?? m.name, hint: m.status }))}
-        />
+        <div className="modeling-toolbar__model-row">
+          <Select
+            id="modeling-model"
+            name="model"
+            value={modelId}
+            onChange={onModelChange}
+            placeholder={
+              models.length === 0 ? t('modeling.no_models') : t('modeling.model_placeholder')
+            }
+            header={t('modeling.model_header')}
+            options={models.map((m) => ({ value: m.id, label: m.label ?? m.name, hint: m.status }))}
+          />
+          {model && (
+            <span
+              className={`modeling-status-pill${
+                isPublished ? ' modeling-status-pill--published' : ''
+              }`}
+            >
+              {isPublished ? t('modeling.published') : t('modeling.status_draft')}
+            </span>
+          )}
+        </div>
       </div>
       <div className="modeling-toolbar-actions">
         <button
@@ -70,43 +87,60 @@ export function ModelingToolbar({
           onClick={onCreateModel}
           disabled={!datasourceId || creatingModel}
         >
+          <span aria-hidden="true">✨</span>{' '}
           {creatingModel ? t('modeling.creating') : t('modeling.create_from_metadata')}
         </button>
         {model && (
-          <button
-            className="btn btn-secondary"
-            type="button"
-            onClick={onRenameModel}
-            title={t('modeling.rename_model_button_title')}
-          >
-            {t('modeling.rename_model_button')}
-          </button>
+          <ActionMenu
+            label={
+              <>
+                {t('modeling.model_menu')} <span aria-hidden="true">▾</span>
+              </>
+            }
+            header={<strong className="modeling-menu-model-name">{model.name}</strong>}
+            items={[
+              {
+                key: 'rename',
+                icon: '✏️',
+                label: t('modeling.rename_model_button'),
+                onSelect: onRenameModel,
+              },
+              {
+                key: 'publish',
+                icon: '🚀',
+                label: publishing
+                  ? t('modeling.publishing')
+                  : isPublished
+                    ? t('modeling.published')
+                    : t('modeling.publish'),
+                disabled: publishing || isPublished,
+                onSelect: onPublishModel,
+              },
+              {
+                key: 'share',
+                icon: '🔗',
+                label: t('admin.sharing.share'),
+                onSelect: () => setShareOpen(true),
+              },
+              {
+                key: 'delete',
+                icon: '🗑️',
+                label: t('common.delete'),
+                danger: true,
+                onSelect: onRemoveModel,
+              },
+            ]}
+          />
         )}
         {model && (
-          <button
-            className="btn btn-secondary"
-            type="button"
-            onClick={onPublishModel}
-            disabled={publishing || model.status === 'published'}
-          >
-            {publishing
-              ? t('modeling.publishing')
-              : model.status === 'published'
-                ? t('modeling.published')
-                : t('modeling.publish')}
-          </button>
+          <ShareButton
+            resourceType="model"
+            resourceID={model.id}
+            open={shareOpen}
+            onOpenChange={setShareOpen}
+            showTrigger={false}
+          />
         )}
-        {model && (
-          <button
-            className="btn btn-danger-outline"
-            type="button"
-            onClick={onRemoveModel}
-            title={t('modeling.delete_model_title')}
-          >
-            {t('common.delete')}
-          </button>
-        )}
-        {model && <ShareButton resourceType="model" resourceID={model.id} />}
       </div>
     </section>
   )
