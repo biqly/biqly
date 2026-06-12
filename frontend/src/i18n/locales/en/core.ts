@@ -406,6 +406,7 @@ export const core = {
     question_label: 'Your question',
     placeholder: 'Show total revenue by country, last quarter…',
     include_past_checkbox: 'Include my past queries as few‑shot examples',
+    context_toggle: 'Link conversation context',
     assistant_label: 'AI Assistant',
     enter_hint: 'Enter to send · Shift+Enter for a new line',
     details_show: 'Details',

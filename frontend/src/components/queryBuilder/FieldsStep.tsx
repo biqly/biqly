@@ -1,4 +1,4 @@
-import type { TFunction } from '../../i18n'
+import { useT } from '../../i18n'
 import type { SemanticDimension, SemanticMetric } from '../../types/semantic'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
@@ -16,7 +16,6 @@ interface FieldsStepProps {
   addSelectItem: () => void
   dimFieldOptions: (dims: SemanticDimension[]) => FieldSelectOption[]
   metricFieldOptions: (metrics: SemanticMetric[]) => ReturnType<typeof metricFieldOptions>
-  t: TFunction
 }
 
 export function FieldsStep({
@@ -28,8 +27,8 @@ export function FieldsStep({
   addSelectItem,
   dimFieldOptions,
   metricFieldOptions,
-  t,
 }: FieldsStepProps) {
+  const t = useT()
   return (
     <NotebookStep label="Dimensions" themeClass="fields">
       {selectItems.map((item, i) => (

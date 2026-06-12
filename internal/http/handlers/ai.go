@@ -141,9 +141,10 @@ type aiQueryRequest struct {
 // LogicalQuery is sent as raw JSON if available; an empty value is fine
 // (e.g. when the prior turn never produced a valid query).
 type priorTurnPayload struct {
-	Question     string          `json:"question"`
-	LogicalQuery json.RawMessage `json:"logical_query,omitempty"`
-	Note         string          `json:"note,omitempty"`
+	Question      string          `json:"question"`
+	LogicalQuery  json.RawMessage `json:"logical_query,omitempty"`
+	Note          string          `json:"note,omitempty"`
+	ResultSummary string          `json:"result_summary,omitempty"`
 }
 
 // maxPriorTurns caps how many turns we forward to the LLM. Older turns drop
@@ -163,9 +164,10 @@ func priorTurnsForPrompt(payload []priorTurnPayload) []prompt.ConversationTurn {
 	out := make([]prompt.ConversationTurn, 0, len(payload)-start)
 	for _, t := range payload[start:] {
 		out = append(out, prompt.ConversationTurn{
-			Question:     t.Question,
-			LogicalQuery: string(t.LogicalQuery),
-			Note:         t.Note,
+			Question:      t.Question,
+			LogicalQuery:  string(t.LogicalQuery),
+			Note:          t.Note,
+			ResultSummary: t.ResultSummary,
 		})
 	}
 	return out

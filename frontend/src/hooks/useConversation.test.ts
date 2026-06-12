@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Conversation, ConversationMessage } from '../types/ai'
-import { loadConversations, saveConversations, withAssistantMessageForJob } from './useConversation'
+import {
+  deleteConversationSnapshot,
+  loadConversations,
+  loadConversationSnapshot,
+  saveConversations,
+  saveConversationSnapshot,
+  withAssistantMessageForJob,
+} from './useConversation'
 
 function conversation(id: string, messages: ConversationMessage[] = []): Conversation {
   return {
@@ -27,7 +34,15 @@ function storage(initial?: string) {
 describe('conversation storage', () => {
   it('loads persisted conversations', () => {
     const expected = [conversation('conv-1')]
-    expect(loadConversations(storage(JSON.stringify(expected)))).toEqual(expected)
+    expect(loadConversations(storage(JSON.stringify(expected)))).toEqual([
+      { ...expected[0], context_enabled: true },
+    ])
+  })
+
+  it('defaults legacy conversations to context enabled', () => {
+    const [loaded] = loadConversations(storage(JSON.stringify([conversation('conv-1')])))
+
+    expect(loaded?.context_enabled).toBe(true)
   })
 
   it('returns an empty list when persisted data is invalid', () => {
@@ -52,6 +67,62 @@ describe('conversation storage', () => {
     expect(JSON.parse(calls[1] ?? '[]')).toHaveLength(20)
     expect(calls[1]).toContain('conv-24')
     expect(calls[1]).not.toContain('conv-0')
+  })
+})
+
+describe('conversation API sync', () => {
+  it('uses remote conversations when the API is available', async () => {
+    const remote = [conversation('remote-1')]
+    const api = async () => {
+      await Promise.resolve()
+      return remote
+    }
+
+    await expect(loadConversationSnapshot([conversation('local-1')], { api })).resolves.toEqual([
+      { ...remote[0], context_enabled: true },
+    ])
+  })
+
+  it('falls back to local conversations when the API fails', async () => {
+    const local = [conversation('local-1')]
+    const api = async (): Promise<Conversation[]> => {
+      await Promise.resolve()
+      throw new Error('offline')
+    }
+
+    await expect(loadConversationSnapshot(local, { api })).resolves.toBe(local)
+  })
+
+  it('sends the full conversation snapshot to the backend', async () => {
+    const conv = conversation('conv-1', [
+      {
+        role: 'assistant',
+        content: 'May 20 won',
+        timestamp: '2026-01-01T00:00:00Z',
+        result_summary: 'date=2026-05-20, tweet_count=2932',
+      },
+    ])
+    const calls: Conversation[] = []
+    const api = async (conversationToSave: Conversation) => {
+      await Promise.resolve()
+      calls.push(conversationToSave)
+    }
+
+    await saveConversationSnapshot(conv, { api })
+
+    expect(calls).toEqual([{ ...conv, context_enabled: true }])
+  })
+
+  it('deletes the remote conversation snapshot', async () => {
+    const calls: string[] = []
+    const api = async (id: string) => {
+      await Promise.resolve()
+      calls.push(id)
+    }
+
+    await deleteConversationSnapshot('conv-1', { api })
+
+    expect(calls).toEqual(['conv-1'])
   })
 })
 

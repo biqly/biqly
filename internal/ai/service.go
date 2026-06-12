@@ -178,7 +178,7 @@ func applyContextTier(base *processOptions, tier int) tieredProcessOptions {
 	return tieredProcessOptions{
 		fewShot:      promptpkg.TailSlice(base.fewShot, promptpkg.FewShotCap(tier)),
 		samples:      base.samples,
-		priorTurns:   promptpkg.TailSlice(base.priorTurns, promptpkg.PriorTurnsCap(tier)),
+		priorTurns:   promptpkg.TailPriorTurns(base.priorTurns, tier),
 		deniedFields: base.deniedFields,
 		glossary:     promptpkg.TailGlossary(base.glossary, promptpkg.GlossaryCap(tier)),
 	}

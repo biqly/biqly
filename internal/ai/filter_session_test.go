@@ -1,11 +1,12 @@
 package ai
 
 import (
-	"github.com/bytedance/sonic"
+	"strings"
 	"testing"
 
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/query"
+	"github.com/bytedance/sonic"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +19,11 @@ func TestFilterSessionFromPriorTurns(t *testing.T) {
 	raw, err := sonic.ConfigStd.Marshal(prevLQ)
 	require.NoError(t, err)
 	turns := []prompt.ConversationTurn{
-		{Question: "geçen ay satışlar", LogicalQuery: string(raw)},
+		{
+			Question:      "geçen ay satışlar",
+			LogicalQuery:  string(raw),
+			ResultSummary: "May 20, 2026: 2,932 tweets",
+		},
 	}
 	sess := FilterSessionFromPriorTurns(turns)
 	if sess == nil || len(sess.Filters) != 1 {
@@ -26,6 +31,9 @@ func TestFilterSessionFromPriorTurns(t *testing.T) {
 	}
 	if sess.Filters[0].Field != "order_date" {
 		t.Errorf("field = %q, want order_date", sess.Filters[0].Field)
+	}
+	if sess.LastResultSummary != "May 20, 2026: 2,932 tweets" {
+		t.Errorf("LastResultSummary = %q", sess.LastResultSummary)
 	}
 }
 
@@ -39,6 +47,8 @@ func TestClassifyFollowUpIntent(t *testing.T) {
 	}{
 		{"bölgeye göre grupla", IntentRefine},
 		{"şimdi kategoriye göre", IntentRefine},
+		{"peki o gün en çok hangi yazar tweet atmıştır", IntentRefine},
+		{"for the date in the previous result, which author tweeted most", IntentRefine},
 		{"bu ay satışlar", IntentReplaceFilters},
 		{"geçen hafta", IntentReplaceFilters},
 		{"yeni soru: tüm müşteriler", IntentNewQuery},
@@ -49,6 +59,26 @@ func TestClassifyFollowUpIntent(t *testing.T) {
 		if got != c.want {
 			t.Errorf("ClassifyFollowUpIntent(%q) = %v, want %v", c.q, got, c.want)
 		}
+	}
+}
+
+func TestActiveFilterInstructionsIncludesPreviousAnswerContext(t *testing.T) {
+	sess := &FilterSessionState{
+		Filters:           []query.Filter{{Field: "tweet_day", Operator: query.OpEq, Value: "2026-05-20"}},
+		LastQuestion:      "geçtiğimiz ay en çok hangi gün tweet atılmıştır?",
+		LastResultSummary: "May 20, 2026: 2,932 tweets",
+	}
+
+	got := ActiveFilterInstructions(sess, IntentRefine)
+
+	if !strings.Contains(got, "## Previous Answer Context") {
+		t.Fatalf("expected previous answer context block, got:\n%s", got)
+	}
+	if !strings.Contains(got, "May 20, 2026: 2,932 tweets") {
+		t.Errorf("expected result summary in instructions, got:\n%s", got)
+	}
+	if !strings.Contains(got, "o gün") || !strings.Contains(got, "that day") {
+		t.Errorf("expected reference-resolution guidance, got:\n%s", got)
 	}
 }
 

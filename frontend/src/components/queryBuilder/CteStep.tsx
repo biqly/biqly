@@ -1,4 +1,4 @@
-import type { TFunction } from '../../i18n'
+import { useT } from '../../i18n'
 import { NotebookStep } from './NotebookStep'
 import type { CTERow } from './types'
 
@@ -8,10 +8,10 @@ interface CteStepProps {
   removeCTE: (i: number) => void
   addCTE: () => void
   onClear: () => void
-  t: TFunction
 }
 
-export function CteStep({ ctes, updateCTE, removeCTE, addCTE, onClear, t }: CteStepProps) {
+export function CteStep({ ctes, updateCTE, removeCTE, addCTE, onClear }: CteStepProps) {
+  const t = useT()
   if (ctes.length === 0) {
     return null
   }

@@ -288,7 +288,6 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
             reloadInvitations()
           }
         }}
-        t={t}
       />
     </div>
   )

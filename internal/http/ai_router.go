@@ -94,6 +94,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	r.With(aiHistoryPagination).Get("/ai/history", aiHandler.AIHistory)
 	r.Get("/ai/history/detail", aiHandler.AIHistoryDetail)
 	r.With(queryHistoryPagination).Get("/ai/query/history", aiHandler.QueryHistory)
+	registerAIConversationRoutes(r, aiHandler, aiUserMW, dsAccess)
 	r.With(aiUserMW, dsAccess).Post("/ai/query", aiHandler.Query)
 	r.With(aiUserMW, dsAccess).Post("/ai/query/preview", aiHandler.Preview)
 	r.With(aiUserMW, dsAccess).Post("/ai/query/run", aiHandler.Run)
@@ -189,6 +190,17 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	timeGrainsHandler := handlers.NewAITimeGrainsHandler(deps)
 	r.Get("/ai/settings/time-grains", timeGrainsHandler.ListTimeGrains)
 	r.Put("/ai/settings/time-grains/{grain}", timeGrainsHandler.UpdateTimeGrain)
+}
+
+func registerAIConversationRoutes(
+	r chi.Router,
+	aiHandler *handlers.AIHandler,
+	aiUserMW func(http.Handler) http.Handler,
+	dsAccess func(http.Handler) http.Handler,
+) {
+	r.With(aiUserMW).Get("/ai/conversations", aiHandler.ListConversations)
+	r.With(aiUserMW, dsAccess).Post("/ai/conversations", aiHandler.CreateConversation)
+	r.With(aiUserMW).Delete("/ai/conversations/{id}", aiHandler.DeleteConversation)
 }
 
 // registerAIAdminConfigRoutes wires the admin-key-protected runtime knobs:

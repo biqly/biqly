@@ -103,8 +103,8 @@ export interface ChatPanelProps {
   jobError: string | null
   queryAction: 'preview' | 'execute' | null
   aiElapsedMs: number
-  includePastQueries: boolean
-  setIncludePastQueries: (v: boolean) => void
+  contextEnabled: boolean
+  onContextEnabledChange: (conversationId: string, enabled: boolean) => void
   onSendQuery: (q: string, execute: boolean, clarificationChoice?: string) => void
   onAbort: () => void
   get: <T>(url: string) => Promise<T | null>

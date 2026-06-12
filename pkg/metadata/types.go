@@ -199,6 +199,31 @@ type AIQueryHistoryEntry struct {
 	CreatedAt            time.Time `json:"created_at" db:"created_at"`
 }
 
+// AIConversation is a persisted chat thread used to resolve AI follow-up
+// questions across devices.
+type AIConversation struct {
+	ID             string                  `json:"id" db:"id"`
+	UserID         string                  `json:"user_id" db:"user_id"`
+	DatasourceID   string                  `json:"datasource_id" db:"datasource_id"`
+	ModelID        *string                 `json:"model_id,omitempty" db:"model_id"`
+	ContextEnabled bool                    `json:"context_enabled" db:"context_enabled"`
+	Title          *string                 `json:"title,omitempty" db:"title"`
+	Messages       []AIConversationMessage `json:"messages,omitempty"`
+	CreatedAt      time.Time               `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time               `json:"updated_at" db:"updated_at"`
+}
+
+// AIConversationMessage is one persisted user or assistant turn.
+type AIConversationMessage struct {
+	ID             string    `json:"id" db:"id"`
+	ConversationID string    `json:"conversation_id" db:"conversation_id"`
+	Role           string    `json:"role" db:"role"`
+	Content        string    `json:"content" db:"content"`
+	AIResponse     any       `json:"ai_response,omitempty" db:"ai_response"`
+	ResultSummary  *string   `json:"result_summary,omitempty" db:"result_summary"`
+	CreatedAt      time.Time `json:"created_at" db:"created_at"`
+}
+
 // PermissionPolicyRecord captures a stored access policy as it lives in the
 // metadata database. Internal-API consumers receive this shape when querying
 // per-user permissions.

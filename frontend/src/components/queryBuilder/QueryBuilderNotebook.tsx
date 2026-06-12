@@ -140,7 +140,6 @@ export function QueryBuilderNotebook({
           removeFilter={removeFilter}
           addFilter={addFilter}
           onClear={() => setFilters([])}
-          t={t}
         />
         <FieldsStep
           selectItems={selectItems}
@@ -151,7 +150,6 @@ export function QueryBuilderNotebook({
           addSelectItem={addSelectItem}
           dimFieldOptions={(dims) => dimFieldOptions(dims, fieldLabelMode)}
           metricFieldOptions={(mets) => metricFieldOptions(mets, fieldLabelMode)}
-          t={t}
         />
         <SummarizeStep
           selectItems={selectItems}
@@ -175,7 +173,6 @@ export function QueryBuilderNotebook({
           }
           fieldLabelMode={fieldLabelMode}
           setGroupBy={setGroupBy}
-          t={t}
         />
         <SortStep
           orderBy={orderBy}
@@ -184,7 +181,6 @@ export function QueryBuilderNotebook({
           setOrderBy={setOrderBy}
           setOrderDir={setOrderDir}
           onClear={() => setOrderBy('')}
-          t={t}
         />
         <NotebookStep
           label="Row limit"
@@ -209,7 +205,6 @@ export function QueryBuilderNotebook({
             removeHaving={removeHaving}
             addHaving={addHaving}
             onClear={() => setHaving([])}
-            t={t}
           />
         )}
         {mode === 'advanced' && (
@@ -219,7 +214,6 @@ export function QueryBuilderNotebook({
             removeWindowFunc={removeWindowFunc}
             addWindowFunc={addWindowFunc}
             onClear={clearWindowFunctions}
-            t={t}
           />
         )}
         {mode === 'advanced' && (
@@ -229,7 +223,6 @@ export function QueryBuilderNotebook({
             removeCTE={removeCTE}
             addCTE={addCTE}
             onClear={clearCtes}
-            t={t}
           />
         )}
       </div>

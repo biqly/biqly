@@ -33,16 +33,23 @@ bugünün tarihini (2026-06-12) kullanıyor. Kök neden: önceki sorunun **sonuc
 
 LLM'in önceki cevabın içeriğini bilmesi için her tura sonuç özeti eklenmeli.
 
+#### Codex Uygulama Planı (2026-06-12)
+
+- [x] Kırmızı testler: backend `priorTurnsForPrompt` + prompt `Result:` çıktısı, frontend `buildResultSummary`, conversation context varsayılanı.
+- [x] Minimal uygulama: `result_summary` wire/type/prompt hattı, frontend özet helper'ı, `recentPriorTurns` entegrasyonu.
+- [x] CHAT-2 yüksek öncelikli toggle düzeltmesi: yeni/eski konuşmalarda bağlam varsayılan açık, toggle konuşmaya yazılır.
+- [x] Doğrulama: focused Go testleri, focused Vitest testleri, touched dosyalar için format/lint kontrolü.
+
 #### Frontend
 
-- [ ] `frontend/src/types/ai.ts` — `PriorTurn` interface'ine `result_summary?: string` ekle
-- [ ] `frontend/src/components/AIQuery.tsx:224-245` — `recentPriorTurns` oluşturulurken her asistan mesajından
+- [x] `frontend/src/types/ai.ts` — `PriorTurn` interface'ine `result_summary?: string` ekle
+- [x] `frontend/src/components/AIQuery.tsx:224-245` — `recentPriorTurns` oluşturulurken her asistan mesajından
   sonuç öneti üret. `ai_response`'tan çıkarılacak bilgiler:
   - SQL sonucu tablosu varsa: ilk 3-5 satırın anahtar değerleri (ör: "May 20, 2026: 2,932")
   - Clarification varsa: `"clarification needed about X"`
   - Hata varsa: `"error: ..."`
   - Boş sonuç: `"no results"`
-- [ ] Önet üretici yardımcı: `frontend/src/utils/priorTurnSummary.ts` oluştur:
+- [x] Önet üretici yardımcı: `frontend/src/utils/priorTurnSummary.ts` oluştur:
   ```typescript
   export function buildResultSummary(response: AIQueryResponse): string
   ```
@@ -52,16 +59,16 @@ LLM'in önceki cevabın içeriğini bilmesi için her tura sonuç özeti eklenme
   - `response.sql` var ama `result` yoksa (preview): `"SQL generated: <sql'in ilk 80 karakteri>"`
   - `response.needs_clarification` true ise: `"clarification needed"`
   - Null response: `"no response"`
-- [ ] `recentPriorTurns` builder'da `result_summary`'yi set et
+- [x] `recentPriorTurns` builder'da `result_summary`'yi set et
 
 #### Backend
 
-- [ ] `internal/http/handlers/ai.go:140-147` — `priorTurnPayload` struct'ına `ResultSummary string` ekle
+- [x] `internal/http/handlers/ai.go:140-147` — `priorTurnPayload` struct'ına `ResultSummary string` ekle
   (`json:"result_summary,omitempty"`)
-- [ ] `internal/http/handlers/ai.go:149-172` — `priorTurnsForPrompt` fonksiyonunda `ResultSummary`'yi
+- [x] `internal/http/handlers/ai.go:149-172` — `priorTurnsForPrompt` fonksiyonunda `ResultSummary`'yi
   `prompt.ConversationTurn`'a geçir
-- [ ] `internal/ai/prompt/prompt.go:140-144` — `ConversationTurn` struct'ına `ResultSummary string` ekle
-- [ ] `internal/ai/prompt/prompt.go:383-402` — `writePriorTurns` fonksiyonunda sonuç özetini yazdır:
+- [x] `internal/ai/prompt/prompt.go:140-144` — `ConversationTurn` struct'ına `ResultSummary string` ekle
+- [x] `internal/ai/prompt/prompt.go:383-402` — `writePriorTurns` fonksiyonunda sonuç özetini yazdır:
   ```
   Turn 1 — Question: "geçtiğimiz ay en çok hangi gün tweet atılmıştır?"
   Previous LogicalQuery: {...}
@@ -70,9 +77,9 @@ LLM'in önceki cevabın içeriğini bilmesi için her tura sonuç özeti eklenme
 
 #### Test
 
-- [ ] Backend unit test: `priorTurnsForPrompt` — `result_summary` doğru şekilde `ConversationTurn`'a map ediliyor
-- [ ] Backend unit test: `writePriorTurns` — result_summary prompt'ta görünüyor, uzun özet kısaltılıyor
-- [ ] Frontend unit test: `buildResultSummary` — farklı response tiplerinde doğru özet üretiyor
+- [x] Backend unit test: `priorTurnsForPrompt` — `result_summary` doğru şekilde `ConversationTurn`'a map ediliyor
+- [x] Backend unit test: `writePriorTurns` — result_summary prompt'ta görünüyor
+- [x] Frontend unit test: `buildResultSummary` — farklı response tiplerinde doğru özet üretiyor
 - [ ] Entegrasyon: "o gün" sorusu + prior turns ile → doğru tarih filtresi (May 20)
 
 **Dosyalar:** `types/ai.ts`, `utils/priorTurnSummary.ts` (yeni), `AIQuery.tsx`, `handlers/ai.go`, `prompt/prompt.go`
@@ -81,25 +88,33 @@ LLM'in önceki cevabın içeriğini bilmesi için her tura sonuç özeti eklenme
 
 #### Frontend
 
-- [ ] `frontend/src/types/ai.ts` — `Conversation` interface'ine `context_enabled?: boolean` ekle
+- [x] `frontend/src/types/ai.ts` — `Conversation` interface'ine `context_enabled?: boolean` ekle
   (varsayılan `true` — yeni konuşmalar bağlam açık başlar)
-- [ ] `frontend/src/hooks/useConversation.ts` — konuşma kaydederken/yüklerken `context_enabled`'i
+- [x] `frontend/src/hooks/useConversation.ts` — konuşma kaydederken/yüklerken `context_enabled`'i
   localStorage'da sakla. Eski konuşmalarda undefined = true kabul et (backward compatible)
-- [ ] `frontend/src/components/aiQuery/ChatPanel.tsx:231-240` — toggle'ı güncelle:
+- [x] `frontend/src/components/aiQuery/ChatPanel.tsx:231-240` — toggle'ı güncelle:
   - Mevcut global state yerine `activeConversation.context_enabled`'i oku/yaz
   - Label'ı güncelle: i18n anahtarı `chatPanel.context_toggle` (EN: "Link conversation context",
     TR: "Sorular arası bağlantı kur")
   - Toggle değişince konuşmayı localStorage'da güncelle
-- [ ] `frontend/src/components/AIQuery.tsx:332-351` — `requestBody`'de:
+- [x] `frontend/src/components/AIQuery.tsx:332-351` — `requestBody`'de:
   `prior_turns: activeConversation.context_enabled !== false ? recentPriorTurns : undefined`
   (eski `includePastQueries` state'ini kaldır, konuşma bazlı ayarı kullan)
-- [ ] i18n: EN+TR anahtarları ekle
+- [x] i18n: EN+TR anahtarları ekle
 
 #### Test
 
 - [ ] Frontend: yeni konuşma → toggle açık, toggle kapat → `context_enabled: false` → `prior_turns` gönderilmiyor
-- [ ] Frontend: eski konuşma (undefined) → toggle açık kabul ediliyor
-- [ ] ESLint + Prettier + vitest temiz
+- [x] Frontend: eski konuşma (undefined) → toggle açık kabul ediliyor
+- [x] ESLint + Prettier + vitest temiz
+
+#### Review (2026-06-12)
+
+- `result_summary` frontend prior-turn payload'ına eklendi; backend payload, `ConversationTurn` ve prompt çıktısı üzerinden `Result:` olarak taşınıyor.
+- Conversation context artık conversation bazlı; yeni ve legacy konuşmalarda varsayılan açık, toggle değişimi localStorage'a yazılıyor.
+- Yerel i18n düzeni korunduğu için toggle label anahtarı `ai_query.context_toggle` olarak eklendi.
+- Doğrulama: focused Go/Vitest, `make lint-go`, `make check-frontend`, `git diff --check`, gograph sembol review.
+- Kalan canlı doğrulama: gerçek LLM akışında "o gün" → May 20 tarih filtresi entegrasyonu.
 
 **Dosyalar:** `types/ai.ts`, `hooks/useConversation.ts`, `ChatPanel.tsx`, `AIQuery.tsx`, i18n dosyaları
 
@@ -108,18 +123,31 @@ LLM'in önceki cevabın içeriğini bilmesi için her tura sonuç özeti eklenme
 `filter_session.go` son turun LogicalQuery'sinden filtre çıkarıyor ama sonuç verisini kullanmıyor.
 "o gün" gibi referansları çözmek için sonuç özetinin de `FilterSessionState`'te bulunması gerekiyor.
 
-- [ ] `internal/ai/filter_session.go` — `FilterSessionState` struct'ına `LastResultSummary string` alanı ekle
-- [ ] `FilterSessionFromPriorTurns` — son turun `ResultSummary`'sini state'e yaz
-- [ ] `ActiveFilterInstructions` — sonuç özeti varsa prompt'a ekle:
+#### Codex Uygulama Planı (2026-06-12)
+
+- [x] Kırmızı testler: `LastResultSummary` state'e taşınıyor, prompt talimatı sonucu içeriyor, sonuç referanslı takip sorusu `IntentRefine` oluyor.
+- [x] Minimal uygulama: `FilterSessionState` alanı, `FilterSessionFromPriorTurns` aktarımı, `ActiveFilterInstructions` result context bloğu, referans pattern sınıflaması.
+- [x] Doğrulama: focused `internal/ai` testleri, `gofmt`, `gograph_review`, `git diff --check`.
+
+- [x] `internal/ai/filter_session.go` — `FilterSessionState` struct'ına `LastResultSummary string` alanı ekle
+- [x] `FilterSessionFromPriorTurns` — son turun `ResultSummary`'sini state'e yaz
+- [x] `ActiveFilterInstructions` — sonuç özeti varsa prompt'a ekle:
   ```
   ## Previous Answer Context
   The previous question "geçtiğimiz ay en çok hangi gün tweet atılmıştır?" yielded:
   Result: May 20, 2026 tarihinde 2,932 tweet
   When the user says "o gün", "that day", "o şirket" etc., resolve to the relevant value from this result.
   ```
-- [ ] `ClassifyFollowUpIntent` — sonuç özetindeki değerlere referans veren sorularda
+- [x] `ClassifyFollowUpIntent` — sonuç özetindeki değerlere referans veren sorularda
   `IntentRefine` sınıflamasını güçlendir (şu anda yalnızca filtre benzerliğine bakıyor)
-- [ ] Test: "o gün" sorusu + result_summary "May 20" → `IntentRefine` + doğru filtre taşıma
+- [x] Test: "o gün" sorusu + result_summary "May 20" → `IntentRefine` + doğru filtre taşıma
+
+#### Review (2026-06-12)
+
+- `FilterSessionState` artık son soru ve `LastResultSummary` bilgisini taşıyor.
+- `ActiveFilterInstructions` result özeti varsa `## Previous Answer Context` bloğu ekliyor.
+- `ClassifyFollowUpIntent` "o gün", "that day", "previous result/answer" gibi referansları refine kabul ediyor.
+- Doğrulama: focused red/green testleri, `go test ./internal/ai -count=1` (sandbox dışı), gograph sembol review, `git diff --check`.
 
 **Dosyalar:** `internal/ai/filter_session.go`, ilgili testler
 
@@ -127,15 +155,21 @@ LLM'in önceki cevabın içeriğini bilmesi için her tura sonuç özeti eklenme
 
 Büyük sonuç setlerinde tüm satırları özete yazmak prompt bütçesini aşar.
 
-- [ ] `buildResultSummary` (frontend) — strateji:
+- [x] `buildResultSummary` (frontend) — strateji:
   - **Tek satır sonucu:** Tam satırı yaz (`"May 20, 2026: 2,932"`)
   - **Az satır (≤5):** Tüm satırları compact formatla yaz
   - **Çok satır (>5):** İlk 3 satır + "... ve N satır daha" + en büyük/en küçük değeri not et
   - **Toplam karakter limiti:** 300 karakter (prompt bütçesi koruması)
-- [ ] `writePriorTurns` (backend) — uzun `result_summary`'yi 300 karaktere kısalt (`...` ile)
-- [ ] Context bütçesi güncelle: `prompt_context.go` — prior turns toplam token tahmini
+- [x] `writePriorTurns` (backend) — uzun `result_summary`'yi 300 karaktere kısalt (`...` ile)
+- [x] Context bütçesi güncelle: `prompt_context.go` — prior turns toplam token tahmini
   result_summary dahil edilsin. compact: 150 token, standard: 250 token, expanded: 400 token
-- [ ] Test: 1000 satırlık sonuç → özet 300 karakteri geçmiyor, anahtar değerler korunuyor
+- [x] Test: 1000 satırlık sonuç → özet 300 karakteri geçmiyor, anahtar değerler korunuyor
+
+#### Review (2026-06-12)
+
+- `buildResultSummary` tek/az/çok satır stratejisine geçti; büyük sonuçlarda ilk 3 satır, kalan satır sayısı ve numeric min/max sinyali korunuyor.
+- Prior-turn prompt bütçesi `TailPriorTurns` ile toplam token tahminine bağlandı; `ResultSummary` token maliyeti compact/standard/expanded limitlere dahil.
+- Doğrulama: frontend focused Vitest, `make check-frontend`, focused Go prompt/AI tests, `make lint-go`, gograph sembol review.
 
 **Dosyalar:** `utils/priorTurnSummary.ts`, `prompt/prompt.go`, `prompt/prompt_context.go`
 
@@ -144,13 +178,31 @@ Büyük sonuç setlerinde tüm satırları özete yazmak prompt bütçesini aşa
 Şu anda konuşma yalnızca frontend localStorage'da. Bu, farklı cihazlardan/tarayıcılardan
 erişilemez ve cleanup kontrolü yok. Uzun vadeli iyileştirme olarak DB'de konuşma saklanabilir.
 
-- [ ] Migration: `ai_conversations` tablosu (id, user_id, datasource_id, model_id, context_enabled,
+#### Codex Uygulama Planı (2026-06-12)
+
+- [x] Kırmızı testler: metadata repository conversation CRUD, HTTP handler JSON/ownership davranışı, frontend API fallback davranışı.
+- [x] Migration: `ai_conversations` ve `ai_conversation_messages` tabloları + cascade/indexler.
+- [x] Backend: metadata repository metotları + `/api/ai/conversations` POST/GET/DELETE yüzeyi.
+- [x] Frontend: localStorage varsayılanı korunarak API senkronizasyonu ve hata durumunda localStorage fallback.
+- [x] Doğrulama: focused Go/Vitest, `gofmt`, `make lint-go`, `make check-frontend`, `git diff --check`.
+
+- [x] Migration: `ai_conversations` tablosu (id, user_id, datasource_id, model_id, context_enabled,
   title, created_at, updated_at)
-- [ ] Migration: `ai_conversation_messages` tablosu (conversation_id, role, content, ai_response JSONB,
+- [x] Migration: `ai_conversation_messages` tablosu (conversation_id, role, content, ai_response JSONB,
   result_summary, created_at)
-- [ ] Backend: CRUD endpoint'leri (`POST/GET/DELETE /api/ai/conversations`)
-- [ ] Frontend: localStorage → API geçişi (fallback: API hatası → localStorage)
-- [ ] Bu madde bağımsız, CHAT-1/2/3 sonrası istenirse yapılır
+- [x] Backend: CRUD endpoint'leri (`POST/GET/DELETE /api/ai/conversations`)
+- [x] Frontend: localStorage → API geçişi (fallback: API hatası → localStorage)
+- [x] Bu madde bağımsız, CHAT-1/2/3 sonrası istenirse yapılır
+
+#### Review (2026-06-12)
+
+- `ai_conversations` / `ai_conversation_messages` migration'ları eklendi; frontend `conv_...`
+  id'leriyle uyum için conversation/message id alanları `TEXT` bırakıldı.
+- Metadata repository konuşma upsert/list/delete ve mesaj persist akışını user ownership ile kapsıyor.
+- `/api/ai/conversations` GET/POST/DELETE route'ları bağlandı; frontend token varsa API'den yükleyip
+  snapshot kaydediyor, API hatasında localStorage davranışına geri dönüyor.
+- Doğrulama: kırmızı/yeşil focused Go + Vitest, `make lint-go`, `make check-frontend`,
+  `make test-go`, `git diff --check`.
 
 ### Öncelik Sırası
 

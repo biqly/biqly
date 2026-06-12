@@ -75,8 +75,10 @@ export function ModelBadgeRow(props: ModelBadgeRowProps) {
     whiteSpace: 'nowrap',
   }
 
+  // Root element is a <span> (flex via inline style) so the badge row stays
+  // valid HTML when rendered inside Modal's <p class="modal-subtitle">.
   return (
-    <div
+    <span
       className={'model-badge-row' + (props.className ? ' ' + props.className : '')}
       style={containerStyle}
       aria-label={t('common.model_badge_models_aria')}
@@ -90,6 +92,6 @@ export function ModelBadgeRow(props: ModelBadgeRowProps) {
           {b.note ? <span style={{ opacity: 0.7 }}>· {b.note}</span> : null}
         </span>
       ))}
-    </div>
+    </span>
   )
 }

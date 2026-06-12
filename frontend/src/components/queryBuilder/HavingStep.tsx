@@ -1,4 +1,4 @@
-import type { TFunction } from '../../i18n'
+import { useT } from '../../i18n'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import type { HavingRow } from './types'
@@ -10,7 +10,6 @@ interface HavingStepProps {
   removeHaving: (i: number) => void
   addHaving: () => void
   onClear: () => void
-  t: TFunction
 }
 
 export function HavingStep({
@@ -20,8 +19,8 @@ export function HavingStep({
   removeHaving,
   addHaving,
   onClear,
-  t,
 }: HavingStepProps) {
+  const t = useT()
   if (having.length === 0) {
     return null
   }
