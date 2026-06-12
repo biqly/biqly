@@ -4,31 +4,31 @@ helm:
     value: ghcr.io/biqly/ai
     forcestring: true
   - name: ai.image.tag
-    value: sha-53d2fa92dbc875ee7f782b6bc50f0ec5991afecb
+    value: sha-2a519b7a01790a879fce631cef9fabc5fd169e13
     forcestring: true
   - name: auth.image.repository
     value: ghcr.io/biqly/auth
     forcestring: true
   - name: auth.image.tag
-    value: sha-53d2fa92dbc875ee7f782b6bc50f0ec5991afecb
+    value: sha-2a519b7a01790a879fce631cef9fabc5fd169e13
     forcestring: true
   - name: auth.migrate.image.repository
     value: ghcr.io/biqly/auth
     forcestring: true
   - name: auth.migrate.image.tag
-    value: sha-53d2fa92dbc875ee7f782b6bc50f0ec5991afecb
+    value: sha-2a519b7a01790a879fce631cef9fabc5fd169e13
     forcestring: true
   - name: catalog.image.repository
     value: ghcr.io/biqly/catalog
     forcestring: true
   - name: catalog.image.tag
-    value: sha-53d2fa92dbc875ee7f782b6bc50f0ec5991afecb
+    value: sha-2a519b7a01790a879fce631cef9fabc5fd169e13
     forcestring: true
   - name: frontend.image.repository
     value: ghcr.io/biqly/frontend
     forcestring: true
   - name: frontend.image.tag
-    value: sha-53d2fa92dbc875ee7f782b6bc50f0ec5991afecb
+    value: sha-2a519b7a01790a879fce631cef9fabc5fd169e13
     forcestring: true
   - name: global.migrate.image.repository
     value: ghcr.io/biqly/migrate
@@ -40,23 +40,23 @@ helm:
     value: ghcr.io/biqly/mail
     forcestring: true
   - name: mail.image.tag
-    value: sha-53d2fa92dbc875ee7f782b6bc50f0ec5991afecb
+    value: sha-2a519b7a01790a879fce631cef9fabc5fd169e13
     forcestring: true
   - name: mail.migrate.image.repository
     value: ghcr.io/biqly/mail
     forcestring: true
   - name: mail.migrate.image.tag
-    value: sha-53d2fa92dbc875ee7f782b6bc50f0ec5991afecb
+    value: sha-2a519b7a01790a879fce631cef9fabc5fd169e13
     forcestring: true
   - name: query.image.repository
     value: ghcr.io/biqly/query
     forcestring: true
   - name: query.image.tag
-    value: sha-53d2fa92dbc875ee7f782b6bc50f0ec5991afecb
+    value: sha-2a519b7a01790a879fce631cef9fabc5fd169e13
     forcestring: true
   - name: worker.image.repository
     value: ghcr.io/biqly/worker
     forcestring: true
   - name: worker.image.tag
-    value: sha-53d2fa92dbc875ee7f782b6bc50f0ec5991afecb
+    value: sha-2a519b7a01790a879fce631cef9fabc5fd169e13
     forcestring: true
