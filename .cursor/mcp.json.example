@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "pgedge-biqly": {
+      "command": "/home/peace/.local/bin/biqly-pgedge-mcp"
+    }
+  }
+}
