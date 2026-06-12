@@ -10,6 +10,8 @@ import { useConfirm } from '../../hooks/useConfirm'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import type { ColumnDef } from '../ui/DataTable'
+import { DataTable } from '../ui/DataTable'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
@@ -100,6 +102,73 @@ export function ConfirmedQueriesPanel() {
     [datasources, loadingDS],
   )
 
+  const queryColumns: ColumnDef<ConfirmedQuery>[] = [
+    {
+      key: 'question',
+      header: t('admin.confirmed_queries.col_question'),
+      cell: (row) => row.nl_query,
+    },
+    {
+      key: 'query',
+      header: t('admin.confirmed_queries.col_query'),
+      className: 'admin-td-mono',
+      cell: (row) => (
+        <code
+          style={{
+            display: 'inline-block',
+            maxWidth: 320,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            verticalAlign: 'bottom',
+          }}
+          title={row.sql_query}
+        >
+          {row.sql_query}
+        </code>
+      ),
+    },
+    {
+      key: 'confirmed_at',
+      header: t('admin.confirmed_queries.col_confirmed_at'),
+      className: 'admin-td-mono',
+      cell: (row) => new Date(row.confirmed_at).toLocaleString(),
+    },
+    {
+      key: 'status',
+      header: t('admin.confirmed_queries.col_status'),
+      cell: (row) => (
+        <span
+          className={row.is_active ? 'admin-badge-active' : 'admin-badge-inactive'}
+          aria-label={
+            row.is_active
+              ? t('admin.confirmed_queries.status_active_aria')
+              : t('admin.confirmed_queries.status_inactive_aria')
+          }
+        >
+          {row.is_active
+            ? t('admin.confirmed_queries.status_active')
+            : t('admin.confirmed_queries.status_inactive')}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: t('admin.confirmed_queries.col_actions'),
+      cell: (row) =>
+        row.is_active && (
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            disabled={deactivatingId === row.id}
+            onClick={() => void handleDeactivate(row.id)}
+          >
+            {t('admin.confirmed_queries.deactivate')}
+          </button>
+        ),
+    },
+  ]
+
   return (
     <div className="page-stack">
       <div>
@@ -125,66 +194,13 @@ export function ConfirmedQueriesPanel() {
         <p className="admin-text-muted">{t('admin.confirmed_queries.empty')}</p>
       ) : (
         <div className="admin-table-container">
-          <table className="admin-table" style={{ fontSize: 13, minWidth: 760 }}>
-            <thead>
-              <tr className="admin-thead-row">
-                <th className="admin-th">{t('admin.confirmed_queries.col_question')}</th>
-                <th className="admin-th">{t('admin.confirmed_queries.col_query')}</th>
-                <th className="admin-th">{t('admin.confirmed_queries.col_confirmed_at')}</th>
-                <th className="admin-th">{t('admin.confirmed_queries.col_status')}</th>
-                <th className="admin-th">{t('admin.confirmed_queries.col_actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayedRows.map((row) => (
-                <tr key={row.id}>
-                  <td className="admin-td">{row.nl_query}</td>
-                  <td className="admin-td-mono">
-                    <code
-                      style={{
-                        display: 'inline-block',
-                        maxWidth: 320,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        verticalAlign: 'bottom',
-                      }}
-                      title={row.sql_query}
-                    >
-                      {row.sql_query}
-                    </code>
-                  </td>
-                  <td className="admin-td-mono">{new Date(row.confirmed_at).toLocaleString()}</td>
-                  <td className="admin-td">
-                    <span
-                      className={row.is_active ? 'admin-badge-active' : 'admin-badge-inactive'}
-                      aria-label={
-                        row.is_active
-                          ? t('admin.confirmed_queries.status_active_aria')
-                          : t('admin.confirmed_queries.status_inactive_aria')
-                      }
-                    >
-                      {row.is_active
-                        ? t('admin.confirmed_queries.status_active')
-                        : t('admin.confirmed_queries.status_inactive')}
-                    </span>
-                  </td>
-                  <td className="admin-td">
-                    {row.is_active && (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-ghost"
-                        disabled={deactivatingId === row.id}
-                        onClick={() => void handleDeactivate(row.id)}
-                      >
-                        {t('admin.confirmed_queries.deactivate')}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            columns={queryColumns}
+            rows={displayedRows}
+            rowKey={(row) => row.id}
+            rowClassName=""
+            tableStyle={{ fontSize: 13, minWidth: 760 }}
+          />
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}

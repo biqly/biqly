@@ -242,7 +242,7 @@ func TestBrowseTableRowsDoesNotLeakDriverError(t *testing.T) {
 		t.Fatalf("BrowseTableRows failing driver status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "failed to fetch table rows") {
+	if !strings.Contains(body, "internal server error") {
 		t.Fatalf("BrowseTableRows failing driver body = %q, want public message", body)
 	}
 	if strings.Contains(body, "customer-db-secret") || strings.Contains(body, "payroll.salaries") {
@@ -294,7 +294,7 @@ func TestBrowseTableRowsCountDoesNotLeakDriverError(t *testing.T) {
 		t.Fatalf("BrowseTableRows count failing driver status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "failed to count table rows") {
+	if !strings.Contains(body, "internal server error") {
 		t.Fatalf("BrowseTableRows count failing driver body = %q, want public message", body)
 	}
 	if strings.Contains(body, "customer-db-secret") || strings.Contains(body, "payroll.salaries") {

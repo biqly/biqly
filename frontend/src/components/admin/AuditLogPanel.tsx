@@ -9,6 +9,8 @@ import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AuditLogEntry } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { DataState } from '../ui/DataState'
+import type { ColumnDef } from '../ui/DataTable'
+import { DataTable } from '../ui/DataTable'
 import { EmptyState } from '../ui/EmptyState'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
@@ -111,6 +113,47 @@ export function AuditLogPanel({ token }: { token: string }) {
   )
   const pageSizeOptions = useMemo(() => numberSelectOptions(AUDIT_PAGE_SIZE_OPTIONS), [])
 
+  const auditColumns: ColumnDef<AuditLogEntry>[] = [
+    {
+      key: 'time',
+      header: t('admin.audit.time'),
+      className: 'admin-td-mono',
+      cell: (entry) => formatDate(entry.created_at, localeLanguageTag(locale)),
+    },
+    {
+      key: 'action',
+      header: t('admin.audit.action'),
+      cell: (entry) => <span className="admin-badge-action">{entry.action}</span>,
+    },
+    {
+      key: 'user',
+      header: t('admin.fields.user'),
+      className: 'admin-td-mono',
+      cell: (entry) =>
+        entry.user_id
+          ? (userMap.get(entry.user_id) ?? entry.user_id)
+          : t('admin.audit.system_user'),
+    },
+    {
+      key: 'resource',
+      header: t('admin.audit.resource'),
+      className: 'admin-td-mono',
+      cell: (entry) => formatResource(entry, dsMap, wsMap),
+    },
+    {
+      key: 'ip',
+      header: 'IP',
+      className: 'admin-td-mono',
+      cell: (entry) => entry.ip_address ?? '-',
+    },
+    {
+      key: 'metadata',
+      header: 'Metadata',
+      className: 'admin-td-metadata',
+      cell: (entry) => formatMetadata(entry.metadata),
+    },
+  ]
+
   function onSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (currentPage !== 1) {
@@ -185,38 +228,13 @@ export function AuditLogPanel({ token }: { token: string }) {
           emptyState={<EmptyState description={t('admin.audit.empty')} />}
           className="data-state__body--scroll-x"
         >
-          <table className="admin-table" style={{ fontSize: 13, minWidth: 980 }}>
-            <thead>
-              <tr className="admin-thead-row">
-                <th className="admin-th">{t('admin.audit.time')}</th>
-                <th className="admin-th">{t('admin.audit.action')}</th>
-                <th className="admin-th">{t('admin.fields.user')}</th>
-                <th className="admin-th">{t('admin.audit.resource')}</th>
-                <th className="admin-th">IP</th>
-                <th className="admin-th">Metadata</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayedEntries.map((entry) => (
-                <tr key={entry.id} className="admin-tr">
-                  <td className="admin-td-mono">
-                    {formatDate(entry.created_at, localeLanguageTag(locale))}
-                  </td>
-                  <td className="admin-td">
-                    <span className="admin-badge-action">{entry.action}</span>
-                  </td>
-                  <td className="admin-td-mono">
-                    {entry.user_id
-                      ? (userMap.get(entry.user_id) ?? entry.user_id)
-                      : t('admin.audit.system_user')}
-                  </td>
-                  <td className="admin-td-mono">{formatResource(entry, dsMap, wsMap)}</td>
-                  <td className="admin-td-mono">{entry.ip_address ?? '-'}</td>
-                  <td className="admin-td-metadata">{formatMetadata(entry.metadata)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            columns={auditColumns}
+            rows={displayedEntries}
+            rowKey={(entry) => entry.id}
+            loading={loading}
+            tableStyle={{ fontSize: 13, minWidth: 980 }}
+          />
         </DataState>
 
         {entries.length > 0 && (

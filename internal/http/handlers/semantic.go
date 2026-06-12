@@ -7,11 +7,11 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -230,7 +230,7 @@ func (h *SemanticHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allowedSet, scoped, err := resolveAccessibleDatasources(ctx, h.deps.Config)
+	allowedSet, scoped, err := resolveDatasourceScope(ctx, h.deps.Config, false)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to scope models", err)
 		return
@@ -293,18 +293,13 @@ func (h *SemanticHandler) ListModelFields(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	q := r.URL.Query()
 	page := 1
-	if v := q.Get("page"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			page = n
-		}
+	if n, ok := bimw.ParsePositiveIntQueryParam(r, "page"); ok {
+		page = n
 	}
 	pageSize := 15
-	if v := q.Get("page_size"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			pageSize = n
-		}
+	if n, ok := bimw.ParsePositiveIntQueryParam(r, "page_size"); ok {
+		pageSize = n
 	}
 	if pageSize > 100 {
 		pageSize = 100

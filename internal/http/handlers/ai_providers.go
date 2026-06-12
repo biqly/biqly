@@ -217,7 +217,7 @@ func (h *AIProvidersHandler) UpdateProvider(w http.ResponseWriter, r *http.Reque
 	h.refresh(r)
 	row, err := h.store.GetProvider(r.Context(), id)
 	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		writeOK(w)
 		return
 	}
 	writeJSON(w, http.StatusOK, row)
@@ -396,7 +396,7 @@ func (h *AIProvidersHandler) UpdateModel(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	h.refresh(r)
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeOK(w)
 }
 
 // DeleteModel removes a model.
@@ -423,5 +423,5 @@ func (h *AIProvidersHandler) SetDefaultModel(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	h.refresh(r)
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeOK(w)
 }

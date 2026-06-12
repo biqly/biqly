@@ -291,14 +291,15 @@ Bilinen minör fark (kabul edildi, davranışsal iyileştirme): eski ekranlardak
 Kabul doğrulaması: `make check-frontend` zinciri yeşil (29 dosya / 133 test). Grup A'da inline error-banner ve minHeight hack'i kalmadı.
 **Bilinçli görsel normalizasyon (kabul edildi):** (1) hata mesajları ekran-başına farklı kırmızı stillerden (`admin-err-text` düz metin, `shared-list__error`, `ai-history__error`, inline style) standart `ErrorAlert` banner'ına geçti ve artık tablo container'ının içinde, tablonun hemen üstünde görünüyor; (2) tam-tablo boş durumları (`AuditLog`, `SharedResources`, `AIHistory` padded metinleri) standart `EmptyState`'e geçti; (3) `QueryHistory` ilk yüklemede başlık-satırlı boş tablo yerine diğer ekranlarla aynı boş overlay kutusunu gösteriyor. Davranış (ne zaman ne görünür) aynı; yalnızca stil birleşti.
 
-### Faz 3 — `DataTable` bileşeni
+### Faz 3 — `DataTable` bileşeni ✅ TAMAMLANDI (2026-06-12)
 
-- [ ] **3.1** `frontend/src/components/ui/DataTable.tsx` + `ColumnDef<T>` (§3.1) + `frontend/src/styles/data-table.css` (mevcut `admin.css`'teki `admin-table-container` kurallarından türetilir; **yeni görünüm tasarlanmaz**, mevcut admin tablo görünümü sınıf-bazlı korunur).
-- [ ] **3.2** **Pilot:** `admin/userList/InvitationsTab.tsx` (küçük, az kolonlu) → `DataTable`. `Pagination` + `DataState` + `DataTable` üçlüsü ilk kez bir arada.
-- [ ] **3.3** Sıra: `DatasourceAccessPanel` → `WorkspacesPanel` → `AuditLogPanel` → `ActiveUsersTab` → `ConfirmedQueriesPanel` → `FieldPermissionPanel` → `AIUsageAdminPanel` → `AIHistoryPanel` → `QueryHistory` → `SharedResourcesList`. Her biri ayrı PR; kolon render'ları `ColumnDef.cell`'e taşınırken mevcut JSX birebir korunur.
-- [ ] **3.4** Grup B tabloları: yalnızca **yeni özellik dokunuşu gerektiğinde** `DataTable`'a geçirilir (fırsatçı migrasyon) — zorunlu sprint işi değil.
+- [x] **3.1** `frontend/src/components/ui/DataTable.tsx` + `ColumnDef<T>` (`key`, `header`, `cell`, `className?`, `align?`). **Yeni CSS dosyası gerekmedi:** bileşen default olarak mevcut `admin-table`/`admin-thead-row`/`admin-th`/`admin-tr`/`admin-td` sınıflarını üretir (markup-nötr migrasyon); başka tablo aileleri için `tableClassName`/`headRowClassName`/`headerCellClassName`/`rowClassName`/`cellClassName`/`tableStyle` override'ları var. tbody-içi boş-satır placeholder'ı (başlıklar boşken görünür, yüklenirken boş string) `emptyCell` prop'uyla bileşene taşındı.
+- [x] **3.2** Pilot: `admin/userList/InvitationsTab.tsx` ✓ — `DataState` + `DataTable` + `Pagination` üçlüsü ilk kez bir arada. Tab'a `inviteTotalPages` prop'u eklendi (içerideki çıplak `Math.ceil(inviteTotalItems / pageSize)` silindi; değer `UserListPage`'deki hook'tan geliyor). **Normalizasyon:** hata artık tabloyu *değiştirmiyor*; standart kalıpla banner + stale içerik gösteriliyor ve Pagination hatada gizlenmiyor.
+- [x] **3.3** Geçirilenler (6 tüketici): `InvitationsTab`, `ActiveUsersTab`, `DatasourceAccessPanel`, `AuditLogPanel`, `ConfirmedQueriesPanel` (`rowClassName=""` ile satır sınıfsız hali korundu), `SharedResourcesList` (`shared-list__*` sınıf override'ları). Kolon hücre JSX'leri `ColumnDef.cell`'e birebir taşındı.
+  - **Kapsam dışı bırakılanlar (gerekçeli):** `WorkspacesPanel` — tablo değil `<ul>` listesi, DataTable zorlanmadı; `QueryHistory` ve `AIHistoryPanel` — genişleyebilir detay satırları (`Fragment` + colSpan detail row) DataTable v1'in desteklemediği bir yapı, sorting/selection ile birlikte v2'de değerlendirilecek; `AIUsageAdminPanel` — th/td tamamen inline-style'lı kendine özgü görünüm; `FieldPermissionPanel` — Faz 1 istisnası (checkbox-grid).
+- [ ] **3.4** Grup B tabloları: yalnızca **yeni özellik dokunuşu gerektiğinde** `DataTable`'a geçirilir (fırsatçı migrasyon) — zorunlu sprint işi değil. (Devam eden kural.)
 
-Kabul: pilotta DOM yapısı (table/thead/tbody sınıfları) ve görünüm değişmez; her PR'da ekran satır sayısı düşer.
+Kabul doğrulaması: DOM yapısı ve sınıflar birebir (admin-* default'ları); `make check-frontend` zinciri yeşil (29 dosya / 133 test). Başarı kriteri 4 (≥5 admin tablosu `DataTable`) karşılandı: 6 tüketici.
 
 ### Faz 4 — Sorting & filtering ortak pattern'leri
 

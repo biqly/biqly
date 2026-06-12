@@ -1,12 +1,8 @@
 package handlers
 
 import (
-	"context"
-	"log/slog"
 	"slices"
 
-	"github.com/biqly/biqly/internal/config"
-	bimw "github.com/biqly/biqly/internal/http/middleware"
 	pkgmetadata "github.com/biqly/biqly/pkg/metadata"
 	pkgquery "github.com/biqly/biqly/pkg/query"
 )
@@ -45,49 +41,6 @@ func FilterAIHistoryForUser(rows []pkgmetadata.AIQueryHistoryEntry, userID strin
 		}
 	}
 	return result
-}
-
-// resolveWorkspaceDatasourceFilter returns the set of datasource IDs the
-// caller may see for the active workspace, or nil when no workspace filter
-// should be applied (auth disabled, no JWT context, super_admin, or no active
-// workspace). An error returned from the auth service is logged and treated
-// as fail-closed: an empty map is returned so the listing is hidden rather
-// than leaking unfiltered rows.
-func resolveWorkspaceDatasourceFilter(ctx context.Context, cfg *config.Config) (map[string]struct{}, bool) {
-	if !cfg.Auth.Enabled {
-		return nil, false
-	}
-	userID := bimw.UserID(ctx)
-	if userID == "" || bimw.HasRole(ctx, bimw.RoleSuperAdmin) {
-		return nil, false
-	}
-	wsID := bimw.WorkspaceID(ctx)
-	if wsID == "" {
-		return nil, false
-	}
-
-	client := bimw.SharedAuthClient(cfg.Auth.ServiceURL, cfg.Auth.InternalToken)
-	allowed, err := client.ListUserDatasources(ctx, userID)
-	if err != nil {
-		slog.ErrorContext(ctx, "history: failed to list user datasources", "user_id", userID, "err", err)
-		return map[string]struct{}{}, true
-	}
-	wsIDs, err := client.ListWorkspaceDatasources(ctx, wsID)
-	if err != nil {
-		slog.ErrorContext(ctx, "history: failed to list workspace datasources", "workspace_id", wsID, "err", err)
-		return map[string]struct{}{}, true
-	}
-	wsSet := make(map[string]struct{}, len(wsIDs))
-	for _, id := range wsIDs {
-		wsSet[id] = struct{}{}
-	}
-	result := make(map[string]struct{}, len(allowed))
-	for _, id := range allowed {
-		if _, ok := wsSet[id]; ok {
-			result[id] = struct{}{}
-		}
-	}
-	return result, true
 }
 
 // FilterAIHistoryByDatasources drops rows whose datasource is not in the

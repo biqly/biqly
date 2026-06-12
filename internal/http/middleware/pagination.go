@@ -81,6 +81,12 @@ func paginationFromQuery(r *http.Request, config PaginationConfig) PageParams {
 	}
 }
 
+// ParsePositiveIntQueryParam extracts a query parameter from the request and parses it as a positive integer.
+// Returns (value, true) if it exists, is a valid integer, and is > 0; otherwise returns (0, false).
+func ParsePositiveIntQueryParam(r *http.Request, key string) (int, bool) {
+	return parsePositiveQueryInt(r.URL.Query().Get(key))
+}
+
 func parsePositiveQueryInt(value string) (int, bool) {
 	if value == "" {
 		return 0, false

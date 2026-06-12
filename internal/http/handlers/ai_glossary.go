@@ -46,9 +46,8 @@ func NewAIGlossaryHandler(deps *app.AIDeps) *AIGlossaryHandler {
 // ListGlossary returns glossary terms for a datasource.
 func (h *AIGlossaryHandler) ListGlossary(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	datasourceID := r.URL.Query().Get("datasource_id")
-	if datasourceID == "" {
-		writeError(w, http.StatusBadRequest, "datasource_id is required")
+	datasourceID, ok := requireQueryParam(w, r, "datasource_id")
+	if !ok {
 		return
 	}
 	modelID := r.URL.Query().Get("model_id")
@@ -141,7 +140,7 @@ func (h *AIGlossaryHandler) UpdateGlossary(w http.ResponseWriter, r *http.Reques
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update glossary term", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeOK(w)
 }
 
 // DeleteGlossary deletes a glossary term.

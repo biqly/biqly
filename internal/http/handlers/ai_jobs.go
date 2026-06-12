@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -57,9 +56,8 @@ func (h *AIJobsHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AIJobsHandler) DescribeBatchConflict(w http.ResponseWriter, r *http.Request) {
-	datasourceID := r.URL.Query().Get("datasource_id")
-	if datasourceID == "" {
-		writeError(w, http.StatusBadRequest, "datasource_id is required")
+	datasourceID, ok := requireQueryParam(w, r, "datasource_id")
+	if !ok {
 		return
 	}
 	rawSchemas := r.URL.Query()["schemas"]
@@ -172,9 +170,8 @@ func (h *AIJobsHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 		jobs, err = h.svc.repo.ListAIJobsByUser(r.Context(), userID, activeOnly, 50)
 	} else {
-		sessionID := r.URL.Query().Get("client_session_id")
-		if sessionID == "" {
-			writeError(w, http.StatusBadRequest, "client_session_id is required")
+		sessionID, ok := requireQueryParam(w, r, "client_session_id")
+		if !ok {
 			return
 		}
 		jobs, err = h.svc.repo.ListAIJobsBySession(r.Context(), sessionID, activeOnly, 50)
@@ -204,10 +201,8 @@ func (h *AIJobsHandler) QueueStatus(w http.ResponseWriter, r *http.Request) {
 
 func staleJobOlderThan(r *http.Request) time.Duration {
 	mins := 15
-	if v := r.URL.Query().Get("older_minutes"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			mins = n
-		}
+	if n, ok := bimw.ParsePositiveIntQueryParam(r, "older_minutes"); ok {
+		mins = n
 	}
 	return time.Duration(mins) * time.Minute
 }

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 	"os"
@@ -21,6 +20,7 @@ import (
 	"github.com/biqly/biqly/internal/auth/workspace"
 	bihttp "github.com/biqly/biqly/internal/http"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/biqly/biqly/internal/http/response"
 	"github.com/biqly/biqly/internal/mail"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/platform/observability"
@@ -319,7 +319,7 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 }
 
 func (*appState) handleHealth(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	response.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (s *appState) handleReady(w http.ResponseWriter, r *http.Request) {
@@ -327,14 +327,14 @@ func (s *appState) handleReady(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := s.db.PingContext(ctx); err != nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+		response.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{
 			"status": "unavailable",
 			"error":  "database unavailable",
 		})
 		return
 	}
 	if err := s.redis.Ping(ctx).Err(); err != nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+		response.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{
 			"status": "unavailable",
 			"error":  "redis unavailable",
 		})
@@ -347,24 +347,16 @@ func (s *appState) handleReady(w http.ResponseWriter, r *http.Request) {
 	// as a failure here; we only act on a definitive dirty=true reading.
 	var dirty bool
 	if err := s.db.QueryRowContext(ctx, `SELECT dirty FROM schema_migrations LIMIT 1`).Scan(&dirty); err == nil && dirty {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+		response.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{
 			"status": "unavailable",
 			"error":  "migrations dirty",
 		})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	response.WriteJSON(w, http.StatusOK, map[string]any{
 		"status":  "ok",
 		"uptime":  time.Since(s.startedAt).Round(time.Second).String(),
 		"service": s.serviceName,
 	})
-}
-
-func writeJSON(w http.ResponseWriter, status int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := sonic.ConfigStd.NewEncoder(w).Encode(data); err != nil {
-		return
-	}
 }

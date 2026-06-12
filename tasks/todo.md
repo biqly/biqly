@@ -90,89 +90,205 @@ Notes:
 
 4 ayrı implementasyon: `response.WriteJSON`, `handlers.writeJSON`, `cmd/auth/main.go:381` (nil-slice normalization eksik), `auth/handlers/handler_rbac.go:981`. Aynı şekilde error helper'lar 3-4 yerde dağılmış.
 
-- [ ] `internal/http/response/` paketini tek canonical kaynak yap
+- [x] `internal/http/response/` paketini tek canonical kaynak yap
   - `WriteJSON` — nil-slice normalization + error logging içerir (mevcut hali)
   - `WriteError(w, status, message)` — 5xx mesaj sanitizasyonu içerir (auth'daki `respondError` mantığını birleştir)
   - `WriteInternalError(ctx, w, msg, err)` — log + sanitized public response
-- [ ] `handlers/helpers.go`'daki `writeJSON`/`writeError`/`writeInternalError`'ı `response.*` wrapper'larına geçir
-- [ ] `cmd/auth/main.go`'daki standalone `writeJSON`'ı kaldır, `response.WriteJSON` kullan
-- [ ] `internal/auth/handlers/`'daki `respondError`/`writeError`'ı `response.WriteError`'a geçir
-- [ ] Regresyon testi: nil slice → `[]`, 5xx → sanitized mesaj, 4xx → raw mesaj
+- [x] `handlers/helpers.go`'daki `writeJSON`/`writeError`/`writeInternalError`'ı `response.*` wrapper'larına geçir
+- [x] `cmd/auth/main.go`'daki standalone `writeJSON`'ı kaldır, `response.WriteJSON` kullan
+- [x] `internal/auth/handlers/`'daki `respondError`/`writeError`'ı `response.WriteError`'a geçir
+- [x] Regresyon testi: nil slice → `[]`, 5xx → sanitized mesaj, 4xx → raw mesaj
 
 **Etki:** Tek tutarlı response API. 5xx sanitizasyonu tüm servislerde garanti.
 
 **Dosyalar:** `internal/http/response/response.go`, `internal/http/handlers/helpers.go`, `cmd/auth/main.go`, `internal/auth/handlers/handler.go`, `handler_rbac.go`
 
+#### MW-3 Review
+
+Resolved:
+
+1. Centralized response serialization and error sanitization inside `internal/http/response/`.
+2. Updated `WriteError(w, status, message)` to log original messages for 5xx errors and send sanitized `"internal server error"` responses.
+3. Updated `WriteInternalError` to log contextually and output sanitized public responses (bypassing `WriteError` to prevent double-logging).
+4. Removed local `writeJSON` from `cmd/auth/main.go` and migrated calling endpoints to `response.WriteJSON`.
+5. Simplified `respondError` wrapper in `internal/auth/handlers/handler.go` to delegate directly to `response.WriteError`.
+6. Simplified `writeError` package-level helper in `internal/auth/handlers/handler_rbac.go` to call `response.WriteInternalError` for 5xx and `response.WriteError` for 4xx errors.
+7. Fixed failing tests in `metadata_rows_test.go` and `response_test.go` to expect the new sanitized wire formats for 5xx responses.
+
+Verification:
+
+- Green: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/response/... ./internal/auth/handlers/... ./internal/http/handlers/... -count=1`
+- `make lint-go`
+- `git diff --check`
+
 ### MW-4 — Auth Handler Pagination → Middleware Kullanımı [MEDIUM]
 
 `internal/auth/handlers/handler.go:1200-1221` pagination'ı manuel implement ediyor (`strconv.Atoi`, default values, slice offset). `bimw.Paginate` middleware'i zaten aynı işi yapıyor.
 
-- [ ] Auth service route'larına `bimw.Paginate` middleware'ini ekle
-- [ ] `handleAdminListInvitations`'da manuel pagination kodunu `bimw.PaginationFromContext`'e geçir
-- [ ] Regresyon testi: page/page_size query param'ları doğru context değerini üretiyor
+- [x] Auth service route'larına `bimw.Paginate` middleware'ini ekle
+- [x] `handleAdminListInvitations`'da manuel pagination kodunu `bimw.PaginationFromContext`'e geçir
+- [x] Regresyon testi: page/page_size query param'ları doğru context değerini üretiyor
 
 **Dosyalar:** `internal/auth/handlers/handler.go`, auth router dosyası
+
+#### MW-4 Review
+
+Resolved:
+
+1. Added `bimw.Paginate` middleware to the GET `/admin/invitations` route in `internal/auth/handlers/handler.go`.
+2. Refactored `handleAdminListInvitations` to retrieve parameters using `bimw.PaginationFromContext` instead of manual parsing.
+3. Added comprehensive regression tests in `internal/auth/handlers/handler_invitations_test.go` validating correct pagination boundaries and data filtering.
+
+Verification:
+
+- Green: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/auth/handlers/... -run TestAdminListInvitationsPagination -count=1`
+- `make lint-go`
+- `git diff --check`
 
 ### MW-5 — `resolveWorkspaceDatasourceFilter` vs `resolveAccessibleDatasources` Birleştirme [MEDIUM]
 
 İki fonksiyon neredeyse aynı işi yapıyor (auth check → super admin bypass → user datasources → workspace intersect), 7 handler dosyasından 11 yerde çağrılıyor.
 
-- [ ] Tek fonksiyon: `resolveDatasourceScope(ctx, cfg) (map[string]struct{}, bool, error)` — error handling opsiyonel (fail-closed vs return error)
-- [ ] `internal/http/handlers/datasource_scope.go`'ya taşı
-- [ ] Tüm call site'leri güncelle
-- [ ] Regresyon testi: super admin bypass, auth disabled, normal user scope
+- [x] Tek fonksiyon: `resolveDatasourceScope(ctx, cfg) (map[string]struct{}, bool, error)` — error handling opsiyonel (fail-closed vs return error)
+- [x] `internal/http/handlers/datasource_scope.go`'ya taşı
+- [x] Tüm call site'leri güncelle
+- [x] Regresyon testi: super admin bypass, auth disabled, normal user scope
 
 **Dosyalar:** `internal/http/handlers/history_filter.go`, `internal/http/handlers/helpers.go`, 7 handler dosyası
+
+#### MW-5 Review
+
+Resolved:
+
+1. Unified `resolveWorkspaceDatasourceFilter` and `resolveAccessibleDatasources` into a single canonical helper `resolveDatasourceScope` in `internal/http/handlers/datasource_scope.go`.
+2. Cleaned up deprecated functions and imports from `internal/http/handlers/history_filter.go` and `internal/http/handlers/helpers.go`.
+3. Migrated all call sites in `ai_history.go`, `query.go`, `datasources.go`, and `semantic.go`.
+4. History/AI history endpoints log scope resolution errors and fail-closed contextually, while listing endpoints propagate errors to yield 500 status codes.
+5. Added a comprehensive test suite in `internal/http/handlers/datasource_scope_test.go` covering all execution paths.
+
+Verification:
+
+- Green: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/handlers/... -run TestResolveDatasourceScope -count=1`
+- `make lint-go`
+- `git diff --check`
 
 ### MW-6 — Request ID Propagation Export [MEDIUM]
 
 `internal/http/request_id.go`'daki `requestIDPropagationMiddleware` unexported. `cmd/auth/main.go` kendi kopyasını (`propagateRequestID`) yazmış.
 
-- [ ] `requestIDPropagationMiddleware` → `RequestIDPropagation` olarak export et
-- [ ] `cmd/auth/main.go`'daki `propagateRequestID`'yi sil, export edilmiş versiyonu kullan
-- [ ] MW-1 ile birlikte router_base'e dahil et
+- [x] `requestIDPropagationMiddleware` → `RequestIDPropagation` olarak export et
+- [x] `cmd/auth/main.go`'daki `propagateRequestID`'yi sil, export edilmiş versiyonu kullan
+- [x] MW-1 ile birlikte router_base'e dahil et
 
 **Dosyalar:** `internal/http/request_id.go`, `cmd/auth/main.go`
+
+#### MW-6 Review
+
+Resolved:
+
+- Exported `RequestIDPropagation` in `internal/http/request_id.go`.
+- Removed `propagateRequestID` duplicate copy in `cmd/auth/main.go` and migrated calls to the shared package-level middleware.
+- Included it in the shared `ApplyBaseMiddleware` stack in `internal/http/router_base.go`.
+- All steps were completed and validated during the **MW-1** sweep.
 
 ### MW-7 — `requireQueryParam` Kullanımını Genelleştir [MEDIUM]
 
 `datasource_id is required` kontrolü 7 handler dosyasında tekrarlanıyor. `internal/http/handlers/internal.go:361-369`'da `requireQueryParam` zaten var ama package-private ve tutarsız kullanılıyor. `helpers.go:180-187`'de `requireURLParam` da var.
 
-- [ ] `requireQueryParam(w, r, key string) (string, bool)` fonksiyonunu `internal/http/response/` veya `helpers.go`'da export et
-- [ ] 7 call site'i güncelle: `ai_glossary.go`, `ai_examples.go`, `ai_job_service.go`, `semantic.go`, `composite.go`, `ai_jobs.go`
-- [ ] Regresyon testi: eksik param → 400 + `"datasource_id is required"`
+- [x] `requireQueryParam(w, r, key string) (string, bool)` fonksiyonunu `internal/http/response/` veya `helpers.go`'da export et
+- [x] 7 call site'i güncelle: `ai_glossary.go`, `ai_examples.go`, `ai_job_service.go`, `semantic.go`, `composite.go`, `ai_jobs.go`
+- [x] Regresyon testi: eksik param → 400 + `"datasource_id is required"`
 
 **Dosyalar:** `internal/http/handlers/helpers.go`, `internal.go`, yukarıdaki 7 handler dosyası
+
+#### MW-7 Review
+
+Resolved:
+
+1. Renamed `requireQueryParam` in `internal/http/handlers/internal.go` to `requireInternalQueryParam` to prevent collision and preserve its custom internal API JSON response envelopes.
+2. Implemented the user-facing `requireQueryParam(w, r, key)` helper inside `internal/http/handlers/helpers.go` with strings-trimming and a standard 400 response format.
+3. Refactored call sites checking query parameters in `ai_glossary.go`, `ai_examples.go`, and `ai_jobs.go` to use the new helper.
+4. Added test cases in `internal/http/handlers/internal_test.go` (`TestRequireInternalQueryParam` and `TestRequireQueryParam`) verifying both internal and general query parameter validation functions.
+
+Verification:
+
+- Green: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/handlers/... -run 'TestRequireQueryParam|TestRequireInternalQueryParam' -count=1`
+- `make lint-go`
+- `git diff --check`
 
 ### MW-8 — `statusRecorder` Tip Tekilleştirmesi [LOW]
 
 2 ayrı ama özdeş struct: `handlers/internal_audit_middleware.go:49-57` (`statusRecorder`) ve `catalog_metrics_middleware.go:28-36` (`metricsStatusRecorder`).
 
-- [ ] `response.StatusRecorder` tipi oluştur `internal/http/response/` altında
-- [ ] Her iki kullanım yeri güncelle
-- [ ] Test: `WriteHeader` çağrısında status correctly capture ediliyor
+- [x] `response.StatusRecorder` tipi oluştur `internal/http/response/` altında
+- [x] Her iki kullanım yeri güncelle
+- [x] Test: `WriteHeader` çağrısında status correctly capture ediliyor
 
 **Dosyalar:** `internal/http/response/response.go`, `internal/http/handlers/internal_audit_middleware.go`, `internal/http/catalog_metrics_middleware.go`
+
+#### MW-8 Review
+
+Resolved:
+
+1. Created a unified `response.StatusRecorder` type in `internal/http/response/response.go` to capture HTTP status codes dynamically.
+2. Replaced the local duplicate `statusRecorder` struct in `internal_audit_middleware.go` with the consolidated `response.StatusRecorder`.
+3. Replaced the local duplicate `metricsStatusRecorder` struct in `catalog_metrics_middleware.go` and integrated it with `metrics_middleware.go` as well.
+4. Added the `TestStatusRecorder` unit test in `response_test.go` to assert correct status code capture and ResponseWriter delegation.
+
+Verification:
+
+- Green: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/response/... -run TestStatusRecorder -count=1`
+- `make lint-go`
+- `git diff --check`
 
 ### MW-9 — `{"status":"ok"}` Response Helper [LOW]
 
 10 handler aynı success envelope'u manuel oluşturuyor: `writeJSON(w, 200, map[string]string{"status":"ok"})`.
 
-- [ ] `response.WriteOK(w)` helper'ı ekle
-- [ ] 10 call site'i güncelle
-- [ ] Test: response body `{"status":"ok"}`
+- [x] `response.WriteOK(w)` helper'ı ekle
+- [x] 10 call site'i güncelle
+- [x] Test: response body `{"status":"ok"}`
 
 **Dosyalar:** `internal/http/response/response.go`, `ai_glossary.go`, `ai_time_grains.go`, `ai_providers.go`, `ab_experiment.go`, `ai_prompt_templates.go`
+
+#### MW-9 Review
+
+Resolved:
+
+1. Implemented `response.WriteOK(w)` in `internal/http/response/response.go` to return standard `{"status": "ok"}` success envelope.
+2. Implemented package-private `writeOK(w)` in `internal/http/handlers/helpers.go`.
+3. Migrated all 10 manual occurrences of `"status": "ok"` responses in `ai_glossary.go`, `ai_time_grains.go`, `ai_providers.go`, `ab_experiment.go`, and `ai_prompt_templates.go` to use `writeOK(w)`.
+4. Added the `TestWriteOK` unit test in `response_test.go` to verify response code and body format.
+
+Verification:
+
+- Green: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/response/... ./internal/http/handlers/...`
+- `make lint-go`
+
 
 ### MW-10 — Integer Query Param Parsing Helper [MEDIUM]
 
 5 yerde `strconv.Atoi` ile inline limit/integer parse ediliyor. `pagination.go:84-93`'te `parsePositiveQueryInt` var ama unexported.
 
-- [ ] `ParsePositiveIntQueryParam(r *http.Request, key string) (int, bool)` export et
-- [ ] `ai_examples.go`, `ai_jobs.go`, `semantic.go`'daki inline parse'ları güncelle
-- [ ] Test: geçersiz değer → default, geçerli → parsed
+- [x] `ParsePositiveIntQueryParam(r *http.Request, key string) (int, bool)` export et
+- [x] `ai_examples.go`, `ai_jobs.go`, `semantic.go`'daki inline parse'ları güncelle
+- [x] Test: geçersiz değer → default, geçerli → parsed
 
 **Dosyalar:** `internal/http/middleware/pagination.go`, `internal/http/handlers/ai_examples.go`, `ai_jobs.go`, `semantic.go`
+
+#### MW-10 Review
+
+Resolved:
+
+1. Implemented and exported `ParsePositiveIntQueryParam(r *http.Request, key string) (int, bool)` helper in `internal/http/middleware/pagination.go`.
+2. Refactored the 5 manual query integer parses using `strconv.Atoi` in `ai_examples.go`, `ai_jobs.go`, and `semantic.go` to use the helper. Removed the unused `"strconv"` import from these files.
+3. Added the `TestParsePositiveIntQueryParam` unit test in `pagination_test.go` checking positive values, negative values, invalid numeric formats, and missing params.
+
+Verification:
+
+- Green: `GOCACHE=/private/tmp/biqly-gocache go test -race ./internal/http/response/... ./internal/http/handlers/... ./internal/http/middleware/...`
+- `make lint-go`
+
 
 ### MW-11 — Handler Datasource Access Check Birleştirme [MEDIUM]
 

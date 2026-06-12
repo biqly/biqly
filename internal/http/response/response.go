@@ -37,13 +37,20 @@ func WriteJSON(w http.ResponseWriter, status int, data any) {
 }
 
 // WriteError writes a JSON error response of the form {"error": message}.
+// For status >= 500, the message is logged and sanitized to "internal server error"
+// to prevent internal details from leaking.
 func WriteError(w http.ResponseWriter, status int, message string) {
+	if status >= http.StatusInternalServerError {
+		slog.Error("server error", "detail", message, "status", status)
+		message = "internal server error"
+	}
 	WriteJSON(w, status, map[string]string{"error": message})
 }
 
 // WriteInternalError logs err (with request_id and any caller-supplied args)
-// and writes publicMsg to the client. The caller is responsible for passing a
-// public-safe message; the detailed err is sent only to logs/telemetry.
+// and writes a sanitized public error response. The caller is responsible for
+// passing a public-safe message; for status >= 500, the client response is
+// sanitized to "internal server error".
 func WriteInternalError(ctx context.Context, w http.ResponseWriter, status int, publicMsg string, err error, args ...any) {
 	if err != nil {
 		allArgs := append([]any{"error", err}, args...)
@@ -52,7 +59,11 @@ func WriteInternalError(ctx context.Context, w http.ResponseWriter, status int, 
 		}
 		slog.ErrorContext(ctx, publicMsg, allArgs...)
 	}
-	WriteError(w, status, publicMsg)
+	msg := publicMsg
+	if status >= http.StatusInternalServerError {
+		msg = "internal server error"
+	}
+	WriteJSON(w, status, map[string]string{"error": msg})
 }
 
 // DecodeJSON decodes a required JSON request body into T and writes a standard
@@ -87,4 +98,31 @@ func decodeJSON[T any](w http.ResponseWriter, r *http.Request, allowEmpty bool) 
 func isMaxBytesError(err error) bool {
 	_, ok := errors.AsType[*http.MaxBytesError](err)
 	return ok
+}
+
+// StatusRecorder wraps a http.ResponseWriter and captures the response status code.
+type StatusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+// NewStatusRecorder returns a new StatusRecorder wrapping w, initialized to http.StatusOK.
+func NewStatusRecorder(w http.ResponseWriter) *StatusRecorder {
+	return &StatusRecorder{ResponseWriter: w, status: http.StatusOK}
+}
+
+// WriteHeader captures the status code and delegates to the wrapped ResponseWriter.
+func (r *StatusRecorder) WriteHeader(status int) {
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
+}
+
+// Status returns the captured status code.
+func (r *StatusRecorder) Status() int {
+	return r.status
+}
+
+// WriteOK writes a JSON success response of the form {"status": "ok"} with status 200 OK.
+func WriteOK(w http.ResponseWriter) {
+	WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

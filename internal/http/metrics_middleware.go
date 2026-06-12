@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/biqly/biqly/internal/http/response"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -15,14 +16,14 @@ func HTTPMetricsMiddleware(metrics *Metrics) func(http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
-			rec := &metricsStatusRecorder{ResponseWriter: w, status: http.StatusOK}
+			rec := response.NewStatusRecorder(w)
 			start := time.Now()
 			next.ServeHTTP(rec, r)
 			routePattern := r.URL.Path
 			if rc := chi.RouteContext(r.Context()); rc != nil && rc.RoutePattern() != "" {
 				routePattern = rc.RoutePattern()
 			}
-			metrics.RecordHTTPRequest(r.Method, routePattern, rec.status, time.Since(start).Milliseconds())
+			metrics.RecordHTTPRequest(r.Method, routePattern, rec.Status(), time.Since(start).Milliseconds())
 		})
 	}
 }

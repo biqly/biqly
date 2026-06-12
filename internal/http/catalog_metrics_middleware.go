@@ -3,6 +3,8 @@ package http
 import (
 	"net/http"
 	"time"
+
+	"github.com/biqly/biqly/internal/http/response"
 )
 
 // CatalogMetricsMiddleware records process-local Catalog route latency.
@@ -17,20 +19,10 @@ func CatalogMetricsMiddleware(metrics *Metrics) func(http.Handler) http.Handler 
 				next.ServeHTTP(w, r)
 				return
 			}
-			rec := &metricsStatusRecorder{ResponseWriter: w, status: http.StatusOK}
+			rec := response.NewStatusRecorder(w)
 			start := time.Now()
 			next.ServeHTTP(rec, r)
-			metrics.RecordCatalogDBQuery(time.Since(start).Milliseconds(), rec.status < http.StatusInternalServerError)
+			metrics.RecordCatalogDBQuery(time.Since(start).Milliseconds(), rec.Status() < http.StatusInternalServerError)
 		})
 	}
-}
-
-type metricsStatusRecorder struct {
-	http.ResponseWriter
-	status int
-}
-
-func (r *metricsStatusRecorder) WriteHeader(status int) {
-	r.status = status
-	r.ResponseWriter.WriteHeader(status)
 }

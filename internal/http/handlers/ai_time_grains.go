@@ -81,5 +81,5 @@ func (h *AITimeGrainsHandler) UpdateTimeGrain(w http.ResponseWriter, r *http.Req
 		h.deps.TimeGrains.Invalidate()
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeOK(w)
 }

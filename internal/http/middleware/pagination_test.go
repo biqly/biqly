@@ -85,3 +85,30 @@ func capturePagination(t *testing.T, target string, config PaginationConfig) Pag
 	}
 	return got
 }
+
+func TestParsePositiveIntQueryParam(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		key     string
+		wantVal int
+		wantOk  bool
+	}{
+		{"valid positive integer", "/?limit=10", "limit", 10, true},
+		{"zero value is not positive", "/?limit=0", "limit", 0, false},
+		{"negative value is not positive", "/?limit=-5", "limit", 0, false},
+		{"invalid integer string", "/?limit=abc", "limit", 0, false},
+		{"missing query parameter", "/?", "limit", 0, false},
+		{"empty query parameter", "/?limit=", "limit", 0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequestWithContext(context.Background(), "GET", tt.url, http.NoBody)
+			val, ok := ParsePositiveIntQueryParam(req, tt.key)
+			if val != tt.wantVal || ok != tt.wantOk {
+				t.Errorf("ParsePositiveIntQueryParam() = (%d, %t), want (%d, %t)", val, ok, tt.wantVal, tt.wantOk)
+			}
+		})
+	}
+}

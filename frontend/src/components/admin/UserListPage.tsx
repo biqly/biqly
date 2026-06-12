@@ -97,6 +97,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     error: invitesError,
     page: inviteCurrentPage,
     setPage: setInviteCurrentPage,
+    totalPages: inviteTotalPages,
     total: inviteTotalItems,
     reload: reloadInvitations,
   } = usePaginatedList<Invitation>({
@@ -284,6 +285,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           handleRevoke={handleRevoke}
           inviteCurrentPage={inviteCurrentPage}
           setInviteCurrentPage={setInviteCurrentPage}
+          inviteTotalPages={inviteTotalPages}
           inviteTotalItems={inviteTotalItems}
           pageSize={pageSize}
           locale={locale}

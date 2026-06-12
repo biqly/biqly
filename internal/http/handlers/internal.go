@@ -113,7 +113,7 @@ func (h *InternalHandler) GetFullModel(w http.ResponseWriter, r *http.Request) {
 // ListModels returns every semantic model header (no children) for a
 // datasource. The datasource_id query parameter is required.
 func (h *InternalHandler) ListModels(w http.ResponseWriter, r *http.Request) {
-	datasourceID, ok := requireQueryParam(w, r, "datasource_id")
+	datasourceID, ok := requireInternalQueryParam(w, r, "datasource_id")
 	if !ok {
 		return
 	}
@@ -130,7 +130,7 @@ func (h *InternalHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 // schema_name query parameter narrows the result; when omitted every schema
 // is returned.
 func (h *InternalHandler) ListTables(w http.ResponseWriter, r *http.Request) {
-	datasourceID, ok := requireQueryParam(w, r, "datasource_id")
+	datasourceID, ok := requireInternalQueryParam(w, r, "datasource_id")
 	if !ok {
 		return
 	}
@@ -148,7 +148,7 @@ func (h *InternalHandler) ListTables(w http.ResponseWriter, r *http.Request) {
 // table_name query parameters narrow the result; when omitted every column
 // is returned (large responses — callers should always scope to a table).
 func (h *InternalHandler) ListColumns(w http.ResponseWriter, r *http.Request) {
-	datasourceID, ok := requireQueryParam(w, r, "datasource_id")
+	datasourceID, ok := requireInternalQueryParam(w, r, "datasource_id")
 	if !ok {
 		return
 	}
@@ -169,7 +169,7 @@ func (h *InternalHandler) ListColumns(w http.ResponseWriter, r *http.Request) {
 
 // ListRelations returns foreign-key relations for a datasource.
 func (h *InternalHandler) ListRelations(w http.ResponseWriter, r *http.Request) {
-	datasourceID, ok := requireQueryParam(w, r, "datasource_id")
+	datasourceID, ok := requireInternalQueryParam(w, r, "datasource_id")
 	if !ok {
 		return
 	}
@@ -185,7 +185,7 @@ func (h *InternalHandler) ListRelations(w http.ResponseWriter, r *http.Request) 
 // ListFewShot returns curated few-shot examples for a datasource (and
 // optionally a single model). AI Service uses this to seed prompts.
 func (h *InternalHandler) ListFewShot(w http.ResponseWriter, r *http.Request) {
-	datasourceID, ok := requireQueryParam(w, r, "datasource_id")
+	datasourceID, ok := requireInternalQueryParam(w, r, "datasource_id")
 	if !ok {
 		return
 	}
@@ -203,7 +203,7 @@ func (h *InternalHandler) ListFewShot(w http.ResponseWriter, r *http.Request) {
 // optionally a single model). AI Service injects these into prompts so the
 // LLM can map business jargon to declared dimensions/metrics.
 func (h *InternalHandler) ListGlossary(w http.ResponseWriter, r *http.Request) {
-	datasourceID, ok := requireQueryParam(w, r, "datasource_id")
+	datasourceID, ok := requireInternalQueryParam(w, r, "datasource_id")
 	if !ok {
 		return
 	}
@@ -351,14 +351,14 @@ func evalResultsFromWire(results []internalapi.EvalResultMetrics) []evalpkg.Resu
 
 // --- helpers (scoped to the /internal/* surface) ----------------------------
 
-// requireQueryParam writes a 400 and returns ok=false when the named query
+// requireInternalQueryParam writes a 400 and returns ok=false when the named query
 // parameter is missing or blank. Mirrors requireURLParam's contract.
 //
 // future required params (model_id, schema_name, ...) without touching call
 // sites.
 //
 //nolint:unparam // name is always "datasource_id" today but kept generic for
-func requireQueryParam(w http.ResponseWriter, r *http.Request, name string) (string, bool) {
+func requireInternalQueryParam(w http.ResponseWriter, r *http.Request, name string) (string, bool) {
 	v := strings.TrimSpace(r.URL.Query().Get(name))
 	if v == "" {
 		writeInternalAPIErrorMsg(w, http.StatusBadRequest, internalapi.CodeInvalidRequest,

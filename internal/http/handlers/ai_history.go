@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 
@@ -101,7 +102,13 @@ func (h *AIHandler) QueryHistory(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "list AI history failed", err)
 		return
 	}
-	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied {
+	wsFilter, applied, err := resolveDatasourceScope(r.Context(), h.deps.Config, true)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "history: failed to resolve datasource scope", "err", err)
+		wsFilter = map[string]struct{}{}
+		applied = true
+	}
+	if applied {
 		rows = FilterAIHistoryByDatasources(rows, wsFilter)
 	}
 
@@ -148,7 +155,13 @@ func (h *AIHandler) AIHistoryDetail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "not owner of this entry")
 		return
 	}
-	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied {
+	wsFilter, applied, err := resolveDatasourceScope(r.Context(), h.deps.Config, true)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "history: failed to resolve datasource scope", "err", err)
+		wsFilter = map[string]struct{}{}
+		applied = true
+	}
+	if applied {
 		if _, ok := wsFilter[row.DatasourceID]; !ok {
 			writeError(w, http.StatusNotFound, "entry not found")
 			return
@@ -187,7 +200,12 @@ func buildAIHistoryListFilter(q url.Values, pagination bimw.PageParams, userID s
 // Returns empty=true when the result set should be empty, applied=true when workspace
 // filtering is active.
 func applyWorkspaceDatasourceToAIHistoryFilter(ctx context.Context, cfg *config.Config, filter *metadata.AIHistoryListFilter) (empty, applied bool) {
-	wsFilter, applied := resolveWorkspaceDatasourceFilter(ctx, cfg)
+	wsFilter, applied, err := resolveDatasourceScope(ctx, cfg, true)
+	if err != nil {
+		slog.ErrorContext(ctx, "history: failed to resolve datasource scope", "err", err)
+		wsFilter = map[string]struct{}{}
+		applied = true
+	}
 	if !applied {
 		return false, false
 	}

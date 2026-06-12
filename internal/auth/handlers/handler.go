@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/biqly/biqly/internal/auth"
 	"github.com/biqly/biqly/internal/auth/mfa"
 	"github.com/biqly/biqly/internal/auth/oauth"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/http/response"
 	"github.com/biqly/biqly/internal/mail"
 )
@@ -146,8 +146,13 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 		r.Post("/mfa/verify", h.handleMFAVerify)
 		r.Post("/mfa/disable", h.handleMFADisable)
 		r.Post("/mfa/recovery/regenerate", h.handleMFARegenerateRecovery)
+		invitationPagination := bimw.Paginate(bimw.PaginationConfig{
+			DefaultPage:     1,
+			DefaultPageSize: 10,
+			MaxPageSize:     100,
+		})
 		r.Post("/admin/invitations", h.handleAdminInviteUser)
-		r.Get("/admin/invitations", h.handleAdminListInvitations)
+		r.With(invitationPagination).Get("/admin/invitations", h.handleAdminListInvitations)
 		r.Delete("/admin/invitations/{id}", h.handleAdminRevokeInvitation)
 		r.Post("/admin/invitations/{id}/resend", h.handleAdminResendInvitation)
 		r.Get("/admin/platform-settings", h.handleAdminGetPlatformSettings)
@@ -425,10 +430,6 @@ func (*AuthHandler) respondJSON(w http.ResponseWriter, status int, data any) {
 // generic, user-friendly message so internal details never leak. Client
 // errors (4xx) keep their message, which is intentional validation feedback.
 func (*AuthHandler) respondError(w http.ResponseWriter, status int, message string) {
-	if status >= http.StatusInternalServerError {
-		slog.Error("auth handler error", "detail", message, "status", status)
-		message = "internal server error"
-	}
 	response.WriteError(w, status, message)
 }
 
@@ -1191,20 +1192,10 @@ func (h *AuthHandler) handleAdminListInvitations(w http.ResponseWriter, r *http.
 	}
 
 	total := len(filtered)
-	pageStr := r.URL.Query().Get("page")
-	pageSizeStr := r.URL.Query().Get("page_size")
-	if pageSizeStr == "" {
-		pageSizeStr = r.URL.Query().Get("pageSize")
-	}
-	page := 1
-	pageSize := 10
-	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-		page = p
-	}
-	if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
-		pageSize = ps
-	}
-	start := (page - 1) * pageSize
+	pagination := bimw.PaginationFromContext(r.Context())
+	start := pagination.Offset
+	pageSize := pagination.PageSize
+
 	var paginated []*auth.Invitation
 	if start < total {
 		end := min(start+pageSize, total)

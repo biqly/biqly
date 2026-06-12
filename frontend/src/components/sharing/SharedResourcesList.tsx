@@ -11,6 +11,8 @@ import type { ResourceShare } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
 import { DataState } from '../ui/DataState'
+import type { ColumnDef } from '../ui/DataTable'
+import { DataTable } from '../ui/DataTable'
 import { EmptyState } from '../ui/EmptyState'
 import { Pagination } from '../ui/Pagination'
 
@@ -86,6 +88,60 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     }
   }
 
+  const shareColumns: ColumnDef<ResourceShare>[] = [
+    {
+      key: 'type',
+      header: t('admin.sharing.resource_type'),
+      cell: (share) => <span className="shared-list__type-badge">{share.resource_type}</span>,
+    },
+    {
+      key: 'resource_id',
+      header: t('admin.sharing.resource_id'),
+      className: 'shared-list__mono',
+      cell: (share) => `${share.resource_id.slice(0, 8)}…`,
+    },
+    {
+      key: 'shared_with',
+      header: t('admin.sharing.shared_with'),
+      cell: (share) =>
+        share.shared_with ? (
+          <span className="shared-list__mono">{share.shared_with.slice(0, 8)}…</span>
+        ) : share.workspace_id ? (
+          <span className="shared-list__workspace">WS: {share.workspace_id.slice(0, 8)}…</span>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      key: 'permission',
+      header: t('admin.sharing.permission'),
+      cell: (share) => (
+        <span className={`shared-list__perm shared-list__perm--${share.permission}`}>
+          {permissionBadge(share.permission)}
+        </span>
+      ),
+    },
+    {
+      key: 'created_at',
+      header: t('admin.sharing.created_at'),
+      cell: (share) => new Date(share.created_at).toLocaleDateString(),
+    },
+    {
+      key: 'actions',
+      header: t('common.actions'),
+      cell: (share) => (
+        <button
+          onClick={() => {
+            void onRevoke(share.id)
+          }}
+          className="shared-list__revoke"
+        >
+          {t('common.delete')}
+        </button>
+      ),
+    },
+  ]
+
   return (
     <div className="shared-list">
       <div style={containerStyle}>
@@ -95,55 +151,16 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
           empty={displayedItems.length === 0}
           emptyState={<EmptyState description={t('admin.sharing.empty')} />}
         >
-          <table className="shared-list__table">
-            <thead>
-              <tr>
-                <th>{t('admin.sharing.resource_type')}</th>
-                <th>{t('admin.sharing.resource_id')}</th>
-                <th>{t('admin.sharing.shared_with')}</th>
-                <th>{t('admin.sharing.permission')}</th>
-                <th>{t('admin.sharing.created_at')}</th>
-                <th>{t('common.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayedItems.map((share) => (
-                <tr key={share.id}>
-                  <td>
-                    <span className="shared-list__type-badge">{share.resource_type}</span>
-                  </td>
-                  <td className="shared-list__mono">{share.resource_id.slice(0, 8)}…</td>
-                  <td>
-                    {share.shared_with ? (
-                      <span className="shared-list__mono">{share.shared_with.slice(0, 8)}…</span>
-                    ) : share.workspace_id ? (
-                      <span className="shared-list__workspace">
-                        WS: {share.workspace_id.slice(0, 8)}…
-                      </span>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td>
-                    <span className={`shared-list__perm shared-list__perm--${share.permission}`}>
-                      {permissionBadge(share.permission)}
-                    </span>
-                  </td>
-                  <td>{new Date(share.created_at).toLocaleDateString()}</td>
-                  <td>
-                    <button
-                      onClick={() => {
-                        void onRevoke(share.id)
-                      }}
-                      className="shared-list__revoke"
-                    >
-                      {t('common.delete')}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            columns={shareColumns}
+            rows={displayedItems}
+            rowKey={(share) => share.id}
+            tableClassName="shared-list__table"
+            headRowClassName=""
+            headerCellClassName=""
+            rowClassName=""
+            cellClassName=""
+          />
         </DataState>
         {displayedItems.length > 0 && (
           <Pagination

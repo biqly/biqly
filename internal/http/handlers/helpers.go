@@ -3,12 +3,11 @@ package handlers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
-	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/http/response"
@@ -26,6 +25,11 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 // writeError writes a JSON error response.
 func writeError(w http.ResponseWriter, status int, message string) {
 	response.WriteError(w, status, message)
+}
+
+// writeOK writes a JSON success response of the form {"status": "ok"} with status 200 OK.
+func writeOK(w http.ResponseWriter) {
+	response.WriteOK(w)
 }
 
 func writeInternalError(ctx context.Context, w http.ResponseWriter, status int, publicMsg string, err error, args ...any) {
@@ -51,51 +55,6 @@ func appendRequestLogArgs(ctx context.Context, args []any) []any {
 		args = append(args, "workspace_id", wsID)
 	}
 	return args
-}
-
-// resolveAccessibleDatasources returns the set of datasource IDs the current
-// caller may access, intersected with the active workspace's attached
-// datasources. The boolean reports whether scoping applies: it is false when
-// auth is disabled, the request carries no user, or the caller is a super
-// admin — in those cases callers must not filter their results. On error the
-// helper returns it for the caller to surface with a context-appropriate
-// message; nothing is written to w.
-func resolveAccessibleDatasources(ctx context.Context, cfg *config.Config) (map[string]struct{}, bool, error) {
-	if !cfg.Auth.Enabled {
-		return nil, false, nil
-	}
-	userID := bimw.UserID(ctx)
-	if userID == "" || bimw.HasRole(ctx, bimw.RoleSuperAdmin) {
-		return nil, false, nil
-	}
-
-	authClient := bimw.SharedAuthClient(cfg.Auth.ServiceURL, cfg.Auth.InternalToken)
-	allowed, err := authClient.ListUserDatasources(ctx, userID)
-	if err != nil {
-		return nil, false, fmt.Errorf("list user datasources: %w", err)
-	}
-	allowedSet := make(map[string]struct{}, len(allowed))
-	for _, id := range allowed {
-		allowedSet[id] = struct{}{}
-	}
-
-	if wsID := bimw.WorkspaceID(ctx); wsID != "" {
-		wsIDs, err := authClient.ListWorkspaceDatasources(ctx, wsID)
-		if err != nil {
-			return nil, false, fmt.Errorf("list workspace datasources: %w", err)
-		}
-		wsSet := make(map[string]struct{}, len(wsIDs))
-		for _, id := range wsIDs {
-			wsSet[id] = struct{}{}
-		}
-		for id := range allowedSet {
-			if _, ok := wsSet[id]; !ok {
-				delete(allowedSet, id)
-			}
-		}
-	}
-
-	return allowedSet, true, nil
 }
 
 // writeEntityNotFound writes a standardized 404 response of the form
@@ -152,6 +111,15 @@ func isMaxBytesError(err error) bool {
 
 func requireURLParam(w http.ResponseWriter, r *http.Request, key string) (string, bool) {
 	v := chi.URLParam(r, key)
+	if v == "" {
+		writeError(w, http.StatusBadRequest, key+" is required")
+		return "", false
+	}
+	return v, true
+}
+
+func requireQueryParam(w http.ResponseWriter, r *http.Request, key string) (string, bool) {
+	v := strings.TrimSpace(r.URL.Query().Get(key))
 	if v == "" {
 		writeError(w, http.StatusBadRequest, key+" is required")
 		return "", false

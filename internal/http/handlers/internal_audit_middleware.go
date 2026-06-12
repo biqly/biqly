@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/audit"
+	"github.com/biqly/biqly/internal/http/response"
 	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/pkg/common/requestid"
 )
@@ -14,7 +15,7 @@ import (
 func InternalAuditMiddleware(logger *audit.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+			rec := response.NewStatusRecorder(w)
 			next.ServeHTTP(rec, r)
 			if logger == nil {
 				return
@@ -28,7 +29,7 @@ func InternalAuditMiddleware(logger *audit.Logger) func(http.Handler) http.Handl
 					"caller":     internalCallerFromRequest(r),
 					"method":     r.Method,
 					"path":       r.URL.Path,
-					"status":     rec.status,
+					"status":     rec.Status(),
 					"request_id": requestid.FromContext(r.Context()),
 					"trace_id":   traceID,
 					"span_id":    spanID,
@@ -44,14 +45,4 @@ func internalCallerFromRequest(r *http.Request) string {
 		return caller
 	}
 	return "unknown"
-}
-
-type statusRecorder struct {
-	http.ResponseWriter
-	status int
-}
-
-func (r *statusRecorder) WriteHeader(status int) {
-	r.status = status
-	r.ResponseWriter.WriteHeader(status)
 }

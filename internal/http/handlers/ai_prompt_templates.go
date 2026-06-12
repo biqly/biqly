@@ -83,7 +83,7 @@ func (h *AIPromptTemplatesHandler) UpdatePromptTemplate(w http.ResponseWriter, r
 		return
 	}
 	prompt.InvalidatePromptTemplateCache(name, loc)
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeOK(w)
 }
 
 // RestorePromptTemplate resets one template from embedded defaults.
@@ -112,7 +112,7 @@ func (h *AIPromptTemplatesHandler) RestorePromptTemplate(w http.ResponseWriter, 
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to restore prompt template", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeOK(w)
 }
 
 // ReseedPromptTemplates replaces all templates from embedded files.
@@ -122,7 +122,7 @@ func (h *AIPromptTemplatesHandler) ReseedPromptTemplates(w http.ResponseWriter, 
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to reseed prompt templates", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeOK(w)
 }
 
 func isKnownPromptTemplateName(name string) bool {

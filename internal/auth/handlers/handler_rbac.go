@@ -16,7 +16,6 @@ import (
 	"github.com/biqly/biqly/internal/auth/workspace"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/http/response"
-	"github.com/biqly/biqly/pkg/common/requestid"
 )
 
 type RBACHandler struct {
@@ -970,19 +969,13 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 func writeError(w http.ResponseWriter, r *http.Request, status int, err error) {
 	if status >= http.StatusInternalServerError {
 		ctx := r.Context()
-		var userID string
+		var args []any
 		if uVal := ctx.Value(userIDKey); uVal != nil {
-			userID, _ = uVal.(string)
+			if userID, _ := uVal.(string); userID != "" {
+				args = append(args, "user_id", userID)
+			}
 		}
-		allArgs := []any{"error", err}
-		if reqID := requestid.FromContext(ctx); reqID != "" {
-			allArgs = append(allArgs, "request_id", reqID)
-		}
-		if userID != "" {
-			allArgs = append(allArgs, "user_id", userID)
-		}
-		slog.ErrorContext(ctx, "rbac handler internal error", allArgs...)
-		response.WriteError(w, status, "internal server error")
+		response.WriteInternalError(ctx, w, status, "rbac handler internal error", err, args...)
 	} else {
 		response.WriteError(w, status, err.Error())
 	}

@@ -37,8 +37,50 @@ func TestInternalHealth(t *testing.T) {
 	}
 }
 
-// TestRequireQueryParam verifies the helper returns ok=false and writes a
+// TestRequireInternalQueryParam verifies the helper returns ok=false and writes a
 // 400 with the canonical envelope when the parameter is missing or blank.
+func TestRequireInternalQueryParam(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name    string
+		rawURL  string
+		paramOK bool
+	}{
+		{"missing", "/x", false},
+		{"empty", "/x?datasource_id=", false},
+		{"blank", "/x?datasource_id=%20", false},
+		{"ok", "/x?datasource_id=ds_1", true},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			w := httptest.NewRecorder()
+			r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, tt.rawURL, nil)
+			_, ok := requireInternalQueryParam(w, r, "datasource_id")
+			if ok != tt.paramOK {
+				t.Errorf("ok: got %v, want %v", ok, tt.paramOK)
+			}
+			if !tt.paramOK {
+				if w.Code != http.StatusBadRequest {
+					t.Errorf("status: got %d, want 400", w.Code)
+				}
+				var env internalapi.Error
+				if err := sonic.ConfigStd.NewDecoder(w.Body).Decode(&env); err != nil {
+					t.Fatalf("decode: %v", err)
+				}
+				if env.Code != internalapi.CodeInvalidRequest {
+					t.Errorf("code: got %q, want %q", env.Code, internalapi.CodeInvalidRequest)
+				}
+				if !strings.Contains(env.Error, "datasource_id") {
+					t.Errorf("error should mention param name: %q", env.Error)
+				}
+			}
+		})
+	}
+}
+
+// TestRequireQueryParam verifies the general-purpose query parameter helper
+// returns ok=false and writes a 400 when the parameter is missing or blank.
 func TestRequireQueryParam(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -56,23 +98,25 @@ func TestRequireQueryParam(t *testing.T) {
 			t.Parallel()
 			w := httptest.NewRecorder()
 			r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, tt.rawURL, nil)
-			_, ok := requireQueryParam(w, r, "datasource_id")
+			v, ok := requireQueryParam(w, r, "datasource_id")
 			if ok != tt.paramOK {
 				t.Errorf("ok: got %v, want %v", ok, tt.paramOK)
+			}
+			if tt.paramOK && v != "ds_1" {
+				t.Errorf("value: got %q, want ds_1", v)
 			}
 			if !tt.paramOK {
 				if w.Code != http.StatusBadRequest {
 					t.Errorf("status: got %d, want 400", w.Code)
 				}
-				var env internalapi.Error
+				var env struct {
+					Error string `json:"error"`
+				}
 				if err := sonic.ConfigStd.NewDecoder(w.Body).Decode(&env); err != nil {
 					t.Fatalf("decode: %v", err)
 				}
-				if env.Code != internalapi.CodeInvalidRequest {
-					t.Errorf("code: got %q, want %q", env.Code, internalapi.CodeInvalidRequest)
-				}
-				if !strings.Contains(env.Error, "datasource_id") {
-					t.Errorf("error should mention param name: %q", env.Error)
+				if !strings.Contains(env.Error, "datasource_id is required") {
+					t.Errorf("error: got %q, want containing 'datasource_id is required'", env.Error)
 				}
 			}
 		})

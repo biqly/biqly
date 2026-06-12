@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -105,7 +106,13 @@ func (h *QueryHandler) History(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list query history", err)
 		return
 	}
-	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied {
+	wsFilter, applied, err := resolveDatasourceScope(r.Context(), h.deps.Config, true)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to resolve datasource scope", "err", err)
+		wsFilter = map[string]struct{}{}
+		applied = true
+	}
+	if applied {
 		entries = FilterQueryHistoryByDatasources(entries, wsFilter)
 	}
 	writeJSON(w, http.StatusOK, entries)
@@ -123,7 +130,13 @@ func (h *QueryHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 		writeEntityNotFound(w, "query history")
 		return
 	}
-	if wsFilter, applied := resolveWorkspaceDatasourceFilter(r.Context(), h.deps.Config); applied {
+	wsFilter, applied, err := resolveDatasourceScope(r.Context(), h.deps.Config, true)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to resolve datasource scope", "err", err)
+		wsFilter = map[string]struct{}{}
+		applied = true
+	}
+	if applied {
 		if _, ok := wsFilter[entry.DatasourceID]; !ok {
 			writeEntityNotFound(w, "query history")
 			return

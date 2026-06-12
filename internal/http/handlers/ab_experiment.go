@@ -470,7 +470,7 @@ func (h *ABExperimentHandler) UpdateVariant(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeOK(w)
 }
 
 // DeleteVariant deletes a variant in a draft experiment.
@@ -500,7 +500,7 @@ func (h *ABExperimentHandler) DeleteVariant(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeOK(w)
 }
 
 // GetMetrics returns aggregated metrics for an experiment.

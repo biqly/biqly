@@ -328,7 +328,7 @@ func (h *DatasourceHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allowedSet, scoped, err := resolveAccessibleDatasources(ctx, h.deps.Config)
+	allowedSet, scoped, err := resolveDatasourceScope(ctx, h.deps.Config, false)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to verify datasource access", err)
 		return

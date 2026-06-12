@@ -15,6 +15,8 @@ import type { DatasourceAccess } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
 import { DataState } from '../ui/DataState'
+import type { ColumnDef } from '../ui/DataTable'
+import { DataTable } from '../ui/DataTable'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
 import type { DatasourceAccessLevel } from './adminSelectOptions'
@@ -112,6 +114,64 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     }
   }
 
+  const accessColumns: ColumnDef<DatasourceAccess>[] = [
+    {
+      key: 'user',
+      header: t('admin.fields.user'),
+      className: 'admin-td-mono',
+      cell: (r) => {
+        const userObj = users.find((u) => u.id === r.user_id)
+        return userObj ? userObj.email : r.user_id
+      },
+    },
+    {
+      key: 'datasource',
+      header: 'Datasource',
+      className: 'admin-td-mono',
+      cell: (r) => {
+        const dsObj = datasources.find((d) => d.id === r.datasource_id)
+        return dsObj ? dsObj.name : r.datasource_id
+      },
+    },
+    {
+      key: 'level',
+      header: t('admin.datasource_access.level'),
+      cell: (r) => (
+        <Select
+          size="sm"
+          value={r.access_level}
+          options={levelOptions}
+          onChange={(v) => {
+            void onChangeLevel(r.id, v as DatasourceAccessLevel)
+          }}
+          className={`admin-level-${r.access_level}`}
+          disabled={!canEdit}
+        />
+      ),
+    },
+    {
+      key: 'granted_at',
+      header: t('admin.datasource_access.granted_at'),
+      cell: (r) => new Date(r.granted_at).toLocaleString(localeLanguageTag(locale)),
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      cell: (r) => (
+        <button
+          onClick={() => {
+            void onRevoke(r.user_id, r.datasource_id)
+          }}
+          className="admin-btn-secondary"
+          disabled={!canEdit}
+        >
+          {t('common.delete')}
+        </button>
+      ),
+    },
+  ]
+
   return (
     <div className="page-stack">
       <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.datasource_access.title')}</h2>
@@ -165,63 +225,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
           errorPrefix={t('common.error')}
           empty={rows.length === 0}
         >
-          <table className="admin-table">
-            <thead>
-              <tr className="admin-thead-row">
-                <th className="admin-th">{t('admin.fields.user')}</th>
-                <th className="admin-th">Datasource</th>
-                <th className="admin-th">{t('admin.datasource_access.level')}</th>
-                <th className="admin-th">{t('admin.datasource_access.granted_at')}</th>
-                <th className="admin-th"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr className="admin-tr">
-                  <td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>
-                    {loading ? '' : '—'}
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r) => {
-                  const userObj = users.find((u) => u.id === r.user_id)
-                  const dsObj = datasources.find((d) => d.id === r.datasource_id)
-                  return (
-                    <tr key={r.id} className="admin-tr">
-                      <td className="admin-td-mono">{userObj ? userObj.email : r.user_id}</td>
-                      <td className="admin-td-mono">{dsObj ? dsObj.name : r.datasource_id}</td>
-                      <td className="admin-td">
-                        <Select
-                          size="sm"
-                          value={r.access_level}
-                          options={levelOptions}
-                          onChange={(v) => {
-                            void onChangeLevel(r.id, v as DatasourceAccessLevel)
-                          }}
-                          className={`admin-level-${r.access_level}`}
-                          disabled={!canEdit}
-                        />
-                      </td>
-                      <td className="admin-td">
-                        {new Date(r.granted_at).toLocaleString(localeLanguageTag(locale))}
-                      </td>
-                      <td className="admin-td" style={{ textAlign: 'right' }}>
-                        <button
-                          onClick={() => {
-                            void onRevoke(r.user_id, r.datasource_id)
-                          }}
-                          className="admin-btn-secondary"
-                          disabled={!canEdit}
-                        >
-                          {t('common.delete')}
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
+          <DataTable columns={accessColumns} rows={rows} rowKey={(r) => r.id} loading={loading} />
         </DataState>
         <Pagination
           currentPage={currentPage}

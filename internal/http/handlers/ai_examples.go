@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
@@ -88,12 +87,7 @@ func (h *AIExamplesHandler) ListExamples(w http.ResponseWriter, r *http.Request)
 // ListFavorites returns favorited few-shot examples across datasources, newest first.
 func (h *AIExamplesHandler) ListFavorites(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	limit := 0
-	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			limit = n
-		}
-	}
+	limit, _ := bimw.ParsePositiveIntQueryParam(r, "limit")
 
 	examples, err := h.deps.MetaRepo.ListFavoriteExamples(ctx, limit)
 	if err != nil {
@@ -312,10 +306,8 @@ func (h *AIExamplesHandler) GetAIUsageBreakdown(w http.ResponseWriter, r *http.R
 		return
 	}
 	days := 30
-	if v := r.URL.Query().Get("days"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 365 {
-			days = n
-		}
+	if n, ok := bimw.ParsePositiveIntQueryParam(r, "days"); ok && n <= 365 {
+		days = n
 	}
 	totals, err := h.deps.MetaRepo.GetAIUsageTotals(ctx, days)
 	if err != nil {
@@ -337,13 +329,11 @@ func (h *AIExamplesHandler) GetAIUsageBreakdown(w http.ResponseWriter, r *http.R
 // GetExampleIDs returns a list of example IDs for a datasource/model.
 func (h *AIExamplesHandler) GetExampleIDs(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	datasourceID := r.URL.Query().Get("datasource_id")
-	modelID := r.URL.Query().Get("model_id")
-
-	if datasourceID == "" {
-		writeError(w, http.StatusBadRequest, "datasource_id is required")
+	datasourceID, ok := requireQueryParam(w, r, "datasource_id")
+	if !ok {
 		return
 	}
+	modelID := r.URL.Query().Get("model_id")
 
 	ids, err := h.deps.MetaRepo.ListFewShotExampleIDs(ctx, datasourceID, modelID, 10)
 	if err != nil {
