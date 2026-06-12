@@ -158,17 +158,23 @@ func TestAIJobsAdminListReturnsJobs(t *testing.T) {
 	now := time.Now()
 	state.queries = []queryMock{
 		{Pattern: "ORDER BY (status IN", Cols: aiJobMockCols, Rows: [][]driver.Value{aiJobMockRow(now, "user-1")}},
+		{Pattern: "SELECT COUNT(*) FROM ai_jobs", Cols: []string{"count"}, Rows: [][]driver.Value{{1}}},
 	}
 
+	handler := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 25, MaxPageSize: 100})(
+		http.HandlerFunc(h.AdminList),
+	)
 	req := httptest.NewRequestWithContext(
 		context.Background(),
 		http.MethodGet,
-		"/api/ai/jobs/admin?status=running&kind=run&limit=10",
+		"/api/ai/jobs/admin?status=running&kind=run&page=1&page_size=10",
 		http.NoBody,
 	)
 	rec := httptest.NewRecorder()
-	h.AdminList(rec, req)
+	handler.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), `"job-1"`)
+	body := rec.Body.String()
+	assert.Contains(t, body, `"job-1"`)
+	assert.Contains(t, body, `"total":1`)
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/bytedance/sonic"
 	"github.com/go-chi/chi/v5"
@@ -24,7 +25,7 @@ func TestAdminListConfirmedQueriesReturnsRows(t *testing.T) {
 	confirmedAt := time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC)
 	state.queries = []queryMock{
 		{
-			Pattern: "FROM ai_confirmed_queries",
+			Pattern: "LIMIT $2 OFFSET $3",
 			Cols: []string{
 				"id", "datasource_id", "model_id", "user_id",
 				"nl_query", "sql_query", "semantic_model_hash", "is_active", "confirmed_at",
@@ -34,20 +35,28 @@ func TestAdminListConfirmedQueriesReturnsRows(t *testing.T) {
 					"monthly sales", `{"select":[]}`, "m-1@2", false, confirmedAt},
 			},
 		},
+		{Pattern: "SELECT COUNT(*)::int FROM ai_confirmed_queries", Cols: []string{"count"}, Rows: [][]driver.Value{{1}}},
 	}
 	h := newAIHandlerWithRepo(metadata.NewRepository(db))
 
+	handler := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 10, MaxPageSize: 100})(
+		http.HandlerFunc(h.AdminListConfirmedQueries),
+	)
 	rec := httptest.NewRecorder()
-	h.AdminListConfirmedQueries(rec,
+	handler.ServeHTTP(rec,
 		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ai/confirmed-queries?datasource_id="+testDatasourceID, http.NoBody))
 
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	var rows []confirmedQueryAdminResponse
-	require.NoError(t, sonic.Unmarshal(rec.Body.Bytes(), &rows))
-	require.Len(t, rows, 1)
-	assert.Equal(t, "monthly sales", rows[0].NLQuery)
-	assert.False(t, rows[0].IsActive)
-	assert.True(t, confirmedAt.Equal(rows[0].ConfirmedAt))
+	var payload struct {
+		Queries []confirmedQueryAdminResponse `json:"queries"`
+		Total   int                           `json:"total"`
+	}
+	require.NoError(t, sonic.Unmarshal(rec.Body.Bytes(), &payload))
+	require.Len(t, payload.Queries, 1)
+	assert.Equal(t, 1, payload.Total)
+	assert.Equal(t, "monthly sales", payload.Queries[0].NLQuery)
+	assert.False(t, payload.Queries[0].IsActive)
+	assert.True(t, confirmedAt.Equal(payload.Queries[0].ConfirmedAt))
 }
 
 // datasource_id is required and must be a UUID.

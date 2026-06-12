@@ -114,6 +114,7 @@ type AIJobsAdminFilter struct {
 	Kind   string
 	UserID string
 	Limit  int
+	Offset int
 }
 
 // ListAIJobsAdmin returns jobs across all users and sessions for the admin
@@ -123,13 +124,33 @@ func (r *Repository) ListAIJobsAdmin(ctx context.Context, f AIJobsAdminFilter) (
 	if limit <= 0 || limit > 500 {
 		limit = 200
 	}
+	offset := f.Offset
+	if offset < 0 {
+		offset = 0
+	}
 	q := aiJobsSelect + `
 	WHERE ($1 = '' OR status = $1)
 	  AND ($2 = '' OR kind = $2)
 	  AND ($3 = '' OR user_id = $3)
 	ORDER BY (status IN ('pending', 'queued', 'running')) DESC, created_at DESC
-	LIMIT $4`
-	return r.queryAIJobs(ctx, limit, q, f.Status, f.Kind, f.UserID, limit)
+	LIMIT $4 OFFSET $5`
+	return r.queryAIJobs(ctx, limit, q, f.Status, f.Kind, f.UserID, limit, offset)
+}
+
+// CountAIJobsAdmin returns how many jobs match the admin list filters.
+func (r *Repository) CountAIJobsAdmin(ctx context.Context, f AIJobsAdminFilter) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM ai_jobs
+		WHERE ($1 = '' OR status = $1)
+		  AND ($2 = '' OR kind = $2)
+		  AND ($3 = '' OR user_id = $3)`,
+		f.Status, f.Kind, f.UserID,
+	).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count ai jobs: %w", err)
+	}
+	return n, nil
 }
 
 func (r *Repository) queryAIJobs(ctx context.Context, capacity int, q string, args ...any) ([]AIJob, error) {

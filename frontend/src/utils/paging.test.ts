@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { clampPage, getTotalPages, pageRange, sliceClientPage } from './paging'
+import { clampPage, getTotalPages, pageRange } from './paging'
 
 describe('getTotalPages', () => {
   it('computes ceil(total / pageSize) for non-empty lists', () => {
@@ -47,21 +47,5 @@ describe('pageRange', () => {
 
   it('yields 0–0 for an empty list', () => {
     expect(pageRange(1, 10, 0)).toEqual({ start: 0, end: 0 })
-  })
-})
-
-describe('sliceClientPage', () => {
-  const rows = Array.from({ length: 25 }, (_, i) => i + 1)
-
-  it('slices the requested 1-based page (AIUsageAdminPanel pattern)', () => {
-    expect(sliceClientPage(rows, 1, 10)).toEqual(rows.slice(0, 10))
-    expect(sliceClientPage(rows, 3, 10)).toEqual([21, 22, 23, 24, 25])
-  })
-
-  it('clamps an out-of-range page instead of returning an empty slice', () => {
-    // Characterization: AIUsageAdminPanel clamps currentPage before slicing
-    // (clampedCurrentPage), so page 99 shows the last page, not an empty table.
-    expect(sliceClientPage(rows, 99, 10)).toEqual([21, 22, 23, 24, 25])
-    expect(sliceClientPage([], 2, 10)).toEqual([])
   })
 })

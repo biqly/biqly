@@ -79,7 +79,9 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	aiHistoryPagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 10, MaxPageSize: 100})
 	queryHistoryPagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 10, MaxPageSize: 50})
 	staleJobsPagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 100, MaxPageSize: 500})
-	adminJobsPagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 200, MaxPageSize: 500})
+	adminJobsPagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 25, MaxPageSize: 100})
+	usageBreakdownPagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 25, MaxPageSize: 100})
+	confirmedQueriesPagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 10, MaxPageSize: 100})
 	if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {
 		r.With(dsAccess).Post("/ai/jobs", deps.AIJobsHTTP.Create)
 		r.Get("/ai/jobs/describe-batch/conflict", deps.AIJobsHTTP.DescribeBatchConflict)
@@ -158,7 +160,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 		r.Post("/ai/enrich-context", enrichHandler.Analyze)
 		r.Post("/ai/enrich-context/apply", enrichHandler.Apply)
 
-		registerAIAdminConfigRoutes(r, aiHandler)
+		registerAIAdminConfigRoutes(r, aiHandler, confirmedQueriesPagination)
 	})
 
 	examplesHandler := handlers.NewAIExamplesHandler(deps)
@@ -171,7 +173,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	r.Delete("/ai/examples/{id}", examplesHandler.DeleteExample)
 	r.Post("/ai/feedback", examplesHandler.SubmitFeedback)
 	r.Get("/ai/usage", examplesHandler.GetAIUsage)
-	r.Get("/ai/usage/breakdown", examplesHandler.GetAIUsageBreakdown)
+	r.With(usageBreakdownPagination).Get("/ai/usage/breakdown", examplesHandler.GetAIUsageBreakdown)
 	r.Get("/ai/example-ids", examplesHandler.GetExampleIDs)
 	r.Get("/ai/stats/models", examplesHandler.GetModelSuccessRates)
 
@@ -206,8 +208,12 @@ func registerAIConversationRoutes(
 // registerAIAdminConfigRoutes wires the admin-key-protected runtime knobs:
 // NL→SQL memory store administration (P3), runtime config (P5), and the
 // locale-dimensioned NL lexicon (ADR-0001, DİL-1).
-func registerAIAdminConfigRoutes(r chi.Router, aiHandler *handlers.AIHandler) {
-	r.Get("/ai/confirmed-queries", aiHandler.AdminListConfirmedQueries)
+func registerAIAdminConfigRoutes(
+	r chi.Router,
+	aiHandler *handlers.AIHandler,
+	confirmedQueriesPagination func(http.Handler) http.Handler,
+) {
+	r.With(confirmedQueriesPagination).Get("/ai/confirmed-queries", aiHandler.AdminListConfirmedQueries)
 	r.Post("/ai/confirmed-queries/{id}/deactivate", aiHandler.AdminDeactivateConfirmedQuery)
 	r.Get("/ai/admin/config", aiHandler.AdminRuntimeConfig)
 	r.Put("/ai/admin/config", aiHandler.UpdateAdminRuntimeConfig)

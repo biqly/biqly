@@ -5,13 +5,13 @@ import {
   deactivateConfirmedQuery,
   listConfirmedQueries,
 } from '../../api/aiAdmin'
-import { useClientPagination } from '../../hooks/useClientPagination'
 import { useConfirm } from '../../hooks/useConfirm'
 import { useDatasources } from '../../hooks/useDatasources'
+import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useSortState } from '../../hooks/useSortState'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
-import { sortRows } from '../../utils/sorting'
+import type { PageQuery } from '../../types/pagination'
 import { Button } from '../ui/Button'
 import type { ColumnDef } from '../ui/DataTable'
 import { DataTable } from '../ui/DataTable'
@@ -19,19 +19,6 @@ import { LoadingScreen } from '../ui/LoadingScreen'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
 import { datasourceSelectOptions } from './adminSelectOptions'
-
-function confirmedQuerySortValue(row: ConfirmedQuery, key: string): unknown {
-  switch (key) {
-    case 'question':
-      return row.nl_query
-    case 'confirmed_at':
-      return new Date(row.confirmed_at).getTime()
-    case 'status':
-      return row.is_active ? 1 : 0
-    default:
-      return null
-  }
-}
 
 // ConfirmedQueriesPanel lists the NL→SQL pairs learned from thumbs-up feedback
 // (the AI memory store) and lets admins pull a pair out of few-shot recall.
@@ -42,19 +29,38 @@ export function ConfirmedQueriesPanel() {
   const { datasources, loading: loadingDS } = useDatasources()
 
   const [selectedDS, setSelectedDS] = useState('')
-  const [rows, setRows] = useState<ConfirmedQuery[]>([])
-  const [loading, setLoading] = useState(false)
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null)
 
   const { sort, toggle: toggleSortKey } = useSortState()
-  const sortedRows = useMemo(() => sortRows(rows, sort, confirmedQuerySortValue), [rows, sort])
+
+  const fetcher = useCallback(
+    async (q: PageQuery) => {
+      const res = await listConfirmedQueries(selectedDS, {
+        page: q.page,
+        pageSize: q.pageSize,
+        sort: sort?.key,
+        order: sort?.dir,
+      })
+      return { items: res.queries, total: res.total }
+    },
+    [selectedDS, sort],
+  )
   const {
+    items: rows,
+    loading,
     page: currentPage,
     setPage: setCurrentPage,
     pageSize,
     totalPages,
-    pageRows: displayedRows,
-  } = useClientPagination(sortedRows, 10)
+    total: totalItems,
+    reload,
+  } = usePaginatedList<ConfirmedQuery>({
+    fetcher,
+    initialPageSize: 10,
+    enabled: Boolean(selectedDS),
+    resetPageKey: `${selectedDS}|${sort?.key ?? ''}|${sort?.dir ?? ''}`,
+    syncToUrl: 'confirmedQueriesPage',
+  })
 
   const handleSortToggle = useCallback(
     (key: string) => {
@@ -80,28 +86,6 @@ export function ConfirmedQueriesPanel() {
     }
   }, [datasources, selectedDS])
 
-  const load = useCallback(
-    async (datasourceId: string) => {
-      if (!datasourceId) {
-        return
-      }
-      setLoading(true)
-      try {
-        setRows(await listConfirmedQueries(datasourceId))
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : String(e))
-      } finally {
-        setLoading(false)
-      }
-    },
-    [toast],
-  )
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load(selectedDS)
-  }, [selectedDS, load])
-
   const handleDeactivate = async (id: string) => {
     const ok = await confirm({
       title: t('admin.confirmed_queries.deactivate_confirm_title'),
@@ -114,7 +98,7 @@ export function ConfirmedQueriesPanel() {
     setDeactivatingId(id)
     try {
       await deactivateConfirmedQuery(id)
-      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, is_active: false } : r)))
+      reload()
       toast.success(t('admin.confirmed_queries.deactivated'))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))
@@ -219,13 +203,13 @@ export function ConfirmedQueriesPanel() {
 
       {loading ? (
         <LoadingScreen minHeight="160px" />
-      ) : rows.length === 0 ? (
+      ) : totalItems === 0 ? (
         <p className="admin-text-muted">{t('admin.confirmed_queries.empty')}</p>
       ) : (
         <div className="admin-table-container">
           <DataTable
             columns={queryColumns}
-            rows={displayedRows}
+            rows={rows}
             rowKey={(row) => row.id}
             rowClassName=""
             tableStyle={{ fontSize: 13, minWidth: 760 }}
@@ -236,7 +220,7 @@ export function ConfirmedQueriesPanel() {
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={setCurrentPage}
-            totalItems={rows.length}
+            totalItems={totalItems}
             itemsPerPage={pageSize}
             alwaysShow
           />

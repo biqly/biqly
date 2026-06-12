@@ -5,12 +5,11 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/core"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/biqly/biqly/internal/metadata"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
-
-// confirmedQueriesAdminLimit caps the admin listing page size.
-const confirmedQueriesAdminLimit = 200
 
 // confirmedQueryAdminResponse is the wire shape of one confirmed NL→SQL pair
 // in the admin listing.
@@ -39,9 +38,28 @@ func (h *AIHandler) AdminListConfirmedQueries(w http.ResponseWriter, r *http.Req
 		return
 	}
 	ctx := r.Context()
-	rows, err := h.deps.MetaRepo.ListConfirmedQueriesForAdmin(ctx, datasourceID, confirmedQueriesAdminLimit)
+	pag := bimw.PaginationFromContext(ctx)
+	limit := pag.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+	sortBy := r.URL.Query().Get("sort")
+	sortDir := r.URL.Query().Get("order")
+	listParams := metadata.ConfirmedQueriesAdminListParams{
+		DatasourceID: datasourceID,
+		Limit:        limit,
+		Offset:       pag.Offset,
+		SortBy:       sortBy,
+		SortDir:      sortDir,
+	}
+	rows, err := h.deps.MetaRepo.ListConfirmedQueriesForAdmin(ctx, listParams)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list confirmed queries", err)
+		return
+	}
+	total, err := h.deps.MetaRepo.CountConfirmedQueriesForAdmin(ctx, datasourceID)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to count confirmed queries", err)
 		return
 	}
 	out := make([]confirmedQueryAdminResponse, 0, len(rows))
@@ -58,7 +76,10 @@ func (h *AIHandler) AdminListConfirmedQueries(w http.ResponseWriter, r *http.Req
 			ConfirmedAt:       row.ConfirmedAt,
 		})
 	}
-	writeJSON(w, http.StatusOK, out)
+	if out == nil {
+		out = []confirmedQueryAdminResponse{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"queries": out, "total": total})
 }
 
 // AdminDeactivateConfirmedQuery removes one confirmed pair from few-shot recall.

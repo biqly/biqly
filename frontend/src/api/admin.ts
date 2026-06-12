@@ -557,6 +557,55 @@ export async function listAIHistory(
   )
 }
 
+export interface AIUsageTotals {
+  query_count: number
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  total_cost_usd: number
+  unique_users: number
+  unique_models: number
+}
+
+export interface AIUsageBreakdownRow {
+  user_id: string
+  model_used: string
+  query_count: number
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  total_cost_usd: number
+  avg_latency_ms: number
+}
+
+export async function getAIUsageBreakdown(
+  token: string,
+  opts: { days?: number; page?: number; pageSize?: number } = {},
+): Promise<{
+  days: number
+  totals: AIUsageTotals
+  rows: AIUsageBreakdownRow[]
+  total: number
+}> {
+  const params = new URLSearchParams()
+  if (opts.days) {
+    params.set('days', String(opts.days))
+  }
+  if (opts.page) {
+    params.set('page', String(opts.page))
+  }
+  if (opts.pageSize) {
+    params.set('page_size', String(opts.pageSize))
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return apiFetch<{
+    days: number
+    totals: AIUsageTotals
+    rows: AIUsageBreakdownRow[]
+    total: number
+  }>('GET', `/api/ai/usage/breakdown${suffix}`, undefined, { token })
+}
+
 export async function getAIHistoryDetail(token: string, id: string): Promise<AIHistoryEntry> {
   return apiFetch<AIHistoryEntry>(
     'GET',
@@ -570,8 +619,14 @@ export async function getAIHistoryDetail(token: string, id: string): Promise<AIH
 
 export async function listAdminAIJobs(
   token: string,
-  opts: { status?: string; kind?: string; userId?: string; limit?: number } = {},
-): Promise<{ jobs: AIJob[] }> {
+  opts: {
+    status?: string
+    kind?: string
+    userId?: string
+    page?: number
+    pageSize?: number
+  } = {},
+): Promise<{ jobs: AIJob[]; total: number }> {
   const params = new URLSearchParams()
   if (opts.status) {
     params.set('status', opts.status)
@@ -582,11 +637,20 @@ export async function listAdminAIJobs(
   if (opts.userId) {
     params.set('user_id', opts.userId)
   }
-  if (opts.limit) {
-    params.set('limit', String(opts.limit))
+  if (opts.page) {
+    params.set('page', String(opts.page))
+  }
+  if (opts.pageSize) {
+    params.set('page_size', String(opts.pageSize))
   }
   const suffix = params.toString() ? `?${params.toString()}` : ''
-  return apiFetch<{ jobs: AIJob[] }>('GET', `/api/ai/jobs/admin${suffix}`, undefined, { token })
+  const data = await apiFetch<{ jobs?: AIJob[]; total?: number }>(
+    'GET',
+    `/api/ai/jobs/admin${suffix}`,
+    undefined,
+    { token },
+  )
+  return { jobs: data.jobs ?? [], total: data.total ?? 0 }
 }
 
 export async function adminCancelAIJob(token: string, id: string): Promise<AIJob> {

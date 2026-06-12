@@ -148,22 +148,51 @@ type ConfirmedQueryAdminRow struct {
 	ConfirmedAt       time.Time
 }
 
-// ListConfirmedQueriesForAdmin returns the newest confirmed pairs for a
-// datasource regardless of model hash or active state (admin review listing).
-func (r *Repository) ListConfirmedQueriesForAdmin(ctx context.Context, datasourceID string, limit int) ([]ConfirmedQueryAdminRow, error) {
+// ConfirmedQueriesAdminListParams scopes the admin review listing query.
+type ConfirmedQueriesAdminListParams struct {
+	DatasourceID string
+	Limit        int
+	Offset       int
+	SortBy       string
+	SortDir      string
+}
+
+func confirmedQueriesAdminOrderClause(sortBy, sortDir string) string {
+	col := "confirmed_at"
+	switch sortBy {
+	case "question":
+		col = "nl_query"
+	case "status":
+		col = "is_active"
+	case "confirmed_at":
+		col = "confirmed_at"
+	}
+	dir := "DESC"
+	if sortDir == "asc" {
+		dir = "ASC"
+	}
+	return col + " " + dir
+}
+
+// ListConfirmedQueriesForAdmin returns confirmed pairs for a datasource
+// regardless of model hash or active state (admin review listing).
+func (r *Repository) ListConfirmedQueriesForAdmin(ctx context.Context, p ConfirmedQueriesAdminListParams) ([]ConfirmedQueryAdminRow, error) {
+	limit := p.Limit
 	if limit <= 0 {
 		limit = ConfirmedQueriesCandidatePool
 	}
+	offset := max(p.Offset, 0)
+	order := confirmedQueriesAdminOrderClause(p.SortBy, p.SortDir)
 	q := `
 		SELECT id::text, datasource_id::text, COALESCE(model_id::text, ''), COALESCE(user_id, ''),
 			nl_query, sql_query, semantic_model_hash, is_active, confirmed_at
 		FROM ai_confirmed_queries
 		WHERE datasource_id = $1::uuid
-		ORDER BY confirmed_at DESC
-		LIMIT $2
+		ORDER BY ` + order + `
+		LIMIT $2 OFFSET $3
 	`
 	return platformdb.QuerySliceErr(ctx, r.db, "list confirmed queries for admin", q,
-		[]any{datasourceID, limit},
+		[]any{p.DatasourceID, limit, offset},
 		func(s platformdb.Scanner) (ConfirmedQueryAdminRow, error) {
 			var row ConfirmedQueryAdminRow
 			if err := s.Scan(
@@ -175,6 +204,18 @@ func (r *Repository) ListConfirmedQueriesForAdmin(ctx context.Context, datasourc
 			}
 			return row, nil
 		})
+}
+
+// CountConfirmedQueriesForAdmin returns how many confirmed pairs exist for a datasource.
+func (r *Repository) CountConfirmedQueriesForAdmin(ctx context.Context, datasourceID string) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COUNT(*)::int FROM ai_confirmed_queries WHERE datasource_id = $1::uuid
+	`, datasourceID).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count confirmed queries for admin: %w", err)
+	}
+	return n, nil
 }
 
 // SetConfirmedQueryActive toggles a single confirmed pair's recall eligibility.

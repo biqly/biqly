@@ -314,15 +314,29 @@ func (h *AIExamplesHandler) GetAIUsageBreakdown(w http.ResponseWriter, r *http.R
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get usage totals", err)
 		return
 	}
-	rows, err := h.deps.MetaRepo.ListAIUsageByUserAndModel(ctx, days)
+	pag := bimw.PaginationFromContext(ctx)
+	limit := pag.Limit
+	if limit <= 0 {
+		limit = 25
+	}
+	rows, err := h.deps.MetaRepo.ListAIUsageByUserAndModelPaged(ctx, days, limit, pag.Offset)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get usage breakdown", err)
 		return
+	}
+	total, err := h.deps.MetaRepo.CountAIUsageByUserAndModelGroups(ctx, days)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to count usage breakdown", err)
+		return
+	}
+	if rows == nil {
+		rows = []metadata.AIUsageByUserModelRow{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"days":   days,
 		"totals": totals,
 		"rows":   rows,
+		"total":  total,
 	})
 }
 

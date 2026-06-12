@@ -285,16 +285,19 @@ func (h *AIJobsHandler) CancelActive(w http.ResponseWriter, r *http.Request) {
 // AdminList returns jobs across all users and sessions, active first, for the
 // admin AI jobs panel. Guarded by AdminAccessMiddleware on the route.
 func (h *AIJobsHandler) AdminList(w http.ResponseWriter, r *http.Request) {
-	limit := bimw.PaginationFromContext(r.Context()).Limit
+	pag := bimw.PaginationFromContext(r.Context())
+	limit := pag.Limit
 	if limit <= 0 {
-		limit = 200
+		limit = 25
 	}
-	jobs, err := h.svc.repo.ListAIJobsAdmin(r.Context(), metadata.AIJobsAdminFilter{
+	filter := metadata.AIJobsAdminFilter{
 		Status: r.URL.Query().Get("status"),
 		Kind:   r.URL.Query().Get("kind"),
 		UserID: r.URL.Query().Get("user_id"),
 		Limit:  limit,
-	})
+		Offset: pag.Offset,
+	}
+	jobs, err := h.svc.repo.ListAIJobsAdmin(r.Context(), filter)
 	if err != nil {
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "list jobs failed", err)
 		return
@@ -302,7 +305,12 @@ func (h *AIJobsHandler) AdminList(w http.ResponseWriter, r *http.Request) {
 	if jobs == nil {
 		jobs = []metadata.AIJob{}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"jobs": jobs})
+	total, err := h.svc.repo.CountAIJobsAdmin(r.Context(), filter)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "count jobs failed", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"jobs": jobs, "total": total})
 }
 
 func (h *AIJobsHandler) AdminListStale(w http.ResponseWriter, r *http.Request) {

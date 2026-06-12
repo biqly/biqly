@@ -4,14 +4,19 @@ import { adminCancelAIJob, adminCancelAllStaleAIJobs, listAdminAIJobs } from '..
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { jobIsActive, jobQuestionPreview } from '../../hooks/useAIJobsUtils'
 import { useConfirm } from '../../hooks/useConfirm'
+import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useT } from '../../i18n'
 import type { AIJob } from '../../types/ai'
+import type { PageQuery } from '../../types/pagination'
 import { formatDurationMs } from '../../utils/formatters'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
 
 const POLL_MS = 3000
+
+const DEFAULT_AI_JOBS_PAGE_SIZE = 25
 
 const STATUS_OPTIONS = ['pending', 'queued', 'running', 'succeeded', 'failed', 'cancelled'] as const
 const KIND_OPTIONS = ['run', 'preview', 'query', 'describe', 'describe_batch', 'embed_metadata']
@@ -40,11 +45,8 @@ export function AIJobsAdminPanel() {
   const confirm = useConfirm()
   const { accessToken } = useAuth()
   const { users } = useAdminLookups(accessToken ?? '')
-  const [jobs, setJobs] = useState<AIJob[]>([])
   const [statusFilter, setStatusFilter] = useState('')
   const [kindFilter, setKindFilter] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [busyJobId, setBusyJobId] = useState<string | null>(null)
   const [staleNote, setStaleNote] = useState<string | null>(null)
 
@@ -58,32 +60,46 @@ export function AIJobsAdminPanel() {
     return map
   }, [users])
 
-  const refresh = useCallback(async () => {
+  const fetcher = useCallback(
+    async (q: PageQuery) => {
+      const res = await listAdminAIJobs(accessToken ?? '', {
+        status: statusFilter || undefined,
+        kind: kindFilter || undefined,
+        page: q.page,
+        pageSize: q.pageSize,
+      })
+      return { items: res.jobs, total: res.total }
+    },
+    [accessToken, statusFilter, kindFilter],
+  )
+
+  const {
+    items: jobs,
+    loading,
+    error,
+    page: currentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    totalPages,
+    total: totalItems,
+    reload,
+    setError,
+  } = usePaginatedList<AIJob>({
+    fetcher,
+    initialPageSize: DEFAULT_AI_JOBS_PAGE_SIZE,
+    enabled: Boolean(accessToken),
+    fetchKey: accessToken,
+    resetPageKey: `${statusFilter}|${kindFilter}`,
+    syncToUrl: 'aiJobsPage',
+  })
+
+  useEffect(() => {
     if (!accessToken) {
       return
     }
-    try {
-      const res = await listAdminAIJobs(accessToken, {
-        status: statusFilter || undefined,
-        kind: kindFilter || undefined,
-      })
-      setJobs(res.jobs)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [accessToken, statusFilter, kindFilter])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refresh()
-    const id = window.setInterval(() => {
-      void refresh()
-    }, POLL_MS)
+    const id = window.setInterval(() => reload(), POLL_MS)
     return () => window.clearInterval(id)
-  }, [refresh])
+  }, [accessToken, reload])
 
   const cancelJob = async (job: AIJob) => {
     if (!accessToken) {
@@ -102,7 +118,7 @@ export function AIJobsAdminPanel() {
     setBusyJobId(job.id)
     try {
       await adminCancelAIJob(accessToken, job.id)
-      await refresh()
+      reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -122,7 +138,7 @@ export function AIJobsAdminPanel() {
           matched: res.matched,
         }),
       )
-      await refresh()
+      reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
@@ -255,6 +271,16 @@ export function AIJobsAdminPanel() {
             )}
           </tbody>
         </table>
+
+        {jobs.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={totalItems}
+            itemsPerPage={pageSize}
+          />
+        )}
       </div>
     </div>
   )

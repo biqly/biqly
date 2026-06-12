@@ -1,9 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
+import {
+  type AIUsageBreakdownRow,
+  type AIUsageTotals,
+  getAIUsageBreakdown,
+} from '../../api/admin'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
-import { useApi } from '../../hooks/useApi'
-import { useClientPagination } from '../../hooks/useClientPagination'
+import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useT } from '../../i18n'
+import type { PageQuery } from '../../types/pagination'
 import { formatDurationMs } from '../../utils/formatters'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from '../ui/ErrorAlert'
@@ -15,27 +20,6 @@ import { numberSelectOptions } from './adminSelectOptions'
 
 const DEFAULT_PAGE_SIZE = 25
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
-
-interface AIUsageTotals {
-  query_count: number
-  prompt_tokens: number
-  completion_tokens: number
-  total_tokens: number
-  total_cost_usd: number
-  unique_users: number
-  unique_models: number
-}
-
-interface AIUsageBreakdownRow {
-  user_id: string
-  model_used: string
-  query_count: number
-  prompt_tokens: number
-  completion_tokens: number
-  total_tokens: number
-  total_cost_usd: number
-  avg_latency_ms: number
-}
 
 function formatTokens(prompt: number, completion: number, total: number): string {
   if (prompt > 0 || completion > 0) {
@@ -56,23 +40,40 @@ function formatUSD(v: number): string {
 
 export function AIUsageAdminPanel() {
   const t = useT()
-  const { get } = useApi()
   const { accessToken } = useAuth()
   const { users, loading: lookupsLoading } = useAdminLookups(accessToken ?? '')
   const [days, setDays] = useState(30)
   const [totals, setTotals] = useState<AIUsageTotals | null>(null)
-  const [rows, setRows] = useState<AIUsageBreakdownRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+
+  const fetcher = useCallback(
+    async (q: PageQuery) => {
+      const data = await getAIUsageBreakdown(accessToken ?? '', {
+        days,
+        page: q.page,
+        pageSize: q.pageSize,
+      })
+      setTotals(data.totals)
+      return { items: data.rows, total: data.total }
+    },
+    [accessToken, days],
+  )
   const {
-    page: clampedCurrentPage,
+    items: rows,
+    loading,
+    error,
+    page: currentPage,
     setPage: setCurrentPage,
     pageSize,
     setPageSize,
     totalPages,
     total: totalItems,
-    pageRows,
-  } = useClientPagination(rows, DEFAULT_PAGE_SIZE)
+  } = usePaginatedList<AIUsageBreakdownRow>({
+    fetcher,
+    initialPageSize: DEFAULT_PAGE_SIZE,
+    enabled: Boolean(accessToken),
+    fetchKey: accessToken,
+    resetPageKey: days,
+  })
 
   const periodOptions = useMemo(
     () => [
@@ -94,34 +95,6 @@ export function AIUsageAdminPanel() {
     }
     return map
   }, [users])
-
-  useEffect(() => {
-    let cancelled = false
-    get<{ totals: AIUsageTotals; rows: AIUsageBreakdownRow[] }>(
-      `/api/ai/usage/breakdown?days=${days}`,
-    )
-      .then((data) => {
-        if (cancelled || !data) {
-          return
-        }
-        setTotals(data.totals)
-        setRows(data.rows)
-        setError(null)
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err))
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [days, get])
 
   const thStyle: React.CSSProperties = {
     textAlign: 'left',
@@ -168,7 +141,6 @@ export function AIUsageAdminPanel() {
               value={String(days)}
               options={periodOptions}
               onChange={(v) => {
-                setLoading(true)
                 setCurrentPage(1)
                 setDays(Number(v))
               }}
@@ -244,14 +216,14 @@ export function AIUsageAdminPanel() {
               </tr>
             </thead>
             <tbody>
-              {!loading && rows.length === 0 ? (
+              {!loading && totalItems === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ ...tdStyle, color: 'var(--text-muted)' }}>
                     {t('admin.ai_usage.empty')}
                   </td>
                 </tr>
               ) : (
-                pageRows.map((row) => {
+                rows.map((row) => {
                   const userLabel = row.user_id
                     ? (userLabelByID.get(row.user_id) ?? row.user_id)
                     : '—'
@@ -277,9 +249,9 @@ export function AIUsageAdminPanel() {
               )}
             </tbody>
           </table>
-          {rows.length > 0 && (
+          {totalItems > 0 && (
             <Pagination
-              currentPage={clampedCurrentPage}
+              currentPage={currentPage}
               totalPages={totalPages}
               onPageChange={setCurrentPage}
               totalItems={totalItems}

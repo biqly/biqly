@@ -19,13 +19,37 @@ export interface ConfirmedQuery {
   confirmed_at: string
 }
 
-export const listConfirmedQueries = (datasourceId: string) =>
-  apiFetch<ConfirmedQuery[]>(
+export interface ListConfirmedQueriesOptions {
+  page?: number
+  pageSize?: number
+  sort?: string
+  order?: 'asc' | 'desc'
+}
+
+export const listConfirmedQueries = (
+  datasourceId: string,
+  opts: ListConfirmedQueriesOptions = {},
+) => {
+  const params = new URLSearchParams({ datasource_id: datasourceId })
+  if (opts.page) {
+    params.set('page', String(opts.page))
+  }
+  if (opts.pageSize) {
+    params.set('page_size', String(opts.pageSize))
+  }
+  if (opts.sort) {
+    params.set('sort', opts.sort)
+  }
+  if (opts.order) {
+    params.set('order', opts.order)
+  }
+  return apiFetch<{ queries: ConfirmedQuery[]; total: number }>(
     'GET',
-    `${AI_API_BASE}/confirmed-queries?datasource_id=${encodeURIComponent(datasourceId)}`,
+    `${AI_API_BASE}/confirmed-queries?${params.toString()}`,
     undefined,
     adminOpts,
   )
+}
 
 export const deactivateConfirmedQuery = (id: string) =>
   apiFetch<{ status: string }>(

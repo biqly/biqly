@@ -34,10 +34,3 @@ export function pageRange(
     end: Math.min(page * pageSize, totalItems),
   }
 }
-
-/** Client-side page slice (AIUsageAdminPanel pattern), with the page clamped into range. */
-export function sliceClientPage<T>(rows: T[], page: number, pageSize: number): T[] {
-  const safePage = clampPage(page, getTotalPages(rows.length, pageSize))
-  const start = (safePage - 1) * pageSize
-  return rows.slice(start, start + pageSize)
-}
