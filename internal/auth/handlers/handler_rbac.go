@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/csv"
 	"errors"
-	"github.com/bytedance/sonic"
 	"net/http"
 	"strings"
 	"time"
@@ -275,12 +274,11 @@ func (h *RBACHandler) handleCreateWorkspace(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	var req struct {
+	req, ok := decodeJSON[struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
-	}
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	}](w, r)
+	if !ok {
 		return
 	}
 	ws, err := h.ws.Create(r.Context(), req.Name, req.Description, userID)
@@ -305,13 +303,12 @@ func (h *RBACHandler) handleUpdateWorkspace(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	var req struct {
+	req, ok := decodeJSON[struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
 		MFARequired *bool  `json:"mfa_required"`
-	}
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	}](w, r)
+	if !ok {
 		return
 	}
 	ws, err := h.ws.Update(r.Context(), chi.URLParam(r, "id"), userID, req.Name, req.Description, req.MFARequired)
@@ -348,12 +345,11 @@ func (h *RBACHandler) handleAddMember(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var req struct {
+	req, ok := decodeJSON[struct {
 		UserID string `json:"user_id"`
 		RoleID string `json:"role_id"`
-	}
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	}](w, r)
+	if !ok {
 		return
 	}
 	if err := h.ws.AddMember(r.Context(), chi.URLParam(r, "id"), req.UserID, req.RoleID, userID); err != nil {
@@ -368,11 +364,10 @@ func (h *RBACHandler) handleUpdateMemberRole(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
-	var req struct {
+	req, ok := decodeJSON[struct {
 		RoleID string `json:"role_id"`
-	}
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	}](w, r)
+	if !ok {
 		return
 	}
 	if err := h.ws.UpdateMemberRole(r.Context(), chi.URLParam(r, "id"), chi.URLParam(r, "userId"), req.RoleID, userID); err != nil {
@@ -408,12 +403,11 @@ func (h *RBACHandler) handleAttachDatasource(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
-	var req struct {
+	req, ok := decodeJSON[struct {
 		DatasourceID string `json:"datasource_id"`
 		AccessLevel  string `json:"access_level"`
-	}
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	}](w, r)
+	if !ok {
 		return
 	}
 	if req.AccessLevel == "" {
@@ -491,9 +485,8 @@ func (h *RBACHandler) handleCreateShare(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	var req workspace.ShareRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	req, ok := decodeJSON[workspace.ShareRequest](w, r)
+	if !ok {
 		return
 	}
 	share, err := h.sharing.Share(r.Context(), userID, req)
@@ -564,13 +557,12 @@ func (h *RBACHandler) handleAdminGrantAccess(w http.ResponseWriter, r *http.Requ
 		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
 		return
 	}
-	var req struct {
+	req, ok := decodeJSON[struct {
 		UserID       string `json:"user_id"`
 		DatasourceID string `json:"datasource_id"`
 		AccessLevel  string `json:"access_level"`
-	}
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	}](w, r)
+	if !ok {
 		return
 	}
 	if req.AccessLevel == "" {
@@ -585,11 +577,10 @@ func (h *RBACHandler) handleAdminGrantAccess(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *RBACHandler) handleAdminUpdateAccess(w http.ResponseWriter, r *http.Request) {
-	var req struct {
+	req, ok := decodeJSON[struct {
 		AccessLevel string `json:"access_level"`
-	}
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	}](w, r)
+	if !ok {
 		return
 	}
 	if err := h.dsAccess.UpdateLevel(r.Context(), chi.URLParam(r, "id"), req.AccessLevel); err != nil {
@@ -600,12 +591,11 @@ func (h *RBACHandler) handleAdminUpdateAccess(w http.ResponseWriter, r *http.Req
 }
 
 func (h *RBACHandler) handleAdminRevokeAccess(w http.ResponseWriter, r *http.Request) {
-	var req struct {
+	req, ok := decodeJSON[struct {
 		UserID       string `json:"user_id"`
 		DatasourceID string `json:"datasource_id"`
-	}
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	}](w, r)
+	if !ok {
 		return
 	}
 	if err := h.dsAccess.Revoke(r.Context(), req.UserID, req.DatasourceID); err != nil {
@@ -653,11 +643,10 @@ func (h *RBACHandler) handleAdminGetRolePermissions(w http.ResponseWriter, r *ht
 
 func (h *RBACHandler) handleAdminSetRolePermissions(w http.ResponseWriter, r *http.Request) {
 	roleID := chi.URLParam(r, "roleId")
-	var req struct {
+	req, ok := decodeJSON[struct {
 		PermissionIDs []string `json:"permission_ids"`
-	}
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	}](w, r)
+	if !ok {
 		return
 	}
 	if err := h.rbacRepo.SetRolePermissions(r.Context(), roleID, req.PermissionIDs); err != nil {
@@ -679,13 +668,12 @@ func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Reque
 		writeError(w, r, http.StatusForbidden, err)
 		return
 	}
-	var req struct {
+	req, ok := decodeJSON[struct {
 		RoleID    string  `json:"role_id"`
 		ScopeType *string `json:"scope_type,omitempty"`
 		ScopeID   *string `json:"scope_id,omitempty"`
-	}
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	}](w, r)
+	if !ok {
 		return
 	}
 	if err := h.rbacRepo.AssignRole(r.Context(), userID, req.RoleID, req.ScopeType, req.ScopeID); err != nil {
@@ -850,9 +838,8 @@ type CheckPermissionRequest struct {
 
 func (h *RBACHandler) handleInternalCheckPermission(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
-	var req CheckPermissionRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	req, ok := decodeJSON[CheckPermissionRequest](w, r)
+	if !ok {
 		return
 	}
 	scopeID := req.ScopeID
@@ -895,9 +882,8 @@ type CheckDSAccessRequest struct {
 }
 
 func (h *RBACHandler) handleInternalCheckDSAccess(w http.ResponseWriter, r *http.Request) {
-	var req CheckDSAccessRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	req, ok := decodeJSON[CheckDSAccessRequest](w, r)
+	if !ok {
 		return
 	}
 	if req.Level == "" {
@@ -950,12 +936,11 @@ func (h *RBACHandler) handleInternalWorkspaceDatasources(w http.ResponseWriter, 
 }
 
 func (h *RBACHandler) handleInternalInvalidateCache(w http.ResponseWriter, r *http.Request) {
-	var req struct {
+	req, ok := decodeJSON[struct {
 		UserID string `json:"user_id"`
 		Scope  string `json:"scope"`
-	}
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	}](w, r)
+	if !ok {
 		return
 	}
 	if err := h.dsAccess.InvalidateCache(r.Context(), req.UserID); err != nil {
@@ -1095,11 +1080,10 @@ func (h *RBACHandler) handleAdminGetUserRoles(w http.ResponseWriter, r *http.Req
 func (h *RBACHandler) handleAdminUpdateUser(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	caller, _ := r.Context().Value(userIDKey).(string)
-	var req struct {
+	req, ok := decodeJSON[struct {
 		IsActive bool `json:"is_active"`
-	}
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, err)
+	}](w, r)
+	if !ok {
 		return
 	}
 	if !req.IsActive {

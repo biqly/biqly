@@ -26,11 +26,11 @@ export function TimeGrainsTable({
           <table className="results-table">
             <thead>
               <tr>
-                <th>{t('time_grains.col_grain') || 'Time Grain'}</th>
-                <th>{t('time_grains.col_suffix') || 'Suffix'}</th>
-                <th>{t('time_grains.col_requires_time') || 'Requires Time Column'}</th>
-                <th>{t('time_grains.col_synonyms') || 'Synonyms'}</th>
-                <th className="actions">{t('common.actions') || 'Actions'}</th>
+                <th>{t('time_grains.col_grain')}</th>
+                <th>{t('time_grains.col_suffix')}</th>
+                <th>{t('time_grains.col_requires_time')}</th>
+                <th>{t('time_grains.col_synonyms')}</th>
+                <th className="actions">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -54,7 +54,7 @@ export function TimeGrainsTable({
                           fontWeight: 500,
                         }}
                       >
-                        {t('common.yes') || 'Yes'}
+                        {t('common.yes')}
                       </span>
                     ) : (
                       <span
@@ -68,7 +68,7 @@ export function TimeGrainsTable({
                           fontSize: '0.72rem',
                         }}
                       >
-                        {t('common.no') || 'No'}
+                        {t('common.no')}
                       </span>
                     )}
                   </td>
@@ -98,7 +98,7 @@ export function TimeGrainsTable({
                       className="btn btn-sm btn-ghost"
                       onClick={() => onEdit(tg)}
                     >
-                      {t('common.edit') || 'Edit'}
+                      {t('common.edit')}
                     </button>
                   </td>
                 </tr>
@@ -107,7 +107,7 @@ export function TimeGrainsTable({
           </table>
         ) : (
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-            {loading ? '' : t('common.no_data') || 'No data found'}
+            {loading ? '' : t('common.no_data')}
           </div>
         )}
       </div>

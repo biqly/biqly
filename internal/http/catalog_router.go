@@ -8,23 +8,23 @@ import (
 	"github.com/biqly/biqly/internal/http/handlers"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 // CatalogRouter sets up only the routes owned by the Catalog Service.
 func CatalogRouter(deps *app.Dependencies) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(middleware.RequestID)
-	r.Use(requestIDPropagationMiddleware)
-	r.Use(bimw.RealIP)
-	r.Use(requestLoggerMiddleware)
-	r.Use(middleware.Recoverer)
-	r.Use(HTTPMetricsMiddleware(GetMetrics()))
-	r.Use(middleware.Timeout(60 * time.Second))
-	r.Use(bimw.Locale)
-	r.Use(serviceCORS(deps))
-	r.Use(serviceSecurityHeaders(deps))
+	ApplyBaseMiddleware(r, BaseMiddlewareConfig{
+		Metrics: GetMetrics(),
+		Timeout: 60 * time.Second,
+		Locale:  true,
+		CORS:    serviceCORS(deps),
+		SecurityHeaders: bimw.SecurityHeadersConfig{
+			HSTSEnabled:           deps.Config.HTTP.HSTSEnabled,
+			HSTSIncludeSubdomains: true,
+			ContentSecurityPolicy: "default-src 'self'; frame-ancestors 'none'",
+		},
+	})
 
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)

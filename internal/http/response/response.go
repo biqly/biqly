@@ -6,13 +6,18 @@ package response
 
 import (
 	"context"
+	"errors"
 	"github.com/bytedance/sonic"
+	"io"
 	"log/slog"
 	"net/http"
 	"reflect"
 
 	"github.com/biqly/biqly/pkg/common/requestid"
 )
+
+// MaxJSONRequestBytes caps incoming JSON request bodies.
+const MaxJSONRequestBytes = 1 << 20 // 1 MiB
 
 // WriteJSON writes data as a JSON response with the given status code. A nil
 // slice is normalized to an empty array so clients always receive `[]` rather
@@ -48,4 +53,38 @@ func WriteInternalError(ctx context.Context, w http.ResponseWriter, status int, 
 		slog.ErrorContext(ctx, publicMsg, allArgs...)
 	}
 	WriteError(w, status, publicMsg)
+}
+
+// DecodeJSON decodes a required JSON request body into T and writes a standard
+// 400/413 JSON error response on failure.
+func DecodeJSON[T any](w http.ResponseWriter, r *http.Request) (*T, bool) {
+	return decodeJSON[T](w, r, false)
+}
+
+// DecodeJSONAllowEmpty decodes an optional JSON request body into T. Empty
+// bodies produce a zero-value T and no response.
+func DecodeJSONAllowEmpty[T any](w http.ResponseWriter, r *http.Request) (*T, bool) {
+	return decodeJSON[T](w, r, true)
+}
+
+func decodeJSON[T any](w http.ResponseWriter, r *http.Request, allowEmpty bool) (*T, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxJSONRequestBytes)
+	var v T
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&v); err != nil {
+		if allowEmpty && errors.Is(err, io.EOF) {
+			return &v, true
+		}
+		if isMaxBytesError(err) {
+			WriteError(w, http.StatusRequestEntityTooLarge, "request body too large")
+		} else {
+			WriteError(w, http.StatusBadRequest, "invalid request body")
+		}
+		return nil, false
+	}
+	return &v, true
+}
+
+func isMaxBytesError(err error) bool {
+	_, ok := errors.AsType[*http.MaxBytesError](err)
+	return ok
 }

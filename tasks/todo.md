@@ -16,29 +16,75 @@ Amaç: HTTP handler katmanındaki tekrarlanan kalıpları middleware ve ortak ya
 
 6 ayrı binary (monolith, AI, query, catalog, auth, mail) aynı chi middleware zincirini kopyalıyor. Auth servisi (`cmd/auth/main.go`) ayrıca `requestIDPropagationMiddleware`'i yeniden implement ediyor.
 
-- [ ] `internal/http/middleware/` veya yeni `internal/http/router_base.go` içinde `BaseMiddlewareConfig` struct + `ApplyBaseMiddleware(r chi.Router, cfg BaseMiddlewareConfig)` oluştur
-- [ ] Monolith router'ı (`internal/http/router.go:27-60`) yeni fonksiyonu kullanacak şekilde refaktor et
-- [ ] AI router (`internal/http/ai_router.go:18-27`) — aynı
-- [ ] Query router (`internal/http/query_router.go:18-27`) — aynı
-- [ ] Catalog router (`internal/http/catalog_router.go:18-27`) — aynı
-- [ ] Auth service (`cmd/auth/main.go:280-310`) — kendi `propagateRequestID` kopyasını sil, `internal/http/`'deki export edilmiş versiyonu kullan
-- [ ] Mail service (`cmd/mail/main.go:93-97`) — eksik request ID propagation + request logger'ı ekle
-- [ ] Regresyon testi: her router'ın aynı middleware zincirini ürettiğini doğrula
+- [x] `internal/http/middleware/` veya yeni `internal/http/router_base.go` içinde `BaseMiddlewareConfig` struct + `ApplyBaseMiddleware(r chi.Router, cfg BaseMiddlewareConfig)` oluştur
+- [x] Monolith router'ı (`internal/http/router.go:27-60`) yeni fonksiyonu kullanacak şekilde refaktor et
+- [x] AI router (`internal/http/ai_router.go:18-27`) — aynı
+- [x] Query router (`internal/http/query_router.go:18-27`) — aynı
+- [x] Catalog router (`internal/http/catalog_router.go:18-27`) — aynı
+- [x] Auth service (`cmd/auth/main.go:280-310`) — kendi `propagateRequestID` kopyasını sil, `internal/http/`'deki export edilmiş versiyonu kullan
+- [x] Mail service (`cmd/mail/main.go:93-97`) — eksik request ID propagation + request logger'ı ekle
+- [x] Regresyon testi: her router'ın aynı middleware zincirini ürettiğini doğrula
 
 **Etki:** ~120 satır tekrar kalkar, tek kaynak. Yeni servis eklendiğinde tek satır.
+
+#### MW-1 Review
+
+Resolved:
+
+1. `internal/http/router_base.go` eklendi; ortak chi stack `ApplyBaseMiddleware` üzerinden yönetiliyor.
+2. Monolith, AI, query, catalog, auth ve mail router'ları base helper'a geçirildi.
+3. Auth servisindeki local `propagateRequestID` kopyası kaldırıldı; ortak `RequestIDPropagation` export edildi.
+4. Mail servisine ortak request ID propagation ve request-scoped logger eklendi.
+5. Regresyon testi router dosyalarının `ApplyBaseMiddleware` kullanmasını ve manuel base middleware zincirinin geri gelmemesini doğruluyor.
+
+Verification:
+
+- Red: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http -run TestApplyBaseMiddlewarePropagatesRequestIDAndSecurityHeaders -count=1` missing `ApplyBaseMiddleware` / `BaseMiddlewareConfig` ile düştü.
+- Green: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http -run 'TestApplyBaseMiddleware|TestServiceRoutersUseBaseMiddleware' -count=1`
+- `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http ./cmd/auth ./cmd/mail -count=1`
+- `make lint-go`
+- `git diff --check`
+
+Notes:
+
+- gograph MCP tools were not connected in this session, so `gograph_capabilities`, `gograph_plan`, and `gograph_review --uncommitted` could not be run.
 
 ### MW-2 — JSON Decode + Error Response Boilerplate (Auth Handlers) [HIGH]
 
 Auth handler'lar (`internal/auth/handlers/handler.go`, `handler_rbac.go`, `handler_mfa.go`) ~45 yerde `sonic.Decode + respondError` kalıbını tekrarlıyor. Ana handler paketindeki `decodeJSON[T]` generic helper'ı kullanmıyor — ve `http.MaxBytesReader` koruması da eksik.
 
-- [ ] `decodeJSON[T]`'yi `internal/http/response/` paketine taşı (veya yeni `internal/http/request/` paketi)
-- [ ] Auth handler'ların tümünü `decodeJSON[T]`'ye geçir
-- [ ] `http.MaxBytesReader` koruması otomatik gelsin
-- [ ] Regresyon testi: MaxBytesReader limit aşımı 413 dönüyor; hatalı JSON 400 dönüyor
+- [x] `decodeJSON[T]`'yi `internal/http/response/` paketine taşı (veya yeni `internal/http/request/` paketi)
+- [x] Auth handler'ların tümünü `decodeJSON[T]`'ye geçir
+- [x] `http.MaxBytesReader` koruması otomatik gelsin
+- [x] Regresyon testi: MaxBytesReader limit aşımı 413 dönüyor; hatalı JSON 400 dönüyor
 
 **Etki:** ~90 satır kalkar, auth endpoint'leri payload bombasına karşı korunur.
 
 **Dosyalar:** `internal/auth/handlers/handler.go`, `handler_rbac.go`, `handler_mfa.go`, `internal/http/handlers/helpers.go`, `internal/http/response/response.go`
+
+#### MW-2 Review
+
+Resolved:
+
+1. `response.DecodeJSON[T]`, `response.DecodeJSONAllowEmpty[T]`, and `response.MaxJSONRequestBytes` now own JSON request decoding and `http.MaxBytesReader` protection.
+2. Existing `internal/http/handlers` decode helpers now delegate to `response.*`, preserving current non-auth call sites.
+3. Auth handlers use shared `decodeJSON` / `decodeJSONAllowEmpty` wrappers instead of raw `sonic.ConfigStd.NewDecoder(r.Body)` blocks.
+4. Optional-body auth endpoints (`refresh`, `logout`, account deletion) use the allow-empty helper while still returning 400/413 for invalid or oversized bodies.
+5. A source guard test prevents auth handlers from reintroducing raw request-body JSON decoders.
+
+Verification:
+
+- Red: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/response -run 'TestDecodeJSON' -count=1` failed on missing `DecodeJSON`, `DecodeJSONAllowEmpty`, and `MaxJSONRequestBytes`.
+- Green: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/response -run 'TestDecodeJSON' -count=1`
+- `GOCACHE=/private/tmp/biqly-gocache go test ./internal/auth/handlers -run 'TestAuthHandlersUseSharedJSONDecoder|TestGDPRExportCompleteness' -count=1`
+- `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/response ./internal/http/handlers ./internal/auth/handlers -count=1`
+- `make lint-go`
+- `git diff --check`
+
+Notes:
+
+- MW-3 response/error writer consolidation is intentionally left for MW-3; this slice only centralizes request JSON decoding and body-size protection.
+- gograph MCP tools were not connected in this session, so `gograph_capabilities`, `gograph_plan`, and `gograph_review --uncommitted` could not be run.
 
 ### MW-3 — `writeJSON`/`writeError`/`respondError` Konsolidasyonu [HIGH]
 
@@ -172,6 +218,241 @@ Auth handler kendi context key'leriyle `requireUserID` kullanıyor (~15 call sit
 - MW-3 → MW-2 (response paketi önce konsolide edilmeli)
 - MW-1 → MW-6 (request ID export router_base'e dahil)
 - MW-4 auth router'a middleware eklemini gerektirir (MW-1 sonrası daha kolay)
+
+## Frontend Middleware & Yardımcı Fonksiyon Konsolidasyonu (2026-06-12)
+
+Amaç: React bileşenlerindeki tekrarlanan kalıpları custom hook, yardımcı fonksiyon ve paylaşılan stillere çekerek kod tekrarını azaltmak, UI tutarlılığını artırmak ve bakım maliyetini düşürmek.
+
+### FW-1 — `errorMessage()` Yardımcısını Merkezi Yapma [HIGH]
+
+`e instanceof Error ? e.message : String(e)` ifadesi 43 yerde tekrarlanıyor. `hooks/usePaginatedListLogic.ts:44`'te `errorMessage()` olarak zaten var ama çoğu call site inline kullanmaya devam ediyor.
+
+- [ ] `errorMessage(e: unknown): string` fonksiyonunu `frontend/src/utils/error.ts`'e taşı
+- [ ] `usePaginatedListLogic.ts`'teki yerel tanımı import ile değiştir
+- [ ] 43 inline instance'ı `errorMessage(e)` ile değiştir
+- [ ] ESLint + vitest temiz
+
+**Dosyalar:** `utils/error.ts` (yeni), `hooks/usePaginatedListLogic.ts`, 20+ admin/ayar/bileşen dosyası
+
+**Etki:** 43 tekrar → 1 yardımcı fonksiyon. Catch bloklarında tutarsız error handling kalkar.
+
+### FW-2 — `useAsyncEffect` / `useFetch` Hook'u [HIGH]
+
+İptal bayraklı (`let cancelled = false`) useEffect data loading kalıbı 19 bileşende tekrarlanıyor. Her biri `loading`, `error`, `setData` state yönetimini ayrı ayrı kuruyor.
+
+- [ ] `frontend/src/hooks/useFetch.ts` oluştur:
+  ```typescript
+  function useFetch<T>(fetcher: () => Promise<T>, deps: unknown[]): {
+    data: T | null; loading: boolean; error: string | null; setData: Dispatch<SetStateAction<T | null>>
+  }
+  ```
+  AbortController ile cleanup, hata durumunda `errorMessage()` kullanımı
+- [ ] 19 bileşeni `useFetch`'e geçir: `AIHistoryPanel`, `ShareButton`, `AIQuery`, `Composites`, `Metadata`, `SignUpPage`, `SignInPage`, `FieldPermissionPanel`, `QueryHistory`, `useMetadataBulkDescribeModalState`, `useTableBrowserPage`, `AIUsageAdminPanel`, `TableBrowserRowModal`, `RowLevelSecurityPanel`, `RolesPanel`, `WorkspaceSelector`
+- [ ] Her geçiş sonrası ilgili bileşenin vitest testi çalıştır
+
+**Dosyalar:** `hooks/useFetch.ts` (yeni), 19 bileşen dosyası
+
+**Etki:** ~380 satır tekrar kalkar. Bellek sızıntısı riski (cleanup eksik) yapısal olarak engellenir.
+
+### FW-3 — Admin Panel Paylaşılan Stillerinin Merkezi Yapılması [HIGH]
+
+6+ admin panel dosyası aynı `CSSProperties` objelerini (`errStyle`, `containerStyle`, `btnPrimary`, `btnSecondary`, `btnPrimaryDisabled`, `btnSecondaryDisabled`, `inputStyle`) tekrar tekrar tanımlıyor.
+
+- [ ] `frontend/src/styles/adminShared.css` oluştur — BEM class'ları olarak:
+  - `.admin-panel__error` (errStyle)
+  - `.admin-panel__container` (containerStyle)
+  - `.admin-btn--primary`, `.admin-btn--secondary`, `.admin-btn--primary-disabled`, `.admin-btn--secondary-disabled`
+  - `.admin-input`
+- [ ] 6+ admin panel dosyasını class'lara geçir: `PIIDetectionPanel`, `WorkspacesPanel`, `RowLevelSecurityPanel`, `FieldPermissionPanel`, `RolesPanel`, `AIProvidersPanel`
+- [ ] Prettier + ESLint + vitest temiz
+
+**Dosyalar:** `styles/adminShared.css` (yeni), 6+ admin panel bileşeni
+
+**Etki:** ~120 satır duplicate style tanımı kalkar. Tema değişikliği tek dosyadan yapılır.
+
+### FW-4 — Hata Gösterimi Tutarlılaştırma (`<ErrorAlert>`) [HIGH]
+
+Hata gösterimi 5 farklı yöntemle yapılıyor: `<ErrorAlert>` bileşeni (5 kullanım), inline `errStyle` div (11), CSS class `xxx__error` (4), CSS class `error`/`form-error` (3), auth-specific `auth-error` (1). Toplam 31 instance.
+
+- [ ] Mevcut `ErrorAlert` bileşenini zenginleştir: `variant` prop'u (`'panel' | 'inline' | 'auth'`), `className` override desteği
+- [ ] 31 instance'ı `<ErrorAlert>`'e geçir
+- [ ] FW-3 ile koordineli çalış: inline errStyle → `.admin-panel__error` class'ı → `<ErrorAlert variant="panel">`
+- [ ] Test: tüm hata yolları görsel olarak tutarlı
+
+**Dosyalar:** `components/ui/ErrorAlert.tsx`, 20+ bileşen dosyası
+
+**Etki:** Tutarlı hata UX'i. Erişilebilirlik (role="alert") tek yerden garanti.
+
+### FW-5 — API Base Path Sabitlerinin Merkezi Yapılması [HIGH]
+
+`AUTH_API_BASE = '/api/auth'` 4 dosyada, `AI_API_BASE = '/api/ai'` 3 dosyada, `adminOpts = { useAdminKey: true as const }` 3 dosyada tekrarlanıyor.
+
+- [ ] `frontend/src/api/constants.ts` oluştur:
+  ```typescript
+  export const AUTH_API_BASE = '/api/auth'
+  export const AI_API_BASE = '/api/ai'
+  export const ADMIN_OPTS = { useAdminKey: true as const } as const
+  ```
+- [ ] `api/auth.ts`, `api/admin.ts`, `api/aiModelAccess.ts`, `api/ldap.ts`, `api/aiProviders.ts`, `api/aiUserModels.ts`, `api/aiAdmin.ts`'teki yerel tanımları import ile değiştir
+- [ ] ESLint + build temiz
+
+**Dosyalar:** `api/constants.ts` (yeni), 7 API dosyası
+
+**Etki:** API path değişikliği tek dosyadan yapılır. Yanlış path copy-paste riski kalkar.
+
+### FW-6 — `buildQueryString()` Yardımcı Fonksiyonu [MEDIUM]
+
+`URLSearchParams` + optional parametre kalıbı 10+ API fonksiyonunda tekrarlanıyor. Her biri aynı `if (value) params.set(key, String(value))` + `suffix` kalıbını kuruyor.
+
+- [ ] `frontend/src/utils/query.ts` oluştur:
+  ```typescript
+  export function buildQueryString(params: Record<string, string | number | boolean | undefined | null>): string
+  ```
+- [ ] `api/admin.ts` (9 instance), `api/aiProviders.ts` (1 instance) call site'lerini güncelle
+- [ ] Test: null/undefined/empty değerler query'den çıkıyor; geçerli değerler doğru encode ediliyor
+
+**Dosyalar:** `utils/query.ts` (yeni), `api/admin.ts`, `api/aiProviders.ts`
+
+**Etki:** ~60 satır tekrar kalkar. Query string tutarsızlığı kalkar.
+
+### FW-7 — `useApiResource<T>` Generic Hook [MEDIUM]
+
+`useDatasources`, `useSemanticModels`, `useModelDetail` neredeyse aynı yapıda: URL'ye GET at, loading/error/data state yönet, reload fonksiyonu sun.
+
+- [ ] `frontend/src/hooks/useApiResource.ts` oluştur:
+  ```typescript
+  function useApiResource<T>(url: string | null, defaultValue: T): {
+    data: T; loading: boolean; error: string | null; reload: () => void; setData: Dispatch<SetStateAction<T>>
+  }
+  ```
+- [ ] `useDatasources`, `useSemanticModels`, `useModelDetail`'i `useApiResource`'a geçir
+- [ ] Test: loading → data → error geçişleri doğru çalışıyor
+
+**Dosyalar:** `hooks/useApiResource.ts` (yeni), `hooks/useDatasources.ts`, `hooks/useSemanticModels.ts`, `hooks/useModelDetail.ts`
+
+**Etki:** 3 hook → 1 generic + 3 one-liner call. Yeni resource eklemek tek satır.
+
+### FW-8 — `useAsyncState` Hook'u [MEDIUM]
+
+`[loading, setLoading] + [error, setError] + [saving, setSaving]` state üçlemesi 12+ bileşende bağımsız `useState` çağrılarıyla tekrarlanıyor.
+
+- [ ] `frontend/src/hooks/useAsyncState.ts` oluştur:
+  ```typescript
+  function useAsyncState(): {
+    loading: boolean; error: string | null; saving: boolean;
+    setLoading: Dispatch<SetStateAction<boolean>>;
+    setError: Dispatch<SetStateAction<string | null>>;
+    clearError: () => void;
+    run: <T>(fn: () => Promise<T>) => Promise<T | null>;
+  }
+  ```
+- [ ] 12+ admin/ayar bileşenini güncelle
+- [ ] Test: `run` hatası setError + setSaving(false) yapıyor
+
+**Dosyalar:** `hooks/useAsyncState.ts` (yeni), 12+ bileşen
+
+**Etki:** ~72 satır useState tekrarı kalkar. Saving/loading tutarsızlığı yapısal olarak engellenir.
+
+### FW-9 — `AIQueueStatus` Tip Tekilleştirmesi [MEDIUM]
+
+`types/auth.ts:146` ve `types/ai.ts:138`'de aynı interface'in iki farklı tanımı var. `auth.ts`'deki `my_job_status: string`, `ai.ts`'deki `my_job_status: AIJobStatus | 'idle'` — daha dar tip.
+
+- [ ] `types/auth.ts`'deki tanımı kaldır, `types/ai.ts`'den import et
+- [ ] Kullanım yerlerini güncelle
+- [ ] tsc + build temiz
+
+**Dosyalar:** `types/auth.ts`, `types/ai.ts`, kullanım yerleri
+
+**Etki:** Tip tutarsızlığı kalkar. Gelecekteki alan ekleme tek yerden yapılır.
+
+### FW-10 — `formatDate()` Yardımcı Fonksiyonu [MEDIUM]
+
+Tarih formatlama 7 yerde tutarsız yapılıyor: bazıları locale parametresiz `toLocaleDateString()`, bazıları `localeLanguageTag(locale)` ile.
+
+- [ ] `frontend/src/utils/formatters.ts` oluştur:
+  ```typescript
+  export function formatDate(iso: string, locale: Locale): string
+  ```
+- [ ] 7 call site'i güncelle: `DashboardList`, `Settings`, `ActiveUsersTab`, `InvitationsTab`, `WorkspaceSettingsPage`, `SharedResourcesList`
+- [ ] Test: farklı locale'lerde doğru format
+
+**Dosyalar:** `utils/formatters.ts` (yeni), 6 bileşen dosyası
+
+**Etki:** Tarih gösterimi tüm uygulamada tutarlı ve locale-duyarlı.
+
+### FW-11 — Inline CSS Değişkenlerinin CSS Class'lara Taşınması [MEDIUM]
+
+`var(--text-secondary, #a1a1aa)` 43 yerde, `borderRadius: 6` 30 yerde, `border: '1px solid var(--border...'` 47 yerde, `fontSize: 13` 45 yerde inline style olarak tekrarlanıyor. Tema değişikliği ve tutarlılık riski taşıyor.
+
+- [ ] `frontend/src/styles/utilities.css` oluştur — BEM utility class'ları:
+  - `.u-text-secondary { color: var(--text-secondary, #a1a1aa); }`
+  - `.u-font-body { font-size: 13px; }`
+  - `.u-rounded { border-radius: 6px; }`
+  - `.u-card-border { border: 1px solid var(--border, rgba(255,255,255,0.06)); }`
+- [ ] FW-3 (admin panel) ile koordineli: admin dosyaları ilk geçirilir
+- [ ] Kalan inline CSS variable kullanımlarını kademeli olarak class'lara taşı
+- [ ] Prettier + ESLint temiz
+
+**Dosyalar:** `styles/utilities.css` (yeni), 20+ bileşen dosyası
+
+**Etki:** Tema değişikliği CSS'ten yapılır. Spacing/sizing tutarlılığı garanti.
+
+### FW-12 — `useModal<T>` Hook'u [LOW]
+
+Modal açık/kapalı + düzenlenen öğe state yönetimi 5+ bileşende tekrarlanıyor (`useState(false)` + `useState(null)` + open/close fonksiyonları).
+
+- [ ] `frontend/src/hooks/useModal.ts` oluştur:
+  ```typescript
+  function useModal<T>(): {
+    open: boolean; editing: T | null; openModal: (item?: T) => void; closeModal: () => void
+  }
+  ```
+- [ ] 5+ bileşeni güncelle: `AIProvidersPanel`, `ModelModal`, `DatasourceFormModal`, `SavedQuestionFormModal`, `MetadataDescribeModal`
+- [ ] Test: open/close/editing state doğru yönetiliyor
+
+**Dosyalar:** `hooks/useModal.ts` (yeni), 5+ modal bileşeni
+
+**Etki:** ~50 satır tekrar kalkar. Modal state tutarsızlığı yapısal olarak engellenir.
+
+### FW-13 — `useConfirmAction` Yardımcı Fonksiyonu [LOW]
+
+`confirm() → if (!ok) return → try { action } → catch { toast.error }` kalıbı 6+ handler'da tekrarlanıyor.
+
+- [ ] `frontend/src/utils/confirm.ts` oluştur:
+  ```typescript
+  async function confirmAction(fn: () => Promise<void>, opts: ConfirmOptions): Promise<boolean>
+  ```
+- [ ] 6+ call site'i güncelle: `AIProvidersPanel`, `WorkspacesPanel`, `SharedResourcesList`, `UserDetailPage`
+- [ ] Test: iptal → false, onay+başarı → true, onay+hata → toast.error + false
+
+**Dosyalar:** `utils/confirm.ts` (yeni), 6+ bileşen
+
+### Frontend Öncelik Sırası
+
+| Sıra | Madde | Öncelik | Tekrar Sayısı | Tahmini Etki |
+|---|---|---|---|---|
+| 1 | FW-1 `errorMessage()` merkezi | HIGH | 43 | 43 inline → 1 import |
+| 2 | FW-2 `useFetch` hook | HIGH | 19 bileşen | ~380 satır kalkar, bellek sızıntısı riski kalkar |
+| 3 | FW-3 Admin panel shared styles | HIGH | 6+ still x 6+ dosya | ~120 satır, tema kolaylığı |
+| 4 | FW-4 `<ErrorAlert>` tutarlılaştırma | HIGH | 31 instance | Tutarlı UX + a11y |
+| 5 | FW-5 API constants merkezi | HIGH | 4+3+3 | Tek kaynak, yanlış path riski kalkar |
+| 6 | FW-6 `buildQueryString()` | MEDIUM | 10+ | ~60 satır, tutarlı query |
+| 7 | FW-7 `useApiResource<T>` | MEDIUM | 3 hook | 3 hook → 1 generic |
+| 8 | FW-8 `useAsyncState` | MEDIUM | 12+ bileşen | ~72 satır useState kalkar |
+| 9 | FW-9 Tip tekilleştirme | MEDIUM | 2 tanım | Tip tutarlılığı |
+| 10 | FW-10 `formatDate()` | MEDIUM | 7 | Tutarlı tarih gösterimi |
+| 11 | FW-11 CSS variable → class | MEDIUM | 165+ | Tema değişikliği kolaylığı |
+| 12 | FW-12 `useModal<T>` | LOW | 5+ | ~50 satır kalkar |
+| 13 | FW-13 `useConfirmAction` | LOW | 6+ | Tutarlı onay akışı |
+
+### Frontend Bağımlılıklar
+
+- FW-1 bağımsız (her yerden başlanabilir, en kolay ilk adım)
+- FW-1 → FW-2, FW-4, FW-8, FW-13 (hepsi `errorMessage()` kullanır, önce merkezi olmalı)
+- FW-3 → FW-4 (admin panel class'ları oluşturulduktan sonra ErrorAlert geçişi daha kolay)
+- FW-5 bağımsız
+- FW-6 bağımsız
+- FW-7 → FW-2 ile kesişir (ikisi birlikte veya sıralı yapılabilir)
 
 ---
 

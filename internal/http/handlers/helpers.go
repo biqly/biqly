@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/bytedance/sonic"
 	"io"
 	"log/slog"
 	"net/http"
@@ -122,44 +121,18 @@ func writeCoreServiceError(ctx context.Context, w http.ResponseWriter, err error
 	writeServiceError(ctx, w, core.MapQueryServiceError(err), args...)
 }
 
-// maxJSONRequestBytes caps the size of incoming JSON bodies. Keeps a buggy
-// or malicious client from forcing the server to buffer a multi-GB POST.
-// 1 MiB is generous for every endpoint here (LogicalQuery, semantic models,
-// few-shot examples) and well below typical proxy / chi defaults.
-const maxJSONRequestBytes = 1 << 20 // 1 MiB
-
 func decodeJSON[T any](w http.ResponseWriter, r *http.Request) (*T, bool) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxJSONRequestBytes)
-	var v T
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&v); err != nil {
-		if isMaxBytesError(err) {
-			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
-		} else {
-			writeError(w, http.StatusBadRequest, "invalid request body")
-		}
-		return nil, false
-	}
-	return &v, true
+	return response.DecodeJSON[T](w, r)
 }
 
 func decodeJSONAllowEmpty[T any](w http.ResponseWriter, r *http.Request) (*T, bool) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxJSONRequestBytes)
-	var v T
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&v); err != nil && !errors.Is(err, io.EOF) {
-		if isMaxBytesError(err) {
-			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
-			return nil, false
-		}
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return nil, false
-	}
-	return &v, true
+	return response.DecodeJSONAllowEmpty[T](w, r)
 }
 
 // readRequestBody buffers the size-capped request body for handlers that need
 // to decode parts of it separately (e.g. strict per-domain decoding).
 func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxJSONRequestBytes)
+	r.Body = http.MaxBytesReader(w, r.Body, response.MaxJSONRequestBytes)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		if isMaxBytesError(err) {

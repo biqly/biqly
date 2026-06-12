@@ -8,6 +8,8 @@ import type { AIHistoryEntry } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
 import { ShareButton } from '../sharing/ShareButton'
+import { DataState } from '../ui/DataState'
+import { EmptyState } from '../ui/EmptyState'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
 
@@ -130,154 +132,138 @@ export function AIHistoryPanel() {
         )}
       </div>
 
-      {error && <div className="ai-history__error">{error}</div>}
-
       <div style={containerStyle}>
-        <LoadingOverlay loading={loading}>
-          <div
-            style={{
-              minHeight: entries.length === 0 && loading ? 120 : 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {entries.length === 0 ? (
-              <p
-                className="ai-history__empty"
-                style={{ margin: 0, padding: '48px 24px', textAlign: 'center' }}
+        <DataState
+          loading={loading}
+          error={error}
+          empty={entries.length === 0}
+          emptyState={<EmptyState description={t('admin.ai_history.empty')} />}
+        >
+          <>
+            <div className="ai-history__table-wrap">
+              <table
+                className="ai-history__table"
+                style={{ borderCollapse: 'collapse', width: '100%' }}
               >
-                {loading ? '' : t('admin.ai_history.empty')}
-              </p>
-            ) : (
-              <>
-                <div className="ai-history__table-wrap">
-                  <table
-                    className="ai-history__table"
-                    style={{ borderCollapse: 'collapse', width: '100%' }}
-                  >
-                    <thead>
-                      <tr style={theadRow}>
-                        <th style={thStyle}>{t('admin.ai_history.question')}</th>
-                        <th style={thStyle}>{t('admin.ai_history.status')}</th>
-                        <th style={thStyle}>{t('admin.ai_history.confidence')}</th>
-                        <th style={thStyle}>{t('admin.ai_history.model')}</th>
-                        <th style={thStyle}>{t('admin.ai_history.latency')}</th>
-                        <th style={thStyle}>{t('admin.ai_history.tokens')}</th>
-                        <th style={thStyle}>{t('admin.ai_history.created_at')}</th>
-                        <th style={thStyle}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {entries.map((entry) => {
-                        const badge = statusBadge(entry)
-                        const isExpanded = expandedId === entry.id
-                        return (
-                          <Fragment key={entry.id}>
-                            <tr
-                              className={isExpanded ? 'ai-history__row--expanded' : ''}
-                              style={trStyle}
-                            >
-                              <td className="ai-history__question" style={tdStyle}>
-                                {entry.question || '—'}
-                              </td>
-                              <td style={tdStyle}>
-                                <span
-                                  className={`ai-history__status ai-history__status--${badge.cls}`}
-                                >
-                                  {badge.label}
-                                </span>
-                              </td>
-                              <td style={tdStyle}>
-                                {entry.confidence_score != null
-                                  ? `${(entry.confidence_score * 100).toFixed(0)}%`
-                                  : '—'}
-                              </td>
-                              <td
-                                className="ai-history__mono"
-                                style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)' }}
+                <thead>
+                  <tr style={theadRow}>
+                    <th style={thStyle}>{t('admin.ai_history.question')}</th>
+                    <th style={thStyle}>{t('admin.ai_history.status')}</th>
+                    <th style={thStyle}>{t('admin.ai_history.confidence')}</th>
+                    <th style={thStyle}>{t('admin.ai_history.model')}</th>
+                    <th style={thStyle}>{t('admin.ai_history.latency')}</th>
+                    <th style={thStyle}>{t('admin.ai_history.tokens')}</th>
+                    <th style={thStyle}>{t('admin.ai_history.created_at')}</th>
+                    <th style={thStyle}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((entry) => {
+                    const badge = statusBadge(entry)
+                    const isExpanded = expandedId === entry.id
+                    return (
+                      <Fragment key={entry.id}>
+                        <tr
+                          className={isExpanded ? 'ai-history__row--expanded' : ''}
+                          style={trStyle}
+                        >
+                          <td className="ai-history__question" style={tdStyle}>
+                            {entry.question || '—'}
+                          </td>
+                          <td style={tdStyle}>
+                            <span className={`ai-history__status ai-history__status--${badge.cls}`}>
+                              {badge.label}
+                            </span>
+                          </td>
+                          <td style={tdStyle}>
+                            {entry.confidence_score != null
+                              ? `${(entry.confidence_score * 100).toFixed(0)}%`
+                              : '—'}
+                          </td>
+                          <td
+                            className="ai-history__mono"
+                            style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)' }}
+                          >
+                            {entry.model_used ?? '—'}
+                          </td>
+                          <td style={tdStyle}>
+                            {entry.latency_ms != null ? `${entry.latency_ms}ms` : '—'}
+                          </td>
+                          <td style={tdStyle} title={t('admin.ai_history.tokens_breakdown')}>
+                            {formatHistoryTokens(entry)}
+                          </td>
+                          <td style={tdStyle}>{new Date(entry.created_at).toLocaleString()}</td>
+                          <td style={{ ...tdStyle, textAlign: 'right' }}>
+                            <div className="ai-history__actions">
+                              <ShareButton resourceType="query" resourceID={entry.id} />
+                              <button
+                                onClick={() => toggleDetail(entry.id)}
+                                className="ai-history__detail-btn"
+                                aria-expanded={isExpanded}
+                                title={t('admin.ai_history.detail')}
                               >
-                                {entry.model_used ?? '—'}
-                              </td>
-                              <td style={tdStyle}>
-                                {entry.latency_ms != null ? `${entry.latency_ms}ms` : '—'}
-                              </td>
-                              <td style={tdStyle} title={t('admin.ai_history.tokens_breakdown')}>
-                                {formatHistoryTokens(entry)}
-                              </td>
-                              <td style={tdStyle}>{new Date(entry.created_at).toLocaleString()}</td>
-                              <td style={{ ...tdStyle, textAlign: 'right' }}>
-                                <div className="ai-history__actions">
-                                  <ShareButton resourceType="query" resourceID={entry.id} />
-                                  <button
-                                    onClick={() => toggleDetail(entry.id)}
-                                    className="ai-history__detail-btn"
-                                    aria-expanded={isExpanded}
-                                    title={t('admin.ai_history.detail')}
-                                  >
-                                    {isExpanded ? '▲' : '▼'}
-                                  </button>
+                                {isExpanded ? '▲' : '▼'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="ai-history__detail-row">
+                            <td colSpan={8}>
+                              {detailLoading ? (
+                                <div
+                                  style={{
+                                    position: 'relative',
+                                    minHeight: 85,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                >
+                                  <LoadingOverlay loading={true} />
                                 </div>
-                              </td>
-                            </tr>
-                            {isExpanded && (
-                              <tr className="ai-history__detail-row">
-                                <td colSpan={8}>
-                                  {detailLoading ? (
-                                    <div
-                                      style={{
-                                        position: 'relative',
-                                        minHeight: 85,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                      }}
-                                    >
-                                      <LoadingOverlay loading={true} />
+                              ) : detail ? (
+                                <div className="ai-history__detail-content">
+                                  {detail.prompt_context != null && (
+                                    <div className="ai-history__detail-block">
+                                      <h4>{t('admin.ai_history.prompt')}</h4>
+                                      <pre>{formatDetail(detail.prompt_context)}</pre>
                                     </div>
-                                  ) : detail ? (
-                                    <div className="ai-history__detail-content">
-                                      {detail.prompt_context != null && (
-                                        <div className="ai-history__detail-block">
-                                          <h4>{t('admin.ai_history.prompt')}</h4>
-                                          <pre>{formatDetail(detail.prompt_context)}</pre>
-                                        </div>
-                                      )}
-                                      {detail.ai_response != null && (
-                                        <div className="ai-history__detail-block">
-                                          <h4>{t('admin.ai_history.generated_sql')}</h4>
-                                          <pre>{formatDetail(detail.ai_response)}</pre>
-                                        </div>
-                                      )}
-                                      {detail.logical_query != null && (
-                                        <div className="ai-history__detail-block">
-                                          <h4>{t('admin.ai_history.logical_query')}</h4>
-                                          <pre>{formatDetail(detail.logical_query)}</pre>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <p style={{ padding: 16 }}>—</p>
                                   )}
-                                </td>
-                              </tr>
-                            )}
-                          </Fragment>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                  totalItems={totalItems}
-                  itemsPerPage={pageSize}
-                />
-              </>
-            )}
-          </div>
-        </LoadingOverlay>
+                                  {detail.ai_response != null && (
+                                    <div className="ai-history__detail-block">
+                                      <h4>{t('admin.ai_history.generated_sql')}</h4>
+                                      <pre>{formatDetail(detail.ai_response)}</pre>
+                                    </div>
+                                  )}
+                                  {detail.logical_query != null && (
+                                    <div className="ai-history__detail-block">
+                                      <h4>{t('admin.ai_history.logical_query')}</h4>
+                                      <pre>{formatDetail(detail.logical_query)}</pre>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <p style={{ padding: 16 }}>—</p>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={totalItems}
+              itemsPerPage={pageSize}
+            />
+          </>
+        </DataState>
       </div>
     </div>
   )

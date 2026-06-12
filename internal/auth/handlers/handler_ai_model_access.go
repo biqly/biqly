@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"github.com/bytedance/sonic"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/auth/rbac"
@@ -58,12 +57,7 @@ type grantProviderWorkspaceReq struct {
 }
 
 func decodeGrantRequest[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
-	var req T
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid json")
-		return req, false
-	}
-	return req, true
+	return decodeJSON[T](w, r)
 }
 
 func (*RBACHandler) handleAdminGrant(w http.ResponseWriter, r *http.Request, grant func(context.Context, string) error) {
@@ -205,9 +199,8 @@ func (h *RBACHandler) handlePutMyAIPreferences(w http.ResponseWriter, r *http.Re
 		response.WriteError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	var req putAIPrefsReq
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid json")
+	req, ok := decodeJSON[putAIPrefsReq](w, r)
+	if !ok {
 		return
 	}
 	for _, p := range req.Preferences {
@@ -281,9 +274,8 @@ type internalPutAIPrefReq struct {
 
 func (h *RBACHandler) handleInternalPutUserAIPreference(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
-	var req internalPutAIPrefReq
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid json")
+	req, ok := decodeJSON[internalPutAIPrefReq](w, r)
+	if !ok {
 		return
 	}
 	if req.Purpose == "" || req.ModelID == "" {

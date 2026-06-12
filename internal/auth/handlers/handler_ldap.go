@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"github.com/bytedance/sonic"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/auth"
@@ -78,9 +77,8 @@ func (h *AuthHandler) handleAdminUpdateLDAPConfig(w http.ResponseWriter, r *http
 	if !ok {
 		return
 	}
-	var req ldapConfigRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeJSON[ldapConfigRequest](w, r)
+	if !ok {
 		return
 	}
 	cfg, err := h.service.UpdateLDAPConfig(r.Context(), req.toConfig(), userID)
@@ -95,9 +93,8 @@ func (h *AuthHandler) handleAdminTestLDAP(w http.ResponseWriter, r *http.Request
 	if _, ok := h.requireSuperAdmin(w, r); !ok {
 		return
 	}
-	var req ldapConfigRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeJSON[ldapConfigRequest](w, r)
+	if !ok {
 		return
 	}
 	if err := h.service.TestLDAPConnection(r.Context(), req.toConfig()); err != nil {

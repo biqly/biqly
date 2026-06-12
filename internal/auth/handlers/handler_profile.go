@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"github.com/bytedance/sonic"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/auth"
@@ -13,9 +12,8 @@ func (h *AuthHandler) handleUpdateProfile(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	var req auth.UpdateProfileRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeJSON[auth.UpdateProfileRequest](w, r)
+	if !ok {
 		return
 	}
 	profile, err := h.service.UpdateProfile(r.Context(), userID, req)
@@ -31,9 +29,8 @@ func (h *AuthHandler) handleChangePassword(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	var req auth.ChangePasswordRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeJSON[auth.ChangePasswordRequest](w, r)
+	if !ok {
 		return
 	}
 	if req.CurrentPassword == "" || req.NewPassword == "" {

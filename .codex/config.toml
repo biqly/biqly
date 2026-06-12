@@ -1,0 +1,4 @@
+[mcp_servers.gograph]
+command = "/Users/baris.dogu/go/bin/gograph"
+args = ["mcp", "."]
+cwd = ".."

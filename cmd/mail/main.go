@@ -15,12 +15,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/redis/go-redis/v9"
 
 	bihttp "github.com/biqly/biqly/internal/http"
-	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/mail"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/platform/observability"
@@ -91,10 +89,10 @@ func main() {
 	mailServer := mail.NewServer(sender, cfg.InternalToken)
 
 	router := chi.NewRouter()
-	router.Use(middleware.RequestID)
-	router.Use(bimw.RealIP)
-	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
+	bihttp.ApplyBaseMiddleware(router, bihttp.BaseMiddlewareConfig{
+		ChiLogger:              true,
+		DisableSecurityHeaders: true,
+	})
 	router.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if _, err := w.Write([]byte("ok")); err != nil {

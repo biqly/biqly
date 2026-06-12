@@ -9,6 +9,7 @@ import { useLocale, useT } from '../../i18n'
 import type { AuthUser, Invitation } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
+import { ErrorAlert } from '../ui/ErrorAlert'
 import { ActiveUsersTab } from './userList/ActiveUsersTab'
 import { InvitationsTab } from './userList/InvitationsTab'
 import { InviteUserModal } from './userList/InviteUserModal'
@@ -244,11 +245,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
         </div>
       )}
 
-      {error && (
-        <div className="admin-err-text">
-          {t('common.error')}: {error}
-        </div>
-      )}
+      {error && <ErrorAlert error={`${t('common.error')}: ${error}`} />}
 
       {subTab === 'active' ? (
         <ActiveUsersTab

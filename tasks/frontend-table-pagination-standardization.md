@@ -282,13 +282,14 @@ Not: knip CI gate'i (`knip:ci` → `files,dependencies,unlisted,unresolved`) unu
 Kabul doğrulaması: API çağrıları aynı fonksiyonlar üzerinden aynı parametrelerle (`page`/`pageSize` değerleri hook'tan, kaynağı aynı); `make check-frontend` zinciri yeşil (29 dosya / 133 test); net −173 satır (594 silindi, 421 eklendi, hook/test dosyaları hariç ekran kodunda).
 Bilinen minör fark (kabul edildi, davranışsal iyileştirme): eski ekranlardaki bazı çift-fetch'ler (örn. filtre+sayfa reset'inin iki ayrı effect tetiklemesi) React batching sayesinde tek fetch'e indi; final ekran durumu birebir aynı. Edge: super_admin olmayan kullanıcı URL'e `?subTab=invitations` yazarsa eskiden boş tablo, şimdi loading overlay görür (fetch yine yapılmaz).
 
-### Faz 2 — Loading / Error / Empty standardizasyonu (`DataState`)
+### Faz 2 — Loading / Error / Empty standardizasyonu (`DataState`) ✅ TAMAMLANDI (2026-06-12)
 
-- [ ] **2.1** `frontend/src/components/ui/DataState.tsx` oluştur (§3.1; `ErrorAlert`, `EmptyState`, `LoadingOverlay`'i kompoze eder — yenilerini icat etmez). İlk tüketici: Faz 1 pilotları.
-- [ ] **2.2** Grup A ekranlarındaki inline `{error && ...}` / `{loading ? ...}` / `colSpan`'li boş-satır kalıplarını `DataState` ile değiştir (ekran başına ayrı commit). `TimeGrainsTable.tsx:110`'daki `|| 'No data found'` fallback'i temizlenir, i18n anahtarına bağlanır.
-- [ ] **2.3** Grup B'den yüksek trafikli ekranlar (Datasources, Glossary, PromptTemplates, FewShotExamples, evaluation/*) aynı kalıba geçer.
+- [x] **2.1** `frontend/src/components/ui/DataState.tsx` + `frontend/src/styles/data-state.css`. API: `loading`, `error` (+`errorPrefix`), `empty`, `emptyState?` (ReactNode), `className?` (`data-state__body--scroll-x` gibi). Karar ağacı tek yerde: `ErrorAlert` banner üstte (içerik/stale satırlar görünür kalır) → `LoadingOverlay` → boş+yüklemede 120px rezerve kutu → `emptyState` ya da children. `emptyState` **opsiyonel**: tbody-içi `'—'` placeholder satırı olan tablolar (DatasourceAccessPanel, WorkspacesPanel listesi) children'da kalır — bunlar Faz 3'te `DataTable.emptyState`'e taşınacak.
+- [x] **2.2** Geçirilen ekranlar: `DatasourceAccessPanel`, `SharedResourcesList`, `AuditLogPanel`, `WorkspacesPanel`, `QueryHistory`, `AIHistoryPanel` (DataState); `UserListPage` ve `AIUsageAdminPanel` (yalnızca `ErrorAlert` — overlay sahipliği tab'larda/özel yapıda). `TimeGrainsTable.tsx`'teki `|| 'fallback'` ölü i18n fallback'lerinin tamamı temizlendi (anahtarların EN+TR'de varlığı doğrulandı).
+- [x] **2.3** Grup B yüksek trafikli ekranlar (Datasources, Glossary, PromptTemplates, FewShotExamples) tarandı: **zaten** `ErrorAlert`/`EmptyState`/`LoadingOverlay` kullanıyorlar; kalan `loading ?` kalıpları buton etiketi (save/saving), liste-durumu değil. Churn yapılmadı; DataState'e geçişleri Faz 3 dokunuşlarında fırsatçı yapılacak.
 
-Kabul: `ui/EmptyState` tüketici sayısı 13 → 30+, inline empty-state JSX'i Grup A'da sıfır; görsel fark yok (mevcut CSS sınıfları kullanılır).
+Kabul doğrulaması: `make check-frontend` zinciri yeşil (29 dosya / 133 test). Grup A'da inline error-banner ve minHeight hack'i kalmadı.
+**Bilinçli görsel normalizasyon (kabul edildi):** (1) hata mesajları ekran-başına farklı kırmızı stillerden (`admin-err-text` düz metin, `shared-list__error`, `ai-history__error`, inline style) standart `ErrorAlert` banner'ına geçti ve artık tablo container'ının içinde, tablonun hemen üstünde görünüyor; (2) tam-tablo boş durumları (`AuditLog`, `SharedResources`, `AIHistory` padded metinleri) standart `EmptyState`'e geçti; (3) `QueryHistory` ilk yüklemede başlık-satırlı boş tablo yerine diğer ekranlarla aynı boş overlay kutusunu gösteriyor. Davranış (ne zaman ne görünür) aynı; yalnızca stil birleşti.
 
 ### Faz 3 — `DataTable` bileşeni
 

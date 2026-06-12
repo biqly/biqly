@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/biqly/biqly/internal/app"
-	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/go-chi/cors"
 )
 
@@ -21,13 +20,5 @@ func serviceCORS(deps *app.Dependencies) func(http.Handler) http.Handler {
 		ExposedHeaders:   []string{"Link", "X-CSRF-Token"},
 		AllowCredentials: true,
 		MaxAge:           300,
-	})
-}
-
-func serviceSecurityHeaders(deps *app.Dependencies) func(http.Handler) http.Handler {
-	return bimw.SecurityHeaders(bimw.SecurityHeadersConfig{
-		HSTSEnabled:           deps.Config.HTTP.HSTSEnabled,
-		HSTSIncludeSubdomains: true,
-		ContentSecurityPolicy: "default-src 'self'; frame-ancestors 'none'",
 	})
 }

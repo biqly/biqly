@@ -26,23 +26,6 @@ var healthCheckBody = []byte(`{"status":"ok"}`)
 func Router(deps *app.Dependencies) http.Handler {
 	r := chi.NewRouter()
 
-	// Middleware
-	r.Use(middleware.RequestID)
-	r.Use(requestIDPropagationMiddleware)
-	r.Use(requestLoggerMiddleware)
-	r.Use(bimw.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(HTTPMetricsMiddleware(GetMetrics()))
-	r.Use(bimw.SecurityHeaders(bimw.SecurityHeadersConfig{
-		HSTSEnabled:           deps.Config.HTTP.HSTSEnabled,
-		HSTSIncludeSubdomains: true,
-		ContentSecurityPolicy: "default-src 'self'; frame-ancestors 'none'",
-	}))
-
-	// Resolve user locale from Accept-Language / X-Locale / ?lang= and store on context.
-	r.Use(bimw.Locale)
-
 	// CORS — restrict to explicitly configured origins. Empty list = no
 	// cross-origin requests; the legacy {"https://*", "http://*"} wildcard
 	// was removed because it combined poorly with AllowCredentials=true.
@@ -50,14 +33,24 @@ func Router(deps *app.Dependencies) http.Handler {
 	if len(corsOrigins) == 0 {
 		slog.Warn("CORS allowed origins is empty — cross-origin requests will be blocked. Set BI_CORS_ALLOWED_ORIGINS (comma-separated) to allow specific frontend domains.")
 	}
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   corsOrigins,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-API-Key", "X-CSRF-Token", "X-Locale"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
+	ApplyBaseMiddleware(r, BaseMiddlewareConfig{
+		Metrics:   GetMetrics(),
+		ChiLogger: true,
+		Locale:    true,
+		CORS: cors.Handler(cors.Options{
+			AllowedOrigins:   corsOrigins,
+			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-API-Key", "X-CSRF-Token", "X-Locale"},
+			ExposedHeaders:   []string{"Link"},
+			AllowCredentials: true,
+			MaxAge:           300,
+		}),
+		SecurityHeaders: bimw.SecurityHeadersConfig{
+			HSTSEnabled:           deps.Config.HTTP.HSTSEnabled,
+			HSTSIncludeSubdomains: true,
+			ContentSecurityPolicy: "default-src 'self'; frame-ancestors 'none'",
+		},
+	})
 
 	// Health check
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {

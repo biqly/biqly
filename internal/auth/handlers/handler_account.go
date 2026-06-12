@@ -3,8 +3,6 @@ package handlers
 import (
 	"context"
 	"errors"
-	"github.com/bytedance/sonic"
-	"io"
 	"log/slog"
 	"net/http"
 
@@ -76,9 +74,8 @@ func (h *AuthHandler) handleDeleteAccount(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	var req auth.DeleteAccountRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
-		h.respondError(w, http.StatusBadRequest, err.Error())
+	req, ok := decodeJSONAllowEmpty[auth.DeleteAccountRequest](w, r)
+	if !ok {
 		return
 	}
 	purgeAt, err := h.service.DeleteAccount(r.Context(), userID, req.Password)
@@ -126,9 +123,8 @@ func (h *AuthHandler) handleRevokeSession(w http.ResponseWriter, r *http.Request
 }
 
 func (h *AuthHandler) handleUnlockAccount(w http.ResponseWriter, r *http.Request) {
-	var req auth.UnlockAccountRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeJSON[auth.UnlockAccountRequest](w, r)
+	if !ok {
 		return
 	}
 	userID, err := h.service.UnlockAccount(r.Context(), req.Token)

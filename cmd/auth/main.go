@@ -25,9 +25,7 @@ import (
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/security"
-	"github.com/biqly/biqly/pkg/common/requestid"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/prometheus/client_golang/prometheus"
@@ -264,46 +262,31 @@ func newRedisClient(dsn string) (*redis.Client, error) {
 	return client, nil
 }
 
-// propagateRequestID copies chi's request ID into the shared requestid context
-// key so handlers and error helpers (requestid.FromContext) attach request_id
-// to every structured log line for that request.
-func propagateRequestID(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if id := middleware.GetReqID(r.Context()); id != "" {
-			r = r.WithContext(requestid.WithRequestID(r.Context(), id))
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
 func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *handlers.RBACHandler, limiter *biqauth.RateLimiter, cfg *biqauth.Config) http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(propagateRequestID)
-	r.Use(bimw.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(bihttp.HTTPMetricsMiddleware(bihttp.GetMetrics()))
-	r.Use(middleware.Timeout(30 * time.Second))
-
-	r.Use(bimw.SecurityHeaders(bimw.SecurityHeadersConfig{
-		HSTSEnabled:           cfg.HSTSEnabled,
-		HSTSIncludeSubdomains: true,
-		HSTSPreload:           cfg.HSTSEnabled && cfg.HSTSPreload,
-		HSTSMaxAgeSeconds:     cfg.HSTSMaxAgeSeconds,
-		ContentSecurityPolicy: "default-src 'self'; frame-ancestors 'none'",
-	}))
 
 	if len(cfg.CORSAllowedOrigins) == 0 {
 		slog.Warn("auth CORS allowed origins is empty — cross-origin requests will be blocked. Set BI_AUTH_CORS_ALLOWED_ORIGINS to allow specific frontend origins.")
 	}
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   cfg.CORSAllowedOrigins,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-CSRF-Token"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
+	bihttp.ApplyBaseMiddleware(r, bihttp.BaseMiddlewareConfig{
+		Metrics:   bihttp.GetMetrics(),
+		Timeout:   30 * time.Second,
+		ChiLogger: true,
+		CORS: cors.Handler(cors.Options{
+			AllowedOrigins:   cfg.CORSAllowedOrigins,
+			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-CSRF-Token"},
+			AllowCredentials: true,
+			MaxAge:           300,
+		}),
+		SecurityHeaders: bimw.SecurityHeadersConfig{
+			HSTSEnabled:           cfg.HSTSEnabled,
+			HSTSIncludeSubdomains: true,
+			HSTSPreload:           cfg.HSTSEnabled && cfg.HSTSPreload,
+			HSTSMaxAgeSeconds:     cfg.HSTSMaxAgeSeconds,
+			ContentSecurityPolicy: "default-src 'self'; frame-ancestors 'none'",
+		},
+	})
 
 	if limiter != nil {
 		r.Use(limiter.Limit(cfg.RateLimitPerMin, time.Minute, "general"))

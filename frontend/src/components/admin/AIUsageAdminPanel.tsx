@@ -6,6 +6,7 @@ import { useClientPagination } from '../../hooks/useClientPagination'
 import { useT } from '../../i18n'
 import { formatDurationMs } from '../../utils/formatters'
 import { useAuth } from '../auth/AuthProvider'
+import { ErrorAlert } from '../ui/ErrorAlert'
 import { KPICard } from '../ui/KPICard'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
@@ -189,11 +190,7 @@ export function AIUsageAdminPanel() {
         </div>
       </div>
 
-      {error && (
-        <p className="error-text" style={{ marginTop: '1rem' }}>
-          {error}
-        </p>
-      )}
+      <ErrorAlert error={error} className="error--top-gap" />
 
       <div style={{ position: 'relative', marginTop: '1.25rem', minHeight: 120 }}>
         <LoadingOverlay loading={loading || lookupsLoading} />

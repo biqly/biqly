@@ -12,6 +12,7 @@ import type { AIHistoryEntry } from '../types/auth'
 import type { PageQuery } from '../types/pagination'
 import { pickValidId } from '../utils/effectiveSelection'
 import { useAuth } from './auth/AuthProvider'
+import { DataState } from './ui/DataState'
 import { EmptyState } from './ui/EmptyState'
 import { LoadingOverlay } from './ui/LoadingOverlay'
 import { Pagination } from './ui/Pagination'
@@ -220,270 +221,256 @@ export default function QueryHistory() {
           </div>
         </div>
 
-        {error && (
-          <div style={{ color: 'var(--error, #ef4444)', marginBottom: '1rem', fontWeight: 600 }}>
-            {t('common.error')}: {error}
-          </div>
-        )}
-
-        <LoadingOverlay loading={loading}>
-          <div
-            style={{
-              minHeight: totalItems === 0 && loading ? 120 : 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {totalItems === 0 && !loading ? (
-              <EmptyState description={t('query_history.empty')} />
-            ) : (
-              <>
-                <div className="ai-history__table-wrap">
-                  <table
-                    className="ai-history__table"
-                    style={{ borderCollapse: 'collapse', width: '100%' }}
+        <DataState
+          loading={loading}
+          error={error}
+          errorPrefix={t('common.error')}
+          empty={totalItems === 0}
+          emptyState={<EmptyState description={t('query_history.empty')} />}
+        >
+          <>
+            <div className="ai-history__table-wrap">
+              <table
+                className="ai-history__table"
+                style={{ borderCollapse: 'collapse', width: '100%' }}
+              >
+                <thead>
+                  <tr
+                    style={{
+                      background: 'var(--table-header-bg, #f9fafb)',
+                      borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+                      textAlign: 'left',
+                    }}
                   >
-                    <thead>
-                      <tr
-                        style={{
-                          background: 'var(--table-header-bg, #f9fafb)',
-                          borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-                          textAlign: 'left',
-                        }}
-                      >
-                        <th
-                          style={{
-                            padding: '12px 16px',
-                            fontWeight: 600,
-                            color: 'var(--table-header-fg, #4b5563)',
-                          }}
-                        >
-                          {t('query_history.col_question')}
-                        </th>
-                        <th
-                          style={{
-                            padding: '12px 16px',
-                            fontWeight: 600,
-                            color: 'var(--table-header-fg, #4b5563)',
-                          }}
-                        >
-                          {t('query_history.col_status')}
-                        </th>
-                        <th
-                          style={{
-                            padding: '12px 16px',
-                            fontWeight: 600,
-                            color: 'var(--table-header-fg, #4b5563)',
-                          }}
-                        >
-                          {t('query_history.col_confidence')}
-                        </th>
-                        <th
-                          style={{
-                            padding: '12px 16px',
-                            fontWeight: 600,
-                            color: 'var(--table-header-fg, #4b5563)',
-                          }}
-                        >
-                          {t('query_history.col_model')}
-                        </th>
-                        <th
-                          style={{
-                            padding: '12px 16px',
-                            fontWeight: 600,
-                            color: 'var(--table-header-fg, #4b5563)',
-                          }}
-                        >
-                          {t('query_history.col_latency')}
-                        </th>
-                        <th
-                          style={{
-                            padding: '12px 16px',
-                            fontWeight: 600,
-                            color: 'var(--table-header-fg, #4b5563)',
-                          }}
-                        >
-                          {t('query_history.col_tokens')}
-                        </th>
-                        <th
-                          style={{
-                            padding: '12px 16px',
-                            fontWeight: 600,
-                            color: 'var(--table-header-fg, #4b5563)',
-                          }}
-                        >
-                          {t('query_history.col_created_at')}
-                        </th>
-                        <th
-                          style={{
-                            padding: '12px 16px',
-                            fontWeight: 600,
-                            color: 'var(--table-header-fg, #4b5563)',
-                          }}
-                        >
-                          {t('query_history.col_actions')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {entries.map((entry) => {
-                        const badge = getStatusBadge(entry)
-                        const isExpanded = expandedId === entry.id
-                        const datasourceName =
-                          datasourceMap.get(entry.datasource_id) ?? entry.datasource_id
-                        const modelName = entry.model_id
-                          ? (modelMap.get(entry.model_id) ?? entry.model_id)
-                          : '—'
+                    <th
+                      style={{
+                        padding: '12px 16px',
+                        fontWeight: 600,
+                        color: 'var(--table-header-fg, #4b5563)',
+                      }}
+                    >
+                      {t('query_history.col_question')}
+                    </th>
+                    <th
+                      style={{
+                        padding: '12px 16px',
+                        fontWeight: 600,
+                        color: 'var(--table-header-fg, #4b5563)',
+                      }}
+                    >
+                      {t('query_history.col_status')}
+                    </th>
+                    <th
+                      style={{
+                        padding: '12px 16px',
+                        fontWeight: 600,
+                        color: 'var(--table-header-fg, #4b5563)',
+                      }}
+                    >
+                      {t('query_history.col_confidence')}
+                    </th>
+                    <th
+                      style={{
+                        padding: '12px 16px',
+                        fontWeight: 600,
+                        color: 'var(--table-header-fg, #4b5563)',
+                      }}
+                    >
+                      {t('query_history.col_model')}
+                    </th>
+                    <th
+                      style={{
+                        padding: '12px 16px',
+                        fontWeight: 600,
+                        color: 'var(--table-header-fg, #4b5563)',
+                      }}
+                    >
+                      {t('query_history.col_latency')}
+                    </th>
+                    <th
+                      style={{
+                        padding: '12px 16px',
+                        fontWeight: 600,
+                        color: 'var(--table-header-fg, #4b5563)',
+                      }}
+                    >
+                      {t('query_history.col_tokens')}
+                    </th>
+                    <th
+                      style={{
+                        padding: '12px 16px',
+                        fontWeight: 600,
+                        color: 'var(--table-header-fg, #4b5563)',
+                      }}
+                    >
+                      {t('query_history.col_created_at')}
+                    </th>
+                    <th
+                      style={{
+                        padding: '12px 16px',
+                        fontWeight: 600,
+                        color: 'var(--table-header-fg, #4b5563)',
+                      }}
+                    >
+                      {t('query_history.col_actions')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((entry) => {
+                    const badge = getStatusBadge(entry)
+                    const isExpanded = expandedId === entry.id
+                    const datasourceName =
+                      datasourceMap.get(entry.datasource_id) ?? entry.datasource_id
+                    const modelName = entry.model_id
+                      ? (modelMap.get(entry.model_id) ?? entry.model_id)
+                      : '—'
 
-                        return (
-                          <Fragment key={entry.id}>
-                            <tr
-                              className={isExpanded ? 'ai-history__row--expanded' : ''}
+                    return (
+                      <Fragment key={entry.id}>
+                        <tr
+                          className={isExpanded ? 'ai-history__row--expanded' : ''}
+                          style={{
+                            borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+                          }}
+                        >
+                          <td
+                            className="ai-history__question"
+                            style={{ padding: '12px 16px', color: 'var(--text-primary)' }}
+                          >
+                            <div style={{ fontWeight: '500' }}>{entry.question || '—'}</div>
+                            <div
                               style={{
-                                borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+                                fontSize: '0.75rem',
+                                color: 'var(--text-secondary)',
+                                marginTop: '2px',
                               }}
                             >
-                              <td
-                                className="ai-history__question"
-                                style={{ padding: '12px 16px', color: 'var(--text-primary)' }}
+                              {datasourceName}
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span className={`ai-history__status ai-history__status--${badge.cls}`}>
+                              {badge.label}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
+                            {entry.confidence_score != null
+                              ? `${(entry.confidence_score * 100).toFixed(0)}%`
+                              : '—'}
+                          </td>
+                          <td
+                            className="ai-history__mono"
+                            style={{
+                              padding: '12px 16px',
+                              fontFamily: 'var(--font-mono, monospace)',
+                              color: 'var(--text-primary)',
+                            }}
+                          >
+                            {modelName}
+                          </td>
+                          <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
+                            {entry.latency_ms != null ? `${entry.latency_ms}ms` : '—'}
+                          </td>
+                          <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
+                            {entry.token_count ?? '—'}
+                          </td>
+                          <td
+                            style={{
+                              padding: '12px 16px',
+                              color: 'var(--text-primary)',
+                              fontSize: '0.8rem',
+                            }}
+                          >
+                            {new Date(entry.created_at).toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                gap: '8px',
+                                justifyContent: 'flex-end',
+                                alignItems: 'center',
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => handleRerun(entry.question)}
+                                className="btn btn-sm btn-ghost"
+                                style={{ padding: '4px 8px', fontSize: '0.75rem' }}
                               >
-                                <div style={{ fontWeight: '500' }}>{entry.question || '—'}</div>
+                                {t('query_history.action_rerun')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => toggleDetail(entry.id)}
+                                className="ai-history__detail-btn"
+                                aria-expanded={isExpanded}
+                                title={t('query_history.action_preview')}
+                              >
+                                {isExpanded ? '▲' : '▼'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="ai-history__detail-row">
+                            <td colSpan={8}>
+                              {detailLoading ? (
                                 <div
                                   style={{
-                                    fontSize: '0.75rem',
-                                    color: 'var(--text-secondary)',
-                                    marginTop: '2px',
-                                  }}
-                                >
-                                  {datasourceName}
-                                </div>
-                              </td>
-                              <td style={{ padding: '12px 16px' }}>
-                                <span
-                                  className={`ai-history__status ai-history__status--${badge.cls}`}
-                                >
-                                  {badge.label}
-                                </span>
-                              </td>
-                              <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
-                                {entry.confidence_score != null
-                                  ? `${(entry.confidence_score * 100).toFixed(0)}%`
-                                  : '—'}
-                              </td>
-                              <td
-                                className="ai-history__mono"
-                                style={{
-                                  padding: '12px 16px',
-                                  fontFamily: 'var(--font-mono, monospace)',
-                                  color: 'var(--text-primary)',
-                                }}
-                              >
-                                {modelName}
-                              </td>
-                              <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
-                                {entry.latency_ms != null ? `${entry.latency_ms}ms` : '—'}
-                              </td>
-                              <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
-                                {entry.token_count ?? '—'}
-                              </td>
-                              <td
-                                style={{
-                                  padding: '12px 16px',
-                                  color: 'var(--text-primary)',
-                                  fontSize: '0.8rem',
-                                }}
-                              >
-                                {new Date(entry.created_at).toLocaleString()}
-                              </td>
-                              <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                <div
-                                  style={{
+                                    position: 'relative',
+                                    minHeight: 85,
                                     display: 'flex',
-                                    gap: '8px',
-                                    justifyContent: 'flex-end',
                                     alignItems: 'center',
+                                    justifyContent: 'center',
                                   }}
                                 >
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRerun(entry.question)}
-                                    className="btn btn-sm btn-ghost"
-                                    style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-                                  >
-                                    {t('query_history.action_rerun')}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleDetail(entry.id)}
-                                    className="ai-history__detail-btn"
-                                    aria-expanded={isExpanded}
-                                    title={t('query_history.action_preview')}
-                                  >
-                                    {isExpanded ? '▲' : '▼'}
-                                  </button>
+                                  <LoadingOverlay loading={true} />
                                 </div>
-                              </td>
-                            </tr>
-                            {isExpanded && (
-                              <tr className="ai-history__detail-row">
-                                <td colSpan={8}>
-                                  {detailLoading ? (
-                                    <div
-                                      style={{
-                                        position: 'relative',
-                                        minHeight: 85,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                      }}
-                                    >
-                                      <LoadingOverlay loading={true} />
+                              ) : detail ? (
+                                <div className="ai-history__detail-content">
+                                  {detail.prompt_context != null && (
+                                    <div className="ai-history__detail-block">
+                                      <h4>{t('query_history.prompt')}</h4>
+                                      <pre>{formatDetail(detail.prompt_context)}</pre>
                                     </div>
-                                  ) : detail ? (
-                                    <div className="ai-history__detail-content">
-                                      {detail.prompt_context != null && (
-                                        <div className="ai-history__detail-block">
-                                          <h4>{t('query_history.prompt')}</h4>
-                                          <pre>{formatDetail(detail.prompt_context)}</pre>
-                                        </div>
-                                      )}
-                                      {detail.ai_response != null && (
-                                        <div className="ai-history__detail-block">
-                                          <h4>{t('query_history.generated_sql')}</h4>
-                                          <pre>{formatDetail(detail.ai_response)}</pre>
-                                        </div>
-                                      )}
-                                      {detail.logical_query != null && (
-                                        <div className="ai-history__detail-block">
-                                          <h4>{t('query_history.logical_query')}</h4>
-                                          <pre>{formatDetail(detail.logical_query)}</pre>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <p style={{ padding: 16, color: 'var(--text-muted)' }}>—</p>
                                   )}
-                                </td>
-                              </tr>
-                            )}
-                          </Fragment>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                                  {detail.ai_response != null && (
+                                    <div className="ai-history__detail-block">
+                                      <h4>{t('query_history.generated_sql')}</h4>
+                                      <pre>{formatDetail(detail.ai_response)}</pre>
+                                    </div>
+                                  )}
+                                  {detail.logical_query != null && (
+                                    <div className="ai-history__detail-block">
+                                      <h4>{t('query_history.logical_query')}</h4>
+                                      <pre>{formatDetail(detail.logical_query)}</pre>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <p style={{ padding: 16, color: 'var(--text-muted)' }}>—</p>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                  totalItems={totalItems}
-                  itemsPerPage={pageSize}
-                />
-              </>
-            )}
-          </div>
-        </LoadingOverlay>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={totalItems}
+              itemsPerPage={pageSize}
+            />
+          </>
+        </DataState>
       </div>
     </div>
   )

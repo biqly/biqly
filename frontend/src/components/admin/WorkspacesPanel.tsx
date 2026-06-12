@@ -8,7 +8,7 @@ import { useQueryParam } from '../../hooks/useQueryParam'
 import { useT } from '../../i18n'
 import type { Workspace } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
-import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { DataState } from '../ui/DataState'
 import { Pagination } from '../ui/Pagination'
 import { WorkspaceSettingsPage } from '../workspaces/WorkspaceSettingsPage'
 
@@ -112,100 +112,91 @@ export function WorkspacesPanel({ token }: { token: string }) {
         </button>
       </form>
 
-      {error && (
-        <div style={errStyle}>
-          {t('common.error')}: {error}
-        </div>
-      )}
-
       <div style={containerStyle}>
-        <LoadingOverlay loading={loading}>
-          <div
-            style={{
-              minHeight: displayedItems.length === 0 && loading ? 120 : 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column' }}>
-              {displayedItems.length === 0 ? (
-                <li style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-                  {loading ? '' : '—'}
-                </li>
-              ) : (
-                displayedItems.map((w, i) => (
-                  <li
-                    key={w.id}
-                    style={{
-                      padding: '16px 20px',
-                      borderBottom:
-                        i === displayedItems.length - 1 && totalPages <= 1
-                          ? 'none'
-                          : '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      gap: 12,
-                    }}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <strong style={{ fontSize: 15, color: 'var(--text-primary, #f4f4f5)' }}>
-                          {w.name}
-                        </strong>
-                        <span
-                          className="ws-settings__badge"
-                          data-type={w.is_personal ? 'personal' : 'team'}
-                          style={{ fontSize: 10, padding: '1px 6px' }}
-                        >
-                          {w.is_personal
-                            ? t('admin.workspaces.type_personal')
-                            : t('admin.workspaces.type_team')}
-                        </span>
-                      </div>
-                      {w.description && (
-                        <div style={{ fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>
-                          {w.description}
-                        </div>
-                      )}
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: 'var(--text-muted, #8a8a92)',
-                          fontFamily: 'var(--font-mono, monospace)',
-                        }}
+        <DataState
+          loading={loading}
+          error={error}
+          errorPrefix={t('common.error')}
+          empty={displayedItems.length === 0}
+        >
+          <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column' }}>
+            {displayedItems.length === 0 ? (
+              <li style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
+                {loading ? '' : '—'}
+              </li>
+            ) : (
+              displayedItems.map((w, i) => (
+                <li
+                  key={w.id}
+                  style={{
+                    padding: '16px 20px',
+                    borderBottom:
+                      i === displayedItems.length - 1 && totalPages <= 1
+                        ? 'none'
+                        : '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <strong style={{ fontSize: 15, color: 'var(--text-primary, #f4f4f5)' }}>
+                        {w.name}
+                      </strong>
+                      <span
+                        className="ws-settings__badge"
+                        data-type={w.is_personal ? 'personal' : 'team'}
+                        style={{ fontSize: 10, padding: '1px 6px' }}
                       >
-                        {w.slug}
-                      </div>
+                        {w.is_personal
+                          ? t('admin.workspaces.type_personal')
+                          : t('admin.workspaces.type_team')}
+                      </span>
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    {w.description && (
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>
+                        {w.description}
+                      </div>
+                    )}
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: 'var(--text-muted, #8a8a92)',
+                        fontFamily: 'var(--font-mono, monospace)',
+                      }}
+                    >
+                      {w.slug}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => {
+                        setSelectedWSParam(w.id)
+                        setWorkspaceLabelParam(w.name)
+                      }}
+                      style={btnSettings}
+                    >
+                      {t('admin.workspaces.settings')}
+                    </button>
+                    {!w.is_personal && (
                       <button
                         onClick={() => {
-                          setSelectedWSParam(w.id)
-                          setWorkspaceLabelParam(w.name)
+                          void onDelete(w.id, w.name)
                         }}
-                        style={btnSettings}
+                        style={btnSecondary}
                       >
-                        {t('admin.workspaces.settings')}
+                        {t('common.delete')}
                       </button>
-                      {!w.is_personal && (
-                        <button
-                          onClick={() => {
-                            void onDelete(w.id, w.name)
-                          }}
-                          style={btnSecondary}
-                        >
-                          {t('common.delete')}
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
-        </LoadingOverlay>
+                    )}
+                  </div>
+                </li>
+              ))
+            )}
+          </ul>
+        </DataState>
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
@@ -267,10 +258,4 @@ const btnSettings: React.CSSProperties = {
   cursor: 'pointer',
   fontSize: 13,
   fontWeight: 500,
-}
-
-const errStyle: React.CSSProperties = {
-  color: 'var(--error, crimson)',
-  padding: 16,
-  fontWeight: 600,
 }

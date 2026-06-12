@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"github.com/bytedance/sonic"
 	"net/http"
 
 	"github.com/biqly/biqly/internal/auth"
@@ -39,9 +38,8 @@ func (h *AuthHandler) handleAdminUpdatePlatformSettings(w http.ResponseWriter, r
 	if !ok {
 		return
 	}
-	var req updatePlatformSettingsRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeJSON[updatePlatformSettingsRequest](w, r)
+	if !ok {
 		return
 	}
 	settings, err := h.service.UpdatePlatformSettings(r.Context(), userID, req.SelfSignupEnabled)
