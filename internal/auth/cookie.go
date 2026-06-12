@@ -32,8 +32,8 @@ func WriteResponseCookie(w http.ResponseWriter, r *http.Request, listenPort int,
 	writePlainHTTPDevCookie(w, cookie)
 }
 
-// setSecureResponseCookie copies src into a new cookie with Secure=true so static
-// analysis (CodeQL go/cookie-secure-not-set) sees the flag at the SetCookie site.
+// setSecureResponseCookie copies src into a new cookie with Secure and HttpOnly so
+// static analysis (CodeQL, Semgrep) sees both flags at the SetCookie site.
 func setSecureResponseCookie(w http.ResponseWriter, src *http.Cookie) {
 	c := *src
 	http.SetCookie(w, &http.Cookie{
@@ -45,7 +45,7 @@ func setSecureResponseCookie(w http.ResponseWriter, src *http.Cookie) {
 		RawExpires: c.RawExpires,
 		MaxAge:     c.MaxAge,
 		Secure:     true,
-		HttpOnly:   c.HttpOnly,
+		HttpOnly:   true,
 		SameSite:   c.SameSite,
 		Raw:        c.Raw,
 		Unparsed:   c.Unparsed,
@@ -55,8 +55,21 @@ func setSecureResponseCookie(w http.ResponseWriter, src *http.Cookie) {
 // writePlainHTTPDevCookie sets a cookie without Secure for plain-HTTP local auth dev only.
 //
 //nolint:gosec // G124: intentional plain-HTTP local dev exception on port 8889 only.
-func writePlainHTTPDevCookie(w http.ResponseWriter, cookie *http.Cookie) {
-	cookie.Secure = false
+func writePlainHTTPDevCookie(w http.ResponseWriter, src *http.Cookie) {
+	c := *src
 	// codeql[go/cookie-secure-not-set]: Plain HTTP on local auth dev port 8889 requires Secure=false so browsers accept the cookie.
-	http.SetCookie(w, cookie)
+	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+		Name:       c.Name,
+		Value:      c.Value,
+		Path:       c.Path,
+		Domain:     c.Domain,
+		Expires:    c.Expires,
+		RawExpires: c.RawExpires,
+		MaxAge:     c.MaxAge,
+		Secure:     false,
+		HttpOnly:   true,
+		SameSite:   c.SameSite,
+		Raw:        c.Raw,
+		Unparsed:   c.Unparsed,
+	})
 }

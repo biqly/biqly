@@ -71,6 +71,9 @@ func TestWriteResponseCookieInsecureOnLocalDevPort(t *testing.T) {
 	if cookies[0].Secure {
 		t.Fatal("plain HTTP on local auth dev port must omit Secure so browsers accept the cookie")
 	}
+	if !cookies[0].HttpOnly {
+		t.Fatal("session cookie must be HttpOnly")
+	}
 }
 
 func TestWriteResponseCookieSecureInProduction(t *testing.T) {
@@ -88,6 +91,9 @@ func TestWriteResponseCookieSecureInProduction(t *testing.T) {
 	}
 	if !cookies[0].Secure {
 		t.Fatal("production must set Secure on session cookie even on port 8889 over HTTP")
+	}
+	if !cookies[0].HttpOnly {
+		t.Fatal("session cookie must be HttpOnly")
 	}
 }
 
