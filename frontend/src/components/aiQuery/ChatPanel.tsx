@@ -1,11 +1,81 @@
 import type { KeyboardEvent } from 'react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 
+import type { TranslationKey } from '../../i18n'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { AssistantMessageCard } from './AssistantMessageCard'
 import { formatAiWaitElapsed } from './routingViz'
 import type { ChatPanelProps } from './types'
 import { AI_QUERY_TIMEOUT_MS } from './types'
+
+interface TypingIndicatorProps {
+  queryAction: string | null
+  aiElapsedMs: number
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string
+}
+
+function TypingIndicator({ queryAction, aiElapsedMs, t }: TypingIndicatorProps) {
+  if (queryAction === null) {
+    return null
+  }
+  return (
+    <div className="chat-msg chat-msg--assistant chat-msg--typing" role="status">
+      <span className="chat-msg__avatar" aria-hidden="true">
+        ✦
+      </span>
+      <div className="chat-msg__main">
+        <div className="chat-typing">
+          <span className="chat-typing__dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          <span className="chat-typing__label">{t('ai_query.loading_thinking')}</span>
+          <span className="chat-typing__elapsed">{formatAiWaitElapsed(aiElapsedMs, t)}</span>
+        </div>
+        <p className="chat-typing__hint">
+          {t('ai_query.wait_hint', { minutes: Math.round(AI_QUERY_TIMEOUT_MS / 60_000) })}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+interface ChatEmptyStateProps {
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string
+  setQuestion: (q: string | ((prev: string) => string)) => void
+}
+
+function ChatEmptyState({ t, setQuestion }: ChatEmptyStateProps) {
+  return (
+    <div className="chat-empty-state">
+      <h3>✨ {t('ai_query.workspace_title')}</h3>
+      <p>{t('ai_query.subtitle')}</p>
+      <div
+        className="chat-empty-state__suggestions"
+        role="list"
+        aria-label={t('ai_query.suggestions_aria')}
+      >
+        {[
+          t('ai_query.suggestion_1'),
+          t('ai_query.suggestion_2'),
+          t('ai_query.suggestion_3'),
+          t('ai_query.suggestion_4'),
+        ].map((s) => (
+          <button
+            key={s}
+            type="button"
+            role="listitem"
+            className="chat-empty-state__chip"
+            onClick={() => setQuestion(s)}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export function ChatPanel({
   t,
@@ -34,10 +104,11 @@ export function ChatPanel({
   const prevConvIdRef = useRef<string | undefined>(undefined)
   const prevMsgCountRef = useRef<number>(0)
 
+  const messages = useMemo(() => activeConversation?.messages ?? [], [activeConversation])
+
   useEffect(() => {
     const feed = chatFeedRef.current
     const currentId = activeConversation?.id
-    const messages = activeConversation?.messages ?? []
     const currentCount = messages.length
 
     if (feed) {
@@ -66,7 +137,7 @@ export function ChatPanel({
 
     prevConvIdRef.current = currentId
     prevMsgCountRef.current = currentCount
-  }, [activeConversation, activeConversationId, queryAction])
+  }, [activeConversation, activeConversationId, queryAction, messages])
 
   const loadingLabel = loading && queryAction !== null ? t('ai_query.loading_thinking') : ''
 
@@ -78,132 +149,79 @@ export function ChatPanel({
   const formatMessageTime = (timestamp: string) =>
     new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-  const typingIndicator =
-    queryAction !== null ? (
-      <div className="chat-msg chat-msg--assistant chat-msg--typing" role="status">
-        <span className="chat-msg__avatar" aria-hidden="true">
-          ✦
-        </span>
-        <div className="chat-msg__main">
-          <div className="chat-typing">
-            <span className="chat-typing__dots" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </span>
-            <span className="chat-typing__label">{t('ai_query.loading_thinking')}</span>
-            <span className="chat-typing__elapsed">{formatAiWaitElapsed(aiElapsedMs, t)}</span>
-          </div>
-          <p className="chat-typing__hint">
-            {t('ai_query.wait_hint', { minutes: Math.round(AI_QUERY_TIMEOUT_MS / 60_000) })}
-          </p>
-        </div>
-      </div>
-    ) : null
-
   return (
     <>
       <div ref={chatFeedRef} className="chat-feed">
-        {activeConversation && activeConversation.messages.length > 0 ? (
-          (() => {
-            const conv = activeConversation
-            return conv.messages.map((message, index) => {
-              if (message.role === 'user') {
-                return (
-                  <div key={index} className="chat-msg chat-msg--user">
-                    <div className="chat-bubble user-bubble">
-                      <div className="bubble-content">{message.content}</div>
-                      <span className="bubble-time">{formatMessageTime(message.timestamp)}</span>
-                    </div>
+        {activeConversation && messages.length > 0 ? (
+          messages.map((message, index) => {
+            if (message.role === 'user') {
+              return (
+                <div key={index} className="chat-msg chat-msg--user">
+                  <div className="chat-bubble user-bubble">
+                    <div className="bubble-content">{message.content}</div>
+                    <span className="bubble-time">{formatMessageTime(message.timestamp)}</span>
                   </div>
-                )
-              } else {
-                const userQuestion = index > 0 ? (conv.messages[index - 1]?.content ?? '') : ''
-                return (
-                  <div
-                    key={index}
-                    className="chat-msg chat-msg--assistant"
-                    data-message-index={index}
-                  >
-                    <span className="chat-msg__avatar" aria-hidden="true">
-                      ✦
-                    </span>
-                    <div className="chat-msg__main">
-                      <div className="chat-msg__meta">
-                        <span className="chat-msg__author">{t('ai_query.assistant_label')}</span>
-                        {message.timestamp && (
-                          <span className="chat-msg__time">
-                            {formatMessageTime(message.timestamp)}
-                          </span>
-                        )}
-                      </div>
-                      <AssistantMessageCard
-                        message={message}
-                        messageIndex={index}
-                        conversationId={conv.id}
-                        datasourceId={datasourceId}
-                        aiRuntime={aiRuntime}
-                        userQuestion={userQuestion}
-                        get={get}
-                        postData={postData}
-                        updateMessageResponse={updateMessageResponse}
-                        t={t}
-                        localeNumberTag={localeNumberTag}
-                        localeTag={localeTag}
-                        onSelectClarification={(choice, originalQuestion) =>
-                          onSendQuery(originalQuestion, true, choice)
-                        }
-                        onSkipClarification={(originalQuestion) =>
-                          onSendQuery(originalQuestion, true)
-                        }
-                        onFilterByValue={(column, value) => {
-                          const filterText = t('ai_query.filter_by_value', { column, value })
-                          setQuestion((prev: string) =>
-                            prev ? `${prev} ${filterText}` : filterText,
-                          )
-                        }}
-                        onCellDrillDown={(col, val) =>
-                          onSendQuery(
-                            t('ai_query.drill_down_prompt', { column: col, value: val }),
-                            true,
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-                )
-              }
-            })
-          })()
-        ) : (
-          <div className="chat-empty-state">
-            <h3>✨ {t('ai_query.workspace_title')}</h3>
-            <p>{t('ai_query.subtitle')}</p>
-            <div
-              className="chat-empty-state__suggestions"
-              role="list"
-              aria-label={t('ai_query.suggestions_aria')}
-            >
-              {[
-                t('ai_query.suggestion_1'),
-                t('ai_query.suggestion_2'),
-                t('ai_query.suggestion_3'),
-                t('ai_query.suggestion_4'),
-              ].map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  role="listitem"
-                  className="chat-empty-state__chip"
-                  onClick={() => setQuestion(s)}
+                </div>
+              )
+            } else {
+              const userQuestion = index > 0 ? (messages[index - 1]?.content ?? '') : ''
+              return (
+                <div
+                  key={index}
+                  className="chat-msg chat-msg--assistant"
+                  data-message-index={index}
                 >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
+                  <span className="chat-msg__avatar" aria-hidden="true">
+                    ✦
+                  </span>
+                  <div className="chat-msg__main">
+                    <div className="chat-msg__meta">
+                      <span className="chat-msg__author">{t('ai_query.assistant_label')}</span>
+                      {message.timestamp && (
+                        <span className="chat-msg__time">
+                          {formatMessageTime(message.timestamp)}
+                        </span>
+                      )}
+                    </div>
+                    <AssistantMessageCard
+                      message={message}
+                      messageIndex={index}
+                      conversationId={activeConversation.id}
+                      datasourceId={datasourceId}
+                      aiRuntime={aiRuntime}
+                      userQuestion={userQuestion}
+                      get={get}
+                      postData={postData}
+                      updateMessageResponse={updateMessageResponse}
+                      t={t}
+                      localeNumberTag={localeNumberTag}
+                      localeTag={localeTag}
+                      onSelectClarification={(choice, originalQuestion) =>
+                        onSendQuery(originalQuestion, true, choice)
+                      }
+                      onSkipClarification={(originalQuestion) =>
+                        onSendQuery(originalQuestion, true)
+                      }
+                      onFilterByValue={(column, value) => {
+                        const filterText = t('ai_query.filter_by_value', { column, value })
+                        setQuestion((prev: string) => (prev ? `${prev} ${filterText}` : filterText))
+                      }}
+                      onCellDrillDown={(col, val) =>
+                        onSendQuery(
+                          t('ai_query.drill_down_prompt', { column: col, value: val }),
+                          true,
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              )
+            }
+          })
+        ) : (
+          <ChatEmptyState t={t} setQuestion={setQuestion} />
         )}
-        {typingIndicator}
+        <TypingIndicator queryAction={queryAction} aiElapsedMs={aiElapsedMs} t={t} />
       </div>
 
       <footer className="chat-input-area">
@@ -228,7 +246,7 @@ export function ChatPanel({
           />
           <div className="chat-composer__bar">
             <div className="chat-composer__options">
-              {activeConversation && activeConversation.messages.length > 0 && (
+              {activeConversation && messages.length > 0 && (
                 <div className="past-queries-toggle">
                   <input
                     type="checkbox"

@@ -70,9 +70,13 @@ function generateId(): string {
 }
 
 function normalizeConversation(conversation: Conversation): Conversation {
+  const raw = conversation as Omit<Conversation, 'messages'> & {
+    messages?: ConversationMessage[]
+  }
   return {
     ...conversation,
     context_enabled: conversation.context_enabled ?? true,
+    messages: raw.messages ?? [],
   }
 }
 
