@@ -22,6 +22,7 @@
     "ambiguity_question_multiple": "Lütfen sorunuzdaki belirsiz ifadeleri netleştirin.",
     "needs_clarification_warning": "Sorgu oluşturulabilmesi için bu sorunun netleştirilmesi gerekiyor.",
     "temporal_filter_missing": "\"{{.Phrase}}\" zaman koşulu üretilen sorguya uygulanamadı — sonuçlar tüm zamanları kapsıyor. Tarih aralığını açıkça belirterek (örn. kesin başlangıç ve bitiş tarihi) tekrar deneyin.",
+    "ranking_followup_corrected": "Önceki {{.Dimension}} sıralamasının ilk {{.Limit}} satırı isteniyordu; dakika penceresi yerine sıralama sorgusu düzeltildi.",
     "scope_apply_to_metric": "Niteleyiciyi {{.Metric}} metriğine uygula",
     "synonym_fallback_dimension": "{{.Name}} boyutu",
     "synonym_fallback_metric": "{{.Name}} metriği",

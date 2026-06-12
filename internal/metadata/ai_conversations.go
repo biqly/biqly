@@ -21,7 +21,7 @@ func (r *Repository) CreateAIConversation(ctx context.Context, conv *AIConversat
 		)
 		VALUES (
 			COALESCE(NULLIF($1, ''), gen_random_uuid()::text),
-			$2, $3, NULLIF($4, ''), $5, NULLIF($6, '')
+			$2, $3, NULLIF($4, '')::uuid, $5, NULLIF($6, '')
 		)
 		ON CONFLICT (id) DO UPDATE SET
 			user_id = EXCLUDED.user_id,
@@ -36,7 +36,7 @@ func (r *Repository) CreateAIConversation(ctx context.Context, conv *AIConversat
 		conv.ID,
 		conv.UserID,
 		conv.DatasourceID,
-		platformdb.NullIfEmptyPtr(conv.ModelID),
+		platformdb.NullUUIDPtr(conv.ModelID),
 		conv.ContextEnabled,
 		platformdb.NullIfEmptyPtr(conv.Title),
 	).Scan(&conv.ID, &conv.CreatedAt, &conv.UpdatedAt); err != nil {

@@ -49,7 +49,8 @@ func DefaultEntries() []Entry {
 		{Locale: "en", Domain: DomainIntentToken, Key: "average", Terms: []string{"average"}},
 		{Locale: "tr", Domain: DomainIntentToken, Key: "average", Terms: []string{"ortalama"}},
 		{Locale: "en", Domain: DomainIntentToken, Key: "time_grain_mention", Terms: []string{"yesterday", "today", "week", "month", "year", "quarter", "daily", "hourly"}},
-		{Locale: "tr", Domain: DomainIntentToken, Key: "time_grain_mention", Terms: []string{"dün", "bugün", "hafta", "ay", "yıl", "günlük", "saat"}},
+		{Locale: "tr", Domain: DomainIntentToken, Key: "time_grain_mention", Terms: []string{"dün", "bugün", "hafta", "ay", "yıl", "günlük", "saat", "dakika", "dk"}},
+		{Locale: "tr", Domain: DomainIntentToken, Key: "ranking_top_n", Terms: []string{"ilk 10", "ilk 5", "en çok", "dakiler", "dakileri"}},
 
 		// --- row_count (from semanticgen/generator.go countMetric) ---
 		{Locale: "en", Domain: DomainRowCount, Key: "row_count", Terms: []string{"count", "total rows"}},

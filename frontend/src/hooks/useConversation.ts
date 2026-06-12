@@ -100,13 +100,42 @@ async function defaultDeleteConversationAPI(id: string, token?: string | null): 
   })
 }
 
+export function mergeConversationSnapshots(
+  localConversations: Conversation[],
+  remoteConversations: Conversation[],
+): Conversation[] {
+  if (remoteConversations.length === 0) {
+    return localConversations
+  }
+  const byID = new Map<string, Conversation>()
+  for (const conv of localConversations) {
+    byID.set(conv.id, conv)
+  }
+  for (const conv of remoteConversations) {
+    byID.set(conv.id, conv)
+  }
+  return [...byID.values()].sort(
+    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+  )
+}
+
 export async function loadConversationSnapshot(
   localConversations: Conversation[],
   options: ConversationAPIOptions = {},
 ): Promise<Conversation[]> {
   try {
     const loaded = await (options.api ?? defaultLoadConversationsAPI)(options.token)
-    return loaded.map(normalizeConversation)
+    const remote = loaded.map(normalizeConversation)
+    const merged = mergeConversationSnapshots(localConversations, remote)
+    if (options.token) {
+      const remoteIDs = new Set(remote.map((conv) => conv.id))
+      for (const conv of merged) {
+        if (!remoteIDs.has(conv.id) && conv.datasource_id) {
+          void saveConversationSnapshot(conv, { token: options.token })
+        }
+      }
+    }
+    return merged
   } catch {
     return localConversations
   }

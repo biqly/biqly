@@ -318,6 +318,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	if s.multiCandidateCount > 1 {
 		if resp, ok := s.tryMultiCandidate(ctx, question, basePrompt, model, &options, &baseStats, filterSess, followIntent); ok {
 			applyTemporalFilterPostCheck(ctx, question, model, resp)
+			applyRankingFollowUpPostCheck(ctx, question, filterSess, followIntent, resp)
 			s.cacheResponse(ctx, cacheKey, resp)
 			return resp, nil
 		}
@@ -329,11 +330,13 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 	}
 	if resp != nil {
 		applyTemporalFilterPostCheck(ctx, question, model, resp)
+		applyRankingFollowUpPostCheck(ctx, question, filterSess, followIntent, resp)
 		s.cacheResponse(ctx, cacheKey, resp)
 		return resp, nil
 	}
 	failure := s.buildFailureResponse(ctx, question, model, state)
 	applyTemporalFilterPostCheck(ctx, question, model, failure)
+	applyRankingFollowUpPostCheck(ctx, question, filterSess, followIntent, failure)
 	return failure, nil
 }
 
@@ -836,6 +839,9 @@ func (s *Service) buildPrompt(
 		},
 	)
 	if block := ActiveFilterInstructions(filterSess, followIntent); block != "" {
+		prompt += block
+	}
+	if block := RankingFollowUpInstructions(filterSess, followIntent, question); block != "" {
 		prompt += block
 	}
 	buildDurationMs := time.Since(start).Milliseconds()

@@ -5,6 +5,7 @@ import {
   deleteConversationSnapshot,
   loadConversations,
   loadConversationSnapshot,
+  mergeConversationSnapshots,
   saveConversations,
   saveConversationSnapshot,
   withAssistantMessageForJob,
@@ -78,9 +79,31 @@ describe('conversation API sync', () => {
       return remote
     }
 
-    await expect(loadConversationSnapshot([conversation('local-1')], { api })).resolves.toEqual([
-      { ...remote[0], context_enabled: true },
-    ])
+    const merged = await loadConversationSnapshot([conversation('local-1')], { api })
+    expect(merged).toHaveLength(2)
+    expect(merged.find((conv) => conv.id === 'remote-1')).toEqual({
+      ...remote[0],
+      context_enabled: true,
+    })
+  })
+
+  it('preserves local conversations when the remote list is empty', async () => {
+    const local = [conversation('local-1')]
+    const api = async () => {
+      await Promise.resolve()
+      return []
+    }
+
+    await expect(loadConversationSnapshot(local, { api })).resolves.toEqual(local)
+  })
+
+  it('merges local-only conversations with remote snapshots', () => {
+    const local = [conversation('local-1')]
+    const remote = [{ ...conversation('remote-1'), context_enabled: true }]
+
+    const merged = mergeConversationSnapshots(local, remote)
+    expect(merged).toHaveLength(2)
+    expect(merged.map((conv) => conv.id).sort()).toEqual(['local-1', 'remote-1'])
   })
 
   it('falls back to local conversations when the API fails', async () => {

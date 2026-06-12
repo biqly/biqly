@@ -24,6 +24,7 @@ semgrep.sarif
 # IDE
 .idea/
 .vscode/
+.cursor/mcp.json
 
 # OS
 .DS_Store

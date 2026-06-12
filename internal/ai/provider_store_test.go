@@ -115,7 +115,7 @@ func TestChatConfigForPurposeResolved(t *testing.T) {
 	if cfg.Connection.Provider != "anthropic" || cfg.Connection.Model != "claude-sonnet-4" || cfg.Connection.APIKey != "db-key" {
 		t.Errorf("connection fields not overridden: %+v", cfg)
 	}
-	if cfg.Generation.MaxTokens != 2048 || cfg.Generation.Temperature != 0.2 || cfg.Connection.HTTPTimeoutSeconds != 90 {
+	if cfg.Generation.MaxTokens != minQueryGenerationMaxTokens || cfg.Generation.Temperature != 0.2 || cfg.Connection.HTTPTimeoutSeconds != 90 {
 		t.Errorf("model tuning not applied: %+v", cfg)
 	}
 	if cfg.Generation.MaxPromptInputRunes != 40000 {

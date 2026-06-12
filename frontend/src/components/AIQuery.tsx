@@ -508,7 +508,10 @@ export default function AIQuery() {
               alignItems: 'center',
             }}
             onClick={() => {
-              createConversation()
+              createConversation({
+                datasource_id: datasourceId,
+                model_id: semanticModelId.startsWith('composite:') ? null : semanticModelId || null,
+              })
               setQuestion('')
             }}
           >

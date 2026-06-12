@@ -17,6 +17,16 @@ import (
 // -- Null conversion helpers tests --
 
 func TestNullHelpers(t *testing.T) {
+	t.Run("NullUUIDPtr", func(t *testing.T) {
+		assert.Nil(t, NullUUIDPtr(nil))
+		empty := ""
+		assert.Nil(t, NullUUIDPtr(&empty))
+		invalid := "composite:abc"
+		assert.Nil(t, NullUUIDPtr(&invalid))
+		valid := "550e8400-e29b-41d4-a716-446655440000"
+		assert.Equal(t, valid, NullUUIDPtr(&valid))
+	})
+
 	t.Run("NullIfEmptyPtr", func(t *testing.T) {
 		assert.Nil(t, NullIfEmptyPtr(nil))
 		empty := ""

@@ -4,7 +4,25 @@ import (
 	"database/sql"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
+
+// NullUUIDPtr returns nil when the string pointer is nil, empty, or not a valid
+// UUID; otherwise it returns the trimmed UUID string.
+func NullUUIDPtr(p *string) any {
+	if p == nil {
+		return nil
+	}
+	s := strings.TrimSpace(*p)
+	if s == "" {
+		return nil
+	}
+	if _, err := uuid.Parse(s); err != nil {
+		return nil
+	}
+	return s
+}
 
 // NullIfEmptyPtr returns nil when the string pointer is nil or its trimmed
 // value is empty; otherwise it returns the trimmed string. Suitable for

@@ -26,6 +26,10 @@ type Purpose string
 const (
 	// PurposeQuery — NL → LogicalQuery generation.
 	PurposeQuery Purpose = "query"
+
+	// minQueryGenerationMaxTokens avoids truncated JSON when reasoning models fill
+	// the completion budget before emitting the LogicalQuery payload.
+	minQueryGenerationMaxTokens = 8192
 	// PurposeDescribe — table/column AI description generation.
 	PurposeDescribe Purpose = "describe"
 	// PurposeEmbedding — table/column embedding generation.
@@ -269,7 +273,11 @@ func (s *ProviderStore) ChatConfigForModelUUID(ctx context.Context, modelUUID st
 	rm.ProviderType = providerType
 	rm.BaseURL = baseURL
 	rm.APIKey = s.decrypt(encKey)
-	return s.chatConfigFromResolved(&rm), true
+	cfg := s.chatConfigFromResolved(&rm)
+	if Purpose(purpose) == PurposeQuery {
+		cfg = ensureQueryMaxTokens(cfg)
+	}
+	return cfg, true
 }
 
 func (s *ProviderStore) chatConfigFromResolved(rm *resolvedModel) config.AIConfig {
@@ -340,9 +348,24 @@ func (s *ProviderStore) ActiveModelUUIDsByProviders(ctx context.Context, provide
 func (s *ProviderStore) ChatConfigForPurpose(p Purpose) (config.AIConfig, bool) {
 	rm, ok := s.resolvedFor(p)
 	if !ok {
-		return s.fallback, false
+		cfg := s.fallback
+		if p == PurposeQuery {
+			cfg = ensureQueryMaxTokens(cfg)
+		}
+		return cfg, false
 	}
-	return s.chatConfigFromResolved(rm), true
+	cfg := s.chatConfigFromResolved(rm)
+	if p == PurposeQuery {
+		cfg = ensureQueryMaxTokens(cfg)
+	}
+	return cfg, true
+}
+
+func ensureQueryMaxTokens(cfg config.AIConfig) config.AIConfig {
+	if cfg.Generation.MaxTokens < minQueryGenerationMaxTokens {
+		cfg.Generation.MaxTokens = minQueryGenerationMaxTokens
+	}
+	return cfg
 }
 
 // EffectiveConfig returns the fallback config with embedding and translation

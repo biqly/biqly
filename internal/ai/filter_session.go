@@ -43,6 +43,8 @@ type FilterSessionState struct {
 	Having            []query.Filter
 	LastQuestion      string
 	LastResultSummary string
+	RankingDimension  string
+	RankingMetric     string
 }
 
 // FilterSessionFromPriorTurns extracts the most recent successful LogicalQuery
@@ -50,17 +52,47 @@ type FilterSessionState struct {
 func FilterSessionFromPriorTurns(turns []promptpkg.ConversationTurn) *FilterSessionState {
 	for i := len(turns) - 1; i >= 0; i-- {
 		lq := parseLogicalQueryFromTurn(turns[i])
-		if lq == nil || len(lq.Filters) == 0 && len(lq.Having) == 0 {
+		if lq == nil || len(lq.Filters) == 0 && len(lq.Having) == 0 && len(lq.GroupBy) == 0 {
 			continue
 		}
+		rankDim, rankMetric := rankingShapeFromLogicalQuery(lq)
 		return &FilterSessionState{
 			Filters:           cloneFilters(lq.Filters),
 			Having:            cloneFilters(lq.Having),
 			LastQuestion:      strings.TrimSpace(turns[i].Question),
 			LastResultSummary: strings.TrimSpace(turns[i].ResultSummary),
+			RankingDimension:  rankDim,
+			RankingMetric:     rankMetric,
 		}
 	}
 	return nil
+}
+
+func rankingShapeFromLogicalQuery(lq *query.LogicalQuery) (dimension, metric string) {
+	if lq == nil {
+		return "", ""
+	}
+	if len(lq.GroupBy) > 0 {
+		dimension = strings.TrimSpace(lq.GroupBy[0].Field)
+	}
+	if dimension == "" {
+		for _, item := range lq.Select {
+			if item.Type == query.SelectTypeDimension && strings.TrimSpace(item.Name) != "" {
+				dimension = strings.TrimSpace(item.Name)
+				break
+			}
+		}
+	}
+	for _, item := range lq.Select {
+		if item.Type == query.SelectTypeMetric && strings.TrimSpace(item.Name) != "" {
+			metric = strings.TrimSpace(item.Name)
+			break
+		}
+	}
+	if metric == "" {
+		metric = "count"
+	}
+	return dimension, metric
 }
 
 func parseLogicalQueryFromTurn(t promptpkg.ConversationTurn) *query.LogicalQuery {
