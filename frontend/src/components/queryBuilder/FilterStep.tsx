@@ -1,4 +1,4 @@
-import type { TFunction } from '../../i18n'
+import { useT } from '../../i18n'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import type { FilterRow } from './types'
@@ -10,7 +10,6 @@ interface FilterStepProps {
   removeFilter: (i: number) => void
   addFilter: () => void
   onClear: () => void
-  t: TFunction
 }
 
 export function FilterStep({
@@ -20,8 +19,8 @@ export function FilterStep({
   removeFilter,
   addFilter,
   onClear,
-  t,
 }: FilterStepProps) {
+  const t = useT()
   if (filters.length === 0) {
     return null
   }

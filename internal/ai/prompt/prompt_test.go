@@ -123,7 +123,12 @@ func TestPromptBuildIncludesPriorTurns(t *testing.T) {
 	pb := &Builder{}
 	model := &semantic.SemanticModel{ID: "m", DatasourceID: "d", Name: "public.orders"}
 	turns := []ConversationTurn{
-		{Question: "ne kadar sipariş var", LogicalQuery: `{"select":[{"type":"metric","name":"row_count"}]}`, Note: "executed"},
+		{
+			Question:      "ne kadar sipariş var",
+			LogicalQuery:  `{"select":[{"type":"metric","name":"row_count"}]}`,
+			Note:          "executed",
+			ResultSummary: "May 20, 2026: 2,932 tweets",
+		},
 		{Question: "    "}, // blank — should be skipped
 		{Question: "müşteri kırılımı yap"},
 	}
@@ -139,6 +144,9 @@ func TestPromptBuildIncludesPriorTurns(t *testing.T) {
 	}
 	if !strings.Contains(got, `"row_count"`) {
 		t.Errorf("expected prior LogicalQuery JSON to appear")
+	}
+	if !strings.Contains(got, "Result: May 20, 2026: 2,932 tweets") {
+		t.Errorf("expected prior result summary to appear")
 	}
 	if !strings.Contains(got, "müşteri kırılımı yap") {
 		t.Errorf("expected later prior turn question to appear")

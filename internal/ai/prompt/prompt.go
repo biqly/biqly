@@ -138,9 +138,10 @@ type FewShotExample struct {
 // can be resolved in context. Distinct from FewShotExample: those are
 // hand-picked exemplars from history; turns are the live thread.
 type ConversationTurn struct {
-	Question     string
-	LogicalQuery string // raw JSON if available, else empty
-	Note         string // e.g. "executed", "user rejected, asked to refine"
+	Question      string
+	LogicalQuery  string // raw JSON if available, else empty
+	Note          string // e.g. "executed", "user rejected, asked to refine"
+	ResultSummary string // compact previous answer/result summary, if available
 }
 
 type promptCatalogSections struct {
@@ -398,7 +399,21 @@ func (*Builder) writePriorTurns(sb *bytes.Buffer, turns []ConversationTurn) {
 		if note := strings.TrimSpace(t.Note); note != "" {
 			writePromptf(sb, "Note: %s\n", note)
 		}
+		if result := strings.TrimSpace(t.ResultSummary); result != "" {
+			writePromptf(sb, "Result: %s\n", truncatePriorTurnResult(result, 300))
+		}
 	}
+}
+
+func truncatePriorTurnResult(s string, maxRunes int) string {
+	if maxRunes <= 0 {
+		return ""
+	}
+	if utf8.RuneCountInString(s) <= maxRunes {
+		return s
+	}
+	runes := []rune(s)
+	return string(runes[:maxRunes-3]) + "..."
 }
 
 // writeSampleData appends a compact JSON block of concrete rows so the LLM can

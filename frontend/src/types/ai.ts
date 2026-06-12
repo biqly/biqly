@@ -146,6 +146,7 @@ export interface PriorTurn {
   question: string
   logical_query?: LogicalQuery
   note?: string
+  result_summary?: string
 }
 
 export interface TableRoutingCandidate {
@@ -270,6 +271,7 @@ export interface ConversationMessage {
   /** Backend AI job that produced (or will produce) this turn; used to
    * re-attach results after a page refresh and to dedupe applied results. */
   job_id?: string
+  result_summary?: string
 }
 
 export interface Conversation {
@@ -278,6 +280,9 @@ export interface Conversation {
   created_at: string
   updated_at: string
   title?: string
+  context_enabled?: boolean
+  datasource_id?: string
+  model_id?: string | null
 }
 
 // ─── LogicalQuery Types ────────────────────────────────────────────

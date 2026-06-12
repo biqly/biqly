@@ -20,6 +20,8 @@ type (
 	FewShotCuratedRow      = pkgmetadata.FewShotCuratedRow
 	BusinessGlossaryRow    = pkgmetadata.BusinessGlossaryRow
 	AIQueryHistoryEntry    = pkgmetadata.AIQueryHistoryEntry
+	AIConversation         = pkgmetadata.AIConversation
+	AIConversationMessage  = pkgmetadata.AIConversationMessage
 	PermissionPolicyRecord = pkgmetadata.PermissionPolicyRecord
 	PermissionRowFilter    = pkgmetadata.PermissionRowFilter
 	PIIColumnAccess        = pkgmetadata.PIIColumnAccess

@@ -1,4 +1,4 @@
-import type { TFunction } from '../../i18n'
+import { useT } from '../../i18n'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import type { WindowFuncRow } from './types'
@@ -10,7 +10,6 @@ interface WindowFuncStepProps {
   removeWindowFunc: (i: number) => void
   addWindowFunc: () => void
   onClear: () => void
-  t: TFunction
 }
 
 export function WindowFuncStep({
@@ -19,8 +18,8 @@ export function WindowFuncStep({
   removeWindowFunc,
   addWindowFunc,
   onClear,
-  t,
 }: WindowFuncStepProps) {
+  const t = useT()
   if (windowFunctions.length === 0) {
     return null
   }

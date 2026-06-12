@@ -22,6 +22,7 @@ import type { CompositeModelSummary } from '../types/composite'
 import { pickValidIdOrFirst } from '../utils/effectiveSelection'
 import { localeNumberTag } from '../utils/formatters'
 import { normalizeAIQueryResponse } from '../utils/normalizeAIQueryResponse'
+import { buildResultSummary } from '../utils/priorTurnSummary'
 import { ChatPanel } from './aiQuery/ChatPanel'
 import { RoutingPanel } from './aiQuery/RoutingPanel'
 import { embeddingSummary } from './aiQuery/routingViz'
@@ -48,8 +49,9 @@ export default function AIQuery() {
     appendAssistantForJob,
     deleteConversation,
     renameConversation,
+    updateConversationContext,
     updateMessageResponse,
-  } = useConversation()
+  } = useConversation(accessToken)
 
   const location = useLocation()
   const { datasources } = useDatasources()
@@ -75,7 +77,6 @@ export default function AIQuery() {
   const [aiRuntimeErr, setAiRuntimeErr] = useState<string | null>(null)
   const [embeddingStatus, setEmbeddingStatus] = useState<string | null>(null)
   const [embeddingRunning, setEmbeddingRunning] = useState(false)
-  const [includePastQueries, setIncludePastQueries] = useState(false)
   const [queryAction, setQueryAction] = useState<'preview' | 'execute' | null>(null)
   const [jobError, setJobError] = useState<string | null>(null)
   const [aiElapsedMs, setAiElapsedMs] = useState(0)
@@ -235,10 +236,13 @@ export default function AIQuery() {
       }
       const next = msgs[i + 1]
       const lq = next?.role === 'assistant' ? next.ai_response?.logical_query : undefined
+      const resultSummary =
+        next?.role === 'assistant' ? buildResultSummary(next.ai_response ?? null) : undefined
       turns.push({
         question: m.content,
         logical_query: lq ?? undefined,
         note: next?.role === 'assistant' && next.ai_response?.sql ? 'executed' : undefined,
+        result_summary: resultSummary,
       })
     }
     return turns.slice(-maxRecentTurns)
@@ -346,7 +350,7 @@ export default function AIQuery() {
       include_base_tables: includeBaseTables,
       include_views: includeViews,
       conversation_id: conversationId,
-      prior_turns: includePastQueries ? recentPriorTurns : undefined,
+      prior_turns: activeConversation?.context_enabled !== false ? recentPriorTurns : undefined,
     }
   }
 
@@ -438,7 +442,11 @@ export default function AIQuery() {
     if (!q.trim()) {
       return
     }
-    const convId = activeConversation?.id ?? createConversation().id
+    const conversationScope = {
+      datasource_id: datasourceId,
+      model_id: semanticModelId.startsWith('composite:') ? null : semanticModelId || null,
+    }
+    const convId = activeConversation?.id ?? createConversation(conversationScope).id
     const body = requestBody(q, convId, clarificationChoice)
     setQueryAction(execute ? 'execute' : 'preview')
     setJobError(null)
@@ -448,13 +456,13 @@ export default function AIQuery() {
         onEnqueued: (job) => {
           // Persist the question immediately, linked to the job, so both
           // survive a page refresh; the job sweep attaches the answer later.
-          addMessage({ role: 'user', content: q, job_id: job.id }, convId)
+          addMessage({ role: 'user', content: q, job_id: job.id }, convId, conversationScope)
           setQuestion('')
         },
         onError: (message) => setJobError(message),
       })
       if (outcome === 'fallback') {
-        addMessage({ role: 'user', content: q }, convId)
+        addMessage({ role: 'user', content: q }, convId, conversationScope)
         const endpoint = execute ? '/api/ai/query/run' : '/api/ai/query/preview'
         const res = await postData<AIQueryResponse>(endpoint, body, {
           timeout: AI_QUERY_TIMEOUT_MS,
@@ -571,8 +579,8 @@ export default function AIQuery() {
           jobError={jobError}
           queryAction={effectiveQueryAction}
           aiElapsedMs={displayElapsedMs}
-          includePastQueries={includePastQueries}
-          setIncludePastQueries={setIncludePastQueries}
+          contextEnabled={activeConversation?.context_enabled !== false}
+          onContextEnabledChange={updateConversationContext}
           onSendQuery={(q, execute, clarificationChoice) => {
             void sendQuery(q, execute, clarificationChoice)
           }}

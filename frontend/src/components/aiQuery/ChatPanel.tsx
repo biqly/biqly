@@ -22,8 +22,8 @@ export function ChatPanel({
   jobError,
   queryAction,
   aiElapsedMs,
-  includePastQueries,
-  setIncludePastQueries,
+  contextEnabled,
+  onContextEnabledChange,
   onSendQuery,
   onAbort,
   get,
@@ -232,11 +232,15 @@ export function ChatPanel({
                 <div className="past-queries-toggle">
                   <input
                     type="checkbox"
-                    id="include-past"
-                    checked={includePastQueries}
-                    onChange={(e) => setIncludePastQueries(e.target.checked)}
+                    id={`conversation-context-${activeConversation.id}`}
+                    checked={contextEnabled}
+                    onChange={(e) =>
+                      onContextEnabledChange(activeConversation.id, e.target.checked)
+                    }
                   />
-                  <label htmlFor="include-past">{t('ai_query.include_past_checkbox')}</label>
+                  <label htmlFor={`conversation-context-${activeConversation.id}`}>
+                    {t('ai_query.context_toggle')}
+                  </label>
                 </div>
               )}
               <span className="chat-composer__hint">{t('ai_query.enter_hint')}</span>

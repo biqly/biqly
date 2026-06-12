@@ -1,45 +1,11 @@
 import { useState } from 'react'
 
 import { apiInviteUser } from '../../../api/auth'
-import type { TranslationKey } from '../../../i18n'
+import { useT } from '../../../i18n'
+import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
 import { securityRoleOptions } from '../adminSelectOptions'
 
-const backdropStyle: React.CSSProperties = {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: 'rgba(0,0,0,0.5)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 1000,
-}
-const cardStyle: React.CSSProperties = {
-  background: 'var(--bg-card, #ffffff)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 8,
-  width: '100%',
-  maxWidth: 400,
-  padding: 24,
-  boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
-}
-const headerStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: 16,
-}
-const titleStyle: React.CSSProperties = { margin: 0, fontSize: 18 }
-const closeBtnStyle: React.CSSProperties = {
-  border: 0,
-  background: 'transparent',
-  fontSize: 20,
-  cursor: 'pointer',
-  color: 'var(--text-secondary)',
-}
 const labelStyle: React.CSSProperties = { fontSize: 13, fontWeight: 500 }
 const gap16: React.CSSProperties = { gap: 16 }
 const gap6: React.CSSProperties = { gap: 6 }
@@ -61,19 +27,15 @@ interface InviteUserModalProps {
   onClose: () => void
   token: string
   onSuccess: () => void
-  t: (key: TranslationKey, params?: Record<string, string | number>) => string
 }
 
-export function InviteUserModal({ open, onClose, token, onSuccess, t }: InviteUserModalProps) {
+export function InviteUserModal({ open, onClose, token, onSuccess }: InviteUserModalProps) {
+  const t = useT()
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('viewer')
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteSuccess, setInviteSuccess] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
-
-  if (!open) {
-    return null
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -91,94 +53,82 @@ export function InviteUserModal({ open, onClose, token, onSuccess, t }: InviteUs
   }
 
   return (
-    <div
-      className="modal-backdrop"
-      role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose()
-        }
-      }}
-      style={backdropStyle}
+    <Modal
+      open={open}
+      title={t('auth.invite_user_modal_title')}
+      onClose={onClose}
+      labelledBy="invite-user-modal-title"
+      className="modal-card--invite-user"
     >
-      <section className="modal-card" role="dialog" aria-modal="true" style={cardStyle}>
-        <header style={headerStyle}>
-          <h2 style={titleStyle}>{t('auth.invite_user_modal_title')}</h2>
-          <button type="button" onClick={onClose} style={closeBtnStyle}>
-            ×
+      {inviteSuccess ? (
+        <div className="page-stack" style={gap16}>
+          <div className="admin-success-box">
+            {t('auth.invite_user_success', { email: inviteEmail })}
+          </div>
+          <button type="button" className="admin-btn-primary" onClick={onClose}>
+            {t('common.close')}
           </button>
-        </header>
-
-        {inviteSuccess ? (
-          <div className="page-stack" style={gap16}>
-            <div className="admin-success-box">
-              {t('auth.invite_user_success', { email: inviteEmail })}
+        </div>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            void handleSubmit(e)
+          }}
+          className="page-stack"
+          style={gap16}
+        >
+          {inviteError && (
+            <div className="admin-err-box">
+              {t('auth.invite_user_failed', { error: inviteError })}
             </div>
-            <button type="button" className="admin-btn-primary" onClick={onClose}>
-              {t('common.close')}
+          )}
+
+          <div className="page-stack" style={gap6}>
+            <label style={labelStyle} htmlFor="invite-email-input">
+              {t('auth.invite_user_email')}
+            </label>
+            <input
+              id="invite-email-input"
+              type="email"
+              required
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              className="admin-input-wide"
+            />
+          </div>
+
+          <div className="page-stack admin-form-label" style={gap6}>
+            <label style={labelStyle} htmlFor="invite-role-input">
+              {t('auth.invite_user_role')}
+            </label>
+            <Select
+              id="invite-role-input"
+              value={inviteRole}
+              options={securityRoleOptions()}
+              onChange={setInviteRole}
+            />
+          </div>
+
+          <div style={footerStyle}>
+            <button
+              type="button"
+              className="admin-btn-ghost"
+              onClick={onClose}
+              disabled={inviteLoading}
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="submit"
+              className="admin-btn-primary"
+              disabled={inviteLoading || !inviteEmail}
+            >
+              {inviteLoading && <span className="spinner" style={spinnerStyle} />}
+              {t('auth.btn_invite_user')}
             </button>
           </div>
-        ) : (
-          <form
-            onSubmit={(e) => {
-              void handleSubmit(e)
-            }}
-            className="page-stack"
-            style={gap16}
-          >
-            {inviteError && (
-              <div className="admin-err-box">
-                {t('auth.invite_user_failed', { error: inviteError })}
-              </div>
-            )}
-
-            <div className="page-stack" style={gap6}>
-              <label style={labelStyle} htmlFor="invite-email-input">
-                {t('auth.invite_user_email')}
-              </label>
-              <input
-                id="invite-email-input"
-                type="email"
-                required
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="admin-input-wide"
-              />
-            </div>
-
-            <div className="page-stack admin-form-label" style={gap6}>
-              <label style={labelStyle} htmlFor="invite-role-input">
-                {t('auth.invite_user_role')}
-              </label>
-              <Select
-                id="invite-role-input"
-                value={inviteRole}
-                options={securityRoleOptions()}
-                onChange={setInviteRole}
-              />
-            </div>
-
-            <div style={footerStyle}>
-              <button
-                type="button"
-                className="admin-btn-ghost"
-                onClick={onClose}
-                disabled={inviteLoading}
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="submit"
-                className="admin-btn-primary"
-                disabled={inviteLoading || !inviteEmail}
-              >
-                {inviteLoading && <span className="spinner" style={spinnerStyle} />}
-                {t('auth.btn_invite_user')}
-              </button>
-            </div>
-          </form>
-        )}
-      </section>
-    </div>
+        </form>
+      )}
+    </Modal>
   )
 }

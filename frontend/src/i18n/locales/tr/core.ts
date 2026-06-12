@@ -414,6 +414,7 @@ export const core: CoreDictionary = {
     question_label: 'Sorunuz',
     placeholder: 'Ülkeye göre toplam geliri göster, geçen çeyrek…',
     include_past_checkbox: 'Geçmiş sorgularımı few-shot örneği olarak dahil et',
+    context_toggle: 'Sorular arası bağlantı kur',
     assistant_label: 'AI Asistan',
     enter_hint: 'Enter gönderir · Shift+Enter yeni satır',
     details_show: 'Detaylar',

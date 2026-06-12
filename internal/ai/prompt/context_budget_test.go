@@ -68,6 +68,27 @@ func TestApplyContextTier_ExpandsFewShot(t *testing.T) {
 	}
 }
 
+func TestTailPriorTurnsAccountsForResultSummaryBudget(t *testing.T) {
+	turns := []ConversationTurn{
+		{Question: "q1", ResultSummary: strings.Repeat("a", 900)},
+		{Question: "q2", ResultSummary: strings.Repeat("b", 900)},
+		{Question: "q3", ResultSummary: "May 20, 2026: 2,932 tweets"},
+	}
+
+	compact := TailPriorTurns(turns, 0)
+	expanded := TailPriorTurns(turns, 2)
+
+	if len(compact) != 1 {
+		t.Fatalf("compact prior turns = %d, want 1", len(compact))
+	}
+	if compact[0].Question != "q3" {
+		t.Fatalf("compact kept %q, want q3", compact[0].Question)
+	}
+	if len(expanded) <= len(compact) {
+		t.Fatalf("expanded prior turns = %d, want more than compact %d", len(expanded), len(compact))
+	}
+}
+
 func TestMeasurePrompt(t *testing.T) {
 	cfg := config.AIConfig{
 		Connection: config.AIConnectionConfig{Model: "gpt-4o"},

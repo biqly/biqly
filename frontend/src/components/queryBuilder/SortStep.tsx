@@ -1,4 +1,4 @@
-import type { TFunction } from '../../i18n'
+import { useT } from '../../i18n'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 
@@ -9,7 +9,6 @@ interface SortStepProps {
   setOrderBy: (v: string) => void
   setOrderDir: (v: string) => void
   onClear: () => void
-  t: TFunction
 }
 
 export function SortStep({
@@ -19,8 +18,8 @@ export function SortStep({
   setOrderBy,
   setOrderDir,
   onClear,
-  t,
 }: SortStepProps) {
+  const t = useT()
   if (!orderBy) {
     return null
   }

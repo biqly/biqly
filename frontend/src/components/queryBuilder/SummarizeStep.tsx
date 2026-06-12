@@ -1,4 +1,4 @@
-import type { TFunction } from '../../i18n'
+import { useT } from '../../i18n'
 import type { SemanticDimension, SemanticMetric } from '../../types/semantic'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
@@ -25,7 +25,6 @@ interface SummarizeStepProps {
   ) => ReturnType<typeof dimOptionsForGroupRow>
   fieldLabelMode: 'technical' | 'human'
   setGroupBy: (v: string[]) => void
-  t: TFunction
 }
 
 export function SummarizeStep({
@@ -44,8 +43,8 @@ export function SummarizeStep({
   dimOptionsForGroupRow,
   fieldLabelMode,
   setGroupBy,
-  t,
 }: SummarizeStepProps) {
+  const t = useT()
   return (
     <NotebookStep
       label="Summarize"

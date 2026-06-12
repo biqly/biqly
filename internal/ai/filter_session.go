@@ -39,8 +39,10 @@ func (i FollowUpIntent) String() string {
 // FilterSessionState holds filters that remain active across follow-up turns
 // until the user starts a new query or explicitly changes the time scope.
 type FilterSessionState struct {
-	Filters []query.Filter
-	Having  []query.Filter
+	Filters           []query.Filter
+	Having            []query.Filter
+	LastQuestion      string
+	LastResultSummary string
 }
 
 // FilterSessionFromPriorTurns extracts the most recent successful LogicalQuery
@@ -52,8 +54,10 @@ func FilterSessionFromPriorTurns(turns []promptpkg.ConversationTurn) *FilterSess
 			continue
 		}
 		return &FilterSessionState{
-			Filters: cloneFilters(lq.Filters),
-			Having:  cloneFilters(lq.Having),
+			Filters:           cloneFilters(lq.Filters),
+			Having:            cloneFilters(lq.Having),
+			LastQuestion:      strings.TrimSpace(turns[i].Question),
+			LastResultSummary: strings.TrimSpace(turns[i].ResultSummary),
 		}
 	}
 	return nil
@@ -105,6 +109,7 @@ func init() {
 		`(?i)\b(göre|grupla|group\s+by|break\s+down|sırala|sort\s+by|order\s+by)\b`,
 		`(?i)\b(bölge|region|kategori|category|müşteri|customer)\s*(göre|bazında|by)\b`,
 		`(?i)\b(şimdi|now|also|ayrıca|ekle|add|sadece\s+grupla)\b`,
+		`(?i)\b(o\s+(gün|tarih|şirket|müşteri)|that\s+(day|date|company|customer)|previous\s+result|previous\s+answer)\b`,
 		`(?i)\b(top\s+\d+|ilk\s+\d+|limit)\b`,
 		`(?i)^(bölgeye|regiona|kategoriye)\s+göre`,
 	})
@@ -212,6 +217,20 @@ func ActiveFilterInstructions(session *FilterSessionState, intent FollowUpIntent
 		return ""
 	}
 	var b strings.Builder
+	if session.LastResultSummary != "" {
+		_, _ = b.WriteString("\n\n## Previous Answer Context\n")
+		if session.LastQuestion != "" {
+			_, err := fmt.Fprintf(&b, "The previous question %q yielded:\n", session.LastQuestion)
+			if err != nil {
+				return ""
+			}
+		}
+		_, err := fmt.Fprintf(&b, "Result: %s\n", session.LastResultSummary)
+		if err != nil {
+			return ""
+		}
+		_, _ = b.WriteString("When the user says \"o gün\", \"that day\", \"o şirket\", or similar references, resolve them to the relevant value from this result.\n")
+	}
 	_, _ = b.WriteString("\n\n## Active Filters (carry forward)\n")
 	_, _ = b.WriteString("The previous turn established these filters. Keep them in your LogicalQuery unless the user explicitly changes the date/period or asks for a completely new analysis.\n")
 	if len(session.Filters) > 0 {
