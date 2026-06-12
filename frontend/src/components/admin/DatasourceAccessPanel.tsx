@@ -13,6 +13,7 @@ import { errorMessage } from '../../hooks/usePaginatedListLogic'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { DatasourceAccess } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
+import { formatDateTime } from '../../utils/formatters'
 import { useAuth } from '../auth/AuthProvider'
 import { DataState } from '../ui/DataState'
 import type { ColumnDef } from '../ui/DataTable'
@@ -152,7 +153,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     {
       key: 'granted_at',
       header: t('admin.datasource_access.granted_at'),
-      cell: (r) => new Date(r.granted_at).toLocaleString(localeLanguageTag(locale)),
+      cell: (r) => formatDateTime(r.granted_at, localeLanguageTag(locale)),
     },
     {
       key: 'actions',

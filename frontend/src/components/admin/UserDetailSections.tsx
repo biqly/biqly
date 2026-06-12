@@ -2,6 +2,7 @@ import type { SubmitEvent } from 'react'
 
 import { type Locale, localeLanguageTag, type useT } from '../../i18n'
 import type { AuthUser, UserRoleInfo } from '../../types/auth'
+import { formatDateTime } from '../../utils/formatters'
 import { Select } from '../ui/Select'
 
 export function UserDetailProfileCard({
@@ -119,13 +120,13 @@ export function UserDetailProfileCard({
         <div className="admin-grid-item">
           <span className="admin-label">{t('admin.user_detail.created_at')}</span>
           <span className="admin-val">
-            {new Date(user.createdAt).toLocaleString(localeLanguageTag(locale))}
+            {formatDateTime(user.createdAt, localeLanguageTag(locale))}
           </span>
         </div>
         <div className="admin-grid-item">
           <span className="admin-label">{t('admin.user_detail.updated_at')}</span>
           <span className="admin-val">
-            {new Date(user.updatedAt).toLocaleString(localeLanguageTag(locale))}
+            {formatDateTime(user.updatedAt, localeLanguageTag(locale))}
           </span>
         </div>
       </div>

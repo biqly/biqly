@@ -15,6 +15,28 @@ export function localeNumberTag(locale: Locale): string {
   return localeLanguageTag(locale)
 }
 
+/**
+ * Locale-aware date+time display (the repeated
+ * `new Date(x).toLocaleString(localeLanguageTag(locale))` screen pattern).
+ * Unparseable input falls through as-is (AuditLog convention).
+ */
+export function formatDateTime(value: string | Date, languageTag: string): string {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return typeof value === 'string' ? value : ''
+  }
+  return date.toLocaleString(languageTag)
+}
+
+/** Locale-aware date-only display; unparseable input falls through as-is. */
+export function formatDateOnly(value: string | Date, languageTag: string): string {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return typeof value === 'string' ? value : ''
+  }
+  return date.toLocaleDateString(languageTag)
+}
+
 /** Safe display string for unknown cell/query values (avoids implicit object toString). */
 /** Human-readable duration from milliseconds (ms, s, or min as appropriate). */
 export function formatDurationMs(ms: number): string {

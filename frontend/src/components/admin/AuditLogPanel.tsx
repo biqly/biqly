@@ -1,5 +1,4 @@
 /* eslint-disable react-refresh/only-export-components */
-
 import { useCallback, useMemo, useState } from 'react'
 
 import { listAuditLog } from '../../api/admin'
@@ -8,6 +7,7 @@ import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AuditLogEntry } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
+import { formatDateTime } from '../../utils/formatters'
 import { DataState } from '../ui/DataState'
 import type { ColumnDef } from '../ui/DataTable'
 import { DataTable } from '../ui/DataTable'
@@ -118,7 +118,7 @@ export function AuditLogPanel({ token }: { token: string }) {
       key: 'time',
       header: t('admin.audit.time'),
       className: 'admin-td-mono',
-      cell: (entry) => formatDate(entry.created_at, localeLanguageTag(locale)),
+      cell: (entry) => formatDateTime(entry.created_at, localeLanguageTag(locale)),
     },
     {
       key: 'action',
@@ -249,14 +249,6 @@ export function AuditLogPanel({ token }: { token: string }) {
       </div>
     </div>
   )
-}
-
-function formatDate(value: string, languageTag: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-  return date.toLocaleString(languageTag)
 }
 
 function formatResource(

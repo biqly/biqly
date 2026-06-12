@@ -1,5 +1,6 @@
 import { type Locale, localeLanguageTag, useT } from '../../i18n'
 import type { PasskeyInfo } from '../../types/auth'
+import { formatDateTime } from '../../utils/formatters'
 import { EmptyState } from '../ui/EmptyState'
 
 interface PasskeyTableProps {
@@ -32,9 +33,9 @@ export function PasskeyTable({ passkeys, loading, locale, onRename, onDelete }: 
   return (
     <ul className="settings-security-list" role="list">
       {passkeys.map((passkey) => {
-        const created = new Date(passkey.created_at).toLocaleString(languageTag)
+        const created = formatDateTime(passkey.created_at, languageTag)
         const lastUsed = passkey.last_used_at
-          ? new Date(passkey.last_used_at).toLocaleString(languageTag)
+          ? formatDateTime(passkey.last_used_at, languageTag)
           : t('passkeys.never_used')
 
         return (

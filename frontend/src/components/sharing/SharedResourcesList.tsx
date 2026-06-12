@@ -6,9 +6,10 @@ import { deleteShare, listShares } from '../../api/admin'
 import { useConfirm } from '../../hooks/useConfirm'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { errorMessage } from '../../hooks/usePaginatedListLogic'
-import { useT } from '../../i18n'
+import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { ResourceShare } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
+import { formatDateOnly } from '../../utils/formatters'
 import { useAuth } from '../auth/AuthProvider'
 import { DataState } from '../ui/DataState'
 import type { ColumnDef } from '../ui/DataTable'
@@ -23,6 +24,7 @@ interface Props {
 
 export function SharedResourcesList({ resourceType, refreshKey }: Props) {
   const t = useT()
+  const [locale] = useLocale()
   const confirm = useConfirm()
   const { accessToken } = useAuth()
 
@@ -124,7 +126,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     {
       key: 'created_at',
       header: t('admin.sharing.created_at'),
-      cell: (share) => new Date(share.created_at).toLocaleDateString(),
+      cell: (share) => formatDateOnly(share.created_at, localeLanguageTag(locale)),
     },
     {
       key: 'actions',

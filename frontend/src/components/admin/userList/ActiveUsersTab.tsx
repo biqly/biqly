@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 
 import { localeLanguageTag, type TFunction } from '../../../i18n'
 import type { AuthUser } from '../../../types/auth'
+import { formatDateOnly } from '../../../utils/formatters'
 import { DataState } from '../../ui/DataState'
 import type { ColumnDef } from '../../ui/DataTable'
 import { DataTable } from '../../ui/DataTable'
@@ -168,7 +169,7 @@ export function ActiveUsersTab({
     {
       key: 'created_at',
       header: t('admin.users.col_created_at'),
-      cell: (u) => new Date(u.createdAt).toLocaleDateString(localeLanguageTag(locale)),
+      cell: (u) => formatDateOnly(u.createdAt, localeLanguageTag(locale)),
     },
     {
       key: 'actions',

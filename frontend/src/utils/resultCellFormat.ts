@@ -1,3 +1,5 @@
+import { unknownToDisplayString } from './formatters'
+
 /**
  * Formats query result cells for display: by default integers with grouping (thousand separators),
  * rounded. Fractional digits only when the user explicitly asks for them (natural-language hint).
@@ -123,19 +125,6 @@ function looksLikeIsoDateTime(value: string): boolean {
   return !Number.isNaN(d.getTime())
 }
 
-function formatNonNumericCell(value: unknown): string {
-  if (typeof value === 'string') {
-    return value
-  }
-  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
-    return String(value)
-  }
-  if (typeof value === 'object') {
-    return JSON.stringify(value)
-  }
-  return ''
-}
-
 function wantsFractionalDisplay(question: string | undefined): boolean {
   if (!question?.trim()) {
     return false
@@ -178,7 +167,7 @@ export function formatResultCell(
 
   const n = parseNumeric(value)
   if (n === null) {
-    return formatNonNumericCell(value)
+    return unknownToDisplayString(value)
   }
 
   const calendarInt = isCalendarIntColumn(columnName)

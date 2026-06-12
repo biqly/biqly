@@ -320,11 +320,13 @@ Kabul doğrulaması: `make check-frontend` zinciri yeşil (30 dosya / 141 test �
 
 Kabul doğrulaması: `make check-frontend` zinciri yeşil (31 dosya / 148 test — +7 selection testi). OQ-4 kapatıldı.
 
-### Faz 6 — Formatter konsolidasyonu
+### Faz 6 — Formatter konsolidasyonu ✅ TAMAMLANDI (2026-06-12)
 
-- [ ] **6.1** `frontend/src/utils/format/` altında birleştir: `formatters.ts` (genel) + `resultCellFormat.ts` (tablo hücresi) → tek giriş noktası, Intl instance cache ortaklaşır. Eski dosyalar re-export ile korunur (import kırılmaz), bir sonraki adımda import'lar güncellenip eski dosyalar silinir (knip yakalar).
-- [ ] **6.2** Ekranlardaki inline `toLocaleString`/tarih formatlama çağrıları taranır (`grep -rn 'toLocaleString\|toLocaleDateString' frontend/src/components`) ve `format/` fonksiyonlarına bağlanır; `locale` prop drilling kalkar.
-- [ ] **6.3** Mevcut `formatters.test.ts` + `resultCellFormat.test.ts` taşınır ve genişletilir (TR/EN locale snapshot'ları).
+- [x] **6.1** **Plan sapması (gerekçeli):** `utils/format/` klasör taşıması YAPILMADI. Analiz, iki dosya arasındaki "çakışan sorumluluk" iddiasının büyük ölçüde yanlış olduğunu gösterdi: `resultCellFormat.ts` NL-soru-güdümlü, kolon-adı-sezgisel ve tamamen özelleşmiş; `formatters.ts` genel. Tek gerçek kopya `formatNonNumericCell` ≈ `unknownToDisplayString` idi → dedup edildi (`resultCellFormat.ts` artık `formatters.ts`'ten import ediyor, lokal kopya silindi). Klasör taşıması ~15 import'a dokunup sıfır davranış kazancı verecekti. Yerine: **`formatDateTime` / `formatDateOnly`** locale-duyarlı helper'ları `frontend/src/utils/formatters.ts`'e eklendi (geçersiz tarih girdisi olduğu gibi geçer — AuditLog'un guard konvansiyonu standardize edildi).
+- [x] **6.2** 13 inline tarih çağrısı 10 dosyada helper'lara bağlandı: `AuditLogPanel` (lokal `formatDate` silindi), `DatasourceAccessPanel`, `UserDetailSections` (×2), `InvitationsTab` (×2), `ActiveUsersTab`, `PasskeyTable` (×2), `MFASection`, `Settings`, `SharedResourcesList`, `WorkspaceSettingsPage`. **Planlı davranış düzeltmesi (Faz 0.3 notunda ertelenmişti):** `SharedResourcesList.created_at` ve `WorkspaceSettingsPage.joined_at` tarayıcı locale'i yerine uygulama locale'ini kullanıyor artık. **Kapsam dışı (gerekçeli):** `DashboardList`/`Home`/`ChatPanel` özel `Intl` opsiyon şekilleri kullanıyor (month:'short' vb. — ortak kalıp değil); `routingViz`/`assistantMessageCardSections`/`useTableBrowserPage`'deki sayı `toLocaleString(localeTag)` çağrıları tek satırlık ve dedup edilecek mantık içermiyor.
+- [x] **6.3** `formatters.test.ts` genişletildi: TR/EN language-tag farkı, `Date` instance kabulü, geçersiz girdi passthrough. `resultCellFormat.test.ts` dedup sonrası davranışı doğruluyor (değişiklik gerekmedi).
+
+Kabul doğrulaması: `make check-frontend` zinciri yeşil (31 dosya / 152 test).
 
 ### Faz 7 — Frontend geneli tamamlayıcı standardizasyon (table dışı)
 

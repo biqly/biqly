@@ -15,6 +15,7 @@ import {
 import { usePasskeyRegistration } from '../hooks/usePasskeyRegistration'
 import { localeLanguageTag, useLocale, useT } from '../i18n'
 import type { PasskeyInfo } from '../types/auth'
+import { formatDateOnly } from '../utils/formatters'
 import { useAuth } from './auth/AuthProvider'
 import { AccountProfileSection } from './settings/AccountProfileSection'
 import { AIModelPreferencesSection } from './settings/AIModelPreferencesSection'
@@ -140,7 +141,7 @@ export default function Settings() {
 
   const openAddModal = () => {
     const defaultName =
-      t('passkeys.title') + ' ' + new Date().toLocaleDateString(localeLanguageTag(locale))
+      t('passkeys.title') + ' ' + formatDateOnly(new Date(), localeLanguageTag(locale))
     setNewPasskeyName(defaultName)
     setError(null)
     setRegistrationError(null)

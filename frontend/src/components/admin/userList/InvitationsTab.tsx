@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { localeLanguageTag, type TFunction } from '../../../i18n'
 import type { Invitation } from '../../../types/auth'
+import { formatDateOnly } from '../../../utils/formatters'
 import { DataState } from '../../ui/DataState'
 import type { ColumnDef } from '../../ui/DataTable'
 import { DataTable } from '../../ui/DataTable'
@@ -90,12 +91,12 @@ export function InvitationsTab({
     {
       key: 'sent_at',
       header: t('auth.invite_col_sent_at'),
-      cell: (inv) => new Date(inv.created_at).toLocaleDateString(localeLanguageTag(locale)),
+      cell: (inv) => formatDateOnly(inv.created_at, localeLanguageTag(locale)),
     },
     {
       key: 'expires_at',
       header: t('auth.invite_col_expires_at'),
-      cell: (inv) => new Date(inv.expires_at).toLocaleDateString(localeLanguageTag(locale)),
+      cell: (inv) => formatDateOnly(inv.expires_at, localeLanguageTag(locale)),
     },
     {
       key: 'status',

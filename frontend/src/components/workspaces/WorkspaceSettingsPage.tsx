@@ -16,8 +16,9 @@ import {
 } from '../../api/admin'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { useConfirm } from '../../hooks/useConfirm'
-import { useT } from '../../i18n'
+import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { Role, Workspace, WorkspaceDatasource, WorkspaceMember } from '../../types/auth'
+import { formatDateOnly } from '../../utils/formatters'
 import {
   datasourceDisplayLabel,
   datasourcePickerOptions,
@@ -36,6 +37,7 @@ interface Props {
 
 export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
   const t = useT()
+  const [locale] = useLocale()
   const confirm = useConfirm()
   const { hasPermission } = useAuth()
   const { users, datasources: allDatasources } = useAdminLookups(token)
@@ -301,7 +303,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                         />
                       </td>
                       <td className="ws-settings__cell-muted">
-                        {new Date(m.joined_at).toLocaleDateString()}
+                        {formatDateOnly(m.joined_at, localeLanguageTag(locale))}
                       </td>
                       <td className="ws-settings__cell-actions">
                         <button

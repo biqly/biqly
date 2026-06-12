@@ -1,4 +1,5 @@
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
+import { formatDateTime } from '../../utils/formatters'
 import { EmptyState } from '../ui/EmptyState'
 import { RecoveryCodesDisplay } from './RecoveryCodesDisplay'
 
@@ -175,7 +176,7 @@ export function MFASection({
               <p className="settings-security-item__detail">
                 {t('mfa.col_enabled_at')}:{' '}
                 {status.verified_at
-                  ? new Date(status.verified_at).toLocaleString(localeLanguageTag(locale))
+                  ? formatDateTime(status.verified_at, localeLanguageTag(locale))
                   : '—'}
               </p>
             </li>
