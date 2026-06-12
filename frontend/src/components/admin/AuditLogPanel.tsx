@@ -96,6 +96,7 @@ export function AuditLogPanel({ token }: { token: string }) {
     fetcher,
     initialPageSize: DEFAULT_AUDIT_PAGE_SIZE,
     fetchKey: token,
+    syncToUrl: 'auditPage',
   })
   const displayedEntries = entries
 

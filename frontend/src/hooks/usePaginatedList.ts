@@ -6,8 +6,11 @@ import type { PaginatedListAction, PaginatedListState } from './usePaginatedList
 import {
   errorMessage,
   initialPaginatedListState,
+  pageParamValue,
   paginatedListReducer,
+  parsePageParam,
 } from './usePaginatedListLogic'
+import { useQueryParam } from './useQueryParam'
 
 export interface UsePaginatedListOptions<T> {
   /**
@@ -24,6 +27,13 @@ export interface UsePaginatedListOptions<T> {
   fetchKey?: string | number | boolean | null
   /** Reset to page 1 and refetch when this primitive changes (filter semantics). */
   resetPageKey?: string | number | boolean | null
+  /**
+   * URL query param name to mirror the page into (OQ-2, Faz 7.6). The URL
+   * becomes the source of truth: deep links and refresh restore the page,
+   * back/forward navigation works via useQueryParam, page 1 stays out of the
+   * URL. Pick a name unique within the screen (e.g. 'auditPage').
+   */
+  syncToUrl?: string
 }
 
 export interface PaginatedList<T> extends PaginatedListState<T> {
@@ -44,9 +54,29 @@ export interface PaginatedList<T> extends PaginatedListState<T> {
  * currentPage/totalItems/loading/error blocks in the paginated screens.
  */
 export function usePaginatedList<T>(options: UsePaginatedListOptions<T>): PaginatedList<T> {
-  const { fetcher, initialPageSize, enabled = true, fetchKey = null, resetPageKey = null } = options
+  const {
+    fetcher,
+    initialPageSize,
+    enabled = true,
+    fetchKey = null,
+    resetPageKey = null,
+    syncToUrl,
+  } = options
 
-  const [page, setPage] = useState(1)
+  const [internalPage, setInternalPage] = useState(1)
+  // Unconditional hook call; with no syncToUrl the '' param reads as '' and is never written.
+  const [pageParam, setPageParam] = useQueryParam(syncToUrl ?? '')
+  const page = syncToUrl ? parsePageParam(pageParam) : internalPage
+  const setPage = useCallback(
+    (next: number) => {
+      if (syncToUrl) {
+        setPageParam(pageParamValue(next))
+      } else {
+        setInternalPage(next)
+      }
+    },
+    [syncToUrl, setPageParam],
+  )
   const [pageSize, setPageSize] = useState(initialPageSize)
   const [state, dispatch] = useReducer(
     paginatedListReducer as (
@@ -101,7 +131,7 @@ export function usePaginatedList<T>(options: UsePaginatedListOptions<T>): Pagina
       }
     })()
     return () => controller.abort()
-  }, [enabled, page, pageSize, fetchKey, resetPageKey, version])
+  }, [enabled, page, pageSize, fetchKey, resetPageKey, version, setPage])
 
   return {
     ...state,

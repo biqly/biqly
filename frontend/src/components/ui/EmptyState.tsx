@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 
+import { Button } from './Button'
+
 export interface EmptyStateAction {
   label: string
   onClick: () => void
@@ -36,13 +38,13 @@ export function EmptyState({ title, description, icon, action, children, classNa
       {title ? <h3 className="ui-empty-state__title">{title}</h3> : null}
       {description ? <p className="ui-empty-state__desc">{description}</p> : null}
       {action ? (
-        <button
-          type="button"
-          className={`btn btn-${action.variant ?? 'primary'} ui-empty-state__action`}
+        <Button
+          variant={action.variant ?? 'primary'}
+          className="ui-empty-state__action"
           onClick={action.onClick}
         >
           {action.label}
-        </button>
+        </Button>
       ) : null}
       {children ? <div className="ui-empty-state__slot">{children}</div> : null}
     </div>

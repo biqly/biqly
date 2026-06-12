@@ -4,7 +4,9 @@ import type { PaginatedListState } from './usePaginatedListLogic'
 import {
   errorMessage,
   initialPaginatedListState,
+  pageParamValue,
   paginatedListReducer,
+  parsePageParam,
 } from './usePaginatedListLogic'
 
 describe('initialPaginatedListState', () => {
@@ -52,6 +54,27 @@ describe('paginatedListReducer', () => {
     expect(withError.loading).toBe(false)
     const cleared = paginatedListReducer(withError, { type: 'set-error', error: null })
     expect(cleared.error).toBeNull()
+  })
+})
+
+describe('parsePageParam / pageParamValue (syncToUrl)', () => {
+  it('parses valid page params and falls back to page 1 otherwise', () => {
+    expect(parsePageParam('3')).toBe(3)
+    expect(parsePageParam('1')).toBe(1)
+    expect(parsePageParam('')).toBe(1)
+    expect(parsePageParam(null)).toBe(1)
+    expect(parsePageParam(undefined)).toBe(1)
+    expect(parsePageParam('0')).toBe(1)
+    expect(parsePageParam('-2')).toBe(1)
+    expect(parsePageParam('abc')).toBe(1)
+  })
+
+  it('keeps page 1 out of the URL and round-trips other pages', () => {
+    expect(pageParamValue(1)).toBe('')
+    expect(pageParamValue(0)).toBe('')
+    expect(pageParamValue(5)).toBe('5')
+    expect(parsePageParam(pageParamValue(7))).toBe(7)
+    expect(parsePageParam(pageParamValue(1))).toBe(1)
   })
 })
 

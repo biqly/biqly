@@ -33,6 +33,10 @@ export const core: CoreDictionary = {
     required: 'gerekli',
     no_data: 'Veri bulunamadı',
     em_dash: '—',
+    pagination: {
+      page_number: 'Sayfa {{page}}',
+      range_of_total: '{{total}} satırdan {{start}}–{{end}}',
+    },
     model_badge_translate: 'Çeviri',
     model_badge_embedding: 'Embedding',
     model_badge_models_aria: 'Kullanılan LLM modelleri',
@@ -987,7 +991,6 @@ export const core: CoreDictionary = {
     prev_page: 'Önceki',
     next_page: 'Sonraki',
     last_page: 'Son sayfa',
-    page_number: 'Sayfa {{page}}',
     go_to_page: '{{page}}. sayfaya git',
     pagination_nav: 'Tablo sayfalama',
     range_empty: 'Satır yok',

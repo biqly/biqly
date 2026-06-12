@@ -12,6 +12,7 @@ import { useSortState } from '../../hooks/useSortState'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
 import { sortRows } from '../../utils/sorting'
+import { Button } from '../ui/Button'
 import type { ColumnDef } from '../ui/DataTable'
 import { DataTable } from '../ui/DataTable'
 import { LoadingScreen } from '../ui/LoadingScreen'
@@ -185,14 +186,14 @@ export function ConfirmedQueriesPanel() {
       header: t('admin.confirmed_queries.col_actions'),
       cell: (row) =>
         row.is_active && (
-          <button
-            type="button"
-            className="btn btn-sm btn-ghost"
+          <Button
+            variant="ghost"
+            size="sm"
             disabled={deactivatingId === row.id}
             onClick={() => void handleDeactivate(row.id)}
           >
             {t('admin.confirmed_queries.deactivate')}
-          </button>
+          </Button>
         ),
     },
   ]

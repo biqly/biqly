@@ -210,6 +210,14 @@ Docker daemon must be running for migration testing. When Docker is unavailable:
 - CSS in `frontend/src/styles/expressionBuilder.css` (BEM naming).
 - No Tailwind — vanilla CSS only.
 
+### Shared List/Table Building Blocks (use in NEW code — do not hand-roll)
+
+- Paginated server list state: `usePaginatedList` (`frontend/src/hooks/usePaginatedList.ts`); client-side slicing: `useClientPagination`. Never hand-roll `currentPage/totalItems/loading/error` blocks.
+- Loading/error/empty composition: `ui/DataState`; tables: `ui/DataTable` + `ColumnDef`; sorting: `useSortState` + `utils/sorting`; selection sets: `useRowSelection`.
+- Buttons: `ui/Button` (emits `btn btn-*` classes) instead of raw `className="btn btn-…"` strings. Text inputs with labels: `ui/FormField`. (`admin-btn-*` family is separate, not covered.)
+- Locale-aware dates: `formatDateTime`/`formatDateOnly` from `utils/formatters` — never bare `toLocaleString()` without a language tag.
+- New components take NO `t`/`locale` props — call `useT()`/`useLocale()` directly.
+
 ### Component Testing
 
 - Vitest for unit/component tests.

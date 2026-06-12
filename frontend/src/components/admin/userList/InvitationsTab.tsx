@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { localeLanguageTag, type TFunction } from '../../../i18n'
+import { localeLanguageTag, useLocale, useT } from '../../../i18n'
 import type { Invitation } from '../../../types/auth'
 import { formatDateOnly } from '../../../utils/formatters'
 import { DataState } from '../../ui/DataState'
@@ -27,8 +27,6 @@ interface InvitationsTabProps {
   inviteTotalPages: number
   inviteTotalItems: number
   pageSize: number
-  locale: 'en' | 'tr'
-  t: TFunction
 }
 
 export function InvitationsTab({
@@ -49,9 +47,9 @@ export function InvitationsTab({
   inviteTotalPages,
   inviteTotalItems,
   pageSize,
-  locale,
-  t,
 }: InvitationsTabProps) {
+  const t = useT()
+  const [locale] = useLocale()
   const [now, setNow] = useState<number | null>(null)
 
   useEffect(() => {

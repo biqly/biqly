@@ -78,6 +78,7 @@ export default function QueryHistory() {
     enabled: Boolean(accessToken),
     fetchKey: accessToken ?? '',
     resetPageKey: filterKey,
+    syncToUrl: 'page',
   })
 
   const [detailCache, setDetailCache] = useState<Record<string, AIHistoryEntry | null>>({})

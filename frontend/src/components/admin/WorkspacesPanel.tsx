@@ -9,6 +9,7 @@ import { useT } from '../../i18n'
 import type { Workspace } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { DataState } from '../ui/DataState'
+import { FormField } from '../ui/FormField'
 import { Pagination } from '../ui/Pagination'
 import { WorkspaceSettingsPage } from '../workspaces/WorkspaceSettingsPage'
 
@@ -90,24 +91,18 @@ export function WorkspacesPanel({ token }: { token: string }) {
         }}
         style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}
       >
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>
-            {t('admin.workspaces.name')}
-          </span>
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            style={inputStyle}
-            required
-          />
-        </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>
-            {t('admin.workspaces.description')}
-          </span>
-          <input value={newDesc} onChange={(e) => setNewDesc(e.target.value)} style={inputStyle} />
-        </label>
-        <button type="submit" style={btnPrimary}>
+        <FormField
+          label={t('admin.workspaces.name')}
+          value={newName}
+          onChange={setNewName}
+          required
+        />
+        <FormField
+          label={t('admin.workspaces.description')}
+          value={newDesc}
+          onChange={setNewDesc}
+        />
+        <button type="submit" className="admin-btn-primary">
           {t('common.create')}
         </button>
       </form>
@@ -208,27 +203,6 @@ export function WorkspacesPanel({ token }: { token: string }) {
       </div>
     </div>
   )
-}
-
-const inputStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 6,
-  fontSize: 14,
-  minWidth: 240,
-  background: 'var(--input-bg, #fff)',
-  color: 'var(--text-primary, #111)',
-}
-
-const btnPrimary: React.CSSProperties = {
-  padding: '8px 16px',
-  background: 'var(--accent, #4f46e5)',
-  color: 'white',
-  border: 0,
-  borderRadius: 6,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 500,
 }
 
 const containerStyle: React.CSSProperties = {

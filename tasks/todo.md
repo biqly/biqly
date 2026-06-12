@@ -1,5 +1,186 @@
 # Todo list
 
+## Chat Bağlam (Prior Turns) ile Takip Sorularını Bağlama (2026-06-12)
+
+### Sorun
+
+Kullanıcı "geçtiğimiz ay en çok hangi gün tweet atılmıştır?" diye soruyor → cevap: "May 20, 2026, 2,932 tweet".
+Ardından "peki o gün en çok hangi yazar tweet atmıştır?" diye sorduğunda sistem **"o gün"ü** çözümleyemiyor ve
+bugünün tarihini (2026-06-12) kullanıyor. Kök neden: önceki sorunun **sonucu** (May 20) LLM'e iletilmiyor.
+
+### Mevcut Altyapı
+
+- **Frontend:** `AIQuery.tsx:224-245` — `recentPriorTurns` zaten konuşmadan son 5 turu çıkarıyor.
+  Her tur: `{ question, logical_query?, note? }`. Ama `note` yalnızca `"executed"` yazıyor — **sonuç verisi yok**.
+- **Toggle:** `ChatPanel.tsx:231-240` — "Include past queries" onay kutusu var ama **varsayılan kapalı**.
+  `includePastQueries` false iken `prior_turns: undefined` gönderiliyor → LLM hiç bağlam görmüyor.
+- **Backend:** `handlers/ai.go:140-147` — `priorTurnPayload` struct'ı `{ question, logical_query, note }` alıyor.
+  `prompt.go:383-402` — `writePriorTurns` bunları `"## Prior Turns in This Conversation"` olarak prompt'a ekliyor.
+- **Filtre oturumu:** `filter_session.go` — son turun filtrelerini çıkarıp `IntentRefine/IntentReplaceFilters`
+  sınıflaması yapıyor. Ama yine sonuç verisini kullanmıyor, sadece LogicalQuery filtrelerini okuyor.
+- **Context bütçesi:** `prompt_context.go` — compact=2, standard=5, expanded=8 tur limiti var.
+- **Konuşma depolama:** Tamamen frontend localStorage'da (`useConversation.ts`), backend'de conversation konsepti yok.
+
+### Eksik Parçalar
+
+1. **Sonuç özeti yok:** Prior turns'a `result_summary` alanı eklenmeli. LLM sadece LogicalQuery JSON'unu görüyor,
+   May 20 sonucunu bilmiyor → "o gün"ü çözemez. İstenen: "May 20, 2026 tarihinde 2,932 tweet atılmış" gibi metin.
+2. **Toggle kapalı:** `includePastQueries` varsayılan false → çoğu kullanıcı bağlamdan yararlanmıyor.
+3. **Konuşma başına ayar yok:** Toggle global, konuşma bazlı kaydedilmiyor.
+4. **Büyük veri setleri:** Sonuç özeti tüm satırları değil, anlamlı bir özeti (top-N, anahtar değerler) içermeli.
+
+### CHAT-1 — `PriorTurn`'a `result_summary` Alanı Ekleme [HIGH]
+
+LLM'in önceki cevabın içeriğini bilmesi için her tura sonuç özeti eklenmeli.
+
+#### Frontend
+
+- [ ] `frontend/src/types/ai.ts` — `PriorTurn` interface'ine `result_summary?: string` ekle
+- [ ] `frontend/src/components/AIQuery.tsx:224-245` — `recentPriorTurns` oluşturulurken her asistan mesajından
+  sonuç öneti üret. `ai_response`'tan çıkarılacak bilgiler:
+  - SQL sonucu tablosu varsa: ilk 3-5 satırın anahtar değerleri (ör: "May 20, 2026: 2,932")
+  - Clarification varsa: `"clarification needed about X"`
+  - Hata varsa: `"error: ..."`
+  - Boş sonuç: `"no results"`
+- [ ] Önet üretici yardımcı: `frontend/src/utils/priorTurnSummary.ts` oluştur:
+  ```typescript
+  export function buildResultSummary(response: AIQueryResponse): string
+  ```
+  Kurallar:
+  - `response.result` varsa ve satırlar varsa: kolon adları + değerlerle compact metin
+    (max 200 karakter, fazla satır "ve N daha" ile kısaltılır)
+  - `response.sql` var ama `result` yoksa (preview): `"SQL generated: <sql'in ilk 80 karakteri>"`
+  - `response.needs_clarification` true ise: `"clarification needed"`
+  - Null response: `"no response"`
+- [ ] `recentPriorTurns` builder'da `result_summary`'yi set et
+
+#### Backend
+
+- [ ] `internal/http/handlers/ai.go:140-147` — `priorTurnPayload` struct'ına `ResultSummary string` ekle
+  (`json:"result_summary,omitempty"`)
+- [ ] `internal/http/handlers/ai.go:149-172` — `priorTurnsForPrompt` fonksiyonunda `ResultSummary`'yi
+  `prompt.ConversationTurn`'a geçir
+- [ ] `internal/ai/prompt/prompt.go:140-144` — `ConversationTurn` struct'ına `ResultSummary string` ekle
+- [ ] `internal/ai/prompt/prompt.go:383-402` — `writePriorTurns` fonksiyonunda sonuç özetini yazdır:
+  ```
+  Turn 1 — Question: "geçtiğimiz ay en çok hangi gün tweet atılmıştır?"
+  Previous LogicalQuery: {...}
+  Result: May 20, 2026 tarihinde 2,932 tweet
+  ```
+
+#### Test
+
+- [ ] Backend unit test: `priorTurnsForPrompt` — `result_summary` doğru şekilde `ConversationTurn`'a map ediliyor
+- [ ] Backend unit test: `writePriorTurns` — result_summary prompt'ta görünüyor, uzun özet kısaltılıyor
+- [ ] Frontend unit test: `buildResultSummary` — farklı response tiplerinde doğru özet üretiyor
+- [ ] Entegrasyon: "o gün" sorusu + prior turns ile → doğru tarih filtresi (May 20)
+
+**Dosyalar:** `types/ai.ts`, `utils/priorTurnSummary.ts` (yeni), `AIQuery.tsx`, `handlers/ai.go`, `prompt/prompt.go`
+
+### CHAT-2 — Prior Turns Varsayılan Açık + Konuşma Bazlı Toggle [HIGH]
+
+#### Frontend
+
+- [ ] `frontend/src/types/ai.ts` — `Conversation` interface'ine `context_enabled?: boolean` ekle
+  (varsayılan `true` — yeni konuşmalar bağlam açık başlar)
+- [ ] `frontend/src/hooks/useConversation.ts` — konuşma kaydederken/yüklerken `context_enabled`'i
+  localStorage'da sakla. Eski konuşmalarda undefined = true kabul et (backward compatible)
+- [ ] `frontend/src/components/aiQuery/ChatPanel.tsx:231-240` — toggle'ı güncelle:
+  - Mevcut global state yerine `activeConversation.context_enabled`'i oku/yaz
+  - Label'ı güncelle: i18n anahtarı `chatPanel.context_toggle` (EN: "Link conversation context",
+    TR: "Sorular arası bağlantı kur")
+  - Toggle değişince konuşmayı localStorage'da güncelle
+- [ ] `frontend/src/components/AIQuery.tsx:332-351` — `requestBody`'de:
+  `prior_turns: activeConversation.context_enabled !== false ? recentPriorTurns : undefined`
+  (eski `includePastQueries` state'ini kaldır, konuşma bazlı ayarı kullan)
+- [ ] i18n: EN+TR anahtarları ekle
+
+#### Test
+
+- [ ] Frontend: yeni konuşma → toggle açık, toggle kapat → `context_enabled: false` → `prior_turns` gönderilmiyor
+- [ ] Frontend: eski konuşma (undefined) → toggle açık kabul ediliyor
+- [ ] ESLint + Prettier + vitest temiz
+
+**Dosyalar:** `types/ai.ts`, `hooks/useConversation.ts`, `ChatPanel.tsx`, `AIQuery.tsx`, i18n dosyaları
+
+### CHAT-3 — `FilterSession`'a Sonuç Özeti Entegrasyonu [MEDIUM]
+
+`filter_session.go` son turun LogicalQuery'sinden filtre çıkarıyor ama sonuç verisini kullanmıyor.
+"o gün" gibi referansları çözmek için sonuç özetinin de `FilterSessionState`'te bulunması gerekiyor.
+
+- [ ] `internal/ai/filter_session.go` — `FilterSessionState` struct'ına `LastResultSummary string` alanı ekle
+- [ ] `FilterSessionFromPriorTurns` — son turun `ResultSummary`'sini state'e yaz
+- [ ] `ActiveFilterInstructions` — sonuç özeti varsa prompt'a ekle:
+  ```
+  ## Previous Answer Context
+  The previous question "geçtiğimiz ay en çok hangi gün tweet atılmıştır?" yielded:
+  Result: May 20, 2026 tarihinde 2,932 tweet
+  When the user says "o gün", "that day", "o şirket" etc., resolve to the relevant value from this result.
+  ```
+- [ ] `ClassifyFollowUpIntent` — sonuç özetindeki değerlere referans veren sorularda
+  `IntentRefine` sınıflamasını güçlendir (şu anda yalnızca filtre benzerliğine bakıyor)
+- [ ] Test: "o gün" sorusu + result_summary "May 20" → `IntentRefine` + doğru filtre taşıma
+
+**Dosyalar:** `internal/ai/filter_session.go`, ilgili testler
+
+### CHAT-4 — Sonuç Öneti Üretim Stratejisi (Büyük Veri Setleri) [MEDIUM]
+
+Büyük sonuç setlerinde tüm satırları özete yazmak prompt bütçesini aşar.
+
+- [ ] `buildResultSummary` (frontend) — strateji:
+  - **Tek satır sonucu:** Tam satırı yaz (`"May 20, 2026: 2,932"`)
+  - **Az satır (≤5):** Tüm satırları compact formatla yaz
+  - **Çok satır (>5):** İlk 3 satır + "... ve N satır daha" + en büyük/en küçük değeri not et
+  - **Toplam karakter limiti:** 300 karakter (prompt bütçesi koruması)
+- [ ] `writePriorTurns` (backend) — uzun `result_summary`'yi 300 karaktere kısalt (`...` ile)
+- [ ] Context bütçesi güncelle: `prompt_context.go` — prior turns toplam token tahmini
+  result_summary dahil edilsin. compact: 150 token, standard: 250 token, expanded: 400 token
+- [ ] Test: 1000 satırlık sonuç → özet 300 karakteri geçmiyor, anahtar değerler korunuyor
+
+**Dosyalar:** `utils/priorTurnSummary.ts`, `prompt/prompt.go`, `prompt/prompt_context.go`
+
+### CHAT-5 — Backend Konuşma Tanıma (Gelecek, Opisyonel) [LOW]
+
+Şu anda konuşma yalnızca frontend localStorage'da. Bu, farklı cihazlardan/tarayıcılardan
+erişilemez ve cleanup kontrolü yok. Uzun vadeli iyileştirme olarak DB'de konuşma saklanabilir.
+
+- [ ] Migration: `ai_conversations` tablosu (id, user_id, datasource_id, model_id, context_enabled,
+  title, created_at, updated_at)
+- [ ] Migration: `ai_conversation_messages` tablosu (conversation_id, role, content, ai_response JSONB,
+  result_summary, created_at)
+- [ ] Backend: CRUD endpoint'leri (`POST/GET/DELETE /api/ai/conversations`)
+- [ ] Frontend: localStorage → API geçişi (fallback: API hatası → localStorage)
+- [ ] Bu madde bağımsız, CHAT-1/2/3 sonrası istenirse yapılır
+
+### Öncelik Sırası
+
+| Sıra | Madde | Öncelik | Açıklama |
+|---|---|---|---|
+| 1 | CHAT-1 | HIGH | `result_summary` alanı — "o gün" sorununun kök çözümü |
+| 2 | CHAT-2 | HIGH | Varsayılan açık + konuşma bazlı toggle |
+| 3 | CHAT-3 | MEDIUM | FilterSession entegrasyonu — referans çözümleme |
+| 4 | CHAT-4 | MEDIUM | Büyük veri setleri için özet stratejisi + limitler |
+| 5 | CHAT-5 | LOW | DB konuşma depolama (gelecek) |
+
+### Bağımlılıklar
+
+- CHAT-1 bağımsız (önce yapılabilir)
+- CHAT-2 bağımsız (CHAT-1 ile paralel)
+- CHAT-3 → CHAT-1 (result_summary alanı önce eklenmeli)
+- CHAT-4 → CHAT-1 (özet üretici CHAT-1'de tanımlanır, strateji burada netleşir)
+- CHAT-5 bağımsız (gelecek madde, diğerlerinden etkilenmez)
+
+### Kabul Kriterleri
+
+- [ ] "geçtiğimiz ay en çok hangi gün tweet atılmıştır?" → "peki o gün en çok hangi yazar tweet atmıştır?"
+  sorusu doğru tarihi (May 20) kullanıyor
+- [ ] Yeni konuşmada bağlam varsayılan açık; toggle ile kapatılabiliyor
+- [ ] Toggle durumu konuşma bazlı saklanıyor, konuşma değişince eski ayarı koruyor
+- [ ] Büyük sonuç setlerinde özet 300 karakteri geçmiyor, prompt bütçesi korunuyor
+- [ ] `make lint-go` + `make test-go` + `make check-frontend` temiz
+
+---
+
 ## Backend Middleware & Yardımcı Fonksiyon Konsolidasyonu (2026-06-12)
 
 Amaç: HTTP handler katmanındaki tekrarlanan kalıpları middleware ve ortak yardımcılara çekerek kod tekrarını azaltmak, tutarlılığı artırmak ve bakım maliyetini düşürmek.

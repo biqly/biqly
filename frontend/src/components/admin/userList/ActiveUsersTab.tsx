@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 
-import { localeLanguageTag, type TFunction } from '../../../i18n'
+import { localeLanguageTag, useLocale, useT } from '../../../i18n'
 import type { AuthUser } from '../../../types/auth'
 import { formatDateOnly } from '../../../utils/formatters'
 import { DataState } from '../../ui/DataState'
@@ -25,8 +25,6 @@ interface ActiveUsersTabProps {
   setCurrentPage: (page: number) => void
   totalItems: number
   pageSize: number
-  locale: 'en' | 'tr'
-  t: TFunction
   loading?: boolean
 }
 
@@ -46,10 +44,10 @@ export function ActiveUsersTab({
   setCurrentPage,
   totalItems,
   pageSize,
-  locale,
-  t,
   loading = false,
 }: ActiveUsersTabProps) {
+  const t = useT()
+  const [locale] = useLocale()
   const statusOptions = useMemo(
     () => [
       { value: 'all', label: t('admin.users.status_all') },

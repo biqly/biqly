@@ -134,7 +134,7 @@ export default function TimeGrains() {
 
         {error && <ErrorAlert error={error} />}
 
-        <TimeGrainsTable grains={grains} loading={loading} onEdit={startEdit} t={t} />
+        <TimeGrainsTable grains={grains} loading={loading} onEdit={startEdit} />
       </div>
 
       {successMessage && (
@@ -166,7 +166,6 @@ export default function TimeGrains() {
         onSave={() => {
           void handleSave()
         }}
-        t={t}
       />
     </div>
   )

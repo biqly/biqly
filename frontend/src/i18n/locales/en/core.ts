@@ -31,6 +31,10 @@ export const core = {
     required: 'required',
     no_data: 'No data found',
     em_dash: '—',
+    pagination: {
+      page_number: 'Page {{page}}',
+      range_of_total: 'Rows {{start}}–{{end}} of {{total}}',
+    },
     model_badge_translate: 'Translation',
     model_badge_embedding: 'Embedding',
     model_badge_models_aria: 'LLM models in use',
@@ -976,7 +980,6 @@ export const core = {
     prev_page: 'Previous',
     next_page: 'Next',
     last_page: 'Last page',
-    page_number: 'Page {{page}}',
     go_to_page: 'Go to page {{page}}',
     pagination_nav: 'Table pagination',
     range_empty: 'No rows',

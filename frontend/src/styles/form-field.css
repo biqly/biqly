@@ -1,0 +1,6 @@
+/* FormField (ui/FormField.tsx) — field-level validation error line. */
+.form-field__error {
+  margin: 0.25rem 0 0;
+  color: var(--error, #ef4444);
+  font-size: 0.8rem;
+}

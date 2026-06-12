@@ -44,3 +44,14 @@ export function paginatedListReducer<T>(
 export function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
 }
+
+/** Page number from a URL query param (syncToUrl); anything invalid or < 1 is page 1. */
+export function parsePageParam(value: string | null | undefined): number {
+  const n = Number.parseInt(value ?? '', 10)
+  return Number.isFinite(n) && n >= 1 ? n : 1
+}
+
+/** URL representation of a page: page 1 is the default and stays out of the URL. */
+export function pageParamValue(page: number): string {
+  return page <= 1 ? '' : String(page)
+}

@@ -1,4 +1,4 @@
-import type { TFunction } from '../i18n'
+import { useT } from '../i18n'
 import { LoadingOverlay } from './ui/LoadingOverlay'
 
 interface TimeGrain {
@@ -12,13 +12,12 @@ export function TimeGrainsTable({
   grains,
   loading,
   onEdit,
-  t,
 }: {
   grains: TimeGrain[]
   loading: boolean
   onEdit: (grain: TimeGrain) => void
-  t: TFunction
 }) {
+  const t = useT()
   return (
     <LoadingOverlay loading={loading}>
       <div style={{ minHeight: grains.length === 0 && loading ? 120 : 'auto' }}>

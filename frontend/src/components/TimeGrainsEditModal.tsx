@@ -1,4 +1,4 @@
-import type { TFunction } from '../i18n'
+import { useT } from '../i18n'
 import { ErrorAlert } from './ui/ErrorAlert'
 
 interface TimeGrain {
@@ -20,7 +20,6 @@ export function TimeGrainsEditModal({
   loading,
   onCancel,
   onSave,
-  t,
 }: {
   editingGrain: TimeGrain | null
   formSuffix: string
@@ -33,8 +32,8 @@ export function TimeGrainsEditModal({
   loading: boolean
   onCancel: () => void
   onSave: () => void
-  t: TFunction
 }) {
+  const t = useT()
   if (!editingGrain) {
     return null
   }

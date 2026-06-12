@@ -6,7 +6,7 @@ import { useConfirm } from '../../hooks/useConfirm'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useQueryParam } from '../../hooks/useQueryParam'
-import { useLocale, useT } from '../../i18n'
+import { useT } from '../../i18n'
 import type { AuthUser, Invitation } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
@@ -22,7 +22,6 @@ interface UserListPageProps {
 
 export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const t = useT()
-  const [locale] = useLocale()
   const confirm = useConfirm()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search.trim(), 300)
@@ -256,8 +255,6 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           setCurrentPage={setCurrentPage}
           totalItems={totalItems}
           pageSize={pageSize}
-          locale={locale}
-          t={t}
           loading={loading}
         />
       ) : (
@@ -279,8 +276,6 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           inviteTotalPages={inviteTotalPages}
           inviteTotalItems={inviteTotalItems}
           pageSize={pageSize}
-          locale={locale}
-          t={t}
         />
       )}
 
