@@ -33,6 +33,25 @@
   right: max(1rem, env(safe-area-inset-right, 0px));
   bottom: max(1rem, env(safe-area-inset-bottom, 0px));
   z-index: 120;
+
+  /* Appear-delay: loads faster than ~250ms never flash a pill; slower ones
+     fade/slide in gently instead of popping. */
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  animation: loading-pill-in 0.22s ease-out 0.25s forwards;
+}
+
+/* Handoff between consecutive loading phases (route chunk -> screen data):
+   skip the delay so the pill reads as one continuous indicator. */
+.loading-indicator--fixed-immediate {
+  animation-delay: 0s;
+}
+
+@keyframes loading-pill-in {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .loading-indicator__mark {
@@ -99,7 +118,19 @@
     animation: none;
   }
 
+  /* No movement: fade only, same appear-delay. */
+  .loading-indicator--fixed {
+    transform: none;
+    animation-name: loading-pill-fade;
+  }
+
   .loading-indicator__logo {
     opacity: 0.5;
+  }
+}
+
+@keyframes loading-pill-fade {
+  to {
+    opacity: 1;
   }
 }
