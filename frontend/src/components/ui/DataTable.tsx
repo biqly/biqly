@@ -1,7 +1,12 @@
+import '../../styles/data-table.css'
+
 import type { CSSProperties, ReactNode } from 'react'
 
+import type { SortState } from '../../utils/sorting'
+import { ariaSortFor, sortArrowFor } from '../../utils/sorting'
+
 export interface ColumnDef<T> {
-  /** Stable column id (React key for th/td). */
+  /** Stable column id (React key for th/td, and the SortState key). */
   key: string
   header: ReactNode
   cell: (row: T) => ReactNode
@@ -9,6 +14,8 @@ export interface ColumnDef<T> {
   className?: string
   /** Horizontal alignment of the td (matches the old inline textAlign styles). */
   align?: 'left' | 'right' | 'center'
+  /** Makes the header a sort toggle. Requires the table-level sort/onSortToggle props. */
+  sortable?: boolean
 }
 
 interface DataTableProps<T> {
@@ -30,6 +37,13 @@ interface DataTableProps<T> {
   headerCellClassName?: string
   rowClassName?: string
   cellClassName?: string
+  /**
+   * Current sort + toggle callback enable the sortable headers. DataTable does
+   * NOT sort the rows itself — client-side screens sort with utils/sorting
+   * sortRows before passing rows in, so a server-side sort can reuse this UI.
+   */
+  sort?: SortState | null
+  onSortToggle?: (key: string) => void
 }
 
 /**
@@ -50,14 +64,33 @@ export function DataTable<T>({
   headerCellClassName = 'admin-th',
   rowClassName = 'admin-tr',
   cellClassName = 'admin-td',
+  sort = null,
+  onSortToggle,
 }: DataTableProps<T>) {
   return (
     <table className={tableClassName} style={tableStyle}>
       <thead>
         <tr className={headRowClassName}>
           {columns.map((col) => (
-            <th key={col.key} className={headerCellClassName}>
-              {col.header}
+            <th
+              key={col.key}
+              className={headerCellClassName}
+              aria-sort={col.sortable && onSortToggle ? ariaSortFor(sort, col.key) : undefined}
+            >
+              {col.sortable && onSortToggle ? (
+                <button
+                  type="button"
+                  className="data-table__sort-btn"
+                  onClick={() => onSortToggle(col.key)}
+                >
+                  {col.header}
+                  <span className="data-table__sort-icon" aria-hidden="true">
+                    {sortArrowFor(sort, col.key)}
+                  </span>
+                </button>
+              ) : (
+                col.header
+              )}
             </th>
           ))}
         </tr>

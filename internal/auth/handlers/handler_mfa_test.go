@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/biqly/biqly/internal/auth/mfatest"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,14 +29,14 @@ func TestAdminGenerateMFABypassHandler(t *testing.T) {
 	handler.RegisterAccountAdminRoutes(router, authMW)
 
 	// Case 1: Call as normal actor -> Should return 403 Forbidden
-	req := httptest.NewRequestWithContext(context.WithValue(stack.Ctx, userIDKey, users.NormalActorID), http.MethodPost, "/admin/users/"+users.TargetUserID+"/mfa/bypass", nil)
+	req := httptest.NewRequestWithContext(bimw.WithUserID(stack.Ctx, users.NormalActorID), http.MethodPost, "/admin/users/"+users.TargetUserID+"/mfa/bypass", nil)
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 
 	// Case 2: Call as super admin -> Should return 200 OK with bypass code
-	req = httptest.NewRequestWithContext(context.WithValue(stack.Ctx, userIDKey, users.SuperActorID), http.MethodPost, "/admin/users/"+users.TargetUserID+"/mfa/bypass", nil)
+	req = httptest.NewRequestWithContext(bimw.WithUserID(stack.Ctx, users.SuperActorID), http.MethodPost, "/admin/users/"+users.TargetUserID+"/mfa/bypass", nil)
 	rr = httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"reflect"
 
+	"github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/pkg/common/requestid"
 )
 
@@ -125,4 +126,15 @@ func (r *StatusRecorder) Status() int {
 // WriteOK writes a JSON success response of the form {"status": "ok"} with status 200 OK.
 func WriteOK(w http.ResponseWriter) {
 	WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// RequireUserIDFromContext retrieves the user ID from the context using the middleware helper.
+// If the user ID is empty, it writes a 401 Unauthorized JSON response and returns ("", false).
+func RequireUserIDFromContext(ctx context.Context, w http.ResponseWriter) (string, bool) {
+	userID := middleware.UserID(ctx)
+	if userID == "" {
+		WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return "", false
+	}
+	return userID, true
 }

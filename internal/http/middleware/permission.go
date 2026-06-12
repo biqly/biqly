@@ -484,6 +484,11 @@ func passThrough(next http.Handler) http.Handler { return next }
 // datasource identified by URL param `datasourceID` (or `id`), `datasource_id`
 // query string, or a top-level `datasource_id` field in the JSON request body.
 // super_admin bypasses. Returns a pass-through when client is nil.
+//
+// NOTE: For routes carrying table/column IDs instead of direct datasource IDs
+// (e.g. /metadata/tables/{id}), permission checks are deferred to the handler level
+// (using MetadataHandler.ResolveDatasourceID) since this middleware does not have
+// access to the catalog's database repository to resolve those entities.
 func RequireDatasourceAccess(client *AuthClient, requiredLevel string) func(http.Handler) http.Handler {
 	if client == nil {
 		return passThrough

@@ -6,6 +6,7 @@ import (
 
 	"github.com/biqly/biqly/internal/auth"
 	"github.com/biqly/biqly/internal/auth/mfa"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 )
 
 // SetMFA attaches the MFA service to the handler. Routes registered later
@@ -44,10 +45,7 @@ func (h *AuthHandler) handleMFAEnroll(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	email, ok := r.Context().Value(emailKey).(string)
-	if !ok {
-		email = ""
-	}
+	email := bimw.UserEmail(r.Context())
 	if email == "" {
 		email = userID
 	}

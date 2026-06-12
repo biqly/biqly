@@ -8,14 +8,29 @@ import {
 import { useClientPagination } from '../../hooks/useClientPagination'
 import { useConfirm } from '../../hooks/useConfirm'
 import { useDatasources } from '../../hooks/useDatasources'
+import { useSortState } from '../../hooks/useSortState'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { sortRows } from '../../utils/sorting'
 import type { ColumnDef } from '../ui/DataTable'
 import { DataTable } from '../ui/DataTable'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
 import { datasourceSelectOptions } from './adminSelectOptions'
+
+function confirmedQuerySortValue(row: ConfirmedQuery, key: string): unknown {
+  switch (key) {
+    case 'question':
+      return row.nl_query
+    case 'confirmed_at':
+      return new Date(row.confirmed_at).getTime()
+    case 'status':
+      return row.is_active ? 1 : 0
+    default:
+      return null
+  }
+}
 
 // ConfirmedQueriesPanel lists the NL→SQL pairs learned from thumbs-up feedback
 // (the AI memory store) and lets admins pull a pair out of few-shot recall.
@@ -30,13 +45,23 @@ export function ConfirmedQueriesPanel() {
   const [loading, setLoading] = useState(false)
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null)
 
+  const { sort, toggle: toggleSortKey } = useSortState()
+  const sortedRows = useMemo(() => sortRows(rows, sort, confirmedQuerySortValue), [rows, sort])
   const {
     page: currentPage,
     setPage: setCurrentPage,
     pageSize,
     totalPages,
     pageRows: displayedRows,
-  } = useClientPagination(rows, 10)
+  } = useClientPagination(sortedRows, 10)
+
+  const handleSortToggle = useCallback(
+    (key: string) => {
+      toggleSortKey(key)
+      setCurrentPage(1)
+    },
+    [toggleSortKey, setCurrentPage],
+  )
 
   const handleDatasourceChange = useCallback(
     (datasourceId: string) => {
@@ -106,6 +131,7 @@ export function ConfirmedQueriesPanel() {
     {
       key: 'question',
       header: t('admin.confirmed_queries.col_question'),
+      sortable: true,
       cell: (row) => row.nl_query,
     },
     {
@@ -132,11 +158,13 @@ export function ConfirmedQueriesPanel() {
       key: 'confirmed_at',
       header: t('admin.confirmed_queries.col_confirmed_at'),
       className: 'admin-td-mono',
+      sortable: true,
       cell: (row) => new Date(row.confirmed_at).toLocaleString(),
     },
     {
       key: 'status',
       header: t('admin.confirmed_queries.col_status'),
+      sortable: true,
       cell: (row) => (
         <span
           className={row.is_active ? 'admin-badge-active' : 'admin-badge-inactive'}
@@ -200,6 +228,8 @@ export function ConfirmedQueriesPanel() {
             rowKey={(row) => row.id}
             rowClassName=""
             tableStyle={{ fontSize: 13, minWidth: 760 }}
+            sort={sort}
+            onSortToggle={handleSortToggle}
           />
           <Pagination
             currentPage={currentPage}

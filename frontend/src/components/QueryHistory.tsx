@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { getAIHistoryDetail, listAIHistory } from '../api/admin'
 import { useDatasources } from '../hooks/useDatasources'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { usePaginatedList } from '../hooks/usePaginatedList'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
@@ -30,7 +31,7 @@ export default function QueryHistory() {
   const [selectedModelId, setSelectedModelId] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [searchInput, setSearchInput] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(searchInput, 300)
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -81,11 +82,6 @@ export default function QueryHistory() {
 
   const [detailCache, setDetailCache] = useState<Record<string, AIHistoryEntry | null>>({})
   const [inFlightDetailId, setInFlightDetailId] = useState<string | null>(null)
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(searchInput), 300)
-    return () => window.clearTimeout(timer)
-  }, [searchInput])
 
   useEffect(() => {
     if (!expandedId || !accessToken || expandedId in detailCache) {

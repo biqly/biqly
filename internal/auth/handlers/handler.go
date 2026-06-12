@@ -24,27 +24,13 @@ import (
 	"github.com/biqly/biqly/internal/mail"
 )
 
-type contextKey string
-
-const (
-	userIDKey      contextKey = "userID"
-	emailKey       contextKey = "email"
-	rolesKey       contextKey = "roles"
-	workspaceIDKey contextKey = "workspaceID"
-)
-
 func contextUserID(r *http.Request) (string, bool) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	return userID, ok && userID != ""
+	userID := bimw.UserID(r.Context())
+	return userID, userID != ""
 }
 
-func (h *AuthHandler) requireUserID(w http.ResponseWriter, r *http.Request) (string, bool) {
-	userID, ok := contextUserID(r)
-	if !ok {
-		h.respondError(w, http.StatusUnauthorized, "unauthorized")
-		return "", false
-	}
-	return userID, true
+func (*AuthHandler) requireUserID(w http.ResponseWriter, r *http.Request) (string, bool) {
+	return response.RequireUserIDFromContext(r.Context(), w)
 }
 
 type AuthHandler struct {
@@ -390,10 +376,10 @@ func (h *AuthHandler) authMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, userIDKey, claims.Subject)
-		ctx = context.WithValue(ctx, emailKey, claims.Email)
-		ctx = context.WithValue(ctx, rolesKey, claims.Roles)
-		ctx = context.WithValue(ctx, workspaceIDKey, claims.WorkspaceID)
+		ctx = bimw.WithUserID(ctx, claims.Subject)
+		ctx = bimw.WithUserEmail(ctx, claims.Email)
+		ctx = bimw.WithUserRoles(ctx, claims.Roles)
+		ctx = bimw.WithWorkspaceID(ctx, claims.WorkspaceID)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

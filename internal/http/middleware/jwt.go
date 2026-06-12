@@ -315,6 +315,11 @@ func UserID(ctx context.Context) string {
 	return v
 }
 
+func UserEmail(ctx context.Context) string {
+	v, _ := ctx.Value(UserEmailKey).(string)
+	return v
+}
+
 func UserRoles(ctx context.Context) []string {
 	v, _ := ctx.Value(UserRolesKey).([]string)
 	return v
@@ -341,6 +346,31 @@ func HasRole(ctx context.Context, role string) bool {
 func EmailVerified(ctx context.Context) bool {
 	v, _ := ctx.Value(EmailVerifiedKey).(bool)
 	return v
+}
+
+// WithUserID returns a new context with the UserIDKey set.
+func WithUserID(ctx context.Context, userID string) context.Context {
+	return context.WithValue(ctx, UserIDKey, userID)
+}
+
+// WithUserEmail returns a new context with the UserEmailKey set.
+func WithUserEmail(ctx context.Context, email string) context.Context {
+	return context.WithValue(ctx, UserEmailKey, email)
+}
+
+// WithUserRoles returns a new context with the UserRolesKey set.
+func WithUserRoles(ctx context.Context, roles []string) context.Context {
+	return context.WithValue(ctx, UserRolesKey, roles)
+}
+
+// WithWorkspaceID returns a new context with the WorkspaceIDKey set.
+func WithWorkspaceID(ctx context.Context, workspaceID string) context.Context {
+	return context.WithValue(ctx, WorkspaceIDKey, workspaceID)
+}
+
+// WithEmailVerified returns a new context with the EmailVerifiedKey set.
+func WithEmailVerified(ctx context.Context, verified bool) context.Context {
+	return context.WithValue(ctx, EmailVerifiedKey, verified)
 }
 
 // RequireVerifiedEmail blocks the request when the JWT lacks the

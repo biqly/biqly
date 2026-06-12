@@ -301,12 +301,14 @@ Kabul doğrulaması: `make check-frontend` zinciri yeşil (29 dosya / 133 test).
 
 Kabul doğrulaması: DOM yapısı ve sınıflar birebir (admin-* default'ları); `make check-frontend` zinciri yeşil (29 dosya / 133 test). Başarı kriteri 4 (≥5 admin tablosu `DataTable`) karşılandı: 6 tüketici.
 
-### Faz 4 — Sorting & filtering ortak pattern'leri
+### Faz 4 — Sorting & filtering ortak pattern'leri ✅ TAMAMLANDI (2026-06-12)
 
-- [ ] **4.1** `frontend/src/hooks/useSortState.ts` (+ pure `toggleSort` testi) ve `frontend/src/components/ui/SortableTh.tsx` (`aria-sort`, ok ikonu). `DataTable.columns[].sortable` ile entegrasyon.
-- [ ] **4.2** Client-side sıralama isteyen Grup B tablolarına opt-in ekle (davranış ekleme — ürün onayı gerektirir, bkz. OQ-3). Server-side sıralama yalnızca backend zaten destekliyorsa bağlanır (Table Browser dışında destekleyen endpoint tespit edilmedi — **API kontratına sort parametresi EKLENMEZ**).
-- [ ] **4.3** `frontend/src/hooks/useDebouncedValue.ts` + arama inputu standardizasyonu: `UserListPage` search'ü ve benzerleri (debounce süresi mevcut davranışla uyumlu; bugün debounce yoksa eklenmesi OQ-3 kapsamında ürün kararı).
-- [ ] **4.4** "Filtre değişti → sayfa 1" kuralı `usePaginatedList.deps` ile tüm ekranlarda tekleştirilir (Faz 1.5'te ekran ekran zaten yapılmış olur; burada kalan istisnalar taranır).
+- [x] **4.1** `frontend/src/utils/sorting.ts` (pure: `SortState`, `toggleSort` asc→desc→none döngüsü, `compareValues` null-last + sayısal/locale karşılaştırma — `components/resultTable/sort.ts` semantiğiyle birebir hizalı, `sortRows`, `ariaSortFor`, `sortArrowFor`) + `sorting.test.ts`. `frontend/src/hooks/useSortState.ts` ince hook. **Ayrı `SortableTh.tsx` yerine** sıralanabilir başlık `DataTable` içine gömüldü (`ColumnDef.sortable` + tablo-seviyesi `sort`/`onSortToggle` props; `aria-sort`'lu th, buton + ok ikonu; CSS: `frontend/src/styles/data-table.css`). **DataTable satırları kendisi SIRALAMAZ** — çağıran `sortRows` ile sıralar; böylece ileride server-side sort aynı başlık UI'ını kullanabilir.
+- [x] **4.2** **OQ-3 kararı (teknik gerekçeli):** kolon sıralaması yalnızca **client-side** listelerde açıldı — server-side sayfalı tablolarda yalnızca görünen sayfayı sıralamak yanıltıcı olur ve backend'e sort parametresi eklemek API kontratını değiştirir (yasak). Aktivasyon: `ConfirmedQueriesPanel` (question/confirmed_at/status kolonları; sıralama dilimden ÖNCE tüm liste üzerinde, sıralama değişince sayfa 1'e döner). Diğer client-side aday `AIUsageAdminPanel` DataTable'a geçmediği için (Faz 3 istisnası) şimdilik sıralamasız; DataTable'a geçtiğinde `sortable: true` tek satırlık iş.
+- [x] **4.3** `frontend/src/hooks/useDebouncedValue.ts`; mevcut elle yazılmış 3 debounce ortak hook'a taşındı: `UserListPage` (users + invitations search, `value.trim()` semantiği korundu) ve `QueryHistory` (trimsiz). Süre 300ms — mevcut davranışla birebir. Debounce'u olmayan inputlara YENİ debounce eklenmedi.
+- [x] **4.4** "Filtre değişti → sayfa 1" taraması: Grup A ekranlarının tamamı Faz 1'de `resetPageKey`/handler'larla tekleşti; `ConfirmedQueriesPanel` (DS değişimi + yeni sort değişimi) ve `AIUsageAdminPanel` (period/pageSize değişimi) elle `setPage(1)` çağırıyor — istisna kalmadı.
+
+Kabul doğrulaması: `make check-frontend` zinciri yeşil (30 dosya / 141 test — +8 sorting testi). OQ-3 kapatıldı (yukarıdaki kararla).
 
 ### Faz 5 — Row action / bulk action
 
@@ -369,7 +371,7 @@ Faz 6 (bağımsız)        Faz 7 (bağımsız, alt maddeleri de bağımsız)
 
 - OQ-1: `total=0` iken `totalPages` 0 mı 1 mi olmalı? (Öneri: `Math.max(1, ...)` — `Pagination` bileşeni zaten böyle savunuyor; ürün açısından fark yok ama tek politika seçilmeli.)
 - OQ-2: Sayfa/filtre state'i URL'e yazılsın mı (deep-link + refresh dayanıklılığı)? Davranış eklemesidir; ürün onayı gerekir. (Faz 7.6)
-- OQ-3: Bugün sıralaması olmayan Grup B tablolarına client-side sıralama eklensin mi? Debounce'suz arama inputlarına debounce eklensin mi? İkisi de davranış değişikliğidir. (Faz 4)
+- ~~OQ-3~~ **KAPATILDI (Faz 4.2):** Sıralama yalnızca client-side listelerde açıldı (`ConfirmedQueriesPanel`); server-side sayfalı tablolara backend desteği olmadan sıralama EKLENMEYECEK (sayfa-içi sıralama yanıltıcı). Debounce'suz inputlara yeni debounce eklenmedi; mevcut 3 debounce ortak hook'a taşındı.
 - OQ-4: Bulk seçimde sayfa değişince seçim korunmalı mı, sıfırlanmalı mı? Bugün ekranlar arası tutarsız olabilir; tek kural seçilmeli. (Faz 5.2)
 - OQ-5: Component render testi için `@testing-library/react` + `jsdom` devDependency olarak eklensin mi, yoksa repo'nun mevcut "logic-extraction + pure test" pattern'i yeterli mi? (Plan, mevcut pattern'le ilerleyecek şekilde yazıldı; render testi eklenirse Faz 0 genişler.)
 

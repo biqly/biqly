@@ -63,8 +63,8 @@ func NewRBACHandler(
 func (h *RBACHandler) requirePermission(perms ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, ok := r.Context().Value(userIDKey).(string)
-			if !ok || userID == "" {
+			userID, ok := contextUserID(r)
+			if !ok {
 				writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 				return
 			}
@@ -89,8 +89,8 @@ func (h *RBACHandler) requirePermission(perms ...string) func(http.Handler) http
 func (h *RBACHandler) requireWorkspacePermission(perms ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID, ok := r.Context().Value(userIDKey).(string)
-			if !ok || userID == "" {
+			userID, ok := contextUserID(r)
+			if !ok {
 				writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 				return
 			}
@@ -215,8 +215,8 @@ func requireContextUserID(w http.ResponseWriter, r *http.Request) (string, bool)
 // use. This is a convenience mirror of the server-side checks — never the sole
 // gate; every mutating endpoint is still enforced on the backend.
 func (h *RBACHandler) handleMyPermissions(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userID == "" {
+	userID, ok := contextUserID(r)
+	if !ok {
 		writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
@@ -657,8 +657,8 @@ func (h *RBACHandler) handleAdminSetRolePermissions(w http.ResponseWriter, r *ht
 
 func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
-	caller, ok := r.Context().Value(userIDKey).(string)
-	if !ok || caller == "" {
+	caller, ok := contextUserID(r)
+	if !ok {
 		writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
@@ -715,8 +715,8 @@ func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	caller, ok := r.Context().Value(userIDKey).(string)
-	if !ok || caller == "" {
+	caller, ok := contextUserID(r)
+	if !ok {
 		writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
@@ -806,7 +806,7 @@ func strOrEmpty(p *string) string {
 func (h *RBACHandler) handleAdminRemoveRole(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 	roleID := chi.URLParam(r, "roleId")
-	caller, _ := r.Context().Value(userIDKey).(string)
+	caller := bimw.UserID(r.Context())
 	if err := h.rbacRepo.EnforceSelfModificationGuard(r.Context(), caller, userID, "role.remove"); err != nil {
 		h.auditSoD(r, caller, "role.remove")
 		writeError(w, r, http.StatusForbidden, err)
@@ -970,10 +970,8 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, err error) {
 	if status >= http.StatusInternalServerError {
 		ctx := r.Context()
 		var args []any
-		if uVal := ctx.Value(userIDKey); uVal != nil {
-			if userID, _ := uVal.(string); userID != "" {
-				args = append(args, "user_id", userID)
-			}
+		if userID := bimw.UserID(ctx); userID != "" {
+			args = append(args, "user_id", userID)
 		}
 		response.WriteInternalError(ctx, w, status, "rbac handler internal error", err, args...)
 	} else {
@@ -1072,7 +1070,7 @@ func (h *RBACHandler) handleAdminGetUserRoles(w http.ResponseWriter, r *http.Req
 
 func (h *RBACHandler) handleAdminUpdateUser(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	caller, _ := r.Context().Value(userIDKey).(string)
+	caller := bimw.UserID(r.Context())
 	req, ok := decodeJSON[struct {
 		IsActive bool `json:"is_active"`
 	}](w, r)

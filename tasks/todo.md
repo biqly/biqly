@@ -294,12 +294,28 @@ Verification:
 
 3 ayrı mekanizma datasource erişim kontrolü yapıyor: middleware seviyesi (`RequireDatasourceAccess`), handler metotları (`requireDatasourceAccess`, `requireTableAccess`/`requireColumnAccess`). Handler seviyesindeki kontroller entity ID'den datasource resolve ettiği için middleware ile tam kapsanamıyor.
 
-- [ ] `ResolveDatasourceID(r *http.Request)` helper'ı oluştur: URL param, query param VE entity lookup (table/column → datasource ID)
-- [ ] Tek `CheckDatasourceAccess(ctx, dsID, level)` helper'ı
-- [ ] `metadata.go`'daki `requireDatasourceAccess`/`requireTableAccess`/`requireColumnAccess`'ı buna geçir
-- [ ] Regresyon testi: table UUID → datasource resolve → access check
+- [x] `ResolveDatasourceID(r *http.Request)` helper'ı oluştur: URL param, query param VE entity lookup (table/column → datasource ID)
+- [x] Tek `CheckDatasourceAccess(ctx, dsID, level)` helper'ı
+- [x] `metadata.go`'daki `requireDatasourceAccess`/`requireTableAccess`/`requireColumnAccess`'ı buna geçir
+- [x] Regresyon testi: table UUID → datasource resolve → access check
 
 **Dosyalar:** `internal/http/handlers/metadata.go`, `internal/http/middleware/permission.go`
+
+#### MW-11 Review
+
+Resolved:
+
+1. Implemented `ResolveDatasourceID(r *http.Request) (string, error)` in `internal/http/handlers/metadata.go` supporting URL parameter mapping, query parameter mapping, and metadata table/column repository lookups.
+2. Implemented `CheckDatasourceAccess(ctx, dsID, level) (bool, error)` in `internal/http/handlers/metadata.go` supporting super admin bypass, auth client calls, and context user verification.
+3. Refactored `requireDatasourceAccess`, `requireTableAccess`, and `requireColumnAccess` to call these new helper functions, eliminating redundant code blocks.
+4. Added the unit test `TestResolveDatasourceIDAndCheckDatasourceAccess` in `metadata_auth_test.go` checking all resolution and check code paths.
+5. Documented the deferred permission checks in the middleware `internal/http/middleware/permission.go`.
+
+Verification:
+
+- Green: `GOCACHE=/private/tmp/biqly-gocache go test -race ./internal/http/handlers/... ./internal/http/middleware/...`
+- `make lint-go`
+
 
 ### MW-12 — Auth Handler `requireUserID` → Shared Helper [MEDIUM]
 

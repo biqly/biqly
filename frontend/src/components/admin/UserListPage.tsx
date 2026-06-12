@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 
 import { listUsers, resendUserVerification } from '../../api/admin'
 import { apiListInvitations, apiResendInvitation, apiRevokeInvitation } from '../../api/auth'
 import { useConfirm } from '../../hooks/useConfirm'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useQueryParam } from '../../hooks/useQueryParam'
 import { useLocale, useT } from '../../i18n'
@@ -24,7 +25,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const [locale] = useLocale()
   const confirm = useConfirm()
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search.trim(), 300)
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const pageSize = 10
 
@@ -39,7 +40,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     setSubTabParam(val === 'active' ? '' : val)
   }
   const [inviteSearch, setInviteSearch] = useState('')
-  const [debouncedInviteSearch, setDebouncedInviteSearch] = useState('')
+  const debouncedInviteSearch = useDebouncedValue(inviteSearch.trim(), 300)
   const [inviteStatusFilter, setInviteStatusFilter] = useState<
     'all' | 'pending' | 'claimed' | 'expired'
   >('all')
@@ -107,16 +108,6 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     fetchKey: token,
     resetPageKey: `${debouncedInviteSearch}|${inviteStatusFilter}`,
   })
-
-  useEffect(() => {
-    const id = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
-    return () => window.clearTimeout(id)
-  }, [search])
-
-  useEffect(() => {
-    const id = window.setTimeout(() => setDebouncedInviteSearch(inviteSearch.trim()), 300)
-    return () => window.clearTimeout(id)
-  }, [inviteSearch])
 
   const handleSearchChange = (value: string) => {
     setCurrentPage(1)

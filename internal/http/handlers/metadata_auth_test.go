@@ -174,3 +174,88 @@ func containsAny(s string, needles ...string) bool {
 	}
 	return false
 }
+
+func TestResolveDatasourceIDAndCheckDatasourceAccess(t *testing.T) {
+	db, state := setupMockDB(t)
+	now := time.Now()
+	state.queries = []queryMock{
+		{
+			Pattern: "FROM tables WHERE id",
+			Cols:    metadataTableCols(),
+			Rows: [][]driver.Value{
+				{"table-1", "ds-1", "schema-1", "public", "orders", "BASE TABLE", nil, nil, nil, nil, now, now},
+			},
+		},
+		{
+			Pattern: "FROM columns WHERE id",
+			Cols:    metadataColumnCols(),
+			Rows: [][]driver.Value{
+				{"col-1", "ds-2", "table-1", "public", "orders", "email", "text", true, nil, nil, nil, nil, nil, nil, false, false, nil, nil, nil, now, nil, nil, nil, nil, nil},
+			},
+		},
+	}
+
+	checker := &fakeMetadataAccessChecker{allowed: true}
+	handler := NewMetadataHandler(&app.CatalogDeps{MetaRepo: metadata.NewRepository(db)})
+	handler.SetDatasourceAccessChecker(checker)
+
+	// Test 1: Resolve from URL param datasourceID
+	{
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/datasources/ds-abc", http.NoBody)
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("datasourceID", "ds-abc")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		dsID, err := handler.ResolveDatasourceID(req)
+		if err != nil || dsID != "ds-abc" {
+			t.Errorf("ResolveDatasourceID(datasourceID) = (%q, %v), want (ds-abc, nil)", dsID, err)
+		}
+	}
+
+	// Test 2: Resolve from table ID lookup
+	{
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/metadata/tables/table-1", http.NoBody)
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "table-1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		dsID, err := handler.ResolveDatasourceID(req)
+		if err != nil || dsID != "ds-1" {
+			t.Errorf("ResolveDatasourceID(table ID lookup) = (%q, %v), want (ds-1, nil)", dsID, err)
+		}
+	}
+
+	// Test 3: Resolve from column ID lookup
+	{
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/metadata/columns/col-1", http.NoBody)
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", "col-1")
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+		dsID, err := handler.ResolveDatasourceID(req)
+		if err != nil || dsID != "ds-2" {
+			t.Errorf("ResolveDatasourceID(column ID lookup) = (%q, %v), want (ds-2, nil)", dsID, err)
+		}
+	}
+
+	// Test 4: Resolve from query param datasource_id
+	{
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/metadata/tables/search?datasource_id=ds-query", http.NoBody)
+		dsID, err := handler.ResolveDatasourceID(req)
+		if err != nil || dsID != "ds-query" {
+			t.Errorf("ResolveDatasourceID(query param) = (%q, %v), want (ds-query, nil)", dsID, err)
+		}
+	}
+
+	// Test 5: CheckDatasourceAccess
+	{
+		ctx := context.WithValue(context.Background(), bimw.UserIDKey, "user-check")
+		allowed, err := handler.CheckDatasourceAccess(ctx, "ds-check", "read")
+		if err != nil || !allowed {
+			t.Errorf("CheckDatasourceAccess() = (%t, %v), want (true, nil)", allowed, err)
+		}
+		if len(checker.calls) != 1 || checker.calls[0].UserID != "user-check" || checker.calls[0].DatasourceID != "ds-check" {
+			t.Errorf("Unexpected checker calls: %+v", checker.calls)
+		}
+	}
+}

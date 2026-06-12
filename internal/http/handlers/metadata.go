@@ -15,6 +15,7 @@ import (
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/go-chi/chi/v5"
 )
 
 // tableSampleRowLimit caps how many rows the table sample-data preview returns.
@@ -41,18 +42,61 @@ func (h *MetadataHandler) SetDatasourceAccessChecker(checker metadataDatasourceA
 	h.accessChecker = checker
 }
 
-func (h *MetadataHandler) requireDatasourceAccess(w http.ResponseWriter, r *http.Request, datasourceID, level string) bool {
-	if h.accessChecker == nil || bimw.HasRole(r.Context(), bimw.RoleSuperAdmin) {
-		return true
+// ResolveDatasourceID extracts the datasource ID from the request using URL parameters,
+// query parameters, or performing an entity lookup (for tables/columns).
+func (h *MetadataHandler) ResolveDatasourceID(r *http.Request) (string, error) {
+	ctx := r.Context()
+	// 1. Direct URL params
+	if id := chi.URLParam(r, "datasourceID"); id != "" {
+		return id, nil
 	}
-	userID := bimw.UserID(r.Context())
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		// 2. Query param
+		if qid := r.URL.Query().Get("datasource_id"); qid != "" {
+			return qid, nil
+		}
+		return "", errors.New("datasource id required")
+	}
+
+	path := r.URL.Path
+	if strings.Contains(path, "/metadata/tables/") {
+		t, err := h.deps.MetaRepo.GetTable(ctx, id)
+		if err != nil {
+			return "", err
+		}
+		return t.DatasourceID, nil
+	}
+	if strings.Contains(path, "/metadata/columns/") {
+		c, err := h.deps.MetaRepo.GetColumn(ctx, id)
+		if err != nil {
+			return "", err
+		}
+		return c.DatasourceID, nil
+	}
+	return id, nil
+}
+
+// CheckDatasourceAccess checks if the current user has the given access level on the datasource.
+func (h *MetadataHandler) CheckDatasourceAccess(ctx context.Context, datasourceID, level string) (bool, error) {
+	if h.accessChecker == nil || bimw.HasRole(ctx, bimw.RoleSuperAdmin) {
+		return true, nil
+	}
+	userID := bimw.UserID(ctx)
 	if userID == "" {
-		writeError(w, http.StatusUnauthorized, "authentication required")
-		return false
+		return false, errors.New("authentication required")
 	}
-	allowed, err := h.accessChecker.CheckDatasourceAccess(r.Context(), userID, datasourceID, level)
+	return h.accessChecker.CheckDatasourceAccess(ctx, userID, datasourceID, level)
+}
+
+func (h *MetadataHandler) requireDatasourceAccess(w http.ResponseWriter, r *http.Request, datasourceID, level string) bool {
+	allowed, err := h.CheckDatasourceAccess(r.Context(), datasourceID, level)
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, "datasource access check failed")
+		if err.Error() == "authentication required" {
+			writeError(w, http.StatusUnauthorized, "authentication required")
+		} else {
+			writeError(w, http.StatusServiceUnavailable, "datasource access check failed")
+		}
 		return false
 	}
 	if !allowed {
@@ -68,10 +112,7 @@ func (h *MetadataHandler) requireTableAccess(w http.ResponseWriter, r *http.Requ
 		writeEntityNotFound(w, "table")
 		return false
 	}
-	if !h.requireDatasourceAccess(w, r, t.DatasourceID, level) {
-		return false
-	}
-	return true
+	return h.requireDatasourceAccess(w, r, t.DatasourceID, level)
 }
 
 func (h *MetadataHandler) requireColumnAccess(w http.ResponseWriter, r *http.Request, id, level string) bool {
@@ -80,10 +121,7 @@ func (h *MetadataHandler) requireColumnAccess(w http.ResponseWriter, r *http.Req
 		writeEntityNotFound(w, "column")
 		return false
 	}
-	if !h.requireDatasourceAccess(w, r, c.DatasourceID, level) {
-		return false
-	}
-	return true
+	return h.requireDatasourceAccess(w, r, c.DatasourceID, level)
 }
 
 func (h *MetadataHandler) requireMetadataEntityAccess(w http.ResponseWriter, r *http.Request, entityType, id, level string) bool {
