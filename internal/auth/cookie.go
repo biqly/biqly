@@ -62,7 +62,9 @@ func setSecureResponseCookie(w http.ResponseWriter, src *http.Cookie) {
 //nolint:gosec // G124: intentional plain-HTTP local dev exception on port 8889 only.
 func writePlainHTTPDevCookie(w http.ResponseWriter, src *http.Cookie) {
 	c := *src
-	// codeql[go/cookie-secure-not-set]: Plain HTTP on local auth dev port 8889 requires Secure=false so browsers accept the cookie.
+	// Plain HTTP on local auth dev port 8889 requires Secure=false so browsers accept the cookie.
+	// codeql[go/cookie-secure-not-set]
+	// lgtm[go/cookie-secure-not-set]
 	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
 		Name:       c.Name,
 		Value:      c.Value,
@@ -71,10 +73,12 @@ func writePlainHTTPDevCookie(w http.ResponseWriter, src *http.Cookie) {
 		Expires:    c.Expires,
 		RawExpires: c.RawExpires,
 		MaxAge:     c.MaxAge,
-		Secure:     false,
-		HttpOnly:   true,
-		SameSite:   c.SameSite,
-		Raw:        c.Raw,
-		Unparsed:   c.Unparsed,
+		// codeql[go/cookie-secure-not-set]
+		// lgtm[go/cookie-secure-not-set]
+		Secure:   false,
+		HttpOnly: true,
+		SameSite: c.SameSite,
+		Raw:      c.Raw,
+		Unparsed: c.Unparsed,
 	})
 }
