@@ -5,9 +5,11 @@ import { useNavigate } from 'react-router-dom'
 
 import { getAIHistoryDetail, listAIHistory } from '../api/admin'
 import { useDatasources } from '../hooks/useDatasources'
+import { usePaginatedList } from '../hooks/usePaginatedList'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
 import type { AIHistoryEntry } from '../types/auth'
+import type { PageQuery } from '../types/pagination'
 import { pickValidId } from '../utils/effectiveSelection'
 import { useAuth } from './auth/AuthProvider'
 import { EmptyState } from './ui/EmptyState'
@@ -20,11 +22,6 @@ export default function QueryHistory() {
   const navigate = useNavigate()
   const { accessToken } = useAuth()
 
-  const [entries, setEntries] = useState<AIHistoryEntry[]>([])
-  const [totalItems, setTotalItems] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
   const { datasources } = useDatasources()
   const { models } = useSemanticModels(null, { all: true })
 
@@ -35,9 +32,6 @@ export default function QueryHistory() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
-
-  const pageSize = 10
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
 
   const filteredModels = useMemo(() => {
     if (!selectedDatasourceId) {
@@ -52,12 +46,37 @@ export default function QueryHistory() {
   )
 
   const filterKey = `${selectedDatasourceId}|${effectiveModelId}|${statusFilter}|${debouncedSearch}`
-  const [pageState, setPageState] = useState({ key: filterKey, page: 1 })
-  const currentPage = pageState.key === filterKey ? pageState.page : 1
-  const setCurrentPage = useCallback(
-    (page: number) => setPageState({ key: filterKey, page }),
-    [filterKey],
+
+  const fetcher = useCallback(
+    async (q: PageQuery) => {
+      const res = await listAIHistory(accessToken ?? '', {
+        page: q.page,
+        pageSize: q.pageSize,
+        datasourceId: selectedDatasourceId || undefined,
+        modelId: effectiveModelId || undefined,
+        status: statusFilter || undefined,
+        search: debouncedSearch || undefined,
+      })
+      return { items: res.entries, total: res.total }
+    },
+    [accessToken, selectedDatasourceId, effectiveModelId, statusFilter, debouncedSearch],
   )
+  const {
+    items: entries,
+    loading,
+    error,
+    page: currentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    totalPages,
+    total: totalItems,
+  } = usePaginatedList<AIHistoryEntry>({
+    fetcher,
+    initialPageSize: 10,
+    enabled: Boolean(accessToken),
+    fetchKey: accessToken ?? '',
+    resetPageKey: filterKey,
+  })
 
   const [detailCache, setDetailCache] = useState<Record<string, AIHistoryEntry | null>>({})
   const [inFlightDetailId, setInFlightDetailId] = useState<string | null>(null)
@@ -66,43 +85,6 @@ export default function QueryHistory() {
     const timer = window.setTimeout(() => setDebouncedSearch(searchInput), 300)
     return () => window.clearTimeout(timer)
   }, [searchInput])
-
-  const loadHistory = useCallback(async () => {
-    if (!accessToken) {
-      return
-    }
-    setLoading(true)
-    try {
-      const res = await listAIHistory(accessToken, {
-        page: currentPage,
-        pageSize,
-        datasourceId: selectedDatasourceId || undefined,
-        modelId: effectiveModelId || undefined,
-        status: statusFilter || undefined,
-        search: debouncedSearch || undefined,
-      })
-      setEntries(res.entries)
-      setTotalItems(res.total)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [
-    accessToken,
-    currentPage,
-    pageSize,
-    selectedDatasourceId,
-    effectiveModelId,
-    statusFilter,
-    debouncedSearch,
-  ])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadHistory()
-  }, [loadHistory])
 
   useEffect(() => {
     if (!expandedId || !accessToken || expandedId in detailCache) {

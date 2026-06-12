@@ -214,11 +214,9 @@ func staleJobOlderThan(r *http.Request) time.Duration {
 
 func (h *AIJobsHandler) ListStale(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("client_session_id")
-	limit := 100
-	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 {
-			limit = n
-		}
+	limit := bimw.PaginationFromContext(r.Context()).Limit
+	if limit <= 0 {
+		limit = 100
 	}
 	jobs, err := h.svc.repo.ListStaleAIJobs(r.Context(), sessionID, staleJobOlderThan(r), limit)
 	if err != nil {
@@ -292,11 +290,9 @@ func (h *AIJobsHandler) CancelActive(w http.ResponseWriter, r *http.Request) {
 // AdminList returns jobs across all users and sessions, active first, for the
 // admin AI jobs panel. Guarded by AdminAccessMiddleware on the route.
 func (h *AIJobsHandler) AdminList(w http.ResponseWriter, r *http.Request) {
-	limit := 200
-	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 {
-			limit = n
-		}
+	limit := bimw.PaginationFromContext(r.Context()).Limit
+	if limit <= 0 {
+		limit = 200
 	}
 	jobs, err := h.svc.repo.ListAIJobsAdmin(r.Context(), metadata.AIJobsAdminFilter{
 		Status: r.URL.Query().Get("status"),
@@ -315,11 +311,9 @@ func (h *AIJobsHandler) AdminList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AIJobsHandler) AdminListStale(w http.ResponseWriter, r *http.Request) {
-	limit := 200
-	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 {
-			limit = n
-		}
+	limit := bimw.PaginationFromContext(r.Context()).Limit
+	if limit <= 0 {
+		limit = 200
 	}
 	jobs, err := h.svc.repo.ListStaleAIJobs(r.Context(), "", staleJobOlderThan(r), limit)
 	if err != nil {

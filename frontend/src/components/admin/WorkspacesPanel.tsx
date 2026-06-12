@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 
 import { createWorkspace, deleteWorkspace, listWorkspaces } from '../../api/admin'
 import { useConfirm } from '../../hooks/useConfirm'
+import { usePaginatedList } from '../../hooks/usePaginatedList'
+import { errorMessage } from '../../hooks/usePaginatedListLogic'
 import { useQueryParam } from '../../hooks/useQueryParam'
 import { useT } from '../../i18n'
 import type { Workspace } from '../../types/auth'
+import type { PageQuery } from '../../types/pagination'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
 import { WorkspaceSettingsPage } from '../workspaces/WorkspaceSettingsPage'
@@ -12,40 +15,31 @@ import { WorkspaceSettingsPage } from '../workspaces/WorkspaceSettingsPage'
 export function WorkspacesPanel({ token }: { token: string }) {
   const t = useT()
   const confirm = useConfirm()
-  const [items, setItems] = useState<Workspace[]>([])
-  const [totalItems, setTotalItems] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [selectedWSParam, setSelectedWSParam] = useQueryParam('workspaceId')
   const [, setWorkspaceLabelParam] = useQueryParam('workspaceLabel')
   const selectedWS = selectedWSParam || null
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10
-  const totalPages = Math.ceil(totalItems / pageSize)
-  const displayedItems = items
-
-  const reload = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await listWorkspaces(token, currentPage, pageSize)
-      setItems(res.workspaces)
-      setTotalItems(res.total)
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setLoading(false)
-    }
-  }, [currentPage, pageSize, token])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void reload()
-  }, [reload])
+  const fetcher = useCallback(
+    async (q: PageQuery) => {
+      const res = await listWorkspaces(token, q.page, q.pageSize)
+      return { items: res.workspaces, total: res.total }
+    },
+    [token],
+  )
+  const {
+    items: displayedItems,
+    loading,
+    error,
+    setError,
+    page: currentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    totalPages,
+    total: totalItems,
+    reload,
+  } = usePaginatedList<Workspace>({ fetcher, initialPageSize: 10, fetchKey: token })
 
   async function onCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -59,10 +53,10 @@ export function WorkspacesPanel({ token }: { token: string }) {
       if (currentPage !== 1) {
         setCurrentPage(1)
       } else {
-        void reload()
+        reload()
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 
@@ -76,9 +70,9 @@ export function WorkspacesPanel({ token }: { token: string }) {
     }
     try {
       await deleteWorkspace(token, id)
-      void reload()
+      reload()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 

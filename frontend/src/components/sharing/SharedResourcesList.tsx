@@ -1,11 +1,14 @@
 import '../../styles/sharing.css'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
 
 import { deleteShare, listShares } from '../../api/admin'
 import { useConfirm } from '../../hooks/useConfirm'
+import { usePaginatedList } from '../../hooks/usePaginatedList'
+import { errorMessage } from '../../hooks/usePaginatedListLogic'
 import { useT } from '../../i18n'
 import type { ResourceShare } from '../../types/auth'
+import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
@@ -19,47 +22,36 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
   const t = useT()
   const confirm = useConfirm()
   const { accessToken } = useAuth()
-  const [items, setItems] = useState<ResourceShare[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10
-  const [totalItems, setTotalItems] = useState(0)
-  const totalPages = Math.ceil(totalItems / pageSize)
-  const displayedItems = items
-
-  const load = useCallback(async () => {
-    if (!accessToken) {
-      return
-    }
-    setLoading(true)
-    try {
-      const res = await listShares(accessToken, {
-        page: currentPage,
-        pageSize,
+  const fetcher = useCallback(
+    async (q: PageQuery) => {
+      const res = await listShares(accessToken ?? '', {
+        page: q.page,
+        pageSize: q.pageSize,
         resourceType,
       })
-      setItems(res.shares)
-      setTotalItems(res.total)
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setLoading(false)
-    }
-  }, [accessToken, currentPage, pageSize, resourceType])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load()
-  }, [load, refreshKey])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCurrentPage(1)
-  }, [resourceType])
+      return { items: res.shares, total: res.total }
+    },
+    [accessToken, resourceType],
+  )
+  const {
+    items: displayedItems,
+    loading,
+    error,
+    setError,
+    page: currentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    totalPages,
+    total: totalItems,
+    reload,
+  } = usePaginatedList<ResourceShare>({
+    fetcher,
+    initialPageSize: 10,
+    enabled: Boolean(accessToken),
+    fetchKey: `${accessToken ?? ''}|${refreshKey ?? 0}`,
+    resetPageKey: resourceType ?? '',
+  })
 
   async function onRevoke(id: string) {
     if (!accessToken) {
@@ -74,9 +66,9 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     }
     try {
       await deleteShare(accessToken, id)
-      void load()
+      reload()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 

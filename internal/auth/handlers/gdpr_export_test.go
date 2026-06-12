@@ -22,7 +22,19 @@ func TestGDPRExportCompleteness(t *testing.T) {
 
 	const email = "gdpr-export@example.invalid"
 	cleanup := func() {
-		_, _ = db.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
+		t.Helper()
+		statements := []string{
+			"DELETE FROM oauth_accounts WHERE user_id IN (SELECT id FROM users WHERE email = $1)",
+			"DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email = $1)",
+			"DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = $1)",
+			"DELETE FROM workspace_members WHERE user_id IN (SELECT id FROM users WHERE email = $1)",
+			"DELETE FROM workspaces WHERE created_by IN (SELECT id FROM users WHERE email = $1)",
+			"DELETE FROM users WHERE email = $1",
+		}
+		for _, stmt := range statements {
+			_, err := db.ExecContext(ctx, stmt, email)
+			require.NoError(t, err)
+		}
 	}
 	cleanup()
 	t.Cleanup(cleanup)

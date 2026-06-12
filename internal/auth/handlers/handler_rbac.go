@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/bytedance/sonic"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/biqly/biqly/internal/auth"
 	"github.com/biqly/biqly/internal/auth/rbac"
 	"github.com/biqly/biqly/internal/auth/workspace"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/http/response"
 	"github.com/biqly/biqly/pkg/common/requestid"
 )
@@ -122,28 +122,30 @@ func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler)
 	r.Group(func(r chi.Router) {
 		r.Use(authMW)
 
-		r.Get("/workspaces", h.handleListWorkspaces)
+		slicePagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 10, MaxPageSize: 100000})
+
+		r.With(slicePagination).Get("/workspaces", h.handleListWorkspaces)
 		r.With(h.requirePermission("workspace:create")).Post("/workspaces", h.handleCreateWorkspace)
 		r.Get("/workspaces/{id}", h.handleGetWorkspace)
 		r.With(h.requireWorkspacePermission("admin:workspaces")).Put("/workspaces/{id}", h.handleUpdateWorkspace)
 		r.With(h.requireWorkspacePermission("admin:workspaces")).Delete("/workspaces/{id}", h.handleDeleteWorkspace)
 
-		r.Get("/workspaces/{id}/members", h.handleListMembers)
+		r.With(slicePagination).Get("/workspaces/{id}/members", h.handleListMembers)
 		r.With(h.requireWorkspacePermission("workspace:invite", "admin:workspaces")).Post("/workspaces/{id}/members", h.handleAddMember)
 		r.With(h.requireWorkspacePermission("workspace:invite", "admin:workspaces")).Put("/workspaces/{id}/members/{userId}", h.handleUpdateMemberRole)
 		r.With(h.requireWorkspacePermission("workspace:invite", "admin:workspaces")).Delete("/workspaces/{id}/members/{userId}", h.handleRemoveMember)
 
-		r.Get("/workspaces/{id}/datasources", h.handleListWorkspaceDatasources)
+		r.With(slicePagination).Get("/workspaces/{id}/datasources", h.handleListWorkspaceDatasources)
 		r.With(h.requireWorkspacePermission("workspace:manage_datasources", "admin:workspaces")).Post("/workspaces/{id}/datasources", h.handleAttachDatasource)
 		r.With(h.requireWorkspacePermission("workspace:manage_datasources", "admin:workspaces")).Delete("/workspaces/{id}/datasources/{dsId}", h.handleDetachDatasource)
 
 		r.Get("/me/permissions", h.handleMyPermissions)
-		r.Get("/me/datasources", h.handleListMyDatasources)
+		r.With(slicePagination).Get("/me/datasources", h.handleListMyDatasources)
 		r.Get("/me/datasources/{id}/check", h.handleCheckMyDatasource)
 		r.Post("/me/datasources/{id}/request-access", h.handleRequestAccess)
 
 		r.Post("/shares", h.handleCreateShare)
-		r.Get("/shares", h.handleListShares)
+		r.With(slicePagination).Get("/shares", h.handleListShares)
 		r.Delete("/shares/{id}", h.handleRevokeShare)
 
 		h.registerAIModelAccessUserRoutes(r)
@@ -151,7 +153,7 @@ func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler)
 		r.Route("/admin", func(r chi.Router) {
 			r.Group(func(r chi.Router) {
 				r.Use(h.requirePermission("datasource:grant_access"))
-				r.Get("/datasource-access", h.handleAdminListAccess)
+				r.With(slicePagination).Get("/datasource-access", h.handleAdminListAccess)
 				r.Post("/datasource-access", h.handleAdminGrantAccess)
 				r.Put("/datasource-access/{id}", h.handleAdminUpdateAccess)
 				r.Delete("/datasource-access/{id}", h.handleAdminRevokeAccess)
@@ -159,23 +161,24 @@ func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler)
 
 			r.Group(func(r chi.Router) {
 				r.Use(h.requirePermission("admin:roles"))
-				r.Get("/roles", h.handleAdminListRoles)
+				r.With(slicePagination).Get("/roles", h.handleAdminListRoles)
 				r.Get("/roles/{roleId}/permissions", h.handleAdminGetRolePermissions)
 				r.Put("/roles/{roleId}/permissions", h.handleAdminSetRolePermissions)
-				r.Get("/permissions", h.handleAdminListPermissions)
+				r.With(slicePagination).Get("/permissions", h.handleAdminListPermissions)
 				r.Post("/users/{id}/roles", h.handleAdminAssignRole)
 				r.Delete("/users/{id}/roles/{roleId}", h.handleAdminRemoveRole)
 			})
 
 			r.Group(func(r chi.Router) {
 				r.Use(h.requirePermission("admin:users"))
-				r.Get("/users", h.handleAdminListUsers)
+				r.With(slicePagination).Get("/users", h.handleAdminListUsers)
 				r.Get("/users/{id}", h.handleAdminGetUser)
 				r.Get("/users/{id}/roles", h.handleAdminGetUserRoles)
 				r.Put("/users/{id}", h.handleAdminUpdateUser)
 			})
 
-			r.With(h.requirePermission("admin:audit")).Get("/audit-log", h.handleAdminListAuditLog)
+			auditPagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 10, MaxPageSize: 100000})
+			r.With(h.requirePermission("admin:audit"), auditPagination).Get("/audit-log", h.handleAdminListAuditLog)
 
 			r.Group(func(r chi.Router) {
 				r.Use(h.requirePermission("admin:settings", "admin:roles"))
@@ -753,30 +756,16 @@ func (h *RBACHandler) handleAdminListAuditLog(w http.ResponseWriter, r *http.Req
 
 func auditFilterFromQuery(r *http.Request) (auth.AuditFilter, error) {
 	q := r.URL.Query()
-
-	page := 1
-	if v := q.Get("page"); v != "" {
-		if n, err := parsePositiveInt(v); err == nil {
-			page = n
-		}
-	}
-
-	pageSize := 10
-	if v := q.Get("page_size"); v != "" {
-		if n, err := parsePositiveInt(v); err == nil {
-			pageSize = n
-		}
-	} else if v := q.Get("limit"); v != "" {
-		if n, err := parsePositiveInt(v); err == nil {
-			pageSize = n
-		}
+	pagination := bimw.PaginationFromContext(r.Context())
+	if pagination.PageSize <= 0 {
+		pagination.PageSize = 10
 	}
 
 	filter := auth.AuditFilter{
 		UserID: q.Get("user_id"),
 		Action: q.Get("action"),
-		Limit:  pageSize,
-		Offset: (page - 1) * pageSize,
+		Limit:  pagination.PageSize,
+		Offset: pagination.Offset,
 	}
 	if v := q.Get("from"); v != "" {
 		t, err := time.Parse(time.RFC3339, v)
@@ -825,20 +814,6 @@ func strOrEmpty(p *string) string {
 		return ""
 	}
 	return *p
-}
-
-func parsePositiveInt(s string) (int, error) {
-	n, err := strconv.Atoi(s)
-	if err != nil {
-		return 0, err
-	}
-	if n <= 0 {
-		return 0, errors.New("non-positive")
-	}
-	if n > 100000 {
-		return 0, errors.New("value too large")
-	}
-	return n, nil
 }
 
 func (h *RBACHandler) handleAdminRemoveRole(w http.ResponseWriter, r *http.Request) {
@@ -1143,30 +1118,16 @@ func (h *RBACHandler) handleAdminUpdateUser(w http.ResponseWriter, r *http.Reque
 
 func paginateSlice[T any](r *http.Request, items []T) (paginated []T, total int) {
 	total = len(items)
-	q := r.URL.Query()
-	pageStr := q.Get("page")
-	pageSizeStr := q.Get("page_size")
-
-	if pageStr == "" && pageSizeStr == "" {
+	pagination := bimw.PaginationFromContext(r.Context())
+	if !pagination.Requested {
 		return items, total
 	}
-
-	page := 1
-	if pageStr != "" {
-		if p, err := parsePositiveInt(pageStr); err == nil {
-			page = p
-		}
+	if pagination.PageSize <= 0 {
+		pagination.PageSize = 10
 	}
 
-	pageSize := 10
-	if pageSizeStr != "" {
-		if ps, err := parsePositiveInt(pageSizeStr); err == nil {
-			pageSize = ps
-		}
-	}
-
-	start := (page - 1) * pageSize
-	end := start + pageSize
+	start := pagination.Offset
+	end := start + pagination.PageSize
 
 	if start > total {
 		return []T{}, total

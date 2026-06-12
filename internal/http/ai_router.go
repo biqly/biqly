@@ -76,20 +76,24 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 		dsAccess = func(next http.Handler) http.Handler { return next }
 	}
 	aiUserMW := bimw.InjectAIUserContext
+	aiHistoryPagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 10, MaxPageSize: 100})
+	queryHistoryPagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 10, MaxPageSize: 50})
+	staleJobsPagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 100, MaxPageSize: 500})
+	adminJobsPagination := bimw.Paginate(bimw.PaginationConfig{DefaultPage: 1, DefaultPageSize: 200, MaxPageSize: 500})
 	if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {
 		r.With(dsAccess).Post("/ai/jobs", deps.AIJobsHTTP.Create)
 		r.Get("/ai/jobs/describe-batch/conflict", deps.AIJobsHTTP.DescribeBatchConflict)
 		r.Get("/ai/jobs", deps.AIJobsHTTP.List)
 		r.Get("/ai/jobs/queue/status", deps.AIJobsHTTP.QueueStatus)
-		r.Get("/ai/jobs/stale", deps.AIJobsHTTP.ListStale)
+		r.With(staleJobsPagination).Get("/ai/jobs/stale", deps.AIJobsHTTP.ListStale)
 		r.Post("/ai/jobs/cancel-active", deps.AIJobsHTTP.CancelActive)
 		r.Post("/ai/jobs/cancel-batch", deps.AIJobsHTTP.CancelBatch)
 		r.Get("/ai/jobs/{id}", deps.AIJobsHTTP.Get)
 		r.Delete("/ai/jobs/{id}", deps.AIJobsHTTP.Cancel)
 	}
-	r.Get("/ai/history", aiHandler.AIHistory)
+	r.With(aiHistoryPagination).Get("/ai/history", aiHandler.AIHistory)
 	r.Get("/ai/history/detail", aiHandler.AIHistoryDetail)
-	r.Get("/ai/query/history", aiHandler.QueryHistory)
+	r.With(queryHistoryPagination).Get("/ai/query/history", aiHandler.QueryHistory)
 	r.With(aiUserMW, dsAccess).Post("/ai/query", aiHandler.Query)
 	r.With(aiUserMW, dsAccess).Post("/ai/query/preview", aiHandler.Preview)
 	r.With(aiUserMW, dsAccess).Post("/ai/query/run", aiHandler.Run)
@@ -104,8 +108,8 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 		// (machine-to-machine), or JWTs whose RBAC grants ai:settings.
 		r.Use(handlers.AdminAccessMiddleware(deps.Config.Security.AdminAPIKey, authClient, "ai:settings"))
 		if deps.Jobs.Enabled && deps.AIJobsHTTP != nil {
-			r.Get("/ai/jobs/admin", deps.AIJobsHTTP.AdminList)
-			r.Get("/ai/jobs/admin/stale", deps.AIJobsHTTP.AdminListStale)
+			r.With(adminJobsPagination).Get("/ai/jobs/admin", deps.AIJobsHTTP.AdminList)
+			r.With(adminJobsPagination).Get("/ai/jobs/admin/stale", deps.AIJobsHTTP.AdminListStale)
 			r.Post("/ai/jobs/admin/cancel-all-stale", deps.AIJobsHTTP.AdminCancelAllStale)
 			r.Post("/ai/jobs/admin/cancel-batch", deps.AIJobsHTTP.CancelBatch)
 		}

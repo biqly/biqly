@@ -1,5 +1,180 @@
 # Todo list
 
+## Backend Middleware & Yardımcı Fonksiyon Konsolidasyonu (2026-06-12)
+
+Amaç: HTTP handler katmanındaki tekrarlanan kalıpları middleware ve ortak yardımcılara çekerek kod tekrarını azaltmak, tutarlılığı artırmak ve bakım maliyetini düşürmek.
+
+### Mevcut Altyapı
+
+**`internal/http/middleware/`** mevcut middleware'ler: `Paginate`, `JWTAuth`, `APIKeyAuth`, `RequirePermission`, `RequireDatasourceAccess`, `RealIP`, `SecurityHeaders`, `Locale`, `InjectAIUserContext`.
+
+**Dağılmış middleware'ler:** `request_logger.go`, `request_id.go`, `metrics_middleware.go`, `catalog_metrics_middleware.go`, `handlers/admin_middleware.go`, `handlers/internal_auth_middleware.go`, `handlers/internal_audit_middleware.go`.
+
+**Mevcut yardımcılar:** `response/response.go` (`WriteJSON`, `WriteError`, `WriteInternalError`), `handlers/helpers.go` (`decodeJSON[T]`, `writeJSON`, `writeError`, `requireURLParam`, `resolveAccessibleDatasources`).
+
+### MW-1 — Router Middleware Stack Tekilleştirmesi [HIGH]
+
+6 ayrı binary (monolith, AI, query, catalog, auth, mail) aynı chi middleware zincirini kopyalıyor. Auth servisi (`cmd/auth/main.go`) ayrıca `requestIDPropagationMiddleware`'i yeniden implement ediyor.
+
+- [ ] `internal/http/middleware/` veya yeni `internal/http/router_base.go` içinde `BaseMiddlewareConfig` struct + `ApplyBaseMiddleware(r chi.Router, cfg BaseMiddlewareConfig)` oluştur
+- [ ] Monolith router'ı (`internal/http/router.go:27-60`) yeni fonksiyonu kullanacak şekilde refaktor et
+- [ ] AI router (`internal/http/ai_router.go:18-27`) — aynı
+- [ ] Query router (`internal/http/query_router.go:18-27`) — aynı
+- [ ] Catalog router (`internal/http/catalog_router.go:18-27`) — aynı
+- [ ] Auth service (`cmd/auth/main.go:280-310`) — kendi `propagateRequestID` kopyasını sil, `internal/http/`'deki export edilmiş versiyonu kullan
+- [ ] Mail service (`cmd/mail/main.go:93-97`) — eksik request ID propagation + request logger'ı ekle
+- [ ] Regresyon testi: her router'ın aynı middleware zincirini ürettiğini doğrula
+
+**Etki:** ~120 satır tekrar kalkar, tek kaynak. Yeni servis eklendiğinde tek satır.
+
+### MW-2 — JSON Decode + Error Response Boilerplate (Auth Handlers) [HIGH]
+
+Auth handler'lar (`internal/auth/handlers/handler.go`, `handler_rbac.go`, `handler_mfa.go`) ~45 yerde `sonic.Decode + respondError` kalıbını tekrarlıyor. Ana handler paketindeki `decodeJSON[T]` generic helper'ı kullanmıyor — ve `http.MaxBytesReader` koruması da eksik.
+
+- [ ] `decodeJSON[T]`'yi `internal/http/response/` paketine taşı (veya yeni `internal/http/request/` paketi)
+- [ ] Auth handler'ların tümünü `decodeJSON[T]`'ye geçir
+- [ ] `http.MaxBytesReader` koruması otomatik gelsin
+- [ ] Regresyon testi: MaxBytesReader limit aşımı 413 dönüyor; hatalı JSON 400 dönüyor
+
+**Etki:** ~90 satır kalkar, auth endpoint'leri payload bombasına karşı korunur.
+
+**Dosyalar:** `internal/auth/handlers/handler.go`, `handler_rbac.go`, `handler_mfa.go`, `internal/http/handlers/helpers.go`, `internal/http/response/response.go`
+
+### MW-3 — `writeJSON`/`writeError`/`respondError` Konsolidasyonu [HIGH]
+
+4 ayrı implementasyon: `response.WriteJSON`, `handlers.writeJSON`, `cmd/auth/main.go:381` (nil-slice normalization eksik), `auth/handlers/handler_rbac.go:981`. Aynı şekilde error helper'lar 3-4 yerde dağılmış.
+
+- [ ] `internal/http/response/` paketini tek canonical kaynak yap
+  - `WriteJSON` — nil-slice normalization + error logging içerir (mevcut hali)
+  - `WriteError(w, status, message)` — 5xx mesaj sanitizasyonu içerir (auth'daki `respondError` mantığını birleştir)
+  - `WriteInternalError(ctx, w, msg, err)` — log + sanitized public response
+- [ ] `handlers/helpers.go`'daki `writeJSON`/`writeError`/`writeInternalError`'ı `response.*` wrapper'larına geçir
+- [ ] `cmd/auth/main.go`'daki standalone `writeJSON`'ı kaldır, `response.WriteJSON` kullan
+- [ ] `internal/auth/handlers/`'daki `respondError`/`writeError`'ı `response.WriteError`'a geçir
+- [ ] Regresyon testi: nil slice → `[]`, 5xx → sanitized mesaj, 4xx → raw mesaj
+
+**Etki:** Tek tutarlı response API. 5xx sanitizasyonu tüm servislerde garanti.
+
+**Dosyalar:** `internal/http/response/response.go`, `internal/http/handlers/helpers.go`, `cmd/auth/main.go`, `internal/auth/handlers/handler.go`, `handler_rbac.go`
+
+### MW-4 — Auth Handler Pagination → Middleware Kullanımı [MEDIUM]
+
+`internal/auth/handlers/handler.go:1200-1221` pagination'ı manuel implement ediyor (`strconv.Atoi`, default values, slice offset). `bimw.Paginate` middleware'i zaten aynı işi yapıyor.
+
+- [ ] Auth service route'larına `bimw.Paginate` middleware'ini ekle
+- [ ] `handleAdminListInvitations`'da manuel pagination kodunu `bimw.PaginationFromContext`'e geçir
+- [ ] Regresyon testi: page/page_size query param'ları doğru context değerini üretiyor
+
+**Dosyalar:** `internal/auth/handlers/handler.go`, auth router dosyası
+
+### MW-5 — `resolveWorkspaceDatasourceFilter` vs `resolveAccessibleDatasources` Birleştirme [MEDIUM]
+
+İki fonksiyon neredeyse aynı işi yapıyor (auth check → super admin bypass → user datasources → workspace intersect), 7 handler dosyasından 11 yerde çağrılıyor.
+
+- [ ] Tek fonksiyon: `resolveDatasourceScope(ctx, cfg) (map[string]struct{}, bool, error)` — error handling opsiyonel (fail-closed vs return error)
+- [ ] `internal/http/handlers/datasource_scope.go`'ya taşı
+- [ ] Tüm call site'leri güncelle
+- [ ] Regresyon testi: super admin bypass, auth disabled, normal user scope
+
+**Dosyalar:** `internal/http/handlers/history_filter.go`, `internal/http/handlers/helpers.go`, 7 handler dosyası
+
+### MW-6 — Request ID Propagation Export [MEDIUM]
+
+`internal/http/request_id.go`'daki `requestIDPropagationMiddleware` unexported. `cmd/auth/main.go` kendi kopyasını (`propagateRequestID`) yazmış.
+
+- [ ] `requestIDPropagationMiddleware` → `RequestIDPropagation` olarak export et
+- [ ] `cmd/auth/main.go`'daki `propagateRequestID`'yi sil, export edilmiş versiyonu kullan
+- [ ] MW-1 ile birlikte router_base'e dahil et
+
+**Dosyalar:** `internal/http/request_id.go`, `cmd/auth/main.go`
+
+### MW-7 — `requireQueryParam` Kullanımını Genelleştir [MEDIUM]
+
+`datasource_id is required` kontrolü 7 handler dosyasında tekrarlanıyor. `internal/http/handlers/internal.go:361-369`'da `requireQueryParam` zaten var ama package-private ve tutarsız kullanılıyor. `helpers.go:180-187`'de `requireURLParam` da var.
+
+- [ ] `requireQueryParam(w, r, key string) (string, bool)` fonksiyonunu `internal/http/response/` veya `helpers.go`'da export et
+- [ ] 7 call site'i güncelle: `ai_glossary.go`, `ai_examples.go`, `ai_job_service.go`, `semantic.go`, `composite.go`, `ai_jobs.go`
+- [ ] Regresyon testi: eksik param → 400 + `"datasource_id is required"`
+
+**Dosyalar:** `internal/http/handlers/helpers.go`, `internal.go`, yukarıdaki 7 handler dosyası
+
+### MW-8 — `statusRecorder` Tip Tekilleştirmesi [LOW]
+
+2 ayrı ama özdeş struct: `handlers/internal_audit_middleware.go:49-57` (`statusRecorder`) ve `catalog_metrics_middleware.go:28-36` (`metricsStatusRecorder`).
+
+- [ ] `response.StatusRecorder` tipi oluştur `internal/http/response/` altında
+- [ ] Her iki kullanım yeri güncelle
+- [ ] Test: `WriteHeader` çağrısında status correctly capture ediliyor
+
+**Dosyalar:** `internal/http/response/response.go`, `internal/http/handlers/internal_audit_middleware.go`, `internal/http/catalog_metrics_middleware.go`
+
+### MW-9 — `{"status":"ok"}` Response Helper [LOW]
+
+10 handler aynı success envelope'u manuel oluşturuyor: `writeJSON(w, 200, map[string]string{"status":"ok"})`.
+
+- [ ] `response.WriteOK(w)` helper'ı ekle
+- [ ] 10 call site'i güncelle
+- [ ] Test: response body `{"status":"ok"}`
+
+**Dosyalar:** `internal/http/response/response.go`, `ai_glossary.go`, `ai_time_grains.go`, `ai_providers.go`, `ab_experiment.go`, `ai_prompt_templates.go`
+
+### MW-10 — Integer Query Param Parsing Helper [MEDIUM]
+
+5 yerde `strconv.Atoi` ile inline limit/integer parse ediliyor. `pagination.go:84-93`'te `parsePositiveQueryInt` var ama unexported.
+
+- [ ] `ParsePositiveIntQueryParam(r *http.Request, key string) (int, bool)` export et
+- [ ] `ai_examples.go`, `ai_jobs.go`, `semantic.go`'daki inline parse'ları güncelle
+- [ ] Test: geçersiz değer → default, geçerli → parsed
+
+**Dosyalar:** `internal/http/middleware/pagination.go`, `internal/http/handlers/ai_examples.go`, `ai_jobs.go`, `semantic.go`
+
+### MW-11 — Handler Datasource Access Check Birleştirme [MEDIUM]
+
+3 ayrı mekanizma datasource erişim kontrolü yapıyor: middleware seviyesi (`RequireDatasourceAccess`), handler metotları (`requireDatasourceAccess`, `requireTableAccess`/`requireColumnAccess`). Handler seviyesindeki kontroller entity ID'den datasource resolve ettiği için middleware ile tam kapsanamıyor.
+
+- [ ] `ResolveDatasourceID(r *http.Request)` helper'ı oluştur: URL param, query param VE entity lookup (table/column → datasource ID)
+- [ ] Tek `CheckDatasourceAccess(ctx, dsID, level)` helper'ı
+- [ ] `metadata.go`'daki `requireDatasourceAccess`/`requireTableAccess`/`requireColumnAccess`'ı buna geçir
+- [ ] Regresyon testi: table UUID → datasource resolve → access check
+
+**Dosyalar:** `internal/http/handlers/metadata.go`, `internal/http/middleware/permission.go`
+
+### MW-12 — Auth Handler `requireUserID` → Shared Helper [MEDIUM]
+
+Auth handler kendi context key'leriyle `requireUserID` kullanıyor (~15 call site). Ana handler paketi `bimw.UserID(ctx)` kullanıyor.
+
+- [ ] Auth handler'ın context key'lerini `bimw` paketiyle uyumlu yap (veya `bimw.UserID`'yi auth middleware'in de set ettiği garanti altına al)
+- [ ] `requireUserID` → `requireUserIDFromContext(ctx, w) (string, bool)` shared helper
+- [ ] Regresyon testi: auth JWT sonrası context'te doğru user ID
+
+**Dosyalar:** `internal/auth/handlers/handler.go`, `internal/http/middleware/jwt.go`
+
+### Öncelik Sırası
+
+| Sıra | Madde | Öncelik | Tahmini Etki |
+|---|---|---|---|
+| 1 | MW-1 Router stack tekilleştirme | HIGH | ~120 satır, tek kaynak |
+| 2 | MW-2 JSON decode generic helper | HIGH | ~90 satır, güvenlik (MaxBytes) |
+| 3 | MW-3 Response helper konsolidasyonu | HIGH | Tutarlı response API |
+| 4 | MW-4 Auth pagination → middleware | MEDIUM | Middleware kullanımı |
+| 5 | MW-6 Request ID export | MEDIUM | 2 kopya → 1 |
+| 6 | MW-5 Datasource scope birleştirme | MEDIUM | 11 call site |
+| 7 | MW-7 requireQueryParam genelleştirme | MEDIUM | 7 call site |
+| 8 | MW-10 Int query param helper | MEDIUM | 5 call site |
+| 9 | MW-11 Datasource access birleştirme | MEDIUM | 3 implementasyon |
+| 10 | MW-12 Auth requireUserID | MEDIUM | ~15 call site |
+| 11 | MW-8 statusRecorder tipi | LOW | 2 kopya |
+| 12 | MW-9 writeOK helper | LOW | 10 call site |
+
+### Bağımlılıklar
+
+- MW-1 bağımsız (herhangi bir sırayla başlanabilir)
+- MW-3 → MW-2 (response paketi önce konsolide edilmeli)
+- MW-1 → MW-6 (request ID export router_base'e dahil)
+- MW-4 auth router'a middleware eklemini gerektirir (MW-1 sonrası daha kolay)
+
+---
+
 ## AI job "queryclient: 404: resource not found" fix (2026-06-11)
 
 ### Tespit
@@ -2867,3 +3042,38 @@ Success criteria:
 - [x] Update row modal navigation, layout, scroll, infinite loading, and overflow popover UI.
 - [x] Fix ID-like numeric formatting and add regression coverage.
 - [x] Run focused frontend verification and document results.
+
+## Backend Pagination Middleware Plan
+
+Success criteria:
+
+- HTTP pagination query parsing lives in one middleware/context helper instead of repeated handler parsing.
+- Endpoint-specific defaults and caps are preserved for AI history, stale AI jobs, and auth audit listing.
+- Focused Go tests prove default, alias, invalid, and max-clamp behavior.
+
+- [x] Add failing middleware tests for pagination defaults, `page_size`/`limit` aliases, invalid values, and clamping.
+- [x] Implement shared pagination middleware and context accessor under `internal/http/middleware`.
+- [x] Replace repeated handler parsing in the targeted backend endpoints.
+- [x] Run focused Go verification and document results.
+
+## Backend Pagination Middleware Review
+
+Resolved:
+
+1. Added `bimw.Paginate` with endpoint-configurable defaults/caps and `PaginationFromContext` for normalized `Page`, `PageSize`, `Limit`, and `Offset`.
+2. Wired middleware into AI history, AI query history, AI stale/admin jobs, auth audit log, and RBAC slice-list routes.
+3. Removed repeated HTTP query parsing from the targeted handlers while preserving endpoint defaults and the RBAC no-query returns-all behavior.
+4. Stabilized `TestGDPRExportCompleteness` cleanup so leftover OAuth/session/workspace rows do not block repeated auth handler test runs.
+
+Verification:
+
+- Red: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/middleware -run 'TestPaginate|TestPaginationFromContext' -count=1` failed on missing pagination types/functions.
+- Green: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/middleware -run 'TestPaginate|TestPaginationFromContext' -count=1`
+- `GOCACHE=/private/tmp/biqly-gocache go test ./internal/auth/handlers -run TestGDPRExportCompleteness -count=1`
+- `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/middleware ./internal/http ./internal/http/handlers ./internal/auth/handlers -count=1`
+- `make lint-go`
+- `git diff --check`
+
+Notes:
+
+- gograph MCP tools were not connected in this session, so `gograph_capabilities`, `gograph_plan`, and `gograph_review --uncommitted` could not be run.

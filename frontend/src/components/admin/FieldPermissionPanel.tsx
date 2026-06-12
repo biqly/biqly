@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { PIIAccessLevel, PIIColumn, PIIColumnAccess, SecurityPolicy } from '../../api/admin'
 import { getSecurityPolicyByKeys, listPIIColumns, upsertSecurityPolicy } from '../../api/admin'
-import { request } from '../../hooks/useApi'
+import { listSemanticModelFields } from '../../api/semantic'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
 import { useT } from '../../i18n'
-import type { SemanticModelFieldRow, SemanticModelFieldsPage } from '../../types/semantic'
+import type { SemanticModelFieldRow } from '../../types/semantic'
 import { pickValidIdOrFirst } from '../../utils/effectiveSelection'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
@@ -158,13 +158,10 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       return
     }
     void Promise.resolve().then(() => setLoadingFields(true))
-    const params = new URLSearchParams({
-      page: String(fieldPage),
-      page_size: String(fieldPageSize),
-    })
-    const { data, error: fieldsErr } = await request<SemanticModelFieldsPage>(
-      'GET',
-      `/api/semantic/models/${encodeURIComponent(selectedModel)}/fields?${params}`,
+    const { data, error: fieldsErr } = await listSemanticModelFields(
+      selectedModel,
+      fieldPage,
+      fieldPageSize,
     )
     if (fieldsErr) {
       setError(fieldsErr)

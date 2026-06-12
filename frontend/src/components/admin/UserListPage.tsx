@@ -3,9 +3,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { listUsers, resendUserVerification } from '../../api/admin'
 import { apiListInvitations, apiResendInvitation, apiRevokeInvitation } from '../../api/auth'
 import { useConfirm } from '../../hooks/useConfirm'
+import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useQueryParam } from '../../hooks/useQueryParam'
 import { useLocale, useT } from '../../i18n'
 import type { AuthUser, Invitation } from '../../types/auth'
+import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
 import { ActiveUsersTab } from './userList/ActiveUsersTab'
 import { InvitationsTab } from './userList/InvitationsTab'
@@ -20,15 +22,10 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const t = useT()
   const [locale] = useLocale()
   const confirm = useConfirm()
-  const [users, setUsers] = useState<AuthUser[]>([])
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
-  const [totalItems, setTotalItems] = useState(0)
 
   const { roles } = useAuth()
   const isSuperAdmin = roles.includes('super_admin')
@@ -40,16 +37,11 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const setSubTab = (val: 'active' | 'invitations') => {
     setSubTabParam(val === 'active' ? '' : val)
   }
-  const [invitations, setInvitations] = useState<Invitation[]>([])
   const [inviteSearch, setInviteSearch] = useState('')
   const [debouncedInviteSearch, setDebouncedInviteSearch] = useState('')
   const [inviteStatusFilter, setInviteStatusFilter] = useState<
     'all' | 'pending' | 'claimed' | 'expired'
   >('all')
-  const [invitesLoading, setInvitesLoading] = useState(false)
-  const [invitesError, setInvitesError] = useState<string | null>(null)
-  const [inviteCurrentPage, setInviteCurrentPage] = useState(1)
-  const [inviteTotalItems, setInviteTotalItems] = useState(0)
 
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [verificationLoadingId, setVerificationLoadingId] = useState<string | null>(null)
@@ -58,34 +50,61 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     text: string
   } | null>(null)
 
-  const loadInvitations = useCallback(async () => {
-    if (!isSuperAdmin) {
-      return
-    }
-    try {
-      setInvitesLoading(true)
+  const usersFetcher = useCallback(
+    async (q: PageQuery) => {
+      const res = await listUsers(token, {
+        page: q.page,
+        pageSize: q.pageSize,
+        search: debouncedSearch,
+        status: statusFilter,
+      })
+      return { items: res.users, total: res.total }
+    },
+    [token, debouncedSearch, statusFilter],
+  )
+  const {
+    items: users,
+    loading,
+    error,
+    page: currentPage,
+    setPage: setCurrentPage,
+    totalPages,
+    total: totalItems,
+  } = usePaginatedList<AuthUser>({
+    fetcher: usersFetcher,
+    initialPageSize: pageSize,
+    enabled: subTab === 'active',
+    fetchKey: token,
+    resetPageKey: `${debouncedSearch}|${statusFilter}`,
+  })
+
+  const invitationsFetcher = useCallback(
+    async (q: PageQuery) => {
       const res = await apiListInvitations(token, {
-        page: inviteCurrentPage,
-        pageSize,
+        page: q.page,
+        pageSize: q.pageSize,
         search: debouncedInviteSearch,
         status: inviteStatusFilter,
       })
-      setInvitations(res.invitations)
-      setInviteTotalItems(res.total)
-      setInvitesError(null)
-    } catch (e) {
-      setInvitesError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setInvitesLoading(false)
-    }
-  }, [debouncedInviteSearch, inviteCurrentPage, inviteStatusFilter, isSuperAdmin, pageSize, token])
-
-  useEffect(() => {
-    if (subTab === 'invitations') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      void loadInvitations()
-    }
-  }, [loadInvitations, subTab])
+      return { items: res.invitations, total: res.total }
+    },
+    [token, debouncedInviteSearch, inviteStatusFilter],
+  )
+  const {
+    items: invitations,
+    loading: invitesLoading,
+    error: invitesError,
+    page: inviteCurrentPage,
+    setPage: setInviteCurrentPage,
+    total: inviteTotalItems,
+    reload: reloadInvitations,
+  } = usePaginatedList<Invitation>({
+    fetcher: invitationsFetcher,
+    initialPageSize: pageSize,
+    enabled: subTab === 'invitations' && isSuperAdmin,
+    fetchKey: token,
+    resetPageKey: `${debouncedInviteSearch}|${inviteStatusFilter}`,
+  })
 
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
@@ -96,41 +115,6 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     const id = window.setTimeout(() => setDebouncedInviteSearch(inviteSearch.trim()), 300)
     return () => window.clearTimeout(id)
   }, [inviteSearch])
-
-  useEffect(() => {
-    if (subTab !== 'active') {
-      return
-    }
-    let cancelled = false
-    async function load() {
-      try {
-        setLoading(true)
-        const res = await listUsers(token, {
-          page: currentPage,
-          pageSize,
-          search: debouncedSearch,
-          status: statusFilter,
-        })
-        if (!cancelled) {
-          setUsers(res.users)
-          setTotalItems(res.total)
-          setError(null)
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : String(e))
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [token, currentPage, debouncedSearch, statusFilter, subTab])
 
   const handleSearchChange = (value: string) => {
     setCurrentPage(1)
@@ -165,7 +149,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     try {
       await apiResendInvitation(token, id)
       setActionMessage({ type: 'success', text: t('auth.invite_resend_success') })
-      void loadInvitations()
+      reloadInvitations()
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Resend failed'
       setActionMessage({ type: 'error', text: message })
@@ -208,7 +192,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     try {
       await apiRevokeInvitation(token, id)
       setActionMessage({ type: 'success', text: t('auth.invite_revoke_success') })
-      void loadInvitations()
+      reloadInvitations()
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Revoke failed'
       setActionMessage({ type: 'error', text: message })
@@ -217,7 +201,6 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     }
   }
 
-  const totalPages = Math.ceil(totalItems / pageSize)
   const displayedUsers = users
 
   return (
@@ -317,7 +300,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
         token={token}
         onSuccess={() => {
           if (subTab === 'invitations') {
-            void loadInvitations()
+            reloadInvitations()
           }
         }}
         t={t}

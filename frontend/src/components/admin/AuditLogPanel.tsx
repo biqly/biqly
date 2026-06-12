@@ -1,11 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { listAuditLog } from '../../api/admin'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
+import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AuditLogEntry } from '../../types/auth'
+import type { PageQuery } from '../../types/pagination'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
@@ -56,20 +58,42 @@ export const AUDIT_PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250]
 export function AuditLogPanel({ token }: { token: string }) {
   const t = useT()
   const [locale] = useLocale()
-  const [entries, setEntries] = useState<AuditLogEntry[]>([])
   const [userID, setUserID] = useState('')
   const [action, setAction] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
 
   // Lookups for friendly name mapping using custom hook
   const { users, datasources, workspaces } = useAdminLookups(token)
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(DEFAULT_AUDIT_PAGE_SIZE)
-  const [totalItems, setTotalItems] = useState(0)
-  const totalPages = Math.ceil(totalItems / pageSize)
+  // Filters apply on submit: the fetcher reads the currently-typed values, but
+  // usePaginatedList only refetches on page/pageSize/reload — typing never fetches.
+  const fetcher = useCallback(
+    async (q: PageQuery) => {
+      const res = await listAuditLog(token, {
+        userID,
+        action,
+        page: q.page,
+        pageSize: q.pageSize,
+      })
+      return { items: res.entries, total: res.total }
+    },
+    [token, userID, action],
+  )
+  const {
+    items: entries,
+    loading,
+    error,
+    page: currentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    total: totalItems,
+    reload,
+  } = usePaginatedList<AuditLogEntry>({
+    fetcher,
+    initialPageSize: DEFAULT_AUDIT_PAGE_SIZE,
+    fetchKey: token,
+  })
   const displayedEntries = entries
 
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u.email])), [users])
@@ -86,41 +110,12 @@ export function AuditLogPanel({ token }: { token: string }) {
   )
   const pageSizeOptions = useMemo(() => numberSelectOptions(AUDIT_PAGE_SIZE_OPTIONS), [])
 
-  const reload = useCallback(
-    async (nextFilters = { userID, action, page: currentPage, pageSize }) => {
-      setLoading(true)
-      try {
-        const res = await listAuditLog(token, {
-          userID: nextFilters.userID,
-          action: nextFilters.action,
-          page: nextFilters.page,
-          pageSize: nextFilters.pageSize,
-        })
-        setEntries(res.entries)
-        setTotalItems(res.total)
-        setError(null)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
-      } finally {
-        setLoading(false)
-      }
-    },
-    [action, currentPage, pageSize, token, userID],
-  )
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void reload({ userID, action, page: currentPage, pageSize })
-    // Filter fields apply on submit; reload when auth or page changes only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional filter-on-submit
-  }, [token, currentPage])
-
   function onSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (currentPage !== 1) {
       setCurrentPage(1)
     } else {
-      void reload({ userID, action, page: 1, pageSize })
+      reload()
     }
   }
 
@@ -156,10 +151,9 @@ export function AuditLogPanel({ token }: { token: string }) {
             value={String(pageSize)}
             options={pageSizeOptions}
             onChange={(v) => {
-              const nextSize = Number(v)
-              setPageSize(nextSize)
+              setPageSize(Number(v))
               setCurrentPage(1)
-              void reload({ userID, action, page: 1, pageSize: nextSize })
+              reload()
             }}
           />
         </label>
@@ -173,7 +167,7 @@ export function AuditLogPanel({ token }: { token: string }) {
             setAction('')
             setPageSize(DEFAULT_AUDIT_PAGE_SIZE)
             setCurrentPage(1)
-            void reload({ userID: '', action: '', page: 1, pageSize: DEFAULT_AUDIT_PAGE_SIZE })
+            reload()
           }}
           className="admin-btn-secondary"
         >

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import {
   grantDatasourceAccess,
@@ -8,8 +8,11 @@ import {
 } from '../../api/admin'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { useConfirm } from '../../hooks/useConfirm'
+import { usePaginatedList } from '../../hooks/usePaginatedList'
+import { errorMessage } from '../../hooks/usePaginatedListLogic'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { DatasourceAccess } from '../../types/auth'
+import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
@@ -29,9 +32,6 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
   const { hasPermission } = useAuth()
   // Granting/revoking datasource access requires datasource:grant_access (server-enforced).
   const canEdit = hasPermission('datasource:grant_access')
-  const [rows, setRows] = useState<DatasourceAccess[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
 
   const [userID, setUserID] = useState('')
   const [datasourceID, setDatasourceID] = useState('')
@@ -40,11 +40,25 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
   // Lookups for friendly name mapping using custom hook
   const { users, datasources } = useAdminLookups(token)
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10
-  const [totalItems, setTotalItems] = useState(0)
-  const totalPages = Math.ceil(totalItems / pageSize)
+  const fetcher = useCallback(
+    async (q: PageQuery) => {
+      const res = await listDatasourceAccess(token, q.page, q.pageSize)
+      return { items: res.access, total: res.total }
+    },
+    [token],
+  )
+  const {
+    items: rows,
+    loading,
+    error,
+    setError,
+    page: currentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    totalPages,
+    total: totalItems,
+    reload,
+  } = usePaginatedList<DatasourceAccess>({ fetcher, initialPageSize: 10, fetchKey: token })
 
   const userOptions = useMemo(
     () => userSelectOptions(users, t('evaluation.placeholder_select')),
@@ -56,25 +70,6 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
   )
   const levelOptions = useMemo(() => datasourceAccessLevelOptions(), [])
 
-  const reload = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await listDatasourceAccess(token, currentPage, pageSize)
-      setRows(res.access)
-      setTotalItems(res.total)
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setLoading(false)
-    }
-  }, [currentPage, pageSize, token])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void reload()
-  }, [reload])
-
   async function onGrant(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!userID || !datasourceID) {
@@ -85,9 +80,9 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
       setUserID('')
       setDatasourceID('')
       setCurrentPage(1)
-      void reload()
+      reload()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 
@@ -102,18 +97,18 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     try {
       await revokeDatasourceAccess(token, uid, dsid)
       setCurrentPage(1)
-      void reload()
+      reload()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 
   async function onChangeLevel(id: string, newLevel: 'read' | 'write' | 'admin') {
     try {
       await updateDatasourceAccess(token, id, newLevel)
-      void reload()
+      reload()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 

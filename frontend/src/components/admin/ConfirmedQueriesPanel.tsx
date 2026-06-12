@@ -5,6 +5,7 @@ import {
   deactivateConfirmedQuery,
   listConfirmedQueries,
 } from '../../api/aiAdmin'
+import { useClientPagination } from '../../hooks/useClientPagination'
 import { useConfirm } from '../../hooks/useConfirm'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useToast } from '../../hooks/useToast'
@@ -27,20 +28,21 @@ export function ConfirmedQueriesPanel() {
   const [loading, setLoading] = useState(false)
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null)
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10
+  const {
+    page: currentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    totalPages,
+    pageRows: displayedRows,
+  } = useClientPagination(rows, 10)
 
-  const totalPages = Math.ceil(rows.length / pageSize)
-
-  const displayedRows = useMemo(() => {
-    return rows.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-  }, [rows, currentPage, pageSize])
-
-  const handleDatasourceChange = useCallback((datasourceId: string) => {
-    setSelectedDS(datasourceId)
-    setCurrentPage(1)
-  }, [])
+  const handleDatasourceChange = useCallback(
+    (datasourceId: string) => {
+      setSelectedDS(datasourceId)
+      setCurrentPage(1)
+    },
+    [setCurrentPage],
+  )
 
   useEffect(() => {
     const firstDS = datasources[0]

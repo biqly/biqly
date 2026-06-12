@@ -1,9 +1,11 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 
 import { getAIHistoryDetail, listAIHistory } from '../../api/admin'
+import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useQueryParam } from '../../hooks/useQueryParam'
 import { useT } from '../../i18n'
 import type { AIHistoryEntry } from '../../types/auth'
+import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
 import { ShareButton } from '../sharing/ShareButton'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
@@ -25,53 +27,41 @@ function formatHistoryTokens(entry: AIHistoryEntry): string {
 export function AIHistoryPanel() {
   const t = useT()
   const { accessToken, roles } = useAuth()
-  const [entries, setEntries] = useState<AIHistoryEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
   const [historyIdParam, setHistoryIdParam] = useQueryParam('historyId')
   const expandedId = historyIdParam || null
   const [detail, setDetail] = useState<AIHistoryEntry | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10
-  const [totalItems, setTotalItems] = useState(0)
-  const totalPages = Math.ceil(totalItems / pageSize)
-
   const isAdmin = roles.some((r) => r === 'super_admin' || r === 'admin')
 
-  const load = useCallback(async () => {
-    if (!accessToken) {
-      return
-    }
-    setLoading(true)
-    try {
-      const res = await listAIHistory(accessToken, {
-        page: currentPage,
-        pageSize,
+  const fetcher = useCallback(
+    async (q: PageQuery) => {
+      const res = await listAIHistory(accessToken ?? '', {
+        page: q.page,
+        pageSize: q.pageSize,
         showAll: isAdmin ? showAll : undefined,
       })
-      setEntries(res.entries)
-      setTotalItems(res.total)
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setLoading(false)
-    }
-  }, [accessToken, currentPage, showAll, isAdmin])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load()
-  }, [load])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCurrentPage(1)
-  }, [showAll])
+      return { items: res.entries, total: res.total }
+    },
+    [accessToken, showAll, isAdmin],
+  )
+  const {
+    items: entries,
+    loading,
+    error,
+    page: currentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    totalPages,
+    total: totalItems,
+  } = usePaginatedList<AIHistoryEntry>({
+    fetcher,
+    initialPageSize: 10,
+    enabled: Boolean(accessToken),
+    fetchKey: `${accessToken ?? ''}|${isAdmin}`,
+    resetPageKey: showAll,
+  })
 
   useEffect(() => {
     if (!expandedId || !accessToken) {

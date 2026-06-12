@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { useApi } from '../../hooks/useApi'
+import { useClientPagination } from '../../hooks/useClientPagination'
 import { useT } from '../../i18n'
 import { formatDurationMs } from '../../utils/formatters'
 import { useAuth } from '../auth/AuthProvider'
@@ -62,8 +63,15 @@ export function AIUsageAdminPanel() {
   const [rows, setRows] = useState<AIUsageBreakdownRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  const {
+    page: clampedCurrentPage,
+    setPage: setCurrentPage,
+    pageSize,
+    setPageSize,
+    totalPages,
+    total: totalItems,
+    pageRows,
+  } = useClientPagination(rows, DEFAULT_PAGE_SIZE)
 
   const periodOptions = useMemo(
     () => [
@@ -74,15 +82,6 @@ export function AIUsageAdminPanel() {
     [t],
   )
   const pageSizeOptions = useMemo(() => numberSelectOptions(PAGE_SIZE_OPTIONS), [])
-
-  const totalItems = rows.length
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
-  const clampedCurrentPage = Math.min(currentPage, totalPages)
-
-  const pageRows = useMemo(() => {
-    const start = (clampedCurrentPage - 1) * pageSize
-    return rows.slice(start, start + pageSize)
-  }, [rows, clampedCurrentPage, pageSize])
 
   const userLabelByID = useMemo(() => {
     const map = new Map<string, string>()

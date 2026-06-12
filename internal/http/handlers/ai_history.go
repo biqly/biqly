@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
@@ -49,7 +48,7 @@ func (h *AIHandler) AIHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := r.URL.Query()
-	filter := buildAIHistoryListFilter(q, userID, hasViewDetails)
+	filter := buildAIHistoryListFilter(q, bimw.PaginationFromContext(r.Context()), userID, hasViewDetails)
 	if empty, applied := applyWorkspaceDatasourceToAIHistoryFilter(r.Context(), h.deps.Config, &filter); applied && empty {
 		writeJSON(w, http.StatusOK, map[string]any{"entries": []metadata.AIQueryHistoryEntry{}, "total": 0})
 		return
@@ -92,11 +91,9 @@ func (h *AIHandler) QueryHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit := 10
-	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 50 {
-			limit = n
-		}
+	limit := bimw.PaginationFromContext(r.Context()).Limit
+	if limit <= 0 {
+		limit = 10
 	}
 
 	rows, err := h.deps.MetaRepo.ListAIQueryHistory(r.Context(), userID, limit)
@@ -161,15 +158,20 @@ func (h *AIHandler) AIHistoryDetail(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, row)
 }
 
-func buildAIHistoryListFilter(q url.Values, userID string, hasViewDetails bool) metadata.AIHistoryListFilter {
-	page, pageSize := parseAIHistoryPagination(q)
+func buildAIHistoryListFilter(q url.Values, pagination bimw.PageParams, userID string, hasViewDetails bool) metadata.AIHistoryListFilter {
+	if pagination.Page <= 0 {
+		pagination.Page = 1
+	}
+	if pagination.PageSize <= 0 {
+		pagination.PageSize = 10
+	}
 	filter := metadata.AIHistoryListFilter{
 		DatasourceID: q.Get("datasource_id"),
 		ModelID:      q.Get("model_id"),
 		Status:       q.Get("status"),
 		Search:       q.Get("search"),
-		Page:         page,
-		PageSize:     pageSize,
+		Page:         pagination.Page,
+		PageSize:     pagination.PageSize,
 	}
 	if hasViewDetails {
 		if _, ok := q["show_all"]; ok && q.Get("show_all") != "true" && userID != "" {
@@ -179,29 +181,6 @@ func buildAIHistoryListFilter(q url.Values, userID string, hasViewDetails bool) 
 		filter.UserID = userID
 	}
 	return filter
-}
-
-func parseAIHistoryPagination(q url.Values) (page, pageSize int) {
-	page = 1
-	if v := q.Get("page"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			page = n
-		}
-	}
-	pageSize = 10
-	if v := q.Get("page_size"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			pageSize = n
-		}
-	} else if v := q.Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			pageSize = n
-		}
-	}
-	if pageSize > 100 {
-		pageSize = 100
-	}
-	return page, pageSize
 }
 
 // applyWorkspaceDatasourceToAIHistoryFilter scopes filter to workspace datasources.
