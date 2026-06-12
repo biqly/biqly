@@ -613,3 +613,103 @@
 .ai-history__load-more:hover {
   background: rgba(99, 102, 241, 0.06);
 }
+
+/* AI Jobs Admin List and Modal Styles */
+.ai-jobs__table-row {
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.ai-jobs__table-row:hover {
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.04));
+}
+
+.job-detail-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1.8fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .job-detail-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+.job-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: var(--bg-primary, #121212);
+  border: 1px solid var(--border-subtle, var(--border, #2a2a2a));
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.job-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.job-detail-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, var(--text-secondary, #888));
+}
+
+.job-detail-value {
+  font-size: 0.875rem;
+  color: var(--text-primary, #fff);
+  word-break: break-all;
+}
+
+.job-detail-value--mono {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8125rem;
+}
+
+.job-progress-bar {
+  margin-top: 0.25rem;
+  height: 0.5rem;
+  background: var(--border, #2a2a2a);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.job-progress-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent, #60a5fa), #34d399);
+  transition: width 0.4s ease;
+}
+
+.job-json-block {
+  margin: 0;
+  padding: 0.85rem;
+  background: var(--bg-primary, #121212);
+  border: 1px solid var(--border-subtle, var(--border, #2a2a2a));
+  border-radius: 6px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  overflow: auto;
+  max-height: 28rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-primary, #fff);
+}
+
+.job-error-block {
+  padding: 0.75rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 6px;
+  color: var(--danger, #f87171);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

@@ -1,3 +1,5 @@
+import '../../styles/ai-jobs.css'
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { adminCancelAIJob, adminCancelAllStaleAIJobs, listAdminAIJobs } from '../../api/admin'
@@ -11,6 +13,7 @@ import type { PageQuery } from '../../types/pagination'
 import { formatDurationMs } from '../../utils/formatters'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { Modal } from '../ui/Modal'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
 
@@ -49,7 +52,6 @@ export function AIJobsAdminPanel() {
   const [kindFilter, setKindFilter] = useState('')
   const [busyJobId, setBusyJobId] = useState<string | null>(null)
   const [staleNote, setStaleNote] = useState<string | null>(null)
-
   const userLabelByID = useMemo(() => {
     const map = new Map<string, string>()
     for (const u of users) {
@@ -92,6 +94,16 @@ export function AIJobsAdminPanel() {
     resetPageKey: `${statusFilter}|${kindFilter}`,
     syncToUrl: 'aiJobsPage',
   })
+
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
+  const [lastClickedJob, setLastClickedJob] = useState<AIJob | null>(null)
+
+  const selectedJob = useMemo(() => {
+    if (!selectedJobId) {
+      return null
+    }
+    return jobs.find((j) => j.id === selectedJobId) ?? lastClickedJob
+  }, [selectedJobId, jobs, lastClickedJob])
 
   useEffect(() => {
     if (!accessToken) {
@@ -206,28 +218,31 @@ export function AIJobsAdminPanel() {
               <th style={thStyle}>{t('admin.ai_jobs.col_kind')}</th>
               <th style={thStyle}>{t('admin.ai_jobs.col_request')}</th>
               <th style={thStyle}>{t('admin.ai_jobs.col_status')}</th>
-              <th style={thStyle}>{t('admin.ai_jobs.col_phase')}</th>
-              <th style={thStyle}>{t('admin.ai_jobs.col_progress')}</th>
-              <th style={thStyle}>{t('admin.ai_jobs.col_elapsed')}</th>
               <th style={thStyle}>{t('admin.ai_jobs.col_created')}</th>
-              <th style={thStyle}>{t('admin.ai_jobs.col_actions')}</th>
             </tr>
           </thead>
           <tbody>
             {!loading && jobs.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ ...tdStyle, color: 'var(--text-muted)' }}>
+                <td colSpan={5} style={{ ...tdStyle, color: 'var(--text-muted)' }}>
                   {t('admin.ai_jobs.empty')}
                 </td>
               </tr>
             ) : (
               jobs.map((job) => {
-                const active = jobIsActive(job)
                 const userLabel = job.user_id
                   ? (userLabelByID.get(job.user_id) ?? job.user_id)
                   : '—'
                 return (
-                  <tr key={job.id}>
+                  <tr
+                    key={job.id}
+                    className="ai-jobs__table-row"
+                    title={t('admin.ai_jobs.click_to_view')}
+                    onClick={() => {
+                      setSelectedJobId(job.id)
+                      setLastClickedJob(job)
+                    }}
+                  >
                     <td style={tdStyle}>{userLabel}</td>
                     <td style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)' }}>
                       {job.kind}
@@ -240,31 +255,7 @@ export function AIJobsAdminPanel() {
                         {t(`admin.ai_jobs.status_${job.status}`)}
                       </span>
                     </td>
-                    <td style={tdStyle}>
-                      {job.phase}
-                      {job.phase_message ? (
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                          {job.phase_message}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td style={tdStyle}>{active ? `${job.progress_pct}%` : '—'}</td>
-                    <td style={tdStyle}>{formatDurationMs(jobElapsedMs(job))}</td>
                     <td style={tdStyle}>{new Date(job.created_at).toLocaleString()}</td>
-                    <td style={tdStyle}>
-                      {active && (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-danger"
-                          disabled={busyJobId === job.id}
-                          onClick={() => void cancelJob(job)}
-                        >
-                          {busyJobId === job.id
-                            ? t('admin.ai_jobs.cancelling')
-                            : t('admin.ai_jobs.cancel')}
-                        </button>
-                      )}
-                    </td>
                   </tr>
                 )
               })
@@ -282,6 +273,158 @@ export function AIJobsAdminPanel() {
           />
         )}
       </div>
+
+      {selectedJob && (
+        <Modal
+          open={true}
+          title={t('admin.ai_jobs.detail_title')}
+          onClose={() => {
+            setSelectedJobId(null)
+            setLastClickedJob(null)
+          }}
+          className="job-detail-modal"
+          bodyClassName="job-detail-modal-body"
+        >
+          <div className="job-detail-grid">
+            <div className="job-detail-section">
+              <div className="job-detail-item">
+                <span className="job-detail-label">{t('admin.ai_jobs.col_id')}</span>
+                <span className="job-detail-value job-detail-value--mono">{selectedJob.id}</span>
+              </div>
+
+              <div className="job-detail-item">
+                <span className="job-detail-label">{t('admin.ai_jobs.col_user')}</span>
+                <span className="job-detail-value">
+                  {selectedJob.user_id
+                    ? (userLabelByID.get(selectedJob.user_id) ?? selectedJob.user_id)
+                    : '—'}
+                </span>
+              </div>
+
+              <div className="job-detail-item">
+                <span className="job-detail-label">{t('admin.ai_jobs.col_kind')}</span>
+                <span className="job-detail-value job-detail-value--mono">{selectedJob.kind}</span>
+              </div>
+
+              <div className="job-detail-item">
+                <span className="job-detail-label">{t('admin.ai_jobs.col_status')}</span>
+                <div className="job-detail-value" style={{ marginTop: '0.2rem' }}>
+                  <span
+                    className={`ai-history__status ai-history__status--${statusBadgeClass(selectedJob.status)}`}
+                  >
+                    {t(`admin.ai_jobs.status_${selectedJob.status}`)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="job-detail-item">
+                <span className="job-detail-label">{t('admin.ai_jobs.col_phase')}</span>
+                <span className="job-detail-value">{selectedJob.phase || '—'}</span>
+                {selectedJob.phase_message && (
+                  <div
+                    style={{
+                      color: 'var(--text-muted)',
+                      fontSize: '0.75rem',
+                      marginTop: '0.15rem',
+                    }}
+                  >
+                    {selectedJob.phase_message}
+                  </div>
+                )}
+              </div>
+
+              {jobIsActive(selectedJob) && (
+                <div className="job-detail-item">
+                  <span className="job-detail-label">{t('admin.ai_jobs.col_progress')}</span>
+                  <div
+                    className="job-detail-value"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    <div className="job-progress-bar" style={{ flex: 1 }}>
+                      <div
+                        className="job-progress-bar__fill"
+                        style={{ width: `${selectedJob.progress_pct}%` }}
+                      />
+                    </div>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                      {selectedJob.progress_pct}%
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="job-detail-item">
+                <span className="job-detail-label">{t('admin.ai_jobs.active_duration')}</span>
+                <span className="job-detail-value">
+                  {formatDurationMs(jobElapsedMs(selectedJob))}
+                </span>
+              </div>
+
+              <div className="job-detail-item">
+                <span className="job-detail-label">{t('admin.ai_jobs.col_created')}</span>
+                <span className="job-detail-value">
+                  {new Date(selectedJob.created_at).toLocaleString()}
+                </span>
+              </div>
+
+              {selectedJob.finished_at && (
+                <div className="job-detail-item">
+                  <span className="job-detail-label">{t('admin.ai_jobs.col_finished')}</span>
+                  <span className="job-detail-value">
+                    {new Date(selectedJob.finished_at).toLocaleString()}
+                  </span>
+                </div>
+              )}
+
+              {jobIsActive(selectedJob) && (
+                <div className="job-detail-item" style={{ marginTop: '0.5rem' }}>
+                  <span className="job-detail-label">{t('admin.ai_jobs.col_actions')}</span>
+                  <div style={{ marginTop: '0.25rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      style={{ width: '100%' }}
+                      disabled={busyJobId === selectedJob.id}
+                      onClick={() => void cancelJob(selectedJob)}
+                    >
+                      {busyJobId === selectedJob.id
+                        ? t('admin.ai_jobs.cancelling')
+                        : t('admin.ai_jobs.cancel')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
+              {selectedJob.error_message && (
+                <div className="job-detail-item">
+                  <span className="job-detail-label">{t('admin.ai_jobs.payload_error')}</span>
+                  <div className="job-error-block">{selectedJob.error_message}</div>
+                </div>
+              )}
+
+              {selectedJob.request_json != null && (
+                <div className="job-detail-item" style={{ minWidth: 0 }}>
+                  <span className="job-detail-label">{t('admin.ai_jobs.payload_request')}</span>
+                  <pre className="job-json-block">
+                    {JSON.stringify(selectedJob.request_json, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {selectedJob.result_json != null && (
+                <div className="job-detail-item" style={{ minWidth: 0 }}>
+                  <span className="job-detail-label">{t('admin.ai_jobs.payload_result')}</span>
+                  <pre className="job-json-block">
+                    {JSON.stringify(selectedJob.result_json, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

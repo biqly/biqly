@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.biqly.pg-tunnel</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>REPLACE_HOME/.local/bin/biqly-pg-tunnel</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>KUBECONFIG</key>
+      <string>REPLACE_HOME/.kube/prag.config</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/biqly-pg-tunnel.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/biqly-pg-tunnel.err.log</string>
+  </dict>
+</plist>
