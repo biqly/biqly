@@ -163,6 +163,15 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 		registerAIAdminConfigRoutes(r, aiHandler, confirmedQueriesPagination)
 	})
 
+	registerAIExamplesGlossaryAndTemplatesRoutes(r, deps, authClient, usageBreakdownPagination)
+}
+
+func registerAIExamplesGlossaryAndTemplatesRoutes(
+	r chi.Router,
+	deps *app.AIDeps,
+	authClient *bimw.AuthClient,
+	usageBreakdownPagination func(http.Handler) http.Handler,
+) {
 	examplesHandler := handlers.NewAIExamplesHandler(deps)
 	examplesHandler.SetAuthClient(authClient)
 	examplesHandler.SetAIMetricsRecorder(GetMetrics())

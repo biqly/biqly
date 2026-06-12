@@ -62,6 +62,7 @@ func TestWriteResponseCookieInsecureOnLocalDevPort(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "http://example.com/", http.NoBody)
+	//nolint:gosec // G124: Secure is applied by WriteResponseCookie; this test asserts local dev behavior.
 	WriteResponseCookie(rr, req, localHTTPDevPort, &http.Cookie{Name: "session", Value: "token"})
 
 	cookies := rr.Result().Cookies()

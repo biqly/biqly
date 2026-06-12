@@ -1,10 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 
-import {
-  type AIUsageBreakdownRow,
-  type AIUsageTotals,
-  getAIUsageBreakdown,
-} from '../../api/admin'
+import { type AIUsageBreakdownRow, type AIUsageTotals, getAIUsageBreakdown } from '../../api/admin'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useT } from '../../i18n'

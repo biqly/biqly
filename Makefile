@@ -1,7 +1,14 @@
-.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit semgrep-scan helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
+# Requires GNU Make (macOS: brew install make, then use gmake or put $(brew --prefix)/opt/make/libexec/gnubin on PATH).
+ifndef .FEATURES
+$(error This Makefile requires GNU Make. On macOS: brew install make && gmake <target>)
+endif
+
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit semgrep-scan helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
 
 BINARY_NAME=biqly
 GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
+# Host-native targets load .env when present (docker compose sets env internally).
+RUN_WITH_ENV = set -a && [ -f .env ] && . ./.env && set +a &&
 HELM_CHART=deploy/helm/biqly
 SEMGREP_SARIF?=semgrep.sarif
 SEMGREP_CONFIGS=\
@@ -48,16 +55,16 @@ build-mail-migrate:
 	@go build -o bin/mail-migrate ./cmd/mail-migrate/
 
 run: build
-	@./bin/$(BINARY_NAME)
+	@$(RUN_WITH_ENV) ./bin/$(BINARY_NAME)
 
 run-catalog: build-catalog
-	@./bin/biqly-catalog
+	@$(RUN_WITH_ENV) ./bin/biqly-catalog
 
 run-query: build-query
-	@./bin/biqly-query
+	@$(RUN_WITH_ENV) ./bin/biqly-query
 
 run-ai: build-ai
-	@./bin/biqly-ai
+	@$(RUN_WITH_ENV) ./bin/biqly-ai
 
 test: test-go test-frontend
 
@@ -133,10 +140,10 @@ clean:
 	@rm -rf bin/ coverage.out
 
 migrate-up:
-	@go run ./cmd/migrate up
+	@$(RUN_WITH_ENV) go run ./cmd/migrate up
 
 migrate-down:
-	@go run ./cmd/migrate down
+	@$(RUN_WITH_ENV) go run ./cmd/migrate down
 
 # docker compose runs the migrate service automatically before api starts.
 
@@ -153,7 +160,21 @@ docker-down:
 	@docker compose down -v
 
 dev:
-	@go run ./cmd/api/
+	@$(RUN_WITH_ENV) go run ./cmd/api/
+
+# Delve debug targets (host-native; run `make docker-up` first for infra).
+# IDE attach: use .vscode/launch.json or `dlv connect localhost:2345`.
+debug:
+	@$(RUN_WITH_ENV) dlv debug ./cmd/api/ --headless --listen=:2345 --api-version=2 --accept-multiclient --continue
+
+debug-catalog: build-catalog
+	@$(RUN_WITH_ENV) dlv exec ./bin/biqly-catalog --headless --listen=:2345 --api-version=2 --accept-multiclient --continue
+
+debug-query: build-query
+	@$(RUN_WITH_ENV) dlv exec ./bin/biqly-query --headless --listen=:2345 --api-version=2 --accept-multiclient --continue
+
+debug-ai: build-ai
+	@$(RUN_WITH_ENV) dlv exec ./bin/biqly-ai --headless --listen=:2345 --api-version=2 --accept-multiclient --continue
 
 grafana-enable:
 	kubectl scale deployment/grafana -n monitoring --replicas=1

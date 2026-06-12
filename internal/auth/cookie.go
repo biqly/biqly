@@ -32,10 +32,15 @@ func WriteResponseCookie(w http.ResponseWriter, r *http.Request, listenPort int,
 	writePlainHTTPDevCookie(w, cookie)
 }
 
-// setSecureResponseCookie copies src into a new cookie with Secure and HttpOnly so
-// static analysis (CodeQL, Semgrep) sees both flags at the SetCookie site.
+// setSecureResponseCookie copies src into a new cookie with Secure, HttpOnly, and SameSite.
+//
+//nolint:gosec // G124: Secure, HttpOnly, and SameSite (default Lax) are enforced below.
 func setSecureResponseCookie(w http.ResponseWriter, src *http.Cookie) {
 	c := *src
+	sameSite := c.SameSite
+	if sameSite == 0 {
+		sameSite = http.SameSiteLaxMode
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:       c.Name,
 		Value:      c.Value,
@@ -46,7 +51,7 @@ func setSecureResponseCookie(w http.ResponseWriter, src *http.Cookie) {
 		MaxAge:     c.MaxAge,
 		Secure:     true,
 		HttpOnly:   true,
-		SameSite:   c.SameSite,
+		SameSite:   sameSite,
 		Raw:        c.Raw,
 		Unparsed:   c.Unparsed,
 	})
