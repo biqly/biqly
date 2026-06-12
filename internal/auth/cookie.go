@@ -24,15 +24,32 @@ func CookieSecure(r *http.Request, listenPort int) bool {
 
 // WriteResponseCookie sets cookie on w with Secure when the request is served over
 // HTTPS (or production). Only the local auth dev port over plain HTTP omits Secure.
-//
-//nolint:gosec // G124: Secure is applied inside before SetCookie (or via writePlainHTTPDevCookie).
 func WriteResponseCookie(w http.ResponseWriter, r *http.Request, listenPort int, cookie *http.Cookie) {
 	if CookieSecure(r, listenPort) {
-		cookie.Secure = true
-		http.SetCookie(w, cookie)
+		setSecureResponseCookie(w, cookie)
 		return
 	}
 	writePlainHTTPDevCookie(w, cookie)
+}
+
+// setSecureResponseCookie copies src into a new cookie with Secure=true so static
+// analysis (CodeQL go/cookie-secure-not-set) sees the flag at the SetCookie site.
+func setSecureResponseCookie(w http.ResponseWriter, src *http.Cookie) {
+	c := *src
+	http.SetCookie(w, &http.Cookie{
+		Name:       c.Name,
+		Value:      c.Value,
+		Path:       c.Path,
+		Domain:     c.Domain,
+		Expires:    c.Expires,
+		RawExpires: c.RawExpires,
+		MaxAge:     c.MaxAge,
+		Secure:     true,
+		HttpOnly:   c.HttpOnly,
+		SameSite:   c.SameSite,
+		Raw:        c.Raw,
+		Unparsed:   c.Unparsed,
+	})
 }
 
 // writePlainHTTPDevCookie sets a cookie without Secure for plain-HTTP local auth dev only.

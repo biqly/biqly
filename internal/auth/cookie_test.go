@@ -56,6 +56,23 @@ func TestProductionCookieSecureFailClosed(t *testing.T) {
 	})
 }
 
+func TestWriteResponseCookieInsecureOnLocalDevPort(t *testing.T) {
+	t.Setenv("BI_ENV", "development")
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "http://example.com/", http.NoBody)
+	WriteResponseCookie(rr, req, localHTTPDevPort, &http.Cookie{Name: "session", Value: "token"})
+
+	cookies := rr.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("cookies = %d, want 1", len(cookies))
+	}
+	if cookies[0].Secure {
+		t.Fatal("plain HTTP on local auth dev port must omit Secure so browsers accept the cookie")
+	}
+}
+
 func TestWriteResponseCookieSecureInProduction(t *testing.T) {
 	t.Setenv("BI_ENV", "production")
 	t.Setenv("KUBERNETES_SERVICE_HOST", "")
