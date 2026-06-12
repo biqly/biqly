@@ -2,11 +2,12 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	"github.com/bytedance/sonic"
 
 	"github.com/biqly/biqly/internal/config"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
@@ -87,7 +88,7 @@ func TestResolveDatasourceScope_UserOnly(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == "/internal/auth/user/user-1/datasources" {
 			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(map[string][]string{
+			_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string][]string{
 				"datasource_ids": {"ds-1", "ds-2"},
 			})
 			return
@@ -123,14 +124,14 @@ func TestResolveDatasourceScope_WorkspaceIntersect(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == "/internal/auth/user/user-1/datasources" {
 			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(map[string][]string{
+			_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string][]string{
 				"datasource_ids": {"ds-1", "ds-2", "ds-3"},
 			})
 			return
 		}
 		if req.URL.Path == "/internal/auth/workspaces/ws-1/datasources" {
 			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(map[string][]string{
+			_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string][]string{
 				"datasource_ids": {"ds-2", "ds-3", "ds-4"},
 			})
 			return
@@ -186,7 +187,7 @@ func TestResolveDatasourceScope_ListWorkspaceError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == "/internal/auth/user/user-1/datasources" {
 			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(map[string][]string{
+			_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string][]string{
 				"datasource_ids": {"ds-1"},
 			})
 			return

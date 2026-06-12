@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { getRolePermissions, listPermissions, listRoles, setRolePermissions } from '../../api/admin'
+import { useRowSelection } from '../../hooks/useRowSelection'
 import { useT } from '../../i18n'
 import type { Permission, Role } from '../../types/auth'
+import { sameIdSet, selectionStateFor } from '../../utils/selection'
 import { useAuth } from '../auth/AuthProvider'
+import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { ReadOnlyNote } from './ReadOnlyNote'
 
@@ -17,7 +20,9 @@ export function RolesPanel({ token }: { token: string }) {
   const [roles, setRoles] = useState<Role[]>([])
   const [allPerms, setAllPerms] = useState<Permission[]>([])
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null)
-  const [assignedIds, setAssignedIds] = useState<Set<string>>(new Set())
+  const assigned = useRowSelection()
+  const assignedIds = assigned.selected
+  const { replace: replaceAssigned } = assigned
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [loadingMeta, setLoadingMeta] = useState(true)
@@ -25,17 +30,7 @@ export function RolesPanel({ token }: { token: string }) {
   const [saving, setSaving] = useState(false)
 
   const selectedRole = roles.find((r) => r.id === selectedRoleId) ?? null
-  const dirty = useMemo(() => {
-    if (assignedIds.size !== savedIds.size) {
-      return true
-    }
-    for (const id of assignedIds) {
-      if (!savedIds.has(id)) {
-        return true
-      }
-    }
-    return false
-  }, [assignedIds, savedIds])
+  const dirty = useMemo(() => !sameIdSet(assignedIds, savedIds), [assignedIds, savedIds])
 
   useEffect(() => {
     let cancelled = false
@@ -79,9 +74,8 @@ export function RolesPanel({ token }: { token: string }) {
       setLoadingRolePerms(true)
       try {
         const ids = await getRolePermissions(token, roleID)
-        const set = new Set(ids)
-        setAssignedIds(set)
-        setSavedIds(new Set(set))
+        replaceAssigned(ids)
+        setSavedIds(new Set(ids))
         setError(null)
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
@@ -89,7 +83,7 @@ export function RolesPanel({ token }: { token: string }) {
         setLoadingRolePerms(false)
       }
     },
-    [token],
+    [token, replaceAssigned],
   )
 
   useEffect(() => {
@@ -114,30 +108,11 @@ export function RolesPanel({ token }: { token: string }) {
     }))
   }, [allPerms])
 
-  function togglePermission(permId: string) {
-    setAssignedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(permId)) {
-        next.delete(permId)
-      } else {
-        next.add(permId)
-      }
-      return next
-    })
-  }
-
   function toggleResourceGroup(perms: Permission[], checked: boolean) {
-    setAssignedIds((prev) => {
-      const next = new Set(prev)
-      for (const p of perms) {
-        if (checked) {
-          next.add(p.id)
-        } else {
-          next.delete(p.id)
-        }
-      }
-      return next
-    })
+    assigned.setMany(
+      perms.map((p) => p.id),
+      checked,
+    )
   }
 
   async function onSave() {
@@ -157,16 +132,12 @@ export function RolesPanel({ token }: { token: string }) {
   }
 
   function onDiscard() {
-    setAssignedIds(new Set(savedIds))
+    assigned.replace(savedIds)
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {error && (
-        <div style={errStyle}>
-          {t('common.error')}: {error}
-        </div>
-      )}
+      {error && <ErrorAlert error={`${t('common.error')}: ${error}`} />}
       {!canEdit && <ReadOnlyNote />}
 
       <div
@@ -266,8 +237,11 @@ export function RolesPanel({ token }: { token: string }) {
                   style={{ padding: '12px 16px', maxHeight: 'min(70vh, 640px)', overflowY: 'auto' }}
                 >
                   {permsByResource.map(({ resource, permissions }) => {
-                    const allChecked = permissions.every((p) => assignedIds.has(p.id))
-                    const someChecked = permissions.some((p) => assignedIds.has(p.id))
+                    const groupState = selectionStateFor(
+                      assignedIds,
+                      permissions.map((p) => p.id),
+                    )
+                    const allChecked = groupState === 'all'
                     return (
                       <div key={resource} style={{ marginBottom: 20 }}>
                         <label style={groupLabelStyle}>
@@ -276,7 +250,7 @@ export function RolesPanel({ token }: { token: string }) {
                             checked={allChecked}
                             ref={(el) => {
                               if (el) {
-                                el.indeterminate = someChecked && !allChecked
+                                el.indeterminate = groupState === 'some'
                               }
                             }}
                             onChange={(e) => toggleResourceGroup(permissions, e.target.checked)}
@@ -297,7 +271,7 @@ export function RolesPanel({ token }: { token: string }) {
                                 <input
                                   type="checkbox"
                                   checked={assignedIds.has(p.id)}
-                                  onChange={() => togglePermission(p.id)}
+                                  onChange={() => assigned.toggle(p.id)}
                                   disabled={!canEdit}
                                 />
                                 <span
@@ -410,10 +384,4 @@ const hintStyle: React.CSSProperties = {
   color: 'var(--text-secondary, #a1a1aa)',
   fontSize: 14,
   margin: 0,
-}
-
-const errStyle: React.CSSProperties = {
-  color: 'var(--error, crimson)',
-  padding: 16,
-  fontWeight: 600,
 }

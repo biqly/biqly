@@ -310,11 +310,15 @@ Kabul doğrulaması: DOM yapısı ve sınıflar birebir (admin-* default'ları);
 
 Kabul doğrulaması: `make check-frontend` zinciri yeşil (30 dosya / 141 test — +8 sorting testi). OQ-3 kapatıldı (yukarıdaki kararla).
 
-### Faz 5 — Row action / bulk action
+### Faz 5 — Row action / bulk action ✅ TAMAMLANDI (2026-06-12, kapsam gerçeğe göre düzeltildi)
 
-- [ ] **5.1** `frontend/src/components/ui/RowActions.tsx`: ≤2 aksiyonda inline buton, >2'de `ActionMenu` render eden ince sarmalayıcı; `useConfirm` ile silme onayı entegre.
-- [ ] **5.2** `frontend/src/hooks/useRowSelection.ts` (+ pure logic testi: toggle, selectAll, indeterminate, sayfa değişiminde seçim politikası — OQ-4).
-- [ ] **5.3** Migrasyon: `admin/RolesPanel.tsx`, `admin/DriftPanel.tsx`, `GlossaryEnrichPanel.tsx`, `modeling/ModelingPalette.tsx`, `composites/CompositeDetailPanel.tsx` (her biri ayrı PR; `DataTable.selection` slot'u üzerinden).
+- [x] **5.1** `RowActions.tsx` **YAZILMADI — bilinçli karar:** kod taramasında satır başına 3+ aksiyonlu hiçbir ekran yok (maksimum 2: `InvitationsTab` resend/revoke); inline aksiyon butonları Faz 3'te `ColumnDef.cell` içinde zaten standartlaştı; silme onayı `useConfirm`/`ConfirmDialog` ile zaten ortak. ">2 aksiyonda menü" yolunun tüketicisi olmadığından spekülatif bileşen eklenmedi — 3+ aksiyonlu bir ekran ortaya çıktığında mevcut `ui/ActionMenu.tsx` doğrudan `cell` içinde kullanılır.
+- [x] **5.2** `frontend/src/utils/selection.ts` (pure: `toggleId`, `setIds`, `sameIdSet` — dirty karşılaştırma, `selectionStateFor` — none/some/all ile indeterminate) + `selection.test.ts`; `frontend/src/hooks/useRowSelection.ts` (`selected/isSelected/toggle/setMany/replace/clear`). **OQ-4 kararı:** hook seçim setini sayfa/filtre değişiminde KENDİSİ sıfırlamaz — politika ekran kararıdır, sayfa state'inin yaşadığı yerde verilir (hook dokümantasyonuna yazıldı).
+- [x] **5.3** **Kapsam düzeltmesi:** plandaki hedef listesi Explore taramasının yanlış sınıflandırmasıymış — `DriftPanel.resolving` in-flight işlem takibi, `ModelingPalette.excludedSchemas` şema filtresi, `CompositeDetailPanel.usedAliases` alias takibi; hiçbiri bulk-selection değil (dokunulmadı). Gerçek bulk-selection ekranları:
+  - `admin/RolesPanel.tsx` ✓ geçirildi: elle `Set` yönetimi (`togglePermission`, `toggleResourceGroup`, dirty döngüsü, indeterminate hesabı) → `useRowSelection` + `sameIdSet`/`selectionStateFor`. Bonus: inline hata div'i Faz 2 standardı `ErrorAlert`'e geçti.
+  - `GlossaryEnrichPanel.tsx` **istisna:** seçim kaydı `{selected, value}` birleşik (checkbox + input değeri tek kayıtta, parent-state'te) — Set tabanlı modele zorlamak davranış riski; mevcut yapısıyla bırakıldı.
+
+Kabul doğrulaması: `make check-frontend` zinciri yeşil (31 dosya / 148 test — +7 selection testi). OQ-4 kapatıldı.
 
 ### Faz 6 — Formatter konsolidasyonu
 
@@ -372,7 +376,7 @@ Faz 6 (bağımsız)        Faz 7 (bağımsız, alt maddeleri de bağımsız)
 - OQ-1: `total=0` iken `totalPages` 0 mı 1 mi olmalı? (Öneri: `Math.max(1, ...)` — `Pagination` bileşeni zaten böyle savunuyor; ürün açısından fark yok ama tek politika seçilmeli.)
 - OQ-2: Sayfa/filtre state'i URL'e yazılsın mı (deep-link + refresh dayanıklılığı)? Davranış eklemesidir; ürün onayı gerekir. (Faz 7.6)
 - ~~OQ-3~~ **KAPATILDI (Faz 4.2):** Sıralama yalnızca client-side listelerde açıldı (`ConfirmedQueriesPanel`); server-side sayfalı tablolara backend desteği olmadan sıralama EKLENMEYECEK (sayfa-içi sıralama yanıltıcı). Debounce'suz inputlara yeni debounce eklenmedi; mevcut 3 debounce ortak hook'a taşındı.
-- OQ-4: Bulk seçimde sayfa değişince seçim korunmalı mı, sıfırlanmalı mı? Bugün ekranlar arası tutarsız olabilir; tek kural seçilmeli. (Faz 5.2)
+- ~~OQ-4~~ **KAPATILDI (Faz 5.2):** `useRowSelection` seçim setini sayfa/filtre değişiminde kendisi sıfırlamaz; koruma/sıfırlama politikası ekran-bazlı karardır ve sayfa state'inin yaşadığı yerde verilir. (Bugün sayfalı + bulk-selection'lı ekran yok; ilk ortaya çıktığında bu kural uygulanır.)
 - OQ-5: Component render testi için `@testing-library/react` + `jsdom` devDependency olarak eklensin mi, yoksa repo'nun mevcut "logic-extraction + pure test" pattern'i yeterli mi? (Plan, mevcut pattern'le ilerleyecek şekilde yazıldı; render testi eklenirse Faz 0 genişler.)
 
 ---
