@@ -210,7 +210,7 @@ export function AIJobsAdminPanel() {
         className="ai-history__table-wrap admin-table-container"
         style={{ position: 'relative' }}
       >
-        <LoadingOverlay loading={loading} />
+        <LoadingOverlay loading={loading && jobs.length === 0} />
         <table className="ai-history__table" style={{ borderCollapse: 'collapse', width: '100%' }}>
           <thead>
             <tr>
