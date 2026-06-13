@@ -51,7 +51,7 @@ const ICONS: Record<ThemeMode, ReactElement> = {
   ),
 }
 
-export function ThemeToggle() {
+export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   const { mode, setMode } = useTheme()
   const t = useT()
   const modes: ThemeMode[] = ['system', 'light', 'dark']
@@ -68,7 +68,7 @@ export function ThemeToggle() {
           <button
             key={m}
             type="button"
-            className={segmentedControlBtnClass(active, { theme: true })}
+            className={segmentedControlBtnClass(active, { theme: true, compact })}
             onClick={() => setMode(m)}
             aria-pressed={active}
             aria-label={labels[m]}

@@ -4,7 +4,7 @@ import {
   segmentedControlShellClass,
 } from '../../lib/headerControlClasses'
 
-export function LanguageSwitcher() {
+export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
   const { locale, setLocale, supported, t } = useI18n()
   return (
     <div className={segmentedControlShellClass} role="group" aria-label={t('common.language')}>
@@ -15,7 +15,7 @@ export function LanguageSwitcher() {
           <button
             key={loc}
             type="button"
-            className={segmentedControlBtnClass(active)}
+            className={segmentedControlBtnClass(active, { compact })}
             aria-pressed={active}
             aria-label={meta.label}
             onClick={() => setLocale(loc)}

@@ -25,7 +25,7 @@ import { authCardClass, authPageClass } from './lib/authClasses'
 import { legacyButtonClass } from './lib/buttonClasses'
 import { legacyCardClass } from './lib/cardClasses'
 import { legacyFeedbackClass } from './lib/feedbackClasses'
-import { headerControlsClass, sidebarLogoutBtnClass } from './lib/headerControlClasses'
+import { sidebarFooterControlsClass, sidebarLogoutBtnClass } from './lib/headerControlClasses'
 import {
   mainClass,
   mobileNavScrimClass,
@@ -515,9 +515,9 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
           </div>
         </Link>
       )}
-      <div className={`${headerControlsClass} flex-nowrap`}>
-        <LanguageSwitcher />
-        <ThemeToggle />
+      <div className={sidebarFooterControlsClass}>
+        <LanguageSwitcher compact />
+        <ThemeToggle compact />
         {user && (
           <button
             type="button"
