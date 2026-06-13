@@ -1,5 +1,3 @@
-import '../../styles/data-state.css'
-
 import type { ReactNode } from 'react'
 
 import { ErrorAlert } from './ErrorAlert'
@@ -19,7 +17,7 @@ interface DataStateProps {
    * its own placeholder row inside tbody (those move into DataTable in Faz 3).
    */
   emptyState?: ReactNode
-  /** Extra class on the body wrapper (e.g. 'data-state__body--scroll-x'). */
+  /** Extra class on the body wrapper (e.g. 'overflow-x-auto'). */
   className?: string
   children: ReactNode
 }
@@ -38,11 +36,7 @@ export function DataState({
   className,
   children,
 }: DataStateProps) {
-  const bodyCls = [
-    'data-state__body',
-    empty && loading ? 'data-state__body--min' : '',
-    className ?? '',
-  ]
+  const bodyCls = ['flex flex-col', empty && loading ? 'min-h-[120px]' : '', className ?? '']
     .filter(Boolean)
     .join(' ')
 

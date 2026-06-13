@@ -1,5 +1,14 @@
 import React, { useId, useState } from 'react'
 
+import {
+  qbStepCardClass,
+  qbStepChevronClass,
+  qbStepCloseClass,
+  qbStepLabelClass,
+  qbStepRootClass,
+  qbStepSummaryCardClass,
+} from './queryBuilderClasses'
+
 interface NotebookStepProps {
   label: string
   themeClass: string
@@ -30,37 +39,32 @@ export function NotebookStep({
   const toggle = () => setCollapsed((v) => !v)
 
   return (
-    <div className={`notebook-step${isCollapsed ? ' notebook-step--collapsed' : ''}`}>
+    <div className={qbStepRootClass}>
       {collapsible ? (
         <button
           type="button"
-          className={`notebook-step-label notebook-step-label--${themeClass} notebook-step-label--toggle`}
+          className={qbStepLabelClass(themeClass, true)}
           onClick={toggle}
           aria-expanded={!collapsed}
           aria-controls={bodyId}
         >
-          <span className="notebook-step-chevron" aria-hidden="true">
+          <span className={qbStepChevronClass} aria-hidden="true">
             {isCollapsed ? '▸' : '▾'}
           </span>
           <span>{label}</span>
         </button>
       ) : (
-        <div className={`notebook-step-label notebook-step-label--${themeClass}`}>{label}</div>
+        <div className={qbStepLabelClass(themeClass)}>{label}</div>
       )}
       {isCollapsed ? (
-        <button type="button" className="notebook-step-summary-card" onClick={toggle}>
+        <button type="button" className={qbStepSummaryCardClass} onClick={toggle}>
           {summary}
         </button>
       ) : (
-        <div id={bodyId} className={`notebook-step-card notebook-step-card--${themeClass}`}>
+        <div id={bodyId} className={qbStepCardClass(themeClass)}>
           {children}
           {onClose && (
-            <button
-              type="button"
-              className="notebook-step-close"
-              onClick={onClose}
-              title={closeTitle}
-            >
+            <button type="button" className={qbStepCloseClass} onClick={onClose} title={closeTitle}>
               ×
             </button>
           )}

@@ -8,6 +8,11 @@ import { sameIdSet, selectionStateFor } from '../../utils/selection'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
+import {
+  adminBtnPrimaryClass,
+  adminBtnSecondaryClass,
+  adminRoleListItemClass,
+} from './adminClasses'
 import { ReadOnlyNote } from './ReadOnlyNote'
 
 const ALL_PAGE_SIZE = 500
@@ -167,7 +172,7 @@ export function RolesPanel({ token }: { token: string }) {
                         <button
                           type="button"
                           onClick={() => setSelectedRoleId(r.id)}
-                          className={`admin-role-list-item${active ? ' admin-role-list-item--active' : ''}`}
+                          className={adminRoleListItemClass(active)}
                         >
                           <strong style={{ fontSize: 14 }}>{r.name}</strong>
                           {r.description && (
@@ -210,7 +215,7 @@ export function RolesPanel({ token }: { token: string }) {
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   type="button"
-                  className="admin-btn-secondary"
+                  className={adminBtnSecondaryClass}
                   onClick={onDiscard}
                   disabled={saving}
                 >
@@ -218,7 +223,7 @@ export function RolesPanel({ token }: { token: string }) {
                 </button>
                 <button
                   type="button"
-                  className="admin-btn-primary"
+                  className={adminBtnPrimaryClass}
                   onClick={() => void onSave()}
                   disabled={saving}
                 >

@@ -142,17 +142,20 @@ export function JoinEditor({
         </div>
         <div className="form-group">
           <label id="join-type-label">{t('modeling.join_type_label')}</label>
-          <div className="join-type-segment" role="radiogroup" aria-labelledby="join-type-label">
+          <div className="flex gap-[0.35rem]" role="radiogroup" aria-labelledby="join-type-label">
             {JOIN_TYPES.map((jt) => {
               const hintKey = joinTypeHintKey(jt)
+              const isActive = joinForm.joinType === jt
               return (
                 <button
                   key={jt}
                   type="button"
                   role="radio"
-                  aria-checked={joinForm.joinType === jt}
-                  className={`join-type-segment__option${
-                    joinForm.joinType === jt ? ' join-type-segment__option--active' : ''
+                  aria-checked={isActive}
+                  className={`flex-1 inline-flex items-center justify-center gap-[0.35rem] px-2 py-[0.45rem] border rounded-lg bg-card-raised text-[0.74rem] font-semibold cursor-pointer transition-[border-color,color,background] duration-[120ms] ease-in-out focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
+                    isActive
+                      ? 'border-accent text-accent bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]'
+                      : 'border-border text-foreground-muted hover:border-accent hover:text-foreground'
                   }`}
                   title={hintKey ? t(hintKey) : undefined}
                   onClick={() => onChange({ joinType: jt })}
@@ -173,19 +176,30 @@ export function JoinEditor({
           />
         </div>
         {joinForm.fromTable && joinForm.toTable && (
-          <div className="join-preview" aria-live="polite">
-            <div className="join-preview__flow">
-              <span className="join-preview__table">{shortTableName(joinForm.fromTable)}</span>
+          <div
+            className="grid gap-[0.45rem] py-[0.65rem] px-3 border border-dashed border-border-strong rounded-lg bg-[color-mix(in_srgb,var(--accent)_4%,transparent)]"
+            aria-live="polite"
+          >
+            <div className="flex items-center justify-center gap-2 flex-wrap">
               <span
-                className="join-preview__icon"
+                className={`font-mono text-[0.76rem] text-foreground bg-card-raised border border-border rounded-[0.35rem] py-[0.2rem] px-2 max-w-36 overflow-hidden text-ellipsis whitespace-nowrap`}
+              >
+                {shortTableName(joinForm.fromTable)}
+              </span>
+              <span
+                className="inline-flex text-accent"
                 title={previewHintKey ? t(previewHintKey) : undefined}
               >
                 <JoinTypeIcon type={joinForm.joinType} size={22} />
               </span>
-              <span className="join-preview__table">{shortTableName(joinForm.toTable)}</span>
+              <span
+                className={`font-mono text-[0.76rem] text-foreground bg-card-raised border border-border rounded-[0.35rem] py-[0.2rem] px-2 max-w-36 overflow-hidden text-ellipsis whitespace-nowrap`}
+              >
+                {shortTableName(joinForm.toTable)}
+              </span>
             </div>
             {fromColumnValue && toColumnValue && (
-              <code className="join-preview__on">
+              <code className="block text-center text-[0.7rem] text-foreground-muted [overflow-wrap:anywhere]">
                 ON {shortTableName(joinForm.fromTable)}.{fromColumnValue} ={' '}
                 {shortTableName(joinForm.toTable)}.{toColumnValue}
               </code>

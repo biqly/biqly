@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import type { DragEvent } from 'react'
 
 import type { useT } from '../../i18n'
@@ -6,6 +7,31 @@ import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { PaginationControls } from '../ui/PaginationControls'
 import { Select } from '../ui/Select'
 import { TableBrowserCellValue } from './TableBrowserCellValue'
+import {
+  rowIndexNumberClass,
+  tableBrowserAddFilterBtnClass,
+  tableBrowserDataRowClass,
+  tableBrowserDataRowTdClass,
+  tableBrowserFilterBarClass,
+  tableBrowserFilterTagClass,
+  tableBrowserFilterTagCloseClass,
+  tableBrowserPageSizeClass,
+  tableBrowserPageSizeLabelClass,
+  tableBrowserPaginationClass,
+  tableBrowserPaginationControlsClass,
+  tableBrowserRangeClass,
+  tableBrowserTableOverlayClass,
+  tableBrowserTablePlaceholderClass,
+  tableBrowserTableWrapClass,
+  tableBrowserThClass,
+  tableBrowserThFilterClass,
+  tableBrowserThGripClass,
+  tableBrowserThInnerClass,
+  tableBrowserThLabelClass,
+  tableBrowserThSortClass,
+  validationErrorBannerRowClass,
+  validationErrorBannerTitleClass,
+} from './tableBrowserClasses'
 import type { TableBrowserFilter } from './tableBrowserFilterHandlers'
 import { TableBrowserFilterPopover } from './TableBrowserFilterPopover'
 import { formatTableBrowserFilterValue, tableBrowserOperatorLabel } from './tableBrowserFilterUtils'
@@ -33,9 +59,9 @@ function ValidationErrorBanner({
     )
   }
   return (
-    <div className="error validation-error-banner" role="alert">
-      <div className="validation-error-banner__row">
-        <span className="validation-error-banner__title">
+    <div className="error p-4 bg-red-500/12 rounded-lg border border-red-500/20" role="alert">
+      <div className={validationErrorBannerRowClass}>
+        <span className={validationErrorBannerTitleClass}>
           ⚠ {t('table_browser.validation_error_summary', { count: '1' })}
         </span>
         <button type="button" className="btn btn-sm btn-primary" onClick={onOpenModeling}>
@@ -174,11 +200,11 @@ export function TableBrowserModelContent({
 
   return (
     <>
-      <div className="table-browser-filter-bar">
+      <div className={tableBrowserFilterBarClass}>
         {filters.map((f) => (
           <span
             key={f.id}
-            className="table-browser-filter-tag"
+            className={tableBrowserFilterTagClass}
             style={{ cursor: 'pointer' }}
             onClick={() => onOpenEditFilter(f)}
           >
@@ -186,7 +212,7 @@ export function TableBrowserModelContent({
             {formatTableBrowserFilterValue(f.value)}
             <button
               type="button"
-              className="table-browser-filter-tag-close"
+              className={tableBrowserFilterTagCloseClass}
               onClick={(e) => {
                 e.stopPropagation()
                 onRemoveFilter(f.id)
@@ -199,7 +225,7 @@ export function TableBrowserModelContent({
         ))}
         <button
           type="button"
-          className="table-browser-add-filter-btn"
+          className={tableBrowserAddFilterBtnClass}
           onClick={() => onOpenAddFilter()}
           title={t('table_browser.add_filter')}
         >
@@ -248,7 +274,7 @@ export function TableBrowserModelContent({
         <>
           {showInitialPlaceholder ? (
             <div
-              className="table-browser-table-placeholder"
+              className={tableBrowserTablePlaceholderClass}
               role="status"
               aria-live="polite"
               aria-busy="true"
@@ -260,13 +286,18 @@ export function TableBrowserModelContent({
             <LoadingOverlay
               loading={fetching}
               label={t('table_browser.loading_page')}
-              className="table-browser-table-overlay"
+              className={tableBrowserTableOverlayClass}
             >
-              <div className={`table-browser-table-wrap${fetching ? ' is-blurred' : ''}`}>
-                <table className="results-table table-browser-grid">
+              <div
+                className={clsx(
+                  tableBrowserTableWrapClass,
+                  fetching && 'blur-[2px] opacity-55 pointer-events-none',
+                )}
+              >
+                <table className="results-table w-full border-collapse text-left text-sm max-[899px]:min-w-[36rem] max-[680px]:min-w-[32rem]">
                   <thead>
                     <tr>
-                      <th scope="col" className="table-browser-col-index"></th>
+                      <th scope="col" className="w-12 max-w-12 text-center"></th>
                       {displayColumnNames.map((colName) => {
                         const sorted = sort?.column === colName ? sort.dir : null
                         return (
@@ -277,7 +308,12 @@ export function TableBrowserModelContent({
                             aria-sort={
                               sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : undefined
                             }
-                            className={`table-browser-th th-clickable${dragColumn === colName ? ' is-dragging' : ''}${dropTargetColumn === colName ? ' is-drop-target' : ''}`}
+                            className={clsx(
+                              tableBrowserThClass,
+                              dragColumn === colName && 'opacity-45',
+                              dropTargetColumn === colName &&
+                                'shadow-[inset_0_-2px_0_var(--accent)]',
+                            )}
                             onDragStart={onColumnDragStart(colName)}
                             onDragOver={onColumnDragOver(colName)}
                             onDrop={onColumnDrop(colName)}
@@ -285,26 +321,26 @@ export function TableBrowserModelContent({
                             onClick={() => !fetching && onToggleSort(colName)}
                             title={t('table_browser.sort_hint')}
                           >
-                            <span className="table-browser-th-inner">
+                            <span className={tableBrowserThInnerClass}>
                               <span
-                                className="table-browser-th-grip"
+                                className={tableBrowserThGripClass}
                                 aria-hidden="true"
                                 title={t('table_browser.drag_column')}
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 ⋮⋮
                               </span>
-                              <span className="table-browser-th-label">
+                              <span className={tableBrowserThLabelClass}>
                                 {getDimensionLabel(colName)}
                               </span>
                               {sorted && (
-                                <span className="table-browser-th-sort" aria-hidden="true">
+                                <span className={tableBrowserThSortClass} aria-hidden="true">
                                   {sorted === 'asc' ? '↑' : '↓'}
                                 </span>
                               )}
                               <button
                                 type="button"
-                                className="table-browser-th-filter"
+                                className={tableBrowserThFilterClass}
                                 aria-label={t('table_browser.filter_column_aria', {
                                   column: colName,
                                 })}
@@ -328,22 +364,25 @@ export function TableBrowserModelContent({
                     {(result.rows ?? []).map((row, i) => (
                       <tr
                         key={i}
-                        className={`table-browser-data-row${fetching ? ' is-disabled' : ''}`}
+                        className={clsx(
+                          tableBrowserDataRowClass,
+                          fetching && 'pointer-events-none',
+                        )}
                         onClick={() => {
                           if (!fetching) {
                             onRowClick(i, row)
                           }
                         }}
                       >
-                        <td className="table-browser-col-index">
-                          <span className="row-index-number">{page * pageSize + i + 1}</span>
+                        <td className="w-12 max-w-12 text-center">
+                          <span className={rowIndexNumberClass}>{page * pageSize + i + 1}</span>
                         </td>
                         {displayColumnNames.map((colName) => {
                           const j = columnIndexByName.get(colName)
                           const cell = j != null ? row[j] : null
                           const display = formatResultCell(cell, colName, {})
                           return (
-                            <td key={colName}>
+                            <td key={colName} className={tableBrowserDataRowTdClass}>
                               <TableBrowserCellValue value={display} />
                             </td>
                           )
@@ -357,11 +396,11 @@ export function TableBrowserModelContent({
           ) : null}
 
           {result?.columns?.length ? (
-            <div className={`table-browser-pagination${fetching ? ' is-loading' : ''}`}>
-              <span className="table-browser-range">{rangeLabel}</span>
-              <div className="table-browser-pagination-controls">
-                <div className="table-browser-page-size">
-                  <span className="table-browser-page-size-label">
+            <div className={clsx(tableBrowserPaginationClass, fetching && 'opacity-72')}>
+              <span className={tableBrowserRangeClass}>{rangeLabel}</span>
+              <div className={tableBrowserPaginationControlsClass}>
+                <div className={tableBrowserPageSizeClass}>
+                  <span className={tableBrowserPageSizeLabelClass}>
                     {t('table_browser.rows_per_page')}
                   </span>
                   <Select

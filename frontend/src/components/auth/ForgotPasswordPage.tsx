@@ -36,14 +36,17 @@ export default function ForgotPasswordPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-header">
-          <div className="auth-logo">
-            <img src={abiLogo} alt="" width={34} height={34} />
+        <div className="flex flex-col items-center text-center mb-6">
+          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+            <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
           </div>
-          <h1 className="auth-title">{t('auth.title_forgot')}</h1>
-          <p className="auth-subtitle">
+          <h1 className="text-[24px] font-bold text-foreground mb-1 tracking-tight">
+            {t('auth.title_forgot')}
+          </h1>
+          <p className="text-[14px] text-foreground-muted">
             <a
               href="/auth/signin"
+              className="text-[#6366f1] font-medium no-underline hover:underline"
               onClick={(e) => {
                 e.preventDefault()
                 void navigate('/auth/signin')
@@ -55,7 +58,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         {success ? (
-          <div className="auth-success" style={{ marginBottom: '16px' }}>
+          <div className="p-[10px_12px] bg-emerald-500/8 border-l-[3px] border-success text-success text-[13px] rounded text-center mb-4">
             {t('auth.forgot_success')}
           </div>
         ) : (
@@ -63,18 +66,25 @@ export default function ForgotPasswordPage() {
             onSubmit={(e) => {
               void handleSubmit(e)
             }}
-            className="auth-form"
+            className="flex flex-col gap-4"
           >
-            {error && <div className="auth-error">{error}</div>}
+            {error && (
+              <div className="p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2">
+                {error}
+              </div>
+            )}
 
-            <div className="form-group">
-              <label className="form-label" htmlFor="email-input">
+            <div className="flex flex-col gap-1">
+              <label
+                className="text-[13px] font-medium text-foreground-muted"
+                htmlFor="email-input"
+              >
                 {t('auth.email')}
               </label>
               <input
                 id="email-input"
                 type="email"
-                className="form-input"
+                className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-input,#ffffff)] text-foreground text-[14px] transition-all duration-250 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]`}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -83,8 +93,14 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
-            <button type="submit" className="auth-btn" disabled={loading || !email}>
-              {loading && <div className="spinner" />}
+            <button
+              type="submit"
+              className="flex items-center justify-center gap-2 w-full py-[11px] px-[16px] rounded-lg border-none bg-gradient-to-br from-accent to-[var(--accent-strong)] text-white text-[14px] font-semibold cursor-pointer transition-all duration-150 shadow-[0_4px_10px_rgba(99,102,241,0.2)] hover:opacity-95 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+              disabled={loading || !email}
+            >
+              {loading && (
+                <div className="w-4 h-4 border-2 border-white/30 rounded-full border-t-white animate-spin" />
+              )}
               {t('auth.btn_send_reset')}
             </button>
           </form>

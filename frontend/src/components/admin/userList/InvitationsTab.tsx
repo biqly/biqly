@@ -8,6 +8,14 @@ import type { ColumnDef } from '../../ui/DataTable'
 import { DataTable } from '../../ui/DataTable'
 import { Pagination } from '../../ui/Pagination'
 import { Select } from '../../ui/Select'
+import {
+  adminBtnDangerClass,
+  adminBtnSecondaryClass,
+  adminInputClass,
+  adminInvitationBadgeClass,
+  adminMessageBoxClass,
+  adminTableContainerClass,
+} from '../adminClasses'
 
 interface InvitationsTabProps {
   inviteSearch: string
@@ -102,15 +110,7 @@ export function InvitationsTab({
       cell: (inv) => {
         const status = getInviteStatus(inv)
         return (
-          <span
-            className={
-              status === 'claimed'
-                ? 'admin-badge-claimed'
-                : status === 'expired'
-                  ? 'admin-badge-expired'
-                  : 'admin-badge-pending'
-            }
-          >
+          <span className={adminInvitationBadgeClass(status)}>
             {status === 'claimed'
               ? t('auth.invite_status_claimed')
               : status === 'expired'
@@ -137,7 +137,7 @@ export function InvitationsTab({
                 void handleResend(inv.id)
               }}
               disabled={actionLoadingId === inv.id}
-              className="admin-btn-secondary"
+              className={adminBtnSecondaryClass}
             >
               {actionLoadingId === inv.id ? '...' : t('auth.btn_resend')}
             </button>
@@ -147,7 +147,7 @@ export function InvitationsTab({
                 void handleRevoke(inv.id)
               }}
               disabled={actionLoadingId === inv.id}
-              className="admin-btn-danger"
+              className={adminBtnDangerClass}
             >
               {actionLoadingId === inv.id ? '...' : t('auth.btn_revoke')}
             </button>
@@ -165,7 +165,7 @@ export function InvitationsTab({
           placeholder={t('admin.users.search_placeholder')}
           value={inviteSearch}
           onChange={(e) => setInviteSearch(e.target.value)}
-          className="admin-input"
+          className={adminInputClass}
           style={{ maxWidth: 320 }}
         />
         <div style={{ minWidth: 180 }}>
@@ -177,10 +177,10 @@ export function InvitationsTab({
         </div>
       </div>
 
-      <div className="admin-table-container">
+      <div className={adminTableContainerClass}>
         {actionMessage && (
           <div
-            className={actionMessage.type === 'success' ? 'admin-success-box' : 'admin-err-box'}
+            className={adminMessageBoxClass(actionMessage.type)}
             onClick={() => setActionMessage(null)}
             role="button"
             tabIndex={0}

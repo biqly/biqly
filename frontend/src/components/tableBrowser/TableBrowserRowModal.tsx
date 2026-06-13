@@ -7,6 +7,31 @@ import { tableKey } from '../modeling/utils'
 import { Modal } from '../ui/Modal'
 import { rowTitleFor } from './rowTitle'
 import { TableBrowserCellValue } from './TableBrowserCellValue'
+import {
+  modalCardXlClass,
+  rowModalBackClass,
+  rowModalLayoutClass,
+  rowModalListClass,
+  rowModalListFooterClass,
+  rowModalListScrollClass,
+  rowModalListSentinelClass,
+  rowModalNavClass,
+  rowModalNavPathClass,
+  rowModalRelatedCardBadgeClass,
+  rowModalRelatedCardClass,
+  rowModalRelatedCardEmptyClass,
+  rowModalRelatedCardHeadClass,
+  rowModalRelatedCardOnClass,
+  rowModalRelatedCardTableClass,
+  rowModalRelatedCardValueClass,
+  rowModalRelatedClass,
+  rowModalRelatedTitleClass,
+  tableBrowserDetailGridClass,
+  tableBrowserDetailItemClass,
+  tableBrowserDetailLabelClass,
+  tableBrowserDetailModalBodyClass,
+  tableBrowserDetailValueClass,
+} from './tableBrowserClasses'
 import { buildTableRowsUrl, type TableRowsResult } from './useTableBrowserQueryState'
 
 const RELATED_PAGE_SIZE = 25
@@ -171,23 +196,23 @@ function RelatedLinkCard({
       : null
 
   return (
-    <div className="row-modal-related-card">
-      <div className="row-modal-related-card__head">
-        <span className="row-modal-related-card__table">{relatedKey}</span>
-        <span className="row-modal-related-card__badge">{link.toOne ? '1:1 / N:1' : '1:N'}</span>
+    <div className={rowModalRelatedCardClass}>
+      <div className={rowModalRelatedCardHeadClass}>
+        <span className={rowModalRelatedCardTableClass}>{relatedKey}</span>
+        <span className={rowModalRelatedCardBadgeClass}>{link.toOne ? '1:1 / N:1' : '1:N'}</span>
       </div>
-      <code className="row-modal-related-card__on">
+      <code className={rowModalRelatedCardOnClass}>
         {link.localColumn} = {link.remoteColumn}
       </code>
       {value == null ? (
-        <p className="row-modal-related-card__empty">{t('table_browser.related_no_value')}</p>
+        <p className={rowModalRelatedCardEmptyClass}>{t('table_browser.related_no_value')}</p>
       ) : state.loading ? (
-        <p className="row-modal-related-card__empty">{t('table_browser.loading')}</p>
+        <p className={rowModalRelatedCardEmptyClass}>{t('table_browser.loading')}</p>
       ) : link.toOne ? (
         state.firstRow ? (
           <button
             type="button"
-            className="row-modal-related-card__value"
+            className={rowModalRelatedCardValueClass}
             onClick={() =>
               state.firstRow &&
               onOpenRow({
@@ -202,12 +227,12 @@ function RelatedLinkCard({
             {title} →
           </button>
         ) : (
-          <p className="row-modal-related-card__empty">{t('table_browser.related_no_match')}</p>
+          <p className={rowModalRelatedCardEmptyClass}>{t('table_browser.related_no_match')}</p>
         )
       ) : (
         <button
           type="button"
-          className="row-modal-related-card__value"
+          className={rowModalRelatedCardValueClass}
           disabled={!state.total}
           onClick={() =>
             onOpenList({
@@ -320,12 +345,12 @@ function RelatedListView({
   }, [hasMore, loadMore])
 
   if (loading && rows.length === 0) {
-    return <p className="row-modal-related-card__empty">{t('table_browser.loading')}</p>
+    return <p className={rowModalRelatedCardEmptyClass}>{t('table_browser.loading')}</p>
   }
   return (
-    <div className="row-modal-list">
-      <div className="row-modal-list__scroll">
-        <table className="results-table table-browser-grid">
+    <div className={rowModalListClass}>
+      <div className={rowModalListScrollClass}>
+        <table className="results-table w-full border-collapse text-left text-sm max-[899px]:min-w-[36rem] max-[680px]:min-w-[32rem]">
           <thead>
             <tr>
               {columns.map((c) => (
@@ -339,7 +364,7 @@ function RelatedListView({
             {rows.map((row, i) => (
               <tr
                 key={i}
-                className="table-browser-data-row"
+                className="table-browser-data-row cursor-pointer h-[2.15rem] hover:[&>td]:bg-canvas-subtle"
                 onClick={() =>
                   onOpenRow({
                     kind: 'row',
@@ -353,7 +378,10 @@ function RelatedListView({
                 {columns.map((c, j) => {
                   const display = formatResultCell(row[j], c, {})
                   return (
-                    <td key={c}>
+                    <td
+                      key={c}
+                      className="px-3 py-[0.3rem] leading-snug whitespace-nowrap overflow-visible max-w-[12rem] align-middle"
+                    >
                       <TableBrowserCellValue value={display} />
                     </td>
                   )
@@ -363,8 +391,8 @@ function RelatedListView({
           </tbody>
         </table>
       </div>
-      <div className="row-modal-list__footer">
-        <span className="table-browser-range">
+      <div className={rowModalListFooterClass}>
+        <span className="text-[0.8rem] text-foreground-muted">
           {total != null
             ? t('table_browser.range_of_total', {
                 start: formatInt(rows.length > 0 ? 1 : 0),
@@ -373,9 +401,11 @@ function RelatedListView({
               })
             : ''}
         </span>
-        {loadingMore && <span className="table-browser-range">{t('table_browser.loading')}</span>}
+        {loadingMore && (
+          <span className="text-[0.8rem] text-foreground-muted">{t('table_browser.loading')}</span>
+        )}
       </div>
-      <div ref={loadMoreRef} className="row-modal-list__sentinel" aria-hidden="true" />
+      <div ref={loadMoreRef} className={rowModalListSentinelClass} aria-hidden="true" />
     </div>
   )
 }
@@ -460,15 +490,15 @@ export function TableBrowserRowModal({
       title={title}
       subtitle={frameTableKey}
       onClose={onClose}
-      className="modal-card--xl"
-      bodyClassName="table-browser-detail-modal-body"
+      className={modalCardXlClass}
+      bodyClassName={tableBrowserDetailModalBodyClass}
     >
       {frames.length > 1 && (
-        <div className="row-modal-nav">
-          <button type="button" className="row-modal-back" onClick={popFrame}>
+        <div className={rowModalNavClass}>
+          <button type="button" className={rowModalBackClass} onClick={popFrame}>
             ‹ {t('table_browser.back')}
           </button>
-          <span className="row-modal-nav__path">
+          <span className={rowModalNavPathClass}>
             {frames.map((f, i) => (
               <span key={i} className="row-modal-nav__crumb">
                 {i > 0 && ' › '}
@@ -480,9 +510,9 @@ export function TableBrowserRowModal({
       )}
 
       {frame.kind === 'row' ? (
-        <div className="row-modal-layout">
+        <div className={rowModalLayoutClass}>
           <div
-            className="table-browser-detail-grid"
+            className={tableBrowserDetailGridClass}
             role="region"
             aria-label={t('table_browser.row_detail')}
           >
@@ -490,11 +520,11 @@ export function TableBrowserRowModal({
               const j = colIndex.get(colName)
               const display = formatResultCell(j != null ? frame.row[j] : null, colName, {})
               return (
-                <div key={colName} className="table-browser-detail-item">
-                  <span className="table-browser-detail-label">{colName}</span>
+                <div key={colName} className={tableBrowserDetailItemClass}>
+                  <span className={tableBrowserDetailLabelClass}>{colName}</span>
                   <TableBrowserCellValue
                     value={display}
-                    className="table-browser-detail-value"
+                    className={tableBrowserDetailValueClass}
                     multiline
                   />
                 </div>
@@ -502,8 +532,8 @@ export function TableBrowserRowModal({
             })}
           </div>
           {links.length > 0 && (
-            <aside className="row-modal-related" aria-label={t('table_browser.related_tables')}>
-              <h4 className="row-modal-related__title">{t('table_browser.related_tables')}</h4>
+            <aside className={rowModalRelatedClass} aria-label={t('table_browser.related_tables')}>
+              <h4 className={rowModalRelatedTitleClass}>{t('table_browser.related_tables')}</h4>
               {links.map((link) => {
                 const j = colIndex.get(link.localColumn)
                 return (

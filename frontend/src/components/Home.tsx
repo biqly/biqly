@@ -1,5 +1,3 @@
-import '../styles/home.css'
-
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -27,6 +25,7 @@ const iconProps = {
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
   'aria-hidden': true,
+  className: 'w-[1.3rem] h-[1.3rem]',
 }
 
 interface QuickAction {
@@ -96,29 +95,34 @@ export default function Home() {
   const navigate = useNavigate()
 
   return (
-    <div className="home">
-      <section className="home-section">
-        <h2 className="home-section__title">{t('home.quick_actions')}</h2>
-        <div className="home-quick-actions">
+    <div className="flex flex-col gap-7">
+      <section>
+        <h2 className="m-0 mb-[0.85rem] text-[1rem] font-semibold tracking-[-0.01em]">
+          {t('home.quick_actions')}
+        </h2>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-[0.85rem]">
           {QUICK_ACTIONS.map((action) => (
             <button
               key={action.path}
               type="button"
-              className="home-quick-action"
+              className={`flex flex-col items-start gap-[0.65rem] border border-border rounded-[0.7rem] bg-card p-4 cursor-pointer text-foreground text-left transition-all duration-140 ease-out hover:border-accent hover:bg-[var(--accent-glow)] hover:-translate-y-0.5`}
               onClick={() => {
                 void navigate(action.path)
               }}
             >
-              <span className="home-quick-action__icon" aria-hidden="true">
+              <span
+                className="inline-grid place-items-center w-[2.2rem] h-[2.2rem] rounded-[0.55rem] bg-[var(--accent-glow)] text-accent"
+                aria-hidden="true"
+              >
                 {action.icon}
               </span>
-              <span className="home-quick-action__label">{t(action.labelKey)}</span>
+              <span className="text-[0.9rem] font-semibold">{t(action.labelKey)}</span>
             </button>
           ))}
         </div>
       </section>
 
-      <div className="home-grid">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5 items-start">
         <RecentQueries />
         <Favorites />
       </div>
@@ -128,9 +132,12 @@ export default function Home() {
 
 function ListSkeleton() {
   return (
-    <div className="home-list">
+    <div className="flex flex-col gap-[0.3rem] m-0 p-0 list-none">
       {Array.from({ length: 4 }, (_, i) => (
-        <div key={i} className="home-list-item home-list-item--skeleton">
+        <div
+          key={i}
+          className="flex flex-col gap-[0.4rem] w-full rounded-[0.5rem] py-[0.6rem] px-[0.65rem]"
+        >
           <Skeleton height="0.85rem" width={`${70 - i * 8}%`} />
           <Skeleton height="0.7rem" width="40%" />
         </div>
@@ -152,8 +159,10 @@ function RecentQueries() {
   }, [get])
 
   return (
-    <section className="card home-card">
-      <h2 className="home-section__title">{t('home.recent_queries')}</h2>
+    <section className="card min-w-0">
+      <h2 className="m-0 mb-[0.85rem] text-[1rem] font-semibold tracking-[-0.01em]">
+        {t('home.recent_queries')}
+      </h2>
       {items === null ? (
         <ListSkeleton />
       ) : items.length === 0 ? (
@@ -168,19 +177,21 @@ function RecentQueries() {
           }}
         />
       ) : (
-        <ul className="home-list">
+        <ul className="flex flex-col gap-[0.3rem] m-0 p-0 list-none">
           {items.map((item) => (
             <li key={item.id}>
               <button
                 type="button"
-                className="home-list-item home-list-item--button"
+                className="flex flex-col gap-[0.2rem] w-full rounded-[0.5rem] py-[0.6rem] px-[0.65rem] border-0 bg-transparent cursor-pointer text-left text-foreground font-inherit hover:bg-card-raised"
                 onClick={() => {
                   void navigate('/ai-query', { state: { question: item.question } })
                 }}
                 aria-label={`${t('home.open_aria')}: ${item.question}`}
               >
-                <span className="home-list-item__title">{item.question}</span>
-                <span className="home-list-item__meta">{formatDate(item.created_at)}</span>
+                <span className="text-[0.88rem] font-medium truncate">{item.question}</span>
+                <span className="text-[0.76rem] text-foreground-muted truncate">
+                  {formatDate(item.created_at)}
+                </span>
               </button>
             </li>
           ))}
@@ -225,8 +236,10 @@ function Favorites() {
   )
 
   return (
-    <section className="card home-card">
-      <h2 className="home-section__title">{t('home.favorites')}</h2>
+    <section className="card min-w-0">
+      <h2 className="m-0 mb-[0.85rem] text-[1rem] font-semibold tracking-[-0.01em]">
+        {t('home.favorites')}
+      </h2>
       {items === null ? (
         <ListSkeleton />
       ) : items.length === 0 ? (
@@ -241,25 +254,27 @@ function Favorites() {
           }}
         />
       ) : (
-        <ul className="home-list">
+        <ul className="flex flex-col gap-[0.3rem] m-0 p-0 list-none">
           {items.map((item) => (
-            <li key={item.id} className="home-fav-row">
+            <li key={item.id} className="flex items-center gap-[0.35rem]">
               <button
                 type="button"
-                className="home-list-item home-list-item--button"
+                className="flex flex-col gap-[0.2rem] w-full rounded-[0.5rem] py-[0.6rem] px-[0.65rem] border-0 bg-transparent cursor-pointer text-left text-foreground font-inherit hover:bg-card-raised min-w-0 flex-1"
                 onClick={() => {
                   void navigate('/saved')
                 }}
                 aria-label={`${t('home.open_aria')}: ${item.name}`}
               >
-                <span className="home-list-item__title">{item.name}</span>
+                <span className="text-[0.88rem] font-medium truncate">{item.name}</span>
                 {item.description && (
-                  <span className="home-list-item__meta">{item.description}</span>
+                  <span className="text-[0.76rem] text-foreground-muted truncate">
+                    {item.description}
+                  </span>
                 )}
               </button>
               <button
                 type="button"
-                className="home-fav-star"
+                className="shrink-0 border-0 bg-transparent text-warning cursor-pointer text-[1.1rem] leading-none p-[0.3rem] rounded-[0.4rem] hover:bg-card-raised"
                 onClick={() => {
                   void unfavorite(item)
                 }}

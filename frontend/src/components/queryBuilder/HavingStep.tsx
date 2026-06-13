@@ -1,6 +1,7 @@
 import { useT } from '../../i18n'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
+import { qbAddBtnClass, qbTagBase, qbTagCloseClass, qbTagPurpleClass } from './queryBuilderClasses'
 import type { HavingRow } from './types'
 
 interface HavingStepProps {
@@ -36,11 +37,7 @@ export function HavingStep({
       summary={t('query_builder.step_summary_count', { count: having.length })}
     >
       {having.map((h, i) => (
-        <div
-          key={i}
-          className="notebook-tag notebook-tag--purple"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-        >
+        <div key={i} className={`${qbTagBase} ${qbTagPurpleClass} flex items-center gap-1`}>
           <Select
             value={h.field}
             onChange={(v) => updateHaving(i, 'field', v)}
@@ -70,7 +67,7 @@ export function HavingStep({
           />
           <button
             type="button"
-            className="notebook-tag-close"
+            className={qbTagCloseClass}
             onClick={() => removeHaving(i)}
             aria-label="Remove Having Constraint"
           >
@@ -78,7 +75,7 @@ export function HavingStep({
           </button>
         </div>
       ))}
-      <button type="button" className="notebook-add-btn" onClick={addHaving}>
+      <button type="button" className={qbAddBtnClass} onClick={addHaving}>
         +
       </button>
     </NotebookStep>

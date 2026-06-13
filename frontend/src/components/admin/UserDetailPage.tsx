@@ -14,6 +14,7 @@ import { useConfirm } from '../../hooks/useConfirm'
 import { useLocale, useT } from '../../i18n'
 import type { AuthUser, Role, UserRoleInfo } from '../../types/auth'
 import { useAuth } from '../auth/AuthProvider'
+import { adminErrTextClass, adminTextMutedClass } from './adminClasses'
 import { roleSelectOptions } from './adminSelectOptions'
 import {
   UserDetailMfaSupportCard,
@@ -205,17 +206,17 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   }
 
   if (loading) {
-    return <div className="admin-text-muted">{t('admin.user_detail.loading')}</div>
+    return <div className={adminTextMutedClass}>{t('admin.user_detail.loading')}</div>
   }
   if (error) {
     return (
-      <div className="admin-err-text">
+      <div className={adminErrTextClass}>
         {t('common.error')}: {error}
       </div>
     )
   }
   if (!user) {
-    return <div className="admin-text-muted">{t('admin.user_detail.not_found')}</div>
+    return <div className={adminTextMutedClass}>{t('admin.user_detail.not_found')}</div>
   }
 
   return (

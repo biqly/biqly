@@ -1,6 +1,7 @@
 import { useT } from '../../i18n'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
+import { qbTagBase, qbTagPurpleClass } from './queryBuilderClasses'
 
 interface SortStepProps {
   orderBy: string
@@ -26,10 +27,7 @@ export function SortStep({
 
   return (
     <NotebookStep label="Sort" themeClass="sort" onClose={onClear} closeTitle={t('common.cancel')}>
-      <div
-        className="notebook-tag notebook-tag--purple"
-        style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-      >
+      <div className={`${qbTagBase} ${qbTagPurpleClass} flex items-center gap-1`}>
         <Select
           value={orderBy}
           onChange={setOrderBy}

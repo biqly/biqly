@@ -1,6 +1,14 @@
 import { useState } from 'react'
 
 import { useT } from '../../i18n'
+import {
+  feedbackBtnClass,
+  feedbackCatBtnClass,
+  feedbackCategoriesClass,
+  feedbackFormClass,
+  feedbackLearnedBadgeClass,
+  feedbackRowClass,
+} from './aiQueryClasses'
 import type { FeedbackCatKey } from './types'
 import { FEEDBACK_CAT_KEYS } from './types'
 
@@ -37,13 +45,13 @@ export function FeedbackSection({ onSubmitPositive, onSubmitNegative }: Feedback
 
   return (
     <>
-      <div className="feedback-row">
+      <div className={feedbackRowClass}>
         <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>
           {t('ai_query.feedback_helpful')}
         </span>
         <button
           type="button"
-          className={`feedback-btn ${userFeedback === 'positive' ? 'feedback-active' : ''}`}
+          className={feedbackBtnClass(userFeedback === 'positive', false)}
           aria-label={t('ai_query.feedback_positive_aria')}
           onClick={() => submitFeedback('positive')}
         >
@@ -51,29 +59,29 @@ export function FeedbackSection({ onSubmitPositive, onSubmitNegative }: Feedback
         </button>
         <button
           type="button"
-          className={`feedback-btn ${userFeedback === 'negative' ? 'feedback-negative' : ''}`}
+          className={feedbackBtnClass(userFeedback === 'negative', true)}
           aria-label={t('ai_query.feedback_negative_aria')}
           onClick={() => submitFeedback('negative')}
         >
           👎
         </button>
         {learned && (
-          <span className="feedback-learned-badge" role="status">
+          <span className={feedbackLearnedBadgeClass} role="status">
             ✓ {t('ai_query.feedback_learned')}
           </span>
         )}
       </div>
       {showFeedbackForm && (
-        <div className="feedback-form">
+        <div className={feedbackFormClass}>
           <p style={{ fontSize: '0.8rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
             {t('ai_query.feedback_what_wrong')}
           </p>
-          <div className="feedback-categories">
+          <div className={feedbackCategoriesClass}>
             {FEEDBACK_CAT_KEYS.map((cat) => (
               <button
                 type="button"
                 key={cat}
-                className={`feedback-cat-btn ${feedbackCategories.includes(cat) ? 'feedback-active' : ''}`}
+                className={feedbackCatBtnClass(feedbackCategories.includes(cat))}
                 onClick={() =>
                   setFeedbackCategories((prev) =>
                     prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],

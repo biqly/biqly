@@ -9,6 +9,7 @@ import {
 } from '../../api/aiUserModels'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { adminBtnAutoWidthClass } from '../admin/adminClasses'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
@@ -206,50 +207,48 @@ export function AIModelPreferencesSection() {
   }
 
   return (
-    <section
-      className="card card--elevated settings-prefs-card settings-security-card ai-model-prefs"
-      aria-labelledby="ai-models-prefs-heading"
-    >
-      <div className="settings-prefs-card__header">
+    <section className="card card--elevated mb-0" aria-labelledby="ai-models-prefs-heading">
+      <div className="flex flex-wrap items-start justify-between gap-y-3 gap-x-4 mb-4">
         <div>
-          <h2 id="ai-models-prefs-heading">{t('settings.ai_models.section')}</h2>
-          <p>{t('settings.ai_models.hint')}</p>
+          <h2 id="ai-models-prefs-heading" className="m-0">
+            {t('settings.ai_models.section')}
+          </h2>
+          <p className="mt-[0.35rem] mr-0 mb-0 ml-0 flex-[1_1_100%] max-w-[42rem] text-foreground-muted text-[0.875rem] leading-[1.45]">
+            {t('settings.ai_models.hint')}
+          </p>
           {restricted && (
-            <p className="ai-model-prefs__restricted">{t('settings.ai_models.restricted_hint')}</p>
+            <p className="m-0 mt-[0.35rem] text-[0.8125rem] leading-[1.45] text-foreground-muted max-w-[42rem]">
+              {t('settings.ai_models.restricted_hint')}
+            </p>
           )}
         </div>
       </div>
 
       <LoadingOverlay loading={loading}>
-        <div className="ai-model-prefs__body">
-          <div className="ai-model-prefs__grid">
+        <div className="p-0">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 min-[1100px]:grid-cols-3">
             {PURPOSES.map((purpose) => {
               const options = modelsByPurpose[purpose] ?? []
               const value = choices[purpose] ?? ''
               return (
-                <div key={purpose} className="ai-purpose-pref">
-                  <div className="ai-purpose-pref__head">
+                <div
+                  key={purpose}
+                  className={`flex flex-col gap-2 py-3 px-3.5 border border-border rounded-[10px] bg-card-raised min-h-[118px]`}
+                >
+                  <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p
-                        className="ai-purpose-pref__title"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          margin: 0,
-                        }}
-                      >
+                      <p className="m-0 text-[0.8125rem] font-semibold text-foreground leading-[1.3] inline-flex items-center gap-2">
                         {PURPOSE_ICONS[purpose]}
                         {t(`admin.ai_providers.purposes.${purpose}`)}
                       </p>
-                      <p className="ai-purpose-pref__hint">
+                      <p className="mt-1 mb-0 text-[0.72rem] leading-[1.35] text-foreground-faint">
                         {t(`settings.ai_models.purpose_hints.${purpose}`)}
                       </p>
                     </div>
                     {value ? (
                       <button
                         type="button"
-                        className="ai-purpose-pref__clear"
+                        className="shrink-0 py-0.5 px-2 border-0 rounded-md bg-transparent text-foreground-muted text-[0.72rem] font-semibold cursor-pointer hover:enabled:text-foreground hover:enabled:bg-white/5 disabled:opacity-45 disabled:cursor-not-allowed"
                         disabled={saving}
                         onClick={() => {
                           void handleClear(purpose)
@@ -259,20 +258,22 @@ export function AIModelPreferencesSection() {
                       </button>
                     ) : null}
                   </div>
-                  <Select
-                    value={value}
-                    onChange={(v) => setChoices((prev) => ({ ...prev, [purpose]: v }))}
-                    options={[
-                      { value: '', label: t('settings.ai_models.use_default') },
-                      ...options.map((m) => ({
-                        value: m.id,
-                        label: `${m.display_name} (${m.provider_name})`,
-                      })),
-                    ]}
-                    disabled={saving || options.length === 0}
-                  />
+                  <div className="w-full [&_.ui-select]:w-full">
+                    <Select
+                      value={value}
+                      onChange={(v) => setChoices((prev) => ({ ...prev, [purpose]: v }))}
+                      options={[
+                        { value: '', label: t('settings.ai_models.use_default') },
+                        ...options.map((m) => ({
+                          value: m.id,
+                          label: `${m.display_name} (${m.provider_name})`,
+                        })),
+                      ]}
+                      disabled={saving || options.length === 0}
+                    />
+                  </div>
                   {options.length === 0 && (
-                    <p className="ai-purpose-pref__empty-hint">
+                    <p className="m-0 text-[0.72rem] text-warning">
                       {t('settings.ai_models.no_models_for_purpose')}
                     </p>
                   )}
@@ -280,11 +281,13 @@ export function AIModelPreferencesSection() {
               )
             })}
           </div>
-          <p className="ai-purpose-pref__hint">{t('settings.ai_models.admin_managed_note')}</p>
-          <div className="ai-model-prefs__footer">
+          <p className="mt-1 mb-0 text-[0.72rem] leading-[1.35] text-foreground-faint">
+            {t('settings.ai_models.admin_managed_note')}
+          </p>
+          <div className={`flex justify-end pt-5 mt-5 border-t border-border`}>
             <button
               type="button"
-              className="btn btn-primary btn-sm btn-auto-width"
+              className={`btn btn-primary btn-sm ${adminBtnAutoWidthClass}`}
               disabled={saving || loading}
               onClick={() => {
                 void handleSave()

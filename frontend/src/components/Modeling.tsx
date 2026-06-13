@@ -1,6 +1,3 @@
-import '../styles/modeling.css'
-import '../styles/drift.css'
-
 import { DriftPanel } from './admin/DriftPanel'
 import { JoinEditor } from './modeling/JoinEditor'
 import { ModelingCanvas } from './modeling/ModelingCanvas'

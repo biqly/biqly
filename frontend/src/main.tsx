@@ -1,7 +1,4 @@
 import './index.css'
-import './styles/loading.css'
-import './styles/settings.css'
-import './styles/datasources.css'
 
 import React from 'react'
 import ReactDOM from 'react-dom/client'

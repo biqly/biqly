@@ -1,5 +1,15 @@
 import { useT } from '../../i18n'
 import type { GenerationTrace } from '../../types/ai'
+import {
+  generationTraceArrowClass,
+  generationTraceClass,
+  generationTraceColumnsClass,
+  generationTraceColumnsLiClass,
+  generationTraceDetailClass,
+  generationTraceLabelClass,
+  generationTraceMetaClass,
+  generationTraceRowClass,
+} from './aiQueryClasses'
 import { Collapsible } from './routingViz'
 
 function formatConfidence(confidence: number): string {
@@ -22,13 +32,15 @@ export function GenerationTracePanel({
 
   return (
     <Collapsible title={t('ai_query.generation_trace_title')} defaultOpen={defaultOpen}>
-      <div className="generation-trace">
+      <div className={generationTraceClass}>
         {trace.routed_table ? (
-          <p className="generation-trace__row">
-            <span className="generation-trace__label">{t('ai_query.generation_trace_table')}</span>
+          <p className={generationTraceRowClass}>
+            <span className={generationTraceLabelClass}>
+              {t('ai_query.generation_trace_table')}
+            </span>
             <code>{trace.routed_table}</code>
             {routeConfidence ? (
-              <span className="generation-trace__meta">
+              <span className={generationTraceMetaClass}>
                 {t('ai_query.generation_trace_confidence', { value: routeConfidence })}
               </span>
             ) : null}
@@ -36,8 +48,8 @@ export function GenerationTracePanel({
         ) : null}
 
         {trace.ambiguity_result ? (
-          <p className="generation-trace__row">
-            <span className="generation-trace__label">
+          <p className={generationTraceRowClass}>
+            <span className={generationTraceLabelClass}>
               {t('ai_query.generation_trace_ambiguity')}
             </span>
             <span>{trace.ambiguity_result}</span>
@@ -45,8 +57,8 @@ export function GenerationTracePanel({
         ) : null}
 
         {trace.ambiguity_detail ? (
-          <p className="generation-trace__detail">
-            <span className="generation-trace__label">
+          <p className={generationTraceDetailClass}>
+            <span className={generationTraceLabelClass}>
               {t('ai_query.generation_trace_ambiguity_detail')}
             </span>
             {trace.ambiguity_detail}
@@ -55,21 +67,24 @@ export function GenerationTracePanel({
 
         {(trace.columns_resolved?.length ?? 0) > 0 ? (
           <>
-            <p className="generation-trace__row">
-              <span className="generation-trace__label">
+            <p className={generationTraceRowClass}>
+              <span className={generationTraceLabelClass}>
                 {t('ai_query.generation_trace_columns')}
               </span>
             </p>
-            <ul className="generation-trace__columns">
+            <ul className={generationTraceColumnsClass}>
               {(trace.columns_resolved ?? []).map((col, idx) => (
-                <li key={`${col.term}-${col.resolved}-${idx}`}>
+                <li
+                  key={`${col.term}-${col.resolved}-${idx}`}
+                  className={generationTraceColumnsLiClass}
+                >
                   <code>{col.term}</code>
-                  <span className="generation-trace__arrow" aria-hidden="true">
+                  <span className={generationTraceArrowClass} aria-hidden="true">
                     →
                   </span>
                   <code>{col.resolved}</code>
                   {col.source ? (
-                    <span className="generation-trace__meta">({col.source})</span>
+                    <span className={generationTraceMetaClass}>({col.source})</span>
                   ) : null}
                 </li>
               ))}

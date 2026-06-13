@@ -199,7 +199,7 @@ do not commit until lint and tests pass cleanly (zero errors) for the stacks you
 
 styling & coding conventions:
 
-1. use vanilla css with bem naming conventions (located in `frontend/src/styles/`). avoid tailwind css.
+1. use Tailwind CSS utilities for new or substantially changed UI when they keep the code simpler and more consistent. Existing vanilla CSS with BEM naming conventions in `frontend/src/styles/` may remain; avoid broad rewrites unless the task explicitly asks for them.
 2. React 19 + TypeScript + Vite 6: components import/use class names as plain strings.
 3. use clean react hooks and functional components.
 4. ensure all interactive components are fully accessible (semantic html, proper `aria-*` tags, keyboard navigation, unique ids).
@@ -309,6 +309,21 @@ notes:
 - golangci-lint version is pinned in `ci.yml` (`v2.12.2`) — match locally with `make lint-go`.
 
 ## Agent skills
+
+### Skill discovery
+
+when the user asks for something and the right workflow is unclear, **start with** `.agents/skills/find-skills/SKILL.md` — read and follow it before improvising.
+
+local project skills live under `.agents/skills/<skill-name>/SKILL.md`. workflow:
+
+1. read `find-skills` to map the request to a domain/task
+2. scan `.agents/skills/` for a matching local skill (list directories or read each skill's `description` in its frontmatter)
+3. if a local skill fits, read its `SKILL.md` and follow it fully before coding or answering
+4. if no local skill fits, use `find-skills` to search remotely (`npx skills find [query]`) or install from [skills.sh](https://skills.sh/)
+
+also follow `.agents/skills/using-superpowers/SKILL.md`: invoke any skill that might apply (even ~1% chance) before responding or editing code.
+
+priority: repo-local `.agents/skills/` first, then global/remote skills via `npx skills`.
 
 ### Issue tracker
 

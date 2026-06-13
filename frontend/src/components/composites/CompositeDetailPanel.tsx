@@ -8,6 +8,46 @@ import type {
 } from '../../types/composite'
 import { Select } from '../ui/Select'
 import { CompositeCanvas } from './CompositeCanvas'
+import {
+  canonicalDateDimsClass,
+  canonicalDateGridClass,
+  canonicalDateModelClass,
+  componentAddRowClass,
+  componentAliasClass,
+  componentListClass,
+  componentListItemClass,
+  componentModelClass,
+  componentRoleClass,
+  compositeActionsClass,
+  compositeCanvasWrapClass,
+  compositeDetailHeadClass,
+  compositeDetailHeadDescClass,
+  compositeDetailHeadTitleClass,
+  compositesBtnIconDangerClass,
+  compositesBtnLinkClass,
+  compositesBtnPrimaryClass,
+  compositesBtnSecondaryClass,
+  compositeSectionClass,
+  compositeSectionTitleClass,
+  compositeStatusClass,
+  compositeValidationClass,
+  crossJoinListClass,
+  crossJoinListItemClass,
+  crossJoinSuggestionsClass,
+  crossJoinSuggestionsTitleClass,
+  dateDimChipClass,
+  joinMetaClass,
+  resolutionEmptyClass,
+  resolutionListClass,
+  resolutionListItemClass,
+  resolutionNameClass,
+  sectionHeadRowClass,
+  sectionHintClass,
+  suggestionReasonClass,
+  suggestionRowClass,
+  validationErrorClass,
+  validationWarningClass,
+} from './compositesClasses'
 
 export function CompositeDetailPanel({
   t,
@@ -68,49 +108,66 @@ export function CompositeDetailPanel({
 }) {
   return (
     <>
-      <div className="composite-detail-head">
+      <div className={compositeDetailHeadClass}>
         <div>
-          <h2>{detail.label ?? detail.name}</h2>
-          {detail.description && <p>{detail.description}</p>}
-          <span className={`composite-status status-${detail.status}`}>
+          <h2 className={compositeDetailHeadTitleClass}>{detail.label ?? detail.name}</h2>
+          {detail.description && (
+            <p className={compositeDetailHeadDescClass}>{detail.description}</p>
+          )}
+          <span className={compositeStatusClass(detail.status)}>
             {detail.status} · v{detail.version}
           </span>
         </div>
-        <div className="composite-actions">
-          <button type="button" className="btn-secondary" onClick={onValidate} disabled={loading}>
+        <div className={compositeActionsClass}>
+          <button
+            type="button"
+            className={compositesBtnSecondaryClass}
+            onClick={onValidate}
+            disabled={loading}
+          >
             {t('composites.validate')}
           </button>
-          <button type="button" className="btn-primary" onClick={onPublish} disabled={loading}>
+          <button
+            type="button"
+            className={compositesBtnPrimaryClass}
+            onClick={onPublish}
+            disabled={loading}
+          >
             {t('composites.publish')}
           </button>
-          <button type="button" className="btn-secondary" onClick={onRollback} disabled={loading}>
+          <button
+            type="button"
+            className={compositesBtnSecondaryClass}
+            onClick={onRollback}
+            disabled={loading}
+          >
             {t('composites.rollback')}
           </button>
         </div>
       </div>
 
       {validation && (
-        <div className={`composite-validation ${validation.valid ? 'valid' : 'invalid'}`}>
+        <div className={compositeValidationClass(validation.valid)}>
           <strong>
             {validation.valid
               ? t('composites.validation_success')
               : t('composites.validation_errors')}
           </strong>
           {(validation.errors ?? []).map((e, i) => (
-            <div key={`err-${i}`} className="validation-error">
+            <div key={`err-${i}`} className={validationErrorClass}>
               {e.field ? `${e.field}: ` : ''}
               {e.message}
             </div>
           ))}
           {(validation.warnings ?? []).map((wn, i) => (
-            <div key={`warn-${i}`} className="validation-warning">
+            <div key={`warn-${i}`} className={validationWarningClass}>
               {wn.message}
             </div>
           ))}
         </div>
       )}
 
-      <div className="composite-canvas-wrap">
+      <div className={compositeCanvasWrapClass}>
         <CompositeCanvas
           components={detail.components ?? []}
           crossJoins={detail.cross_model_joins ?? []}
@@ -118,17 +175,17 @@ export function CompositeDetailPanel({
         />
       </div>
 
-      <div className="composite-section">
-        <h3>{t('composites.components_title')}</h3>
-        <ul className="component-list">
+      <div className={compositeSectionClass}>
+        <h3 className={compositeSectionTitleClass}>{t('composites.components_title')}</h3>
+        <ul className={componentListClass}>
           {(detail.components ?? []).map((c) => (
-            <li key={c.model_id}>
-              <span className="component-alias">{c.alias}</span>
-              <span className="component-model">{modelNames[c.model_id] ?? c.model_id}</span>
-              <span className={`component-role role-${c.role}`}>{c.role}</span>
+            <li key={c.model_id} className={componentListItemClass}>
+              <span className={componentAliasClass}>{c.alias}</span>
+              <span className={componentModelClass}>{modelNames[c.model_id] ?? c.model_id}</span>
+              <span className={componentRoleClass(c.role)}>{c.role}</span>
               <button
                 type="button"
-                className="btn-icon-danger"
+                className={compositesBtnIconDangerClass}
                 onClick={() => onRemoveComponent(c.model_id)}
                 aria-label={t('composites.aria_remove')}
               >
@@ -137,7 +194,7 @@ export function CompositeDetailPanel({
             </li>
           ))}
         </ul>
-        <div className="component-add-row">
+        <div className={componentAddRowClass}>
           <Select
             value={addModelId}
             onChange={(v) => {
@@ -169,7 +226,7 @@ export function CompositeDetailPanel({
           />
           <button
             type="button"
-            className="btn-secondary"
+            className={compositesBtnSecondaryClass}
             onClick={onAddComponent}
             disabled={!addModelId || !addAlias.trim() || usedAliases.has(addAlias.trim())}
           >
@@ -178,16 +235,20 @@ export function CompositeDetailPanel({
         </div>
       </div>
 
-      <div className="composite-section">
-        <div className="section-head-row">
-          <h3>{t('composites.cross_joins_title')}</h3>
+      <div className={compositeSectionClass}>
+        <div className={sectionHeadRowClass}>
+          <h3 className={compositeSectionTitleClass}>{t('composites.cross_joins_title')}</h3>
           <div>
-            <button type="button" className="btn-secondary" onClick={onLoadSuggestions}>
+            <button
+              type="button"
+              className={compositesBtnSecondaryClass}
+              onClick={onLoadSuggestions}
+            >
               {t('composites.suggest')}
             </button>
             <button
               type="button"
-              className="btn-secondary"
+              className={compositesBtnSecondaryClass}
               onClick={onAddJoin}
               disabled={(detail.components ?? []).length < 2}
             >
@@ -195,21 +256,25 @@ export function CompositeDetailPanel({
             </button>
           </div>
         </div>
-        <ul className="cross-join-list">
+        <ul className={crossJoinListClass}>
           {(detail.cross_model_joins ?? []).map((j) => (
-            <li key={j.id}>
+            <li key={j.id} className={crossJoinListItemClass}>
               <span>
                 {j.from_model}.{j.from_dimension} → {j.to_model}.{j.to_dimension}
               </span>
-              <span className="join-meta">
+              <span className={joinMetaClass}>
                 {j.join_type} · {j.relationship}
               </span>
-              <button type="button" className="btn-link" onClick={() => onEditJoin(j)}>
+              <button
+                type="button"
+                className={compositesBtnLinkClass}
+                onClick={() => onEditJoin(j)}
+              >
                 {t('composites.edit')}
               </button>
               <button
                 type="button"
-                className="btn-icon-danger"
+                className={compositesBtnIconDangerClass}
                 onClick={() => onRemoveCrossJoin(j.id)}
                 aria-label={t('composites.aria_delete')}
               >
@@ -219,15 +284,19 @@ export function CompositeDetailPanel({
           ))}
         </ul>
         {suggestions.length > 0 && (
-          <div className="cross-join-suggestions">
-            <h4>{t('composites.suggested_joins')}</h4>
+          <div className={crossJoinSuggestionsClass}>
+            <h4 className={crossJoinSuggestionsTitleClass}>{t('composites.suggested_joins')}</h4>
             {suggestions.map((s, i) => (
-              <div key={`sug-${i}`} className="suggestion-row">
+              <div key={`sug-${i}`} className={suggestionRowClass}>
                 <span>
                   {s.from_model}.{s.from_dimension} → {s.to_model}.{s.to_dimension}
                 </span>
-                <span className="suggestion-reason">{s.reason}</span>
-                <button type="button" className="btn-link" onClick={() => onApplySuggestion(s)}>
+                <span className={suggestionReasonClass}>{s.reason}</span>
+                <button
+                  type="button"
+                  className={compositesBtnLinkClass}
+                  onClick={() => onApplySuggestion(s)}
+                >
                   {t('composites.apply')}
                 </button>
               </div>
@@ -236,14 +305,14 @@ export function CompositeDetailPanel({
         )}
       </div>
 
-      <div className="composite-section">
-        <h3>{t('composites.canonical_date_title')}</h3>
-        <p className="section-hint">{t('composites.canonical_date_hint')}</p>
-        <div className="canonical-date-grid">
+      <div className={compositeSectionClass}>
+        <h3 className={compositeSectionTitleClass}>{t('composites.canonical_date_title')}</h3>
+        <p className={sectionHintClass}>{t('composites.canonical_date_hint')}</p>
+        <div className={canonicalDateGridClass}>
           {(detail.components ?? []).map((c) => (
-            <div key={c.alias} className="canonical-date-model">
+            <div key={c.alias} className={canonicalDateModelClass}>
               <strong>{c.alias}</strong>
-              <div className="canonical-date-dims">
+              <div className={canonicalDateDimsClass}>
                 {(dimensionsByAlias[c.alias] ?? []).map((dim) => {
                   const active =
                     detail.canonical_date?.model_alias === c.alias &&
@@ -252,7 +321,7 @@ export function CompositeDetailPanel({
                     <button
                       key={dim}
                       type="button"
-                      className={`date-dim-chip ${active ? 'active' : ''}`}
+                      className={dateDimChipClass(active)}
                       onClick={() => onSetCanonicalDate(c.alias, dim)}
                     >
                       {dim}
@@ -265,13 +334,13 @@ export function CompositeDetailPanel({
         </div>
       </div>
 
-      <div className="composite-section">
-        <h3>{t('composites.conflicts_title')}</h3>
-        <p className="section-hint">{t('composites.conflicts_hint')}</p>
-        <ul className="resolution-list">
+      <div className={compositeSectionClass}>
+        <h3 className={compositeSectionTitleClass}>{t('composites.conflicts_title')}</h3>
+        <p className={sectionHintClass}>{t('composites.conflicts_hint')}</p>
+        <ul className={resolutionListClass}>
           {(detail.conflict_resolutions ?? []).map((res) => (
-            <li key={res.dimension_name}>
-              <span className="resolution-name">{res.dimension_name}</span>
+            <li key={res.dimension_name} className={resolutionListItemClass}>
+              <span className={resolutionNameClass}>{res.dimension_name}</span>
               <Select
                 value={res.resolution}
                 onChange={(v) =>
@@ -289,7 +358,7 @@ export function CompositeDetailPanel({
             </li>
           ))}
           {(detail.conflict_resolutions ?? []).length === 0 && (
-            <li className="resolution-empty">{t('composites.no_conflicts')}</li>
+            <li className={resolutionEmptyClass}>{t('composites.no_conflicts')}</li>
           )}
         </ul>
       </div>

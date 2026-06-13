@@ -40,41 +40,36 @@ export default function VerifyEmailPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-header">
-          <div className="auth-logo">
-            <img src={abiLogo} alt="" width={34} height={34} />
+        <div className="flex flex-col items-center text-center mb-6">
+          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+            <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
           </div>
-          <h1 className="auth-title">{t('auth.title_verify')}</h1>
+          <h1 className="text-[24px] font-bold text-foreground mb-1 tracking-tight">
+            {t('auth.title_verify')}
+          </h1>
         </div>
 
         {status === 'verifying' && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '16px',
-              padding: '16px',
-            }}
-          >
-            <div
-              className="spinner"
-              style={{ width: '32px', height: '32px', borderTopColor: '#6366f1' }}
-            ></div>
-            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-              Verifying your email address…
-            </span>
+          <div className="flex flex-col items-center gap-4 p-4">
+            <div className="w-8 h-8 border-2 border-white/30 rounded-full border-t-accent animate-spin"></div>
+            <span className="text-[14px] text-foreground-muted">Verifying your email address…</span>
           </div>
         )}
 
-        {status === 'success' && <div className="auth-success">{t('auth.verify_success')}</div>}
+        {status === 'success' && (
+          <div className="p-[10px_12px] bg-emerald-500/8 border-l-[3px] border-success text-success text-[13px] rounded text-center mb-4">
+            {t('auth.verify_success')}
+          </div>
+        )}
 
         {status === 'error' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className="auth-error">{error}</div>
+          <div className="flex flex-col gap-4">
+            <div className="p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2">
+              {error}
+            </div>
             <button
               type="button"
-              className="auth-btn"
+              className="flex items-center justify-center gap-2 w-full py-[11px] px-[16px] rounded-lg border-none bg-gradient-to-br from-accent to-[var(--accent-strong)] text-white text-[14px] font-semibold cursor-pointer transition-all duration-150 shadow-[0_4px_10px_rgba(99,102,241,0.2)] hover:opacity-95 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
               onClick={() => {
                 void navigate('/auth/signin')
               }}

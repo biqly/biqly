@@ -2,6 +2,12 @@ import clsx from 'clsx'
 import { type FocusEvent, type MouseEvent, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import {
+  tableBrowserCellPopoverClass,
+  tableBrowserCellValueClass,
+  tableBrowserCellValueMultilineClass,
+} from './tableBrowserClasses'
+
 interface TableBrowserCellValueProps {
   value: string
   className?: string
@@ -57,8 +63,8 @@ export function TableBrowserCellValue({
     <>
       <span
         className={clsx(
-          'table-browser-cell-value',
-          multiline && 'table-browser-cell-value--multiline',
+          tableBrowserCellValueClass,
+          multiline && tableBrowserCellValueMultilineClass,
           className,
         )}
         tabIndex={value ? 0 : undefined}
@@ -75,7 +81,7 @@ export function TableBrowserCellValue({
           <div
             id={popoverId}
             role="tooltip"
-            className="table-browser-cell-popover"
+            className={tableBrowserCellPopoverClass}
             style={{ top: placement.top, left: placement.left }}
           >
             {value}

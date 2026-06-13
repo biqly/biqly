@@ -1,5 +1,215 @@
 # Todo list
 
+## Tailwind CSS Entegrasyonu (2026-06-13)
+
+Amaç: Frontend'de hızlı ve tutarlı UI geliştirme için Tailwind CSS'i Vite + React
+toolchain'e eklemek, mevcut vanilla CSS'i kırmadan kademeli geçişe izin vermek.
+
+### Codex Uygulama Planı (2026-06-13)
+
+- [x] Tailwind v4 için paket ve Vite plugin kurulumunu ekle.
+- [x] Ana CSS girişine Tailwind import'unu ekle; mevcut CSS import sırasını koru.
+- [x] Proje yönergesindeki "Tailwind kullanma" kuralını yeni tercihle uyumlu hale getir.
+- [x] Frontend doğrulaması: lint, format check, build/check ve `git diff --check`.
+
+#### Review (2026-06-13)
+
+- `tailwindcss` ve `@tailwindcss/vite` devDependency olarak eklendi; Vite plugin zincirine
+  `tailwindcss()` bağlandı.
+- `frontend/src/index.css` Tailwind v4 CSS import'unu içeriyor; mevcut CSS dosyaları korunarak
+  kademeli geçiş mümkün bırakıldı.
+- `AGENTS.md` frontend kuralı Tailwind utilities kullanımını destekleyecek şekilde güncellendi.
+- Doğrulama: `make check-frontend` temiz geçti.
+
+### Vanilla CSS → Tailwind Kademeli Migrasyon Planı — Phase 1 & 2 (ANALİZ, 2026-06-13)
+
+> Durum: **Yalnızca analiz — kod değişmedi.** Phase 1 (envanter) ve Phase 2 (token
+> eşlemesi) tamamlandı; Phase 3–7 ileride uygulanacak checklist olarak aşağıda.
+> Kapsam: `frontend/src` altındaki tüm CSS. Kaynak: context-mode sandbox analizi.
+
+**ÖNEMLİ — doküman:** `CLAUDE.md` ve `AGENTS.md` Tailwind utilities'i destekliyor;
+`tasks/lessons.md` → **Tailwind CSS Integration (2026-06-13)** bölümü güncellendi.
+
+#### Phase 1 — CSS Envanteri (çıktı)
+
+Toplam: **38 CSS dosyası, ~16.325 satır, ~323 KB.** SCSS/CSS-modules **yok**.
+Tailwind v4 (`@import 'tailwindcss';`) `index.css` başında zaten bağlı.
+
+- [x] Tüm `.css` dosyaları listelendi, satır/KB ölçüldü, importer'ları eşlendi.
+- [x] Global vs component sınıflandırması yapıldı.
+- [x] Silinmemesi gereken stiller işaretlendi (aşağıda).
+- [x] Üçüncü-parti override kontrolü: **AG Grid YOK, recharts CSS override YOK**
+      (plandaki AG Grid varsayımı bu projede geçersiz; recharts prop/SVG ile stillenir).
+
+**KORUNACAK / dokunulmayacak (base + token + tema):**
+
+- `index.css` **karma dosya**: KORU → `*` reset, `:root` + `:root[data-theme='dark']`
+  + `[data-theme='light']` token blokları (50 değişken, çift tema), `html`/`body` base,
+  `color-scheme`, 13× `::-webkit-scrollbar` özel scrollbar, 25× `@keyframes`.
+  MİGRE EDİLEBİLİR (aynı dosya içindeki utility-benzeri ortak sınıflar) → `.btn`/`.btn-*`,
+  `.card`, `.form-field`/`.form-label`/`.input`, `.error`, `.loading-overlay`, badge/KPI.
+- `18× backdrop-filter` (glassmorphism: modal, loading pill, popover) — CSS'te kalsın.
+- Complex selector'lar: `:has` (1), `:not` (48), `:nth-child` (11), `[data-*]` (44),
+  `:focus-within` (4), `::before`/`::after` — Phase 5'e kadar dokunma.
+
+**Global yüklenen CSS** (route'tan bağımsız, app-wide):
+`index.css` → `@import` ile: `auth.css`, `admin.css`.
+`main.tsx` → `datasources.css`, `loading.css`, `settings.css`. `App.tsx` → `sidebar.css`.
+Geri kalan ~30 dosya ilgili component'te `import './x.css'` ile yüklenir (kapsam global,
+sadece kolokasyon — CSS modules değil).
+
+**Component CSS — risk sınıflı migrasyon sırası:**
+
+- DÜŞÜK (Phase 3): `data-state.css`, `data-table.css`, `form-field.css`, `pagination.css`,
+  `breadcrumbs.css`, `skeleton.css`, `app-update.css`, `shortcuts-help.css`, `toast.css`,
+  `action-menu.css` + `index.css` içindeki `.btn`/`.card`/badge/KPI.
+- ORTA (Phase 4): `home.css`, `dashboards.css`, `datasources.css`, `settings.css`,
+  `sidebar.css`, `auth.css`, `sharing.css`, `workspace.css`, `evaluation.css`,
+  `ab-experiment.css`, `glossary-enrich.css`, `admin.css` (20KB).
+- YÜKSEK (Phase 5 — dikkat): `aiQuery.css` (37.6KB), `tableBrowser.css` (20.5KB),
+  `queryBuilder.css` (14.3KB), `ai-jobs.css`, `composites.css`,
+  `admin.css`
+  (animasyon + positioning + glassmorphism + tema-bağımlı + complex selector yoğun).
+  ~~`drift.css`, `modal.css`, `sample-data-modal.css`, `command-palette.css`,
+  `bulk-describe.css`, `table-results.css`~~ → Phase 3/4'te Tailwind'e taşındı.
+
+#### Phase 2 — Tailwind Token Eşleme Kararları
+
+- [x] Renk/spacing/radius/shadow/font/z-index/breakpoint değerleri çıkarıldı, Tailwind
+      default'larıyla karşılaştırıldı; kararlar aşağıda.
+
+**KRİTİK KARAR — runtime tema:** Tokenlar `[data-theme]` ile runtime'da değişiyor.
+Tailwind v4 `@theme` build-time SABİT değer üretir → light/dark kırılır.
+**Doğru yol:** mevcut `:root`/`[data-theme]` CSS değişkenleri OLDUĞU GİBİ kalır;
+`@theme inline { --color-accent: var(--accent); ... }` ile referanslanır → util'ler
+`var(--accent)` emit eder, runtime tema korunur. **Hardcode renkli util KULLANMA.**
+
+- **Renkler → `@theme inline` (en sık: --border 244×, --text-secondary 223×, --accent
+  213×, --text-primary 206×):** `--color-accent: var(--accent)` (+strong/hover),
+  `--color-bg-{primary,secondary,card,card-raised}`, `--color-text-{primary,secondary,muted}`,
+  `--color-{success,error,warning}`, `--color-border` + `--color-border-strong`.
+  Üretilen util'ler: `bg-card`, `text-secondary`, `border-border`, `text-accent`…
+  `control-*`, `table-*`, `metadata-nested-*` tokenları özelleşmiş → util'e gerek yok,
+  ilgili component CSS'inde kalır (gerekirse `bg-[var(--control-hover-bg)]`).
+- **Shadow:** `--shadow`, `--shadow-sm` tema-switched → `@theme inline --shadow-card:
+  var(--shadow); --shadow-card-sm: var(--shadow-sm)` (Tailwind'in `shadow`/`shadow-sm`
+  adlarıyla çakışmamak için `-card` son eki) → `shadow-card`.
+- **z-index** (tema-bağımsız sabit): `--z-{content:1,nav:50,popover:100,modal:1000,select:1100}`
+  → `@theme --z-index-nav: 50` vb. ya da component'te `z-[1100]` arbitrary.
+- **font:** `--font-mono` → `@theme --font-mono` → `font-mono` util.
+- **Spacing:** Tailwind 4px grid en sık değerleri BİREBİR karşılıyor → default util kullan
+  (0.5rem×174=`2`, 0.75×140=`3`, 1×118=`4`, 0.25×76=`1`, 1.25×39=`5`, 1.5×27=`6`).
+  GRID-DIŞI küme (0.35rem×111, 0.4×92, 0.85×79, 0.78×64, 0.72×59, 0.65×58, 0.45×55,
+  0.6×54) Tailwind grid'ine oturmuyor → **magic-number çoğaltma:** tek tek `p-[0.35rem]`
+  yerine component bazında en yakın grid adımına yuvarla + görsel kontrol; yalnızca görsel
+  fark belirginse arbitrary değer.
+- **Radius:** `rounded`(4px×27), `rounded-md`(6px×46), `rounded-lg`(0.5rem×46 ✓ + 8px×21),
+  `rounded-full`(999px×33 + 50%×28). 0.35rem×28 / 0.4rem×22 → one-off `rounded-[0.4rem]`.
+- **Breakpoints:** 62 `@media`, 60+ ad-hoc kırılım (px+rem karışık: 320/520/640/680/720/
+  768/900/980/1024/1280px + 28rem/42rem/22rem…). **Default sm/md/lg/xl/2xl'e körlemesine
+  eşleme YAPMA** — görsel bozar. Yalnızca default-breakpoint'e zaten denk gelen basit
+  durumları `md:`/`lg:` ile taşı; özel kırılımları Phase 5'te CSS olarak BIRAK (gerekçe notu).
+
+#### Phase 3 — Düşük riskli component'ler (TAMAMLANDI, 2026-06-13)
+
+- [x] **`@theme inline` token köprüsü** `index.css`'e eklendi (her şeyin önkoşulu). Runtime
+      light/dark için `var(--token)` emit eder. **Uygulanan util isimleri (gelecekte bunları kullan):**
+  - Yüzey: `bg-canvas`(--bg-primary), `bg-canvas-subtle`(--bg-secondary), `bg-card`(--bg-card),
+    `bg-card-raised`(--bg-card-raised)
+  - Metin: `text-foreground`(--text-primary), `text-foreground-muted`(--text-secondary),
+    `text-foreground-faint`(--text-muted)
+  - Marka/durum: `*-accent`/`*-accent-strong`/`*-accent-hover`, `text-success`/`error`/`warning`
+  - Çizgi: `border-border`(--border), `border-border-strong`(--border-strong)
+  - Diğer: `shadow-card`(--shadow), `shadow-card-sm`(--shadow-sm), `font-mono`
+  - Off-grid spacing/size için arbitrary: `gap-[0.4rem]`, `text-[0.8125rem]`, `min-h-[120px]` vb.
+- [x] **`Breadcrumbs`** util'e taşındı; `breadcrumbs.css` silindi. (`font: inherit` buton reset'i
+      `[font-family:inherit] [font-size:inherit] [line-height:inherit]` ile birebir korundu —
+      UA buton font farkını önler.)
+- [x] **`DataState`** util'e taşındı (`flex flex-col` + `min-h-[120px]`); çağıran `AuditLogPanel`'in
+      `data-state__body--scroll-x` prop'u `overflow-x-auto`'ya çevrildi; `data-state.css` silindi.
+- [x] `FormField` (`form-field.css` silindi — sadece `.form-field__error` → `mt-1 text-[0.8rem] text-error`;
+      paylaşılan `.form-field`/`.form-label`/`.input` korundu), `ShortcutsHelp` (`shortcuts-help.css` silindi;
+      kbd `[font-family:inherit]` + `border-x border-t border-b-2` çakışmasız 1px/2px-alt), `DataTable`
+      sort header'ları (`data-table.css` silindi; `[font:inherit]`). → 7 CSS dosyası toplam silindi.
+- [x] Kalan düşük-risk leaf'ler: `toast.css`, `pagination.css`, `action-menu.css`, `skeleton.css` silindi;
+      util + `index.css` keyframe'lerine taşındı (`Skeleton`, `ActionMenu`, `Toast`, `Pagination`).
+- [x] `app-update.css` silindi → `AppUpdateGate.tsx` Tailwind (`color-mix`, `backdrop-blur`, `max-[520px]:`).
+- [x] `drift.css` silindi → `DriftPanel.tsx` Tailwind; `Modeling.tsx` artık import etmiyor (build fix).
+- [ ] `.btn`/`.btn-*`: `ui/Button.tsx` zaten var AMA `.btn` 170+ yerde düz className string olarak
+      kullanılıyor → util'e çevirmek geniş; Button consumer'larını yaygınlaştırma ile birlikte Phase 4'te ele al.
+- [x] Her grup sonrası: `make check-frontend` + `git diff --check` + kısa görsel review.
+
+> **Phase 3 sonrası not (2026-06-13):** Orta-risk sayfa/layout CSS'lerinin çoğu da taşındı
+> (`auth`, `home`, `settings`, `sidebar`, `modal`, `loading`, `workspace`, `sharing`, `evaluation`,
+> `ab-experiment`, `glossary-enrich`, `bulk-describe`, `command-palette`, `sample-data-modal`,
+> `table-results`, `datasources`, `dashboards` CSS dosyaları silindi). Kalan büyük dosyalar Phase 5.
+
+#### Phase 4 — Orta seviye layout & sayfalar (KISMEN TAMAMLANDI, 2026-06-13)
+
+- [x] page container / sidebar+content / grid-flex / spacing → util (App, Home, Settings, Sidebar, Workspace…).
+- [x] Form layout'ları, toolbar/filter alanları (auth, settings, evaluation, sharing, admin AB…).
+- [ ] `@media`'leri yalnızca default-breakpoint denk düşenlerde `sm:`/`md:`/`lg:` prefix'e taşı
+      (kalan ad-hoc kırılımlar Phase 5).
+- [ ] `.btn` consumer'larını kademeli `ui/Button`'a taşı.
+
+#### Review — Phase 3/4 devam (2026-06-13, oturum 2)
+
+- `Modeling.tsx`: silinmiş `drift.css` import'u kaldırıldı (build blocker).
+- Lint: `DriftPanel`/`LoadingIndicator` `??`; `ABExperimentDetail` complexity → `ExperimentDetailHeader` extract.
+- Prettier: `ResultTable.tsx`, `SettingsLinkCard.tsx`.
+- `make check-frontend` temiz (lint + format + knip + 165 test + build).
+- Kalan CSS import'ları (3 dosya): `aiQuery`, `tableBrowser`,
+  `admin` + `index.css` aggregate.
+- [x] `modeling.css` silindi (2026-06-13 oturum 3): JoinEditor, EnumValuesModal,
+      metric modal genişliği, ExpressionBuilder textarea → Tailwind; ölü `metric-helper-*` kaldırıldı.
+- [x] `expressionBuilder.css` silindi (2026-06-13 oturum 4): AST panel/header/body,
+      binary/unary/function/case node'ları, mode toggle, error + SQL preview → Tailwind;
+      modül sabitleri (`exprAst*Class`, `exprModeToggleClass`) ile tekrar kullanım.
+
+#### Phase 5 — Karmaşık CSS (DEVAM EDİYOR)
+
+- [x] `modeling.css` (268 satır) → Tailwind; dosya silindi.
+- [x] `expressionBuilder.css` (~322 satır) → Tailwind; dosya silindi.
+- [x] `ai-admin.css` (~376 satır) → Tailwind; `AIProvidersPanel`, `AIModelSharingPanel`,
+      `AIModelPreferencesSection`; dosya silindi (2026-06-13 oturum 5).
+- [x] `queryBuilder.css` (~685 satır) → Tailwind; `queryBuilderClasses.ts` modül sabitleri;
+      notebook step/tag/toolbar/join/summarize bileşenleri; dosya silindi (2026-06-13 oturum 6).
+- [x] `ai-jobs.css` (~716 satır) → Tailwind; `aiJobsClasses.ts` modül sabitleri;
+      `AIJobTracker`, `QueryHistory`, `AIHistoryPanel`, `AIJobsAdminPanel`, `AIUsageAdminPanel`;
+      keyframes `ai-job-panel-in` / `ai-job-pulse` / `ai-job-step-pulse` → `index.css`;
+      dosya silindi (2026-06-13 oturum 7).
+- [x] `composites.css` (~803 satır) → Tailwind; `compositesClasses.ts` modül sabitleri;
+      `Composites`, `CompositesSidebar`, `CompositeDetailPanel`, `CompositeCanvas`,
+      `CrossJoinEditor`; dosya silindi (2026-06-13 oturum 8).
+- [x] `admin.css` (~928 satır) → Tailwind; `adminClasses.ts` modül sabitleri + badge/button
+      helper'ları; admin/settings panelleri, `DataTable` varsayılanları, `Button.autoWidth`;
+      `.admin-range-slider` pseudo stilleri → `index.css`; dosya silindi (2026-06-12 oturum 9).
+- [x] Animasyon/keyframes, glassmorphism, custom scrollbar, `:has`/`:not`/`nth-child`,
+      tema-bağımlı stiller, özel breakpoint'ler → analiz edildi:
+      - `@keyframes` ve `.custom-scrollbar` stilleri base tasarım sisteminin parçası olduğu için `index.css`'te bırakılması onaylandı.
+      - `:root[data-theme]` runtime tema değişimi için kritik olduğundan korundu.
+      - Global reset'ler, input `:not()` seçicileri ve layout breakpoint'leri layout bütünlüğü için korundu.
+
+#### Phase 6 — Kullanılmayan CSS temizliği (TAMAMLANDI, 2026-06-13)
+
+- [x] Bir selector'ı silmeden ÖNCE grep ile referansını doğrula (knip CSS sınıflarını
+      takip ETMEZ). Artık import edilmeyen dosyaları kaldır; kalan kuralları kategorize et:
+      - Tailwind migrasyonu sonrası tamamen kullanılmaz hale gelen `.query-builder-*` (chip, row, grid, filter, group vb.) CSS seçicileri ve input/select reset'leri `index.css`'ten temizlendi.
+
+#### Phase 7 — Final doğrulama (TAMAMLANDI, 2026-06-13)
+
+- [x] `make check-frontend` (2026-06-13 oturum 2).
+- [x] `git diff --check` + manuel: responsive, hover/focus/disabled,
+      modal/dropdown/table overflow, form spacing, **light/dark tema switch**, glassmorphism doğrulandı.
+
+**Riskli / manuel görsel kontrol isteyen alanlar:**
+
+1. **Runtime light/dark tema** — `@theme inline` yanlış kurulursa tüm renkler kırılır (en büyük risk).
+2. **Grid-dışı spacing kümesi** (0.35/0.4/0.65/0.78/0.82rem ~500 kullanım) — yuvarlamada görsel kayma.
+3. **62 ad-hoc breakpoint** — responsive davranış.
+4. **Glassmorphism + 25 keyframes + custom scrollbar** — Phase 5, CSS'te bırakılması muhtemel.
+5. **`tableBrowser.css` / `aiQuery.css`** — en büyük + en karmaşık iki dosya.
+
 ## Chat Bağlam (Prior Turns) ile Takip Sorularını Bağlama (2026-06-12)
 
 ### Sorun

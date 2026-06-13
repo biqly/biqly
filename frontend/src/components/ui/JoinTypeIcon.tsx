@@ -1,5 +1,6 @@
 import { useId } from 'react'
 
+import { qbJoinTypeIconClass } from '../queryBuilder/queryBuilderClasses'
 import { normalizeJoinType } from './joinType'
 
 /** Venn diagram for a SQL join type: filled regions show which rows survive. */
@@ -16,7 +17,7 @@ export function JoinTypeIcon({ type, size = 18 }: { type: string; size?: number 
       viewBox="0 0 24 16"
       aria-hidden="true"
       focusable="false"
-      className="join-type-icon"
+      className={qbJoinTypeIconClass}
     >
       <defs>
         <clipPath id={clipId}>

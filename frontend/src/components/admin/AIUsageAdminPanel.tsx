@@ -6,12 +6,24 @@ import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useT } from '../../i18n'
 import type { PageQuery } from '../../types/pagination'
 import { formatDurationMs } from '../../utils/formatters'
+import {
+  aiHistoryMonoClass,
+  aiHistoryTableClass,
+  aiHistoryTableWrapClass,
+} from '../ai/aiJobsClasses'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { KPICard } from '../ui/KPICard'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
+import {
+  adminFormLabelClass,
+  adminLabelTextClass,
+  adminPanelClass,
+  adminPanelHeaderClass,
+  adminTableContainerClass,
+} from './adminClasses'
 import { numberSelectOptions } from './adminSelectOptions'
 
 const DEFAULT_PAGE_SIZE = 25
@@ -108,9 +120,9 @@ export function AIUsageAdminPanel() {
   }
 
   return (
-    <div className="admin-panel">
+    <div className={adminPanelClass}>
       <div
-        className="admin-panel__header"
+        className={adminPanelHeaderClass}
         style={{
           display: 'flex',
           flexWrap: 'wrap',
@@ -131,8 +143,8 @@ export function AIUsageAdminPanel() {
               {t('admin.ai_usage.row_count', { count: totalItems })}
             </span>
           )}
-          <label className="admin-form-label" style={{ gap: 4, minWidth: 160 }}>
-            <span className="admin-label-text">{t('admin.ai_usage.period')}</span>
+          <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 160 }}>
+            <span className={adminLabelTextClass}>{t('admin.ai_usage.period')}</span>
             <Select
               value={String(days)}
               options={periodOptions}
@@ -143,8 +155,8 @@ export function AIUsageAdminPanel() {
               size="sm"
             />
           </label>
-          <label className="admin-form-label" style={{ gap: 4, minWidth: 120 }}>
-            <span className="admin-label-text">{t('admin.audit.page_size')}</span>
+          <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 120 }}>
+            <span className={adminLabelTextClass}>{t('admin.audit.page_size')}</span>
             <Select
               value={String(pageSize)}
               options={pageSizeOptions}
@@ -196,11 +208,8 @@ export function AIUsageAdminPanel() {
           </div>
         )}
 
-        <div className="ai-history__table-wrap admin-table-container">
-          <table
-            className="ai-history__table"
-            style={{ borderCollapse: 'collapse', width: '100%' }}
-          >
+        <div className={`${aiHistoryTableWrapClass} ${adminTableContainerClass}`}>
+          <table className={aiHistoryTableClass}>
             <thead>
               <tr>
                 <th style={thStyle}>{t('admin.ai_usage.col_user')}</th>
@@ -227,10 +236,7 @@ export function AIUsageAdminPanel() {
                   return (
                     <tr key={key}>
                       <td style={tdStyle}>{userLabel}</td>
-                      <td
-                        className="ai-history__mono"
-                        style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)' }}
-                      >
+                      <td className={aiHistoryMonoClass} style={tdStyle}>
                         {row.model_used}
                       </td>
                       <td style={tdStyle}>{row.query_count.toLocaleString()}</td>

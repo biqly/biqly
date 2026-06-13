@@ -3,6 +3,14 @@ import { useState } from 'react'
 import { useT } from '../../i18n'
 import type { ComponentModelRef, CrossModelJoin } from '../../types/composite'
 import { Select } from '../ui/Select'
+import {
+  compositesBtnPrimaryClass,
+  compositesBtnSecondaryClass,
+  crossJoinActionsClass,
+  crossJoinEditorClass,
+  crossJoinEditorErrorClass,
+  crossJoinGridClass,
+} from './compositesClasses'
 
 interface CrossJoinEditorProps {
   components: ComponentModelRef[]
@@ -68,9 +76,9 @@ export function CrossJoinEditor({
   }
 
   return (
-    <div className="cross-join-editor">
-      {error && <div className="form-error">{error}</div>}
-      <div className="cross-join-grid">
+    <div className={crossJoinEditorClass}>
+      {error && <div className={crossJoinEditorErrorClass}>{error}</div>}
+      <div className={crossJoinGridClass}>
         <label>
           {t('composites.editor_from_model')}
           <Select value={fromModel} onChange={(v) => setFromModel(v)} options={aliasOptions} />
@@ -114,11 +122,11 @@ export function CrossJoinEditor({
           />
         </label>
       </div>
-      <div className="cross-join-actions">
-        <button type="button" className="btn-secondary" onClick={onCancel}>
+      <div className={crossJoinActionsClass}>
+        <button type="button" className={compositesBtnSecondaryClass} onClick={onCancel}>
           {t('composites.editor_cancel')}
         </button>
-        <button type="button" className="btn-primary" onClick={handleSubmit}>
+        <button type="button" className={compositesBtnPrimaryClass} onClick={handleSubmit}>
           {t('composites.editor_save')}
         </button>
       </div>

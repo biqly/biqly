@@ -12,6 +12,7 @@ import { DataState } from '../ui/DataState'
 import { FormField } from '../ui/FormField'
 import { Pagination } from '../ui/Pagination'
 import { WorkspaceSettingsPage } from '../workspaces/WorkspaceSettingsPage'
+import { adminBtnPrimaryClass } from './adminClasses'
 
 export function WorkspacesPanel({ token }: { token: string }) {
   const t = useT()
@@ -102,7 +103,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
           value={newDesc}
           onChange={setNewDesc}
         />
-        <button type="submit" className="admin-btn-primary">
+        <button type="submit" className={adminBtnPrimaryClass}>
           {t('common.create')}
         </button>
       </form>

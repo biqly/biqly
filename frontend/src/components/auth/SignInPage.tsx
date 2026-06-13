@@ -210,16 +210,19 @@ export default function SignInPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-header">
-          <div className="auth-logo">
-            <img src={abiLogo} alt="" width={34} height={34} />
+        <div className="flex flex-col items-center text-center mb-6">
+          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+            <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
           </div>
-          <h1 className="auth-title">{t('auth.title_signin')}</h1>
+          <h1 className="text-[24px] font-bold text-foreground mb-1 tracking-tight">
+            {t('auth.title_signin')}
+          </h1>
           {signupAllowed && (
-            <p className="auth-subtitle">
+            <p className="text-[14px] text-foreground-muted">
               {t('auth.no_account')}{' '}
               <a
                 href="/auth/signup"
+                className="text-[#6366f1] font-medium no-underline hover:underline"
                 onClick={(e) => {
                   e.preventDefault()
                   void navigate('/auth/signup')
@@ -232,7 +235,11 @@ export default function SignInPage() {
         </div>
 
         {sessionBanner && (
-          <div className="auth-info" role="status" aria-live="polite">
+          <div
+            className="p-[10px_12px] bg-accent/8 border-l-[3px] border-accent text-[13px] rounded text-foreground-muted mb-2"
+            role="status"
+            aria-live="polite"
+          >
             <strong>{sessionBanner.title}</strong>
             <div>{sessionBanner.body}</div>
           </div>

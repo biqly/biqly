@@ -144,10 +144,14 @@ export function EvalRegressionTab({
                       <td>{c.case_id}</td>
                       <td>{c.question}</td>
                       <td>
-                        <span className="status-badge success">{t('evaluation.match_yes')}</span>
+                        <span className="inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full bg-[rgba(52,211,153,0.12)] text-success">
+                          {t('evaluation.match_yes')}
+                        </span>
                       </td>
                       <td>
-                        <span className="status-badge error">{t('evaluation.match_no')}</span>
+                        <span className="inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full bg-[rgba(251,113,133,0.12)] text-error">
+                          {t('evaluation.match_no')}
+                        </span>
                       </td>
                       <td style={{ fontSize: '0.8rem' }}>{c.is_reason}</td>
                     </tr>
@@ -175,10 +179,14 @@ export function EvalRegressionTab({
                       <td>{c.case_id}</td>
                       <td>{c.question}</td>
                       <td>
-                        <span className="status-badge error">{t('evaluation.match_no')}</span>
+                        <span className="inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full bg-[rgba(251,113,133,0.12)] text-error">
+                          {t('evaluation.match_no')}
+                        </span>
                       </td>
                       <td>
-                        <span className="status-badge success">{t('evaluation.match_yes')}</span>
+                        <span className="inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full bg-[rgba(52,211,153,0.12)] text-success">
+                          {t('evaluation.match_yes')}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -207,12 +215,24 @@ export function EvalRegressionTab({
                       <td>{c.case_id}</td>
                       <td>{c.question}</td>
                       <td>
-                        <span className={`status-badge ${c.was_match ? 'success' : 'error'}`}>
+                        <span
+                          className={`inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full ${
+                            c.was_match
+                              ? 'bg-[rgba(52,211,153,0.12)] text-success'
+                              : 'bg-[rgba(251,113,133,0.12)] text-error'
+                          }`}
+                        >
                           {c.was_match ? t('evaluation.match_yes') : t('evaluation.match_no')}
                         </span>
                       </td>
                       <td>
-                        <span className={`status-badge ${c.is_match ? 'success' : 'error'}`}>
+                        <span
+                          className={`inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full ${
+                            c.is_match
+                              ? 'bg-[rgba(52,211,153,0.12)] text-success'
+                              : 'bg-[rgba(251,113,133,0.12)] text-error'
+                          }`}
+                        >
                           {c.is_match ? t('evaluation.match_yes') : t('evaluation.match_no')}
                         </span>
                       </td>

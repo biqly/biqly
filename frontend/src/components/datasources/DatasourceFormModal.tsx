@@ -73,35 +73,53 @@ export function DatasourceFormModal({
       title={editingId ? t('datasources.edit_title') : t('datasources.new')}
       subtitle={t('datasources.form_subtitle')}
       onClose={onClose}
-      className="modal-card--datasource"
+      className="w-full sm:max-w-136 [&_.modal-body]:gap-0 [&_.modal-body_.form-stack]:gap-[0.85rem]"
     >
       <div className="form-stack">
         <div className="form-group">
-          <span className="form-group__label">{t('datasources.connection_mode')}</span>
+          <span className="block mb-[0.35rem] font-semibold text-[0.875rem]">
+            {t('datasources.connection_mode')}
+          </span>
           <div
-            className="conn-mode-segmented"
+            className={`grid grid-cols-2 gap-1 w-full p-1 border border-border rounded-lg bg-card-raised`}
             role="group"
             aria-label={t('datasources.connection_mode')}
           >
             <button
               type="button"
-              className={`conn-mode-segmented__btn${connMode === 'structured' ? ' conn-mode-segmented__btn--active' : ''}`}
+              className={`flex flex-col items-start gap-[0.15rem] m-0 px-[0.65rem] py-[0.55rem] border rounded-[0.4rem] bg-transparent text-[0.8125rem] font-medium leading-tight text-left cursor-pointer transition-all duration-150 ease-out ${
+                connMode === 'structured'
+                  ? 'border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] bg-card text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.12)]'
+                  : 'border-transparent text-foreground-muted hover:text-foreground hover:bg-[color-mix(in_srgb,var(--bg-card)_70%,transparent)]'
+              }`}
               aria-pressed={connMode === 'structured'}
               onClick={() => onConnModeChange('structured')}
             >
-              <span className="conn-mode-segmented__title">{t('datasources.mode_structured')}</span>
-              <span className="conn-mode-segmented__desc">
+              <span className="font-semibold text-[0.8125rem]">
+                {t('datasources.mode_structured')}
+              </span>
+              <span
+                className={`text-[0.7rem] font-normal leading-[1.3] ${connMode === 'structured' ? 'text-foreground-muted' : 'text-foreground-faint'}`}
+              >
                 {t('datasources.mode_structured_desc')}
               </span>
             </button>
             <button
               type="button"
-              className={`conn-mode-segmented__btn${connMode === 'raw' ? ' conn-mode-segmented__btn--active' : ''}`}
+              className={`flex flex-col items-start gap-[0.15rem] m-0 px-[0.65rem] py-[0.55rem] border rounded-[0.4rem] bg-transparent text-[0.8125rem] font-medium leading-tight text-left cursor-pointer transition-all duration-150 ease-out ${
+                connMode === 'raw'
+                  ? 'border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] bg-card text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.12)]'
+                  : 'border-transparent text-foreground-muted hover:text-foreground hover:bg-[color-mix(in_srgb,var(--bg-card)_70%,transparent)]'
+              }`}
               aria-pressed={connMode === 'raw'}
               onClick={() => onConnModeChange('raw')}
             >
-              <span className="conn-mode-segmented__title">{t('datasources.mode_raw')}</span>
-              <span className="conn-mode-segmented__desc">{t('datasources.mode_raw_desc')}</span>
+              <span className="font-semibold text-[0.8125rem]">{t('datasources.mode_raw')}</span>
+              <span
+                className={`text-[0.7rem] font-normal leading-[1.3] ${connMode === 'raw' ? 'text-foreground-muted' : 'text-foreground-faint'}`}
+              >
+                {t('datasources.mode_raw_desc')}
+              </span>
             </button>
           </div>
         </div>
@@ -120,7 +138,9 @@ export function DatasourceFormModal({
         </div>
 
         <div className="form-group">
-          <span className="form-group__label">{t('datasources.type')}</span>
+          <span className="block mb-[0.35rem] font-semibold text-[0.875rem]">
+            {t('datasources.type')}
+          </span>
           <DriverTileGrid
             value={form.type}
             onChange={onDriverChange}
@@ -143,7 +163,7 @@ export function DatasourceFormModal({
               autoComplete="off"
               spellCheck={false}
             />
-            <small className="form-hint">
+            <small className="block mt-1 text-foreground-muted text-[0.75rem] leading-[1.35]">
               {editingId ? t('datasources.dsn_keep_hint') : t('datasources.dsn_hint')}
             </small>
           </div>
@@ -170,7 +190,9 @@ export function DatasourceFormModal({
                   inputMode="numeric"
                   autoComplete="off"
                 />
-                <small className="form-hint">{t('common.optional')}</small>
+                <small className="block mt-1 text-foreground-muted text-[0.75rem] leading-[1.35]">
+                  {t('common.optional')}
+                </small>
               </div>
             </div>
             <div className="modal-form-row">
@@ -204,7 +226,7 @@ export function DatasourceFormModal({
                 onChange={(e) => onStructuredChange({ ...structured, password: e.target.value })}
                 autoComplete="off"
               />
-              <small className="form-hint">
+              <small className="block mt-1 text-foreground-muted text-[0.75rem] leading-[1.35]">
                 {editingId ? t('datasources.password_keep_hint') : t('datasources.dsn_hint')}
               </small>
             </div>
@@ -217,9 +239,11 @@ export function DatasourceFormModal({
                 placeholder={driverConnHints.ssl_mode || 'disable'}
                 autoComplete="off"
               />
-              <small className="form-hint">{t('common.optional')}</small>
+              <small className="block mt-1 text-foreground-muted text-[0.75rem] leading-[1.35]">
+                {t('common.optional')}
+              </small>
               {isInsecureSslMode(structured.ssl_mode) && (
-                <small className="form-hint form-hint--warning">
+                <small className="block mt-1 text-warning text-[0.75rem] leading-[1.35]">
                   ⚠ {t('datasources.ssl_insecure_warning')}
                 </small>
               )}
@@ -228,13 +252,20 @@ export function DatasourceFormModal({
         )}
 
         {draftTestResult && (
-          <p className="datasource-form-test-result" role="status">
+          <p
+            className={`m-0 px-[0.65rem] py-[0.55rem] border rounded-[0.45rem] text-[0.8rem] leading-[1.4] ${
+              draftTestResult.includes('successful') || draftTestResult.includes('başarılı')
+                ? 'border-[color-mix(in_srgb,var(--success)_30%,var(--border))] bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-success'
+                : 'border-border bg-card-raised text-foreground-muted'
+            }`}
+            role="status"
+          >
             {draftTestResult}
           </p>
         )}
       </div>
 
-      <div className="modal-actions datasource-form-actions">
+      <div className={`modal-actions mt-0 pt-[0.85rem] border-t border-border`}>
         <button className="btn" type="button" onClick={onClose} disabled={loading}>
           {t('datasources.cancel')}
         </button>

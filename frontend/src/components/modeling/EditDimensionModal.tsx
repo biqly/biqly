@@ -183,7 +183,11 @@ export function EditDimensionModal({
       open
       onClose={onClose}
       closeOnBackdrop={!saving}
-      className={sourceMode === 'calculated' ? 'modal-card--metric' : 'modal-card--modeling'}
+      className={
+        sourceMode === 'calculated'
+          ? 'w-full max-w-184 transition-[width] duration-200 ease-in-out'
+          : 'modal-card--modeling'
+      }
       labelledBy="modeling-edit-dimension-title"
       title={t('modeling.edit_dimension_title')}
     >

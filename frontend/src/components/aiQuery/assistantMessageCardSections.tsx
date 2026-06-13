@@ -4,6 +4,19 @@ import type { PivotTableData } from '../../utils/pivotTable'
 import { ResultTable } from '../ResultTable'
 import { ChartContainer } from '../ui/ChartContainer'
 import { ChartTypeSelector } from '../ui/ChartTypeSelector'
+import {
+  assistantConfidenceClass,
+  assistantSummaryClass,
+  btnRunQueryContainerClass,
+  chartToggleBtnClass,
+  chartToggleClass,
+  errorRecoveryClass,
+  errorRecoveryPClass,
+  resultsHeaderClass,
+  resultsSectionClass,
+  retryBadgeClass,
+  vizHintClass,
+} from './aiQueryClasses'
 import { deriveClarificationStage, MAX_CLARIFICATION_ROUNDS } from './clarificationStage'
 import { GenerationTracePanel } from './generationTrace'
 import {
@@ -32,11 +45,9 @@ function confidenceLevel(value: number): 'high' | 'mid' | 'low' {
 // the details toggle.
 export function AssistantMessageSummary({ result, t }: { result: AIQueryResponse; t: AssistantT }) {
   return (
-    <div className="assistant-summary">
+    <div className={assistantSummaryClass}>
       {result.confidence !== undefined && (
-        <span
-          className={`assistant-summary__confidence assistant-summary__confidence--${confidenceLevel(result.confidence)}`}
-        >
+        <span className={assistantConfidenceClass(confidenceLevel(result.confidence))}>
           {t('ai_query.summary_confidence', {
             pct: Math.round(result.confidence * 100),
           })}
@@ -48,7 +59,7 @@ export function AssistantMessageSummary({ result, t }: { result: AIQueryResponse
         costUsd={result.cost_usd}
       />
       {result.retry_count !== undefined && result.retry_count > 0 && (
-        <span className="retry-badge retry-badge--inline">
+        <span className={`${retryBadgeClass} mb-0!`}>
           {t('ai_query.retry_badge', { n: result.retry_count })}
         </span>
       )}
@@ -330,8 +341,10 @@ export function AssistantMessageQueryDetails({
       <PromptCollapsible result={result} t={t} localeTag={localeTag} />
       <WarningsPanel result={result} t={t} />
       {result.retry_count !== undefined && result.retry_count >= 3 && !result.sql && (
-        <div className="error-recovery">
-          <p>{t('ai_query.recovery_failed', { n: result.retry_count })}</p>
+        <div className={errorRecoveryClass}>
+          <p className={errorRecoveryPClass}>
+            {t('ai_query.recovery_failed', { n: result.retry_count })}
+          </p>
         </div>
       )}
     </>
@@ -348,9 +361,9 @@ export function AssistantMessageRunQuery({
   t: AssistantT
 }) {
   return (
-    <div className="btn-run-query-container">
+    <div className={btnRunQueryContainerClass}>
       <button type="button" className="btn btn-primary" disabled={loading} onClick={onRunQuery}>
-        {loading ? t('ai_query.loading_executing') : t('ai_query.btn_run_query')}
+        {loading ? t('ai_query.loading_thinking') : t('ai_query.btn_run_query')}
       </button>
     </div>
   )
@@ -374,35 +387,35 @@ function ResultsHeaderHints({
   t: AssistantT
 }) {
   return (
-    <div className="results-header">
+    <div className={resultsHeaderClass}>
       <h3>{t('ai_query.results_title', { rows: result.result.stats?.row_count ?? 0 })}</h3>
       {result.visualization_hint && (
-        <span className="viz-hint" title={result.visualization_hint.reason}>
+        <span className={vizHintClass} title={result.visualization_hint.reason}>
           💡 {result.visualization_hint.chart_type}
         </span>
       )}
       {result.result.pivot_hint && (
-        <span className="viz-hint" title={result.result.pivot_hint.reason ?? ''}>
+        <span className={vizHintClass} title={result.result.pivot_hint.reason ?? ''}>
           ↕ {result.result.pivot_hint.row_field} × {result.result.pivot_hint.column_field}
         </span>
       )}
       {(result.result.anomalies?.length ?? 0) > 0 && (
-        <span className="viz-hint" title={t('ai_query.anomalies_title')}>
+        <span className={vizHintClass} title={t('ai_query.anomalies_title')}>
           {t('ai_query.anomalies_badge', { count: result.result.anomalies!.length })}
         </span>
       )}
       {pivotTable && (
-        <div className="chart-toggle">
+        <div className={chartToggleClass}>
           <button
             type="button"
-            className={tableView === 'flat' ? 'active' : ''}
+            className={chartToggleBtnClass(tableView === 'flat')}
             onClick={() => setTableView('flat')}
           >
             {t('ai_query.pivot_flat')}
           </button>
           <button
             type="button"
-            className={tableView === 'pivot' ? 'active' : ''}
+            className={chartToggleBtnClass(tableView === 'pivot')}
             onClick={() => setTableView('pivot')}
           >
             {t('ai_query.pivot_pivot')}
@@ -452,7 +465,7 @@ export function AssistantMessageResults({
   const tableData = tableView === 'pivot' && pivotTable ? pivotTable : result.result
 
   return (
-    <div className="results-section">
+    <div className={resultsSectionClass}>
       <ResultsHeaderHints
         result={result}
         pivotTable={pivotTable}

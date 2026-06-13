@@ -12,6 +12,23 @@ import { DataState } from '../ui/DataState'
 import { EmptyState } from '../ui/EmptyState'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
+import {
+  aiHistoryActionsClass,
+  aiHistoryClass,
+  aiHistoryDetailBlockClass,
+  aiHistoryDetailBtnClass,
+  aiHistoryDetailContentClass,
+  aiHistoryDetailRowClass,
+  aiHistoryHeaderClass,
+  aiHistoryMonoClass,
+  aiHistoryQuestionClass,
+  aiHistoryRowExpandedClass,
+  aiHistoryStatusClass,
+  type AiHistoryStatusVariant,
+  aiHistoryTableClass,
+  aiHistoryTableWrapClass,
+  aiHistoryToggleClass,
+} from './aiJobsClasses'
 
 function formatHistoryTokens(entry: AIHistoryEntry): string {
   const prompt = entry.prompt_tokens ?? 0
@@ -102,7 +119,7 @@ export function AIHistoryPanel() {
     }
   }
 
-  function statusBadge(entry: AIHistoryEntry) {
+  function statusBadge(entry: AIHistoryEntry): { label: string; cls: AiHistoryStatusVariant } {
     if (entry.needs_clarification) {
       return { label: t('admin.ai_history.status_clarification'), cls: 'clarification' }
     }
@@ -117,11 +134,11 @@ export function AIHistoryPanel() {
   }
 
   return (
-    <div className="ai-history">
-      <div className="ai-history__header">
+    <div className={aiHistoryClass}>
+      <div className={aiHistoryHeaderClass}>
         <h2>{t('admin.ai_history.title')}</h2>
         {isAdmin && (
-          <label className="ai-history__toggle">
+          <label className={aiHistoryToggleClass}>
             <input
               type="checkbox"
               checked={showAll}
@@ -140,9 +157,9 @@ export function AIHistoryPanel() {
           emptyState={<EmptyState description={t('admin.ai_history.empty')} />}
         >
           <>
-            <div className="ai-history__table-wrap">
+            <div className={aiHistoryTableWrapClass}>
               <table
-                className="ai-history__table"
+                className={aiHistoryTableClass}
                 style={{ borderCollapse: 'collapse', width: '100%' }}
               >
                 <thead>
@@ -163,17 +180,12 @@ export function AIHistoryPanel() {
                     const isExpanded = expandedId === entry.id
                     return (
                       <Fragment key={entry.id}>
-                        <tr
-                          className={isExpanded ? 'ai-history__row--expanded' : ''}
-                          style={trStyle}
-                        >
-                          <td className="ai-history__question" style={tdStyle}>
+                        <tr className={isExpanded ? aiHistoryRowExpandedClass : ''} style={trStyle}>
+                          <td className={aiHistoryQuestionClass} style={tdStyle}>
                             {entry.question || '—'}
                           </td>
                           <td style={tdStyle}>
-                            <span className={`ai-history__status ai-history__status--${badge.cls}`}>
-                              {badge.label}
-                            </span>
+                            <span className={aiHistoryStatusClass(badge.cls)}>{badge.label}</span>
                           </td>
                           <td style={tdStyle}>
                             {entry.confidence_score != null
@@ -181,7 +193,7 @@ export function AIHistoryPanel() {
                               : '—'}
                           </td>
                           <td
-                            className="ai-history__mono"
+                            className={aiHistoryMonoClass}
                             style={{ ...tdStyle, fontFamily: 'var(--font-mono, monospace)' }}
                           >
                             {entry.model_used ?? '—'}
@@ -194,11 +206,11 @@ export function AIHistoryPanel() {
                           </td>
                           <td style={tdStyle}>{new Date(entry.created_at).toLocaleString()}</td>
                           <td style={{ ...tdStyle, textAlign: 'right' }}>
-                            <div className="ai-history__actions">
+                            <div className={aiHistoryActionsClass}>
                               <ShareButton resourceType="query" resourceID={entry.id} />
                               <button
                                 onClick={() => toggleDetail(entry.id)}
-                                className="ai-history__detail-btn"
+                                className={aiHistoryDetailBtnClass}
                                 aria-expanded={isExpanded}
                                 title={t('admin.ai_history.detail')}
                               >
@@ -208,7 +220,7 @@ export function AIHistoryPanel() {
                           </td>
                         </tr>
                         {isExpanded && (
-                          <tr className="ai-history__detail-row">
+                          <tr className={aiHistoryDetailRowClass}>
                             <td colSpan={8}>
                               {detailLoading ? (
                                 <div
@@ -223,21 +235,21 @@ export function AIHistoryPanel() {
                                   <LoadingOverlay loading={true} />
                                 </div>
                               ) : detail ? (
-                                <div className="ai-history__detail-content">
+                                <div className={aiHistoryDetailContentClass}>
                                   {detail.prompt_context != null && (
-                                    <div className="ai-history__detail-block">
+                                    <div className={aiHistoryDetailBlockClass}>
                                       <h4>{t('admin.ai_history.prompt')}</h4>
                                       <pre>{formatDetail(detail.prompt_context)}</pre>
                                     </div>
                                   )}
                                   {detail.ai_response != null && (
-                                    <div className="ai-history__detail-block">
+                                    <div className={aiHistoryDetailBlockClass}>
                                       <h4>{t('admin.ai_history.generated_sql')}</h4>
                                       <pre>{formatDetail(detail.ai_response)}</pre>
                                     </div>
                                   )}
                                   {detail.logical_query != null && (
-                                    <div className="ai-history__detail-block">
+                                    <div className={aiHistoryDetailBlockClass}>
                                       <h4>{t('admin.ai_history.logical_query')}</h4>
                                       <pre>{formatDetail(detail.logical_query)}</pre>
                                     </div>

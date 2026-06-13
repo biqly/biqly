@@ -4,6 +4,33 @@ import { type Locale, localeLanguageTag, type useT } from '../../i18n'
 import type { AuthUser, UserRoleInfo } from '../../types/auth'
 import { formatDateTime } from '../../utils/formatters'
 import { Select } from '../ui/Select'
+import {
+  adminActivateBtnClass,
+  adminActiveBadgeClass,
+  adminAvatarCircleClass,
+  adminBtnResendClass,
+  adminBtnRevokeClass,
+  adminBtnSecondaryClass,
+  adminBtnSubmitClass,
+  adminBypassCodeBoxClass,
+  adminCardClass,
+  adminErrTextClass,
+  adminFormLabelClass,
+  adminGridClass,
+  adminGridItemClass,
+  adminInputClass,
+  adminLabelClass,
+  adminRolesGridClass,
+  adminScopeBadgeClass,
+  adminTableClass,
+  adminTdClass,
+  adminTextMutedClass,
+  adminThClass,
+  adminTheadRowClass,
+  adminTrClass,
+  adminValClass,
+  adminVerifiedBadgeClass,
+} from './adminClasses'
 
 export function UserDetailProfileCard({
   t,
@@ -27,9 +54,9 @@ export function UserDetailProfileCard({
   onResendVerification: () => void
 }) {
   return (
-    <div className="admin-card">
+    <div className={adminCardClass}>
       <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div className="admin-avatar-circle" style={{ overflow: 'hidden' }}>
+        <div className={adminAvatarCircleClass} style={{ overflow: 'hidden' }}>
           {user.avatarUrl ? (
             <img
               src={user.avatarUrl}
@@ -64,7 +91,7 @@ export function UserDetailProfileCard({
             <button
               onClick={onToggleActive}
               disabled={!canManageUsers}
-              className={user.isActive ? 'admin-btn-deactivate' : 'admin-btn-activate'}
+              className={adminActivateBtnClass(user.isActive)}
             >
               {user.isActive
                 ? t('admin.user_detail.suspend_account')
@@ -74,21 +101,19 @@ export function UserDetailProfileCard({
         )}
       </div>
 
-      <div className="admin-grid">
-        <div className="admin-grid-item">
-          <span className="admin-label">{t('admin.user_detail.account_status')}</span>
-          <span className={user.isActive ? 'admin-badge-active' : 'admin-badge-inactive'}>
+      <div className={adminGridClass}>
+        <div className={adminGridItemClass}>
+          <span className={adminLabelClass}>{t('admin.user_detail.account_status')}</span>
+          <span className={adminActiveBadgeClass(user.isActive)}>
             {user.isActive ? t('admin.users.status_active') : t('admin.user_detail.status_locked')}
           </span>
         </div>
-        <div className="admin-grid-item">
-          <span className="admin-label">{t('admin.user_detail.email_verification')}</span>
+        <div className={adminGridItemClass}>
+          <span className={adminLabelClass}>{t('admin.user_detail.email_verification')}</span>
           <div
             style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}
           >
-            <span
-              className={user.emailVerified ? 'admin-badge-verified' : 'admin-badge-unverified'}
-            >
+            <span className={adminVerifiedBadgeClass(user.emailVerified)}>
               {user.emailVerified
                 ? t('admin.user_detail.email_approved')
                 : t('admin.user_detail.email_pending')}
@@ -98,7 +123,7 @@ export function UserDetailProfileCard({
                 type="button"
                 onClick={onResendVerification}
                 disabled={verificationSending}
-                className="admin-btn-resend"
+                className={adminBtnResendClass}
               >
                 {verificationSending ? '...' : t('admin.user_detail.resend_verification')}
               </button>
@@ -107,8 +132,8 @@ export function UserDetailProfileCard({
               <span
                 className={
                   verificationMessage.type === 'success'
-                    ? 'admin-badge-active'
-                    : 'admin-badge-inactive'
+                    ? adminActiveBadgeClass(true)
+                    : adminActiveBadgeClass(false)
                 }
                 style={{ background: 'transparent', padding: 0 }}
               >
@@ -117,15 +142,15 @@ export function UserDetailProfileCard({
             )}
           </div>
         </div>
-        <div className="admin-grid-item">
-          <span className="admin-label">{t('admin.user_detail.created_at')}</span>
-          <span className="admin-val">
+        <div className={adminGridItemClass}>
+          <span className={adminLabelClass}>{t('admin.user_detail.created_at')}</span>
+          <span className={adminValClass}>
             {formatDateTime(user.createdAt, localeLanguageTag(locale))}
           </span>
         </div>
-        <div className="admin-grid-item">
-          <span className="admin-label">{t('admin.user_detail.updated_at')}</span>
-          <span className="admin-val">
+        <div className={adminGridItemClass}>
+          <span className={adminLabelClass}>{t('admin.user_detail.updated_at')}</span>
+          <span className={adminValClass}>
             {formatDateTime(user.updatedAt, localeLanguageTag(locale))}
           </span>
         </div>
@@ -148,32 +173,32 @@ export function UserDetailMfaSupportCard({
   onGenerate: () => void
 }) {
   return (
-    <div className="admin-card">
+    <div className={adminCardClass}>
       <h3 style={{ marginTop: 0, marginBottom: 8 }}>{t('admin.user_detail.mfa_support_title')}</h3>
-      <p className="admin-text-muted" style={{ padding: 0, marginTop: 0, marginBottom: 16 }}>
+      <p className={adminTextMutedClass} style={{ padding: 0, marginTop: 0, marginBottom: 16 }}>
         {t('admin.user_detail.mfa_support_desc')}
       </p>
       <button
         type="button"
         onClick={onGenerate}
         disabled={bypassGenerating}
-        className="admin-btn-resend"
+        className={adminBtnResendClass}
       >
         {bypassGenerating ? '...' : t('admin.user_detail.mfa_generate_bypass')}
       </button>
       {bypassError && (
-        <div className="admin-err-text" style={{ padding: '12px 0 0' }}>
+        <div className={adminErrTextClass} style={{ padding: '12px 0 0' }}>
           {bypassError}
         </div>
       )}
       {bypassCode && (
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span className="admin-label">{t('admin.user_detail.mfa_bypass_generated')}</span>
+          <span className={adminLabelClass}>{t('admin.user_detail.mfa_bypass_generated')}</span>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <code className="admin-bypass-code-box">{bypassCode}</code>
+            <code className={adminBypassCodeBoxClass}>{bypassCode}</code>
             <button
               type="button"
-              className="admin-btn-secondary"
+              className={adminBtnSecondaryClass}
               onClick={() => {
                 void navigator.clipboard.writeText(bypassCode)
                 alert(t('admin.user_detail.mfa_bypass_copied'))
@@ -218,50 +243,44 @@ export function UserDetailRolesPanel({
   onRevokeRole: (roleId: string) => void
 }) {
   return (
-    <div className="admin-roles-grid">
-      <div className="admin-card" style={{ minWidth: 0, overflow: 'hidden' }}>
+    <div className={adminRolesGridClass}>
+      <div className={adminCardClass} style={{ minWidth: 0, overflow: 'hidden' }}>
         <h3 style={{ marginTop: 0, marginBottom: 16 }}>
           {t('admin.user_detail.assigned_roles', { count: userRoles.length })}
         </h3>
         {userRoles.length === 0 ? (
-          <div className="admin-text-muted">{t('admin.user_detail.no_roles')}</div>
+          <div className={adminTextMutedClass}>{t('admin.user_detail.no_roles')}</div>
         ) : (
-          <table className="admin-table">
+          <table className={adminTableClass}>
             <thead>
-              <tr className="admin-thead-row">
-                <th className="admin-th">{t('admin.user_detail.role_name')}</th>
-                <th className="admin-th">{t('admin.user_detail.scope')}</th>
-                <th className="admin-th">{t('admin.user_detail.scope_id')}</th>
-                <th className="admin-th"></th>
+              <tr className={adminTheadRowClass}>
+                <th className={adminThClass}>{t('admin.user_detail.role_name')}</th>
+                <th className={adminThClass}>{t('admin.user_detail.scope')}</th>
+                <th className={adminThClass}>{t('admin.user_detail.scope_id')}</th>
+                <th className={adminThClass}></th>
               </tr>
             </thead>
             <tbody>
               {userRoles.map((ur) => (
-                <tr key={`${ur.role_id}-${ur.scope_type}-${ur.scope_id}`} className="admin-tr">
-                  <td className="admin-td" style={{ fontWeight: 600 }}>
+                <tr key={`${ur.role_id}-${ur.scope_type}-${ur.scope_id}`} className={adminTrClass}>
+                  <td className={adminTdClass} style={{ fontWeight: 600 }}>
                     {ur.role_name}
                   </td>
-                  <td className="admin-td">
-                    <span
-                      className={
-                        ur.scope_type === 'global' ? 'admin-badge-global' : 'admin-badge-workspace'
-                      }
-                    >
-                      {ur.scope_type}
-                    </span>
+                  <td className={adminTdClass}>
+                    <span className={adminScopeBadgeClass(ur.scope_type)}>{ur.scope_type}</span>
                   </td>
                   <td
-                    className="admin-td"
+                    className={adminTdClass}
                     style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}
                   >
                     {ur.scope_id === '00000000-0000-0000-0000-000000000000'
                       ? t('admin.user_detail.all_or_none')
                       : ur.scope_id}
                   </td>
-                  <td className="admin-td" style={{ textAlign: 'right' }}>
+                  <td className={adminTdClass} style={{ textAlign: 'right' }}>
                     <button
                       onClick={() => onRevokeRole(ur.role_id)}
-                      className="admin-btn-revoke"
+                      className={adminBtnRevokeClass}
                       disabled={!canManageRoles}
                     >
                       {t('admin.user_detail.remove_role')}
@@ -274,10 +293,10 @@ export function UserDetailRolesPanel({
         )}
       </div>
 
-      <div className="admin-card" style={{ minWidth: 0, overflow: 'hidden' }}>
+      <div className={adminCardClass} style={{ minWidth: 0, overflow: 'hidden' }}>
         <h3 style={{ marginTop: 0, marginBottom: 16 }}>{t('admin.user_detail.assign_new_role')}</h3>
         <form onSubmit={(e) => void onAssignRole(e)} className="page-stack" style={{ gap: 12 }}>
-          <label className="admin-form-label">
+          <label className={adminFormLabelClass}>
             <span>{t('admin.user_detail.select_role')}</span>
             <Select
               value={selectedRoleID}
@@ -286,24 +305,24 @@ export function UserDetailRolesPanel({
               disabled={!canManageRoles || assignableRoleOptions.length === 0}
             />
           </label>
-          <label className="admin-form-label">
+          <label className={adminFormLabelClass}>
             <span>{t('admin.user_detail.scope_type')}</span>
             <Select value={scopeType} options={scopeTypeOptions} onChange={onScopeTypeChange} />
           </label>
           {scopeType === 'workspace' && (
-            <label className="admin-form-label">
+            <label className={adminFormLabelClass}>
               <span>{t('admin.user_detail.workspace_uuid')}</span>
               <input
                 type="text"
                 placeholder={t('admin.user_detail.workspace_uuid_placeholder')}
                 value={scopeID}
                 onChange={(e) => onScopeIdChange(e.target.value)}
-                className="admin-input"
+                className={adminInputClass}
                 required
               />
             </label>
           )}
-          <button type="submit" className="admin-btn-submit" disabled={!canManageRoles}>
+          <button type="submit" className={adminBtnSubmitClass} disabled={!canManageRoles}>
             {t('admin.user_detail.assign_role')}
           </button>
         </form>

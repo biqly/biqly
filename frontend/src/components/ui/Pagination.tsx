@@ -1,5 +1,3 @@
-import '../../styles/pagination.css'
-
 import { useT } from '../../i18n'
 import { PaginationControls } from './PaginationControls'
 
@@ -43,8 +41,10 @@ export function Pagination({
   const singlePage = safeTotalPages <= 1
 
   return (
-    <div className="table-pagination">
-      <div className="table-pagination__label">
+    <div
+      className={`flex items-center justify-between flex-wrap gap-3 py-3 px-4 border-t border-border`}
+    >
+      <div className="text-[13px] text-foreground-muted">
         {totalItems !== undefined && itemsPerPage !== undefined
           ? t('common.pagination.range_of_total', { start, end, total: totalItems })
           : t('common.pagination.page_number', { page: currentPage })}

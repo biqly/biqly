@@ -1,9 +1,13 @@
-import '../styles/tableBrowser.css'
-
 import { useMemo } from 'react'
 
 import { useT } from '../i18n'
 import { modelListHint, modelListLabel } from '../types/semantic'
+import {
+  tableBrowserCardClass,
+  tableBrowserToolbarClass,
+  tableBrowserToolbarFieldClass,
+  tableBrowserToolbarLabelClass,
+} from './tableBrowser/tableBrowserClasses'
 import { TableBrowserModelContent } from './tableBrowser/TableBrowserModelContent'
 import { TableBrowserRowModal } from './tableBrowser/TableBrowserRowModal'
 import { useTableBrowserPage } from './tableBrowser/useTableBrowserPage'
@@ -33,10 +37,10 @@ export default function TableBrowser() {
   }
 
   return (
-    <div className="card card--table-browser">
-      <div className="table-browser-toolbar">
-        <div className="table-browser-toolbar-field">
-          <label htmlFor="table-browser-datasource" className="table-browser-toolbar-label">
+    <div className={tableBrowserCardClass}>
+      <div className={tableBrowserToolbarClass}>
+        <div className={tableBrowserToolbarFieldClass}>
+          <label htmlFor="table-browser-datasource" className={tableBrowserToolbarLabelClass}>
             {t('saved_questions.label_select_datasource')}
           </label>
           <Select
@@ -46,8 +50,8 @@ export default function TableBrowser() {
             options={page.datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
           />
         </div>
-        <div className="table-browser-toolbar-field">
-          <label htmlFor="table-browser-model" className="table-browser-toolbar-label">
+        <div className={tableBrowserToolbarFieldClass}>
+          <label htmlFor="table-browser-model" className={tableBrowserToolbarLabelClass}>
             {t('saved_questions.label_select_model')}
           </label>
           <Select
@@ -64,8 +68,8 @@ export default function TableBrowser() {
           />
         </div>
         {page.modelDetail && page.tableOptions.length > 0 && (
-          <div className="table-browser-toolbar-field">
-            <label htmlFor="table-browser-table" className="table-browser-toolbar-label">
+          <div className={tableBrowserToolbarFieldClass}>
+            <label htmlFor="table-browser-table" className={tableBrowserToolbarLabelClass}>
               {t('table_browser.label_select_table')}
             </label>
             <Select

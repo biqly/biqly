@@ -6,6 +6,11 @@ import { normalizeAIQueryResponse } from '../../utils/normalizeAIQueryResponse'
 import { buildPivotTable } from '../../utils/pivotTable'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import {
+  assistantCardClass,
+  assistantCardDetailsToggleClass,
+  assistantCardTopClass,
+} from './aiQueryClasses'
+import {
   AssistantMessageClarificationSections,
   AssistantMessageHeader,
   AssistantMessageQueryDetails,
@@ -31,11 +36,11 @@ function AssistantCardTop({
 }) {
   const warningCount = result.warnings?.length ?? 0
   return (
-    <div className="assistant-card__top">
+    <div className={assistantCardTopClass}>
       <AssistantMessageSummary result={result} t={t} />
       <button
         type="button"
-        className="assistant-card__details-toggle"
+        className={assistantCardDetailsToggleClass}
         aria-expanded={showDetails}
         onClick={onToggle}
       >
@@ -212,7 +217,7 @@ export function AssistantMessageCard({
     : null
 
   return (
-    <div className="assistant-card">
+    <div className={assistantCardClass}>
       <AssistantCardTop
         result={result}
         showDetails={showDetails}

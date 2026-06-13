@@ -1,5 +1,3 @@
-import '../../styles/ab-experiment.css'
-
 import { useEffect, useState } from 'react'
 
 import { useAdminApi } from '../../hooks/useApi'

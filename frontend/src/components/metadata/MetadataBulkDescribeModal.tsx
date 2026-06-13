@@ -1,5 +1,3 @@
-import '../../styles/bulk-describe.css'
-
 import { useT } from '../../i18n'
 import type { AIRuntimeSettings } from '../../types/ai'
 import type { TableRow } from '../../types/semantic'
@@ -94,17 +92,22 @@ export function MetadataBulkDescribeModal({
       }}
     >
       <section
-        className="modal-card modal-card--bulk-describe"
+        className="modal-card w-[min(100%,52rem)] max-h-[min(calc(100vh-1.5rem),90vh)] flex flex-col min-h-0"
         role="dialog"
         aria-modal="true"
         aria-labelledby="bulk-metadata-title"
       >
-        <header className="modal-header modal-header--compact">
+        <header className="modal-header items-start p-[0.65rem_1rem] gap-3">
           <div>
-            <h2 id="bulk-metadata-title" className="bulk-modal-title">
+            <h2
+              id="bulk-metadata-title"
+              className="m-0 text-[0.95rem] font-[650] tracking-[-0.02em] leading-tight"
+            >
               {t('metadata.bulk_modal_title')}
             </h2>
-            <p className="bulk-modal-subtitle">{t('metadata.bulk_modal_subtitle')}</p>
+            <p className="mt-[0.2rem] mx-0 mb-0 text-[0.72rem] text-foreground-faint leading-[1.35] max-w-lg">
+              {t('metadata.bulk_modal_subtitle')}
+            </p>
             <ModelBadgeRow
               primaryLabel={t('metadata.describe_badge_label')}
               primaryModel={describeModel ?? aiRuntime?.llm_model}
@@ -117,14 +120,20 @@ export function MetadataBulkDescribeModal({
           </div>
           <button
             type="button"
-            className="modal-close"
+            className="modal-close shrink-0 mt-[0.05rem]"
             aria-label={t('metadata.bulk_close_aria')}
             onClick={onClose}
           >
             ×
           </button>
         </header>
-        <div className={`modal-body${bulkEntries.length > 0 ? ' modal-body--scroll' : ''}`}>
+        <div
+          className={`modal-body ${
+            bulkEntries.length > 0
+              ? 'modal-body--scroll flex-1 min-h-0 flex flex-col overflow-hidden gap-[0.65rem] pt-[0.85rem] pb-4'
+              : 'gap-[0.65rem] p-[0.85rem_1rem_1rem]'
+          }`}
+        >
           {bulkEntries.length === 0 && !bulkRunning && (
             <MetadataBulkDescribeSetup
               t={t}

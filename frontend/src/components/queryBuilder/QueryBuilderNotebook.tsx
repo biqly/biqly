@@ -5,6 +5,7 @@ import { FieldsStep } from './FieldsStep'
 import { FilterStep } from './FilterStep'
 import { HavingStep } from './HavingStep'
 import { NotebookStep } from './NotebookStep'
+import { qbNotebookClass, qbTagBase, qbTagBlueClass } from './queryBuilderClasses'
 import { QueryBuilderNotebookJoins } from './QueryBuilderNotebookJoins'
 import {
   QueryBuilderNotebookToolbar,
@@ -128,9 +129,9 @@ export function QueryBuilderNotebook({
 }) {
   return (
     <>
-      <div className="query-builder-notebook">
+      <div className={qbNotebookClass}>
         <NotebookStep label="Data" themeClass="data">
-          <span className="notebook-tag notebook-tag--blue">{modelDetail.base_table}</span>
+          <span className={`${qbTagBase} ${qbTagBlueClass}`}>{modelDetail.base_table}</span>
         </NotebookStep>
         <QueryBuilderNotebookJoins joins={modelDetail.joins ?? []} t={t} />
         <FilterStep

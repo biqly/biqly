@@ -1,9 +1,14 @@
-import '../../styles/data-table.css'
-
 import type { CSSProperties, ReactNode } from 'react'
 
 import type { SortState } from '../../utils/sorting'
 import { ariaSortFor, sortArrowFor } from '../../utils/sorting'
+import {
+  adminTableClass,
+  adminTdClass,
+  adminThClass,
+  adminTheadRowClass,
+  adminTrClass,
+} from '../admin/adminClasses'
 
 export interface ColumnDef<T> {
   /** Stable column id (React key for th/td, and the SortState key). */
@@ -58,12 +63,12 @@ export function DataTable<T>({
   rowKey,
   loading = false,
   emptyCell = '—',
-  tableClassName = 'admin-table',
+  tableClassName = adminTableClass,
   tableStyle,
-  headRowClassName = 'admin-thead-row',
-  headerCellClassName = 'admin-th',
-  rowClassName = 'admin-tr',
-  cellClassName = 'admin-td',
+  headRowClassName = adminTheadRowClass,
+  headerCellClassName = adminThClass,
+  rowClassName = adminTrClass,
+  cellClassName = adminTdClass,
   sort = null,
   onSortToggle,
 }: DataTableProps<T>) {
@@ -80,11 +85,11 @@ export function DataTable<T>({
               {col.sortable && onSortToggle ? (
                 <button
                   type="button"
-                  className="data-table__sort-btn"
+                  className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-inherit [font:inherit] hover:text-foreground"
                   onClick={() => onSortToggle(col.key)}
                 >
                   {col.header}
-                  <span className="data-table__sort-icon" aria-hidden="true">
+                  <span className="text-[0.85em] leading-none" aria-hidden="true">
                     {sortArrowFor(sort, col.key)}
                   </span>
                 </button>

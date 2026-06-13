@@ -1,6 +1,18 @@
 import type { useT } from '../../i18n'
 import type { CompositeModelSummary } from '../../types/composite'
 import { EmptyState } from '../ui/EmptyState'
+import {
+  compositeNameClass,
+  compositesDeleteBtnClass,
+  compositesListBtnClass,
+  compositesSidebarClass,
+  compositesSidebarEmptyClass,
+  compositesSidebarHeaderClass,
+  compositesSidebarHeaderTitleClass,
+  compositesSidebarItemClass,
+  compositesSidebarListClass,
+  compositeStatusClass,
+} from './compositesClasses'
 
 export function CompositesSidebar({
   t,
@@ -16,32 +28,39 @@ export function CompositesSidebar({
   onDelete: (id: string) => void
 }) {
   return (
-    <aside className="composites-sidebar">
-      <div className="composites-sidebar-header">
-        <h2>{t('composites.sidebar_title')}</h2>
+    <aside className={compositesSidebarClass}>
+      <div className={compositesSidebarHeaderClass}>
+        <h2 className={compositesSidebarHeaderTitleClass}>{t('composites.sidebar_title')}</h2>
       </div>
       {composites.length === 0 ? (
-        <div style={{ padding: '1rem' }}>
+        <div className={compositesSidebarEmptyClass}>
           <EmptyState description={t('composites.empty_list')} />
         </div>
       ) : (
-        <ul>
-          {composites.map((c) => (
-            <li key={c.id} className={c.id === selectedId ? 'active' : ''}>
-              <button type="button" className="composites-list-btn" onClick={() => onSelect(c.id)}>
-                <span className="composite-name">{c.label ?? c.name}</span>
-                <span className={`composite-status status-${c.status}`}>{c.status}</span>
-              </button>
-              <button
-                type="button"
-                className="composites-delete-btn"
-                aria-label={t('composites.aria_delete')}
-                onClick={() => onDelete(c.id)}
-              >
-                ×
-              </button>
-            </li>
-          ))}
+        <ul className={compositesSidebarListClass}>
+          {composites.map((c) => {
+            const active = c.id === selectedId
+            return (
+              <li key={c.id} className={compositesSidebarItemClass}>
+                <button
+                  type="button"
+                  className={compositesListBtnClass(active)}
+                  onClick={() => onSelect(c.id)}
+                >
+                  <span className={compositeNameClass(active)}>{c.label ?? c.name}</span>
+                  <span className={compositeStatusClass(c.status)}>{c.status}</span>
+                </button>
+                <button
+                  type="button"
+                  className={compositesDeleteBtnClass}
+                  aria-label={t('composites.aria_delete')}
+                  onClick={() => onDelete(c.id)}
+                >
+                  ×
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </aside>

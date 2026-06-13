@@ -22,6 +22,18 @@ import { ModelModal } from './ModelModal'
 import { ProviderModal } from './ProviderModal'
 import { ReadOnlyNote } from './ReadOnlyNote'
 
+const adminAiCardClass = 'border border-border rounded-[10px] bg-card overflow-hidden'
+const adminAiCardHeaderClass = 'py-3.5 px-[18px] border-b border-border'
+const adminAiCardTitleClass = 'block m-0 text-[0.95rem] font-semibold text-foreground'
+const adminAiCardDescClass =
+  'mt-1.5 mb-0 text-[0.8125rem] leading-[1.45] text-foreground-muted max-w-[52rem]'
+const adminAiCardBodyClass = 'py-4 px-[18px] pb-[18px]'
+const adminAiPurposeGridClass = 'grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3'
+const adminAiPurposeCardClass =
+  'flex flex-col gap-2.5 py-3 px-3.5 border border-border rounded-[10px] bg-card-raised min-h-[92px]'
+const adminAiPurposePillBase =
+  'inline-flex items-center max-w-[11.5rem] py-0.5 px-2 rounded-full text-[0.7rem] font-semibold leading-[1.35] tracking-wide whitespace-nowrap overflow-hidden text-ellipsis'
+
 export function AIProvidersPanel() {
   const t = useT()
   const toast = useToast()
@@ -182,58 +194,70 @@ export function AIProvidersPanel() {
 
       <AIModelSharingPanel />
 
-      <section className="admin-ai-card">
-        <div className="admin-ai-card__header">
-          <strong>{t('admin.ai_providers.active_models_title')}</strong>
-          <p>{t('admin.ai_providers.active_models_hint')}</p>
+      <section className={adminAiCardClass}>
+        <div className={adminAiCardHeaderClass}>
+          <strong className={adminAiCardTitleClass}>
+            {t('admin.ai_providers.active_models_title')}
+          </strong>
+          <p className={adminAiCardDescClass}>{t('admin.ai_providers.active_models_hint')}</p>
         </div>
-        <div className="admin-ai-card__body">
+        <div className={adminAiCardBodyClass}>
           {activeModels.length === 0 ? (
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>
+            <p className="m-0 text-[0.8125rem] text-foreground-muted">
               {t('admin.ai_providers.active_models_empty')}
             </p>
           ) : (
-            <div className="admin-ai-purpose-grid">
+            <div className={adminAiPurposeGridClass}>
               {PURPOSES.map((purpose) => {
                 const m = activeByPurpose(purpose)
                 const providerLabel = m?.provider_name.trim()
                 const modelLabel = m?.display_name.trim()
                 const modelHint = m?.model_id.trim()
                 return (
-                  <div key={purpose} className="admin-ai-purpose-card">
-                    <div className="admin-ai-purpose-card__head">
-                      <div className="admin-ai-purpose-card__title">
+                  <div key={purpose} className={adminAiPurposeCardClass}>
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="text-[0.82rem] font-bold text-foreground leading-tight min-w-0">
                         {t(`admin.ai_providers.purposes.${purpose}`)}
                       </div>
-                      <div className="admin-ai-purpose-card__meta">
+                      <div className="flex items-center justify-end shrink-0 gap-1.5">
                         {providerLabel ? (
-                          <span className="admin-ai-purpose-pill admin-ai-purpose-pill--provider">
+                          <span
+                            className={`${adminAiPurposePillBase} bg-success/12 text-success border border-success/16`}
+                          >
                             {providerLabel}
                           </span>
                         ) : (
-                          <span className="admin-ai-purpose-pill admin-ai-purpose-pill--muted">
+                          <span
+                            className={`${adminAiPurposePillBase} bg-foreground-muted/10 text-foreground-muted border border-border`}
+                          >
                             —
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="admin-ai-purpose-card__body">
+                    <div className="flex flex-col gap-1.5 min-w-0">
                       {m ? (
                         <>
                           <div
-                            className="admin-ai-purpose-card__model"
+                            className="text-[0.92rem] font-semibold text-foreground leading-tight wrap-break-word"
                             title={modelHint ?? modelLabel}
                           >
                             {modelLabel ?? modelHint ?? '—'}
                           </div>
                           {modelHint && modelHint !== modelLabel && (
-                            <div className="admin-ai-purpose-card__hint">
-                              <code>{modelHint}</code>
+                            <div className="text-xs text-foreground-muted">
+                              <code
+                                className={`text-[0.72rem] py-px px-1.5 rounded-lg border border-border bg-canvas-subtle`}
+                              >
+                                {modelHint}
+                              </code>
                             </div>
                           )}
                         </>
                       ) : (
-                        <div className="admin-ai-purpose-card__empty">{t('common.em_dash')}</div>
+                        <div className="text-[0.9rem] text-foreground-muted">
+                          {t('common.em_dash')}
+                        </div>
                       )}
                     </div>
                   </div>

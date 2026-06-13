@@ -100,8 +100,6 @@ const VerifyEmailPage = lazyWithPreload(() => import('./components/auth/VerifyEm
 const OAuthCallback = lazyWithPreload(() => import('./components/auth/OAuthCallback'))
 const ClaimInvitePage = lazyWithPreload(() => import('./components/auth/ClaimInvitePage'))
 
-import './styles/sidebar.css'
-
 import { AuthGuard, GuestGuard } from './components/auth/AuthGuard'
 import { useAuth } from './components/auth/AuthProvider'
 import { WorkspaceSelector } from './components/workspaces/WorkspaceSelector'
@@ -475,31 +473,39 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
     : `API · ${typeof window !== 'undefined' ? window.location.host : ''}/api`
 
   return (
-    <div className="sidebar-footer">
+    <div
+      className={`flex flex-col items-stretch gap-[0.65rem] mt-auto pt-3 px-2 pb-0 border-t border-border text-foreground-muted text-[0.74rem]`}
+    >
       {user && (
         <>
           <Link
             to="/settings"
-            className="sidebar-user"
+            className="flex items-center gap-3 p-[10px_12px] mb-0 rounded-lg cursor-pointer transition-colors duration-200 relative no-underline color-inherit hover:bg-(--bg-hover,#f3f4f6) dark:hover:bg-white/5"
             onMouseEnter={() => handleNavHover(Settings)}
             onFocus={() => handleNavHover(Settings)}
           >
-            <div className="user-avatar">
+            <div className="flex items-center justify-center w-9 h-9 rounded-full bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white font-semibold text-[14px] overflow-hidden">
               {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt="" />
+                <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
               ) : (
                 getInitials(user.displayName, user.email)
               )}
             </div>
-            <div className="user-details">
-              <span className="user-name">
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className="text-[13px] font-semibold text-foreground whitespace-nowrap overflow-hidden text-ellipsis">
                 {user.displayName?.trim() ? user.displayName : user.email}
               </span>
-              <span className="user-role">{roleLabel}</span>
+              <span className="text-[11px] text-foreground-muted whitespace-nowrap overflow-hidden text-ellipsis">
+                {roleLabel}
+              </span>
             </div>
           </Link>
-          <button type="button" className="btn sidebar-logout-btn" onClick={onLogout}>
-            <span className="sidebar-logout-btn__icon" aria-hidden="true">
+          <button
+            type="button"
+            className="btn inline-flex items-center justify-center gap-[0.45rem] w-full mt-0 min-h-9 border border-[rgba(239,68,68,0.45)] text-[#f87171] bg-[rgba(239,68,68,0.1)] text-[0.8rem] font-semibold hover:border-[rgba(248,113,113,0.65)] hover:text-[#fecaca] hover:bg-[rgba(239,68,68,0.18)] hover:transform-none"
+            onClick={onLogout}
+          >
+            <span className="text-[0.95rem] leading-none" aria-hidden="true">
               🚪
             </span>
             {t('auth.logout')}
@@ -510,8 +516,11 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
         <LanguageSwitcher />
         <ThemeToggle />
       </div>
-      <div className="sidebar-footer__api">
-        <span className="status-dot" aria-hidden="true" />
+      <div className="inline-flex items-center gap-2">
+        <span
+          className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_var(--success)]"
+          aria-hidden="true"
+        />
         <span>{apiLabel}</span>
       </div>
     </div>
@@ -806,7 +815,9 @@ function App() {
         path="*"
         element={
           <AuthGuard>
-            <div className={`app-shell${mobileNavOpen ? ' app-shell--nav-open' : ''}`}>
+            <div
+              className={`grid grid-cols-1 min-[981px]:grid-cols-[16rem_minmax(0,1fr)] min-h-screen`}
+            >
               <CommandPalette items={commandItems} />
               <a className="skip-link" href="#main-content">
                 {t('common.skip_to_content')}
@@ -814,7 +825,7 @@ function App() {
 
               <button
                 type="button"
-                className="mobile-nav-toggle"
+                className={`hidden max-[980px]:inline-flex fixed top-3 z-60 w-10 h-10 items-center justify-center rounded-[0.65rem] text-[1.2rem] cursor-pointer focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-all duration-200 ${mobileNavOpen ? 'left-[calc(min(18rem,86vw)-3.25rem)] bg-transparent! border-transparent! shadow-none! hover:bg-white/5' : 'left-3 bg-bg-secondary text-foreground border border-border shadow-[0_4px_14px_rgba(0,0,0,0.25)]'}`}
                 aria-label={mobileNavOpen ? t('common.close_menu') : t('common.open_menu')}
                 aria-expanded={mobileNavOpen}
                 aria-controls="primary-sidebar"
@@ -824,72 +835,99 @@ function App() {
               </button>
 
               <div
-                className="mobile-nav-backdrop"
+                className={`hidden fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px] ${mobileNavOpen ? 'max-[980px]:block' : ''}`}
                 hidden={!mobileNavOpen}
                 onClick={() => setMobileNavOpen(false)}
                 aria-hidden="true"
               />
 
-              <aside id="primary-sidebar" className="sidebar" aria-label={t('common.primary_nav')}>
+              <aside
+                id="primary-sidebar"
+                className={`sticky top-0 flex flex-col gap-[0.85rem] h-screen border-r border-border bg-bg-secondary py-6 px-4 min-w-0 max-[980px]:fixed max-[980px]:left-0 max-[980px]:z-50 max-[980px]:w-[min(18rem,86vw)] max-[980px]:border-b-0 max-[980px]:transition-transform max-[980px]:duration-200 motion-reduce:transition-none max-[980px]:shadow-[0_18px_60px_rgba(0,0,0,0.45)] ${mobileNavOpen ? 'max-[980px]:translate-x-0' : 'max-[980px]:translate-x-[-105%]'}`}
+                aria-label={t('common.primary_nav')}
+              >
                 <a
-                  className="brand"
+                  className="flex items-center gap-3 min-w-0 rounded-lg pt-1 px-[0.4rem] pb-3 mb-2 font-['Plus_Jakarta_Sans',sans-serif]"
                   href={DEFAULT_PATH}
                   onClick={(event) => handleNavClick(event, DEFAULT_PATH)}
                   onMouseEnter={() => handleNavHover(Home)}
                   onFocus={() => handleNavHover(Home)}
                 >
-                  <span className="brand-mark" aria-hidden="true">
-                    <img src={abiLogo} alt="" width={34} height={34} />
+                  <span
+                    className="grid shrink-0 w-[2.2rem] h-[2.2rem] place-items-center rounded-[0.65rem] bg-linear-to-br from-accent to-accent-strong text-white shadow-[0_4px_12px_var(--accent-glow)]"
+                    aria-hidden="true"
+                  >
+                    <img src={abiLogo} alt="" className="w-[1.7rem] h-[1.7rem] object-contain" />
                   </span>
-                  <span className="brand-text">
-                    <strong>ABI</strong>
-                    <small>{t('common.brand_subtitle')}</small>
+                  <span className="flex flex-col min-w-0">
+                    <strong className="block text-[1.05rem] font-extrabold tracking-tight text-foreground">
+                      ABI
+                    </strong>
+                    <small className="block text-foreground-muted text-[0.68rem] leading-tight tracking-wide">
+                      {t('common.brand_subtitle')}
+                    </small>
                   </span>
                 </a>
 
-                <div className="sidebar-nav-scroll" role="presentation">
+                <div
+                  className="flex-1 min-h-0 overflow-y-auto overscroll-contain pr-[0.2rem] mr-[-0.1rem] custom-scrollbar-thin"
+                  role="presentation"
+                >
                   {accessToken && <WorkspaceSelector token={accessToken} />}
                   {homeRoute && (
-                    <div className="nav-section-links nav-section-links--home">
+                    <div className="grid gap-[0.2rem]">
                       <a
-                        className="nav-link"
+                        className="group flex items-center gap-[0.7rem] min-w-0 rounded-lg text-foreground-muted py-2 px-3 font-['Plus_Jakarta_Sans',sans-serif] text-[0.86rem] font-medium border-l-2 border-transparent transition-all duration-180 ease-in-out hover:bg-card hover:text-foreground hover:translate-x-[2px] aria-[current=page]:bg-(--accent-glow) aria-[current=page]:border-l-accent aria-[current=page]:text-foreground aria-[current=page]:font-semibold aria-[current=page]:shadow-[inset_0_1px_0_rgba(255,255,255,0.01)]"
                         href={homeRoute.path}
                         aria-current={activeRoute?.path === homeRoute.path ? 'page' : undefined}
                         onClick={(event) => handleNavClick(event, homeRoute.path)}
                         onMouseEnter={() => handleNavHover(homeRoute.component)}
                         onFocus={() => handleNavHover(homeRoute.component)}
                       >
-                        <span className="nav-icon" aria-hidden="true">
+                        <span
+                          className="inline-flex items-center justify-center w-[1.05rem] h-[1.05rem] shrink-0 text-foreground-muted transition-all duration-180 group-hover:text-accent group-hover:scale-105 group-aria-[current=page]:text-accent"
+                          aria-hidden="true"
+                        >
                           {homeRoute.icon}
                         </span>
-                        <span className="nav-label">{homeRoute.label}</span>
+                        <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+                          {homeRoute.label}
+                        </span>
                       </a>
                     </div>
                   )}
                   {sidebarSections.map((section) => (
                     <section
                       key={section.sectionKey}
-                      className="nav-section"
+                      className="mb-[1.1rem] last:mb-0"
                       aria-labelledby={`nav-heading-${section.sectionKey}`}
                     >
-                      <div className="nav-section-label" id={`nav-heading-${section.sectionKey}`}>
+                      <div
+                        className="font-['Plus_Jakarta_Sans',sans-serif] text-[0.64rem] font-bold tracking-wider uppercase text-foreground-muted py-[0.15rem] px-[0.6rem] pb-2"
+                        id={`nav-heading-${section.sectionKey}`}
+                      >
                         {section.heading}
                       </div>
-                      <div className="nav-section-links">
+                      <div className="grid gap-[0.2rem]">
                         {section.routes.map((route) => (
                           <a
                             key={route.path}
-                            className="nav-link"
+                            className="group flex items-center gap-[0.7rem] min-w-0 rounded-lg text-foreground-muted py-2 px-3 font-['Plus_Jakarta_Sans',sans-serif] text-[0.86rem] font-medium border-l-2 border-transparent transition-all duration-180 ease-in-out hover:bg-card hover:text-foreground hover:translate-x-[2px] aria-[current=page]:bg-(--accent-glow) aria-[current=page]:border-l-accent aria-[current=page]:text-foreground aria-[current=page]:font-semibold aria-[current=page]:shadow-[inset_0_1px_0_rgba(255,255,255,0.01)]"
                             href={route.path}
                             aria-current={activeRoute?.path === route.path ? 'page' : undefined}
                             onClick={(event) => handleNavClick(event, route.path)}
                             onMouseEnter={() => handleNavHover(route.component)}
                             onFocus={() => handleNavHover(route.component)}
                           >
-                            <span className="nav-icon" aria-hidden="true">
+                            <span
+                              className="inline-flex items-center justify-center w-[1.05rem] h-[1.05rem] shrink-0 text-foreground-muted transition-all duration-180 group-hover:text-accent group-hover:scale-105 group-aria-[current=page]:text-accent"
+                              aria-hidden="true"
+                            >
                               {route.icon}
                             </span>
-                            <span className="nav-label">{route.label}</span>
+                            <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+                              {route.label}
+                            </span>
                           </a>
                         ))}
                       </div>

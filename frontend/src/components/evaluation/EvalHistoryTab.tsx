@@ -25,7 +25,9 @@ export function EvalHistoryTab({
       <div className="card">
         <h3>{t('evaluation.history_title')}</h3>
         {runHistory.length === 0 ? (
-          <p className="eval-empty-chart">{t('evaluation.history_empty')}</p>
+          <p className="text-foreground-faint text-[0.85rem] text-center py-8">
+            {t('evaluation.history_empty')}
+          </p>
         ) : (
           <table className="results-table">
             <thead>
@@ -78,7 +80,7 @@ export function EvalHistoryTab({
           {t('evaluation.back')}
         </button>
       </div>
-      <div className="kpi-row">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-4">
         <KPICard
           label={t('evaluation.detail_kpi_total')}
           value={selectedRun.summary.total_cases}
@@ -107,7 +109,7 @@ export function EvalHistoryTab({
             date: new Date(selectedRun.summary.completed_at).toLocaleString(localeTag),
           })}
         </h3>
-        <table className="results-table eval-results-table">
+        <table className="results-table mt-2">
           <thead>
             <tr>
               <th>{t('evaluation.col_scenario')}</th>
@@ -124,7 +126,13 @@ export function EvalHistoryTab({
                 <td>{tc.case_id}</td>
                 <td>{tc.question}</td>
                 <td>
-                  <span className={`status-badge ${tc.match ? 'success' : 'error'}`}>
+                  <span
+                    className={`inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full ${
+                      tc.match
+                        ? 'bg-[rgba(52,211,153,0.12)] text-success'
+                        : 'bg-[rgba(251,113,133,0.12)] text-error'
+                    }`}
+                  >
                     {tc.match ? t('evaluation.match_yes') : t('evaluation.match_no')}
                   </span>
                 </td>

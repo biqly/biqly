@@ -12,6 +12,14 @@ import { useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { Select } from '../ui/Select'
+import {
+  adminFormLabelClass,
+  adminInputClass,
+  adminLabelTextClass,
+  ldapFieldsetClass,
+  ldapGridClass,
+  ldapToggleClass,
+} from './adminClasses'
 import { ReadOnlyNote } from './ReadOnlyNote'
 
 const EMPTY: LDAPConfigInput = {
@@ -145,12 +153,12 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
       />
 
       {/* Connection */}
-      <fieldset className="ldap-fieldset" disabled={!canEdit}>
+      <fieldset className={ldapFieldsetClass} disabled={!canEdit}>
         <legend>{t('admin.ldap.connection')}</legend>
-        <div className="ldap-grid">
+        <div className={ldapGridClass}>
           <Field label={t('admin.ldap.host')} style={{ gridColumn: 'span 2' }}>
             <input
-              className="admin-input"
+              className={adminInputClass}
               value={form.host}
               onChange={(e) => set('host', e.target.value)}
               placeholder="ldap.example.com"
@@ -158,7 +166,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
           </Field>
           <Field label={t('admin.ldap.port')}>
             <input
-              className="admin-input"
+              className={adminInputClass}
               type="number"
               value={form.port}
               onChange={(e) => set('port', Number(e.target.value) || 0)}
@@ -182,7 +190,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
         />
         <Field label={t('admin.ldap.bind_dn')} hint={t('admin.ldap.bind_dn_hint')}>
           <input
-            className="admin-input"
+            className={adminInputClass}
             value={form.bind_dn}
             onChange={(e) => set('bind_dn', e.target.value)}
             placeholder="cn=svc,dc=example,dc=com"
@@ -193,7 +201,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
           hint={hasStoredPassword ? t('admin.ldap.bind_password_set') : undefined}
         >
           <input
-            className="admin-input"
+            className={adminInputClass}
             type="password"
             autoComplete="new-password"
             value={form.bind_password}
@@ -204,11 +212,11 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
       </fieldset>
 
       {/* Directory & mapping */}
-      <fieldset className="ldap-fieldset" disabled={!canEdit}>
+      <fieldset className={ldapFieldsetClass} disabled={!canEdit}>
         <legend>{t('admin.ldap.directory')}</legend>
         <Field label={t('admin.ldap.base_dn')} hint={t('admin.ldap.base_dn_hint')}>
           <input
-            className="admin-input"
+            className={adminInputClass}
             value={form.base_dn}
             onChange={(e) => set('base_dn', e.target.value)}
             placeholder="ou=people,dc=example,dc=com"
@@ -216,16 +224,16 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
         </Field>
         <Field label={t('admin.ldap.user_filter')} hint={t('admin.ldap.user_filter_hint')}>
           <input
-            className="admin-input"
+            className={adminInputClass}
             value={form.user_filter}
             onChange={(e) => set('user_filter', e.target.value)}
             placeholder="(uid=%s)"
           />
         </Field>
-        <div className="ldap-grid">
+        <div className={ldapGridClass}>
           <Field label={t('admin.ldap.email_attr')}>
             <input
-              className="admin-input"
+              className={adminInputClass}
               value={form.email_attr}
               onChange={(e) => set('email_attr', e.target.value)}
               placeholder="mail"
@@ -233,7 +241,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
           </Field>
           <Field label={t('admin.ldap.display_name_attr')}>
             <input
-              className="admin-input"
+              className={adminInputClass}
               value={form.display_name_attr}
               onChange={(e) => set('display_name_attr', e.target.value)}
               placeholder="cn"
@@ -277,10 +285,10 @@ function Field({
 }) {
   return (
     <label
-      className="admin-form-label"
+      className={adminFormLabelClass}
       style={{ display: 'flex', flexDirection: 'column', gap: 4, ...style }}
     >
-      <span className="admin-label-text">{label}</span>
+      <span className={adminLabelTextClass}>{label}</span>
       {children}
       {hint && (
         <span className="form-hint" style={{ margin: 0 }}>
@@ -305,7 +313,7 @@ function Toggle({
   onChange: (v: boolean) => void
 }) {
   return (
-    <label className="ldap-toggle">
+    <label className={ldapToggleClass}>
       <input
         type="checkbox"
         checked={checked}

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 
 import { useT } from '../../i18n'
 import type { ComponentModelRef, CrossModelJoin } from '../../types/composite'
+import { compositeCanvasClass, compositeCanvasEmptyClass } from './compositesClasses'
 
 interface CompositeCanvasProps {
   components: ComponentModelRef[]
@@ -77,12 +78,12 @@ export function CompositeCanvas({ components, crossJoins, modelNames }: Composit
   }
 
   if (components.length === 0) {
-    return <div className="composite-canvas-empty">{t('composites.canvas_empty')}</div>
+    return <div className={compositeCanvasEmptyClass}>{t('composites.canvas_empty')}</div>
   }
 
   return (
     <svg
-      className="composite-canvas"
+      className={compositeCanvasClass}
       width="100%"
       viewBox={`0 0 ${Math.max(width, 320)} ${Math.max(height, 140)}`}
       role="img"

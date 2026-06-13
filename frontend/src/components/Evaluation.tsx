@@ -1,5 +1,3 @@
-import '../styles/evaluation.css'
-
 import {
   type ComponentType,
   lazy,
@@ -212,9 +210,13 @@ export default function Evaluation() {
   const activeData = evalData
 
   return (
-    <div className="evaluation-layout">
+    <div className="grid gap-4">
       {/* Tabs */}
-      <div className="page-tabs" role="tablist" aria-label={t('evaluation.tabs_aria')}>
+      <div
+        className={`inline-flex items-center bg-[rgba(255,255,255,0.02)] border border-border rounded-lg p-1 gap-1 w-fit mb-2`}
+        role="tablist"
+        aria-label={t('evaluation.tabs_aria')}
+      >
         {[
           { key: 'run' as const, label: t('evaluation.tab_run') },
           {
@@ -230,7 +232,11 @@ export default function Evaluation() {
               type="button"
               role="tab"
               aria-selected={isActive}
-              className={`btn btn-sm${isActive ? '' : ' btn-ghost'}`}
+              className={`w-auto mt-0 px-4 py-1.5 rounded-[0.35rem] text-[0.78rem] font-semibold transition-all duration-180 ease-out shadow-none border ${
+                isActive
+                  ? 'bg-card-raised border-border-strong text-foreground shadow-[0_2px_8px_rgba(0,0,0,0.15)]'
+                  : 'bg-transparent border-transparent text-foreground-muted hover:text-foreground hover:bg-[rgba(255,255,255,0.04)] hover:border-transparent'
+              }`}
               onClick={() => {
                 startTransition(() => {
                   setActiveTab(tab.key)

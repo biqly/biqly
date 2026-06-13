@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 
 import type { useT } from '../../i18n'
 import type { AuthUser } from '../../types/auth'
+import { adminBtnAutoWidthClass } from '../admin/adminClasses'
 import PasswordStrengthMeter from '../auth/PasswordStrengthMeter'
 
 interface ProfileMessage {
@@ -39,23 +40,23 @@ export function AccountProfileHero({
 
   return (
     <section
-      className="card card--elevated settings-profile-card"
+      className="card card--elevated flex flex-col gap-6"
       aria-labelledby="settings-profile-heading"
     >
-      <div className="settings-profile-card__hero">
-        <div className="settings-profile-avatar-container">
+      <div className="flex gap-4 items-center flex-wrap">
+        <div className="relative w-[3.25rem] h-[3.25rem]">
           <button
             type="button"
-            className="settings-profile-avatar-button"
+            className="relative w-full h-full rounded-full grid place-items-center border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] text-accent cursor-pointer overflow-hidden p-0 transition-all duration-200 hover:border-accent hover:shadow-[0_0_12px_rgba(99,102,241,0.25)] group"
             onClick={onAvatarClick}
             title={t('settings.profile_picture_change')}
           >
             {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt="" className="settings-profile-avatar-img" />
+              <img src={user.avatarUrl} alt="" className="w-full h-full object-cover block" />
             ) : (
-              <span className="settings-profile-avatar-initials">{initials}</span>
+              <span className="font-bold text-[0.95rem] tracking-wider">{initials}</span>
             )}
-            <div className="settings-profile-avatar-overlay">
+            <div className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 transition-opacity duration-180 group-hover:opacity-100 group-focus-visible:opacity-100">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="16"
@@ -76,7 +77,7 @@ export function AccountProfileHero({
           {user.avatarUrl && (
             <button
               type="button"
-              className="settings-profile-avatar-remove"
+              className={`absolute -bottom-1 -right-1 w-[1.35rem] h-[1.35rem] rounded-full bg-card border border-border text-foreground-faint flex items-center justify-center cursor-pointer shadow-[0_2px_6px_rgba(0,0,0,0.4)] transition-all duration-180 hover:text-error hover:border-error hover:bg-[color-mix(in_srgb,var(--error)_10%,var(--bg-card))] hover:scale-105`}
               onClick={onAvatarRemove}
               title={t('settings.profile_picture_remove')}
             >
@@ -109,19 +110,21 @@ export function AccountProfileHero({
           />
         </div>
         <div>
-          <h2 id="settings-profile-heading" className="settings-profile-card__title">
+          <h2 id="settings-profile-heading" className="m-0 text-[1.15rem]">
             {t('settings.profile_section')}
           </h2>
-          <p className="settings-profile-card__subtitle">{t('settings.profile_hint')}</p>
+          <p className="mt-[0.35rem] mr-0 mb-0 ml-0 text-foreground-muted text-[0.875rem] leading-[1.45]">
+            {t('settings.profile_hint')}
+          </p>
         </div>
       </div>
 
       <form
         onSubmit={(e) => void onProfileSubmit(e)}
-        className="settings-profile-block"
+        className="flex flex-col gap-3"
         style={{ borderTop: 'none', paddingTop: 0 }}
       >
-        <h3 className="settings-profile-block__title">{t('settings.profile_name_title')}</h3>
+        <h3 className="m-0 text-[0.95rem] font-semibold">{t('settings.profile_name_title')}</h3>
         <div className="form-group">
           <label htmlFor="settings-display-name">{t('settings.profile_display_name')}</label>
           <input
@@ -141,15 +144,15 @@ export function AccountProfileHero({
             value={user.email}
             readOnly
             disabled
-            className="input-readonly"
+            className="disabled:opacity-85 disabled:cursor-not-allowed"
           />
         </div>
         {profileMessage && (
           <p
             className={
               profileMessage.type === 'success'
-                ? 'settings-inline-success'
-                : 'settings-inline-error'
+                ? 'm-0 text-[0.875rem] text-success'
+                : 'm-0 text-[0.875rem] text-error'
             }
           >
             {profileMessage.text}
@@ -157,7 +160,7 @@ export function AccountProfileHero({
         )}
         <button
           type="submit"
-          className="btn btn-primary btn-sm btn-auto-width"
+          className={`btn btn-primary btn-sm ${adminBtnAutoWidthClass}`}
           disabled={profileSaving}
         >
           {profileSaving ? '...' : t('settings.profile_save')}
@@ -184,18 +187,20 @@ export function AccountEmailChangeSection({
 }) {
   return (
     <section
-      className="card card--elevated settings-profile-card"
+      className="card card--elevated flex flex-col gap-6"
       aria-labelledby="settings-email-change-heading"
     >
       <form
         onSubmit={(e) => void onSubmit(e)}
-        className="settings-profile-block"
+        className="flex flex-col gap-3"
         style={{ borderTop: 'none', paddingTop: 0 }}
       >
-        <h3 id="settings-email-change-heading" className="settings-profile-block__title">
+        <h3 id="settings-email-change-heading" className="m-0 text-[0.95rem] font-semibold">
           {t('settings.profile_email_change_title')}
         </h3>
-        <p className="settings-profile-block__hint">{t('settings.profile_email_change_hint')}</p>
+        <p className="m-0 text-foreground-muted text-[0.85rem] leading-[1.45]">
+          {t('settings.profile_email_change_hint')}
+        </p>
         <div className="form-group">
           <label htmlFor="settings-new-email">{t('settings.profile_new_email')}</label>
           <input
@@ -210,7 +215,9 @@ export function AccountEmailChangeSection({
         {emailMessage && (
           <p
             className={
-              emailMessage.type === 'success' ? 'settings-inline-success' : 'settings-inline-error'
+              emailMessage.type === 'success'
+                ? 'm-0 text-[0.875rem] text-success'
+                : 'm-0 text-[0.875rem] text-error'
             }
           >
             {emailMessage.text}
@@ -218,7 +225,7 @@ export function AccountEmailChangeSection({
         )}
         <button
           type="submit"
-          className="btn btn-secondary btn-sm btn-auto-width"
+          className={`btn btn-secondary btn-sm ${adminBtnAutoWidthClass}`}
           disabled={emailSaving || !newEmail.trim()}
         >
           {emailSaving ? '...' : t('settings.profile_email_request')}
@@ -259,19 +266,21 @@ export function AccountPasswordSection({
 }) {
   return (
     <section
-      className="card card--elevated settings-profile-card"
+      className="card card--elevated flex flex-col gap-6"
       aria-labelledby="settings-password-heading"
     >
       <form
         onSubmit={(e) => void onSubmit(e)}
-        className="settings-profile-block"
+        className="flex flex-col gap-3"
         style={{ borderTop: 'none', paddingTop: 0 }}
       >
-        <h3 id="settings-password-heading" className="settings-profile-block__title">
+        <h3 id="settings-password-heading" className="m-0 text-[0.95rem] font-semibold">
           {t('settings.profile_password_title')}
         </h3>
         {!hasPassword ? (
-          <p className="settings-profile-block__hint">{t('settings.profile_no_password')}</p>
+          <p className="m-0 text-foreground-muted text-[0.85rem] leading-[1.45]">
+            {t('settings.profile_no_password')}
+          </p>
         ) : (
           <>
             <div className="form-group">
@@ -313,24 +322,24 @@ export function AccountPasswordSection({
               <p
                 className={
                   passwordMessage.type === 'success'
-                    ? 'settings-inline-success'
-                    : 'settings-inline-error'
+                    ? 'm-0 text-[0.875rem] text-success'
+                    : 'm-0 text-[0.875rem] text-error'
                 }
               >
                 {passwordMessage.text}
               </p>
             )}
-            <div className="settings-profile-actions">
+            <div className="flex flex-wrap items-center gap-y-3 gap-x-4">
               <button
                 type="submit"
-                className="btn btn-primary btn-sm btn-auto-width"
+                className={`btn btn-primary btn-sm ${adminBtnAutoWidthClass}`}
                 disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
               >
                 {passwordSaving ? '...' : t('settings.profile_password_save')}
               </button>
               <Link
                 to="/auth/forgot-password"
-                className="settings-profile-link"
+                className="text-[0.875rem] text-accent no-underline hover:underline"
                 onClick={onForgotPassword}
               >
                 {t('settings.profile_forgot_password')}
@@ -358,30 +367,41 @@ export function AccountMfaBypassSection({
 }) {
   return (
     <section
-      className="card card--elevated settings-profile-card settings-profile-card--support-card"
+      className="card card--elevated flex flex-col gap-6"
+      style={{
+        borderColor: 'color-mix(in srgb, var(--warning, #f59e0b) 20%, var(--border))',
+        background:
+          'linear-gradient(180deg, var(--bg-card) 0%, color-mix(in srgb, var(--warning, #f59e0b) 3%, var(--bg-card)) 100%)',
+      }}
       aria-labelledby="settings-support-heading"
     >
-      <div className="settings-profile-block" style={{ borderTop: 'none', paddingTop: 0 }}>
-        <h3 id="settings-support-heading" className="settings-profile-block__title">
+      <div className="flex flex-col gap-3" style={{ borderTop: 'none', paddingTop: 0 }}>
+        <h3 id="settings-support-heading" className="m-0 text-[0.95rem] font-semibold">
           {t('settings.profile_mfa_bypass_title')}
         </h3>
-        <p className="settings-profile-block__hint">{t('settings.profile_mfa_bypass_hint')}</p>
+        <p className="m-0 text-foreground-muted text-[0.85rem] leading-[1.45]">
+          {t('settings.profile_mfa_bypass_hint')}
+        </p>
         <button
           type="button"
-          className="btn btn-secondary btn-sm btn-auto-width"
+          className={`btn btn-secondary btn-sm ${adminBtnAutoWidthClass}`}
           onClick={onGenerate}
           disabled={bypassGenerating}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
           {t('settings.profile_mfa_bypass_btn')}
         </button>
-        {bypassError && <p className="settings-inline-error">{bypassError}</p>}
+        {bypassError && <p className="m-0 text-[0.875rem] text-error">{bypassError}</p>}
         {bypassCode && (
-          <div className="settings-bypass-code">
-            <code>{bypassCode}</code>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <code
+              className={`font-mono text-[1rem] tracking-wider py-2 px-3 rounded-[0.35rem] border border-dashed border-border bg-white/[0.03]`}
+            >
+              {bypassCode}
+            </code>
             <button
               type="button"
-              className="btn btn-secondary btn-sm btn-auto-width"
+              className={`btn btn-secondary btn-sm ${adminBtnAutoWidthClass}`}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               onClick={() => void navigator.clipboard.writeText(bypassCode)}
             >

@@ -3,6 +3,43 @@ import { useEffect, useMemo, useRef } from 'react'
 
 import type { TranslationKey } from '../../i18n'
 import { ErrorAlert } from '../ui/ErrorAlert'
+import {
+  chatBubbleClass,
+  chatComposerActionsClass,
+  chatComposerBarClass,
+  chatComposerClass,
+  chatComposerHintClass,
+  chatComposerInputClass,
+  chatComposerOptionsClass,
+  chatComposerSendClass,
+  chatComposerSendIconClass,
+  chatEmptyStateChipClass,
+  chatEmptyStateClass,
+  chatEmptyStateDescClass,
+  chatEmptyStateSuggestionsClass,
+  chatEmptyStateTitleClass,
+  chatFeedClass,
+  chatInputAreaClass,
+  chatMsgAssistantClass,
+  chatMsgAuthorClass,
+  chatMsgAvatarClass,
+  chatMsgClass,
+  chatMsgMainClass,
+  chatMsgMetaClass,
+  chatMsgUserClass,
+  chatTypingClass,
+  chatTypingDot1Class,
+  chatTypingDot2Class,
+  chatTypingDot3Class,
+  chatTypingDotsClass,
+  chatTypingElapsedClass,
+  chatTypingHintLabelClass,
+  chatTypingLabelClass,
+  pastQueriesToggleClass,
+  userBubbleClass,
+  userBubbleContentClass,
+  userBubbleTimeClass,
+} from './aiQueryClasses'
 import { AssistantMessageCard } from './AssistantMessageCard'
 import { formatAiWaitElapsed } from './routingViz'
 import type { ChatPanelProps } from './types'
@@ -19,21 +56,21 @@ function TypingIndicator({ queryAction, aiElapsedMs, t }: TypingIndicatorProps) 
     return null
   }
   return (
-    <div className="chat-msg chat-msg--assistant chat-msg--typing" role="status">
-      <span className="chat-msg__avatar" aria-hidden="true">
+    <div className={`${chatMsgClass} ${chatMsgAssistantClass}`} role="status">
+      <span className={chatMsgAvatarClass} aria-hidden="true">
         ✦
       </span>
-      <div className="chat-msg__main">
-        <div className="chat-typing">
-          <span className="chat-typing__dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
+      <div className={chatMsgMainClass}>
+        <div className={chatTypingClass}>
+          <span className={chatTypingDotsClass} aria-hidden="true">
+            <i className={chatTypingDot1Class} />
+            <i className={chatTypingDot2Class} />
+            <i className={chatTypingDot3Class} />
           </span>
-          <span className="chat-typing__label">{t('ai_query.loading_thinking')}</span>
-          <span className="chat-typing__elapsed">{formatAiWaitElapsed(aiElapsedMs, t)}</span>
+          <span className={chatTypingLabelClass}>{t('ai_query.loading_thinking')}</span>
+          <span className={chatTypingElapsedClass}>{formatAiWaitElapsed(aiElapsedMs, t)}</span>
         </div>
-        <p className="chat-typing__hint">
+        <p className={chatTypingHintLabelClass}>
           {t('ai_query.wait_hint', { minutes: Math.round(AI_QUERY_TIMEOUT_MS / 60_000) })}
         </p>
       </div>
@@ -48,11 +85,11 @@ interface ChatEmptyStateProps {
 
 function ChatEmptyState({ t, setQuestion }: ChatEmptyStateProps) {
   return (
-    <div className="chat-empty-state">
-      <h3>✨ {t('ai_query.workspace_title')}</h3>
-      <p>{t('ai_query.subtitle')}</p>
+    <div className={chatEmptyStateClass}>
+      <h3 className={chatEmptyStateTitleClass}>✨ {t('ai_query.workspace_title')}</h3>
+      <p className={chatEmptyStateDescClass}>{t('ai_query.subtitle')}</p>
       <div
-        className="chat-empty-state__suggestions"
+        className={chatEmptyStateSuggestionsClass}
         role="list"
         aria-label={t('ai_query.suggestions_aria')}
       >
@@ -66,7 +103,7 @@ function ChatEmptyState({ t, setQuestion }: ChatEmptyStateProps) {
             key={s}
             type="button"
             role="listitem"
-            className="chat-empty-state__chip"
+            className={chatEmptyStateChipClass}
             onClick={() => setQuestion(s)}
           >
             {s}
@@ -151,15 +188,17 @@ export function ChatPanel({
 
   return (
     <>
-      <div ref={chatFeedRef} className="chat-feed">
+      <div ref={chatFeedRef} className={chatFeedClass}>
         {activeConversation && messages.length > 0 ? (
           messages.map((message, index) => {
             if (message.role === 'user') {
               return (
-                <div key={index} className="chat-msg chat-msg--user">
-                  <div className="chat-bubble user-bubble">
-                    <div className="bubble-content">{message.content}</div>
-                    <span className="bubble-time">{formatMessageTime(message.timestamp)}</span>
+                <div key={index} className={`${chatMsgClass} ${chatMsgUserClass}`}>
+                  <div className={`${chatBubbleClass} ${userBubbleClass}`}>
+                    <div className={userBubbleContentClass}>{message.content}</div>
+                    <span className={userBubbleTimeClass}>
+                      {formatMessageTime(message.timestamp)}
+                    </span>
                   </div>
                 </div>
               )
@@ -168,15 +207,15 @@ export function ChatPanel({
               return (
                 <div
                   key={index}
-                  className="chat-msg chat-msg--assistant"
+                  className={`${chatMsgClass} ${chatMsgAssistantClass}`}
                   data-message-index={index}
                 >
-                  <span className="chat-msg__avatar" aria-hidden="true">
+                  <span className={chatMsgAvatarClass} aria-hidden="true">
                     ✦
                   </span>
-                  <div className="chat-msg__main">
-                    <div className="chat-msg__meta">
-                      <span className="chat-msg__author">{t('ai_query.assistant_label')}</span>
+                  <div className={chatMsgMainClass}>
+                    <div className={chatMsgMetaClass}>
+                      <span className={chatMsgAuthorClass}>{t('ai_query.assistant_label')}</span>
                       {message.timestamp && (
                         <span className="chat-msg__time">
                           {formatMessageTime(message.timestamp)}
@@ -224,11 +263,11 @@ export function ChatPanel({
         <TypingIndicator queryAction={queryAction} aiElapsedMs={aiElapsedMs} t={t} />
       </div>
 
-      <footer className="chat-input-area">
-        <div className="chat-composer">
+      <footer className={chatInputAreaClass}>
+        <div className={chatComposerClass}>
           <textarea
             id="ai-question"
-            className="chat-composer__input"
+            className={chatComposerInputClass}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -244,10 +283,10 @@ export function ChatPanel({
             autoComplete="off"
             disabled={queryAction !== null}
           />
-          <div className="chat-composer__bar">
-            <div className="chat-composer__options">
+          <div className={chatComposerBarClass}>
+            <div className={chatComposerOptionsClass}>
               {activeConversation && messages.length > 0 && (
-                <div className="past-queries-toggle">
+                <div className={pastQueriesToggleClass}>
                   <input
                     type="checkbox"
                     id={`conversation-context-${activeConversation.id}`}
@@ -261,9 +300,9 @@ export function ChatPanel({
                   </label>
                 </div>
               )}
-              <span className="chat-composer__hint">{t('ai_query.enter_hint')}</span>
+              <span className={chatComposerHintClass}>{t('ai_query.enter_hint')}</span>
             </div>
-            <div className="chat-composer__actions">
+            <div className={chatComposerActionsClass}>
               {loading && queryAction !== null && (
                 <button className="btn btn-ghost" onClick={onAbort}>
                   {t('ai_query.cancel')}
@@ -277,12 +316,12 @@ export function ChatPanel({
                 {previewButtonLabel}
               </button>
               <button
-                className="btn btn-primary chat-composer__send"
+                className={`btn btn-primary ${chatComposerSendClass}`}
                 onClick={() => onSendQuery(question, true)}
                 disabled={loading || !question || !datasourceId}
               >
                 {executeButtonLabel}
-                <span className="chat-composer__send-icon" aria-hidden="true">
+                <span className={chatComposerSendIconClass} aria-hidden="true">
                   ➤
                 </span>
               </button>

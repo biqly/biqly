@@ -1,10 +1,50 @@
-import '../styles/ai-jobs.css'
-
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { jobQuestionPreview, type TrackedAIJob, useAIJobs } from '../hooks/useAIJobs'
 import { type TranslationKey, useT } from '../i18n'
 import type { AIQueueStatus } from '../types/ai'
+import {
+  aiJobCardActionsClass,
+  aiJobCardBodyClass,
+  aiJobCardCancelClass,
+  aiJobCardCancelledClass,
+  aiJobCardChevronClass,
+  aiJobCardClass,
+  aiJobCardErrorClass,
+  aiJobCardHeadClass,
+  aiJobCardHintClass,
+  aiJobCardMetaClass,
+  aiJobCardProgressClass,
+  aiJobCardProgressFillClass,
+  aiJobCardTitleClass,
+  aiJobCardTitlesClass,
+  aiJobCardToggleClass,
+  aiJobCardTotalClass,
+  aiJobCardTotalTimeClass,
+  aiJobFabAlertClass,
+  aiJobFabClass,
+  aiJobFabPctClass,
+  aiJobFabPulseAlertClass,
+  aiJobFabPulseClass,
+  aiJobFabPulseIdleClass,
+  aiJobPanelActionsClass,
+  aiJobPanelClass,
+  aiJobPanelHeadClass,
+  aiJobPanelListClass,
+  aiJobPanelManageClass,
+  aiJobPanelStaleClass,
+  aiJobPanelStaleEmptyClass,
+  aiJobPanelStaleHeadClass,
+  aiJobPanelStaleItemClass,
+  aiJobPanelStaleListClass,
+  aiJobPanelSubClass,
+  aiJobPanelTitleClass,
+  aiJobPipelineClass,
+  aiJobPipelineDotClass,
+  aiJobPipelineLabelClass,
+  aiJobPipelineStepClass,
+  aiJobPipelineTimeClassForState,
+} from './ai/aiJobsClasses'
 import { jobKindLabel, queuePositionLine } from './AIJobTrackerUtils'
 
 const PIPELINE_PHASES = [
@@ -134,6 +174,19 @@ function describeBatchQueueLine(
   return { current, next }
 }
 
+function jobCardModifier(job: TrackedAIJob): '' | 'active' | 'failed' | 'done' {
+  if (isActive(job)) {
+    return 'active'
+  }
+  if (job.status === 'failed') {
+    return 'failed'
+  }
+  if (job.status === 'succeeded') {
+    return 'done'
+  }
+  return ''
+}
+
 function JobPipeline({ job, now }: { job: TrackedAIJob; now: number }) {
   const t = useT()
   const phases = phasesForJob(job)
@@ -143,7 +196,7 @@ function JobPipeline({ job, now }: { job: TrackedAIJob; now: number }) {
   const active = isActive(job)
 
   return (
-    <ol className="ai-job-pipeline" aria-label={t('ai_jobs.pipeline_aria')}>
+    <ol className={aiJobPipelineClass} aria-label={t('ai_jobs.pipeline_aria')}>
       {phases.map((phase, idx) => {
         let state: 'done' | 'current' | 'pending' | 'failed' = 'pending'
         if (failed && idx === current) {
@@ -159,10 +212,10 @@ function JobPipeline({ job, now }: { job: TrackedAIJob; now: number }) {
           duration = formatDuration(now - job.phaseEnteredAt, t)
         }
         return (
-          <li key={phase} className={`ai-job-pipeline__step ai-job-pipeline__step--${state}`}>
-            <span className="ai-job-pipeline__dot" aria-hidden="true" />
-            <span className="ai-job-pipeline__label">{t(phaseLabelKey(job, phase))}</span>
-            {duration && <span className="ai-job-pipeline__time">{duration}</span>}
+          <li key={phase} className={aiJobPipelineStepClass(state)}>
+            <span className={aiJobPipelineDotClass(state)} aria-hidden="true" />
+            <span className={aiJobPipelineLabelClass}>{t(phaseLabelKey(job, phase))}</span>
+            {duration && <span className={aiJobPipelineTimeClassForState(state)}>{duration}</span>}
           </li>
         )
       })}
@@ -187,55 +240,42 @@ function JobCardBody({
   const total = jobTotalMs(job, now)
 
   return (
-    <div className="ai-job-card__body">
+    <div className={aiJobCardBodyClass}>
       <JobPipeline job={job} now={now} />
       {total != null && (
-        <p className="ai-job-card__total">
+        <p className={aiJobCardTotalClass}>
           <span>{t('ai_jobs.total_label')}</span>
-          <span className="ai-job-card__total-time">{formatDuration(total, t)}</span>
+          <span className={aiJobCardTotalTimeClass}>{formatDuration(total, t)}</span>
         </p>
       )}
       {scopeLine && (
-        <p className="ai-job-card__hint">{t('ai_jobs.scope_schemas', { schemas: scopeLine })}</p>
+        <p className={aiJobCardHintClass}>{t('ai_jobs.scope_schemas', { schemas: scopeLine })}</p>
       )}
-      {job.phase_message && active && <p className="ai-job-card__hint">{job.phase_message}</p>}
+      {job.phase_message && active && <p className={aiJobCardHintClass}>{job.phase_message}</p>}
       {queueLine?.current && (
-        <p className="ai-job-card__hint">
+        <p className={aiJobCardHintClass}>
           {t('ai_jobs.queue_current', { table: queueLine.current })}
         </p>
       )}
       {queueLine?.next && (
-        <p className="ai-job-card__hint">{t('ai_jobs.queue_next', { tables: queueLine.next })}</p>
+        <p className={aiJobCardHintClass}>{t('ai_jobs.queue_next', { tables: queueLine.next })}</p>
       )}
-      {queuePosition && <p className="ai-job-card__hint">{queuePosition}</p>}
+      {queuePosition && <p className={aiJobCardHintClass}>{queuePosition}</p>}
       {job.status === 'failed' && job.error_message && (
-        <p className="ai-job-card__error" role="alert">
+        <p className={aiJobCardErrorClass} role="alert">
           {job.error_message}
         </p>
       )}
       {job.status === 'cancelled' && (
-        <p className="ai-job-card__cancelled">
+        <p className={aiJobCardCancelledClass}>
           {(job.error_message ?? job.phase_message) || t('ai_jobs.cancelled')}
         </p>
       )}
       {active && job.status === 'queued' && (
-        <p className="ai-job-card__hint">{t('ai_jobs.stuck_hint')}</p>
+        <p className={aiJobCardHintClass}>{t('ai_jobs.stuck_hint')}</p>
       )}
     </div>
   )
-}
-
-function jobCardModifier(job: TrackedAIJob): string {
-  if (isActive(job)) {
-    return ' ai-job-card--active'
-  }
-  if (job.status === 'failed') {
-    return ' ai-job-card--failed'
-  }
-  if (job.status === 'succeeded') {
-    return ' ai-job-card--done'
-  }
-  return ''
 }
 
 function JobCard({
@@ -274,25 +314,25 @@ function JobCard({
   }
 
   return (
-    <article className={`ai-job-card${jobCardModifier(job)}`}>
-      <header className="ai-job-card__head">
+    <article className={aiJobCardClass(jobCardModifier(job))}>
+      <header className={aiJobCardHeadClass}>
         <button
           type="button"
-          className="ai-job-card__toggle"
+          className={aiJobCardToggleClass}
           onClick={onToggle}
           aria-expanded={open}
         >
-          <span className="ai-job-card__chevron" aria-hidden="true" />
-          <span className="ai-job-card__titles">
-            <strong className="ai-job-card__title">{job.questionPreview ?? kindLabel}</strong>
-            <span className="ai-job-card__meta">{metaParts.join(' · ')}</span>
+          <span className={aiJobCardChevronClass} aria-hidden="true" />
+          <span className={aiJobCardTitlesClass}>
+            <strong className={aiJobCardTitleClass}>{job.questionPreview ?? kindLabel}</strong>
+            <span className={aiJobCardMetaClass}>{metaParts.join(' · ')}</span>
           </span>
         </button>
-        <div className="ai-job-card__actions">
+        <div className={aiJobCardActionsClass}>
           {active && onCancel && (
             <button
               type="button"
-              className="btn btn-sm btn-ghost ai-job-card__cancel"
+              className={`btn btn-sm btn-ghost ${aiJobCardCancelClass}`}
               onClick={onCancel}
               disabled={cancelling}
             >
@@ -313,13 +353,16 @@ function JobCard({
       </header>
       {active && (
         <div
-          className="ai-job-card__progress"
+          className={aiJobCardProgressClass}
           role="progressbar"
           aria-valuenow={job.progress_pct}
           aria-valuemin={0}
           aria-valuemax={100}
         >
-          <span style={{ width: `${Math.min(100, Math.max(0, job.progress_pct))}%` }} />
+          <span
+            className={aiJobCardProgressFillClass}
+            style={{ width: `${Math.min(100, Math.max(0, job.progress_pct))}%` }}
+          />
         </div>
       )}
       {open && <JobCardBody job={job} now={now} queueStatus={queueStatus} />}
@@ -340,16 +383,16 @@ function StaleJobsPanel({
 }) {
   const t = useT()
   if (!staleJobs.length) {
-    return <p className="ai-job-panel__stale-empty">{t('ai_jobs.manage_stale_empty')}</p>
+    return <p className={aiJobPanelStaleEmptyClass}>{t('ai_jobs.manage_stale_empty')}</p>
   }
   return (
-    <div className="ai-job-panel__stale">
-      <p className="ai-job-panel__stale-head">
+    <div className={aiJobPanelStaleClass}>
+      <p className={aiJobPanelStaleHeadClass}>
         {t('ai_jobs.manage_stale_count', { count: staleJobs.length })}
       </p>
-      <ul className="ai-job-panel__stale-list">
+      <ul className={aiJobPanelStaleListClass}>
         {staleJobs.map((job) => (
-          <li key={job.id} className="ai-job-panel__stale-item">
+          <li key={job.id} className={aiJobPanelStaleItemClass}>
             <span>
               {job.questionPreview ?? job.kind} · {job.status} · {job.progress_pct}%
             </span>
@@ -426,25 +469,29 @@ export default function AIJobTracker() {
   }
 
   if (minimized) {
+    const pulseClass = [
+      aiJobFabPulseClass,
+      failedCount > 0 ? aiJobFabPulseAlertClass : activeCount === 0 ? aiJobFabPulseIdleClass : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
     return (
       <button
         type="button"
-        className={`ai-job-fab${failedCount > 0 ? ' ai-job-fab--alert' : ''}`}
+        className={`${aiJobFabClass}${failedCount > 0 ? ` ${aiJobFabAlertClass}` : ''}`}
         onClick={() => setMinimized(false)}
         aria-expanded="false"
         aria-label={t('ai_jobs.fab_aria', { count: activeCount })}
       >
-        <span
-          className={`ai-job-fab__pulse${activeCount === 0 ? ' ai-job-fab__pulse--idle' : ''}`}
-          aria-hidden="true"
-        />
-        <span className="ai-job-fab__label">
+        <span className={pulseClass} aria-hidden="true" />
+        <span>
           {activeCount > 0
             ? t('ai_jobs.fab_running', { count: activeCount })
             : t('ai_jobs.fab_done')}
         </span>
         {activeCount > 0 && primary && (
-          <span className="ai-job-fab__pct">{primary.progress_pct}%</span>
+          <span className={aiJobFabPctClass}>{primary.progress_pct}%</span>
         )}
       </button>
     )
@@ -452,7 +499,7 @@ export default function AIJobTracker() {
 
   return (
     <section
-      className="ai-job-panel"
+      className={aiJobPanelClass}
       aria-live="polite"
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
@@ -460,16 +507,16 @@ export default function AIJobTracker() {
         }
       }}
     >
-      <header className="ai-job-panel__head">
+      <header className={aiJobPanelHeadClass}>
         <div>
-          <h2 className="ai-job-panel__title">{t('ai_jobs.panel_title')}</h2>
-          <p className="ai-job-panel__sub">
+          <h2 className={aiJobPanelTitleClass}>{t('ai_jobs.panel_title')}</h2>
+          <p className={aiJobPanelSubClass}>
             {activeCount > 0
               ? t('ai_jobs.panel_sub_active', { count: activeCount })
               : t('ai_jobs.panel_sub_idle')}
           </p>
         </div>
-        <div className="ai-job-panel__actions">
+        <div className={aiJobPanelActionsClass}>
           <button
             type="button"
             className="btn btn-sm btn-ghost"
@@ -480,7 +527,7 @@ export default function AIJobTracker() {
           </button>
           <button
             type="button"
-            className="btn btn-sm btn-ghost ai-job-panel__minimize"
+            className="btn btn-sm btn-ghost"
             onClick={() => setMinimized(true)}
             aria-label={t('ai_jobs.minimize')}
             title={t('ai_jobs.minimize')}
@@ -490,7 +537,7 @@ export default function AIJobTracker() {
         </div>
       </header>
       {expanded && (
-        <div className="ai-job-panel__manage">
+        <div className={aiJobPanelManageClass}>
           {activeCount > 0 && (
             <button
               type="button"
@@ -545,7 +592,7 @@ export default function AIJobTracker() {
           )}
         </div>
       )}
-      <div className="ai-job-panel__list">
+      <div className={aiJobPanelListClass}>
         {jobs.map((job) => (
           <JobCard
             key={job.id}

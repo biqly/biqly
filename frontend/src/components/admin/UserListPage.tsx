@@ -11,6 +11,12 @@ import type { AuthUser, Invitation } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from '../ui/ErrorAlert'
+import {
+  adminBtnSuccessClass,
+  adminCountBadgeClass,
+  adminTabButtonClass,
+  adminTabContainerClass,
+} from './adminClasses'
 import { ActiveUsersTab } from './userList/ActiveUsersTab'
 import { InvitationsTab } from './userList/InvitationsTab'
 import { InviteUserModal } from './userList/InviteUserModal'
@@ -200,7 +206,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       <div className="card-header-row">
         <h2 style={{ margin: 0, fontSize: 20 }}>{t('admin.users.title')}</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span className="admin-count-badge">
+          <span className={adminCountBadgeClass}>
             {subTab === 'active'
               ? t('admin.users.count', { count: totalItems })
               : t('admin.users.count', { count: inviteTotalItems })}
@@ -208,7 +214,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           {isSuperAdmin && (
             <button
               type="button"
-              className="admin-btn-success"
+              className={adminBtnSuccessClass}
               onClick={() => setShowInviteModal(true)}
             >
               {t('auth.btn_invite_user')}
@@ -218,18 +224,18 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
       </div>
 
       {isSuperAdmin && (
-        <div className="admin-tab-container">
+        <div className={adminTabContainerClass}>
           <button
             type="button"
             onClick={() => setSubTab('active')}
-            className={`admin-tab-button ${subTab === 'active' ? 'active' : ''}`}
+            className={adminTabButtonClass(subTab === 'active')}
           >
             {t('auth.active_users_tab')}
           </button>
           <button
             type="button"
             onClick={() => setSubTab('invitations')}
-            className={`admin-tab-button ${subTab === 'invitations' ? 'active' : ''}`}
+            className={adminTabButtonClass(subTab === 'invitations')}
           >
             {t('auth.invitations_tab')}
           </button>

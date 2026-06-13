@@ -53,7 +53,7 @@ export function BulkStatusBadge({ status }: { status: BulkStatus }) {
     skipped: 'default',
   }
   return (
-    <TagBadge tone={tone[status]} className="bulk-status-badge" ariaLabel={t(STATUS_KEYS[status])}>
+    <TagBadge tone={tone[status]} ariaLabel={t(STATUS_KEYS[status])}>
       {t(STATUS_KEYS[status])}
     </TagBadge>
   )
@@ -97,17 +97,8 @@ export function BulkProgressHeader({
     : t('metadata.bulk_progress_placeholder')
 
   return (
-    <div style={{ marginBottom: '0.5rem', flexShrink: 0 }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          fontSize: '0.8rem',
-          color: 'var(--text-secondary)',
-          marginBottom: '0.25rem',
-          gap: '0.5rem',
-        }}
-      >
+    <div className="mb-2 shrink-0">
+      <div className="flex justify-between text-[0.8rem] text-foreground-muted mb-1 gap-2">
         <span>
           {running ? (
             <>{t('metadata.bulk_progress_processing', { done, total, current: currentDisplay })}</>
@@ -125,35 +116,18 @@ export function BulkProgressHeader({
         </span>
         <span>{pct}%</span>
       </div>
-      <div
-        style={{
-          height: '6px',
-          background: 'var(--bg-card)',
-          borderRadius: '4px',
-          overflow: 'hidden',
-          border: '1px solid var(--border)',
-        }}
-      >
+      <div className={`h-[6px] bg-card rounded-[4px] overflow-hidden border border-border`}>
         <div
+          className="h-full transition-[width] duration-200 ease-in-out"
           style={{
             width: `${pct}%`,
-            height: '100%',
             background: err > 0 ? 'linear-gradient(90deg, #4ade80, #f87171)' : '#4ade80',
-            transition: 'width 0.2s ease',
           }}
         />
       </div>
-      <div
-        style={{
-          display: 'flex',
-          gap: '0.75rem',
-          marginTop: '0.3rem',
-          fontSize: '0.75rem',
-          color: 'var(--text-secondary)',
-        }}
-      >
-        <span style={{ color: '#4ade80' }}>{t('metadata.bulk_counts_ok', { ok })}</span>
-        <span style={{ color: '#f87171' }}>{t('metadata.bulk_counts_err', { err })}</span>
+      <div className="flex gap-3 mt-[0.3rem] text-[0.75rem] text-foreground-muted">
+        <span className="text-emerald-400">{t('metadata.bulk_counts_ok', { ok })}</span>
+        <span className="text-red-400">{t('metadata.bulk_counts_err', { err })}</span>
         <span>{t('metadata.bulk_counts_skip', { skipped })}</span>
       </div>
     </div>
@@ -203,19 +177,12 @@ export function BulkQueuePreview({
   const more = preview.length > 5 ? preview.length - 5 : 0
 
   return (
-    <div className="bulk-queue-preview" style={{ marginBottom: '0.75rem', flexShrink: 0 }}>
-      <div
-        style={{
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          color: 'var(--text-secondary)',
-          marginBottom: '0.35rem',
-        }}
-      >
+    <div className="mb-3 shrink-0">
+      <div className="text-[0.75rem] font-semibold text-foreground-muted mb-[0.35rem]">
         {t('metadata.bulk_queue_heading')}
       </div>
       {current && (
-        <p style={{ margin: '0 0 0.35rem', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+        <p className="m-[0_0_0.35rem] text-[0.8rem] text-foreground">
           {t('metadata.bulk_progress_processing', {
             done: completedSet.size,
             total: entries.length,
@@ -224,7 +191,7 @@ export function BulkQueuePreview({
         </p>
       )}
       {shown.length > 0 && (
-        <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+        <p className="m-0 text-[0.78rem] text-foreground-muted">
           {t('metadata.bulk_queue_next', { items: shown.join(', ') })}
           {more > 0 ? ` ${t('metadata.bulk_queue_more', { count: more })}` : ''}
         </p>

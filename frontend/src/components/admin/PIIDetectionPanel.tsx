@@ -7,6 +7,7 @@ import { useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
+import { adminFormLabelClass } from './adminClasses'
 import { datasourceSelectOptions } from './adminSelectOptions'
 import {
   normalizePIIMaskingStrategy,
@@ -147,7 +148,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
       {!canEdit && <ReadOnlyNote />}
 
       <div style={toolbarStyle}>
-        <div style={labelStyle} className="admin-form-label">
+        <div style={labelStyle} className={adminFormLabelClass}>
           <span style={labelTextStyle}>Datasource</span>
           <Select
             value={selectedDS}

@@ -1,5 +1,3 @@
-import '../../styles/command-palette.css'
-
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useShortcut } from '../../hooks/useKeyboardShortcuts'
@@ -107,7 +105,7 @@ export function CommandPalette({ items }: CommandPaletteProps) {
 
   return (
     <div
-      className="cmdk-backdrop"
+      className="fixed inset-0 z-[var(--z-cmdk,1200)] grid [place-items:start_center] p-[8vh_1rem_2rem] overflow-y-auto bg-black/50 backdrop-blur-[4px] animate-cmdk-fade motion-reduce:animate-none"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
@@ -116,19 +114,19 @@ export function CommandPalette({ items }: CommandPaletteProps) {
       }}
     >
       <div
-        className="cmdk-panel"
+        className="w-full max-w-[36rem] border border-border-strong rounded-xl bg-card shadow-[0_24px_64px_rgba(0,0,0,0.55)] text-foreground overflow-hidden animate-cmdk-pop motion-reduce:animate-none"
         role="dialog"
         aria-modal="true"
         aria-label={t('command_palette.title')}
       >
-        <div className="cmdk-search">
-          <span className="cmdk-search__icon" aria-hidden="true">
+        <div className={`flex items-center gap-[0.6rem] border-b border-border p-[0.85rem_1rem]`}>
+          <span className="text-foreground-muted text-[1.1rem] leading-none" aria-hidden="true">
             ⌕
           </span>
           <input
             ref={inputRef}
             type="text"
-            className="cmdk-search__input"
+            className="flex-1 border-none bg-transparent text-foreground text-[1rem] outline-none placeholder:text-foreground-muted"
             placeholder={t('command_palette.placeholder')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -138,30 +136,48 @@ export function CommandPalette({ items }: CommandPaletteProps) {
             aria-controls="cmdk-list"
             aria-autocomplete="list"
           />
-          <kbd className="cmdk-search__hint">Esc</kbd>
+          <kbd
+            className={`border border-border rounded-[0.35rem] bg-card-raised text-foreground-muted text-[0.7rem] p-[0.1rem_0.4rem]`}
+          >
+            Esc
+          </kbd>
         </div>
 
         {filtered.length === 0 ? (
-          <div className="cmdk-empty">{t('command_palette.empty')}</div>
+          <div className="p-[1.5rem_1rem] text-center text-foreground-muted text-[0.9rem]">
+            {t('command_palette.empty')}
+          </div>
         ) : (
-          <ul className="cmdk-list" id="cmdk-list" ref={listRef} role="listbox">
+          <ul
+            className="list-none m-0 p-[0.4rem] max-h-[22rem] overflow-y-auto"
+            id="cmdk-list"
+            ref={listRef}
+            role="listbox"
+          >
             {filtered.map((item, index) => (
               <li
                 key={item.id}
                 role="option"
                 aria-selected={index === activeIndex}
                 data-active={index === activeIndex}
-                className="cmdk-option"
+                className="flex items-center gap-[0.7rem] rounded-lg p-[0.55rem_0.7rem] cursor-pointer text-foreground aria-selected:bg-[var(--accent-glow)]"
                 onMouseMove={() => setActiveIndex(index)}
                 onClick={() => runItem(item)}
               >
                 {item.icon && (
-                  <span className="cmdk-option__icon" aria-hidden="true">
+                  <span
+                    className="inline-grid place-items-center w-5 h-5 text-foreground-muted [&>svg]:w-[1.1rem] [&>svg]:h-[1.1rem]"
+                    aria-hidden="true"
+                  >
                     {item.icon}
                   </span>
                 )}
-                <span className="cmdk-option__label">{item.label}</span>
-                {item.group && <span className="cmdk-option__group">{item.group}</span>}
+                <span className="flex-1 text-[0.9rem]">{item.label}</span>
+                {item.group && (
+                  <span className="text-[0.72rem] uppercase tracking-[0.04em] text-foreground-muted">
+                    {item.group}
+                  </span>
+                )}
               </li>
             ))}
           </ul>

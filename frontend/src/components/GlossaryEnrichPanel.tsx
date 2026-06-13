@@ -1,5 +1,3 @@
-import '../styles/glossary-enrich.css'
-
 import { useT } from '../i18n'
 import type { EnrichAnalyzeResult, EnrichApplyResult } from '../types/enrichContext'
 
@@ -44,11 +42,13 @@ export function GlossaryEnrichPanel({
     applyableGaps.length > 0 && applyableGaps.every((gap) => selections[gap.id]?.selected)
 
   return (
-    <div className="card enrich-panel">
-      <div className="enrich-panel__header">
+    <div
+      className={`card mb-5 p-4 bg-[var(--surface-elevated,rgba(255,255,255,0.02))] border border-border rounded-lg`}
+    >
+      <div className="flex justify-between items-start gap-4 flex-wrap mb-3">
         <div>
-          <h3 className="enrich-panel__title">{t('glossary.enrich_context')}</h3>
-          <p className="enrich-panel__subtitle">
+          <h3 className="m-0 text-base">{t('glossary.enrich_context')}</h3>
+          <p className="mt-[0.35rem] mr-0 mb-0 ml-0 text-foreground-muted text-[0.85rem]">
             {result.gaps.length > 0
               ? t('glossary.enrich_context_gaps_found', { count: result.gaps.length })
               : t('glossary.enrich_context_no_gaps')}
@@ -58,7 +58,7 @@ export function GlossaryEnrichPanel({
               : ''}
           </p>
         </div>
-        <div className="enrich-panel__actions">
+        <div className="flex gap-2 flex-wrap items-center">
           <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>
             {t('glossary.enrich_context_close')}
           </button>
@@ -85,14 +85,14 @@ export function GlossaryEnrichPanel({
 
       {applyResult && (
         <div
-          className={`enrich-panel__result${
+          className={`mb-3 px-3 py-[0.6rem] rounded-lg border bg-[var(--surface-elevated,rgba(255,255,255,0.02))] text-[0.85rem] ${
             applyResult.errors && applyResult.errors.length > 0
-              ? ' enrich-panel__result--error'
-              : ''
+              ? 'border-[var(--danger,#d9534f)]'
+              : 'border-border'
           }`}
           role="status"
         >
-          <div className="enrich-panel__result-summary">
+          <div className="font-semibold">
             {t('glossary.enrich_context_applied', {
               applied: applyResult.applied,
               skipped: applyResult.skipped,
@@ -103,7 +103,7 @@ export function GlossaryEnrichPanel({
               <div>
                 {t('glossary.enrich_context_apply_failed', { count: applyResult.errors.length })}
               </div>
-              <ul className="enrich-panel__result-errors">
+              <ul className="mt-[0.4rem] mr-0 mb-0 ml-0 pl-[1.1rem] text-[var(--danger,#d9534f)]">
                 {applyResult.errors.map((err, idx) => (
                   <li key={idx}>{err}</li>
                 ))}
@@ -114,7 +114,7 @@ export function GlossaryEnrichPanel({
       )}
 
       {applyableGaps.length > 0 && (
-        <div className="enrich-panel__bulk">
+        <div className="flex gap-2 items-center mb-3">
           <button
             type="button"
             className="btn btn-sm btn-ghost"
@@ -131,7 +131,7 @@ export function GlossaryEnrichPanel({
           >
             {t('glossary.enrich_context_clear')}
           </button>
-          <span className="enrich-panel__bulk-count">
+          <span className="ml-auto text-[0.8rem] text-foreground-muted">
             {t('glossary.enrich_context_apply_count', { count: selectedCount })}
           </span>
         </div>
@@ -169,24 +169,26 @@ export function GlossaryEnrichPanel({
                           }}
                         />
                       ) : (
-                        <span className="enrich-panel__muted">—</span>
+                        <span className="text-[0.7rem] text-foreground-faint">—</span>
                       )}
                     </td>
                     <td>
-                      <code className="enrich-panel__kind">{gap.kind}</code>
+                      <code className="text-[0.72rem]">{gap.kind}</code>
                       {!gap.applyable && (
-                        <div className="enrich-panel__muted">
+                        <div className="text-[0.7rem] text-foreground-faint">
                           {t('glossary.enrich_context_not_applyable')}
                         </div>
                       )}
                     </td>
                     <td>
-                      <div className="enrich-panel__gap-summary">{gap.summary}</div>
-                      {gap.detail && <div className="enrich-panel__gap-detail">{gap.detail}</div>}
+                      <div className="font-semibold">{gap.summary}</div>
+                      {gap.detail && (
+                        <div className="text-[0.78rem] text-foreground-muted">{gap.detail}</div>
+                      )}
                     </td>
                     <td>
                       {gap.applyable ? (
-                        <div className="enrich-panel__value">
+                        <div className="flex flex-col gap-[0.3rem]">
                           <textarea
                             className="input"
                             rows={2}
@@ -198,7 +200,7 @@ export function GlossaryEnrichPanel({
                               onSelectionChange(gap.id, { value: e.target.value })
                             }}
                           />
-                          <div className="enrich-panel__suggestion">
+                          <div className="flex items-center gap-[0.4rem] text-[0.72rem] text-foreground-faint">
                             {suggestion ? (
                               <>
                                 <span>
@@ -207,7 +209,7 @@ export function GlossaryEnrichPanel({
                                 {canRestore && (
                                   <button
                                     type="button"
-                                    className="enrich-panel__restore"
+                                    className="p-0 border-none bg-none text-accent text-[0.72rem] cursor-pointer focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
                                     onClick={() => {
                                       onSelectionChange(gap.id, { value: suggestion })
                                     }}
@@ -222,7 +224,7 @@ export function GlossaryEnrichPanel({
                           </div>
                         </div>
                       ) : (
-                        <span className="enrich-panel__muted">—</span>
+                        <span className="text-[0.7rem] text-foreground-faint">—</span>
                       )}
                     </td>
                   </tr>

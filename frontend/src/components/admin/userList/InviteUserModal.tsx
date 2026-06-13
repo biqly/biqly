@@ -4,6 +4,14 @@ import { apiInviteUser } from '../../../api/auth'
 import { useT } from '../../../i18n'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
+import {
+  adminBtnGhostClass,
+  adminBtnPrimaryClass,
+  adminErrBoxClass,
+  adminFormLabelClass,
+  adminInputWideClass,
+  adminSuccessBoxClass,
+} from '../adminClasses'
 import { securityRoleOptions } from '../adminSelectOptions'
 
 const labelStyle: React.CSSProperties = { fontSize: 13, fontWeight: 500 }
@@ -62,10 +70,10 @@ export function InviteUserModal({ open, onClose, token, onSuccess }: InviteUserM
     >
       {inviteSuccess ? (
         <div className="page-stack" style={gap16}>
-          <div className="admin-success-box">
+          <div className={adminSuccessBoxClass}>
             {t('auth.invite_user_success', { email: inviteEmail })}
           </div>
-          <button type="button" className="admin-btn-primary" onClick={onClose}>
+          <button type="button" className={adminBtnPrimaryClass} onClick={onClose}>
             {t('common.close')}
           </button>
         </div>
@@ -78,7 +86,7 @@ export function InviteUserModal({ open, onClose, token, onSuccess }: InviteUserM
           style={gap16}
         >
           {inviteError && (
-            <div className="admin-err-box">
+            <div className={adminErrBoxClass}>
               {t('auth.invite_user_failed', { error: inviteError })}
             </div>
           )}
@@ -93,11 +101,11 @@ export function InviteUserModal({ open, onClose, token, onSuccess }: InviteUserM
               required
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
-              className="admin-input-wide"
+              className={adminInputWideClass}
             />
           </div>
 
-          <div className="page-stack admin-form-label" style={gap6}>
+          <div className={`page-stack ${adminFormLabelClass}`} style={gap6}>
             <label style={labelStyle} htmlFor="invite-role-input">
               {t('auth.invite_user_role')}
             </label>
@@ -112,7 +120,7 @@ export function InviteUserModal({ open, onClose, token, onSuccess }: InviteUserM
           <div style={footerStyle}>
             <button
               type="button"
-              className="admin-btn-ghost"
+              className={adminBtnGhostClass}
               onClick={onClose}
               disabled={inviteLoading}
             >
@@ -120,7 +128,7 @@ export function InviteUserModal({ open, onClose, token, onSuccess }: InviteUserM
             </button>
             <button
               type="submit"
-              className="admin-btn-primary"
+              className={adminBtnPrimaryClass}
               disabled={inviteLoading || !inviteEmail}
             >
               {inviteLoading && <span className="spinner" style={spinnerStyle} />}

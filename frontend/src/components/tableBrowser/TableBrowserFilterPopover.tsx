@@ -2,6 +2,21 @@ import { useEffect, useRef } from 'react'
 
 import type { useT } from '../../i18n'
 import { Select } from '../ui/Select'
+import {
+  chipInputContainerClass,
+  chipInputFieldClass,
+  chipTagClass,
+  chipTagCloseClass,
+  filterPopoverBackClass,
+  filterPopoverBtnClass,
+  filterPopoverCheckboxInputClass,
+  filterPopoverCheckboxLabelClass,
+  filterPopoverCheckboxRowClass,
+  filterPopoverClass,
+  filterPopoverHeaderClass,
+  filterPopoverRowClass,
+  filterPopoverRowLabelClass,
+} from './tableBrowserClasses'
 
 export function TableBrowserFilterPopover({
   t,
@@ -65,9 +80,9 @@ export function TableBrowserFilterPopover({
   }, [onClose])
 
   return (
-    <div ref={rootRef} className="filter-popover" style={{ width: '18rem' }}>
+    <div ref={rootRef} className={filterPopoverClass} style={{ width: '18rem' }}>
       <div
-        className="filter-popover-header"
+        className={filterPopoverHeaderClass}
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -77,7 +92,7 @@ export function TableBrowserFilterPopover({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <button type="button" className="filter-popover-back" onClick={onClose}>
+          <button type="button" className={filterPopoverBackClass} onClick={onClose}>
             ‹
           </button>
           <span style={{ fontSize: '0.86rem', fontWeight: 700 }}>
@@ -93,8 +108,8 @@ export function TableBrowserFilterPopover({
       </div>
 
       {!editingFilterId && (
-        <div className="filter-popover-row" style={{ marginTop: '0.1rem' }}>
-          <label>{t('table_browser.column')}</label>
+        <div className={filterPopoverRowClass} style={{ marginTop: '0.1rem' }}>
+          <label className={filterPopoverRowLabelClass}>{t('table_browser.column')}</label>
           <Select
             value={popoverField}
             onChange={onFieldChange}
@@ -104,18 +119,18 @@ export function TableBrowserFilterPopover({
         </div>
       )}
 
-      <div className="filter-popover-row">
-        <label>{t('table_browser.value')}</label>
+      <div className={filterPopoverRowClass}>
+        <label className={filterPopoverRowLabelClass}>{t('table_browser.value')}</label>
         <div
-          className="chip-input-container"
+          className={chipInputContainerClass}
           onClick={() => document.getElementById('chip-input-el')?.focus()}
         >
           {popoverChips.map((chip, idx) => (
-            <span key={idx} className="chip-tag">
+            <span key={idx} className={chipTagClass}>
               {chip}
               <button
                 type="button"
-                className="chip-tag-close"
+                className={chipTagCloseClass}
                 onClick={(e) => {
                   e.stopPropagation()
                   onRemoveChip(idx)
@@ -139,7 +154,7 @@ export function TableBrowserFilterPopover({
               }
             }}
             placeholder={popoverChips.length === 0 ? t('table_browser.enter_value') : ''}
-            className="chip-input-field"
+            className={chipInputFieldClass}
           />
         </div>
       </div>
@@ -152,18 +167,21 @@ export function TableBrowserFilterPopover({
           marginTop: '0.2rem',
         }}
       >
-        <div className="filter-popover-checkbox-row">
+        <div className={filterPopoverCheckboxRowClass}>
           <input
             type="checkbox"
             id="case-sensitive-cb"
             checked={popoverCaseSensitive}
             onChange={(e) => onCaseSensitiveChange(e.target.checked)}
+            className={filterPopoverCheckboxInputClass}
           />
-          <label htmlFor="case-sensitive-cb">{t('table_browser.case_sensitive')}</label>
+          <label htmlFor="case-sensitive-cb" className={filterPopoverCheckboxLabelClass}>
+            {t('table_browser.case_sensitive')}
+          </label>
         </div>
         <button
           type="button"
-          className="filter-popover-btn"
+          className={filterPopoverBtnClass}
           style={{ width: 'auto', padding: '0.35rem 0.85rem' }}
           onClick={onSave}
         >

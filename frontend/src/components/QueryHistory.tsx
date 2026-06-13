@@ -1,5 +1,3 @@
-import '../styles/ai-jobs.css'
-
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -12,6 +10,19 @@ import { useT } from '../i18n'
 import type { AIHistoryEntry } from '../types/auth'
 import type { PageQuery } from '../types/pagination'
 import { pickValidId } from '../utils/effectiveSelection'
+import {
+  aiHistoryDetailBlockClass,
+  aiHistoryDetailBtnClass,
+  aiHistoryDetailContentClass,
+  aiHistoryDetailRowClass,
+  aiHistoryMonoClass,
+  aiHistoryQuestionClass,
+  aiHistoryRowExpandedClass,
+  aiHistoryStatusClass,
+  type AiHistoryStatusVariant,
+  aiHistoryTableClass,
+  aiHistoryTableWrapClass,
+} from './ai/aiJobsClasses'
 import { useAuth } from './auth/AuthProvider'
 import { DataState } from './ui/DataState'
 import { EmptyState } from './ui/EmptyState'
@@ -135,7 +146,9 @@ export default function QueryHistory() {
     void navigate('/ai-query', { state: { question } })
   }
 
-  const getStatusBadge = (entry: AIHistoryEntry) => {
+  const getStatusBadge = (
+    entry: AIHistoryEntry,
+  ): { label: string; cls: AiHistoryStatusVariant } => {
     if (entry.needs_clarification) {
       return { label: t('query_history.status_clarification'), cls: 'clarification' }
     }
@@ -226,9 +239,9 @@ export default function QueryHistory() {
           emptyState={<EmptyState description={t('query_history.empty')} />}
         >
           <>
-            <div className="ai-history__table-wrap">
+            <div className={aiHistoryTableWrapClass}>
               <table
-                className="ai-history__table"
+                className={aiHistoryTableClass}
                 style={{ borderCollapse: 'collapse', width: '100%' }}
               >
                 <thead>
@@ -326,13 +339,13 @@ export default function QueryHistory() {
                     return (
                       <Fragment key={entry.id}>
                         <tr
-                          className={isExpanded ? 'ai-history__row--expanded' : ''}
+                          className={isExpanded ? aiHistoryRowExpandedClass : ''}
                           style={{
                             borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
                           }}
                         >
                           <td
-                            className="ai-history__question"
+                            className={aiHistoryQuestionClass}
                             style={{ padding: '12px 16px', color: 'var(--text-primary)' }}
                           >
                             <div style={{ fontWeight: '500' }}>{entry.question || '—'}</div>
@@ -347,9 +360,7 @@ export default function QueryHistory() {
                             </div>
                           </td>
                           <td style={{ padding: '12px 16px' }}>
-                            <span className={`ai-history__status ai-history__status--${badge.cls}`}>
-                              {badge.label}
-                            </span>
+                            <span className={aiHistoryStatusClass(badge.cls)}>{badge.label}</span>
                           </td>
                           <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
                             {entry.confidence_score != null
@@ -357,7 +368,7 @@ export default function QueryHistory() {
                               : '—'}
                           </td>
                           <td
-                            className="ai-history__mono"
+                            className={aiHistoryMonoClass}
                             style={{
                               padding: '12px 16px',
                               fontFamily: 'var(--font-mono, monospace)',
@@ -401,7 +412,7 @@ export default function QueryHistory() {
                               <button
                                 type="button"
                                 onClick={() => toggleDetail(entry.id)}
-                                className="ai-history__detail-btn"
+                                className={aiHistoryDetailBtnClass}
                                 aria-expanded={isExpanded}
                                 title={t('query_history.action_preview')}
                               >
@@ -411,7 +422,7 @@ export default function QueryHistory() {
                           </td>
                         </tr>
                         {isExpanded && (
-                          <tr className="ai-history__detail-row">
+                          <tr className={aiHistoryDetailRowClass}>
                             <td colSpan={8}>
                               {detailLoading ? (
                                 <div
@@ -426,21 +437,21 @@ export default function QueryHistory() {
                                   <LoadingOverlay loading={true} />
                                 </div>
                               ) : detail ? (
-                                <div className="ai-history__detail-content">
+                                <div className={aiHistoryDetailContentClass}>
                                   {detail.prompt_context != null && (
-                                    <div className="ai-history__detail-block">
+                                    <div className={aiHistoryDetailBlockClass}>
                                       <h4>{t('query_history.prompt')}</h4>
                                       <pre>{formatDetail(detail.prompt_context)}</pre>
                                     </div>
                                   )}
                                   {detail.ai_response != null && (
-                                    <div className="ai-history__detail-block">
+                                    <div className={aiHistoryDetailBlockClass}>
                                       <h4>{t('query_history.generated_sql')}</h4>
                                       <pre>{formatDetail(detail.ai_response)}</pre>
                                     </div>
                                   )}
                                   {detail.logical_query != null && (
-                                    <div className="ai-history__detail-block">
+                                    <div className={aiHistoryDetailBlockClass}>
                                       <h4>{t('query_history.logical_query')}</h4>
                                       <pre>{formatDetail(detail.logical_query)}</pre>
                                     </div>

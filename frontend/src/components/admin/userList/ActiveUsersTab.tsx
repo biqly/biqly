@@ -8,6 +8,19 @@ import type { ColumnDef } from '../../ui/DataTable'
 import { DataTable } from '../../ui/DataTable'
 import { Pagination } from '../../ui/Pagination'
 import { Select } from '../../ui/Select'
+import {
+  adminActiveBadgeClass,
+  adminBtnPrimaryClass,
+  adminBtnSecondaryClass,
+  adminInputClass,
+  adminListAvatarClass,
+  adminMessageBoxClass,
+  adminMfaStatusBadgeClass,
+  adminSubtextClass,
+  adminTableContainerClass,
+  adminUserSecurityClass,
+  adminVerifiedBadgeClass,
+} from '../adminClasses'
 
 interface ActiveUsersTabProps {
   search: string
@@ -64,7 +77,7 @@ export function ActiveUsersTab({
       cell: (u) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div
-            className="admin-list-avatar"
+            className={adminListAvatarClass}
             style={{
               width: 32,
               height: 32,
@@ -94,7 +107,7 @@ export function ActiveUsersTab({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontWeight: 600 }}>{u.email}</span>
-            {u.username && <span className="admin-subtext">{u.username}</span>}
+            {u.username && <span className={adminSubtextClass}>{u.username}</span>}
           </div>
         </div>
       ),
@@ -108,7 +121,7 @@ export function ActiveUsersTab({
       key: 'status',
       header: t('admin.users.col_status'),
       cell: (u) => (
-        <span className={u.isActive ? 'admin-badge-active' : 'admin-badge-inactive'}>
+        <span className={adminActiveBadgeClass(u.isActive)}>
           {u.isActive ? t('admin.users.status_active') : t('admin.users.status_inactive')}
         </span>
       ),
@@ -118,7 +131,7 @@ export function ActiveUsersTab({
       header: t('admin.users.col_email_verification'),
       cell: (u) => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
-          <span className={u.emailVerified ? 'admin-badge-verified' : 'admin-badge-unverified'}>
+          <span className={adminVerifiedBadgeClass(u.emailVerified)}>
             {u.emailVerified ? t('admin.users.email_verified') : t('admin.users.email_unverified')}
           </span>
           {!u.emailVerified && (
@@ -128,7 +141,7 @@ export function ActiveUsersTab({
                 void handleResendVerification(u.id)
               }}
               disabled={verificationLoadingId === u.id}
-              className="admin-btn-secondary"
+              className={adminBtnSecondaryClass}
             >
               {verificationLoadingId === u.id ? '...' : t('admin.users.resend_verification')}
             </button>
@@ -140,23 +153,15 @@ export function ActiveUsersTab({
       key: 'security',
       header: t('admin.users.col_security'),
       cell: (u) => (
-        <div className="admin-user-security">
-          <span
-            className={
-              u.mfaEnabled
-                ? 'admin-badge-verified'
-                : u.mfaPending
-                  ? 'admin-badge-unverified'
-                  : 'admin-badge-inactive'
-            }
-          >
+        <div className={adminUserSecurityClass}>
+          <span className={adminMfaStatusBadgeClass(u.mfaEnabled, u.mfaPending)}>
             {u.mfaEnabled
               ? t('admin.users.mfa_active')
               : u.mfaPending
                 ? t('admin.users.mfa_pending')
                 : t('admin.users.mfa_off')}
           </span>
-          <span className="admin-subtext">
+          <span className={adminSubtextClass}>
             {(u.passkeyCount ?? 0) > 0
               ? t('admin.users.passkeys_count', { count: u.passkeyCount ?? 0 })
               : t('admin.users.passkeys_none')}
@@ -176,7 +181,7 @@ export function ActiveUsersTab({
       cell: (u) => (
         <button
           onClick={() => onSelectUser(u.id, u.displayName?.trim() ?? u.email)}
-          className="admin-btn-primary"
+          className={adminBtnPrimaryClass}
         >
           {t('admin.users.manage')}
         </button>
@@ -192,7 +197,7 @@ export function ActiveUsersTab({
           placeholder={t('admin.users.search_placeholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="admin-input"
+          className={adminInputClass}
           style={{ maxWidth: 320 }}
         />
         <div style={{ minWidth: 180 }}>
@@ -204,10 +209,10 @@ export function ActiveUsersTab({
         </div>
       </div>
 
-      <div className="admin-table-container">
+      <div className={adminTableContainerClass}>
         {actionMessage && (
           <div
-            className={actionMessage.type === 'success' ? 'admin-success-box' : 'admin-err-box'}
+            className={adminMessageBoxClass(actionMessage.type)}
             onClick={() => setActionMessage(null)}
             role="button"
             tabIndex={0}

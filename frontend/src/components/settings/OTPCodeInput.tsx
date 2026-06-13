@@ -1,5 +1,6 @@
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
+import { mfaOtpInputClass } from '../admin/adminClasses'
 import { normalizeOTPCode } from './otp'
 
 interface OTPCodeInputProps {
@@ -35,7 +36,7 @@ export function OTPCodeInput({
         onChange={(event) => onChange(normalizeOTPCode(event.target.value))}
         placeholder={t('mfa.placeholder_code')}
         disabled={disabled}
-        className="mfa-otp-input"
+        className={mfaOtpInputClass}
       />
     </div>
   )

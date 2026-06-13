@@ -70,26 +70,26 @@ export function ABExperimentForm({ experiment, onSave, onCancel }: ABExperimentF
   }
 
   return (
-    <div className="ab-experiment-card">
-      <h2 className="ab-experiment-card__title">
+    <div className={`bg-card border border-border rounded-lg p-6 shadow-card-sm`}>
+      <h2 className={`text-lg font-semibold mt-0 mb-4 border-b border-border pb-3`}>
         {isEdit ? t('admin.ab_experiments.edit_title') : t('admin.ab_experiments.new_title')}
       </h2>
 
-      <form className="ab-form" onSubmit={(e) => void handleSubmit(e)}>
+      <form className="flex flex-col gap-5" onSubmit={(e) => void handleSubmit(e)}>
         {error && (
           <div className="alert alert-danger" role="alert">
             {error}
           </div>
         )}
 
-        <div className="ab-form__group">
-          <label className="ab-form__label" htmlFor="exp-name">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-foreground-muted" htmlFor="exp-name">
             {t('admin.ab_experiments.fields.name')} *
           </label>
           <input
             id="exp-name"
             type="text"
-            className="ab-form__input"
+            className={`px-3 py-2 border border-border rounded-md text-sm bg-[var(--input-bg)] text-inherit w-full focus:outline-none focus:border-accent focus:ring-2 focus:ring-[var(--control-focus-ring)]`}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -97,14 +97,14 @@ export function ABExperimentForm({ experiment, onSave, onCancel }: ABExperimentF
           />
         </div>
 
-        <div className="ab-form__group">
-          <label className="ab-form__label" htmlFor="exp-description">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-foreground-muted" htmlFor="exp-description">
             {t('admin.ab_experiments.fields.description')}
           </label>
           <textarea
             id="exp-description"
             rows={3}
-            className="ab-form__input"
+            className={`px-3 py-2 border border-border rounded-md text-sm bg-[var(--input-bg)] text-inherit w-full focus:outline-none focus:border-accent focus:ring-2 focus:ring-[var(--control-focus-ring)]`}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             disabled={loading}
@@ -113,13 +113,13 @@ export function ABExperimentForm({ experiment, onSave, onCancel }: ABExperimentF
 
         {!isEdit && (
           <>
-            <div className="ab-form__group">
-              <label className="ab-form__label" htmlFor="exp-template">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground-muted" htmlFor="exp-template">
                 {t('admin.ab_experiments.fields.template_name')}
               </label>
               <select
                 id="exp-template"
-                className="ab-form__select"
+                className={`px-3 py-2 border border-border rounded-md text-sm bg-[var(--input-bg)] text-inherit w-full focus:outline-none focus:border-accent focus:ring-2 focus:ring-[var(--control-focus-ring)]`}
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 disabled={loading}
@@ -132,13 +132,13 @@ export function ABExperimentForm({ experiment, onSave, onCancel }: ABExperimentF
               </select>
             </div>
 
-            <div className="ab-form__group">
-              <label className="ab-form__label" htmlFor="exp-locale">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground-muted" htmlFor="exp-locale">
                 {t('admin.ab_experiments.fields.locale')}
               </label>
               <select
                 id="exp-locale"
-                className="ab-form__select"
+                className={`px-3 py-2 border border-border rounded-md text-sm bg-[var(--input-bg)] text-inherit w-full focus:outline-none focus:border-accent focus:ring-2 focus:ring-[var(--control-focus-ring)]`}
                 value={locale}
                 onChange={(e) => setLocale(e.target.value)}
                 disabled={loading}
@@ -153,7 +153,7 @@ export function ABExperimentForm({ experiment, onSave, onCancel }: ABExperimentF
           </>
         )}
 
-        <div className="ab-form__actions">
+        <div className="flex justify-end gap-3 mt-3">
           <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={loading}>
             {t('common.cancel')}
           </button>

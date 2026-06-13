@@ -1,5 +1,10 @@
 import type { useT } from '../../i18n'
 import type { PasskeyInfo } from '../../types/auth'
+import {
+  adminBtnAutoWidthClass,
+  adminFlexGapCenterEndClass,
+  mfaQrContainerClass,
+} from '../admin/adminClasses'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Modal } from '../ui/Modal'
 import { OTPCodeInput } from './OTPCodeInput'
@@ -114,10 +119,10 @@ export function SettingsAuthModals({
               disabled={registering}
             />
           </div>
-          <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
+          <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
-              className="btn btn-secondary btn-auto-width"
+              className={`btn btn-secondary ${adminBtnAutoWidthClass}`}
               onClick={onAddModalClose}
               disabled={registering}
             >
@@ -125,7 +130,7 @@ export function SettingsAuthModals({
             </button>
             <button
               type="submit"
-              className="btn btn-primary btn-auto-width"
+              className={`btn btn-primary ${adminBtnAutoWidthClass}`}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               disabled={registering || !newPasskeyName.trim()}
             >
@@ -154,10 +159,10 @@ export function SettingsAuthModals({
               disabled={renaming}
             />
           </div>
-          <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
+          <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
-              className="btn btn-secondary btn-auto-width"
+              className={`btn btn-secondary ${adminBtnAutoWidthClass}`}
               onClick={onRenameModalClose}
               disabled={renaming}
             >
@@ -165,7 +170,7 @@ export function SettingsAuthModals({
             </button>
             <button
               type="submit"
-              className="btn btn-primary btn-auto-width"
+              className={`btn btn-primary ${adminBtnAutoWidthClass}`}
               disabled={renaming || !renamingName.trim()}
             >
               {renaming ? `${t('passkeys.modal_submit')}...` : t('passkeys.modal_submit')}
@@ -190,7 +195,7 @@ export function SettingsAuthModals({
                 </p>
               </div>
               {mfaQrCode && (
-                <div className="mfa-qr-container">
+                <div className={mfaQrContainerClass}>
                   <img
                     src={mfaQrCode}
                     alt="2FA QR Code"
@@ -235,10 +240,10 @@ export function SettingsAuthModals({
                 onChange={onMfaVerifyCodeChange}
                 disabled={mfaVerifying}
               />
-              <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
+              <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-auto-width"
+                  className={`btn btn-secondary ${adminBtnAutoWidthClass}`}
                   onClick={onMfaEnrollClose}
                   disabled={mfaVerifying}
                 >
@@ -246,7 +251,7 @@ export function SettingsAuthModals({
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary btn-auto-width"
+                  className={`btn btn-primary ${adminBtnAutoWidthClass}`}
                   disabled={mfaVerifying || mfaVerifyCode.length !== 6}
                 >
                   {mfaVerifying ? '...' : t('mfa.verify_btn')}
@@ -278,10 +283,10 @@ export function SettingsAuthModals({
             onChange={onMfaDisableCodeChange}
             disabled={mfaDisabling}
           />
-          <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
+          <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
-              className="btn btn-secondary btn-auto-width"
+              className={`btn btn-secondary ${adminBtnAutoWidthClass}`}
               onClick={onMfaDisableClose}
               disabled={mfaDisabling}
             >
@@ -289,7 +294,7 @@ export function SettingsAuthModals({
             </button>
             <button
               type="submit"
-              className="btn btn-danger btn-auto-width"
+              className={`btn btn-danger ${adminBtnAutoWidthClass}`}
               disabled={mfaDisabling || mfaDisableCode.length !== 6}
             >
               {mfaDisabling ? '...' : t('mfa.disable_submit')}
@@ -311,10 +316,10 @@ export function SettingsAuthModals({
             onChange={onMfaRegenCodeChange}
             disabled={mfaRegening}
           />
-          <div className="flex-gap-center-end" style={{ marginTop: '0.5rem' }}>
+          <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
-              className="btn btn-secondary btn-auto-width"
+              className={`btn btn-secondary ${adminBtnAutoWidthClass}`}
               onClick={onMfaRegenClose}
               disabled={mfaRegening}
             >
@@ -322,7 +327,7 @@ export function SettingsAuthModals({
             </button>
             <button
               type="submit"
-              className="btn btn-primary btn-auto-width"
+              className={`btn btn-primary ${adminBtnAutoWidthClass}`}
               disabled={mfaRegening || mfaRegenCode.length !== 6}
             >
               {mfaRegening ? '...' : t('mfa.regenerate_recovery_btn')}

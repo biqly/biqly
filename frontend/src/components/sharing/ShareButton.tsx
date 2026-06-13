@@ -1,5 +1,4 @@
-import '../../styles/sharing.css'
-
+import clsx from 'clsx'
 import { useEffect, useMemo, useState } from 'react'
 
 import { createShare, listUsers, listWorkspaces } from '../../api/admin'
@@ -43,9 +42,9 @@ export function ShareButton({
   const [permission, setPermission] = useState<'view' | 'execute' | 'edit'>('view')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lookupsLoading, setLookupsLoading] = useState(false)
   const [users, setUsers] = useState<AuthUser[]>([])
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
-  const [lookupsLoading, setLookupsLoading] = useState(false)
 
   useEffect(() => {
     if (!open || !accessToken) {
@@ -87,7 +86,7 @@ export function ShareButton({
     return workspaceSelectOptions(workspaces, lookupsLoading)
   }, [mode, users, workspaces, lookupsLoading])
 
-  async function onSubmit(e: React.SubmitEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!accessToken || !targetID.trim()) {
       return
@@ -122,7 +121,10 @@ export function ShareButton({
   return (
     <>
       {showTrigger && (
-        <button onClick={() => setOpen(true)} className="share-btn">
+        <button
+          onClick={() => setOpen(true)}
+          className={`inline-flex items-center gap-[5px] py-[5px] px-3 bg-transparent border border-border rounded-[6px] cursor-pointer text-[12px] text-foreground-muted transition-all duration-150 hover:border-accent hover:text-accent`}
+        >
           <svg
             width="14"
             height="14"
@@ -130,6 +132,7 @@ export function ShareButton({
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
+            className="shrink-0"
           >
             <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
             <polyline points="16 6 12 2 8 6" />
@@ -140,13 +143,19 @@ export function ShareButton({
       )}
 
       {open && (
-        <div className="share-modal__overlay" onClick={closeModal}>
-          <div className="share-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="share-modal__header">
-              <h3>{t('admin.sharing.share_resource')}</h3>
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] motion-safe:animate-[fadeIn_200ms_ease-out]"
+          onClick={closeModal}
+        >
+          <div
+            className={`bg-card border border-border rounded-[12px] w-full max-w-[420px] shadow-[var(--shadow,0_20px_60px_rgba(0,0,0,0.2))] motion-safe:animate-[slideUp_200ms_ease-out]`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={`flex items-center justify-between py-4 px-5 border-b border-border`}>
+              <h3 className="m-0 text-[16px] font-semibold">{t('admin.sharing.share_resource')}</h3>
               <button
                 onClick={closeModal}
-                className="share-modal__close"
+                className="bg-transparent border-0 text-[20px] cursor-pointer text-foreground-muted p-1 leading-none hover:text-foreground"
                 aria-label={t('common.close')}
               >
                 ×
@@ -157,12 +166,17 @@ export function ShareButton({
               onSubmit={(e) => {
                 void onSubmit(e)
               }}
-              className="share-modal__form"
+              className="p-5 flex flex-col gap-[14px]"
             >
-              <div className="share-modal__mode-tabs">
+              <div className={`flex gap-0 border border-border rounded-[6px] overflow-hidden`}>
                 <button
                   type="button"
-                  className={`share-modal__tab ${mode === 'user' ? 'share-modal__tab--active' : ''}`}
+                  className={clsx(
+                    'flex-1 py-2 px-4 bg-transparent border-0 cursor-pointer text-[12px] transition-all duration-150',
+                    mode === 'user'
+                      ? 'bg-accent text-white'
+                      : 'text-foreground-muted hover:text-foreground',
+                  )}
                   onClick={() => {
                     setMode('user')
                     setTargetID('')
@@ -172,7 +186,12 @@ export function ShareButton({
                 </button>
                 <button
                   type="button"
-                  className={`share-modal__tab ${mode === 'workspace' ? 'share-modal__tab--active' : ''}`}
+                  className={clsx(
+                    'flex-1 py-2 px-4 bg-transparent border-0 cursor-pointer text-[12px] transition-all duration-150',
+                    mode === 'workspace'
+                      ? 'bg-accent text-white'
+                      : 'text-foreground-muted hover:text-foreground',
+                  )}
                   onClick={() => {
                     setMode('workspace')
                     setTargetID('')
@@ -182,7 +201,7 @@ export function ShareButton({
                 </button>
               </div>
 
-              <div className="share-modal__field">
+              <div className="flex flex-col gap-1 text-[12px] text-foreground-muted">
                 <span>
                   {mode === 'user' ? t('admin.sharing.user_id') : t('admin.sharing.workspace')}
                 </span>
@@ -200,7 +219,7 @@ export function ShareButton({
                 />
               </div>
 
-              <label className="share-modal__field">
+              <label className="flex flex-col gap-1 text-[12px] text-foreground-muted">
                 <span>{t('admin.sharing.permission')}</span>
                 <Select
                   value={permission}
@@ -213,16 +232,24 @@ export function ShareButton({
                 />
               </label>
 
-              {error && <div className="share-modal__error">{error}</div>}
+              {error && (
+                <div className="py-2 px-3 bg-error/10 rounded-[4px] text-error text-[12px]">
+                  {error}
+                </div>
+              )}
 
-              <div className="share-modal__actions">
-                <button type="button" onClick={closeModal} className="share-modal__btn-cancel">
+              <div className="flex justify-end gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className={`py-2 px-4 bg-transparent border border-border rounded-[6px] cursor-pointer text-[13px] text-foreground hover:border-accent hover:text-accent transition-colors`}
+                >
                   {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={loading || !targetID.trim()}
-                  className="share-modal__btn-submit"
+                  className="py-2 px-4 bg-accent text-white border-0 rounded-[6px] cursor-pointer text-[13px] font-medium transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? t('common.saving') : t('admin.sharing.share')}
                 </button>

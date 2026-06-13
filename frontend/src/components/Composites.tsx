@@ -1,5 +1,3 @@
-import '../styles/composites.css'
-
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useApi } from '../hooks/useApi'
@@ -20,6 +18,19 @@ import type {
 import type { SemanticModelDetail } from '../types/semantic'
 import { pickValidIdOrFirst } from '../utils/effectiveSelection'
 import { CompositeDetailPanel } from './composites/CompositeDetailPanel'
+import {
+  compositeCreateFieldGroupClass,
+  compositeCreateFormActionsClass,
+  compositeCreateFormClass,
+  compositeCreateFormRowClass,
+  compositesBtnPrimaryClass,
+  compositesBtnSecondaryClass,
+  compositesControlsRowClass,
+  compositesDetailClass,
+  compositesDsSelectClass,
+  compositesLayoutClass,
+  compositesPageClass,
+} from './composites/compositesClasses'
 import { CompositesSidebar } from './composites/CompositesSidebar'
 import { CrossJoinEditor } from './composites/CrossJoinEditor'
 import { EmptyState } from './ui/EmptyState'
@@ -342,9 +353,9 @@ export default function Composites() {
   )
 
   return (
-    <div className="composites-page">
-      <div className="composites-controls-row">
-        <div className="composites-ds-select">
+    <div className={compositesPageClass}>
+      <div className={compositesControlsRowClass}>
+        <div className={compositesDsSelectClass}>
           <Select
             value={datasourceId}
             onChange={setSelectedDatasourceId}
@@ -355,7 +366,7 @@ export default function Composites() {
         </div>
         <button
           type="button"
-          className="btn-primary"
+          className={compositesBtnPrimaryClass}
           onClick={() => setShowCreate(true)}
           disabled={!datasourceId}
         >
@@ -365,7 +376,7 @@ export default function Composites() {
 
       {error && <ErrorAlert error={error} />}
 
-      <div className="composites-layout">
+      <div className={compositesLayoutClass}>
         <CompositesSidebar
           t={t}
           composites={composites}
@@ -374,7 +385,7 @@ export default function Composites() {
           onDelete={(id) => void handleDelete(id)}
         />
 
-        <section className="composites-detail">
+        <section className={compositesDetailClass}>
           {!selectedId ? (
             <EmptyState description={t('composites.empty_detail')} />
           ) : initLoading || !detail ? (
@@ -424,9 +435,9 @@ export default function Composites() {
         title={t('composites.create_title')}
         onClose={() => setShowCreate(false)}
       >
-        <div className="composite-create-form">
-          <div className="form-row">
-            <div className="field-group">
+        <div className={compositeCreateFormClass}>
+          <div className={compositeCreateFormRowClass}>
+            <div className={compositeCreateFieldGroupClass}>
               <label htmlFor="composite-name">{t('composites.field_name')}</label>
               <input
                 id="composite-name"
@@ -436,7 +447,7 @@ export default function Composites() {
                 placeholder="e.g. sales_overview"
               />
             </div>
-            <div className="field-group">
+            <div className={compositeCreateFieldGroupClass}>
               <label htmlFor="composite-label">{t('composites.field_label')}</label>
               <input
                 id="composite-label"
@@ -447,7 +458,7 @@ export default function Composites() {
               />
             </div>
           </div>
-          <div className="field-group">
+          <div className={compositeCreateFieldGroupClass}>
             <label htmlFor="composite-desc">{t('composites.field_description')}</label>
             <textarea
               id="composite-desc"
@@ -457,13 +468,17 @@ export default function Composites() {
               placeholder={t('composites.description_placeholder')}
             />
           </div>
-          <div className="form-actions">
-            <button type="button" className="btn-secondary" onClick={() => setShowCreate(false)}>
+          <div className={compositeCreateFormActionsClass}>
+            <button
+              type="button"
+              className={compositesBtnSecondaryClass}
+              onClick={() => setShowCreate(false)}
+            >
               {t('composites.cancel')}
             </button>
             <button
               type="button"
-              className="btn-primary"
+              className={compositesBtnPrimaryClass}
               onClick={() => {
                 void handleCreate()
               }}

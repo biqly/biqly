@@ -1,5 +1,18 @@
 import { ModelBadgeRow } from '../ui/ModelBadgeRow'
 import { Select } from '../ui/Select'
+import {
+  aiEmbeddingErrorClass,
+  aiEmbeddingStatusClass,
+  formLabelClass,
+  queryConfigEmbedBtnClass,
+  queryConfigEmbedStatusClass,
+  queryConfigHeaderClass,
+  queryConfigTopClass,
+  queryControlsClass,
+  routingToggleRowBtnClass,
+  routingToggleRowClass,
+  routingToggleRowGroupClass,
+} from './aiQueryClasses'
 import { RoutingPanelManualScope } from './RoutingPanelManualScope'
 import {
   filterRoutingTables,
@@ -62,8 +75,8 @@ export function RoutingPanel({
   } = resolveRoutingModelBadges(aiRuntime, t)
 
   return (
-    <header className="query-config-header">
-      <div className="query-config-top">
+    <header className={queryConfigHeaderClass}>
+      <div className={queryConfigTopClass}>
         <ModelBadgeRow
           primaryLabel={t('ai_query.model_badge_query')}
           primaryModel={queryModel}
@@ -77,7 +90,7 @@ export function RoutingPanel({
         {embeddingsAvailable && (
           <button
             type="button"
-            className="btn btn-sm query-config-embed-btn"
+            className={`btn btn-sm ${queryConfigEmbedBtnClass}`}
             onClick={onRefreshEmbeddings}
             disabled={!datasourceId || embeddingLoading || embeddingRunning}
             title={
@@ -93,14 +106,14 @@ export function RoutingPanel({
         )}
       </div>
       {embeddingsAvailable && (embeddingStatus ?? embeddingError ?? aiRuntimeErr) && (
-        <div className="query-config-embed-status">
-          {embeddingStatus && <span className="ai-embedding-status">{embeddingStatus}</span>}
-          {embeddingError && <span className="ai-embedding-error">{embeddingError}</span>}
+        <div className={queryConfigEmbedStatusClass}>
+          {embeddingStatus && <span className={aiEmbeddingStatusClass}>{embeddingStatus}</span>}
+          {embeddingError && <span className={aiEmbeddingErrorClass}>{embeddingError}</span>}
           {aiRuntimeErr && <span className="error">{aiRuntimeErr}</span>}
         </div>
       )}
 
-      <div className="query-controls">
+      <div className={queryControlsClass}>
         <div className="form-group">
           <label htmlFor="ai-datasource">{t('ai_query.datasource_label')}</label>
           <Select
@@ -135,24 +148,24 @@ export function RoutingPanel({
             ]}
           />
         </div>
-        <div className="form-group routing-toggle">
-          <span className="form-label">{t('ai_query.table_routing_label')}</span>
-          <div className="routing-toggle-row">
+        <div className="form-group">
+          <span className={formLabelClass}>{t('ai_query.table_routing_label')}</span>
+          <div className={routingToggleRowClass}>
             <div
-              className="toggle-group"
+              className={`${routingToggleRowGroupClass} toggle-group`}
               role="group"
               aria-label={t('ai_query.table_routing_label')}
             >
               <button
                 type="button"
-                className={`toggle-btn ${autoTableRouting ? 'active' : ''}`}
+                className={`${routingToggleRowBtnClass} toggle-btn ${autoTableRouting ? 'active' : ''}`}
                 onClick={() => setAutoTableRouting(true)}
               >
                 {t('ai_query.table_routing_auto')}
               </button>
               <button
                 type="button"
-                className={`toggle-btn ${!autoTableRouting ? 'active' : ''}`}
+                className={`${routingToggleRowBtnClass} toggle-btn ${!autoTableRouting ? 'active' : ''}`}
                 onClick={() => setAutoTableRouting(false)}
               >
                 {t('ai_query.table_routing_manual')}

@@ -4,6 +4,19 @@ import { joinTypeHintKey } from '../ui/joinType'
 import { JoinTypeIcon } from '../ui/JoinTypeIcon'
 import { joinRelationshipCardinality } from './joinCardinality'
 import { NotebookStep } from './NotebookStep'
+import {
+  qbJoinCardinalityClass,
+  qbJoinConnectorClass,
+  qbJoinExpressionClass,
+  qbJoinFlowClass,
+  qbJoinLineClass,
+  qbJoinOnClauseClass,
+  qbJoinOnLabelClass,
+  qbJoinTablePrefixClass,
+  qbJoinTypeClass,
+  qbTagBase,
+  qbTagTableClass,
+} from './queryBuilderClasses'
 
 export function QueryBuilderNotebookJoins({
   joins,
@@ -20,25 +33,25 @@ export function QueryBuilderNotebookJoins({
       {joins.map((j, index) => {
         const hintKey = joinTypeHintKey(j.join_type)
         return (
-          <div key={j.id || index} className="notebook-join-flow">
-            <span className="notebook-join-type" title={hintKey ? t(hintKey) : undefined}>
+          <div key={j.id || index} className={qbJoinFlowClass}>
+            <span className={qbJoinTypeClass} title={hintKey ? t(hintKey) : undefined}>
               <JoinTypeIcon type={j.join_type} />
               {j.join_type}
             </span>
-            <span className="notebook-tag notebook-tag--table">{j.from_table}</span>
-            <span className="notebook-join-connector">
-              <span className="notebook-join-line"></span>
-              <span className="notebook-join-cardinality">
+            <span className={`${qbTagBase} ${qbTagTableClass}`}>{j.from_table}</span>
+            <span className={qbJoinConnectorClass}>
+              <span className={qbJoinLineClass}></span>
+              <span className={qbJoinCardinalityClass}>
                 {joinRelationshipCardinality(j.relationship)}
               </span>
-              <span className="notebook-join-line"></span>
+              <span className={qbJoinLineClass}></span>
             </span>
-            <span className="notebook-tag notebook-tag--table">{j.to_table}</span>
-            <span className="notebook-join-on-clause">
-              <span className="notebook-join-on-label">ON</span>
-              <code className="notebook-join-expression">
-                <span className="notebook-join-table-prefix">{j.from_table}</span>.{j.from_column} ={' '}
-                <span className="notebook-join-table-prefix">{j.to_table}</span>.{j.to_column}
+            <span className={`${qbTagBase} ${qbTagTableClass}`}>{j.to_table}</span>
+            <span className={qbJoinOnClauseClass}>
+              <span className={qbJoinOnLabelClass}>ON</span>
+              <code className={qbJoinExpressionClass}>
+                <span className={qbJoinTablePrefixClass}>{j.from_table}</span>.{j.from_column} ={' '}
+                <span className={qbJoinTablePrefixClass}>{j.to_table}</span>.{j.to_column}
               </code>
             </span>
           </div>

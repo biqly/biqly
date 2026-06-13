@@ -1,5 +1,7 @@
 import type { ButtonHTMLAttributes } from 'react'
 
+import { adminBtnAutoWidthClass } from '../admin/adminClasses'
+
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -30,7 +32,7 @@ export function Button({
     'btn',
     `btn-${variant}`,
     size === 'sm' ? 'btn-sm' : '',
-    autoWidth ? 'btn-auto-width' : '',
+    autoWidth ? adminBtnAutoWidthClass : '',
     className ?? '',
   ]
     .filter(Boolean)

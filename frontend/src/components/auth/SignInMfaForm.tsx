@@ -26,34 +26,27 @@ export function SignInMfaForm({
       onSubmit={(e) => {
         void onSubmit(e)
       }}
-      className="auth-form"
+      className="flex flex-col gap-4"
     >
-      <h2
-        className="auth-title"
-        style={{ fontSize: '1.25rem', marginBottom: '0.5rem', textAlign: 'center' }}
-      >
+      <h2 className="m-0 text-[1.25rem] font-bold text-foreground text-center mb-2">
         {t('mfa.login_title')}
       </h2>
-      <p
-        className="auth-subtitle"
-        style={{
-          fontSize: '0.85rem',
-          marginBottom: '1.5rem',
-          textAlign: 'center',
-          padding: '0 0.5rem',
-        }}
-      >
+      <p className="text-[0.85rem] text-foreground-muted text-center mb-6 px-2">
         {t('mfa.login_desc')}
       </p>
 
       {error && (
-        <div className="auth-error" role="alert" aria-live="assertive">
+        <div
+          className="p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </div>
       )}
 
-      <div className="form-group">
-        <label className="form-label" htmlFor="mfa-login-code">
+      <div className="flex flex-col gap-1">
+        <label className="text-[13px] font-medium text-foreground-muted" htmlFor="mfa-login-code">
           {t('mfa.label_code')}
         </label>
         <input
@@ -62,7 +55,7 @@ export function SignInMfaForm({
           pattern="[0-9]*"
           inputMode="numeric"
           maxLength={6}
-          className="form-input"
+          className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-input,#ffffff)] text-foreground text-[14px] transition-all duration-250 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]`}
           value={mfaCode}
           onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
           required
@@ -74,23 +67,18 @@ export function SignInMfaForm({
 
       <button
         type="submit"
-        className="auth-btn"
+        className="flex items-center justify-center gap-2 w-full py-[11px] px-[16px] rounded-lg border-none bg-gradient-to-br from-accent to-[var(--accent-strong)] text-white text-[14px] font-semibold cursor-pointer transition-all duration-150 shadow-[0_4px_10px_rgba(99,102,241,0.2)] hover:opacity-95 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none mt-4"
         disabled={mfaLoading || mfaCode.length !== 6}
-        style={{ marginTop: '1rem' }}
       >
-        {mfaLoading && <div className="spinner" />}
+        {mfaLoading && (
+          <div className="w-4 h-4 border-2 border-white/30 rounded-full border-t-white animate-spin" />
+        )}
         {t('mfa.login_submit')}
       </button>
 
       <button
         type="button"
-        className="auth-btn"
-        style={{
-          marginTop: '0.5rem',
-          backgroundColor: 'transparent',
-          border: '1px solid var(--border)',
-          color: 'var(--text-secondary)',
-        }}
+        className={`flex items-center justify-center gap-2 w-full py-[11px] px-[16px] rounded-lg cursor-pointer transition-all duration-150 mt-2 bg-transparent border border-border text-foreground-muted hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed`}
         onClick={onCancel}
         disabled={mfaLoading}
       >

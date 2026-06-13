@@ -3,6 +3,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useConfirm } from '../../hooks/useConfirm'
 import type { TFunction } from '../../i18n'
 import type { Conversation } from '../../types/ai'
+import {
+  btnConvActionClass,
+  convActionsClass,
+  convEditInputClass,
+  conversationItemClass,
+  convItemContentClass,
+  convTimeClass,
+  convTitleClass,
+} from './aiQueryClasses'
 
 interface SidebarConversationItemProps {
   conv: Conversation
@@ -67,7 +76,7 @@ export function SidebarConversationItem({
   }
 
   return (
-    <div className={`conversation-item ${isActive ? 'active' : ''}`} onClick={onSelect}>
+    <div className={conversationItemClass(isActive)} onClick={onSelect}>
       {isEditing ? (
         <input
           ref={inputRef}
@@ -76,24 +85,24 @@ export function SidebarConversationItem({
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
           onClick={(e) => e.stopPropagation()}
-          className="conv-edit-input"
+          className={convEditInputClass}
           placeholder={t('ai_query.rename_placeholder')}
         />
       ) : (
-        <div className="conv-item-content">
-          <span className="conv-title" onDoubleClick={handleStartEdit}>
+        <div className={convItemContentClass}>
+          <span className={convTitleClass} onDoubleClick={handleStartEdit}>
             {conv.title ?? t('ai_query.conv_current')}
           </span>
-          <span className="conv-time">
+          <span className={convTimeClass}>
             {t('ai_query.conv_messages', { count: conv.messages.length })}
           </span>
         </div>
       )}
       {!isEditing && (
-        <div className="conv-actions">
+        <div className={convActionsClass}>
           <button
             type="button"
-            className="btn-conv-action edit-btn"
+            className={btnConvActionClass}
             onClick={handleStartEdit}
             title={t('ai_query.rename_btn')}
           >
@@ -101,7 +110,7 @@ export function SidebarConversationItem({
           </button>
           <button
             type="button"
-            className="btn-conv-action delete-btn"
+            className={btnConvActionClass}
             onClick={(e) => {
               void handleDelete(e)
             }}

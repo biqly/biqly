@@ -1,6 +1,7 @@
 import { type Locale, localeLanguageTag, useT } from '../../i18n'
 import type { PasskeyInfo } from '../../types/auth'
 import { formatDateTime } from '../../utils/formatters'
+import { adminBtnIconOnlyClass, adminCenterContainerClass } from '../admin/adminClasses'
 import { EmptyState } from '../ui/EmptyState'
 
 interface PasskeyTableProps {
@@ -17,7 +18,7 @@ export function PasskeyTable({ passkeys, loading, locale, onRename, onDelete }: 
 
   if (loading) {
     return (
-      <div className="admin-center-container">
+      <div className={adminCenterContainerClass}>
         <div
           className="spinner"
           style={{ width: '24px', height: '24px', borderTopColor: 'var(--accent)' }}
@@ -31,7 +32,10 @@ export function PasskeyTable({ passkeys, loading, locale, onRename, onDelete }: 
   }
 
   return (
-    <ul className="settings-security-list" role="list">
+    <ul
+      className={`flex flex-col gap-0 m-0 p-0 list-none border border-border rounded-lg overflow-hidden bg-bg-secondary`}
+      role="list"
+    >
       {passkeys.map((passkey) => {
         const created = formatDateTime(passkey.created_at, languageTag)
         const lastUsed = passkey.last_used_at
@@ -39,11 +43,14 @@ export function PasskeyTable({ passkeys, loading, locale, onRename, onDelete }: 
           : t('passkeys.never_used')
 
         return (
-          <li key={passkey.id} className="settings-security-item">
-            <div className="settings-security-item__row">
-              <div className="settings-security-item__identity">
+          <li
+            key={passkey.id}
+            className={`py-[0.9rem] px-4 border-b border-border transition-colors duration-150 hover:bg-white/[0.015] last:border-b-0`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-y-[0.4rem] gap-x-[0.55rem] min-w-0">
                 <span
-                  className="settings-security-item__icon"
+                  className="shrink-0 text-[1rem] leading-[1.2]"
                   aria-hidden
                   style={{ display: 'inline-flex', alignItems: 'center' }}
                 >
@@ -64,12 +71,14 @@ export function PasskeyTable({ passkeys, loading, locale, onRename, onDelete }: 
                     <circle cx="17" cy="7" r="1" />
                   </svg>
                 </span>
-                <span className="settings-security-item__name">{passkey.name}</span>
+                <span className="text-[0.9rem] font-semibold leading-[1.35] break-words">
+                  {passkey.name}
+                </span>
               </div>
-              <div className="settings-security-item__actions">
+              <div className="flex shrink-0 items-center gap-[0.35rem]">
                 <button
                   type="button"
-                  className="btn btn-sm btn-secondary btn-icon-only"
+                  className={`btn btn-sm btn-secondary ${adminBtnIconOnlyClass}`}
                   title={t('passkeys.rename_title')}
                   onClick={() => onRename(passkey)}
                   style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
@@ -92,7 +101,7 @@ export function PasskeyTable({ passkeys, loading, locale, onRename, onDelete }: 
                 </button>
                 <button
                   type="button"
-                  className="btn btn-sm btn-danger-outline btn-icon-only"
+                  className={`btn btn-sm btn-danger-outline ${adminBtnIconOnlyClass}`}
                   title={t('passkeys.delete_title')}
                   onClick={() => onDelete(passkey)}
                   style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
@@ -118,11 +127,11 @@ export function PasskeyTable({ passkeys, loading, locale, onRename, onDelete }: 
                 </button>
               </div>
             </div>
-            <p className="settings-security-item__detail">
+            <p className="mt-[0.45rem] mr-0 mb-0 ml-0 text-foreground-muted text-[0.78rem] leading-[1.45]">
               <span>
                 {t('passkeys.col_created')}: {created}
               </span>
-              <span className="settings-security-item__sep" aria-hidden>
+              <span className="mx-[0.35rem] opacity-55" aria-hidden>
                 ·
               </span>
               <span>

@@ -1,5 +1,3 @@
-import '../../styles/shortcuts-help.css'
-
 import { useMemo } from 'react'
 
 import type { ShortcutDef, ShortcutKeys } from '../../hooks/useKeyboardShortcuts'
@@ -54,17 +52,25 @@ export function ShortcutsHelp({ open, shortcuts, onClose }: ShortcutsHelpProps) 
 
   return (
     <Modal open={open} title={t('shortcuts.title')} onClose={onClose}>
-      <div className="shortcuts-help">
+      <div className="grid gap-[1.1rem]">
         {groups.map(([group, defs]) => (
-          <section key={group} className="shortcuts-help__group">
-            <h3 className="shortcuts-help__heading">{group}</h3>
-            <ul className="shortcuts-help__list">
+          <section key={group} className="grid gap-[0.4rem]">
+            <h3 className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.05em] text-foreground-muted">
+              {group}
+            </h3>
+            <ul className="m-0 grid list-none gap-[0.15rem] p-0">
               {defs.map((def) => (
-                <li key={def.id} className="shortcuts-help__row">
-                  <span className="shortcuts-help__desc">{def.description}</span>
-                  <span className="shortcuts-help__keys">
+                <li
+                  key={def.id}
+                  className="flex items-center justify-between gap-4 rounded-[0.4rem] px-2 py-[0.4rem] hover:bg-card-raised"
+                >
+                  <span className="text-[0.88rem] text-foreground">{def.description}</span>
+                  <span className="inline-flex shrink-0 gap-1">
                     {comboParts(def.keys).map((part, i) => (
-                      <kbd key={i} className="shortcuts-help__kbd">
+                      <kbd
+                        key={i}
+                        className="inline-grid h-6 min-w-6 place-items-center rounded-[0.35rem] border-x border-t border-b-2 border-border-strong bg-card-raised px-[0.4rem] text-[0.78rem] leading-none text-foreground [font-family:inherit]"
+                      >
                         {part}
                       </kbd>
                     ))}

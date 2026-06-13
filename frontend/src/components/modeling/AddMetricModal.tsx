@@ -56,7 +56,11 @@ export function AddMetricModal({
       open
       onClose={onClose}
       closeOnBackdrop={!state.saving}
-      className={state.mode === 'custom' ? 'modal-card--metric' : 'modal-card--modeling'}
+      className={
+        state.mode === 'custom'
+          ? 'w-full max-w-184 transition-[width] duration-200 ease-in-out'
+          : 'modal-card--modeling'
+      }
       labelledBy="modeling-add-metric-title"
       title={metric ? t('modeling.edit_metric_title') : t('modeling.add_metric_title')}
     >

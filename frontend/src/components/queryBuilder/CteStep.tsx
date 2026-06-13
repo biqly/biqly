@@ -1,5 +1,6 @@
 import { useT } from '../../i18n'
 import { NotebookStep } from './NotebookStep'
+import { qbAddBtnClass, qbTagBase, qbTagCloseClass, qbTagPurpleClass } from './queryBuilderClasses'
 import type { CTERow } from './types'
 
 interface CteStepProps {
@@ -27,17 +28,8 @@ export function CteStep({ ctes, updateCTE, removeCTE, addCTE, onClear }: CteStep
       summary={t('query_builder.step_summary_count', { count: ctes.length })}
     >
       {ctes.map((c, i) => (
-        <div
-          key={i}
-          className="notebook-tag notebook-tag--purple"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.25rem',
-            alignItems: 'flex-start',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: '100%' }}>
+        <div key={i} className={`${qbTagBase} ${qbTagPurpleClass} flex flex-col items-start gap-1`}>
+          <div className="flex w-full items-center gap-1">
             <input
               value={c.name}
               onChange={(e) => updateCTE(i, 'name', e.target.value)}
@@ -46,7 +38,7 @@ export function CteStep({ ctes, updateCTE, removeCTE, addCTE, onClear }: CteStep
             />
             <button
               type="button"
-              className="notebook-tag-close"
+              className={qbTagCloseClass}
               onClick={() => removeCTE(i)}
               aria-label="Remove CTE"
             >
@@ -58,19 +50,11 @@ export function CteStep({ ctes, updateCTE, removeCTE, addCTE, onClear }: CteStep
             onChange={(e) => updateCTE(i, 'query', e.target.value)}
             placeholder="CTE query JSON"
             rows={2}
-            style={{
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border-strong)',
-              color: 'var(--text-primary)',
-              borderRadius: '0.25rem',
-              width: '12rem',
-              padding: '0.25rem',
-              fontSize: '0.74rem',
-            }}
+            className="w-48 rounded border border-border-strong bg-canvas p-1 text-[0.74rem] text-foreground"
           />
         </div>
       ))}
-      <button type="button" className="notebook-add-btn" onClick={addCTE}>
+      <button type="button" className={qbAddBtnClass} onClick={addCTE}>
         +
       </button>
     </NotebookStep>

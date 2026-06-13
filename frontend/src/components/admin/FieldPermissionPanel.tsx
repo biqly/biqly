@@ -12,6 +12,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
+import { adminFormLabelClass } from './adminClasses'
 import {
   datasourceSelectOptions,
   securityRoleOptions,
@@ -315,12 +316,12 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       {!canEdit && <ReadOnlyNote />}
 
       <div style={gridSelectStyle}>
-        <div style={labelStyle} className="admin-form-label">
+        <div style={labelStyle} className={adminFormLabelClass}>
           <span style={labelTextStyle}>Role</span>
           <Select value={selectedRole} options={securityRoleOptions()} onChange={setSelectedRole} />
         </div>
 
-        <div style={labelStyle} className="admin-form-label">
+        <div style={labelStyle} className={adminFormLabelClass}>
           <span style={labelTextStyle}>Datasource</span>
           <Select
             value={selectedDS}
@@ -330,7 +331,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
           />
         </div>
 
-        <div style={labelStyle} className="admin-form-label">
+        <div style={labelStyle} className={adminFormLabelClass}>
           <span style={labelTextStyle}>Semantic Model</span>
           <Select
             value={selectedModel}

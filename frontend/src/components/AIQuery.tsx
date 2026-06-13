@@ -1,5 +1,3 @@
-import '../styles/aiQuery.css'
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 
@@ -23,6 +21,14 @@ import { pickValidIdOrFirst } from '../utils/effectiveSelection'
 import { localeNumberTag } from '../utils/formatters'
 import { normalizeAIQueryResponse } from '../utils/normalizeAIQueryResponse'
 import { buildResultSummary } from '../utils/priorTurnSummary'
+import {
+  aiQueryLayoutClass,
+  aiQueryMainClass,
+  conversationSidebarClass,
+  conversationsListClass,
+  sidebarHeaderClass,
+  sidebarHeaderTitleClass,
+} from './aiQuery/aiQueryClasses'
 import { ChatPanel } from './aiQuery/ChatPanel'
 import { RoutingPanel } from './aiQuery/RoutingPanel'
 import { embeddingSummary } from './aiQuery/routingViz'
@@ -485,10 +491,10 @@ export default function AIQuery() {
   }
 
   return (
-    <div className="ai-query-layout">
-      <aside className="conversation-sidebar">
+    <div className={aiQueryLayoutClass}>
+      <aside className={conversationSidebarClass}>
         <div
-          className="sidebar-header"
+          className={sidebarHeaderClass}
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -496,7 +502,7 @@ export default function AIQuery() {
             gap: '0.75rem',
           }}
         >
-          <h3 style={{ textAlign: 'center', width: '100%', margin: 0 }}>
+          <h3 className={`${sidebarHeaderTitleClass} text-center! w-full!`}>
             {t('ai_query.conv_title')}
           </h3>
           <button
@@ -518,7 +524,7 @@ export default function AIQuery() {
             {t('ai_query.conv_new')}
           </button>
         </div>
-        <div className="conversations-list">
+        <div className={conversationsListClass}>
           {conversations.map((c) => (
             <SidebarConversationItem
               key={c.id}
@@ -533,7 +539,7 @@ export default function AIQuery() {
         </div>
       </aside>
 
-      <div className="ai-query-main">
+      <div className={aiQueryMainClass}>
         <RoutingPanel
           t={t}
           aiRuntime={aiRuntime}

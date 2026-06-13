@@ -1,5 +1,3 @@
-import '../../styles/form-field.css'
-
 import type { ReactNode } from 'react'
 import { useId } from 'react'
 
@@ -55,7 +53,7 @@ export function FormField({
         aria-describedby={errorId}
       />
       {error ? (
-        <p className="form-field__error" id={errorId} role="alert">
+        <p className="mt-1 text-[0.8rem] text-error" id={errorId} role="alert">
           {error}
         </p>
       ) : null}

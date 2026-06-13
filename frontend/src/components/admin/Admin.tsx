@@ -11,6 +11,7 @@ import { useQueryParam } from '../../hooks/useQueryParam'
 import { useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingScreen } from '../ui/LoadingScreen'
+import { adminContentClass, adminLayoutClass } from './adminClasses'
 import { AdminNav } from './AdminNav'
 import { type AdminTab, isAdminTab } from './adminNavConfig'
 
@@ -167,10 +168,10 @@ export default function Admin() {
   }
 
   return (
-    <div className="admin-layout">
+    <div className={adminLayoutClass}>
       <AdminNav activeTab={tab} onTabChange={handleTabChange} onTabHover={handleTabHover} />
 
-      <div className="admin-content">
+      <div className={adminContentClass}>
         <Suspense fallback={<LoadingScreen minHeight="200px" />}>
           {tab === 'users' &&
             (selectedUserID ? (

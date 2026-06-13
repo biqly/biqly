@@ -15,6 +15,62 @@ import type {
   TokenUsage,
 } from '../../types/ai'
 import { localeNumberTag } from '../../utils/formatters'
+import {
+  breakdownBarBgClass,
+  breakdownBarFillClass,
+  breakdownRowClass,
+  btnCandidateUseClass,
+  btnClarificationClass,
+  btnSkipClass,
+  candidateCardClass,
+  candidateCardHeaderClass,
+  candidateCardsClass,
+  candidateHeaderClass,
+  candidateJsonClass,
+  candidatePanelClass,
+  candidateReasoningClass,
+  candidateScoreClass,
+  clarificationAmbiguityTermsClass,
+  clarificationAmbiguityTermsLiClass,
+  clarificationAmbiguityTermsStrongClass,
+  clarificationAmbiguityTypeClass,
+  clarificationCapNoticeClass,
+  clarificationCardAmbiguityClass,
+  clarificationCardClass,
+  clarificationOptionsClass,
+  clarificationQuestionClass,
+  clarificationRoundIndicatorClass,
+  clarificationTitleClass,
+  collapsibleContentClass,
+  collapsibleSectionClass,
+  collapsibleSectionSummaryClass,
+  confidenceBarBgClass,
+  confidenceBarFillClass,
+  confidenceBreakdownClass,
+  confidenceHeaderClass,
+  confidenceHintClass,
+  confidenceSectionClass,
+  costBadgeClass,
+  routingBarBgClass,
+  routingBarFillClass,
+  routingCandidateClass,
+  routingConfidenceClass,
+  routingContextGridClass,
+  routingContextGridItemClass,
+  routingContextLabelClass,
+  routingContextValueClass,
+  routingDebugClass,
+  routingDebugCodeClass,
+  routingHeaderClass,
+  routingReasoningClass,
+  routingScoreClass,
+  routingScoreDetailClass,
+  routingSelectedClass,
+  routingSelectedEmptyClass,
+  routingTableListClass,
+  routingTableNameClass,
+  tableRoutingVizClass,
+} from './aiQueryClasses'
 import { GenerationTracePanel } from './generationTrace'
 
 type TFn = ReturnType<typeof useT>
@@ -134,16 +190,21 @@ export function ConfidenceBar({
   const pct = Math.round(value * 100)
   const color = value > 0.8 ? 'var(--success)' : value > 0.5 ? 'var(--warning)' : 'var(--error)'
   return (
-    <div className="confidence-section">
-      <div className="confidence-header">
+    <div className={confidenceSectionClass}>
+      <div className={confidenceHeaderClass}>
         <span>{t('ai_query.confidence')}</span>
         <span style={{ color, fontWeight: 600 }}>{pct}%</span>
       </div>
-      <div className="confidence-bar-bg">
-        <div className="confidence-bar-fill" style={{ width: `${pct}%`, backgroundColor: color }} />
+      <div className={confidenceBarBgClass}>
+        <div
+          className={confidenceBarFillClass(
+            value > 0.8 ? 'success' : value > 0.5 ? 'warning' : 'error',
+          )}
+          style={{ width: `${pct}%` }}
+        />
       </div>
       {breakdown && (
-        <div className="confidence-breakdown">
+        <div className={confidenceBreakdownClass}>
           <BreakdownRow
             label={t('ai_query.breakdown_table_routing')}
             value={breakdown.table_routing}
@@ -152,7 +213,7 @@ export function ConfidenceBar({
           <BreakdownRow label={t('ai_query.breakdown_validation')} value={breakdown.validation} />
         </div>
       )}
-      {value < 0.5 && <p className="confidence-hint">{t('ai_query.confidence_low_hint')}</p>}
+      {value < 0.5 && <p className={confidenceHintClass}>{t('ai_query.confidence_low_hint')}</p>}
     </div>
   )
 }
@@ -161,10 +222,15 @@ function BreakdownRow({ label, value }: { label: string; value: number }) {
   const pct = Math.round(value * 100)
   const color = value > 0.8 ? 'var(--success)' : value > 0.5 ? 'var(--warning)' : 'var(--error)'
   return (
-    <div className="breakdown-row">
+    <div className={breakdownRowClass}>
       <span>{label}</span>
-      <div className="breakdown-bar-bg">
-        <div className="breakdown-bar-fill" style={{ width: `${pct}%`, backgroundColor: color }} />
+      <div className={breakdownBarBgClass}>
+        <div
+          className={breakdownBarFillClass(
+            value > 0.8 ? 'success' : value > 0.5 ? 'warning' : 'error',
+          )}
+          style={{ width: `${pct}%` }}
+        />
       </div>
       <span style={{ minWidth: 36, textAlign: 'right', fontSize: 12, color }}>{pct}%</span>
     </div>
@@ -177,7 +243,7 @@ function RoutingTableList({ items }: { items: string[] | undefined }) {
     return null
   }
   return (
-    <strong className="routing-table-list">
+    <strong className={routingTableListClass}>
       {compacted.visible.map((item) => (
         <span key={item}>{item}</span>
       ))}
@@ -192,7 +258,7 @@ function RoutingDebugList({ items }: { items: string[] | undefined }) {
     return null
   }
   return (
-    <code className="routing-debug-list">
+    <code className={routingTableListClass}>
       {compacted.visible.map((item) => (
         <span key={item}>{item}</span>
       ))}
@@ -221,16 +287,16 @@ function RoutingCandidatesList({
         const score = routingCandidateScore(c)
         const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
         return (
-          <div key={c.table} className="routing-candidate">
-            <span className="routing-table-name">{c.table}</span>
-            <div className="routing-bar-bg">
-              <div className="routing-bar-fill" style={{ width: `${pct}%` }} />
+          <div key={c.table} className={routingCandidateClass}>
+            <span className={routingTableNameClass}>{c.table}</span>
+            <div className={routingBarBgClass}>
+              <div className={routingBarFillClass} style={{ width: `${pct}%` }} />
             </div>
-            <span className="routing-score">{score.toFixed(2)}</span>
-            <span className={`routing-selected ${c.selected ? '' : 'routing-selected--empty'}`}>
+            <span className={routingScoreClass}>{score.toFixed(2)}</span>
+            <span className={c.selected ? routingSelectedClass : routingSelectedEmptyClass}>
               {c.selected ? '✓' : ''}
             </span>
-            <span className="routing-score-detail">
+            <span className={routingScoreDetailClass}>
               {t('ai_query.routing_score_k')}
               {(c.keyword_score ?? 0).toFixed(2)}
               {c.embedding_score !== undefined
@@ -252,28 +318,36 @@ function RoutingDebugPanel({
   t: ReturnType<typeof useT>
 }) {
   return (
-    <div className="routing-debug">
+    <div className={routingDebugClass}>
       {debug.relation_expansion && debug.relation_expansion.length > 0 && (
         <div>
-          <span>{t('ai_query.routing_debug_relation')}</span>
-          <code>{debug.relation_expansion.join(' | ')}</code>
+          <span className="text-[0.72rem] text-foreground-faint">
+            {t('ai_query.routing_debug_relation')}
+          </span>
+          <code className={routingDebugCodeClass}>{debug.relation_expansion.join(' | ')}</code>
         </div>
       )}
       {debug.bridge_tables && debug.bridge_tables.length > 0 && (
         <div>
-          <span>{t('ai_query.routing_debug_bridge')}</span>
+          <span className="text-[0.72rem] text-foreground-faint">
+            {t('ai_query.routing_debug_bridge')}
+          </span>
           <RoutingDebugList items={debug.bridge_tables} />
         </div>
       )}
       {debug.schema_partitions && debug.schema_partitions.length > 0 && (
         <div>
-          <span>{t('ai_query.routing_debug_schema_parts')}</span>
+          <span className="text-[0.72rem] text-foreground-faint">
+            {t('ai_query.routing_debug_schema_parts')}
+          </span>
           <RoutingDebugList items={debug.schema_partitions} />
         </div>
       )}
       {debug.eliminated_candidates && debug.eliminated_candidates.length > 0 && (
         <div>
-          <span>{t('ai_query.routing_debug_eliminated')}</span>
+          <span className="text-[0.72rem] text-foreground-faint">
+            {t('ai_query.routing_debug_eliminated')}
+          </span>
           <RoutingDebugList items={debug.eliminated_candidates} />
         </div>
       )}
@@ -297,45 +371,47 @@ function RoutingContextSummary({
   const selectedModels = compactList(routing.selected_models)
 
   return (
-    <div className="routing-context-grid">
-      <div>
-        <span>{t('ai_query.routing_source')}</span>
-        <strong>{sourceLabel}</strong>
+    <div className={routingContextGridClass}>
+      <div className={routingContextGridItemClass}>
+        <span className={routingContextLabelClass}>{t('ai_query.routing_source')}</span>
+        <strong className={routingContextValueClass}>{sourceLabel}</strong>
       </div>
       {selectedModels && (
-        <div>
-          <span>{t('ai_query.routing_model')}</span>
-          <strong>{selectedModels}</strong>
+        <div className={routingContextGridItemClass}>
+          <span className={routingContextLabelClass}>{t('ai_query.routing_model')}</span>
+          <strong className={routingContextValueClass}>{selectedModels}</strong>
         </div>
       )}
       {selectedTables && (
-        <div>
-          <span>{t('ai_query.routing_tables')}</span>
+        <div className={routingContextGridItemClass}>
+          <span className={routingContextLabelClass}>{t('ai_query.routing_tables')}</span>
           <RoutingTableList items={routing.selected_tables} />
         </div>
       )}
       {selectedDims && (
-        <div>
-          <span>{t('ai_query.routing_dimensions')}</span>
-          <strong>{selectedDims}</strong>
+        <div className={routingContextGridItemClass}>
+          <span className={routingContextLabelClass}>{t('ai_query.routing_dimensions')}</span>
+          <strong className={routingContextValueClass}>{selectedDims}</strong>
         </div>
       )}
       {selectedMetrics && (
-        <div>
-          <span>{t('ai_query.routing_metrics')}</span>
-          <strong>{selectedMetrics}</strong>
+        <div className={routingContextGridItemClass}>
+          <span className={routingContextLabelClass}>{t('ai_query.routing_metrics')}</span>
+          <strong className={routingContextValueClass}>{selectedMetrics}</strong>
         </div>
       )}
       {(routing.join_paths?.length ?? 0) > 0 && (
-        <div>
-          <span>{t('ai_query.routing_join_paths')}</span>
+        <div className={routingContextGridItemClass}>
+          <span className={routingContextLabelClass}>{t('ai_query.routing_join_paths')}</span>
           <RoutingDebugList items={routing.join_paths} />
         </div>
       )}
       {routing.context_updated_at && (
-        <div>
-          <span>{t('ai_query.routing_context_time')}</span>
-          <strong>{new Date(routing.context_updated_at).toLocaleString(localeTag)}</strong>
+        <div className={routingContextGridItemClass}>
+          <span className={routingContextLabelClass}>{t('ai_query.routing_context_time')}</span>
+          <strong className={routingContextValueClass}>
+            {new Date(routing.context_updated_at).toLocaleString(localeTag)}
+          </strong>
         </div>
       )}
     </div>
@@ -355,15 +431,15 @@ export function TableRoutingViz({
   const maxScore = Math.max(...candidates.map(routingCandidateScore), 0)
 
   return (
-    <div className="table-routing-viz">
-      <div className="routing-header">
+    <div className={tableRoutingVizClass}>
+      <div className={routingHeaderClass}>
         <span>{t('ai_query.routing_header', { method: methodLabel })}</span>
-        <span className="routing-confidence">{Math.round(routing.confidence * 100)}%</span>
+        <span className={routingConfidenceClass}>{Math.round(routing.confidence * 100)}%</span>
       </div>
       <RoutingContextSummary routing={routing} localeTag={localeTag} t={t} />
       <RoutingCandidatesList candidates={candidates} maxScore={maxScore} t={t} />
       {routing.debug && <RoutingDebugPanel debug={routing.debug} t={t} />}
-      {routing.reasoning && <p className="routing-reasoning">{routing.reasoning}</p>}
+      {routing.reasoning && <p className={routingReasoningClass}>{routing.reasoning}</p>}
     </div>
   )
 }
@@ -375,7 +451,7 @@ function ClarificationRoundChip({ round, maxRounds }: { round: number; maxRounds
     return null
   }
   return (
-    <span className="clarification-round-indicator">
+    <span className={clarificationRoundIndicatorClass}>
       {t('ai_query.clarification_round_indicator', { current: round, max: maxRounds })}
     </span>
   )
@@ -393,13 +469,13 @@ function AmbiguityTermsList({ clarification }: { clarification?: Clarification }
   }
   return (
     <ul
-      className="clarification-ambiguity-terms"
+      className={clarificationAmbiguityTermsClass}
       aria-label={t('ai_query.clarification_terms_label')}
     >
       {ambiguities.map((item) => (
-        <li key={item.term}>
-          <strong>{item.term}</strong>
-          <span className="clarification-ambiguity-type">{item.type}</span>
+        <li key={item.term} className={clarificationAmbiguityTermsLiClass}>
+          <strong className={clarificationAmbiguityTermsStrongClass}>{item.term}</strong>
+          <span className={clarificationAmbiguityTypeClass}>{item.type}</span>
         </li>
       ))}
     </ul>
@@ -437,34 +513,37 @@ export function ClarificationCard({
   const isAmbiguity = clarification?.source === 'ambiguity_analyzer'
   return (
     <div
-      className={`clarification-card${isAmbiguity ? ' clarification-card--ambiguity' : ''}`}
+      className={isAmbiguity ? clarificationCardAmbiguityClass : clarificationCardClass}
       role="group"
       aria-labelledby={titleId}
     >
-      <div className="clarification-title" id={titleId}>
+      <div className={clarificationTitleClass} id={titleId}>
         {t('ai_query.clarification_title')}
         <ClarificationRoundChip round={round} maxRounds={maxRounds} />
       </div>
       {interactiveTier && (
-        <p className="clarification-cap-notice clarification-cap-notice--interactive" role="status">
+        <p
+          className={`${clarificationCapNoticeClass} clarification-cap-notice--interactive`}
+          role="status"
+        >
           {t('ai_query.clarification_interactive_tier')}
         </p>
       )}
       {capReached && (
-        <p className="clarification-cap-notice" role="status">
+        <p className={clarificationCapNoticeClass} role="status">
           {t('ai_query.clarification_cap_reached')}
         </p>
       )}
       {clarification?.reason && <p className="clarification-reason">{clarification.reason}</p>}
       <AmbiguityTermsList clarification={clarification} />
-      <p className="clarification-question">{question}</p>
-      <div className="clarification-options">
+      <p className={clarificationQuestionClass}>{question}</p>
+      <div className={clarificationOptionsClass}>
         {useStructured
           ? structured.map((opt) => (
               <button
                 key={opt.key}
                 type="button"
-                className="btn btn-clarification"
+                className={btnClarificationClass}
                 title={opt.hint}
                 onClick={() => onSelect(opt.key || opt.label)}
               >
@@ -476,14 +555,14 @@ export function ClarificationCard({
               <button
                 key={opt}
                 type="button"
-                className="btn btn-clarification"
+                className={btnClarificationClass}
                 onClick={() => onSelect(opt)}
               >
                 {opt}
               </button>
             ))}
       </div>
-      <button type="button" className="btn btn-skip" onClick={onSkip}>
+      <button type="button" className={btnSkipClass} onClick={onSkip}>
         {t('ai_query.clarification_skip')}
       </button>
       {generationTrace ? <GenerationTracePanel trace={generationTrace} defaultOpen /> : null}
@@ -504,30 +583,30 @@ export function CandidateComparisonPanel({
     0,
   )
   return (
-    <div className="candidate-panel">
-      <div className="candidate-header">
+    <div className={candidatePanelClass}>
+      <div className={candidateHeaderClass}>
         <span>{t('ai_query.candidates_header', { count: candidates.length })}</span>
       </div>
-      <div className="candidate-cards">
+      <div className={candidateCardsClass}>
         {candidates.map((c, i) => {
           const isBest = i === bestIdx
           const pct = Math.round(c.confidence * 100)
           return (
-            <div key={i} className={`candidate-card ${isBest ? 'candidate-best' : ''}`}>
-              <div className="candidate-card-header">
+            <div key={i} className={candidateCardClass(isBest)}>
+              <div className={candidateCardHeaderClass}>
                 <span>{t('ai_query.candidate_number', { n: i + 1 })}</span>
-                <span className={`candidate-score ${isBest ? 'score-best' : ''}`}>
+                <span className={candidateScoreClass(isBest)}>
                   {t('ai_query.candidate_score', { pct })}
                 </span>
               </div>
-              {c.reasoning && <p className="candidate-reasoning">{c.reasoning}</p>}
+              {c.reasoning && <p className={candidateReasoningClass}>{c.reasoning}</p>}
               <details>
                 <summary>{t('ai_query.logical_query_json')}</summary>
-                <pre className="sql-preview candidate-json">
+                <pre className={`sql-preview ${candidateJsonClass}`}>
                   {JSON.stringify(c.logical_query, null, 2)}
                 </pre>
               </details>
-              <button className="btn btn-candidate-use" onClick={() => onUse(i)}>
+              <button className={btnCandidateUseClass} onClick={() => onUse(i)}>
                 {isBest ? t('ai_query.use_recommended') : t('ai_query.use_this')}
               </button>
             </div>
@@ -571,10 +650,10 @@ export function CostBadge({
       })
     : undefined
   return (
-    <div className="cost-badge" title={tokenTitle}>
+    <div className={costBadgeClass} title={tokenTitle}>
       {parts.join(' · ')}
       {tokenUsage && (
-        <span className="cost-badge-detail">
+        <span className="font-normal text-foreground-faint">
           {' '}
           ({tokenUsage.prompt.toLocaleString(localeTag)} +{' '}
           {tokenUsage.completion.toLocaleString(localeTag)})
@@ -687,9 +766,14 @@ export function Collapsible({
   defaultOpen?: boolean
 }) {
   return (
-    <details open={defaultOpen} className="collapsible-section">
-      <summary>{title}</summary>
-      <div className="collapsible-content">{children}</div>
+    <details open={defaultOpen} className={`${collapsibleSectionClass} group`}>
+      <summary className={collapsibleSectionSummaryClass}>
+        {title}
+        <span className="text-[0.65rem] text-foreground-faint transition-transform duration-180 group-open:rotate-180">
+          ▼
+        </span>
+      </summary>
+      <div className={collapsibleContentClass}>{children}</div>
     </details>
   )
 }

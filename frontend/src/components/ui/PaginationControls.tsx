@@ -1,4 +1,4 @@
-import '../../styles/pagination.css'
+import clsx from 'clsx'
 
 import { useT } from '../../i18n'
 import { buildStablePageTokens } from './paginationTokens'
@@ -30,15 +30,26 @@ export function PaginationControls({
   const tokens = buildStablePageTokens(current, total)
   const slotCh = `${Math.max(2, fmt(total).length) + 1.6}ch`
 
+  const getBtnCls = (isActive: boolean) =>
+    clsx(
+      'inline-flex items-center justify-center border rounded-[0.4rem] text-foreground [font-variant-numeric:tabular-nums] transition-colors duration-120 ease-out focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-1',
+      size === 'sm'
+        ? 'min-h-[1.6rem] text-[0.74rem] py-[0.15rem] px-[0.35rem]'
+        : 'min-h-[1.9rem] text-[0.8rem] py-1 px-[0.45rem]',
+      isActive
+        ? 'bg-accent border-accent text-white font-semibold cursor-default opacity-100 disabled:text-white disabled:opacity-100'
+        : 'border-border bg-transparent enabled:hover:border-accent disabled:text-foreground-faint disabled:cursor-not-allowed disabled:opacity-[0.55]',
+    )
+
   return (
     <nav
-      className={`page-nav${size === 'sm' ? ' page-nav--sm' : ''}`}
+      className="inline-flex items-center gap-1"
       style={{ '--page-nav-slot': slotCh } as React.CSSProperties}
       aria-label={t('table_browser.pagination_nav')}
     >
       <button
         type="button"
-        className="page-nav__btn"
+        className={getBtnCls(false)}
         disabled={disabled || current === 1}
         onClick={() => onPageChange(1)}
         aria-label={t('table_browser.first_page')}
@@ -48,7 +59,7 @@ export function PaginationControls({
       </button>
       <button
         type="button"
-        className="page-nav__btn"
+        className={getBtnCls(false)}
         disabled={disabled || current === 1}
         onClick={() => onPageChange(current - 1)}
         aria-label={t('table_browser.prev_page')}
@@ -58,20 +69,33 @@ export function PaginationControls({
       </button>
       {tokens.map((token, idx) => {
         if (token === 'pad') {
-          return <span key={`pad-${idx}`} className="page-nav__gap" aria-hidden="true" />
+          return (
+            <span
+              key={`pad-${idx}`}
+              className="inline-flex justify-center min-w-[var(--page-nav-slot,2.4rem)]"
+              aria-hidden="true"
+            />
+          )
         }
         if (token === 'gap') {
           return (
-            <span key={`gap-${idx}`} className="page-nav__gap" aria-hidden="true">
+            <span
+              key={`gap-${idx}`}
+              className="inline-flex justify-center min-w-[var(--page-nav-slot,2.4rem)] text-foreground-faint text-[0.8rem] select-none"
+              aria-hidden="true"
+            >
               …
             </span>
           )
         }
         return (
-          <span key={token} className="page-nav__slot">
+          <span
+            key={token}
+            className="inline-flex justify-center min-w-[var(--page-nav-slot,2.4rem)]"
+          >
             <button
               type="button"
-              className={`page-nav__btn${token === current ? ' page-nav__btn--active' : ''}`}
+              className={getBtnCls(token === current)}
               style={{ width: '100%' }}
               disabled={disabled || token === current}
               onClick={() => onPageChange(token)}
@@ -85,7 +109,7 @@ export function PaginationControls({
       })}
       <button
         type="button"
-        className="page-nav__btn"
+        className={getBtnCls(false)}
         disabled={disabled || current === total}
         onClick={() => onPageChange(current + 1)}
         aria-label={t('table_browser.next_page')}
@@ -95,7 +119,7 @@ export function PaginationControls({
       </button>
       <button
         type="button"
-        className="page-nav__btn"
+        className={getBtnCls(false)}
         disabled={disabled || current === total}
         onClick={() => onPageChange(total)}
         aria-label={t('table_browser.last_page')}

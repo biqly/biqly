@@ -13,6 +13,17 @@ import { useToast } from '../../hooks/useToast'
 import { type TFunction, useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingScreen } from '../ui/LoadingScreen'
+import {
+  adminActiveBadgeClass,
+  adminBadgePendingClass,
+  adminBtnPrimaryClass,
+  adminBtnSecondaryClass,
+  adminCardClass,
+  adminFormLabelClass,
+  adminInputClass,
+  adminLabelTextClass,
+  adminRangeSliderClass,
+} from './adminClasses'
 import { ReadOnlyNote } from './ReadOnlyNote'
 
 const toggleCardStyle: CSSProperties = {
@@ -36,7 +47,7 @@ function SourceBadge({ source }: { source?: RuntimeConfigSource }) {
   const fromDB = source === 'database'
   return (
     <span
-      className={fromDB ? 'admin-badge-active' : 'admin-badge-pending'}
+      className={fromDB ? adminActiveBadgeClass(true) : adminBadgePendingClass}
       aria-label={
         fromDB
           ? t('admin.platform_settings.source_db_aria')
@@ -118,15 +129,15 @@ function StepperField({
   }
 
   return (
-    <label className="admin-form-label" style={{ gap: 4, maxWidth: 360 }} htmlFor={inputId}>
-      <span className="admin-label-text">
+    <label className={adminFormLabelClass} style={{ gap: 4, maxWidth: 360 }} htmlFor={inputId}>
+      <span className={adminLabelTextClass}>
         {label}
         <SourceBadge source={source} />
       </span>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: 4 }}>
         <button
           type="button"
-          className="admin-btn-secondary"
+          className={adminBtnSecondaryClass}
           onClick={decrement}
           disabled={disabled || value <= min}
           style={{
@@ -156,7 +167,7 @@ function StepperField({
             }
           }}
           disabled={disabled}
-          className="admin-input"
+          className={adminInputClass}
           style={{
             textAlign: 'center',
             height: '34px',
@@ -166,7 +177,7 @@ function StepperField({
         />
         <button
           type="button"
-          className="admin-btn-secondary"
+          className={adminBtnSecondaryClass}
           onClick={increment}
           disabled={disabled || value >= max}
           style={{
@@ -210,8 +221,8 @@ function PercentageField({
   const pctValue = Math.round(value * 100)
 
   return (
-    <label className="admin-form-label" style={{ gap: 4, maxWidth: 360 }} htmlFor={inputId}>
-      <span className="admin-label-text">
+    <label className={adminFormLabelClass} style={{ gap: 4, maxWidth: 360 }} htmlFor={inputId}>
+      <span className={adminLabelTextClass}>
         {label}
         <SourceBadge source={source} />
       </span>
@@ -225,7 +236,7 @@ function PercentageField({
           value={pctValue}
           onChange={(e) => onChange(Number(e.target.value) / 100)}
           disabled={disabled}
-          className="admin-range-slider"
+          className={adminRangeSliderClass}
           style={{ flex: 1, cursor: 'pointer' }}
         />
         <div
@@ -272,7 +283,7 @@ function GeneralSettingsCard({
 }: GeneralSettingsCardProps) {
   return (
     <div
-      className="admin-card"
+      className={adminCardClass}
       style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
     >
       <h3 style={{ margin: 0 }}>{t('admin.platform_settings.title')}</h3>
@@ -308,7 +319,7 @@ function GeneralSettingsCard({
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           type="button"
-          className="admin-btn-primary"
+          className={adminBtnPrimaryClass}
           disabled={saving || !canEdit}
           onClick={onSave}
         >
@@ -337,7 +348,7 @@ function AmbiguitySettingsCard({
   const ambiguitySources = sources ?? {}
   return (
     <div
-      className="admin-card"
+      className={adminCardClass}
       style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
     >
       <h3 style={{ margin: 0 }}>{t('admin.platform_settings.ambiguity_title')}</h3>
@@ -414,7 +425,7 @@ function PIISettingsCard({
   const piiSources = sources ?? {}
   return (
     <div
-      className="admin-card"
+      className={adminCardClass}
       style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
     >
       <h3 style={{ margin: 0 }}>{t('admin.platform_settings.pii_title')}</h3>
@@ -454,7 +465,7 @@ function MemorySettingsCard({
   const memorySources = sources ?? {}
   return (
     <div
-      className="admin-card"
+      className={adminCardClass}
       style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
     >
       <h3 style={{ margin: 0 }}>{t('admin.platform_settings.memory_title')}</h3>
@@ -500,7 +511,7 @@ function QueueSettingsCard({
   const queueSources = sources ?? {}
   return (
     <div
-      className="admin-card"
+      className={adminCardClass}
       style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
     >
       <h3 style={{ margin: 0 }}>{t('admin.platform_settings.queue_title')}</h3>
@@ -584,7 +595,7 @@ function RuntimeSettingsSection({
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             type="button"
-            className="admin-btn-primary"
+            className={adminBtnPrimaryClass}
             disabled={savingRuntime || !canEditRuntime}
             onClick={onSaveRuntime}
           >

@@ -2,6 +2,21 @@ import { useT } from '../../i18n'
 import type { SemanticDimension, SemanticMetric } from '../../types/semantic'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
+import {
+  qbAddBtnClass,
+  qbDimensionBadgeActiveClass,
+  qbDimensionBadgeClass,
+  qbSummarizeAvailableClass,
+  qbSummarizeAvailableListClass,
+  qbSummarizeAvailableTitleClass,
+  qbSummarizeDividerClass,
+  qbSummarizeSectionClass,
+  qbSummarizeSplitClass,
+  qbTagBase,
+  qbTagBlueClass,
+  qbTagCloseClass,
+  qbTagGreenClass,
+} from './queryBuilderClasses'
 import type { SelectItem } from './types'
 import { type dimOptionsForGroupRow, getFieldLabel, type metricFieldOptions } from './utils'
 
@@ -56,9 +71,9 @@ export function SummarizeStep({
         count: groupBy.length + selectItems.filter((i) => i.type === 'metric').length,
       })}
     >
-      <div className="notebook-summarize-split">
+      <div className={qbSummarizeSplitClass}>
         {/* Aggregations */}
-        <div className="notebook-summarize-section">
+        <div className={qbSummarizeSectionClass}>
           {selectItems
             .filter((item) => item.type === 'metric')
             .map((item) => {
@@ -66,8 +81,7 @@ export function SummarizeStep({
               return (
                 <div
                   key={item.id}
-                  className="notebook-tag notebook-tag--green"
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  className={`${qbTagBase} ${qbTagGreenClass} flex items-center gap-1`}
                 >
                   <Select
                     value={item.name}
@@ -78,7 +92,7 @@ export function SummarizeStep({
                   />
                   <button
                     type="button"
-                    className="notebook-tag-close"
+                    className={qbTagCloseClass}
                     onClick={() => removeSelectItem(i)}
                     aria-label="Remove Aggregation"
                   >
@@ -87,25 +101,17 @@ export function SummarizeStep({
                 </div>
               )
             })}
-          <button
-            type="button"
-            className="notebook-add-btn"
-            onClick={() => addMetricSelectItem('')}
-          >
+          <button type="button" className={qbAddBtnClass} onClick={() => addMetricSelectItem('')}>
             +
           </button>
         </div>
 
-        <div className="notebook-summarize-divider">by</div>
+        <div className={qbSummarizeDividerClass}>by</div>
 
         {/* Group by dimensions */}
-        <div className="notebook-summarize-section">
+        <div className={qbSummarizeSectionClass}>
           {groupBy.map((g, i) => (
-            <div
-              key={i}
-              className="notebook-tag notebook-tag--blue"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-            >
+            <div key={i} className={`${qbTagBase} ${qbTagBlueClass} flex items-center gap-1`}>
               <Select
                 value={g}
                 onChange={(v) => updateGroupByRow(i, v)}
@@ -115,7 +121,7 @@ export function SummarizeStep({
               />
               <button
                 type="button"
-                className="notebook-tag-close"
+                className={qbTagCloseClass}
                 onClick={() => removeGroupByRow(i)}
                 aria-label="Remove Grouping"
               >
@@ -123,23 +129,23 @@ export function SummarizeStep({
               </button>
             </div>
           ))}
-          <button type="button" className="notebook-add-btn" onClick={addGroupByRow}>
+          <button type="button" className={qbAddBtnClass} onClick={addGroupByRow}>
             +
           </button>
         </div>
       </div>
-      <div className="notebook-summarize-available">
-        <div className="notebook-summarize-available__title">
+      <div className={qbSummarizeAvailableClass}>
+        <div className={qbSummarizeAvailableTitleClass}>
           {t('query_builder.available_columns') || 'Available Columns (Dimensions)'}
         </div>
-        <div className="notebook-summarize-available__list">
+        <div className={qbSummarizeAvailableListClass}>
           {dimensions.map((d) => {
             const isSelected = groupBy.includes(d.name)
             return (
               <button
                 key={d.name}
                 type="button"
-                className={`notebook-dimension-badge ${isSelected ? 'notebook-dimension-badge--active' : ''}`}
+                className={`${qbDimensionBadgeClass} ${isSelected ? qbDimensionBadgeActiveClass : ''}`}
                 onClick={() => {
                   if (isSelected) {
                     setGroupBy(groupBy.filter((g) => g !== d.name))

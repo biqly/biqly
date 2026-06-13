@@ -88,10 +88,15 @@ export function EnumValuesModal({
           void save()
         }}
       >
-        <p className="modeling-enum-help">{t('modeling.enum_values_help')}</p>
-        <div className="modeling-enum-rows">
+        <p className="text-[0.85rem] text-foreground-faint mb-3">
+          {t('modeling.enum_values_help')}
+        </p>
+        <div className="flex flex-col gap-2 mb-3">
           {rows.map((row, index) => (
-            <div className="modeling-enum-row" key={index}>
+            <div
+              className="grid grid-cols-[1fr_1fr_1.5fr_auto] gap-2 items-center [&_input]:w-full"
+              key={index}
+            >
               <input
                 aria-label={t('modeling.enum_raw_value')}
                 placeholder={t('modeling.enum_raw_value')}

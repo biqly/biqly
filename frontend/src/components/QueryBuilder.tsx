@@ -1,5 +1,3 @@
-import '../styles/queryBuilder.css'
-
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { useApi } from '../hooks/useApi'
@@ -14,6 +12,13 @@ import { modelListHint, modelListLabel } from '../types/semantic'
 import { rowsToChartData } from '../utils/chartData'
 import { pickPublishedModelId, pickValidIdOrFirst } from '../utils/effectiveSelection'
 import { buildQueryPayload } from './queryBuilder/logicalQuery'
+import {
+  qbCardClass,
+  qbHeaderClass,
+  qbModeToggleClass,
+  qbPickersClass,
+  qbSqlCardHeadClass,
+} from './queryBuilder/queryBuilderClasses'
 import {
   QueryBuilderDraftModelWarning,
   QueryBuilderEmptyModelSetup,
@@ -325,10 +330,10 @@ export default function QueryBuilder() {
 
   return (
     <div className="page-stack">
-      <div className="card card--query-builder">
+      <div className={`card ${qbCardClass}`}>
         {/* Header Breadcrumbs and Mode selector */}
-        <div className="query-builder-header">
-          <div className="query-builder-pickers">
+        <div className={qbHeaderClass}>
+          <div className={qbPickersClass}>
             <Select
               value={datasourceId}
               onChange={setDatasourceId}
@@ -366,7 +371,7 @@ export default function QueryBuilder() {
             )}
           </div>
           <div
-            className="toggle-group query-builder-mode-toggle"
+            className={`toggle-group ${qbModeToggleClass}`}
             role="group"
             aria-label={t('query_builder.mode_toggle_aria')}
           >
@@ -473,8 +478,8 @@ export default function QueryBuilder() {
 
       {/* SQL Preview */}
       {sqlVisible && sql && (
-        <div className="card qb-sql-card">
-          <div className="qb-sql-card__head">
+        <div className="card">
+          <div className={qbSqlCardHeadClass}>
             <h2>{t('query_builder.generated_sql')}</h2>
             <button
               type="button"

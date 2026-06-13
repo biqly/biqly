@@ -20,6 +20,15 @@ import type { ColumnDef } from '../ui/DataTable'
 import { DataTable } from '../ui/DataTable'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
+import {
+  adminBtnPrimaryClass,
+  adminBtnSecondaryClass,
+  adminFormLabelClass,
+  adminLabelTextClass,
+  adminLevelClass,
+  adminTableContainerClass,
+  adminTdMonoClass,
+} from './adminClasses'
 import type { DatasourceAccessLevel } from './adminSelectOptions'
 import {
   datasourceAccessLevelOptions,
@@ -119,7 +128,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     {
       key: 'user',
       header: t('admin.fields.user'),
-      className: 'admin-td-mono',
+      className: adminTdMonoClass,
       cell: (r) => {
         const userObj = users.find((u) => u.id === r.user_id)
         return userObj ? userObj.email : r.user_id
@@ -128,7 +137,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     {
       key: 'datasource',
       header: 'Datasource',
-      className: 'admin-td-mono',
+      className: adminTdMonoClass,
       cell: (r) => {
         const dsObj = datasources.find((d) => d.id === r.datasource_id)
         return dsObj ? dsObj.name : r.datasource_id
@@ -145,7 +154,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
           onChange={(v) => {
             void onChangeLevel(r.id, v as DatasourceAccessLevel)
           }}
-          className={`admin-level-${r.access_level}`}
+          className={adminLevelClass(r.access_level)}
           disabled={!canEdit}
         />
       ),
@@ -164,7 +173,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
           onClick={() => {
             void onRevoke(r.user_id, r.datasource_id)
           }}
-          className="admin-btn-secondary"
+          className={adminBtnSecondaryClass}
           disabled={!canEdit}
         >
           {t('common.delete')}
@@ -185,8 +194,8 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
         }}
         style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}
       >
-        <label className="admin-form-label" style={{ gap: 4, minWidth: 240 }}>
-          <span className="admin-label-text">{t('admin.fields.user')}</span>
+        <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 240 }}>
+          <span className={adminLabelTextClass}>{t('admin.fields.user')}</span>
           <Select
             value={userID}
             options={userOptions}
@@ -195,8 +204,8 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
             disabled={!canEdit}
           />
         </label>
-        <label className="admin-form-label" style={{ gap: 4, minWidth: 240 }}>
-          <span className="admin-label-text">Datasource</span>
+        <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 240 }}>
+          <span className={adminLabelTextClass}>Datasource</span>
           <Select
             value={datasourceID}
             options={dsOptions}
@@ -205,8 +214,8 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
             disabled={!canEdit}
           />
         </label>
-        <label className="admin-form-label" style={{ gap: 4, minWidth: 240 }}>
-          <span className="admin-label-text">{t('admin.datasource_access.level')}</span>
+        <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 240 }}>
+          <span className={adminLabelTextClass}>{t('admin.datasource_access.level')}</span>
           <Select
             value={level}
             options={levelOptions}
@@ -214,12 +223,12 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
             disabled={!canEdit}
           />
         </label>
-        <button type="submit" className="admin-btn-primary" disabled={!canEdit}>
+        <button type="submit" className={adminBtnPrimaryClass} disabled={!canEdit}>
           {t('admin.datasource_access.grant')}
         </button>
       </form>
 
-      <div className="admin-table-container">
+      <div className={adminTableContainerClass}>
         <DataState
           loading={loading}
           error={error}

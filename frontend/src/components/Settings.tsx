@@ -16,6 +16,12 @@ import { usePasskeyRegistration } from '../hooks/usePasskeyRegistration'
 import { localeLanguageTag, useLocale, useT } from '../i18n'
 import type { PasskeyInfo } from '../types/auth'
 import { formatDateOnly } from '../utils/formatters'
+import {
+  adminAlertCloseBtnClass,
+  adminAlertSuccessClass,
+  adminBtnAutoWidthClass,
+  cardLeadMarginClass,
+} from './admin/adminClasses'
 import { useAuth } from './auth/AuthProvider'
 import { AccountProfileSection } from './settings/AccountProfileSection'
 import { AIModelPreferencesSection } from './settings/AIModelPreferencesSection'
@@ -287,20 +293,20 @@ export default function Settings() {
   }
 
   return (
-    <div className="settings-page">
+    <div className="w-full max-w-none mx-0 flex flex-col gap-5">
       {(error ?? successMessage) && (
-        <div className="settings-alerts">
+        <div className="flex flex-col gap-3">
           {error && (
-            <div className="card-lead-margin" style={{ margin: 0 }}>
+            <div className={cardLeadMarginClass} style={{ margin: 0 }}>
               <ErrorAlert error={error} />
             </div>
           )}
           {successMessage && (
-            <div className="admin-alert-success">
+            <div className={adminAlertSuccessClass}>
               <div>🎉 {successMessage}</div>
               <button
                 type="button"
-                className="admin-alert-close-btn"
+                className={adminAlertCloseBtnClass}
                 onClick={() => setSuccessMessage(null)}
               >
                 ×
@@ -310,25 +316,31 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="settings-layout">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(300px,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(340px,24rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(380px,28rem)_minmax(0,1fr)] gap-y-6 gap-x-8 lg:gap-y-7 lg:gap-x-10 items-start w-full">
         <aside
-          className="settings-layout__profile"
+          className="flex flex-col gap-4 min-w-0 lg:sticky lg:top-4 lg:self-start"
           aria-labelledby="settings-profile-group-heading"
         >
-          <h2 id="settings-profile-group-heading" className="settings-section-group__title">
+          <h2
+            id="settings-profile-group-heading"
+            className="m-0 text-foreground-muted font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-[0.1em] uppercase"
+          >
             {t('settings.profile_group')}
           </h2>
           <AccountProfileSection />
         </aside>
 
-        <div className="settings-layout__main">
-          <section className="settings-section-group" aria-labelledby="settings-security-heading">
-            <h2 id="settings-security-heading" className="settings-section-group__title">
+        <div className="flex flex-col gap-8 min-w-0">
+          <section className="flex flex-col gap-4" aria-labelledby="settings-security-heading">
+            <h2
+              id="settings-security-heading"
+              className="m-0 text-foreground-muted font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-[0.1em] uppercase"
+            >
               {t('settings.security_group')}
             </h2>
-            <div className="settings-security-grid">
+            <div className="grid grid-cols-1 min-[900px]:grid-cols-2 min-[1400px]:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)] gap-4 items-stretch">
               <MFASection
-                className="settings-security-card"
+                className="mb-0"
                 status={mfaStatus}
                 recoveryCodes={mfaNewRecoveryCodes}
                 onEnable={() => {
@@ -339,17 +351,19 @@ export default function Settings() {
               />
 
               <section
-                className="card card--elevated settings-prefs-card settings-security-card"
+                className="card card--elevated settings-prefs-card mb-0"
                 aria-labelledby="passkeys-heading"
               >
-                <div className="settings-prefs-card__header">
+                <div className="flex flex-wrap items-start justify-between gap-y-3 gap-x-4 mb-4">
                   <div>
                     <h2 id="passkeys-heading">{t('passkeys.title')}</h2>
-                    <p>{t('passkeys.subtitle')}</p>
+                    <p className="mt-[0.35rem] mr-0 mb-0 ml-0 flex-[1_1_100%] max-w-[42rem] text-foreground-muted text-[0.875rem] leading-[1.45]">
+                      {t('passkeys.subtitle')}
+                    </p>
                   </div>
                   <button
                     type="button"
-                    className="btn btn-primary btn-sm btn-auto-width"
+                    className={`btn btn-primary btn-sm ${adminBtnAutoWidthClass}`}
                     onClick={openAddModal}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
@@ -376,7 +390,7 @@ export default function Settings() {
                   </button>
                 </div>
 
-                <div className="settings-passkeys-scroll-wrapper">
+                <div className="max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
                   <PasskeyTable
                     passkeys={passkeys}
                     loading={loading}
@@ -392,12 +406,15 @@ export default function Settings() {
             </div>
           </section>
 
-          <section className="settings-section-group" aria-labelledby="settings-config-heading">
-            <h2 id="settings-config-heading" className="settings-section-group__title">
+          <section className="flex flex-col gap-4" aria-labelledby="settings-config-heading">
+            <h2
+              id="settings-config-heading"
+              className="m-0 text-foreground-muted font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-[0.1em] uppercase"
+            >
               {t('settings.configuration_group')}
             </h2>
             <AIModelPreferencesSection />
-            <div className="settings-link-grid">
+            <div className="grid grid-cols-1 sm:grid-cols-2 min-[1500px]:grid-cols-3 gap-[0.85rem]">
               <SettingsLinkCard
                 title={t('settings.prompt_templates_section')}
                 description={t('settings.prompt_templates_hint')}
@@ -425,7 +442,7 @@ export default function Settings() {
                 action={
                   <button
                     type="button"
-                    className="btn btn-primary btn-sm btn-auto-width"
+                    className={`btn btn-primary btn-sm ${adminBtnAutoWidthClass}`}
                     onClick={() => goTo('/prompt-templates')}
                   >
                     {t('settings.prompt_templates_open')}
@@ -464,7 +481,7 @@ export default function Settings() {
                 action={
                   <button
                     type="button"
-                    className="btn btn-primary btn-sm btn-auto-width"
+                    className={`btn btn-primary btn-sm ${adminBtnAutoWidthClass}`}
                     onClick={() => goTo('/time-grains')}
                   >
                     {t('settings.time_grains_open')}
@@ -503,7 +520,7 @@ export default function Settings() {
                 action={
                   <button
                     type="button"
-                    className="btn btn-primary btn-sm btn-auto-width"
+                    className={`btn btn-primary btn-sm ${adminBtnAutoWidthClass}`}
                     onClick={() => goTo('/admin?tab=ai_providers')}
                   >
                     {t('settings.ai_config_open')}

@@ -2,6 +2,7 @@ import { useT } from '../../i18n'
 import type { SemanticDimension, SemanticMetric } from '../../types/semantic'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
+import { qbAddBtnClass, qbTagBase, qbTagBlueClass, qbTagCloseClass } from './queryBuilderClasses'
 import type { SelectItem } from './types'
 import type { dimFieldOptions, metricFieldOptions } from './utils'
 
@@ -32,11 +33,7 @@ export function FieldsStep({
   return (
     <NotebookStep label="Dimensions" themeClass="fields">
       {selectItems.map((item, i) => (
-        <div
-          key={item.id}
-          className="notebook-tag notebook-tag--blue"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-        >
+        <div key={item.id} className={`${qbTagBase} ${qbTagBlueClass} flex items-center gap-1`}>
           <Select
             value={item.type}
             onChange={(v) => updateSelectItem(i, 'type', v)}
@@ -58,7 +55,7 @@ export function FieldsStep({
           />
           <button
             type="button"
-            className="notebook-tag-close"
+            className={qbTagCloseClass}
             onClick={() => removeSelectItem(i)}
             aria-label="Remove Field"
           >
@@ -66,7 +63,7 @@ export function FieldsStep({
           </button>
         </div>
       ))}
-      <button type="button" className="notebook-add-btn" onClick={addSelectItem}>
+      <button type="button" className={qbAddBtnClass} onClick={addSelectItem}>
         +
       </button>
     </NotebookStep>

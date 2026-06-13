@@ -1,5 +1,4 @@
-import '../../styles/workspace.css'
-
+import clsx from 'clsx'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import {
@@ -19,6 +18,11 @@ import { useConfirm } from '../../hooks/useConfirm'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { Role, Workspace, WorkspaceDatasource, WorkspaceMember } from '../../types/auth'
 import { formatDateOnly } from '../../utils/formatters'
+import {
+  adminBtnAutoWidthClass,
+  adminFormLabelClass,
+  adminLabelTextClass,
+} from '../admin/adminClasses'
 import {
   datasourceDisplayLabel,
   datasourcePickerOptions,
@@ -107,7 +111,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
     ? t('admin.workspaces.personal_readonly')
     : t('admin.workspaces.no_manage_permission')
 
-  async function onSave(e: React.SubmitEvent<HTMLFormElement>) {
+  async function onSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (isPersonal) {
       return
@@ -122,7 +126,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
     }
   }
 
-  async function onInviteMember(e: React.SubmitEvent<HTMLFormElement>) {
+  async function onInviteMember(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!inviteUserID.trim() || !inviteRoleID) {
       return
@@ -162,7 +166,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
     }
   }
 
-  async function onAttachDS(e: React.SubmitEvent<HTMLFormElement>) {
+  async function onAttachDS(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!attachDsID.trim()) {
       return
@@ -195,10 +199,9 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
   if (!workspace && loading) {
     return (
       <div
-        className="ws-settings"
+        className="flex flex-col gap-5"
         style={{
           minHeight: 300,
-          display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           position: 'relative',
@@ -211,57 +214,80 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
 
   if (!workspace) {
     return (
-      <div className="ws-settings">
-        <div style={{ padding: 24, textAlign: 'center', color: 'var(--red-text, #f87171)' }}>
-          {t('common.error')}
-        </div>
+      <div className="flex flex-col gap-5">
+        <div className="py-6 px-0 text-center text-error">{t('common.error')}</div>
       </div>
     )
   }
 
   return (
-    <div className="ws-settings" style={{ position: 'relative' }}>
+    <div className="flex flex-col gap-5" style={{ position: 'relative' }}>
       <LoadingOverlay loading={loading}>
-        <h2 className="ws-settings__title">{t('admin.workspaces.settings_title')}</h2>
+        <h2 className="m-0 text-[20px]">{t('admin.workspaces.settings_title')}</h2>
 
-        {error && <div className="ws-settings__error">{error}</div>}
-        {success && <div className="ws-settings__success">{success}</div>}
+        {error && (
+          <div className="py-2.5 px-3.5 bg-error/10 border border-error/25 rounded-[6px] text-error text-[13px]">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="py-2.5 px-3.5 bg-success/10 border border-success/25 rounded-[6px] text-success text-[13px]">
+            {success}
+          </div>
+        )}
 
         {/* ── Info / Edit Form ── */}
-        <section className="ws-settings__section">
-          <div className="ws-settings__info-row">
-            <span className="ws-settings__badge" data-type={isPersonal ? 'personal' : 'team'}>
+        <section className={`p-4 border border-border rounded-[8px] bg-card`}>
+          <div className="flex items-center gap-2.5 mb-3">
+            <span
+              className={clsx(
+                'inline-block py-[2px] px-2.5 rounded-[12px] text-[11px] font-semibold uppercase tracking-[0.5px]',
+                isPersonal ? 'bg-accent/10 text-accent' : 'bg-success/10 text-success',
+              )}
+            >
               {isPersonal ? t('admin.workspaces.type_personal') : t('admin.workspaces.type_team')}
             </span>
-            <span className="ws-settings__slug">{workspace.slug}</span>
+            <span className="font-mono text-[12px] text-foreground-muted">{workspace.slug}</span>
           </div>
 
           {isPersonal ? (
-            <p className="ws-settings__readonly-note">{t('admin.workspaces.personal_readonly')}</p>
+            <p className="text-foreground-muted text-[13px] italic m-0">
+              {t('admin.workspaces.personal_readonly')}
+            </p>
           ) : (
             <form
               onSubmit={(e) => {
                 void onSave(e)
               }}
-              className="ws-settings__form"
+              className="flex gap-2.5 items-end flex-wrap"
             >
-              <label className="ws-settings__field">
+              <label className="flex flex-col gap-1 text-[12px] text-foreground-muted">
                 <span>{t('admin.workspaces.name')}</span>
-                <input value={editName} onChange={(e) => setEditName(e.target.value)} required />
+                <input
+                  className="py-[7px] px-2.5 min-w-[200px]"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                />
               </label>
-              <label className="ws-settings__field">
+              <label className="flex flex-col gap-1 text-[12px] text-foreground-muted">
                 <span>{t('admin.workspaces.description')}</span>
-                <input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
+                <input
+                  className="py-[7px] px-2.5 min-w-[200px]"
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                />
               </label>
-              <label className="ws-settings__check">
+              <label className="inline-flex items-center gap-2 min-h-[32px] text-[13px] text-foreground whitespace-nowrap">
                 <input
                   type="checkbox"
+                  className="w-4 h-4 m-0"
                   checked={editMFARequired}
                   onChange={(e) => setEditMFARequired(e.target.checked)}
                 />
                 <span>{t('admin.workspaces.mfa_required')}</span>
               </label>
-              <button type="submit" className="ws-settings__btn-primary">
+              <button type="submit" className={`btn btn-primary ${adminBtnAutoWidthClass}`}>
                 {t('common.save')}
               </button>
             </form>
@@ -269,13 +295,15 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
         </section>
 
         {/* ── Members ── */}
-        <section className="ws-settings__section">
-          <h3>{t('admin.workspaces.members')}</h3>
+        <section className={`p-4 border border-border rounded-[8px] bg-card`}>
+          <h3 className="m-0 mb-3 text-[15px] font-semibold">{t('admin.workspaces.members')}</h3>
           {members.length === 0 ? (
-            <p className="ws-settings__empty">{t('admin.workspaces.members_empty')}</p>
+            <p className="text-foreground-muted text-[13px] my-2 mx-0">
+              {t('admin.workspaces.members_empty')}
+            </p>
           ) : (
-            <div className="ws-settings__table-container">
-              <table className="ws-settings__table">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[13px] mb-3 [&_th]:py-2.5 [&_th]:px-3 [&_th]:text-left [&_th]:align-middle [&_th]:border-b [&_th]:border-border [&_td]:py-2.5 [&_td]:px-3 [&_td]:text-left [&_td]:align-middle [&_td]:border-b [&_td]:border-border [&_th]:font-semibold [&_th]:text-[11px] [&_th]:uppercase [&_th]:tracking-[0.4px] [&_th]:text-foreground-muted [&_th]:whitespace-nowrap">
                 <thead>
                   <tr>
                     <th>{t('admin.fields.user')}</th>
@@ -293,7 +321,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                           display_name: m.display_name,
                         })}
                       </td>
-                      <td className="ws-settings__cell-control">
+                      <td className="min-w-[240px] w-[28%]">
                         <Select
                           size="sm"
                           value={m.role_id}
@@ -302,16 +330,16 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                           disabled={!canManageMembers}
                         />
                       </td>
-                      <td className="ws-settings__cell-muted">
+                      <td className="text-foreground-muted whitespace-nowrap">
                         {formatDateOnly(m.joined_at, localeLanguageTag(locale))}
                       </td>
-                      <td className="ws-settings__cell-actions">
+                      <td className="w-[1%] whitespace-nowrap text-right">
                         <button
                           type="button"
                           onClick={() => {
                             void onRemoveMember(m.user_id)
                           }}
-                          className="ws-settings__btn-danger"
+                          className="inline-flex items-center justify-center min-h-[1.85rem] px-2.5 bg-transparent border border-error/30 text-error rounded-[6px] cursor-pointer text-[12px] leading-[1.2] hover:bg-error/6 transition-colors"
                           disabled={!canManageMembers}
                         >
                           {t('common.delete')}
@@ -329,10 +357,12 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               onSubmit={(e) => {
                 void onInviteMember(e)
               }}
-              className="ws-settings__toolbar"
+              className={`flex gap-3 items-end flex-wrap mt-3 pt-3 border-t border-border`}
             >
-              <label className="admin-form-label ws-settings__field-240">
-                <span className="admin-label-text">{t('admin.fields.user')}</span>
+              <label
+                className={`${adminFormLabelClass} flex-1 shrink-0 basis-[240px] min-w-[240px] max-w-[320px]`}
+              >
+                <span className={adminLabelTextClass}>{t('admin.fields.user')}</span>
                 <Select
                   value={inviteUserID}
                   onChange={setInviteUserID}
@@ -340,8 +370,10 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                   options={memberUserOptions}
                 />
               </label>
-              <label className="admin-form-label ws-settings__field-240">
-                <span className="admin-label-text">{t('admin.workspaces.role')}</span>
+              <label
+                className={`${adminFormLabelClass} flex-1 shrink-0 basis-[240px] min-w-[240px] max-w-[320px]`}
+              >
+                <span className={adminLabelTextClass}>{t('admin.workspaces.role')}</span>
                 <Select
                   value={inviteRoleID}
                   onChange={setInviteRoleID}
@@ -351,24 +383,28 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               </label>
               <button
                 type="submit"
-                className="ws-settings__btn-primary ws-settings__toolbar-submit"
+                className={`btn btn-primary ${adminBtnAutoWidthClass} self-end min-h-[2.1rem] mb-0`}
               >
                 {t('admin.workspaces.invite_member')}
               </button>
             </form>
           ) : (
-            <p className="ws-settings__readonly-note">{restrictedNote}</p>
+            <p className="text-foreground-muted text-[13px] italic m-0">{restrictedNote}</p>
           )}
         </section>
 
         {/* ── Datasources ── */}
-        <section className="ws-settings__section">
-          <h3>{t('admin.workspaces.datasources')}</h3>
+        <section className={`p-4 border border-border rounded-[8px] bg-card`}>
+          <h3 className="m-0 mb-3 text-[15px] font-semibold">
+            {t('admin.workspaces.datasources')}
+          </h3>
           {datasources.length === 0 ? (
-            <p className="ws-settings__empty">{t('admin.workspaces.datasources_empty')}</p>
+            <p className="text-foreground-muted text-[13px] my-2 mx-0">
+              {t('admin.workspaces.datasources_empty')}
+            </p>
           ) : (
-            <div className="ws-settings__table-container">
-              <table className="ws-settings__table">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[13px] mb-3 [&_th]:py-2.5 [&_th]:px-3 [&_th]:text-left [&_th]:align-middle [&_th]:border-b [&_th]:border-border [&_td]:py-2.5 [&_td]:px-3 [&_td]:text-left [&_td]:align-middle [&_td]:border-b [&_td]:border-border [&_th]:font-semibold [&_th]:text-[11px] [&_th]:uppercase [&_th]:tracking-[0.4px] [&_th]:text-foreground-muted [&_th]:whitespace-nowrap">
                 <thead>
                   <tr>
                     <th>{t('admin.workspaces.datasource_name')}</th>
@@ -382,16 +418,18 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                       <td>
                         {datasourceDisplayLabel(d.datasource_id, allDatasources, d.datasource_name)}
                       </td>
-                      <td className="ws-settings__cell-muted">
-                        <span className="ws-settings__level-badge">{d.access_level}</span>
+                      <td className="text-foreground-muted whitespace-nowrap">
+                        <span className="inline-block py-[2px] px-2 rounded-[10px] text-[11px] font-medium bg-accent/10 text-accent">
+                          {d.access_level}
+                        </span>
                       </td>
-                      <td className="ws-settings__cell-actions">
+                      <td className="w-[1%] whitespace-nowrap text-right">
                         <button
                           type="button"
                           onClick={() => {
                             void onDetachDS(d.datasource_id)
                           }}
-                          className="ws-settings__btn-danger"
+                          className="inline-flex items-center justify-center min-h-[1.85rem] px-2.5 bg-transparent border border-error/30 text-error rounded-[6px] cursor-pointer text-[12px] leading-[1.2] hover:bg-error/6 transition-colors"
                           disabled={!canManageDatasources}
                         >
                           {t('common.delete')}
@@ -409,10 +447,12 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               onSubmit={(e) => {
                 void onAttachDS(e)
               }}
-              className="ws-settings__toolbar"
+              className={`flex gap-3 items-end flex-wrap mt-3 pt-3 border-t border-border`}
             >
-              <label className="admin-form-label ws-settings__field-240">
-                <span className="admin-label-text">{t('admin.workspaces.datasource_name')}</span>
+              <label
+                className={`${adminFormLabelClass} flex-1 shrink-0 basis-[240px] min-w-[240px] max-w-[320px]`}
+              >
+                <span className={adminLabelTextClass}>{t('admin.workspaces.datasource_name')}</span>
                 <Select
                   value={attachDsID}
                   onChange={setAttachDsID}
@@ -422,13 +462,13 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               </label>
               <button
                 type="submit"
-                className="ws-settings__btn-primary ws-settings__toolbar-submit"
+                className={`btn btn-primary ${adminBtnAutoWidthClass} self-end min-h-[2.1rem] mb-0`}
               >
                 {t('admin.workspaces.attach_datasource')}
               </button>
             </form>
           ) : (
-            <p className="ws-settings__readonly-note">{restrictedNote}</p>
+            <p className="text-foreground-muted text-[13px] italic m-0">{restrictedNote}</p>
           )}
         </section>
       </LoadingOverlay>

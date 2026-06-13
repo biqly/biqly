@@ -1,6 +1,7 @@
 import { useT } from '../../i18n'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
+import { qbAddBtnClass, qbTagBase, qbTagCloseClass, qbTagPurpleClass } from './queryBuilderClasses'
 import type { WindowFuncRow } from './types'
 import { WINDOW_FUNC_OPTIONS } from './types'
 
@@ -35,11 +36,7 @@ export function WindowFuncStep({
       summary={t('query_builder.step_summary_count', { count: windowFunctions.length })}
     >
       {windowFunctions.map((w, i) => (
-        <div
-          key={i}
-          className="notebook-tag notebook-tag--purple"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-        >
+        <div key={i} className={`${qbTagBase} ${qbTagPurpleClass} flex items-center gap-1`}>
           <Select
             value={w.func}
             onChange={(v) => updateWindowFunc(i, 'func', v)}
@@ -66,7 +63,7 @@ export function WindowFuncStep({
           />
           <button
             type="button"
-            className="notebook-tag-close"
+            className={qbTagCloseClass}
             onClick={() => removeWindowFunc(i)}
             aria-label="Remove Window Function"
           >
@@ -74,7 +71,7 @@ export function WindowFuncStep({
           </button>
         </div>
       ))}
-      <button type="button" className="notebook-add-btn" onClick={addWindowFunc}>
+      <button type="button" className={qbAddBtnClass} onClick={addWindowFunc}>
         +
       </button>
     </NotebookStep>

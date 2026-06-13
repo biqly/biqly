@@ -311,11 +311,15 @@ export default function Datasources() {
   const showAccessBadge = accessibleDatasourceIDs !== null
 
   return (
-    <div className="page-stack datasources-page">
-      <div className="datasources-toolbar">
-        <div className="datasources-toolbar__text">
-          <h2 className="datasources-toolbar__title">{t('datasources.panel_title')}</h2>
-          <p className="datasources-toolbar__hint">{t('datasources.form_subtitle')}</p>
+    <div className="page-stack min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4">
+        <div className="min-w-0">
+          <h2 className="m-0 text-foreground font-['Plus_Jakarta_Sans',sans-serif] text-base font-bold">
+            {t('datasources.panel_title')}
+          </h2>
+          <p className="mt-[0.2rem] mr-0 mb-0 ml-0 text-foreground-muted text-[0.82rem] leading-[1.4]">
+            {t('datasources.form_subtitle')}
+          </p>
         </div>
         <button className="btn btn-primary" type="button" onClick={openNewForm}>
           {t('datasources.new')}
@@ -360,25 +364,34 @@ export default function Datasources() {
               return (
                 <tr key={ds.id}>
                   <td>
-                    <div className="ds-record">
-                      <div className="ds-record__head">
-                        <span className="ds-record__name">{ds.name}</span>
+                    <div className="flex flex-col gap-[0.35rem] min-w-0 max-w-md">
+                      <div className="flex flex-wrap items-center gap-x-[0.65rem] gap-y-[0.45rem]">
+                        <span className="text-foreground font-semibold text-[0.9375rem]">
+                          {ds.name}
+                        </span>
                         {showAccessBadge && access === 'allowed' && (
-                          <span className="ds-record__access ds-record__access--allowed">
-                            <span className="ds-record__access-icon" aria-hidden>
+                          <span className="inline-flex items-center gap-[0.3rem] px-[0.55rem] py-[0.12rem] rounded-full text-[0.68rem] font-semibold tracking-wide whitespace-nowrap border border-[color-mix(in_srgb,var(--success)_35%,transparent)] bg-[color-mix(in_srgb,var(--success)_14%,transparent)] text-[color-mix(in_srgb,var(--success)_90%,var(--text-primary))]">
+                            <span
+                              className="inline-flex items-center justify-center w-[0.95rem] h-[0.95rem] rounded-full text-[0.62rem] leading-none bg-success text-white"
+                              aria-hidden
+                            >
                               ✓
                             </span>
                             {t('datasources.access_allowed')}
                           </span>
                         )}
                       </div>
-                      {modeHint ? <div className="ds-record__meta">{modeHint}</div> : null}
-                      <div className="ds-record__foot">
+                      {modeHint ? (
+                        <div className="text-foreground-muted text-[0.8rem] leading-[1.35] break-all">
+                          {modeHint}
+                        </div>
+                      ) : null}
+                      <div className="flex flex-wrap items-center gap-[0.35rem]">
                         <button
                           type="button"
                           title={ds.id}
                           aria-label={t('datasources.copy_id_aria', { id: ds.id })}
-                          className="ds-record__id"
+                          className={`inline-flex items-center px-[0.45rem] py-[0.1rem] border border-border rounded-[0.35rem] bg-transparent font-['Geist_Mono',ui-monospace,monospace] text-[0.68rem] text-foreground-faint cursor-copy tracking-wide hover:border-border-strong hover:text-foreground-muted focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2`}
                           onClick={() => {
                             navigator.clipboard.writeText(ds.id).catch(noop)
                           }}

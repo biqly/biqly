@@ -1,5 +1,3 @@
-import '../../styles/ai-jobs.css'
-
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { adminCancelAIJob, adminCancelAllStaleAIJobs, listAdminAIJobs } from '../../api/admin'
@@ -11,11 +9,34 @@ import { useT } from '../../i18n'
 import type { AIJob } from '../../types/ai'
 import type { PageQuery } from '../../types/pagination'
 import { formatDurationMs } from '../../utils/formatters'
+import {
+  aiHistoryStatusClass,
+  type AiHistoryStatusVariant,
+  aiHistoryTableClass,
+  aiHistoryTableWrapClass,
+  aiJobsTableRowClass,
+  jobDetailGridClass,
+  jobDetailItemClass,
+  jobDetailLabelClass,
+  jobDetailSectionClass,
+  jobDetailValueClass,
+  jobDetailValueMonoClass,
+  jobErrorBlockClass,
+  jobJsonBlockClass,
+  jobProgressBarClass,
+  jobProgressBarFillClass,
+} from '../ai/aiJobsClasses'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Modal } from '../ui/Modal'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
+import {
+  adminPanelClass,
+  adminPanelHeaderClass,
+  adminTableContainerClass,
+  jobDetailModalClass,
+} from './adminClasses'
 
 const POLL_MS = 3000
 
@@ -24,7 +45,7 @@ const DEFAULT_AI_JOBS_PAGE_SIZE = 25
 const STATUS_OPTIONS = ['pending', 'queued', 'running', 'succeeded', 'failed', 'cancelled'] as const
 const KIND_OPTIONS = ['run', 'preview', 'query', 'describe', 'describe_batch', 'embed_metadata']
 
-function statusBadgeClass(status: string): string {
+function statusBadgeClass(status: string): AiHistoryStatusVariant {
   switch (status) {
     case 'succeeded':
       return 'success'
@@ -187,8 +208,8 @@ export function AIJobsAdminPanel() {
   }
 
   return (
-    <div className="admin-panel">
-      <div className="admin-panel__header">
+    <div className={adminPanelClass}>
+      <div className={adminPanelHeaderClass}>
         <div>
           <h2>{t('admin.ai_jobs.title')}</h2>
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>{t('admin.ai_jobs.description')}</p>
@@ -207,11 +228,14 @@ export function AIJobsAdminPanel() {
       {error && <p className="error-text">{error}</p>}
 
       <div
-        className="ai-history__table-wrap admin-table-container"
+        className={`${aiHistoryTableWrapClass} ${adminTableContainerClass}`}
         style={{ position: 'relative' }}
       >
         <LoadingOverlay loading={loading && jobs.length === 0} />
-        <table className="ai-history__table" style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <table
+          className={aiHistoryTableClass}
+          style={{ borderCollapse: 'collapse', width: '100%' }}
+        >
           <thead>
             <tr>
               <th style={thStyle}>{t('admin.ai_jobs.col_user')}</th>
@@ -236,7 +260,7 @@ export function AIJobsAdminPanel() {
                 return (
                   <tr
                     key={job.id}
-                    className="ai-jobs__table-row"
+                    className={aiJobsTableRowClass}
                     title={t('admin.ai_jobs.click_to_view')}
                     onClick={() => {
                       setSelectedJobId(job.id)
@@ -249,9 +273,7 @@ export function AIJobsAdminPanel() {
                     </td>
                     <td style={tdStyle}>{jobQuestionPreview(job.kind, job.request_json)}</td>
                     <td style={tdStyle}>
-                      <span
-                        className={`ai-history__status ai-history__status--${statusBadgeClass(job.status)}`}
-                      >
+                      <span className={aiHistoryStatusClass(statusBadgeClass(job.status))}>
                         {t(`admin.ai_jobs.status_${job.status}`)}
                       </span>
                     </td>
@@ -282,44 +304,46 @@ export function AIJobsAdminPanel() {
             setSelectedJobId(null)
             setLastClickedJob(null)
           }}
-          className="job-detail-modal"
+          className={jobDetailModalClass}
           bodyClassName="job-detail-modal-body"
         >
-          <div className="job-detail-grid">
-            <div className="job-detail-section">
-              <div className="job-detail-item">
-                <span className="job-detail-label">{t('admin.ai_jobs.col_id')}</span>
-                <span className="job-detail-value job-detail-value--mono">{selectedJob.id}</span>
+          <div className={jobDetailGridClass}>
+            <div className={jobDetailSectionClass}>
+              <div className={jobDetailItemClass}>
+                <span className={jobDetailLabelClass}>{t('admin.ai_jobs.col_id')}</span>
+                <span className={`${jobDetailValueClass} ${jobDetailValueMonoClass}`}>
+                  {selectedJob.id}
+                </span>
               </div>
 
-              <div className="job-detail-item">
-                <span className="job-detail-label">{t('admin.ai_jobs.col_user')}</span>
-                <span className="job-detail-value">
+              <div className={jobDetailItemClass}>
+                <span className={jobDetailLabelClass}>{t('admin.ai_jobs.col_user')}</span>
+                <span className={jobDetailValueClass}>
                   {selectedJob.user_id
                     ? (userLabelByID.get(selectedJob.user_id) ?? selectedJob.user_id)
                     : '—'}
                 </span>
               </div>
 
-              <div className="job-detail-item">
-                <span className="job-detail-label">{t('admin.ai_jobs.col_kind')}</span>
-                <span className="job-detail-value job-detail-value--mono">{selectedJob.kind}</span>
+              <div className={jobDetailItemClass}>
+                <span className={jobDetailLabelClass}>{t('admin.ai_jobs.col_kind')}</span>
+                <span className={`${jobDetailValueClass} ${jobDetailValueMonoClass}`}>
+                  {selectedJob.kind}
+                </span>
               </div>
 
-              <div className="job-detail-item">
-                <span className="job-detail-label">{t('admin.ai_jobs.col_status')}</span>
-                <div className="job-detail-value" style={{ marginTop: '0.2rem' }}>
-                  <span
-                    className={`ai-history__status ai-history__status--${statusBadgeClass(selectedJob.status)}`}
-                  >
+              <div className={jobDetailItemClass}>
+                <span className={jobDetailLabelClass}>{t('admin.ai_jobs.col_status')}</span>
+                <div className={jobDetailValueClass} style={{ marginTop: '0.2rem' }}>
+                  <span className={aiHistoryStatusClass(statusBadgeClass(selectedJob.status))}>
                     {t(`admin.ai_jobs.status_${selectedJob.status}`)}
                   </span>
                 </div>
               </div>
 
-              <div className="job-detail-item">
-                <span className="job-detail-label">{t('admin.ai_jobs.col_phase')}</span>
-                <span className="job-detail-value">{selectedJob.phase || '—'}</span>
+              <div className={jobDetailItemClass}>
+                <span className={jobDetailLabelClass}>{t('admin.ai_jobs.col_phase')}</span>
+                <span className={jobDetailValueClass}>{selectedJob.phase || '—'}</span>
                 {selectedJob.phase_message && (
                   <div
                     style={{
@@ -334,15 +358,15 @@ export function AIJobsAdminPanel() {
               </div>
 
               {jobIsActive(selectedJob) && (
-                <div className="job-detail-item">
-                  <span className="job-detail-label">{t('admin.ai_jobs.col_progress')}</span>
+                <div className={jobDetailItemClass}>
+                  <span className={jobDetailLabelClass}>{t('admin.ai_jobs.col_progress')}</span>
                   <div
-                    className="job-detail-value"
+                    className={jobDetailValueClass}
                     style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                   >
-                    <div className="job-progress-bar" style={{ flex: 1 }}>
+                    <div className={jobProgressBarClass} style={{ flex: 1 }}>
                       <div
-                        className="job-progress-bar__fill"
+                        className={jobProgressBarFillClass}
                         style={{ width: `${selectedJob.progress_pct}%` }}
                       />
                     </div>
@@ -353,32 +377,32 @@ export function AIJobsAdminPanel() {
                 </div>
               )}
 
-              <div className="job-detail-item">
-                <span className="job-detail-label">{t('admin.ai_jobs.active_duration')}</span>
-                <span className="job-detail-value">
+              <div className={jobDetailItemClass}>
+                <span className={jobDetailLabelClass}>{t('admin.ai_jobs.active_duration')}</span>
+                <span className={jobDetailValueClass}>
                   {formatDurationMs(jobElapsedMs(selectedJob))}
                 </span>
               </div>
 
-              <div className="job-detail-item">
-                <span className="job-detail-label">{t('admin.ai_jobs.col_created')}</span>
-                <span className="job-detail-value">
+              <div className={jobDetailItemClass}>
+                <span className={jobDetailLabelClass}>{t('admin.ai_jobs.col_created')}</span>
+                <span className={jobDetailValueClass}>
                   {new Date(selectedJob.created_at).toLocaleString()}
                 </span>
               </div>
 
               {selectedJob.finished_at && (
-                <div className="job-detail-item">
-                  <span className="job-detail-label">{t('admin.ai_jobs.col_finished')}</span>
-                  <span className="job-detail-value">
+                <div className={jobDetailItemClass}>
+                  <span className={jobDetailLabelClass}>{t('admin.ai_jobs.col_finished')}</span>
+                  <span className={jobDetailValueClass}>
                     {new Date(selectedJob.finished_at).toLocaleString()}
                   </span>
                 </div>
               )}
 
               {jobIsActive(selectedJob) && (
-                <div className="job-detail-item" style={{ marginTop: '0.5rem' }}>
-                  <span className="job-detail-label">{t('admin.ai_jobs.col_actions')}</span>
+                <div className={jobDetailItemClass} style={{ marginTop: '0.5rem' }}>
+                  <span className={jobDetailLabelClass}>{t('admin.ai_jobs.col_actions')}</span>
                   <div style={{ marginTop: '0.25rem' }}>
                     <button
                       type="button"
@@ -398,25 +422,25 @@ export function AIJobsAdminPanel() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
               {selectedJob.error_message && (
-                <div className="job-detail-item">
-                  <span className="job-detail-label">{t('admin.ai_jobs.payload_error')}</span>
-                  <div className="job-error-block">{selectedJob.error_message}</div>
+                <div className={jobDetailItemClass}>
+                  <span className={jobDetailLabelClass}>{t('admin.ai_jobs.payload_error')}</span>
+                  <div className={jobErrorBlockClass}>{selectedJob.error_message}</div>
                 </div>
               )}
 
               {selectedJob.request_json != null && (
-                <div className="job-detail-item" style={{ minWidth: 0 }}>
-                  <span className="job-detail-label">{t('admin.ai_jobs.payload_request')}</span>
-                  <pre className="job-json-block">
+                <div className={jobDetailItemClass} style={{ minWidth: 0 }}>
+                  <span className={jobDetailLabelClass}>{t('admin.ai_jobs.payload_request')}</span>
+                  <pre className={jobJsonBlockClass}>
                     {JSON.stringify(selectedJob.request_json, null, 2)}
                   </pre>
                 </div>
               )}
 
               {selectedJob.result_json != null && (
-                <div className="job-detail-item" style={{ minWidth: 0 }}>
-                  <span className="job-detail-label">{t('admin.ai_jobs.payload_result')}</span>
-                  <pre className="job-json-block">
+                <div className={jobDetailItemClass} style={{ minWidth: 0 }}>
+                  <span className={jobDetailLabelClass}>{t('admin.ai_jobs.payload_result')}</span>
+                  <pre className={jobJsonBlockClass}>
                     {JSON.stringify(selectedJob.result_json, null, 2)}
                   </pre>
                 </div>

@@ -1,5 +1,3 @@
-import '../../styles/workspace.css'
-
 import { useEffect, useState } from 'react'
 
 import { listWorkspaces } from '../../api/admin'
@@ -88,10 +86,12 @@ export function WorkspaceSelector({ token }: { token: string }) {
   }
 
   return (
-    <label className="workspace-selector">
-      <span className="workspace-selector__label">{t('admin.workspaces.selector_label')}</span>
+    <label className="flex flex-col gap-[0.35rem] mb-4 min-w-0">
+      <span className="text-foreground-faint text-[0.68rem] font-extrabold tracking-normal uppercase">
+        {t('admin.workspaces.selector_label')}
+      </span>
       <Select
-        className="workspace-selector__select"
+        className="[&_.ui-select-trigger--stacked]:items-start [&_.ui-select-trigger--stacked]:min-h-[2.65rem] [&_.ui-select-trigger--stacked]:pt-[0.42rem] [&_.ui-select-trigger--stacked]:pb-[0.42rem] [&_.ui-select-trigger--stacked_.ui-select-chevron]:mt-[0.2rem]"
         value={active?.id ?? ''}
         options={workspaceOptions}
         onChange={(v) => void handleChange(v)}

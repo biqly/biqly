@@ -18,6 +18,14 @@ import { DataTable } from '../ui/DataTable'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
+import {
+  adminActiveBadgeClass,
+  adminFormLabelClass,
+  adminLabelTextClass,
+  adminTableContainerClass,
+  adminTdMonoClass,
+  adminTextMutedClass,
+} from './adminClasses'
 import { datasourceSelectOptions } from './adminSelectOptions'
 
 // ConfirmedQueriesPanel lists the NL→SQL pairs learned from thumbs-up feedback
@@ -122,7 +130,7 @@ export function ConfirmedQueriesPanel() {
     {
       key: 'query',
       header: t('admin.confirmed_queries.col_query'),
-      className: 'admin-td-mono',
+      className: adminTdMonoClass,
       cell: (row) => (
         <code
           style={{
@@ -142,7 +150,7 @@ export function ConfirmedQueriesPanel() {
     {
       key: 'confirmed_at',
       header: t('admin.confirmed_queries.col_confirmed_at'),
-      className: 'admin-td-mono',
+      className: adminTdMonoClass,
       sortable: true,
       cell: (row) => new Date(row.confirmed_at).toLocaleString(),
     },
@@ -152,7 +160,7 @@ export function ConfirmedQueriesPanel() {
       sortable: true,
       cell: (row) => (
         <span
-          className={row.is_active ? 'admin-badge-active' : 'admin-badge-inactive'}
+          className={adminActiveBadgeClass(row.is_active)}
           aria-label={
             row.is_active
               ? t('admin.confirmed_queries.status_active_aria')
@@ -191,8 +199,8 @@ export function ConfirmedQueriesPanel() {
         </p>
       </div>
 
-      <label className="admin-form-label" style={{ gap: 4, maxWidth: 360 }}>
-        <span className="admin-label-text">{t('admin.confirmed_queries.datasource')}</span>
+      <label className={adminFormLabelClass} style={{ gap: 4, maxWidth: 360 }}>
+        <span className={adminLabelTextClass}>{t('admin.confirmed_queries.datasource')}</span>
         <Select
           value={selectedDS}
           onChange={handleDatasourceChange}
@@ -204,9 +212,9 @@ export function ConfirmedQueriesPanel() {
       {loading ? (
         <LoadingScreen minHeight="160px" />
       ) : totalItems === 0 ? (
-        <p className="admin-text-muted">{t('admin.confirmed_queries.empty')}</p>
+        <p className={adminTextMutedClass}>{t('admin.confirmed_queries.empty')}</p>
       ) : (
-        <div className="admin-table-container">
+        <div className={adminTableContainerClass}>
           <DataTable
             columns={queryColumns}
             rows={rows}

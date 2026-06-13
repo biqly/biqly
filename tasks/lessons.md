@@ -207,8 +207,23 @@ Docker daemon must be running for migration testing. When Docker is unavailable:
 
 - `ExpressionBuilder.tsx` supports text mode (raw input + backend compile) and visual mode (recursive AST builder).
 - Whitelisted functions rendered from backend `AllowedFunctions`.
-- CSS in `frontend/src/styles/expressionBuilder.css` (BEM naming).
-- No Tailwind — vanilla CSS only.
+- Styling: Tailwind util'leri + modül sabitleri (`exprAst*Class`, `exprModeToggleClass`) in `ExpressionBuilder.tsx` (2026-06-13; `expressionBuilder.css` silindi).
+
+### Tailwind CSS Integration (2026-06-13)
+
+Kademeli vanilla CSS → Tailwind v4 migrasyonu. Detaylı checklist: `tasks/todo.md` → **Tailwind CSS Entegrasyonu**.
+
+**Kurulum:** `tailwindcss` + `@tailwindcss/vite` plugin; `frontend/src/index.css` başında `@import 'tailwindcss';`.
+
+**Runtime tema (kritik):** Tokenlar `:root` / `[data-theme]` ile runtime'da değişir. `@theme inline { --color-card: var(--bg-card); ... }` kullan — util'ler `var(--token)` emit eder. **Hardcode renkli Tailwind util (`bg-zinc-900` vb.) kullanma**; light/dark kırılır.
+
+**Tercih edilen util isimleri:** `bg-canvas`, `bg-card`, `text-foreground`, `text-foreground-muted`, `border-border`, `text-accent`, `shadow-card`, `font-mono`. Off-grid spacing için arbitrary: `p-[0.35rem]`, `text-[0.8125rem]`.
+
+**Yeni / taşınan component'ler:** Tailwind util'leri tercih et. Mevcut `.btn`/`.card`/`.input` global sınıfları `index.css`'te kalır (170+ `.btn` referansı); yeni kodda `ui/Button`, `ui/FormField` kullan.
+
+**Silinen CSS dosyası:** Component'teki `import './x.css'` satırını da kaldır — aksi halde build kırılır (`Modeling.tsx` + `drift.css` örneği).
+
+**Doğrulama:** Her grup sonrası `make check-frontend` + görsel light/dark kontrol.
 
 ### Shared List/Table Building Blocks (use in NEW code — do not hand-roll)
 
@@ -456,5 +471,5 @@ Sources: [Google TypeScript Style Guide — Naming](https://google.github.io/sty
 5. **Don't leave duplicated handler logic** — extract shared helper on first sight.
 6. **Don't optimize without benchmark numbers** — every "maybe faster" hypothesis tested was either same speed or slower.
 7. **Don't commit with lint errors** — `make lint-go` / `make lint-frontend` / `make test-go` must all pass cleanly (zero errors).
-8. **Don't use Tailwind CSS** — vanilla CSS with BEM naming in `frontend/src/styles/`.
+8. **Don't hardcode Tailwind colors for themed UI** — use `@theme inline` token bridge (`bg-card`, `text-foreground`, …). Legacy BEM CSS in `frontend/src/styles/` may remain until migrated; don't broad-rewrite without an explicit task.
 9. **Don't trust eslint+tsc to catch Prettier drift** — run `prettier --check`/`--write` on touched frontend files; CI's `format:check` is a separate gate.

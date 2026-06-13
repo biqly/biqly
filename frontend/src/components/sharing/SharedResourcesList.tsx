@@ -1,5 +1,4 @@
-import '../../styles/sharing.css'
-
+import clsx from 'clsx'
 import { useCallback } from 'react'
 
 import { deleteShare, listShares } from '../../api/admin'
@@ -78,28 +77,48 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
   }
 
   function permissionBadge(perm: string) {
+    let styleClass = ''
+    let label = perm
     switch (perm) {
       case 'view':
-        return t('admin.sharing.permission_view')
+        styleClass = 'bg-foreground-muted/10 text-foreground-muted'
+        label = t('admin.sharing.permission_view')
+        break
       case 'execute':
-        return t('admin.sharing.permission_execute')
+        styleClass = 'bg-warning/10 text-warning'
+        label = t('admin.sharing.permission_execute')
+        break
       case 'edit':
-        return t('admin.sharing.permission_edit')
-      default:
-        return perm
+        styleClass = 'bg-success/10 text-success'
+        label = t('admin.sharing.permission_edit')
+        break
     }
+    return (
+      <span
+        className={clsx(
+          'inline-block py-[2px] px-2 rounded-[10px] text-[11px] font-semibold whitespace-nowrap',
+          styleClass,
+        )}
+      >
+        {label}
+      </span>
+    )
   }
 
   const shareColumns: ColumnDef<ResourceShare>[] = [
     {
       key: 'type',
       header: t('admin.sharing.resource_type'),
-      cell: (share) => <span className="shared-list__type-badge">{share.resource_type}</span>,
+      cell: (share) => (
+        <span className="inline-block py-[2px] px-2 rounded-[10px] text-[11px] font-medium bg-[var(--accent-glow)] text-accent">
+          {share.resource_type}
+        </span>
+      ),
     },
     {
       key: 'resource_id',
       header: t('admin.sharing.resource_id'),
-      className: 'shared-list__mono',
+      className: 'font-mono text-[12px]',
       cell: (share) => `${share.resource_id.slice(0, 8)}…`,
     },
     {
@@ -107,9 +126,9 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
       header: t('admin.sharing.shared_with'),
       cell: (share) =>
         share.shared_with ? (
-          <span className="shared-list__mono">{share.shared_with.slice(0, 8)}…</span>
+          <span className="font-mono text-[12px]">{share.shared_with.slice(0, 8)}…</span>
         ) : share.workspace_id ? (
-          <span className="shared-list__workspace">WS: {share.workspace_id.slice(0, 8)}…</span>
+          <span className="text-[12px] text-accent">WS: {share.workspace_id.slice(0, 8)}…</span>
         ) : (
           '—'
         ),
@@ -117,11 +136,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     {
       key: 'permission',
       header: t('admin.sharing.permission'),
-      cell: (share) => (
-        <span className={`shared-list__perm shared-list__perm--${share.permission}`}>
-          {permissionBadge(share.permission)}
-        </span>
-      ),
+      cell: (share) => permissionBadge(share.permission),
     },
     {
       key: 'created_at',
@@ -136,7 +151,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
           onClick={() => {
             void onRevoke(share.id)
           }}
-          className="shared-list__revoke"
+          className="py-[3px] px-2.5 bg-transparent border border-[rgba(239,68,68,0.3)] text-error rounded-[4px] cursor-pointer text-[12px] hover:bg-error/6 transition-colors"
         >
           {t('common.delete')}
         </button>
@@ -145,8 +160,8 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
   ]
 
   return (
-    <div className="shared-list">
-      <div style={containerStyle}>
+    <div className="overflow-x-auto">
+      <div className={`bg-card border border-border rounded-[8px] overflow-hidden shadow-card-sm`}>
         <DataState
           loading={loading}
           error={error}
@@ -157,11 +172,11 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
             columns={shareColumns}
             rows={displayedItems}
             rowKey={(share) => share.id}
-            tableClassName="shared-list__table"
+            tableClassName="w-full border-collapse text-[13px]"
             headRowClassName=""
-            headerCellClassName=""
+            headerCellClassName="py-2 px-2.5 text-left border-b border-border font-semibold text-[11px] uppercase tracking-[0.4px] text-foreground-muted"
             rowClassName=""
-            cellClassName=""
+            cellClassName="py-2 px-2.5 text-left border-b border-border"
           />
         </DataState>
         {displayedItems.length > 0 && (
@@ -176,12 +191,4 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
       </div>
     </div>
   )
-}
-
-const containerStyle: React.CSSProperties = {
-  background: 'var(--bg-card, #ffffff)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 8,
-  overflow: 'hidden',
-  boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
 }

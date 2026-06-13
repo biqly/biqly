@@ -55,6 +55,37 @@ export const UNARY_OPS = [
   { value: 'negate', label: '-' },
 ]
 
+const exprAstSelectClass =
+  'text-[0.8rem] py-[0.35rem] px-[0.6rem] bg-canvas border border-border-strong rounded text-foreground outline-none cursor-pointer min-w-24 transition-[border-color] duration-[120ms] ease-in-out focus:border-accent'
+
+const exprAstOperatorSelectClass = `${exprAstSelectClass} font-bold text-warning border-[rgba(251,191,36,0.3)]`
+
+const exprAstTypeSelectClass =
+  'text-[0.72rem] font-bold uppercase text-accent bg-transparent border-0 cursor-pointer py-[0.15rem] px-2 rounded transition-[background] duration-100 ease-in-out hover:bg-white/5'
+
+const exprAstNodeCardClass =
+  'relative bg-card-raised border border-border-strong border-l-4 border-l-accent rounded-md py-3 px-4 flex flex-col gap-2 transition-[border-color,box-shadow] duration-150 ease-in-out hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] hover:border-accent/40'
+
+const exprAstFlexRowClass =
+  'flex gap-2 items-center flex-wrap [&_input]:font-mono [&_input]:text-[0.82rem]'
+
+const exprAstAddBtnClass =
+  'self-start text-[0.72rem] font-semibold py-1 px-2 border border-dashed border-accent bg-transparent text-accent rounded cursor-pointer transition-all duration-100 ease-in-out hover:bg-accent/10 hover:text-white'
+
+const exprAstRemoveBtnClass =
+  'text-[1.15rem] bg-transparent border-0 text-foreground-muted cursor-pointer py-[0.15rem] px-[0.4rem] leading-none transition-colors duration-100 ease-in-out hover:text-error'
+
+const exprAstCaseLabelClass = 'text-[0.72rem] font-extrabold text-warning uppercase min-w-14'
+
+const exprModeToggleBase =
+  'text-[0.8rem] font-semibold py-[0.4rem] px-[0.8rem] rounded border cursor-pointer transition-all duration-150 ease-in-out'
+
+function exprModeToggleClass(active: boolean) {
+  return active
+    ? `${exprModeToggleBase} border-accent bg-accent text-white shadow-[0_0_8px_rgba(99,102,241,0.4)]`
+    : `${exprModeToggleBase} border-border-strong bg-canvas text-foreground-muted hover:bg-border hover:text-foreground`
+}
+
 interface ExpressionBuilderProps {
   model: SemanticModelDetail
   columns: ColumnRow[]
@@ -265,11 +296,11 @@ export function ExpressionBuilder({
     }
 
     return (
-      <div className="ast-node-card">
-        <div className="ast-node-header">
+      <div className={exprAstNodeCardClass}>
+        <div>
           <select
             id={`node-type-select-${Math.random()}`}
-            className="ast-type-select"
+            className={exprAstTypeSelectClass}
             value={node.type}
             onChange={(e) => handleTypeChange(e.target.value)}
           >
@@ -284,9 +315,9 @@ export function ExpressionBuilder({
           </select>
         </div>
 
-        <div className="ast-node-body">
+        <div>
           {node.type === 'literal' && (
-            <div className="ast-literal-editor">
+            <div className={exprAstFlexRowClass}>
               <input
                 type="text"
                 className="input-text"
@@ -305,9 +336,9 @@ export function ExpressionBuilder({
           )}
 
           {node.type === 'column_ref' && (
-            <div className="ast-column-editor">
+            <div className={exprAstFlexRowClass}>
               <select
-                className="ast-select"
+                className={exprAstSelectClass}
                 value={node.table ?? ''}
                 onChange={(e) => {
                   onChangeNode({
@@ -323,7 +354,7 @@ export function ExpressionBuilder({
                 ))}
               </select>
               <select
-                className="ast-select"
+                className={exprAstSelectClass}
                 value={node.column || ''}
                 onChange={(e) => {
                   onChangeNode({
@@ -344,9 +375,9 @@ export function ExpressionBuilder({
           )}
 
           {node.type === 'dimension_ref' && (
-            <div className="ast-ref-editor">
+            <div className={exprAstFlexRowClass}>
               <select
-                className="ast-select"
+                className={exprAstSelectClass}
                 value={node.name || ''}
                 onChange={(e) => {
                   onChangeNode({
@@ -365,9 +396,9 @@ export function ExpressionBuilder({
           )}
 
           {node.type === 'metric_ref' && (
-            <div className="ast-ref-editor">
+            <div className={exprAstFlexRowClass}>
               <select
-                className="ast-select"
+                className={exprAstSelectClass}
                 value={node.name || ''}
                 onChange={(e) => {
                   onChangeNode({
@@ -386,16 +417,16 @@ export function ExpressionBuilder({
           )}
 
           {node.type === 'binary' && (
-            <div className="ast-binary-editor">
-              <div className="ast-sub-expr">
+            <div className="flex flex-col gap-3 pl-2 border-l border-dashed border-border-strong">
+              <div className="w-full">
                 <ExpressionNodeBuilder
                   node={node.left}
                   onChangeNode={(left) => onChangeNode({ ...node, left })}
                 />
               </div>
-              <div className="ast-operator-select-container">
+              <div className="flex items-center py-1">
                 <select
-                  className="ast-operator-select"
+                  className={exprAstOperatorSelectClass}
                   value={node.op}
                   onChange={(e) => onChangeNode({ ...node, op: e.target.value })}
                 >
@@ -406,7 +437,7 @@ export function ExpressionBuilder({
                   ))}
                 </select>
               </div>
-              <div className="ast-sub-expr">
+              <div className="w-full">
                 <ExpressionNodeBuilder
                   node={node.right}
                   onChangeNode={(right) => onChangeNode({ ...node, right })}
@@ -416,9 +447,9 @@ export function ExpressionBuilder({
           )}
 
           {node.type === 'unary' && (
-            <div className="ast-unary-editor">
+            <div className="flex items-center gap-3">
               <select
-                className="ast-operator-select"
+                className={exprAstOperatorSelectClass}
                 value={node.op}
                 onChange={(e) => onChangeNode({ ...node, op: e.target.value })}
               >
@@ -428,7 +459,7 @@ export function ExpressionBuilder({
                   </option>
                 ))}
               </select>
-              <div className="ast-sub-expr">
+              <div className="w-full">
                 <ExpressionNodeBuilder
                   node={node.expr}
                   onChangeNode={(expr) => onChangeNode({ ...node, expr })}
@@ -438,10 +469,10 @@ export function ExpressionBuilder({
           )}
 
           {node.type === 'function_call' && (
-            <div className="ast-function-editor">
-              <div className="ast-func-header">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
                 <select
-                  className="ast-select"
+                  className={exprAstSelectClass}
                   value={node.name.toUpperCase()}
                   onChange={(e) => {
                     const func = ALLOWED_FUNCTIONS.find((f) => f.name === e.target.value)
@@ -462,18 +493,20 @@ export function ExpressionBuilder({
                     </option>
                   ))}
                 </select>
-                <span className="ast-func-desc">
+                <span className="text-[0.72rem] text-foreground-muted">
                   {
                     ALLOWED_FUNCTIONS.find((f) => f.name.toUpperCase() === node.name.toUpperCase())
                       ?.desc
                   }
                 </span>
               </div>
-              <div className="ast-func-args">
+              <div className="flex flex-col gap-3 pl-3 border-l border-dashed border-border-strong">
                 {(node.args ?? []).map((arg, idx) => (
-                  <div key={idx} className="ast-func-arg-row">
-                    <span className="ast-arg-label">Arg {idx + 1}:</span>
-                    <div className="ast-sub-expr">
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="text-[0.75rem] font-semibold text-foreground-muted whitespace-nowrap">
+                      Arg {idx + 1}:
+                    </span>
+                    <div className="w-full">
                       <ExpressionNodeBuilder
                         node={arg}
                         onChangeNode={(newArg) => {
@@ -486,7 +519,7 @@ export function ExpressionBuilder({
                     {node.args && node.args.length > 1 && (
                       <button
                         type="button"
-                        className="ast-remove-btn"
+                        className={exprAstRemoveBtnClass}
                         onClick={() => {
                           onChangeNode({
                             ...node,
@@ -503,7 +536,7 @@ export function ExpressionBuilder({
                   ?.arity === -1 && (
                   <button
                     type="button"
-                    className="ast-add-btn"
+                    className={exprAstAddBtnClass}
                     onClick={() => {
                       onChangeNode({
                         ...node,
@@ -519,12 +552,15 @@ export function ExpressionBuilder({
           )}
 
           {node.type === 'case' && (
-            <div className="ast-case-editor">
-              <div className="ast-case-conditions">
+            <div>
+              <div className="flex flex-col gap-4 mb-4">
                 {(node.conditions ?? []).map((cond, idx) => (
-                  <div key={idx} className="ast-case-cond-row">
-                    <div className="ast-case-cond-block">
-                      <span className="ast-case-label">WHEN</span>
+                  <div
+                    key={idx}
+                    className={`relative flex flex-col gap-2 p-3 bg-white/[0.015] border border-border rounded-md`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={exprAstCaseLabelClass}>WHEN</span>
                       <ExpressionNodeBuilder
                         node={cond.when}
                         onChangeNode={(when) => {
@@ -537,8 +573,8 @@ export function ExpressionBuilder({
                         }}
                       />
                     </div>
-                    <div className="ast-case-cond-block">
-                      <span className="ast-case-label">THEN</span>
+                    <div className="flex items-center gap-3">
+                      <span className={exprAstCaseLabelClass}>THEN</span>
                       <ExpressionNodeBuilder
                         node={cond.then}
                         onChangeNode={(then) => {
@@ -554,7 +590,7 @@ export function ExpressionBuilder({
                     {node.conditions && node.conditions.length > 1 && (
                       <button
                         type="button"
-                        className="ast-remove-btn"
+                        className={exprAstRemoveBtnClass}
                         onClick={() => {
                           onChangeNode({
                             ...node,
@@ -569,7 +605,7 @@ export function ExpressionBuilder({
                 ))}
                 <button
                   type="button"
-                  className="ast-add-btn"
+                  className={exprAstAddBtnClass}
                   onClick={() => {
                     onChangeNode({
                       ...node,
@@ -587,8 +623,8 @@ export function ExpressionBuilder({
                 </button>
               </div>
 
-              <div className="ast-case-else">
-                <span className="ast-case-label">ELSE</span>
+              <div className={`flex items-center gap-3 border-t border-dashed border-border pt-3`}>
+                <span className={exprAstCaseLabelClass}>ELSE</span>
                 <ExpressionNodeBuilder
                   node={node.else ?? { type: 'literal', value: '' }}
                   onChangeNode={(elseNode) => onChangeNode({ ...node, else: elseNode })}
@@ -602,53 +638,61 @@ export function ExpressionBuilder({
   }
 
   return (
-    <div className="expression-builder-panel">
-      <div className="expression-builder-header">
-        <button
-          type="button"
-          className={`toggle-btn ${mode === 'text' ? 'active' : ''}`}
-          onClick={toggleMode}
-        >
+    <div
+      className={`flex flex-col gap-4 bg-card border border-border rounded-lg p-5 shadow-card-sm mt-3`}
+    >
+      <div className={`flex gap-2 border-b border-border pb-3`}>
+        <button type="button" className={exprModeToggleClass(mode === 'text')} onClick={toggleMode}>
           {t('modeling.expr_mode_text')}
         </button>
         <button
           type="button"
-          className={`toggle-btn ${mode === 'visual' ? 'active' : ''}`}
+          className={exprModeToggleClass(mode === 'visual')}
           onClick={toggleMode}
         >
           {t('modeling.expr_mode_visual')}
         </button>
       </div>
 
-      <div className="expression-builder-body">
+      <div className="min-h-48 max-h-96 overflow-y-auto p-1">
         {mode === 'visual' ? (
-          <div className="ast-tree-root">
+          <div className="flex flex-col gap-3">
             <ExpressionNodeBuilder node={astNode} onChangeNode={handleAstChange} />
           </div>
         ) : (
-          <div className="text-editor-wrapper">
+          <div className="relative w-full">
             <textarea
               id="raw-text-expression"
-              className="expression-editor-textarea expression-editor-textarea--visible"
+              className={`relative z-[2] w-full resize-y font-mono text-[0.85rem] leading-[1.4] p-2 border border-border rounded-md shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] transition-[border-color,box-shadow] duration-[120ms] ease-in-out bg-canvas text-foreground caret-[var(--text-primary)] focus-visible:border-[var(--control-focus-border)] focus-visible:shadow-[0_0_0_1px_var(--bg-primary),0_0_0_3px_var(--control-focus-ring)] focus-visible:outline-none`}
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="e.g. sum([orders.total_amount]) - sum([orders.discount])"
               rows={4}
               disabled={loading}
             />
-            <div className="editor-intellisense-help">{t('modeling.metric_intellisense_hint')}</div>
+            <div className="text-[0.7rem] text-foreground-muted mt-[0.35rem]">
+              {t('modeling.metric_intellisense_hint')}
+            </div>
           </div>
         )}
       </div>
 
-      {errorMsg && <div className="expression-builder-error">{errorMsg}</div>}
+      {errorMsg && (
+        <div className="bg-error/10 border border-error/30 text-error rounded-md py-[0.6rem] px-[0.8rem] text-[0.78rem] font-mono mt-2">
+          {errorMsg}
+        </div>
+      )}
 
-      <div className="expression-builder-preview">
-        <h4>{t('modeling.generated_sql')}</h4>
+      <div className="flex flex-col gap-2 mt-2">
+        <h4 className="m-0 text-[0.75rem] font-bold text-foreground-muted uppercase tracking-wide">
+          {t('modeling.generated_sql')}
+        </h4>
         {loading ? (
-          <div className="preview-loading">{t('modeling.running')}</div>
+          <div className="text-[0.8rem] text-foreground-muted p-3">{t('modeling.running')}</div>
         ) : (
-          <code className="sql-preview-code">
+          <code
+            className={`block font-mono text-[0.85rem] bg-canvas-subtle text-success py-3 px-4 rounded-md border border-border overflow-x-auto whitespace-pre-wrap break-words`}
+          >
             {compiledSQL || '-- Type an expression or build one visually to see SQL --'}
           </code>
         )}

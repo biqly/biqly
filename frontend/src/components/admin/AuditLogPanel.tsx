@@ -14,6 +14,16 @@ import { DataTable } from '../ui/DataTable'
 import { EmptyState } from '../ui/EmptyState'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
+import {
+  adminBadgeActionClass,
+  adminBtnPrimaryClass,
+  adminBtnSecondaryClass,
+  adminFormLabelClass,
+  adminLabelTextClass,
+  adminTableContainerClass,
+  adminTdMetadataClass,
+  adminTdMonoClass,
+} from './adminClasses'
 import { numberSelectOptions, stringSelectOptions, userSelectOptions } from './adminSelectOptions'
 
 const COMMON_ACTIONS = [
@@ -118,18 +128,18 @@ export function AuditLogPanel({ token }: { token: string }) {
     {
       key: 'time',
       header: t('admin.audit.time'),
-      className: 'admin-td-mono',
+      className: adminTdMonoClass,
       cell: (entry) => formatDateTime(entry.created_at, localeLanguageTag(locale)),
     },
     {
       key: 'action',
       header: t('admin.audit.action'),
-      cell: (entry) => <span className="admin-badge-action">{entry.action}</span>,
+      cell: (entry) => <span className={adminBadgeActionClass}>{entry.action}</span>,
     },
     {
       key: 'user',
       header: t('admin.fields.user'),
-      className: 'admin-td-mono',
+      className: adminTdMonoClass,
       cell: (entry) =>
         entry.user_id
           ? (userMap.get(entry.user_id) ?? entry.user_id)
@@ -138,19 +148,19 @@ export function AuditLogPanel({ token }: { token: string }) {
     {
       key: 'resource',
       header: t('admin.audit.resource'),
-      className: 'admin-td-mono',
+      className: adminTdMonoClass,
       cell: (entry) => formatResource(entry, dsMap, wsMap),
     },
     {
       key: 'ip',
       header: 'IP',
-      className: 'admin-td-mono',
+      className: adminTdMonoClass,
       cell: (entry) => entry.ip_address ?? '-',
     },
     {
       key: 'metadata',
       header: 'Metadata',
-      className: 'admin-td-metadata',
+      className: adminTdMetadataClass,
       cell: (entry) => formatMetadata(entry.metadata),
     },
   ]
@@ -182,16 +192,16 @@ export function AuditLogPanel({ token }: { token: string }) {
         onSubmit={onSubmit}
         style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}
       >
-        <label className="admin-form-label" style={{ gap: 4, minWidth: 220 }}>
-          <span className="admin-label-text">{t('admin.fields.user')}</span>
+        <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 220 }}>
+          <span className={adminLabelTextClass}>{t('admin.fields.user')}</span>
           <Select value={userID} options={userFilterOptions} onChange={setUserID} />
         </label>
-        <label className="admin-form-label" style={{ gap: 4, minWidth: 200 }}>
-          <span className="admin-label-text">{t('admin.audit.action')}</span>
+        <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 200 }}>
+          <span className={adminLabelTextClass}>{t('admin.audit.action')}</span>
           <Select value={action} options={actionFilterOptions} onChange={setAction} />
         </label>
-        <label className="admin-form-label" style={{ gap: 4, minWidth: 120 }}>
-          <span className="admin-label-text">{t('admin.audit.page_size')}</span>
+        <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 120 }}>
+          <span className={adminLabelTextClass}>{t('admin.audit.page_size')}</span>
           <Select
             value={String(pageSize)}
             options={pageSizeOptions}
@@ -202,7 +212,7 @@ export function AuditLogPanel({ token }: { token: string }) {
             }}
           />
         </label>
-        <button type="submit" className="admin-btn-primary">
+        <button type="submit" className={adminBtnPrimaryClass}>
           {t('admin.filters.apply')}
         </button>
         <button
@@ -214,20 +224,20 @@ export function AuditLogPanel({ token }: { token: string }) {
             setCurrentPage(1)
             reload()
           }}
-          className="admin-btn-secondary"
+          className={adminBtnSecondaryClass}
         >
           {t('admin.filters.reset')}
         </button>
       </form>
 
-      <div className="admin-table-container">
+      <div className={adminTableContainerClass}>
         <DataState
           loading={loading}
           error={error}
           errorPrefix={t('common.error')}
           empty={entries.length === 0}
           emptyState={<EmptyState description={t('admin.audit.empty')} />}
-          className="data-state__body--scroll-x"
+          className="overflow-x-auto"
         >
           <DataTable
             columns={auditColumns}

@@ -1,6 +1,7 @@
 import { useT } from '../../i18n'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
+import { qbAddBtnClass, qbTagBase, qbTagCloseClass, qbTagPurpleClass } from './queryBuilderClasses'
 import type { FilterRow } from './types'
 
 interface FilterStepProps {
@@ -38,11 +39,7 @@ export function FilterStep({
         const selectedOpt = filterFieldOpts.find((opt) => opt.value === f.field)
         const isTextField = selectedOpt?.hint === 'text'
         return (
-          <div
-            key={f.id}
-            className="notebook-tag notebook-tag--purple"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-          >
+          <div key={f.id} className={`${qbTagBase} ${qbTagPurpleClass} flex items-center gap-1`}>
             <Select
               value={f.field}
               onChange={(v) => updateFilter(i, 'field', v)}
@@ -89,7 +86,7 @@ export function FilterStep({
             )}
             <button
               type="button"
-              className="notebook-tag-close"
+              className={qbTagCloseClass}
               onClick={() => removeFilter(i)}
               aria-label="Remove Filter"
             >
@@ -98,7 +95,7 @@ export function FilterStep({
           </div>
         )
       })}
-      <button type="button" className="notebook-add-btn" onClick={addFilter}>
+      <button type="button" className={qbAddBtnClass} onClick={addFilter}>
         +
       </button>
     </NotebookStep>

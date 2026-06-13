@@ -19,6 +19,7 @@ import { useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
+import { adminFormLabelClass, adminLabelTextClass } from './adminClasses'
 
 type TargetKind = 'workspace' | 'role'
 type GrantKind = 'provider' | 'model'
@@ -29,6 +30,26 @@ interface GrantListItem {
   resourceBadge: 'provider' | 'model'
   label: string
   onRevoke: () => Promise<void>
+}
+
+const adminAiCardClass = 'border border-border rounded-[10px] bg-card overflow-hidden'
+const adminAiCardHeaderClass = 'py-3.5 px-[18px] border-b border-border'
+const adminAiCardTitleClass = 'block m-0 text-[0.95rem] font-semibold text-foreground'
+const adminAiCardDescClass =
+  'mt-1.5 mb-0 text-[0.8125rem] leading-[1.45] text-foreground-muted max-w-[52rem]'
+const adminAiCardBodyClass = 'py-4 px-[18px] pb-[18px]'
+
+const adminAiBadgeBase =
+  'inline-flex items-center py-0.5 px-2 rounded-full text-[0.68rem] font-semibold tracking-wide uppercase leading-[1.4]'
+
+const adminAiBadgeTargetClass: Record<GrantListItem['targetBadge'], string> = {
+  workspace: 'bg-accent/18 text-accent',
+  role: 'bg-canvas-subtle text-foreground-muted border border-border-strong',
+}
+
+const adminAiBadgeResourceClass: Record<GrantListItem['resourceBadge'], string> = {
+  provider: 'bg-success/12 text-success',
+  model: 'bg-warning/12 text-warning',
 }
 
 export function AIModelSharingPanel() {
@@ -206,17 +227,17 @@ export function AIModelSharingPanel() {
       : t('admin.ai_model_access.select_model')
 
   return (
-    <section className="admin-ai-card">
-      <div className="admin-ai-card__header">
-        <strong>{t('admin.ai_model_access.title')}</strong>
-        <p>{t('admin.ai_model_access.description')}</p>
+    <section className={adminAiCardClass}>
+      <div className={adminAiCardHeaderClass}>
+        <strong className={adminAiCardTitleClass}>{t('admin.ai_model_access.title')}</strong>
+        <p className={adminAiCardDescClass}>{t('admin.ai_model_access.description')}</p>
       </div>
 
       <LoadingOverlay loading={loading}>
-        <div className="admin-ai-card__body">
-          <div className="admin-ai-grant-toolbar">
-            <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
-              <span className="admin-label-text">{t('admin.ai_model_access.target_kind')}</span>
+        <div className={adminAiCardBodyClass}>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3 items-end mb-4">
+            <label className={adminFormLabelClass} style={{ gap: 4, margin: 0 }}>
+              <span className={adminLabelTextClass}>{t('admin.ai_model_access.target_kind')}</span>
               <Select
                 value={targetKind}
                 onChange={(v) => {
@@ -229,8 +250,8 @@ export function AIModelSharingPanel() {
                 ]}
               />
             </label>
-            <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
-              <span className="admin-label-text">
+            <label className={adminFormLabelClass} style={{ gap: 4, margin: 0 }}>
+              <span className={adminLabelTextClass}>
                 {targetKind === 'workspace'
                   ? t('admin.ai_model_access.workspace')
                   : t('admin.ai_model_access.role')}
@@ -243,8 +264,8 @@ export function AIModelSharingPanel() {
                 placeholder={targetPlaceholder}
               />
             </label>
-            <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
-              <span className="admin-label-text">{t('admin.ai_model_access.grant_kind')}</span>
+            <label className={adminFormLabelClass} style={{ gap: 4, margin: 0 }}>
+              <span className={adminLabelTextClass}>{t('admin.ai_model_access.grant_kind')}</span>
               <Select
                 value={grantKind}
                 onChange={(v) => {
@@ -257,8 +278,8 @@ export function AIModelSharingPanel() {
                 ]}
               />
             </label>
-            <label className="admin-form-label" style={{ gap: 4, margin: 0 }}>
-              <span className="admin-label-text">
+            <label className={adminFormLabelClass} style={{ gap: 4, margin: 0 }}>
+              <span className={adminLabelTextClass}>
                 {grantKind === 'provider'
                   ? t('admin.ai_model_access.provider')
                   : t('admin.ai_model_access.model')}
@@ -271,7 +292,7 @@ export function AIModelSharingPanel() {
                 placeholder={resourcePlaceholder}
               />
             </label>
-            <div className="admin-ai-grant-toolbar__actions">
+            <div className="flex items-end gap-2 [&_.btn]:w-full [&_.btn]:justify-center">
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
@@ -285,7 +306,7 @@ export function AIModelSharingPanel() {
             </div>
           </div>
 
-          <p className="admin-ai-grants-meta">
+          <p className="m-0 mb-3 text-[0.8125rem] text-foreground-muted">
             {targetKind === 'workspace'
               ? t('admin.ai_model_access.workspaces_available', { count: workspaces.length })
               : t('admin.ai_model_access.roles_available', { count: roles.length })}
@@ -299,23 +320,35 @@ export function AIModelSharingPanel() {
               {t('admin.ai_model_access.empty')}
             </p>
           ) : (
-            <ul className="admin-ai-grant-list" aria-label={t('admin.ai_model_access.grants_list')}>
+            <ul
+              className="list-none m-0 p-0 flex flex-col gap-2 max-h-60 overflow-y-auto pr-1.5 custom-scrollbar-thin"
+              aria-label={t('admin.ai_model_access.grants_list')}
+            >
               {grantItems.map((item) => (
-                <li key={item.key} className="admin-ai-grant-row">
-                  <div className="admin-ai-grant-row__main">
-                    <div className="admin-ai-grant-row__badges">
-                      <span className={`admin-ai-badge admin-ai-badge--${item.targetBadge}`}>
+                <li
+                  key={item.key}
+                  className={`flex items-center justify-between gap-3 py-2.5 px-3 border border-border rounded-lg bg-card-raised`}
+                >
+                  <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span
+                        className={`${adminAiBadgeBase} ${adminAiBadgeTargetClass[item.targetBadge]}`}
+                      >
                         {t(`admin.ai_model_access.${item.targetBadge}`)}
                       </span>
-                      <span className={`admin-ai-badge admin-ai-badge--${item.resourceBadge}`}>
+                      <span
+                        className={`${adminAiBadgeBase} ${adminAiBadgeResourceClass[item.resourceBadge]}`}
+                      >
                         {t(`admin.ai_model_access.${item.resourceBadge}`)}
                       </span>
                     </div>
-                    <div className="admin-ai-grant-row__label">{item.label}</div>
+                    <div className="text-sm font-medium text-foreground leading-[1.35] break-words [&_span]:text-foreground-muted [&_span]:font-normal">
+                      {item.label}
+                    </div>
                   </div>
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-secondary btn-sm shrink-0 w-auto m-0"
                     onClick={() => {
                       void revoke(item.onRevoke)
                     }}

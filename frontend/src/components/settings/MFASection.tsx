@@ -1,5 +1,12 @@
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import { formatDateTime } from '../../utils/formatters'
+import {
+  adminBadgeActiveClass,
+  adminBtnAutoWidthClass,
+  adminBtnIconOnlyClass,
+  adminCenterContainerClass,
+  cardLeadMarginClass,
+} from '../admin/adminClasses'
 import { EmptyState } from '../ui/EmptyState'
 import { RecoveryCodesDisplay } from './RecoveryCodesDisplay'
 
@@ -30,9 +37,7 @@ export function MFASection({
   const [locale] = useLocale()
 
   return (
-    <section
-      className={['card card--elevated settings-prefs-card', className].filter(Boolean).join(' ')}
-    >
+    <section className={['card card--elevated', className].filter(Boolean).join(' ')}>
       <div className="card-intro card-intro--compact">
         <div className="card-header-row card-header-row--spaced">
           <h2>{t('mfa.title')}</h2>
@@ -70,7 +75,7 @@ export function MFASection({
             ) : (
               <button
                 type="button"
-                className="btn btn-primary btn-sm btn-auto-width"
+                className={`btn btn-primary btn-sm ${adminBtnAutoWidthClass}`}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 onClick={onEnable}
               >
@@ -93,11 +98,11 @@ export function MFASection({
               </button>
             ))}
         </div>
-        <p className="card-lead card-lead-margin">{t('mfa.subtitle')}</p>
+        <p className={`card-lead ${cardLeadMarginClass}`}>{t('mfa.subtitle')}</p>
       </div>
 
       {!status ? (
-        <div className="admin-center-container">
+        <div className={adminCenterContainerClass}>
           <div
             className="spinner"
             style={{ width: '24px', height: '24px', borderTopColor: 'var(--accent)' }}
@@ -107,12 +112,17 @@ export function MFASection({
         <EmptyState title={t('mfa.empty_title')} description={t('mfa.empty_desc')} />
       ) : (
         <>
-          <ul className="settings-security-list" role="list">
-            <li className="settings-security-item">
-              <div className="settings-security-item__row">
-                <div className="settings-security-item__identity">
+          <ul
+            className={`flex flex-col gap-0 m-0 p-0 list-none border border-border rounded-lg overflow-hidden bg-bg-secondary`}
+            role="list"
+          >
+            <li
+              className={`py-[0.9rem] px-4 border-b border-border transition-colors duration-150 hover:bg-white/[0.015] last:border-b-0`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-y-[0.4rem] gap-x-[0.55rem] min-w-0">
                   <span
-                    className="settings-security-item__icon"
+                    className="shrink-0 text-[1rem] leading-[1.2]"
                     aria-hidden
                     style={{ display: 'inline-flex', alignItems: 'center' }}
                   >
@@ -133,18 +143,20 @@ export function MFASection({
                       <path d="M12 18h.01" />
                     </svg>
                   </span>
-                  <span className="settings-security-item__name">{t('mfa.method_totp')}</span>
+                  <span className="text-[0.9rem] font-semibold leading-[1.35] break-words">
+                    {t('mfa.method_totp')}
+                  </span>
                   <span
-                    className="badge badge-success admin-badge-active"
+                    className={`badge badge-success ${adminBadgeActiveClass}`}
                     style={{ fontSize: '0.75rem' }}
                   >
                     {t('mfa.status_active')}
                   </span>
                 </div>
-                <div className="settings-security-item__actions">
+                <div className="flex shrink-0 items-center gap-[0.35rem]">
                   <button
                     type="button"
-                    className="btn btn-sm btn-secondary btn-icon-only"
+                    className={`btn btn-sm btn-secondary ${adminBtnIconOnlyClass}`}
                     title={t('mfa.regenerate_recovery_btn')}
                     onClick={onRegenerate}
                     style={{
@@ -173,7 +185,7 @@ export function MFASection({
                   </button>
                 </div>
               </div>
-              <p className="settings-security-item__detail">
+              <p className="mt-[0.45rem] mr-0 mb-0 ml-0 text-foreground-muted text-[0.78rem] leading-[1.45]">
                 {t('mfa.col_enabled_at')}:{' '}
                 {status.verified_at
                   ? formatDateTime(status.verified_at, localeLanguageTag(locale))

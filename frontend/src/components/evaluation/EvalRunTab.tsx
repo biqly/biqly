@@ -58,14 +58,24 @@ function DiffView({
   const expectedStr = JSON.stringify(expected, null, 2)
   const gotStr = JSON.stringify(got, null, 2)
   return (
-    <div className="diff-view">
+    <div
+      className={`grid grid-cols-2 gap-3 p-3 bg-card-raised border border-border rounded-lg mt-2`}
+    >
       <div className="diff-col">
-        <div className="diff-col-header">Expected</div>
-        <pre className="diff-pre">{expectedStr}</pre>
+        <div className="text-[0.72rem] font-bold uppercase tracking-wider text-foreground-faint mb-1.5">
+          Expected
+        </div>
+        <pre className="m-0 font-mono text-[0.7rem] leading-relaxed text-foreground-muted max-h-[250px] overflow-auto whitespace-pre break-all">
+          {expectedStr}
+        </pre>
       </div>
       <div className="diff-col">
-        <div className="diff-col-header">Actual</div>
-        <pre className="diff-pre">{gotStr}</pre>
+        <div className="text-[0.72rem] font-bold uppercase tracking-wider text-foreground-faint mb-1.5">
+          Actual
+        </div>
+        <pre className="m-0 font-mono text-[0.7rem] leading-relaxed text-foreground-muted max-h-[250px] overflow-auto whitespace-pre break-all">
+          {gotStr}
+        </pre>
       </div>
     </div>
   )
@@ -78,21 +88,31 @@ function TestCaseRow({ tc, t }: { tc: EvalTestCase; t: TFunction }) {
   return (
     <>
       <tr>
-        <td className="eval-tc-id">{tc.id}</td>
-        <td className="eval-tc-question">{tc.question}</td>
+        <td className="font-mono text-[0.8rem] text-foreground-muted whitespace-nowrap">{tc.id}</td>
+        <td className="max-w-[320px] overflow-hidden text-ellipsis whitespace-nowrap">
+          {tc.question}
+        </td>
         <td>
-          <span className={`status-badge ${isFail ? 'error' : 'success'}`}>
+          <span
+            className={`inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full ${
+              isFail
+                ? 'bg-[rgba(251,113,133,0.12)] text-error'
+                : 'bg-[rgba(52,211,153,0.12)] text-success'
+            }`}
+          >
             {isFail ? t('evaluation.status_fail_short') : t('evaluation.status_pass_short')}
           </span>
         </td>
-        <td className="eval-tc-confidence">
+        <td className="text-center tabular-nums">
           {tc.confidence !== undefined
             ? `${Math.round(tc.confidence * 100)}%`
             : t('common.em_dash')}
         </td>
         <td>
           {isFail && tc.error_message && (
-            <span className="eval-error-hint">{tc.error_message}</span>
+            <span className="block text-[0.72rem] text-warning mb-1 max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap">
+              {tc.error_message}
+            </span>
           )}
           <button className="btn btn-sm btn-ghost" onClick={() => setOpen(!open)}>
             {open ? t('evaluation.hide_diff') : t('evaluation.show_diff')}
@@ -132,7 +152,11 @@ export function EvalRunTab({
           </div>
         </div>
 
-        {showDemo && <div className="demo-banner">{t('evaluation.demo_banner')}</div>}
+        {showDemo && (
+          <div className="bg-[rgba(251,191,36,0.08)] border border-[rgba(251,191,36,0.25)] rounded-lg px-[0.85rem] py-[0.6rem] text-[0.82rem] text-warning mb-4">
+            {t('evaluation.demo_banner')}
+          </div>
+        )}
 
         <ErrorAlert error={runError} />
       </div>
@@ -140,7 +164,7 @@ export function EvalRunTab({
       {activeData && (
         <>
           {/* KPI Cards */}
-          <div className="kpi-row">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-4">
             <KPICard
               label={t('evaluation.kpi_total_scenarios')}
               value={activeData.total}
@@ -164,7 +188,7 @@ export function EvalRunTab({
           </div>
 
           {/* Charts */}
-          <div className="eval-charts-row">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="card">
               <h3>{t('evaluation.chart_pass_distribution')}</h3>
               <div className="chart-container" style={{ height: 240 }}>
@@ -212,7 +236,9 @@ export function EvalRunTab({
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <p className="eval-empty-chart">{t('evaluation.no_trend_data')}</p>
+                <p className="text-foreground-faint text-[0.85rem] text-center py-8">
+                  {t('evaluation.no_trend_data')}
+                </p>
               )}
             </div>
           </div>
@@ -220,7 +246,7 @@ export function EvalRunTab({
           {/* Test Cases Table */}
           <div className="card">
             <h3>{t('evaluation.test_cases_title')}</h3>
-            <table className="results-table eval-results-table">
+            <table className="results-table mt-2">
               <thead>
                 <tr>
                   <th style={{ width: '80px' }}>ID</th>

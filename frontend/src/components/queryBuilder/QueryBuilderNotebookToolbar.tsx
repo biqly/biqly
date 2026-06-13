@@ -1,5 +1,13 @@
 import { noop } from '../../utils/constants'
 import type { MetadataTFunction } from '../metadata/utils'
+import {
+  qbSqlToggleClass,
+  qbToolbarBtnClass,
+  qbToolbarBtnVariantClass,
+  qbToolbarClass,
+  qbVisualizeBtnClass,
+  qbVisualizeContainerClass,
+} from './queryBuilderClasses'
 
 export function QueryBuilderNotebookToolbar({
   filtersActive,
@@ -33,50 +41,50 @@ export function QueryBuilderNotebookToolbar({
   onPickFirstSort: () => void
 }) {
   return (
-    <div className="notebook-toolbar">
+    <div className={qbToolbarClass}>
       <button
         type="button"
-        className={`toolbar-btn toolbar-btn--filter ${filtersActive ? 'active' : ''}`}
+        className={qbToolbarBtnVariantClass('filter', filtersActive)}
         onClick={onAddFilter}
       >
         + Filter
       </button>
       <button
         type="button"
-        className={`toolbar-btn toolbar-btn--summarize ${isSummarized ? 'active' : ''}`}
+        className={qbToolbarBtnVariantClass('summarize', isSummarized)}
         onClick={onToggleSummarize}
       >
         + Summarize
       </button>
       <button
         type="button"
-        className={`toolbar-btn toolbar-btn--sort ${orderByActive ? 'active' : ''}`}
+        className={qbToolbarBtnVariantClass('sort', orderByActive)}
         onClick={onPickFirstSort}
       >
         + Sort
       </button>
-      <button type="button" className="toolbar-btn toolbar-btn--limit" onClick={noop}>
+      <button type="button" className={qbToolbarBtnVariantClass('limit', false)} onClick={noop}>
         Limit ({limit})
       </button>
       {mode === 'advanced' && (
         <>
           <button
             type="button"
-            className={`toolbar-btn toolbar-btn--advanced ${havingActive ? 'active' : ''}`}
+            className={qbToolbarBtnVariantClass('advanced', havingActive)}
             onClick={onAddHaving}
           >
             + Having
           </button>
           <button
             type="button"
-            className={`toolbar-btn toolbar-btn--advanced ${windowActive ? 'active' : ''}`}
+            className={qbToolbarBtnVariantClass('advanced', windowActive)}
             onClick={onAddWindowFunc}
           >
             + Window Func
           </button>
           <button
             type="button"
-            className={`toolbar-btn toolbar-btn--advanced ${cteActive ? 'active' : ''}`}
+            className={qbToolbarBtnVariantClass('advanced', cteActive)}
             onClick={onAddCte}
           >
             + CTE
@@ -105,14 +113,17 @@ export function QueryBuilderVisualizeFooter({
   if (!show) {
     return null
   }
+  const sqlBtnClass = sqlVisible
+    ? `${qbToolbarBtnClass} border-accent bg-[color-mix(in_srgb,var(--accent)_8%,var(--bg-card-raised))] text-foreground shadow-[0_0_8px_var(--accent-glow)]`
+    : qbToolbarBtnClass
   return (
-    <div className="visualize-btn-container">
-      <button type="button" className="visualize-btn" onClick={onRun} disabled={loading}>
+    <div className={qbVisualizeContainerClass}>
+      <button type="button" className={qbVisualizeBtnClass} onClick={onRun} disabled={loading}>
         {loading ? t('query_builder.running') : 'Visualize'}
       </button>
       <button
         type="button"
-        className={`toolbar-btn qb-sql-toggle${sqlVisible ? ' active' : ''}`}
+        className={`${sqlBtnClass} ${qbSqlToggleClass}`}
         onClick={onToggleSql}
         aria-pressed={sqlVisible}
       >
