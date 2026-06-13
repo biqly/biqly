@@ -6,6 +6,8 @@ import { jobIsActive, jobQuestionPreview } from '../../hooks/useAIJobsUtils'
 import { useConfirm } from '../../hooks/useConfirm'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { AIJob } from '../../types/ai'
 import type { PageQuery } from '../../types/pagination'
 import { formatDurationMs } from '../../utils/formatters'
@@ -37,7 +39,6 @@ import {
   adminTableContainerClass,
   jobDetailModalClass,
 } from './adminClasses'
-
 const POLL_MS = 3000
 
 const DEFAULT_AI_JOBS_PAGE_SIZE = 25
@@ -219,13 +220,17 @@ export function AIJobsAdminPanel() {
       <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', margin: '0.75rem 0' }}>
         <Select value={statusFilter} onChange={setStatusFilter} options={statusOptions} />
         <Select value={kindFilter} onChange={setKindFilter} options={kindOptions} />
-        <button type="button" className="btn btn-sm" onClick={() => void cancelStale()}>
+        <button
+          type="button"
+          className={legacyButtonClass('btn btn-sm')}
+          onClick={() => void cancelStale()}
+        >
           {t('admin.ai_jobs.cancel_stale')}
         </button>
         {staleNote && <span style={{ color: 'var(--text-muted)' }}>{staleNote}</span>}
       </div>
 
-      {error && <p className="error-text">{error}</p>}
+      {error && <p className={legacyFeedbackClass('error-text')}>{error}</p>}
 
       <div
         className={`${aiHistoryTableWrapClass} ${adminTableContainerClass}`}
@@ -406,7 +411,7 @@ export function AIJobsAdminPanel() {
                   <div style={{ marginTop: '0.25rem' }}>
                     <button
                       type="button"
-                      className="btn btn-danger"
+                      className={legacyButtonClass('btn btn-danger')}
                       style={{ width: '100%' }}
                       disabled={busyJobId === selectedJob.id}
                       onClick={() => void cancelJob(selectedJob)}

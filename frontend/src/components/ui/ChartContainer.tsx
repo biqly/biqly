@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { Bar } from 'recharts/es6/cartesian/Bar'
 import { CartesianGrid } from 'recharts/es6/cartesian/CartesianGrid'
 import { Line } from 'recharts/es6/cartesian/Line'
@@ -12,6 +11,8 @@ import { ResponsiveContainer } from 'recharts/es6/component/ResponsiveContainer'
 import { Tooltip } from 'recharts/es6/component/Tooltip'
 import { Pie } from 'recharts/es6/polar/Pie'
 
+import { cn } from '../../lib/cn'
+import { chartContainerClass } from '../../lib/feedbackClasses'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../../utils/chartConfig'
 import { chartColor } from '../../utils/constants'
 
@@ -54,7 +55,7 @@ export function ChartContainer({
 }: ChartContainerProps) {
   return (
     <div
-      className={clsx('chart-container', className)}
+      className={cn(chartContainerClass, className)}
       style={{ height }}
       role="img"
       aria-label={ariaLabel ?? `${type} chart`}

@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { useId } from 'react'
 
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
+import { formControlClass, formFieldClass, formLabelClass } from '../../lib/formClasses'
 interface FormFieldProps {
   label: ReactNode
   value: string
@@ -16,9 +18,9 @@ interface FormFieldProps {
 
 /**
  * Labeled text input with accessible error wiring (Faz 7.2,
- * tasks/frontend-table-pagination-standardization.md). Uses the existing
- * .form-field/.form-label/.input class family; replaces ad-hoc inline-styled
- * label+input pairs. Selects keep using ui/Select directly.
+ * tasks/frontend-table-pagination-standardization.md). Uses formClasses
+ * tokens; replaces ad-hoc inline-styled label+input pairs. Selects keep
+ * using ui/Select directly.
  */
 export function FormField({
   label,
@@ -35,13 +37,13 @@ export function FormField({
   const errorId = error ? `${id}-error` : undefined
 
   return (
-    <div className="form-field">
-      <label className="form-label" htmlFor={id}>
+    <div className={formFieldClass}>
+      <label className={formLabelClass} htmlFor={id}>
         {label}
       </label>
       <input
         id={id}
-        className="input"
+        className={formControlClass}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -53,7 +55,11 @@ export function FormField({
         aria-describedby={errorId}
       />
       {error ? (
-        <p className="mt-1 text-[0.8rem] text-error" id={errorId} role="alert">
+        <p
+          className={legacyFeedbackClass('mt-1 text-[0.8rem] text-error')}
+          id={errorId}
+          role="alert"
+        >
           {error}
         </p>
       ) : null}

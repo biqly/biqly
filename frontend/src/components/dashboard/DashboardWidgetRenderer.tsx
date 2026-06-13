@@ -12,12 +12,12 @@ import { Tooltip } from 'recharts/es6/component/Tooltip'
 import { Pie } from 'recharts/es6/polar/Pie'
 
 import { useApi } from '../../hooks/useApi'
+import { legacyTableClass } from '../../lib/tableClasses'
 import type { LogicalQuery, QueryResultPayload } from '../../types/ai'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../../utils/chartConfig'
 import { chartColor } from '../../utils/constants'
 import { unknownToDisplayString } from '../../utils/formatters'
 import { DashboardLegend } from './DashboardLegend'
-
 export interface DashboardWidget {
   id: string
   type: 'chart' | 'table' | 'kpi' | 'text'
@@ -192,8 +192,14 @@ function WidgetTableView({
   }
 
   return (
-    <div className="results-table-scroll" style={{ maxHeight: '100%', overflowY: 'auto' }}>
-      <table className="results-table" style={{ fontSize: '0.85rem', width: '100%' }}>
+    <div
+      className={legacyTableClass('results-table-scroll')}
+      style={{ maxHeight: '100%', overflowY: 'auto' }}
+    >
+      <table
+        className={legacyTableClass('results-table')}
+        style={{ fontSize: '0.85rem', width: '100%' }}
+      >
         <thead>
           <tr>
             {showCols.map((col) => (

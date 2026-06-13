@@ -16,6 +16,8 @@ import {
 import { type AIModel, type AIProvider, listModels, listProviders } from '../../api/aiProviders'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
@@ -292,10 +294,14 @@ export function AIModelSharingPanel() {
                 placeholder={resourcePlaceholder}
               />
             </label>
-            <div className="flex items-end gap-2 [&_.btn]:w-full [&_.btn]:justify-center">
+            <div
+              className={legacyButtonClass(
+                'flex items-end gap-2 [&_.btn]:w-full [&_.btn]:justify-center',
+              )}
+            >
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
+                className={legacyButtonClass('btn btn-primary btn-sm')}
                 disabled={submitting || !targetID || !resourceID}
                 onClick={() => {
                   void handleGrant()
@@ -327,7 +333,9 @@ export function AIModelSharingPanel() {
               {grantItems.map((item) => (
                 <li
                   key={item.key}
-                  className={`flex items-center justify-between gap-3 py-2.5 px-3 border border-border rounded-lg bg-card-raised`}
+                  className={legacyCardClass(
+                    'flex items-center justify-between gap-3 py-2.5 px-3 border border-border rounded-lg bg-card-raised',
+                  )}
                 >
                   <div className="min-w-0 flex-1 flex flex-col gap-1.5">
                     <div className="flex flex-wrap gap-1.5">
@@ -348,7 +356,7 @@ export function AIModelSharingPanel() {
                   </div>
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm shrink-0 w-auto m-0"
+                    className={legacyButtonClass('btn btn-secondary btn-sm shrink-0 w-auto m-0')}
                     onClick={() => {
                       void revoke(item.onRevoke)
                     }}

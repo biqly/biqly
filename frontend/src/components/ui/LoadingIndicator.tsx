@@ -1,4 +1,6 @@
 import abiLogo from '../../assets/abi-logo.png'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
 
 interface LoadingIndicatorProps {
   label?: string
@@ -11,7 +13,12 @@ export function LoadingIndicator({ label, size = 'md', className, style }: Loadi
   return (
     <div
       style={style}
-      className={`inline-flex items-center gap-[0.65rem] max-w-[min(18rem,calc(100vw-2rem))] p-[0.4rem_0.85rem_0.4rem_0.4rem] rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-card)_88%,transparent)] [data-theme='light']_&]:bg-[color-mix(in_srgb,var(--bg-card)_92%,transparent)] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-[10px] pointer-events-none ${className ?? ''}`}
+      className={cn(
+        legacyCardClass(
+          "inline-flex items-center gap-[0.65rem] max-w-[min(18rem,calc(100vw-2rem))] p-[0.4rem_0.85rem_0.4rem_0.4rem] rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-card)_88%,transparent)] [data-theme='light']_&]:bg-[color-mix(in_srgb,var(--bg-card)_92%,transparent)] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-[10px] pointer-events-none",
+        ),
+        className ?? '',
+      )}
     >
       <div
         className={`relative shrink-0 ${size === 'sm' ? 'w-7 h-7' : 'w-9 h-9'}`}

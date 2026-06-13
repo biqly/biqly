@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { useToast } from '../hooks/useToast'
 import { type TranslationKey, useT } from '../i18n'
+import { legacyCardClass } from '../lib/cardClasses'
 import type { SavedQuestion } from './savedQuestions/types'
 import { EmptyState } from './ui/EmptyState'
 import { Skeleton } from './ui/Skeleton'
@@ -105,7 +106,9 @@ export default function Home() {
             <button
               key={action.path}
               type="button"
-              className={`flex flex-col items-start gap-[0.65rem] border border-border rounded-[0.7rem] bg-card p-4 cursor-pointer text-foreground text-left transition-all duration-140 ease-out hover:border-accent hover:bg-[var(--accent-glow)] hover:-translate-y-0.5`}
+              className={legacyCardClass(
+                'flex flex-col items-start gap-[0.65rem] border border-border rounded-[0.7rem] bg-card p-4 cursor-pointer text-foreground text-left transition-all duration-140 ease-out hover:border-accent hover:bg-[var(--accent-glow)] hover:-translate-y-0.5',
+              )}
               onClick={() => {
                 void navigate(action.path)
               }}
@@ -159,7 +162,7 @@ function RecentQueries() {
   }, [get])
 
   return (
-    <section className="card min-w-0">
+    <section className={legacyCardClass('card min-w-0')}>
       <h2 className="m-0 mb-[0.85rem] text-[1rem] font-semibold tracking-[-0.01em]">
         {t('home.recent_queries')}
       </h2>
@@ -182,7 +185,9 @@ function RecentQueries() {
             <li key={item.id}>
               <button
                 type="button"
-                className="flex flex-col gap-[0.2rem] w-full rounded-[0.5rem] py-[0.6rem] px-[0.65rem] border-0 bg-transparent cursor-pointer text-left text-foreground font-inherit hover:bg-card-raised"
+                className={legacyCardClass(
+                  'flex flex-col gap-[0.2rem] w-full rounded-[0.5rem] py-[0.6rem] px-[0.65rem] border-0 bg-transparent cursor-pointer text-left text-foreground font-inherit hover:bg-card-raised',
+                )}
                 onClick={() => {
                   void navigate('/ai-query', { state: { question: item.question } })
                 }}
@@ -236,7 +241,7 @@ function Favorites() {
   )
 
   return (
-    <section className="card min-w-0">
+    <section className={legacyCardClass('card min-w-0')}>
       <h2 className="m-0 mb-[0.85rem] text-[1rem] font-semibold tracking-[-0.01em]">
         {t('home.favorites')}
       </h2>
@@ -259,7 +264,9 @@ function Favorites() {
             <li key={item.id} className="flex items-center gap-[0.35rem]">
               <button
                 type="button"
-                className="flex flex-col gap-[0.2rem] w-full rounded-[0.5rem] py-[0.6rem] px-[0.65rem] border-0 bg-transparent cursor-pointer text-left text-foreground font-inherit hover:bg-card-raised min-w-0 flex-1"
+                className={legacyCardClass(
+                  'flex flex-col gap-[0.2rem] w-full rounded-[0.5rem] py-[0.6rem] px-[0.65rem] border-0 bg-transparent cursor-pointer text-left text-foreground font-inherit hover:bg-card-raised min-w-0 flex-1',
+                )}
                 onClick={() => {
                   void navigate('/saved')
                 }}
@@ -274,7 +281,9 @@ function Favorites() {
               </button>
               <button
                 type="button"
-                className="shrink-0 border-0 bg-transparent text-warning cursor-pointer text-[1.1rem] leading-none p-[0.3rem] rounded-[0.4rem] hover:bg-card-raised"
+                className={legacyCardClass(
+                  'shrink-0 border-0 bg-transparent text-warning cursor-pointer text-[1.1rem] leading-none p-[0.3rem] rounded-[0.4rem] hover:bg-card-raised',
+                )}
                 onClick={() => {
                   void unfavorite(item)
                 }}

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 
 import { useAdminApi } from '../../hooks/useApi'
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
 import type { Experiment } from './ABExperimentForm'
 
 interface ABExperimentListProps {
@@ -27,7 +29,7 @@ export function ABExperimentList({ onSelect, onCreate }: ABExperimentListProps) 
   }, [get, statusFilter])
 
   return (
-    <div className={`bg-card border border-border rounded-lg p-6 shadow-card-sm`}>
+    <div className={legacyCardClass('bg-card border border-border rounded-lg p-6 shadow-card-sm')}>
       <div className={`flex justify-between items-center gap-4 border-b border-border pb-4`}>
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold m-0">{t('admin.ab_experiments.title')}</h1>
@@ -35,7 +37,7 @@ export function ABExperimentList({ onSelect, onCreate }: ABExperimentListProps) 
             {t('admin.ab_experiments.description')}
           </p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={onCreate}>
+        <button type="button" className={legacyButtonClass('btn btn-primary')} onClick={onCreate}>
           {t('admin.ab_experiments.create_btn')}
         </button>
       </div>
@@ -75,27 +77,37 @@ export function ABExperimentList({ onSelect, onCreate }: ABExperimentListProps) 
           <thead>
             <tr>
               <th
-                className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                className={legacyCardClass(
+                  'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                )}
               >
                 {t('admin.ab_experiments.col_name')}
               </th>
               <th
-                className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                className={legacyCardClass(
+                  'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                )}
               >
                 {t('admin.ab_experiments.col_template')}
               </th>
               <th
-                className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                className={legacyCardClass(
+                  'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                )}
               >
                 {t('admin.ab_experiments.col_locale')}
               </th>
               <th
-                className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                className={legacyCardClass(
+                  'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                )}
               >
                 {t('admin.ab_experiments.col_status')}
               </th>
               <th
-                className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                className={legacyCardClass(
+                  'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                )}
               >
                 {t('admin.ab_experiments.col_actions')}
               </th>
@@ -132,7 +144,7 @@ export function ABExperimentList({ onSelect, onCreate }: ABExperimentListProps) 
                 <td className={`px-4 py-3 border-b border-border text-sm`}>
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm"
+                    className={legacyButtonClass('btn btn-secondary btn-sm')}
                     onClick={() => exp.id && onSelect(exp.id)}
                   >
                     {t('common.edit')} / {t('admin.ai_history.detail')}

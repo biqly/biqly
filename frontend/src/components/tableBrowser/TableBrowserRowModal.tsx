@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { useT } from '../../i18n'
+import { legacyTableClass } from '../../lib/tableClasses'
 import type { SemanticJoin } from '../../types/semantic'
 import { formatResultCell } from '../../utils/resultCellFormat'
 import { tableKey } from '../modeling/utils'
@@ -16,6 +17,7 @@ import {
   rowModalListScrollClass,
   rowModalListSentinelClass,
   rowModalNavClass,
+  rowModalNavCrumbClass,
   rowModalNavPathClass,
   rowModalRelatedCardBadgeClass,
   rowModalRelatedCardClass,
@@ -33,7 +35,6 @@ import {
   tableBrowserDetailValueClass,
 } from './tableBrowserClasses'
 import { buildTableRowsUrl, type TableRowsResult } from './useTableBrowserQueryState'
-
 const RELATED_PAGE_SIZE = 25
 
 type Translate = ReturnType<typeof useT>
@@ -350,7 +351,11 @@ function RelatedListView({
   return (
     <div className={rowModalListClass}>
       <div className={rowModalListScrollClass}>
-        <table className="results-table w-full border-collapse text-left text-sm max-[899px]:min-w-[36rem] max-[680px]:min-w-[32rem]">
+        <table
+          className={legacyTableClass(
+            'results-table w-full border-collapse text-left text-sm max-[899px]:min-w-[36rem] max-[680px]:min-w-[32rem]',
+          )}
+        >
           <thead>
             <tr>
               {columns.map((c) => (
@@ -500,7 +505,7 @@ export function TableBrowserRowModal({
           </button>
           <span className={rowModalNavPathClass}>
             {frames.map((f, i) => (
-              <span key={i} className="row-modal-nav__crumb">
+              <span key={i} className={rowModalNavCrumbClass}>
                 {i > 0 && ' › '}
                 {f.table}
               </span>

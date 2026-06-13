@@ -3,11 +3,18 @@ import { useCallback, useEffect, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
+import { legacyButtonClass } from '../lib/buttonClasses'
+import { legacyCardClass } from '../lib/cardClasses'
+import { cn } from '../lib/cn'
+import { formRowClass, legacyFormClass } from '../lib/formClasses'
+import { legacyLayoutClass } from '../lib/layoutClasses'
+import { modalActionsBorderedClass } from '../lib/modalClasses'
 import type { LogicalQuery, SelectField } from '../types/ai'
 import { DashboardWidgetRenderer } from './dashboard/DashboardWidgetRenderer'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingOverlay } from './ui/LoadingOverlay'
 import { LoadingScreen } from './ui/LoadingScreen'
+import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
 
 interface Widget {
@@ -285,12 +292,12 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
   }
 
   return (
-    <div className="page-stack" style={{ position: 'relative' }}>
+    <div className={legacyLayoutClass('page-stack')} style={{ position: 'relative' }}>
       <LoadingOverlay loading={loading}>
         {error && <ErrorAlert error={error} />}
 
         {/* Header Panel */}
-        <div className="card">
+        <div className={legacyCardClass('card')}>
           <div
             style={{
               display: 'flex',
@@ -303,7 +310,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
             <div>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className={legacyButtonClass('btn btn-secondary btn-sm')}
                 onClick={onBack}
                 style={{ marginBottom: '0.5rem' }}
               >
@@ -321,7 +328,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                 <>
                   <button
                     type="button"
-                    className="btn btn-secondary"
+                    className={legacyButtonClass('btn btn-secondary')}
                     onClick={() => {
                       setIsEditMode(false)
                       void fetchDashboard()
@@ -331,7 +338,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                   </button>
                   <button
                     type="button"
-                    className="btn btn-primary"
+                    className={legacyButtonClass('btn btn-primary')}
                     onClick={() => {
                       void handleSaveLayout()
                     }}
@@ -343,7 +350,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
               ) : (
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className={legacyButtonClass('btn btn-primary')}
                   onClick={() => setIsEditMode(true)}
                 >
                   ✏️ Edit Layout
@@ -375,28 +382,28 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
               </span>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className={legacyButtonClass('btn btn-secondary btn-sm')}
                 onClick={() => handleAddWidget('kpi')}
               >
                 ➕ KPI
               </button>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className={legacyButtonClass('btn btn-secondary btn-sm')}
                 onClick={() => handleAddWidget('chart')}
               >
                 ➕ Chart
               </button>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className={legacyButtonClass('btn btn-secondary btn-sm')}
                 onClick={() => handleAddWidget('table')}
               >
                 ➕ Table
               </button>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className={legacyButtonClass('btn btn-secondary btn-sm')}
                 onClick={() => handleAddWidget('text')}
               >
                 ➕ Text
@@ -408,7 +415,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
         {/* Widgets Grid */}
         {widgets.length === 0 ? (
           <div
-            className="card"
+            className={legacyCardClass('card')}
             style={{
               padding: '6rem 2rem',
               textAlign: 'center',
@@ -427,14 +434,14 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
               >
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className={legacyButtonClass('btn btn-secondary')}
                   onClick={() => handleAddWidget('chart')}
                 >
                   Add Chart
                 </button>
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className={legacyButtonClass('btn btn-secondary')}
                   onClick={() => handleAddWidget('kpi')}
                 >
                   Add KPI
@@ -457,7 +464,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                 onDragStart={(e) => handleDragStart(e, idx)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => handleDrop(e, idx)}
-                className="card card--elevated"
+                className={legacyCardClass('card card--elevated')}
                 style={{
                   gridColumn: `span ${widget.w || 6}`,
                   minHeight: heightPixels(widget.h),
@@ -490,7 +497,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       {/* Width Resize */}
                       <button
                         type="button"
-                        className="btn btn-secondary btn-sm"
+                        className={legacyButtonClass('btn btn-secondary btn-sm')}
                         style={{ padding: '0.1rem 0.3rem', fontSize: '0.75rem' }}
                         onClick={() => {
                           const newW = Math.max(2, (widget.w || 6) - 1)
@@ -508,7 +515,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       </span>
                       <button
                         type="button"
-                        className="btn btn-secondary btn-sm"
+                        className={legacyButtonClass('btn btn-secondary btn-sm')}
                         style={{ padding: '0.1rem 0.3rem', fontSize: '0.75rem' }}
                         onClick={() => {
                           const newW = Math.min(12, (widget.w || 6) + 1)
@@ -525,7 +532,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       {/* Config / Delete */}
                       <button
                         type="button"
-                        className="btn btn-secondary btn-sm"
+                        className={legacyButtonClass('btn btn-secondary btn-sm')}
                         style={{ padding: '0.1rem 0.3rem' }}
                         onClick={() => handleOpenConfig(widget)}
                         title="Configure Widget"
@@ -534,7 +541,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       </button>
                       <button
                         type="button"
-                        className="btn btn-danger btn-sm"
+                        className={legacyButtonClass('btn btn-danger btn-sm')}
                         style={{ padding: '0.1rem 0.3rem' }}
                         onClick={() => handleDeleteWidget(widget.id)}
                         title="Delete Widget"
@@ -555,349 +562,330 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
         )}
 
         {/* Widget Editor Configuration Modal */}
-        {isConfigModalOpen && (
-          <div className="modal-backdrop">
-            <div className="modal-content" style={{ maxWidth: '600px', width: '90%' }}>
-              <div className="modal-header">
-                <h3>Configure Widget</h3>
-                <button
-                  type="button"
-                  className="modal-close"
-                  onClick={() => setIsConfigModalOpen(false)}
-                >
-                  ✕
-                </button>
-              </div>
+        <Modal
+          open={isConfigModalOpen}
+          onClose={() => setIsConfigModalOpen(false)}
+          title="Configure Widget"
+          className="w-[90%] max-w-[37.5rem]"
+          bodyClassName="flex max-h-[70vh] flex-col gap-5 overflow-y-auto"
+        >
+          <div className={legacyFormClass('form-field')}>
+            <label className={legacyFormClass('form-label')} htmlFor="w-title">
+              Widget Title
+            </label>
+            <input
+              id="w-title"
+              type="text"
+              value={configTitle}
+              onChange={(e) => setConfigTitle(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className={formRowClass}>
+            <div className={legacyFormClass('form-field')} style={{ flex: 1 }}>
+              <label className={legacyFormClass('form-label')} htmlFor="w-width">
+                Width Grid Span (2-12 Columns)
+              </label>
+              <Select
+                id="w-width"
+                value={configWidth.toString()}
+                onChange={(val) => setConfigWidth(parseInt(val, 10))}
+                options={Array.from({ length: 11 }, (_, i) => ({
+                  value: (i + 2).toString(),
+                  label: `${i + 2} Columns`,
+                }))}
+              />
+            </div>
+            <div className={legacyFormClass('form-field')} style={{ flex: 1 }}>
+              <label className={legacyFormClass('form-label')} htmlFor="w-height">
+                Height Class
+              </label>
+              <Select
+                id="w-height"
+                value={configHeight}
+                onChange={setConfigHeight}
+                options={[
+                  { value: 'small', label: 'Small (180px)' },
+                  { value: 'medium', label: 'Medium (300px)' },
+                  { value: 'large', label: 'Large (440px)' },
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className={legacyFormClass('form-field')}>
+            <label className={legacyFormClass('form-label')} htmlFor="w-type">
+              Widget Type
+            </label>
+            <Select
+              id="w-type"
+              value={configType}
+              onChange={setConfigType}
+              options={[
+                { value: 'text', label: 'Text Block' },
+                { value: 'kpi', label: 'KPI Summary Card' },
+                { value: 'chart', label: 'Chart Visualization' },
+                { value: 'table', label: 'Data Table' },
+              ]}
+            />
+          </div>
+
+          {configType === 'text' ? (
+            <div className={legacyFormClass('form-field')}>
+              <label className={legacyFormClass('form-label')} htmlFor="w-content">
+                Text Content
+              </label>
+              <textarea
+                id="w-content"
+                value={configContent}
+                onChange={(e) => setConfigContent(e.target.value)}
+                placeholder="Write text/markdown here..."
+                rows={6}
+              />
+            </div>
+          ) : (
+            <>
               <div
-                className="modal-body"
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '1.25rem',
-                  maxHeight: '70vh',
-                  overflowY: 'auto',
+                  padding: '0.8rem',
+                  border: '1px solid var(--border)',
+                  borderRadius: '0.5rem',
+                  background: 'var(--bg-card-raised)',
                 }}
               >
-                <div className="form-field">
-                  <label className="form-label" htmlFor="w-title">
-                    Widget Title
-                  </label>
-                  <input
-                    id="w-title"
-                    type="text"
-                    value={configTitle}
-                    onChange={(e) => setConfigTitle(e.target.value)}
-                    required
-                  />
-                </div>
+                <h4 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', fontWeight: 600 }}>
+                  Link Saved Query Data Source
+                </h4>
 
-                <div className="form-row">
-                  <div className="form-field" style={{ flex: 1 }}>
-                    <label className="form-label" htmlFor="w-width">
-                      Width Grid Span (2-12 Columns)
+                <div className={cn(formRowClass, 'mb-[0.8rem] gap-3')}>
+                  <div className={legacyFormClass('form-field')} style={{ flex: 1 }}>
+                    <label className={legacyFormClass('form-label')} htmlFor="w-ds">
+                      Datasource
                     </label>
                     <Select
-                      id="w-width"
-                      value={configWidth.toString()}
-                      onChange={(val) => setConfigWidth(parseInt(val, 10))}
-                      options={Array.from({ length: 11 }, (_, i) => ({
-                        value: (i + 2).toString(),
-                        label: `${i + 2} Columns`,
-                      }))}
+                      id="w-ds"
+                      value={selDatasourceId}
+                      onChange={(val) => {
+                        setSelDatasourceId(val)
+                        setSelModelId('')
+                        setSelQuestionId('')
+                      }}
+                      options={datasources.map((d) => ({ value: d.id, label: d.name }))}
                     />
                   </div>
-                  <div className="form-field" style={{ flex: 1 }}>
-                    <label className="form-label" htmlFor="w-height">
-                      Height Class
+                  <div className={legacyFormClass('form-field')} style={{ flex: 1 }}>
+                    <label className={legacyFormClass('form-label')} htmlFor="w-model">
+                      Model
                     </label>
                     <Select
-                      id="w-height"
-                      value={configHeight}
-                      onChange={setConfigHeight}
+                      id="w-model"
+                      value={selModelId}
+                      onChange={(val) => {
+                        setSelModelId(val)
+                        setSelQuestionId('')
+                      }}
                       options={[
-                        { value: 'small', label: 'Small (180px)' },
-                        { value: 'medium', label: 'Medium (300px)' },
-                        { value: 'large', label: 'Large (440px)' },
+                        { value: '', label: 'All Models' },
+                        ...models.map((m) => ({ value: m.id, label: m.label ?? m.name })),
                       ]}
                     />
                   </div>
                 </div>
 
-                <div className="form-field">
-                  <label className="form-label" htmlFor="w-type">
-                    Widget Type
+                <div className={legacyFormClass('form-field')}>
+                  <label className={legacyFormClass('form-label')} htmlFor="w-question">
+                    Saved Question (Query)
                   </label>
                   <Select
-                    id="w-type"
-                    value={configType}
-                    onChange={setConfigType}
+                    id="w-question"
+                    value={selQuestionId}
+                    onChange={handleQuestionChange}
                     options={[
-                      { value: 'text', label: 'Text Block' },
-                      { value: 'kpi', label: 'KPI Summary Card' },
-                      { value: 'chart', label: 'Chart Visualization' },
-                      { value: 'table', label: 'Data Table' },
+                      { value: '', label: 'Select Saved Question...' },
+                      ...savedQuestions.map((q) => ({
+                        value: q.id,
+                        label: q.name || q.question,
+                      })),
                     ]}
                   />
                 </div>
+              </div>
 
-                {configType === 'text' ? (
-                  <div className="form-field">
-                    <label className="form-label" htmlFor="w-content">
-                      Text Content
-                    </label>
-                    <textarea
-                      id="w-content"
-                      value={configContent}
-                      onChange={(e) => setConfigContent(e.target.value)}
-                      placeholder="Write text/markdown here..."
-                      rows={6}
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <div
-                      style={{
-                        padding: '0.8rem',
-                        border: '1px solid var(--border)',
-                        borderRadius: '0.5rem',
-                        background: 'var(--bg-card-raised)',
-                      }}
-                    >
-                      <h4 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', fontWeight: 600 }}>
-                        Link Saved Query Data Source
-                      </h4>
+              {selQuestionId && availableColumns.length > 0 && (
+                <div
+                  style={{
+                    padding: '0.8rem',
+                    border: '1px solid var(--border)',
+                    borderRadius: '0.5rem',
+                    marginTop: '0.5rem',
+                  }}
+                >
+                  <h4 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', fontWeight: 600 }}>
+                    Map Fields / Columns
+                  </h4>
 
-                      <div className="form-row" style={{ gap: '0.75rem', marginBottom: '0.8rem' }}>
-                        <div className="form-field" style={{ flex: 1 }}>
-                          <label className="form-label" htmlFor="w-ds">
-                            Datasource
-                          </label>
-                          <Select
-                            id="w-ds"
-                            value={selDatasourceId}
-                            onChange={(val) => {
-                              setSelDatasourceId(val)
-                              setSelModelId('')
-                              setSelQuestionId('')
-                            }}
-                            options={datasources.map((d) => ({ value: d.id, label: d.name }))}
-                          />
-                        </div>
-                        <div className="form-field" style={{ flex: 1 }}>
-                          <label className="form-label" htmlFor="w-model">
-                            Model
-                          </label>
-                          <Select
-                            id="w-model"
-                            value={selModelId}
-                            onChange={(val) => {
-                              setSelModelId(val)
-                              setSelQuestionId('')
-                            }}
-                            options={[
-                              { value: '', label: 'All Models' },
-                              ...models.map((m) => ({ value: m.id, label: m.label ?? m.name })),
-                            ]}
-                          />
-                        </div>
-                      </div>
+                  {configType === 'kpi' && (
+                    <div className={legacyFormClass('form-field')}>
+                      <label className={legacyFormClass('form-label')} htmlFor="w-kpi-col">
+                        KPI Metric Column
+                      </label>
+                      <Select
+                        id="w-kpi-col"
+                        value={valueColumn}
+                        onChange={setValueColumn}
+                        options={availableColumns.map((col) => ({ value: col, label: col }))}
+                      />
+                    </div>
+                  )}
 
-                      <div className="form-field">
-                        <label className="form-label" htmlFor="w-question">
-                          Saved Question (Query)
+                  {configType === 'chart' && (
+                    <div style={{ display: 'grid', gap: '1rem' }}>
+                      <div className={legacyFormClass('form-field')}>
+                        <label className={legacyFormClass('form-label')} htmlFor="w-chart-type">
+                          Chart Visualization Type
                         </label>
                         <Select
-                          id="w-question"
-                          value={selQuestionId}
-                          onChange={handleQuestionChange}
+                          id="w-chart-type"
+                          value={configChartType}
+                          onChange={setConfigChartType}
                           options={[
-                            { value: '', label: 'Select Saved Question...' },
-                            ...savedQuestions.map((q) => ({
-                              value: q.id,
-                              label: q.name || q.question,
-                            })),
+                            { value: 'line', label: '📈 Line Chart' },
+                            { value: 'bar', label: '📊 Bar Chart' },
+                            { value: 'pie', label: '🍕 Pie Chart' },
                           ]}
                         />
                       </div>
-                    </div>
 
-                    {selQuestionId && availableColumns.length > 0 && (
-                      <div
-                        style={{
-                          padding: '0.8rem',
-                          border: '1px solid var(--border)',
-                          borderRadius: '0.5rem',
-                          marginTop: '0.5rem',
-                        }}
-                      >
-                        <h4 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', fontWeight: 600 }}>
-                          Map Fields / Columns
-                        </h4>
-
-                        {configType === 'kpi' && (
-                          <div className="form-field">
-                            <label className="form-label" htmlFor="w-kpi-col">
-                              KPI Metric Column
-                            </label>
-                            <Select
-                              id="w-kpi-col"
-                              value={valueColumn}
-                              onChange={setValueColumn}
-                              options={availableColumns.map((col) => ({ value: col, label: col }))}
-                            />
-                          </div>
-                        )}
-
-                        {configType === 'chart' && (
-                          <div style={{ display: 'grid', gap: '1rem' }}>
-                            <div className="form-field">
-                              <label className="form-label" htmlFor="w-chart-type">
-                                Chart Visualization Type
-                              </label>
-                              <Select
-                                id="w-chart-type"
-                                value={configChartType}
-                                onChange={setConfigChartType}
-                                options={[
-                                  { value: 'line', label: '📈 Line Chart' },
-                                  { value: 'bar', label: '📊 Bar Chart' },
-                                  { value: 'pie', label: '🍕 Pie Chart' },
-                                ]}
-                              />
-                            </div>
-
-                            <div className="form-row" style={{ gap: '0.75rem' }}>
-                              <div className="form-field" style={{ flex: 1 }}>
-                                <label className="form-label" htmlFor="w-xaxis">
-                                  X-Axis Category Column
-                                </label>
-                                <Select
-                                  id="w-xaxis"
-                                  value={xAxisColumn}
-                                  onChange={setXAxisColumn}
-                                  options={availableColumns.map((col) => ({
-                                    value: col,
-                                    label: col,
-                                  }))}
-                                />
-                              </div>
-                              <div className="form-field" style={{ flex: 1 }}>
-                                <label className="form-label">
-                                  Y-Axis Metric Series (Select multiple)
-                                </label>
-                                <div
+                      <div className={cn(formRowClass, 'gap-3')}>
+                        <div className={legacyFormClass('form-field')} style={{ flex: 1 }}>
+                          <label className={legacyFormClass('form-label')} htmlFor="w-xaxis">
+                            X-Axis Category Column
+                          </label>
+                          <Select
+                            id="w-xaxis"
+                            value={xAxisColumn}
+                            onChange={setXAxisColumn}
+                            options={availableColumns.map((col) => ({
+                              value: col,
+                              label: col,
+                            }))}
+                          />
+                        </div>
+                        <div className={legacyFormClass('form-field')} style={{ flex: 1 }}>
+                          <label className={legacyFormClass('form-label')}>
+                            Y-Axis Metric Series (Select multiple)
+                          </label>
+                          <div
+                            style={{
+                              maxHeight: '100px',
+                              overflowY: 'auto',
+                              border: '1px solid var(--border)',
+                              padding: '0.4rem',
+                              borderRadius: '0.4rem',
+                            }}
+                          >
+                            {availableColumns.map((col) => {
+                              const checked = yAxisColumns.includes(col)
+                              return (
+                                <label
+                                  key={col}
                                   style={{
-                                    maxHeight: '100px',
-                                    overflowY: 'auto',
-                                    border: '1px solid var(--border)',
-                                    padding: '0.4rem',
-                                    borderRadius: '0.4rem',
+                                    display: 'flex',
+                                    gap: '0.4rem',
+                                    alignItems: 'center',
+                                    fontSize: '0.8rem',
+                                    padding: '0.1rem 0',
+                                    cursor: 'pointer',
                                   }}
                                 >
-                                  {availableColumns.map((col) => {
-                                    const checked = yAxisColumns.includes(col)
-                                    return (
-                                      <label
-                                        key={col}
-                                        style={{
-                                          display: 'flex',
-                                          gap: '0.4rem',
-                                          alignItems: 'center',
-                                          fontSize: '0.8rem',
-                                          padding: '0.1rem 0',
-                                          cursor: 'pointer',
-                                        }}
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          checked={checked}
-                                          onChange={() => {
-                                            if (checked) {
-                                              setYAxisColumns(yAxisColumns.filter((y) => y !== col))
-                                            } else {
-                                              setYAxisColumns([...yAxisColumns, col])
-                                            }
-                                          }}
-                                        />
-                                        {col}
-                                      </label>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => {
+                                      if (checked) {
+                                        setYAxisColumns(yAxisColumns.filter((y) => y !== col))
+                                      } else {
+                                        setYAxisColumns([...yAxisColumns, col])
+                                      }
+                                    }}
+                                  />
+                                  {col}
+                                </label>
+                              )
+                            })}
                           </div>
-                        )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                        {configType === 'table' && (
-                          <div className="form-field">
-                            <label className="form-label">Visible Table Columns</label>
-                            <div
+                  {configType === 'table' && (
+                    <div className={legacyFormClass('form-field')}>
+                      <label className={legacyFormClass('form-label')}>Visible Table Columns</label>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '0.8rem',
+                          border: '1px solid var(--border)',
+                          padding: '0.6rem',
+                          borderRadius: '0.4rem',
+                        }}
+                      >
+                        {availableColumns.map((col) => {
+                          const checked = visibleColumns.includes(col)
+                          return (
+                            <label
+                              key={col}
                               style={{
                                 display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: '0.8rem',
-                                border: '1px solid var(--border)',
-                                padding: '0.6rem',
-                                borderRadius: '0.4rem',
+                                gap: '0.4rem',
+                                alignItems: 'center',
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
                               }}
                             >
-                              {availableColumns.map((col) => {
-                                const checked = visibleColumns.includes(col)
-                                return (
-                                  <label
-                                    key={col}
-                                    style={{
-                                      display: 'flex',
-                                      gap: '0.4rem',
-                                      alignItems: 'center',
-                                      fontSize: '0.8rem',
-                                      cursor: 'pointer',
-                                    }}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={checked}
-                                      onChange={() => {
-                                        if (checked) {
-                                          setVisibleColumns(visibleColumns.filter((c) => c !== col))
-                                        } else {
-                                          setVisibleColumns([...visibleColumns, col])
-                                        }
-                                      }}
-                                    />
-                                    {col}
-                                  </label>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  if (checked) {
+                                    setVisibleColumns(visibleColumns.filter((c) => c !== col))
+                                  } else {
+                                    setVisibleColumns([...visibleColumns, col])
+                                  }
+                                }}
+                              />
+                              {col}
+                            </label>
+                          )
+                        })}
                       </div>
-                    )}
-                  </>
-                )}
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setIsConfigModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={handleSaveConfig}
-                  disabled={configType !== 'text' && !selQuestionId}
-                >
-                  Apply Configuration
-                </button>
-              </div>
-            </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+          <div className={modalActionsBorderedClass()}>
+            <button
+              type="button"
+              className={legacyButtonClass('btn btn-secondary')}
+              onClick={() => setIsConfigModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={legacyButtonClass('btn btn-primary')}
+              onClick={handleSaveConfig}
+              disabled={configType !== 'text' && !selQuestionId}
+            >
+              Apply Configuration
+            </button>
           </div>
-        )}
+        </Modal>
       </LoadingOverlay>
     </div>
   )

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { legacyButtonClass } from '../../lib/buttonClasses'
 import type { QueryResultPayload } from '../../types/ai'
 import { normalizeAIQueryResponse } from '../../utils/normalizeAIQueryResponse'
 import { buildPivotTable } from '../../utils/pivotTable'
@@ -290,7 +291,7 @@ export function AssistantMessageCard({
         {result.logical_query && (
           <button
             type="button"
-            className="btn btn-sm btn-ghost"
+            className={legacyButtonClass('btn btn-sm btn-ghost')}
             style={{
               marginLeft: 'auto',
               display: 'inline-flex',

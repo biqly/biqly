@@ -1,8 +1,11 @@
 import type { TFunction } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { evalStatusBadgeClass } from '../../lib/feedbackClasses'
+import { legacyTableClass } from '../../lib/tableClasses'
 import type { EvalRunDetail, EvalRunSummary } from '../../types/ai'
 import { getRateColor } from '../../utils/formatters'
 import { KPICard } from '../ui/KPICard'
-
 interface EvalHistoryTabProps {
   runHistory: EvalRunSummary[]
   selectedRun: EvalRunDetail | null
@@ -22,14 +25,14 @@ export function EvalHistoryTab({
 }: EvalHistoryTabProps) {
   if (!selectedRun) {
     return (
-      <div className="card">
+      <div className={legacyCardClass('card')}>
         <h3>{t('evaluation.history_title')}</h3>
         {runHistory.length === 0 ? (
           <p className="text-foreground-faint text-[0.85rem] text-center py-8">
             {t('evaluation.history_empty')}
           </p>
         ) : (
-          <table className="results-table">
+          <table className={legacyTableClass('results-table')}>
             <thead>
               <tr>
                 <th>{t('evaluation.hist_date')}</th>
@@ -60,7 +63,10 @@ export function EvalHistoryTab({
                   </td>
                   <td>v{r.prompt_template_bundle_version ?? 0}</td>
                   <td>
-                    <button className="btn btn-sm" onClick={() => loadRunDetail(r.run_id)}>
+                    <button
+                      className={legacyButtonClass('btn btn-sm')}
+                      onClick={() => loadRunDetail(r.run_id)}
+                    >
                       {t('evaluation.detail_btn')}
                     </button>
                   </td>
@@ -76,7 +82,7 @@ export function EvalHistoryTab({
   return (
     <>
       <div style={{ marginBottom: '0.5rem' }}>
-        <button className="btn-back" onClick={() => setSelectedRun(null)}>
+        <button className={legacyButtonClass('btn-back')} onClick={() => setSelectedRun(null)}>
           {t('evaluation.back')}
         </button>
       </div>
@@ -102,14 +108,14 @@ export function EvalHistoryTab({
           color="var(--warning)"
         />
       </div>
-      <div className="card">
+      <div className={legacyCardClass('card')}>
         <h3>
           {t('evaluation.detail_cases_title', {
             model: selectedRun.summary.model,
             date: new Date(selectedRun.summary.completed_at).toLocaleString(localeTag),
           })}
         </h3>
-        <table className="results-table mt-2">
+        <table className={legacyTableClass('results-table mt-2')}>
           <thead>
             <tr>
               <th>{t('evaluation.col_scenario')}</th>
@@ -126,13 +132,7 @@ export function EvalHistoryTab({
                 <td>{tc.case_id}</td>
                 <td>{tc.question}</td>
                 <td>
-                  <span
-                    className={`inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full ${
-                      tc.match
-                        ? 'bg-[rgba(52,211,153,0.12)] text-success'
-                        : 'bg-[rgba(251,113,133,0.12)] text-error'
-                    }`}
-                  >
+                  <span className={evalStatusBadgeClass(tc.match)}>
                     {tc.match ? t('evaluation.match_yes') : t('evaluation.match_no')}
                   </span>
                 </td>

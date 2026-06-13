@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { apiForgotPassword } from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
 import { useT } from '../../i18n'
-
+import { authCardClass, authPageClass } from '../../lib/authClasses'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
   const t = useT()
@@ -34,8 +35,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <div className={authPageClass}>
+      <div className={authCardClass}>
         <div className="flex flex-col items-center text-center mb-6">
           <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
             <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
@@ -58,7 +59,11 @@ export default function ForgotPasswordPage() {
         </div>
 
         {success ? (
-          <div className="p-[10px_12px] bg-emerald-500/8 border-l-[3px] border-success text-success text-[13px] rounded text-center mb-4">
+          <div
+            className={legacyFeedbackClass(
+              'p-[10px_12px] bg-emerald-500/8 border-l-[3px] border-success text-success text-[13px] rounded text-center mb-4',
+            )}
+          >
             {t('auth.forgot_success')}
           </div>
         ) : (
@@ -69,7 +74,11 @@ export default function ForgotPasswordPage() {
             className="flex flex-col gap-4"
           >
             {error && (
-              <div className="p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2">
+              <div
+                className={legacyFeedbackClass(
+                  'p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2',
+                )}
+              >
                 {error}
               </div>
             )}

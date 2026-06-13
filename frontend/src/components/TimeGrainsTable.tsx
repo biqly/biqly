@@ -1,6 +1,7 @@
 import { useT } from '../i18n'
+import { legacyButtonClass } from '../lib/buttonClasses'
+import { legacyTableClass } from '../lib/tableClasses'
 import { LoadingOverlay } from './ui/LoadingOverlay'
-
 interface TimeGrain {
   grain: string
   suffix: string
@@ -22,7 +23,7 @@ export function TimeGrainsTable({
     <LoadingOverlay loading={loading}>
       <div style={{ minHeight: grains.length === 0 && loading ? 120 : 'auto' }}>
         {grains.length > 0 ? (
-          <table className="results-table">
+          <table className={legacyTableClass('results-table')}>
             <thead>
               <tr>
                 <th>{t('time_grains.col_grain')}</th>
@@ -94,7 +95,7 @@ export function TimeGrainsTable({
                   <td className="actions">
                     <button
                       type="button"
-                      className="btn btn-sm btn-ghost"
+                      className={legacyButtonClass('btn btn-sm btn-ghost')}
                       onClick={() => onEdit(tg)}
                     >
                       {t('common.edit')}

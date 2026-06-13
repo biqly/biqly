@@ -11,6 +11,8 @@ import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useSortState } from '../../hooks/useSortState'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { formHintClass } from '../../lib/formClasses'
+import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { PageQuery } from '../../types/pagination'
 import { Button } from '../ui/Button'
 import type { ColumnDef } from '../ui/DataTable'
@@ -191,12 +193,10 @@ export function ConfirmedQueriesPanel() {
   ]
 
   return (
-    <div className="page-stack">
+    <div className={legacyLayoutClass('page-stack')}>
       <div>
         <h2 style={{ margin: 0 }}>{t('admin.confirmed_queries.title')}</h2>
-        <p className="form-hint" style={{ marginTop: 8 }}>
-          {t('admin.confirmed_queries.description')}
-        </p>
+        <p className={formHintClass}>{t('admin.confirmed_queries.description')}</p>
       </div>
 
       <label className={adminFormLabelClass} style={{ gap: 4, maxWidth: 360 }}>

@@ -11,6 +11,9 @@ import {
 } from '../../hooks/useRuntimeConfig'
 import { useToast } from '../../hooks/useToast'
 import { type TFunction, useT } from '../../i18n'
+import { cn } from '../../lib/cn'
+import { formHintClass } from '../../lib/formClasses'
+import { legacyLayoutClass } from '../../lib/layoutClasses'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import {
@@ -89,9 +92,7 @@ function ToggleField({
           {label}
           <SourceBadge source={source} />
         </strong>
-        <span className="form-hint" style={{ margin: 0 }}>
-          {hint}
-        </span>
+        <span className={cn(formHintClass, 'm-0')}>{hint}</span>
       </span>
     </label>
   )
@@ -195,9 +196,7 @@ function StepperField({
           +
         </button>
       </div>
-      <span className="form-hint" style={{ margin: 0 }}>
-        {hint}
-      </span>
+      <span className={cn(formHintClass, 'm-0')}>{hint}</span>
     </label>
   )
 }
@@ -255,9 +254,7 @@ function PercentageField({
           {pctValue}%
         </div>
       </div>
-      <span className="form-hint" style={{ margin: 0 }}>
-        {hint}
-      </span>
+      <span className={cn(formHintClass, 'm-0')}>{hint}</span>
     </label>
   )
 }
@@ -300,7 +297,7 @@ function GeneralSettingsCard({
           <strong style={{ display: 'block', marginBottom: 4 }}>
             {t('admin.platform_settings.self_signup_label')}
           </strong>
-          <span className="form-hint" style={{ margin: 0 }}>
+          <span className={cn(formHintClass, 'm-0')}>
             {selfSignupEnabled
               ? t('admin.platform_settings.self_signup_on_hint')
               : t('admin.platform_settings.self_signup_off_hint')}
@@ -309,7 +306,7 @@ function GeneralSettingsCard({
       </label>
 
       {updatedAt && (
-        <p className="form-hint" style={{ margin: 0 }}>
+        <p className={cn(formHintClass, 'm-0')}>
           {t('admin.platform_settings.last_updated', {
             date: new Date(updatedAt).toLocaleString(),
           })}
@@ -429,7 +426,7 @@ function PIISettingsCard({
       style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
     >
       <h3 style={{ margin: 0 }}>{t('admin.platform_settings.pii_title')}</h3>
-      <p className="form-hint" style={{ margin: 0 }}>
+      <p className={cn(formHintClass, 'm-0')}>
         {config.pii.enabled
           ? t('admin.platform_settings.pii_enabled_on')
           : t('admin.platform_settings.pii_enabled_off')}{' '}
@@ -587,7 +584,7 @@ function RuntimeSettingsSection({
         t={t}
       />
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <p className="form-hint" style={{ margin: 0 }}>
+        <p className={cn(formHintClass, 'm-0')}>
           {anyDBOverride
             ? t('admin.platform_settings.ambiguity_db_override_note')
             : t('admin.platform_settings.ambiguity_env_default_note')}
@@ -696,10 +693,10 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
   const ambiguitySources = config?.ambiguity.sources ?? {}
 
   return (
-    <div className="page-stack" style={{ maxWidth: 1000, width: '100%' }}>
+    <div className={legacyLayoutClass('page-stack')} style={{ maxWidth: 1000, width: '100%' }}>
       <div>
         <h2 style={{ margin: 0 }}>{t('admin.platform_settings.title')}</h2>
-        <p className="form-hint" style={{ marginTop: 8 }}>
+        <p className={formHintClass}>
           {t('admin.platform_settings.description')}{' '}
           <a
             href="https://github.com/biqly/biqly/blob/main/docs/configuration.md"
@@ -715,11 +712,7 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
       {!canEdit && <ReadOnlyNote />}
 
       {runtimeError && (
-        <p
-          className="form-hint"
-          style={{ margin: 0, color: 'var(--danger, #c0392b)' }}
-          role="alert"
-        >
+        <p className={cn(formHintClass, 'm-0 text-[var(--danger,#c0392b)]')} role="alert">
           {runtimeError}
         </p>
       )}

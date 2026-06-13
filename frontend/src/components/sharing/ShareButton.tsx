@@ -3,11 +3,12 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { createShare, listUsers, listWorkspaces } from '../../api/admin'
 import { useT } from '../../i18n'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { AuthUser, Workspace } from '../../types/auth'
 import { shareUserSelectOptions, workspaceSelectOptions } from '../admin/adminSelectOptions'
 import { useAuth } from '../auth/AuthProvider'
 import { Select } from '../ui/Select'
-
 interface Props {
   resourceType: string
   resourceID: string
@@ -148,7 +149,9 @@ export function ShareButton({
           onClick={closeModal}
         >
           <div
-            className={`bg-card border border-border rounded-[12px] w-full max-w-[420px] shadow-[var(--shadow,0_20px_60px_rgba(0,0,0,0.2))] motion-safe:animate-[slideUp_200ms_ease-out]`}
+            className={legacyCardClass(
+              'bg-card border border-border rounded-[12px] w-full max-w-[420px] shadow-[var(--shadow,0_20px_60px_rgba(0,0,0,0.2))] motion-safe:animate-[slideUp_200ms_ease-out]',
+            )}
             onClick={(e) => e.stopPropagation()}
           >
             <div className={`flex items-center justify-between py-4 px-5 border-b border-border`}>
@@ -233,7 +236,11 @@ export function ShareButton({
               </label>
 
               {error && (
-                <div className="py-2 px-3 bg-error/10 rounded-[4px] text-error text-[12px]">
+                <div
+                  className={legacyFeedbackClass(
+                    'py-2 px-3 bg-error/10 rounded-[4px] text-error text-[12px]',
+                  )}
+                >
                   {error}
                 </div>
               )}

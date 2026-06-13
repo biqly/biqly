@@ -1,4 +1,8 @@
 import type { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+import { legacyFormClass } from '../../lib/formClasses'
+import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { PasskeyInfo } from '../../types/auth'
 import {
   adminBtnAutoWidthClass,
@@ -106,8 +110,12 @@ export function SettingsAuthModals({
         subtitle={t('passkeys.modal_desc')}
         onClose={onAddModalClose}
       >
-        <form onSubmit={onRegisterSubmit} className="page-stack" style={{ gap: '1rem' }}>
-          <div className="form-group" style={{ margin: 0 }}>
+        <form
+          onSubmit={onRegisterSubmit}
+          className={legacyLayoutClass('page-stack')}
+          style={{ gap: '1rem' }}
+        >
+          <div className={legacyFormClass('form-group')} style={{ margin: 0 }}>
             <label htmlFor="passkey-name">{t('passkeys.modal_label_name')}</label>
             <input
               id="passkey-name"
@@ -122,7 +130,7 @@ export function SettingsAuthModals({
           <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
-              className={`btn btn-secondary ${adminBtnAutoWidthClass}`}
+              className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
               onClick={onAddModalClose}
               disabled={registering}
             >
@@ -130,7 +138,7 @@ export function SettingsAuthModals({
             </button>
             <button
               type="submit"
-              className={`btn btn-primary ${adminBtnAutoWidthClass}`}
+              className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               disabled={registering || !newPasskeyName.trim()}
             >
@@ -146,8 +154,12 @@ export function SettingsAuthModals({
         subtitle={t('passkeys.rename_desc')}
         onClose={onRenameModalClose}
       >
-        <form onSubmit={onRenameSubmit} className="page-stack" style={{ gap: '1rem' }}>
-          <div className="form-group" style={{ margin: 0 }}>
+        <form
+          onSubmit={onRenameSubmit}
+          className={legacyLayoutClass('page-stack')}
+          style={{ gap: '1rem' }}
+        >
+          <div className={legacyFormClass('form-group')} style={{ margin: 0 }}>
             <label htmlFor="rename-passkey-name">{t('passkeys.modal_label_name')}</label>
             <input
               id="rename-passkey-name"
@@ -162,7 +174,7 @@ export function SettingsAuthModals({
           <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
-              className={`btn btn-secondary ${adminBtnAutoWidthClass}`}
+              className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
               onClick={onRenameModalClose}
               disabled={renaming}
             >
@@ -170,7 +182,7 @@ export function SettingsAuthModals({
             </button>
             <button
               type="submit"
-              className={`btn btn-primary ${adminBtnAutoWidthClass}`}
+              className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
               disabled={renaming || !renamingName.trim()}
             >
               {renaming ? `${t('passkeys.modal_submit')}...` : t('passkeys.modal_submit')}
@@ -185,9 +197,13 @@ export function SettingsAuthModals({
         subtitle={t('mfa.modal_enroll_desc')}
         onClose={onMfaEnrollClose}
       >
-        <div className="page-stack" style={{ gap: '1.5rem' }}>
+        <div className={legacyLayoutClass('page-stack')} style={{ gap: '1.5rem' }}>
           {!mfaShowRecovery ? (
-            <form onSubmit={onMfaVerifySubmit} className="page-stack" style={{ gap: '1rem' }}>
+            <form
+              onSubmit={onMfaVerifySubmit}
+              className={legacyLayoutClass('page-stack')}
+              style={{ gap: '1rem' }}
+            >
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <h4 style={{ margin: 0 }}>{t('mfa.step_scan')}</h4>
                 <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
@@ -243,7 +259,7 @@ export function SettingsAuthModals({
               <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
                 <button
                   type="button"
-                  className={`btn btn-secondary ${adminBtnAutoWidthClass}`}
+                  className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
                   onClick={onMfaEnrollClose}
                   disabled={mfaVerifying}
                 >
@@ -251,7 +267,7 @@ export function SettingsAuthModals({
                 </button>
                 <button
                   type="submit"
-                  className={`btn btn-primary ${adminBtnAutoWidthClass}`}
+                  className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
                   disabled={mfaVerifying || mfaVerifyCode.length !== 6}
                 >
                   {mfaVerifying ? '...' : t('mfa.verify_btn')}
@@ -276,7 +292,11 @@ export function SettingsAuthModals({
         subtitle={t('mfa.disable_desc')}
         onClose={onMfaDisableClose}
       >
-        <form onSubmit={onMfaDisableSubmit} className="page-stack" style={{ gap: '1rem' }}>
+        <form
+          onSubmit={onMfaDisableSubmit}
+          className={legacyLayoutClass('page-stack')}
+          style={{ gap: '1rem' }}
+        >
           <OTPCodeInput
             id="mfa-disable-input"
             value={mfaDisableCode}
@@ -286,7 +306,7 @@ export function SettingsAuthModals({
           <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
-              className={`btn btn-secondary ${adminBtnAutoWidthClass}`}
+              className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
               onClick={onMfaDisableClose}
               disabled={mfaDisabling}
             >
@@ -294,7 +314,7 @@ export function SettingsAuthModals({
             </button>
             <button
               type="submit"
-              className={`btn btn-danger ${adminBtnAutoWidthClass}`}
+              className={cn(legacyButtonClass('btn btn-danger'), adminBtnAutoWidthClass)}
               disabled={mfaDisabling || mfaDisableCode.length !== 6}
             >
               {mfaDisabling ? '...' : t('mfa.disable_submit')}
@@ -309,7 +329,11 @@ export function SettingsAuthModals({
         subtitle={t('mfa.disable_desc')}
         onClose={onMfaRegenClose}
       >
-        <form onSubmit={onMfaRegenSubmit} className="page-stack" style={{ gap: '1rem' }}>
+        <form
+          onSubmit={onMfaRegenSubmit}
+          className={legacyLayoutClass('page-stack')}
+          style={{ gap: '1rem' }}
+        >
           <OTPCodeInput
             id="mfa-regen-input"
             value={mfaRegenCode}
@@ -319,7 +343,7 @@ export function SettingsAuthModals({
           <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
             <button
               type="button"
-              className={`btn btn-secondary ${adminBtnAutoWidthClass}`}
+              className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
               onClick={onMfaRegenClose}
               disabled={mfaRegening}
             >
@@ -327,7 +351,7 @@ export function SettingsAuthModals({
             </button>
             <button
               type="submit"
-              className={`btn btn-primary ${adminBtnAutoWidthClass}`}
+              className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
               disabled={mfaRegening || mfaRegenCode.length !== 6}
             >
               {mfaRegening ? '...' : t('mfa.regenerate_recovery_btn')}

@@ -4,11 +4,13 @@ import { useNavigate } from 'react-router-dom'
 import { apiGetPasswordPolicy, selfSignupEnabledFromPolicy } from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
 import { useLocale, useT } from '../../i18n'
+import { authCardClass, authPageClass } from '../../lib/authClasses'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { Modal } from '../ui/Modal'
 import { useAuth } from './AuthProvider'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
 import { PrivacyPolicyEN, PrivacyPolicyTR, TermsOfUseEN, TermsOfUseTR } from './PolicyContent'
-
 export default function SignUpPage() {
   const navigate = useNavigate()
   const t = useT()
@@ -86,8 +88,8 @@ export default function SignUpPage() {
 
   if (policyLoading) {
     return (
-      <div className="auth-page">
-        <div className="auth-card">
+      <div className={authPageClass}>
+        <div className={authCardClass}>
           <p
             className="text-[14px] text-foreground-muted"
             style={{ textAlign: 'center', margin: 0 }}
@@ -101,8 +103,8 @@ export default function SignUpPage() {
 
   if (!signupAllowed) {
     return (
-      <div className="auth-page">
-        <div className="auth-card">
+      <div className={authPageClass}>
+        <div className={authCardClass}>
           <div className="flex flex-col items-center text-center mb-6">
             <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
               <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
@@ -131,8 +133,8 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <div className={authPageClass}>
+      <div className={authCardClass}>
         <div className="flex flex-col items-center text-center mb-6">
           <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
             <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
@@ -163,7 +165,9 @@ export default function SignUpPage() {
         >
           {error && (
             <div
-              className="p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2"
+              className={legacyFeedbackClass(
+                'p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2',
+              )}
               role="alert"
               aria-live="assertive"
             >
@@ -316,7 +320,7 @@ export default function SignUpPage() {
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
           <button
             type="button"
-            className="btn btn-primary"
+            className={legacyButtonClass('btn btn-primary')}
             onClick={() => {
               setAgree(true)
               setTermsOpen(false)
@@ -338,7 +342,7 @@ export default function SignUpPage() {
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
           <button
             type="button"
-            className="btn btn-primary"
+            className={legacyButtonClass('btn btn-primary')}
             onClick={() => {
               setAgree(true)
               setPrivacyOpen(false)

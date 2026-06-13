@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useApi } from '../../hooks/useApi'
 import type { TranslationKey } from '../../i18n'
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
 
 /* ------------------------------------------------------------------ */
 /*  Types matching the backend drift_types.go API response             */
@@ -146,7 +147,11 @@ export function DriftBanner({ reports, onExpand }: DriftBannerProps) {
         {severity === 'critical' ? '🔴' : '🟡'}
       </span>
       <span className="flex-1">{t('modeling.drift_banner_text', { count: totalDrifts })}</span>
-      <button type="button" className="btn btn-secondary shrink-0" onClick={onExpand}>
+      <button
+        type="button"
+        className={legacyButtonClass('btn btn-secondary shrink-0')}
+        onClick={onExpand}
+      >
         {t('modeling.drift_view_details')}
       </button>
     </div>

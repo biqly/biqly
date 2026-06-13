@@ -1,6 +1,10 @@
 import type { ReactElement } from 'react'
 
 import { useT } from '../../i18n'
+import {
+  segmentedControlBtnClass,
+  segmentedControlShellClass,
+} from '../../lib/headerControlClasses'
 import { type ThemeMode, useTheme } from '../../theme'
 
 const ICONS: Record<ThemeMode, ReactElement> = {
@@ -57,14 +61,14 @@ export function ThemeToggle() {
     dark: t('common.theme_dark'),
   }
   return (
-    <div className="theme-toggle" role="group" aria-label={t('common.theme')}>
+    <div className={segmentedControlShellClass} role="group" aria-label={t('common.theme')}>
       {modes.map((m) => {
         const active = m === mode
         return (
           <button
             key={m}
             type="button"
-            className={`theme-toggle__btn${active ? ' theme-toggle__btn--active' : ''}`}
+            className={segmentedControlBtnClass(active, { theme: true })}
             onClick={() => setMode(m)}
             aria-pressed={active}
             aria-label={labels[m]}

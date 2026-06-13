@@ -5,6 +5,22 @@ import { useConfirm } from '../hooks/useConfirm'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
+import { savedQuestionTagsClass, tagPillClass } from '../lib/badgeClasses'
+import { legacyButtonClass } from '../lib/buttonClasses'
+import { legacyCardClass } from '../lib/cardClasses'
+import { cn } from '../lib/cn'
+import { formRowClass, legacyFormClass } from '../lib/formClasses'
+import { legacyLayoutClass } from '../lib/layoutClasses'
+import {
+  fewshotCheckboxClass,
+  savedQuestionFavClass,
+  savedQuestionItemClass,
+  savedQuestionItemMetaPClass,
+  savedQuestionItemTitleClass,
+  savedQuestionItemTopClass,
+  savedQuestionListClass,
+  savedQuestionRowClass,
+} from '../lib/savedQuestionClasses'
 import type { QueryResultPayload } from '../types/ai'
 import { pickValidId, pickValidIdOrFirst } from '../utils/effectiveSelection'
 import { parseJsonRecord } from '../utils/record'
@@ -429,17 +445,21 @@ export default function SavedQuestions() {
   }
 
   return (
-    <div className="page-stack">
-      <div className="card">
-        <div className="card-intro">
-          <div className="card-header-row card-header-row--spaced">
+    <div className={legacyLayoutClass('page-stack')}>
+      <div className={legacyCardClass('card')}>
+        <div className={legacyCardClass('card-intro')}>
+          <div className={legacyCardClass('card-header-row card-header-row--spaced')}>
             <h2>{t('saved_questions.title')}</h2>
-            <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>
+            <button
+              type="button"
+              className={legacyButtonClass('btn btn-primary btn-sm')}
+              onClick={openAdd}
+            >
               {t('saved_questions.new')}
             </button>
           </div>
           <p
-            className="card-lead saved-question-intro card-lead--single-line"
+            className={legacyCardClass('card-lead saved-question-intro card-lead--single-line')}
             title={
               fewShotCount > 0
                 ? t('saved_questions.intro_fewshot_active', { count: fewShotCount })
@@ -453,9 +473,9 @@ export default function SavedQuestions() {
         </div>
 
         {/* Filters Top Bar */}
-        <div className="form-row" style={{ marginTop: '1.25rem', flexWrap: 'wrap' }}>
-          <div className="form-field" style={{ minWidth: '14rem' }}>
-            <label htmlFor="library-datasource" className="form-label">
+        <div className={cn(formRowClass, 'mt-5')}>
+          <div className={legacyFormClass('form-field')} style={{ minWidth: '14rem' }}>
+            <label htmlFor="library-datasource" className={legacyFormClass('form-label')}>
               {t('saved_questions.label_select_datasource')}
             </label>
             <Select
@@ -465,8 +485,8 @@ export default function SavedQuestions() {
               options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
             />
           </div>
-          <div className="form-field" style={{ minWidth: '14rem' }}>
-            <label htmlFor="library-model" className="form-label">
+          <div className={legacyFormClass('form-field')} style={{ minWidth: '14rem' }}>
+            <label htmlFor="library-model" className={legacyFormClass('form-label')}>
               {t('saved_questions.label_select_model')}
             </label>
             <Select
@@ -483,8 +503,8 @@ export default function SavedQuestions() {
               ]}
             />
           </div>
-          <div className="form-field" style={{ flexGrow: 1, minWidth: '16rem' }}>
-            <label htmlFor="library-search" className="form-label">
+          <div className={legacyFormClass('form-field')} style={{ flexGrow: 1, minWidth: '16rem' }}>
+            <label htmlFor="library-search" className={legacyFormClass('form-label')}>
               {t('common.search')}
             </label>
             <input
@@ -502,7 +522,7 @@ export default function SavedQuestions() {
 
       {filtered.length === 0 ? (
         <div
-          className="card"
+          className={legacyCardClass('card')}
           style={{
             position: 'relative',
             minHeight: '300px',
@@ -519,29 +539,25 @@ export default function SavedQuestions() {
           />
         </div>
       ) : (
-        <div className="saved-question-list">
+        <div className={savedQuestionListClass()}>
           {/* Left Column: Questions List */}
-          <div className="card" style={{ position: 'relative' }}>
+          <div className={legacyCardClass('card')} style={{ position: 'relative' }}>
             <LoadingOverlay loading={apiLoading} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="flex flex-col gap-3">
               {filtered.map((q) => {
                 const checked = q.is_few_shot
                 const isSelected = selectedQuestion?.id === q.id
                 return (
-                  <div key={q.id} className="saved-question-row">
+                  <div key={q.id} className={savedQuestionRowClass()}>
                     <button
                       type="button"
-                      className="saved-question-item"
-                      style={{
-                        borderColor: isSelected ? 'var(--accent)' : undefined,
-                        background: isSelected ? 'var(--bg-card-raised)' : undefined,
-                      }}
+                      className={savedQuestionItemClass(isSelected)}
                       onClick={() => selectQuestion(q)}
                     >
-                      <div className="saved-question-item__top">
-                        <h3>{q.name}</h3>
+                      <div className={savedQuestionItemTopClass()}>
+                        <h3 className={savedQuestionItemTitleClass()}>{q.name}</h3>
                         <label
-                          className={`fewshot-checkbox fewshot-checkbox--inline${checked ? ' is-active' : ''}`}
+                          className={fewshotCheckboxClass(true, checked)}
                           title={t('saved_questions.fewshot_use_title')}
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -557,10 +573,12 @@ export default function SavedQuestions() {
                           <span>{t('saved_questions.fewshot_badge')}</span>
                         </label>
                       </div>
-                      {q.description && <p>{q.description}</p>}
-                      <div className="saved-question-tags">
+                      {q.description && (
+                        <p className={savedQuestionItemMetaPClass()}>{q.description}</p>
+                      )}
+                      <div className={savedQuestionTagsClass}>
                         {q.tags.map((tag) => (
-                          <span key={tag} className="tag-pill">
+                          <span key={tag} className={tagPillClass}>
                             {tag}
                           </span>
                         ))}
@@ -568,7 +586,7 @@ export default function SavedQuestions() {
                     </button>
                     <button
                       type="button"
-                      className={`saved-question-fav${q.is_favorite ? ' is-active' : ''}`}
+                      className={savedQuestionFavClass(q.is_favorite)}
                       onClick={(e) => {
                         e.stopPropagation()
                         void toggleFavorite(q)
@@ -593,7 +611,7 @@ export default function SavedQuestions() {
           </div>
 
           {/* Right Column: Details & Run pane */}
-          <div className="card" style={{ position: 'relative' }}>
+          <div className={legacyCardClass('card')} style={{ position: 'relative' }}>
             <QuestionDetailPane
               selectedQuestion={selectedQuestion}
               semanticModels={semanticModels}

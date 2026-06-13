@@ -1,8 +1,13 @@
 import type { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
+import { legacyFormClass } from '../../lib/formClasses'
+import { modalActionsClass } from '../../lib/modalClasses'
 import type { TableRow } from '../../types/semantic'
 import { MultiSelect } from '../ui/MultiSelect'
 import { objectTypeLabel } from './bulkProgress'
-
 export function MetadataBulkDescribeSetup({
   t,
   typeOptions,
@@ -51,7 +56,9 @@ export function MetadataBulkDescribeSetup({
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-[0.65rem] items-stretch">
         <fieldset
-          className={`m-0 min-w-0 p-[0.55rem_0.65rem_0.65rem] border border-border rounded-lg bg-card-raised`}
+          className={legacyCardClass(
+            'm-0 min-w-0 p-[0.55rem_0.65rem_0.65rem] border border-border rounded-lg bg-card-raised',
+          )}
         >
           <legend className="px-[0.25rem] py-0 text-[0.62rem] font-[800] tracking-[0.07em] uppercase text-foreground-faint">
             {t('metadata.bulk_legend_types')}
@@ -65,11 +72,14 @@ export function MetadataBulkDescribeSetup({
               <button
                 key={ty}
                 type="button"
-                className={`inline-flex items-baseline gap-[0.35rem] border bg-card text-foreground-muted p-[0.28rem_0.55rem] rounded-full text-[0.75rem] leading-[1.2] cursor-pointer transition-[background,border-color,color] duration-120 hover:border-border-strong hover:text-foreground ${
+                className={cn(
+                  legacyCardClass(
+                    'inline-flex items-baseline gap-[0.35rem] border bg-card text-foreground-muted p-[0.28rem_0.55rem] rounded-full text-[0.75rem] leading-[1.2] cursor-pointer transition-[background,border-color,color] duration-120 hover:border-border-strong hover:text-foreground',
+                  ),
                   bulkTypeEnabled[ty] === true
                     ? 'bg-card-raised border-border-strong text-foreground shadow-[inset_0_0_0_1px_rgba(91,142,255,0.35)]'
-                    : 'border-border'
-                }`}
+                    : 'border-border',
+                )}
                 aria-pressed={bulkTypeEnabled[ty] === true}
                 onClick={() => onToggleType(ty)}
               >
@@ -85,13 +95,15 @@ export function MetadataBulkDescribeSetup({
             ))}
           </div>
           {!bulkHasObjectType && (
-            <p className="mt-[0.4rem] mx-0 mb-0 text-[0.74rem] text-error">
+            <p className={legacyFeedbackClass('mt-[0.4rem] mx-0 mb-0 text-[0.74rem] text-error')}>
               {t('metadata.bulk_warn_pick_type')}
             </p>
           )}
         </fieldset>
         <fieldset
-          className={`m-0 min-w-0 p-[0.55rem_0.65rem_0.65rem] border border-border rounded-lg bg-card-raised`}
+          className={legacyCardClass(
+            'm-0 min-w-0 p-[0.55rem_0.65rem_0.65rem] border border-border rounded-lg bg-card-raised',
+          )}
         >
           <legend className="px-[0.25rem] py-0 text-[0.62rem] font-[800] tracking-[0.07em] uppercase text-foreground-faint">
             {t('metadata.bulk_legend_schemas')}
@@ -150,14 +162,14 @@ export function MetadataBulkDescribeSetup({
                 <div className="flex flex-wrap items-center gap-[0.3rem_0.5rem] mt-[0.35rem]">
                   <button
                     type="button"
-                    className="btn btn-ghost btn-sm"
+                    className={legacyButtonClass('btn btn-ghost btn-sm')}
                     onClick={() => onSchemasSelectedChange([...schemaOptions])}
                   >
                     {t('metadata.bulk_select_all')}
                   </button>
                   <button
                     type="button"
-                    className="btn btn-ghost btn-sm"
+                    className={legacyButtonClass('btn btn-ghost btn-sm')}
                     onClick={() => onSchemasSelectedChange([])}
                   >
                     {t('metadata.bulk_select_none')}
@@ -172,7 +184,7 @@ export function MetadataBulkDescribeSetup({
         </fieldset>
       </div>
       <div className="flex flex-wrap items-end gap-[0.75rem_1.25rem]">
-        <div className="form-group mb-0 flex flex-col gap-[0.2rem]">
+        <div className={legacyFormClass('form-group mb-0 flex flex-col gap-[0.2rem]')}>
           <label
             className="text-[0.68rem] font-bold tracking-wider uppercase text-foreground-faint"
             htmlFor="bulk-sample-size"
@@ -216,18 +228,30 @@ export function MetadataBulkDescribeSetup({
         </span>
       </div>
       {bulkScopeConflict && (
-        <p className="mt-[0.4rem] mx-0 mb-0 text-[0.74rem] text-error" role="status">
+        <p
+          className={legacyFeedbackClass('mt-[0.4rem] mx-0 mb-0 text-[0.74rem] text-error')}
+          role="status"
+        >
           {bulkScopeConflict.message}{' '}
           {bulkScopeConflict.schemas
             ? t('metadata.already_running_schemas', { schemas: bulkScopeConflict.schemas })
             : null}
         </p>
       )}
-      <div className="modal-actions">
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
+      <div className={modalActionsClass()}>
+        <button
+          type="button"
+          className={legacyButtonClass('btn btn-ghost btn-sm')}
+          onClick={onClose}
+        >
           {t('metadata.bulk_cancel')}
         </button>
-        <button type="button" className="btn btn-sm" onClick={onStart} disabled={!bulkCanStart}>
+        <button
+          type="button"
+          className={legacyButtonClass('btn btn-sm')}
+          onClick={onStart}
+          disabled={!bulkCanStart}
+        >
           {t('metadata.bulk_start', { count: bulkTargetTables.length })}
         </button>
       </div>

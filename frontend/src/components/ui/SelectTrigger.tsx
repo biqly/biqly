@@ -1,5 +1,12 @@
 import type { RefObject } from 'react'
 
+import {
+  selectChevronClass,
+  selectTriggerClass,
+  selectValueClass,
+  selectValueHintClass,
+  selectValuePrimaryClass,
+} from '../../lib/selectClasses'
 import type { SelectOption } from './Select'
 
 export function SelectTrigger<T extends string>({
@@ -29,19 +36,7 @@ export function SelectTrigger<T extends string>({
   onToggle: () => void
   onKeyDown: (e: React.KeyboardEvent) => void
 }) {
-  const triggerClasses = ['ui-select-trigger']
-  if (showHintInTrigger && selected?.hint) {
-    triggerClasses.push('ui-select-trigger--stacked')
-  }
-  if (size === 'sm') {
-    triggerClasses.push('ui-select-trigger--sm')
-  }
-  if (open) {
-    triggerClasses.push('is-open')
-  }
-  if (!selected) {
-    triggerClasses.push('is-empty')
-  }
+  const stacked = Boolean(showHintInTrigger && selected?.hint)
 
   const triggerTitle =
     selected && showHintInTrigger && selected.hint
@@ -56,7 +51,12 @@ export function SelectTrigger<T extends string>({
       type="button"
       id={baseId}
       name={name}
-      className={triggerClasses.join(' ')}
+      className={selectTriggerClass({
+        size,
+        open,
+        empty: !selected,
+        stacked,
+      })}
       aria-haspopup="listbox"
       aria-expanded={open}
       aria-label={ariaLabel}
@@ -67,25 +67,22 @@ export function SelectTrigger<T extends string>({
       onKeyDown={onKeyDown}
     >
       <span
-        className={[
-          'ui-select-value',
-          !selected ? 'is-placeholder' : '',
-          showHintInTrigger && selected?.hint ? 'ui-select-value--stacked' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
+        className={selectValueClass({
+          placeholder: !selected,
+          stacked,
+        })}
       >
-        {showHintInTrigger && selected?.hint ? (
+        {stacked ? (
           <>
-            <span className="ui-select-value-primary">{selected.label}</span>
-            <span className="ui-select-value-hint">{selected.hint}</span>
+            <span className={selectValuePrimaryClass}>{selected!.label}</span>
+            <span className={selectValueHintClass}>{selected!.hint}</span>
           </>
         ) : (
           placeholder
         )}
       </span>
       <svg
-        className="ui-select-chevron"
+        className={selectChevronClass(open)}
         viewBox="0 0 12 8"
         width="9"
         height="5.5"

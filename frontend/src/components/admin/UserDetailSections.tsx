@@ -1,6 +1,7 @@
 import type { SubmitEvent } from 'react'
 
 import { type Locale, localeLanguageTag, type useT } from '../../i18n'
+import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { AuthUser, UserRoleInfo } from '../../types/auth'
 import { formatDateTime } from '../../utils/formatters'
 import { Select } from '../ui/Select'
@@ -295,7 +296,11 @@ export function UserDetailRolesPanel({
 
       <div className={adminCardClass} style={{ minWidth: 0, overflow: 'hidden' }}>
         <h3 style={{ marginTop: 0, marginBottom: 16 }}>{t('admin.user_detail.assign_new_role')}</h3>
-        <form onSubmit={(e) => void onAssignRole(e)} className="page-stack" style={{ gap: 12 }}>
+        <form
+          onSubmit={(e) => void onAssignRole(e)}
+          className={legacyLayoutClass('page-stack')}
+          style={{ gap: 12 }}
+        >
           <label className={adminFormLabelClass}>
             <span>{t('admin.user_detail.select_role')}</span>
             <Select

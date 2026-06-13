@@ -1,4 +1,7 @@
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+import { legacyLayoutClass } from '../../lib/layoutClasses'
 import {
   adminBtnAutoWidthClass,
   adminFlexGapCenterEndClass,
@@ -25,7 +28,7 @@ export function RecoveryCodesDisplay({
 
   if (variant === 'confirmation') {
     return (
-      <div className="page-stack" style={{ gap: '1rem' }}>
+      <div className={legacyLayoutClass('page-stack')} style={{ gap: '1rem' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <h4 style={{ margin: 0, color: 'var(--success)' }}>✔ {t('mfa.success_enabled')}</h4>
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
@@ -43,14 +46,14 @@ export function RecoveryCodesDisplay({
         <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
           <button
             type="button"
-            className={`btn btn-secondary ${adminBtnAutoWidthClass}`}
+            className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
             onClick={copyCodes}
           >
             📋 {t('common.copy')}
           </button>
           <button
             type="button"
-            className={`btn btn-primary ${adminBtnAutoWidthClass}`}
+            className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
             onClick={onDone}
           >
             {t('common.confirm_ok')}
@@ -78,7 +81,7 @@ export function RecoveryCodesDisplay({
       </div>
       <button
         type="button"
-        className="btn btn-sm btn-secondary"
+        className={legacyButtonClass('btn btn-sm btn-secondary')}
         style={{ marginTop: '0.75rem', width: 'auto' }}
         onClick={copyCodes}
       >

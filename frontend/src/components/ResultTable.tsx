@@ -2,6 +2,8 @@ import { type KeyboardEvent, type MouseEvent, useMemo, useState } from 'react'
 
 import { useToast } from '../hooks/useToast'
 import { useT } from '../i18n'
+import { legacyButtonClass } from '../lib/buttonClasses'
+import { cellDrillableClass } from '../lib/tableClasses'
 import type { ResultAnomaly } from '../types/ai'
 import { downloadCsv } from '../utils/exportCsv'
 import { formatResultCell } from '../utils/resultCellFormat'
@@ -201,9 +203,8 @@ export function ResultTable({
                         tabIndex={onFilterByValue ? 0 : undefined}
                       >
                         <span
-                          className={onCellClick ? 'cell-drillable' : ''}
+                          className={onCellClick ? cellDrillableClass : ''}
                           onClick={() => onCellClick?.(colName, String(cell))}
-                          style={{ cursor: onCellClick ? 'pointer' : 'default' }}
                         >
                           {formatResultCell(cell, colName, { question })}
                         </span>
@@ -233,7 +234,9 @@ export function ResultTable({
         )}
         <button
           type="button"
-          className="btn btn-secondary !w-auto !m-[0_0_0_auto] py-[0.3rem] px-[0.75rem] text-[0.78rem]"
+          className={legacyButtonClass(
+            'btn btn-secondary !w-auto !m-[0_0_0_auto] py-[0.3rem] px-[0.75rem] text-[0.78rem]',
+          )}
           onClick={handleExport}
           disabled={rows.length === 0}
         >

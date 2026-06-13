@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { authCardClass, authPageClass } from '../../lib/authClasses'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { useAuth } from './AuthProvider'
 
@@ -45,8 +46,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (loading) {
     return (
-      <div className="auth-page">
-        <div className="auth-card">
+      <div className={authPageClass}>
+        <div className={authCardClass}>
           <LoadingScreen minHeight="auto" variant="center" label="Loading session…" />
         </div>
       </div>
@@ -72,8 +73,8 @@ export function GuestGuard({ children }: AuthGuardProps) {
 
   if (loading) {
     return (
-      <div className="auth-page">
-        <div className="auth-card">
+      <div className={authPageClass}>
+        <div className={authCardClass}>
           <LoadingScreen minHeight="auto" variant="center" label="Loading session…" />
         </div>
       </div>

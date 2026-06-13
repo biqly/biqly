@@ -1,7 +1,14 @@
 import type { TFunction } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
+import {
+  evalStatusBadgeClass,
+  evalStatusFailBadgeClass,
+  evalStatusPassBadgeClass,
+} from '../../lib/feedbackClasses'
+import { legacyTableClass } from '../../lib/tableClasses'
 import type { EvalRunSummary, RegressionReport } from '../../types/ai'
 import { Select } from '../ui/Select'
-
 interface EvalRegressionTabProps {
   runHistory: EvalRunSummary[]
   baselineId: string
@@ -31,7 +38,7 @@ export function EvalRegressionTab({
 }: EvalRegressionTabProps) {
   return (
     <>
-      <div className="card">
+      <div className={legacyCardClass('card')}>
         <h3>{t('evaluation.regression_title')}</h3>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '14rem' }}>
@@ -81,7 +88,7 @@ export function EvalRegressionTab({
             />
           </div>
           <button
-            className="btn btn-sm btn-primary"
+            className={legacyButtonClass('btn btn-sm btn-primary')}
             onClick={runRegression}
             disabled={!configured || !baselineId || !currentId || regressionLoading}
           >
@@ -99,7 +106,10 @@ export function EvalRegressionTab({
               gap: '1rem',
             }}
           >
-            <div className="card" style={{ borderColor: 'var(--error)', marginBottom: 0 }}>
+            <div
+              className={legacyCardClass('card')}
+              style={{ borderColor: 'var(--error)', marginBottom: 0 }}
+            >
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
                 {t('evaluation.reg_new_failures')}
               </p>
@@ -107,7 +117,10 @@ export function EvalRegressionTab({
                 {regression.new_failures.length}
               </p>
             </div>
-            <div className="card" style={{ borderColor: 'var(--success)', marginBottom: 0 }}>
+            <div
+              className={legacyCardClass('card')}
+              style={{ borderColor: 'var(--success)', marginBottom: 0 }}
+            >
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
                 {t('evaluation.reg_fixed')}
               </p>
@@ -115,7 +128,10 @@ export function EvalRegressionTab({
                 {regression.fixed_failures.length}
               </p>
             </div>
-            <div className="card" style={{ borderColor: 'var(--warning)', marginBottom: 0 }}>
+            <div
+              className={legacyCardClass('card')}
+              style={{ borderColor: 'var(--warning)', marginBottom: 0 }}
+            >
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
                 {t('evaluation.reg_changed')}
               </p>
@@ -126,9 +142,9 @@ export function EvalRegressionTab({
           </div>
 
           {regression.new_failures.length > 0 && (
-            <div className="card">
+            <div className={legacyCardClass('card')}>
               <h3 style={{ color: 'var(--error)' }}>{t('evaluation.reg_new_failures_heading')}</h3>
-              <table className="results-table">
+              <table className={legacyTableClass('results-table')}>
                 <thead>
                   <tr>
                     <th>{t('evaluation.col_scenario')}</th>
@@ -144,14 +160,12 @@ export function EvalRegressionTab({
                       <td>{c.case_id}</td>
                       <td>{c.question}</td>
                       <td>
-                        <span className="inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full bg-[rgba(52,211,153,0.12)] text-success">
+                        <span className={evalStatusPassBadgeClass}>
                           {t('evaluation.match_yes')}
                         </span>
                       </td>
                       <td>
-                        <span className="inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full bg-[rgba(251,113,133,0.12)] text-error">
-                          {t('evaluation.match_no')}
-                        </span>
+                        <span className={evalStatusFailBadgeClass}>{t('evaluation.match_no')}</span>
                       </td>
                       <td style={{ fontSize: '0.8rem' }}>{c.is_reason}</td>
                     </tr>
@@ -162,9 +176,9 @@ export function EvalRegressionTab({
           )}
 
           {regression.fixed_failures.length > 0 && (
-            <div className="card">
+            <div className={legacyCardClass('card')}>
               <h3 style={{ color: 'var(--success)' }}>{t('evaluation.reg_fixed_heading')}</h3>
-              <table className="results-table">
+              <table className={legacyTableClass('results-table')}>
                 <thead>
                   <tr>
                     <th>{t('evaluation.col_scenario')}</th>
@@ -179,12 +193,10 @@ export function EvalRegressionTab({
                       <td>{c.case_id}</td>
                       <td>{c.question}</td>
                       <td>
-                        <span className="inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full bg-[rgba(251,113,133,0.12)] text-error">
-                          {t('evaluation.match_no')}
-                        </span>
+                        <span className={evalStatusFailBadgeClass}>{t('evaluation.match_no')}</span>
                       </td>
                       <td>
-                        <span className="inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full bg-[rgba(52,211,153,0.12)] text-success">
+                        <span className={evalStatusPassBadgeClass}>
                           {t('evaluation.match_yes')}
                         </span>
                       </td>
@@ -196,9 +208,9 @@ export function EvalRegressionTab({
           )}
 
           {regression.changed_cases.length > 0 && (
-            <div className="card">
+            <div className={legacyCardClass('card')}>
               <h3 style={{ color: 'var(--warning)' }}>{t('evaluation.reg_changed_heading')}</h3>
-              <table className="results-table">
+              <table className={legacyTableClass('results-table')}>
                 <thead>
                   <tr>
                     <th>{t('evaluation.col_scenario')}</th>
@@ -215,24 +227,12 @@ export function EvalRegressionTab({
                       <td>{c.case_id}</td>
                       <td>{c.question}</td>
                       <td>
-                        <span
-                          className={`inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full ${
-                            c.was_match
-                              ? 'bg-[rgba(52,211,153,0.12)] text-success'
-                              : 'bg-[rgba(251,113,133,0.12)] text-error'
-                          }`}
-                        >
+                        <span className={evalStatusBadgeClass(c.was_match)}>
                           {c.was_match ? t('evaluation.match_yes') : t('evaluation.match_no')}
                         </span>
                       </td>
                       <td>
-                        <span
-                          className={`inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full ${
-                            c.is_match
-                              ? 'bg-[rgba(52,211,153,0.12)] text-success'
-                              : 'bg-[rgba(251,113,133,0.12)] text-error'
-                          }`}
-                        >
+                        <span className={evalStatusBadgeClass(c.is_match)}>
                           {c.is_match ? t('evaluation.match_yes') : t('evaluation.match_no')}
                         </span>
                       </td>

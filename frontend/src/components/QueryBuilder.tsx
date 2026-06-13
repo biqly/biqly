@@ -7,6 +7,12 @@ import { useModelDetail } from '../hooks/useModelDetail'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
+import { legacyButtonClass } from '../lib/buttonClasses'
+import { legacyCardClass } from '../lib/cardClasses'
+import { cn } from '../lib/cn'
+import { legacyFeedbackClass } from '../lib/feedbackClasses'
+import { legacyLayoutClass } from '../lib/layoutClasses'
+import { toggleBtnClass, toggleGroupClass } from '../lib/toggleClasses'
 import type { GenerateSemanticModelResponse } from '../types/semantic'
 import { modelListHint, modelListLabel } from '../types/semantic'
 import { rowsToChartData } from '../utils/chartData'
@@ -44,7 +50,6 @@ import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
 import { LockedState } from './ui/LockedState'
 import { Select } from './ui/Select'
-
 interface QueryBuilderResult {
   columns?: { name: string; type?: string }[]
   rows?: unknown[][]
@@ -329,8 +334,8 @@ export default function QueryBuilder() {
   }
 
   return (
-    <div className="page-stack">
-      <div className={`card ${qbCardClass}`}>
+    <div className={legacyLayoutClass('page-stack')}>
+      <div className={cn(legacyCardClass('card'), qbCardClass)}>
         {/* Header Breadcrumbs and Mode selector */}
         <div className={qbHeaderClass}>
           <div className={qbPickersClass}>
@@ -371,20 +376,20 @@ export default function QueryBuilder() {
             )}
           </div>
           <div
-            className={`toggle-group ${qbModeToggleClass}`}
+            className={toggleGroupClass(qbModeToggleClass)}
             role="group"
             aria-label={t('query_builder.mode_toggle_aria')}
           >
             <button
               type="button"
-              className={`toggle-btn ${mode === 'simple' ? 'active' : ''}`}
+              className={toggleBtnClass(mode === 'simple')}
               onClick={() => setMode('simple')}
             >
               {t('query_builder.mode_simple')}
             </button>
             <button
               type="button"
-              className={`toggle-btn ${mode === 'advanced' ? 'active' : ''}`}
+              className={toggleBtnClass(mode === 'advanced')}
               onClick={() => setMode('advanced')}
             >
               {t('query_builder.mode_advanced')}
@@ -478,18 +483,18 @@ export default function QueryBuilder() {
 
       {/* SQL Preview */}
       {sqlVisible && sql && (
-        <div className="card">
+        <div className={legacyCardClass('card')}>
           <div className={qbSqlCardHeadClass}>
             <h2>{t('query_builder.generated_sql')}</h2>
             <button
               type="button"
-              className="btn btn-sm btn-ghost"
+              className={legacyButtonClass('btn btn-sm btn-ghost')}
               onClick={() => setSqlVisible(false)}
             >
               {t('query_builder.hide_sql')}
             </button>
           </div>
-          <div className="sql-preview">{sql}</div>
+          <div className={legacyFeedbackClass('sql-preview')}>{sql}</div>
         </div>
       )}
 

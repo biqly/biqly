@@ -1,6 +1,13 @@
 import type { ReactNode } from 'react'
 
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
+import {
+  loadingOverlayClass,
+  loadingOverlaySpinnerClass,
+  loadingOverlayWrapClass,
+  loadingTextClass,
+} from '../../lib/feedbackClasses'
 
 interface LoadingOverlayProps {
   loading: boolean
@@ -17,21 +24,17 @@ export function LoadingOverlay({ loading, label, children, className }: LoadingO
   }
   if (children) {
     return (
-      <div className={`loading-overlay-wrap${className ? ` ${className}` : ''}`} aria-busy="true">
+      <div className={cn(loadingOverlayWrapClass, className)} aria-busy="true">
         {children}
-        <div className="loading-overlay" role="status" aria-live="polite">
-          <span className="loading-overlay-spinner" aria-hidden="true" />
-          <span className="loading-overlay-label">{displayLabel}</span>
+        <div className={loadingOverlayClass} role="status" aria-live="polite">
+          <span className={loadingOverlaySpinnerClass} aria-hidden="true" />
+          <span>{displayLabel}</span>
         </div>
       </div>
     )
   }
   return (
-    <p
-      className={`loading-text${className ? ` ${className}` : ''}`}
-      role="status"
-      aria-live="polite"
-    >
+    <p className={cn(loadingTextClass, className)} role="status" aria-live="polite">
       {displayLabel}
     </p>
   )

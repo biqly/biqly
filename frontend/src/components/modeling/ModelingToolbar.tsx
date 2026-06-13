@@ -1,12 +1,20 @@
 import { useState } from 'react'
 
 import type { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { modelingFormGroupClass } from '../../lib/formClasses'
+import {
+  modelingMenuModelNameClass,
+  modelingStatusPillClass,
+  modelingToolbarActionsClass,
+  modelingToolbarClass,
+  modelingToolbarModelRowClass,
+} from '../../lib/modelingClasses'
 import type { Datasource } from '../../types/metadata'
 import type { SemanticModelDetail } from '../../types/semantic'
 import { ShareButton } from '../sharing/ShareButton'
 import { ActionMenu } from '../ui/ActionMenu'
 import { Select } from '../ui/Select'
-
 export function ModelingToolbar({
   t,
   datasourceId,
@@ -42,8 +50,8 @@ export function ModelingToolbar({
   const isPublished = model?.status === 'published'
 
   return (
-    <section className="modeling-toolbar">
-      <div className="form-group">
+    <section className={modelingToolbarClass}>
+      <div className={modelingFormGroupClass}>
         <label htmlFor="modeling-datasource">{t('modeling.datasource_label')}</label>
         <Select
           id="modeling-datasource"
@@ -55,9 +63,9 @@ export function ModelingToolbar({
           options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
         />
       </div>
-      <div className="form-group">
+      <div className={modelingFormGroupClass}>
         <label htmlFor="modeling-model">{t('modeling.model_label')}</label>
-        <div className="modeling-toolbar__model-row">
+        <div className={modelingToolbarModelRowClass}>
           <Select
             id="modeling-model"
             name="model"
@@ -70,19 +78,15 @@ export function ModelingToolbar({
             options={models.map((m) => ({ value: m.id, label: m.label ?? m.name, hint: m.status }))}
           />
           {model && (
-            <span
-              className={`modeling-status-pill${
-                isPublished ? ' modeling-status-pill--published' : ''
-              }`}
-            >
+            <span className={modelingStatusPillClass(isPublished)}>
               {isPublished ? t('modeling.published') : t('modeling.status_draft')}
             </span>
           )}
         </div>
       </div>
-      <div className="modeling-toolbar-actions">
+      <div className={modelingToolbarActionsClass}>
         <button
-          className="btn btn-primary"
+          className={legacyButtonClass('btn btn-primary')}
           type="button"
           onClick={onCreateModel}
           disabled={!datasourceId || creatingModel}
@@ -97,7 +101,7 @@ export function ModelingToolbar({
                 {t('modeling.model_menu')} <span aria-hidden="true">▾</span>
               </>
             }
-            header={<strong className="modeling-menu-model-name">{model.name}</strong>}
+            header={<strong className={modelingMenuModelNameClass}>{model.name}</strong>}
             items={[
               {
                 key: 'rename',

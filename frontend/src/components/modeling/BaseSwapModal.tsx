@@ -1,10 +1,13 @@
 import { useState } from 'react'
 
 import type { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { modelingFormGroupClass } from '../../lib/formClasses'
+import { modalActionsBorderedClass, modalModelingCardClass } from '../../lib/modalClasses'
+import { modelingEmptyClass } from '../../lib/modelingClasses'
 import type { TableRow } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
-
 export interface BaseSwapModalProps {
   candidateTables: TableRow[]
   onCancel: () => void
@@ -30,15 +33,15 @@ export function BaseSwapModal({
       open
       onClose={saving ? () => undefined : onCancel}
       closeOnBackdrop={!saving}
-      className="modal-card--modeling"
+      className={modalModelingCardClass()}
       labelledBy="modeling-base-swap-title"
       title={t('modeling.change_base_title')}
       subtitle={t('modeling.pick_new_base')}
     >
       {options.length === 0 ? (
-        <p className="modeling-empty">{t('modeling.no_alternative_base')}</p>
+        <p className={modelingEmptyClass}>{t('modeling.no_alternative_base')}</p>
       ) : (
-        <div className="form-group">
+        <div className={modelingFormGroupClass}>
           <Select
             value={picked}
             onChange={setPicked}
@@ -53,12 +56,17 @@ export function BaseSwapModal({
           />
         </div>
       )}
-      <div className="modal-actions">
-        <button className="btn btn-secondary" type="button" onClick={onCancel} disabled={saving}>
+      <div className={modalActionsBorderedClass()}>
+        <button
+          className={legacyButtonClass('btn btn-secondary')}
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+        >
           {t('common.cancel')}
         </button>
         <button
-          className="btn btn-danger"
+          className={legacyButtonClass('btn btn-danger')}
           type="button"
           disabled={saving || !picked}
           onClick={() => {

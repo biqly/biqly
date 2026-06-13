@@ -3,6 +3,9 @@ import { type ReactNode, useId } from 'react'
 
 import type { TranslationKey } from '../../i18n'
 import { useLocale, useT } from '../../i18n'
+import { lqMetaBadgesClass, promptStatsPanelClass, wfBadgeClass } from '../../lib/badgeClasses'
+import { cn } from '../../lib/cn'
+import { sqlPreviewClass } from '../../lib/feedbackClasses'
 import type {
   AIQueryResponse,
   Clarification,
@@ -37,8 +40,10 @@ import {
   clarificationCapNoticeClass,
   clarificationCardAmbiguityClass,
   clarificationCardClass,
+  clarificationOptionHintClass,
   clarificationOptionsClass,
   clarificationQuestionClass,
+  clarificationReasonClass,
   clarificationRoundIndicatorClass,
   clarificationTitleClass,
   collapsibleContentClass,
@@ -72,7 +77,6 @@ import {
   tableRoutingVizClass,
 } from './aiQueryClasses'
 import { GenerationTracePanel } from './generationTrace'
-
 type TFn = ReturnType<typeof useT>
 
 export function formatAiWaitElapsed(ms: number, t: TFn): string {
@@ -522,10 +526,7 @@ export function ClarificationCard({
         <ClarificationRoundChip round={round} maxRounds={maxRounds} />
       </div>
       {interactiveTier && (
-        <p
-          className={`${clarificationCapNoticeClass} clarification-cap-notice--interactive`}
-          role="status"
-        >
+        <p className={clarificationCapNoticeClass} role="status">
           {t('ai_query.clarification_interactive_tier')}
         </p>
       )}
@@ -534,7 +535,7 @@ export function ClarificationCard({
           {t('ai_query.clarification_cap_reached')}
         </p>
       )}
-      {clarification?.reason && <p className="clarification-reason">{clarification.reason}</p>}
+      {clarification?.reason && <p className={clarificationReasonClass}>{clarification.reason}</p>}
       <AmbiguityTermsList clarification={clarification} />
       <p className={clarificationQuestionClass}>{question}</p>
       <div className={clarificationOptionsClass}>
@@ -548,7 +549,7 @@ export function ClarificationCard({
                 onClick={() => onSelect(opt.key || opt.label)}
               >
                 {opt.label}
-                {opt.hint ? <span className="clarification-option-hint">{opt.hint}</span> : null}
+                {opt.hint ? <span className={clarificationOptionHintClass}>{opt.hint}</span> : null}
               </button>
             ))
           : options.map((opt) => (
@@ -602,7 +603,7 @@ export function CandidateComparisonPanel({
               {c.reasoning && <p className={candidateReasoningClass}>{c.reasoning}</p>}
               <details>
                 <summary>{t('ai_query.logical_query_json')}</summary>
-                <pre className={`sql-preview ${candidateJsonClass}`}>
+                <pre className={cn(sqlPreviewClass, candidateJsonClass)}>
                   {JSON.stringify(c.logical_query, null, 2)}
                 </pre>
               </details>
@@ -687,9 +688,9 @@ export function LogicalQueryMetaBadges({ lq }: { lq: LogicalQuery }) {
     return null
   }
   return (
-    <div className="lq-meta-badges">
+    <div className={lqMetaBadgesClass}>
       {badges.map((b) => (
-        <span key={b} className="wf-badge">
+        <span key={b} className={wfBadgeClass}>
           {b}
         </span>
       ))}
@@ -711,33 +712,33 @@ export function PromptStatsPanel({
     return null
   }
   return (
-    <div className="prompt-stats-panel">
+    <div className={promptStatsPanelClass}>
       {stats && (
         <>
           {stats.context_tier_label && (
             <span
-              className="wf-badge"
+              className={wfBadgeClass}
               title={t('ai_query.prompt_context_tier_title', { tier: stats.context_tier ?? '' })}
             >
               {t('ai_query.prompt_context_label')} {stats.context_tier_label}
             </span>
           )}
           {stats.est_prompt_tokens !== undefined && (
-            <span className="wf-badge" title={t('ai_query.prompt_est_tokens_title')}>
+            <span className={wfBadgeClass} title={t('ai_query.prompt_est_tokens_title')}>
               {t('ai_query.prompt_est_tokens_badge', {
                 n: stats.est_prompt_tokens.toLocaleString(localeTag),
               })}
             </span>
           )}
           {stats.context_window_tokens !== undefined && (
-            <span className="wf-badge" title={t('ai_query.prompt_window_title')}>
+            <span className={wfBadgeClass} title={t('ai_query.prompt_window_title')}>
               {t('ai_query.prompt_window_badge', {
                 n: stats.context_window_tokens.toLocaleString(localeTag),
               })}
             </span>
           )}
           {stats.prompt_runes !== undefined && (
-            <span className="wf-badge" title={t('ai_query.prompt_runes_title')}>
+            <span className={wfBadgeClass} title={t('ai_query.prompt_runes_title')}>
               {t('ai_query.prompt_runes_badge', {
                 n: stats.prompt_runes.toLocaleString(localeTag),
               })}
@@ -746,7 +747,7 @@ export function PromptStatsPanel({
         </>
       )}
       {tokenUsage && stats?.est_prompt_tokens !== undefined && tokenUsage.prompt > 0 && (
-        <span className="wf-badge" title={t('ai_query.prompt_token_compare_title')}>
+        <span className={wfBadgeClass} title={t('ai_query.prompt_token_compare_title')}>
           {t('ai_query.prompt_token_compare_badge', {
             n: tokenUsage.prompt.toLocaleString(localeTag),
           })}

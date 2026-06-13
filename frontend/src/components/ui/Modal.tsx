@@ -150,7 +150,7 @@ export function Modal({
         </header>
         <div
           className={clsx(
-            'grid gap-[0.85rem] max-[680px]:gap-3 p-[1.1rem_1.25rem_1.25rem] max-[680px]:p-[0.85rem_1rem_1rem]',
+            'modal-body grid gap-[0.85rem] max-[680px]:gap-3 p-[1.1rem_1.25rem_1.25rem] max-[680px]:p-[0.85rem_1rem_1rem]',
             bodyClassName,
           )}
         >

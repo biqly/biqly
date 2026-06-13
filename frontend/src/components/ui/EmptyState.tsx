@@ -1,5 +1,15 @@
 import type { ReactNode } from 'react'
 
+import { cn } from '../../lib/cn'
+import {
+  uiEmptyStateActionClass,
+  uiEmptyStateClass,
+  uiEmptyStateDescClass,
+  uiEmptyStateIconClass,
+  uiEmptyStateInlineClass,
+  uiEmptyStateSlotClass,
+  uiEmptyStateTitleClass,
+} from '../../lib/feedbackClasses'
 import { Button } from './Button'
 
 export interface EmptyStateAction {
@@ -26,27 +36,30 @@ export function EmptyState({ title, description, icon, action, children, classNa
     return null
   }
 
-  const rootCls = ['ui-empty-state', className].filter(Boolean).join(' ')
+  const rootCls = cn(
+    uiEmptyStateClass,
+    className === 'ui-empty-state--inline' ? uiEmptyStateInlineClass : className,
+  )
 
   return (
     <div className={rootCls} role="status">
       {icon ? (
-        <div className="ui-empty-state__icon" aria-hidden="true">
+        <div className={uiEmptyStateIconClass} aria-hidden="true">
           {icon}
         </div>
       ) : null}
-      {title ? <h3 className="ui-empty-state__title">{title}</h3> : null}
-      {description ? <p className="ui-empty-state__desc">{description}</p> : null}
+      {title ? <h3 className={uiEmptyStateTitleClass}>{title}</h3> : null}
+      {description ? <p className={uiEmptyStateDescClass}>{description}</p> : null}
       {action ? (
         <Button
           variant={action.variant ?? 'primary'}
-          className="ui-empty-state__action"
+          className={uiEmptyStateActionClass}
           onClick={action.onClick}
         >
           {action.label}
         </Button>
       ) : null}
-      {children ? <div className="ui-empty-state__slot">{children}</div> : null}
+      {children ? <div className={uiEmptyStateSlotClass}>{children}</div> : null}
     </div>
   )
 }

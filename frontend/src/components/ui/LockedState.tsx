@@ -2,9 +2,18 @@ import { useState } from 'react'
 
 import { requestDatasourceAccess } from '../../api/admin'
 import { useT } from '../../i18n'
+import {
+  lockedStateAlertClass,
+  lockedStateBtnClass,
+  lockedStateCardClass,
+  lockedStateDescClass,
+  lockedStateIconClass,
+  lockedStateOverlayClass,
+  lockedStateSuccessAlertClass,
+  lockedStateTitleClass,
+} from '../../lib/lockedStateClasses'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from './ErrorAlert'
-
 interface LockedStateProps {
   datasourceId: string
   datasourceName?: string
@@ -44,9 +53,9 @@ export function LockedState({ datasourceId, datasourceName }: LockedStateProps) 
   }
 
   return (
-    <div className="locked-state-overlay">
-      <div className="locked-state-card">
-        <div className="locked-state-icon">
+    <div className={lockedStateOverlayClass}>
+      <div className={lockedStateCardClass}>
+        <div className={lockedStateIconClass}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -62,24 +71,22 @@ export function LockedState({ datasourceId, datasourceName }: LockedStateProps) 
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
         </div>
-        <h2 className="locked-state-title">{t('datasources.locked_title')}</h2>
-        <p className="locked-state-desc">
+        <h2 className={lockedStateTitleClass}>{t('datasources.locked_title')}</h2>
+        <p className={lockedStateDescClass}>
           {datasourceName ? `"${datasourceName}" — ` : ''}
           {t('datasources.locked_desc')}
         </p>
 
         {success && (
-          <div className="alert alert-success locked-state-alert">
-            {t('datasources.request_success')}
-          </div>
+          <div className={lockedStateSuccessAlertClass}>{t('datasources.request_success')}</div>
         )}
 
-        <ErrorAlert error={error} className="locked-state-alert" />
+        <ErrorAlert error={error} className={lockedStateAlertClass} />
 
         {!success && (
           <button
             type="button"
-            className="btn btn-primary locked-state-btn"
+            className={lockedStateBtnClass}
             onClick={() => {
               void handleRequest()
             }}

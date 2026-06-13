@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { useAdminApi } from '../../hooks/useApi'
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { abRecommendationBannerClass, abRecommendationTitleClass } from '../../lib/feedbackClasses'
 import type { Experiment } from './ABExperimentForm'
-
 interface Variant {
   id?: string
   experiment_id: string
@@ -144,12 +146,16 @@ function ExperimentDetailHeader({
         <div className="flex justify-end gap-3 mt-0" style={{ marginTop: 0 }}>
           {isDraft && (
             <>
-              <button type="button" className="btn btn-secondary" onClick={onEdit}>
+              <button
+                type="button"
+                className={legacyButtonClass('btn btn-secondary')}
+                onClick={onEdit}
+              >
                 {t('common.edit')}
               </button>
               <button
                 type="button"
-                className="btn btn-primary"
+                className={legacyButtonClass('btn btn-primary')}
                 onClick={() => void onStatusTransition('running')}
                 disabled={totalTraffic !== 100 || controlCount !== 1}
               >
@@ -162,14 +168,14 @@ function ExperimentDetailHeader({
             <>
               <button
                 type="button"
-                className="btn btn-secondary"
+                className={legacyButtonClass('btn btn-secondary')}
                 onClick={() => void onStatusTransition('paused')}
               >
                 {t('admin.ab_experiments.pause_btn')}
               </button>
               <button
                 type="button"
-                className="btn btn-danger"
+                className={legacyButtonClass('btn btn-danger')}
                 onClick={() => void onStatusTransition('completed')}
               >
                 {t('admin.ab_experiments.complete_btn')}
@@ -181,14 +187,14 @@ function ExperimentDetailHeader({
             <>
               <button
                 type="button"
-                className="btn btn-primary"
+                className={legacyButtonClass('btn btn-primary')}
                 onClick={() => void onStatusTransition('running')}
               >
                 {t('admin.ab_experiments.resume_btn')}
               </button>
               <button
                 type="button"
-                className="btn btn-danger"
+                className={legacyButtonClass('btn btn-danger')}
                 onClick={() => void onStatusTransition('completed')}
               >
                 {t('admin.ab_experiments.complete_btn')}
@@ -308,6 +314,8 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
 
   const totalTraffic = variants.reduce((sum, v) => sum + v.traffic_pct, 0)
   const controlCount = variants.filter((v) => v.is_control).length
+  const recommendationIsWorse =
+    recommendation?.winner_variant_id === '' && recommendation.reason.includes('worse')
 
   return (
     <div className="flex flex-col gap-6 p-6 text-foreground font-[var(--font-family,inherit)]">
@@ -327,11 +335,17 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
 
       {/* Visual traffic split bar */}
       {variants.length > 0 && (
-        <div className={`bg-card border border-border rounded-lg p-6 shadow-card-sm`}>
+        <div
+          className={legacyCardClass('bg-card border border-border rounded-lg p-6 shadow-card-sm')}
+        >
           <h2 className="text-base font-semibold m-0 p-0 border-none">
             {t('admin.ab_experiments.traffic_pct')} ({totalTraffic}%)
           </h2>
-          <div className="flex h-3 w-full rounded-full overflow-hidden mt-3 mb-4 bg-card-raised">
+          <div
+            className={legacyCardClass(
+              'flex h-3 w-full rounded-full overflow-hidden mt-3 mb-4 bg-card-raised',
+            )}
+          >
             {variants.map((v, i) => (
               <div
                 key={v.id ?? i}
@@ -359,20 +373,8 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {/* Recommendation Banner */}
           {recommendation && (
-            <div
-              className={`flex flex-col gap-2 border rounded-lg p-4 mb-6 ${
-                recommendation.winner_variant_id === '' && recommendation.reason.includes('worse')
-                  ? 'bg-[color-mix(in_srgb,var(--error)_8%,var(--bg-card-raised))] border-[color-mix(in_srgb,var(--error)_30%,var(--border))]'
-                  : 'bg-[color-mix(in_srgb,var(--success)_8%,var(--bg-card-raised))] border-[color-mix(in_srgb,var(--success)_30%,var(--border))]'
-              }`}
-            >
-              <div
-                className={`flex items-center gap-2 font-semibold ${
-                  recommendation.winner_variant_id === '' && recommendation.reason.includes('worse')
-                    ? 'text-error'
-                    : 'text-success'
-                }`}
-              >
+            <div className={abRecommendationBannerClass(recommendationIsWorse)}>
+              <div className={abRecommendationTitleClass(recommendationIsWorse)}>
                 <span>💡</span>
                 {t('admin.ab_experiments.recommendation_title')}
               </div>
@@ -381,7 +383,11 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
           )}
 
           {/* Variants list card */}
-          <div className={`bg-card border border-border rounded-lg p-6 shadow-card-sm`}>
+          <div
+            className={legacyCardClass(
+              'bg-card border border-border rounded-lg p-6 shadow-card-sm',
+            )}
+          >
             <h2 className={`text-lg font-semibold mt-0 mb-4 border-b border-border pb-3`}>
               {t('admin.ab_experiments.variants_title')}
             </h2>
@@ -389,28 +395,38 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
               <thead>
                 <tr>
                   <th
-                    className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                    className={legacyCardClass(
+                      'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                    )}
                   >
                     {t('admin.ab_experiments.variant_name')}
                   </th>
                   <th
-                    className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                    className={legacyCardClass(
+                      'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                    )}
                   >
                     {t('admin.ab_experiments.template_version')}
                   </th>
                   <th
-                    className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                    className={legacyCardClass(
+                      'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                    )}
                   >
                     {t('admin.ab_experiments.traffic_pct')}
                   </th>
                   <th
-                    className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                    className={legacyCardClass(
+                      'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                    )}
                   >
                     {t('admin.ab_experiments.is_control')}
                   </th>
                   {isDraft && (
                     <th
-                      className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                      className={legacyCardClass(
+                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                      )}
                     >
                       {t('admin.ab_experiments.col_actions')}
                     </th>
@@ -434,7 +450,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                       <td className={`px-4 py-3 border-b border-border text-sm`}>
                         <button
                           type="button"
-                          className="btn btn-secondary btn-sm"
+                          className={legacyButtonClass('btn btn-secondary btn-sm')}
                           style={{ color: '#ef4444' }}
                           onClick={() => {
                             if (v.id) {
@@ -454,7 +470,11 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
             {/* Add Variant Form (Draft only) */}
             {isDraft && (
               <form onSubmit={(e) => void handleAddVariant(e)} style={{ marginTop: 24 }}>
-                <div className="border border-dashed border-border-strong rounded-lg p-4 bg-card-raised flex flex-col gap-3">
+                <div
+                  className={legacyCardClass(
+                    'border border-dashed border-border-strong rounded-lg p-4 bg-card-raised flex flex-col gap-3',
+                  )}
+                >
                   <h3 style={{ fontSize: 14, margin: '0 0 8px 0', fontWeight: 600 }}>
                     {t('admin.ab_experiments.add_variant')}
                   </h3>
@@ -497,7 +517,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                     </label>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                    <button type="submit" className="btn btn-primary btn-sm">
+                    <button type="submit" className={legacyButtonClass('btn btn-primary btn-sm')}>
                       {t('common.add')}
                     </button>
                   </div>
@@ -508,7 +528,11 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
 
           {/* Metrics Comparison Card */}
           {!isDraft && metrics.length > 0 && (
-            <div className={`bg-card border border-border rounded-lg p-6 shadow-card-sm`}>
+            <div
+              className={legacyCardClass(
+                'bg-card border border-border rounded-lg p-6 shadow-card-sm',
+              )}
+            >
               <h2 className={`text-lg font-semibold mt-0 mb-4 border-b border-border pb-3`}>
                 {t('admin.ab_experiments.metrics_title')}
               </h2>
@@ -516,32 +540,44 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                 <thead>
                   <tr>
                     <th
-                      className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                      className={legacyCardClass(
+                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                      )}
                     >
                       Variant
                     </th>
                     <th
-                      className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                      className={legacyCardClass(
+                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                      )}
                     >
                       {t('admin.ab_experiments.metric_queries')}
                     </th>
                     <th
-                      className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                      className={legacyCardClass(
+                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                      )}
                     >
                       {t('admin.ab_experiments.metric_success_rate')}
                     </th>
                     <th
-                      className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                      className={legacyCardClass(
+                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                      )}
                     >
                       {t('admin.ab_experiments.metric_latency')}
                     </th>
                     <th
-                      className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                      className={legacyCardClass(
+                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                      )}
                     >
                       {t('admin.ab_experiments.metric_cost')}
                     </th>
                     <th
-                      className={`px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised`}
+                      className={legacyCardClass(
+                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
+                      )}
                     >
                       {t('admin.ab_experiments.metric_tokens')}
                     </th>
@@ -585,7 +621,11 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
         {/* Right column (Summary & timeseries timeline overview) */}
         <div>
           {!isDraft && timeseries.length > 0 && (
-            <div className={`bg-card border border-border rounded-lg p-6 shadow-card-sm`}>
+            <div
+              className={legacyCardClass(
+                'bg-card border border-border rounded-lg p-6 shadow-card-sm',
+              )}
+            >
               <h2 className={`text-lg font-semibold mt-0 mb-4 border-b border-border pb-3`}>
                 {t('admin.ab_experiments.timeseries_title')}
               </h2>

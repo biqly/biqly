@@ -1,6 +1,23 @@
 import { useState } from 'react'
 
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import {
+  metadataColNameBaseClass,
+  metadataColNameCellClass,
+  metadataColNameSuffixClass,
+  metadataDisplayExprClass,
+  metadataDisplayExprHintClass,
+  metadataDisplayExprInputClass,
+  metadataDisplayExprLabelClass,
+  metadataDisplayExprRowClass,
+  metadataDisplayExprSavedClass,
+  metadataNestedCaptionClass,
+  metadataNestedCellClass,
+  metadataNestedPanelClass,
+  metadataNestedRowClass,
+  resultsTableNestedClass,
+} from '../../lib/tableClasses'
 import type { ColumnRow, TableRow } from '../../types/semantic'
 import { MetadataDescriptionCell } from './MetadataDescriptionCell'
 import type { MetadataEditingState } from './utils'
@@ -45,15 +62,15 @@ function DisplayExpressionEditor({
   }
 
   return (
-    <div className="metadata-display-expr">
-      <label htmlFor={inputId} className="metadata-display-expr__label">
+    <div className={metadataDisplayExprClass}>
+      <label htmlFor={inputId} className={metadataDisplayExprLabelClass}>
         ✨ {t('metadata.display_expr_label')}
       </label>
-      <div className="metadata-display-expr__row">
+      <div className={metadataDisplayExprRowClass}>
         <input
           id={inputId}
           type="text"
-          className="metadata-display-expr__input"
+          className={metadataDisplayExprInputClass}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
@@ -66,7 +83,7 @@ function DisplayExpressionEditor({
         />
         <button
           type="button"
-          className="btn btn-sm"
+          className={legacyButtonClass('btn btn-sm')}
           disabled={!dirty || saving}
           onClick={() => {
             void save()
@@ -75,12 +92,12 @@ function DisplayExpressionEditor({
           {saving ? t('common.saving') : t('common.save')}
         </button>
         {savedFlash && (
-          <span className="metadata-display-expr__saved" role="status">
+          <span className={metadataDisplayExprSavedClass} role="status">
             ✓ {t('metadata.display_expr_saved')}
           </span>
         )}
       </div>
-      <small className="metadata-display-expr__hint">{t('metadata.display_expr_hint')}</small>
+      <small className={metadataDisplayExprHintClass}>{t('metadata.display_expr_hint')}</small>
     </div>
   )
 }
@@ -99,15 +116,12 @@ export function MetadataColumnPanel({
   const t = useT()
 
   return (
-    <tr className="metadata-nested-row">
-      <td colSpan={4} className="metadata-nested-cell">
-        <div className="metadata-nested-panel">
+    <tr className={metadataNestedRowClass}>
+      <td colSpan={4} className={metadataNestedCellClass}>
+        <div className={metadataNestedPanelClass}>
           <DisplayExpressionEditor key={table.id} table={table} onSave={onSaveDisplayExpression} />
-          <table
-            className="results-table results-table--metadata-list results-table--nested"
-            lang={locale}
-          >
-            <caption className="metadata-nested-caption">
+          <table className={resultsTableNestedClass()} lang={locale}>
+            <caption className={metadataNestedCaptionClass}>
               {t('metadata.nested_columns_caption', {
                 fqn: `${table.schema_name}.${table.table_name}`,
               })}
@@ -136,16 +150,10 @@ export function MetadataColumnPanel({
                 )
                 return (
                   <tr key={c.id}>
-                    <td className="metadata-col-name-cell">
-                      <span className="metadata-col-name-base">{c.column_name}</span>
+                    <td className={metadataColNameCellClass}>
+                      <span className={metadataColNameBaseClass}>{c.column_name}</span>
                       {keySuffix && (
-                        <span
-                          className={
-                            fkMultiline
-                              ? 'metadata-col-name-suffix metadata-col-name-suffix--multiline'
-                              : 'metadata-col-name-suffix'
-                          }
-                        >
+                        <span className={metadataColNameSuffixClass(fkMultiline)}>
                           {fkMultiline ? `(${keySuffix})` : ` (${keySuffix})`}
                         </span>
                       )}

@@ -2,6 +2,25 @@ import { Fragment } from 'react'
 
 import type { Locale } from '../../i18n'
 import { FALLBACK_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, type useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
+import {
+  metadataEmptyHintClass,
+  metadataFilterFieldClass,
+  metadataHintBtnClass,
+  metadataLangTabClass,
+  metadataLangTabsClass,
+  metadataRowActionClass,
+  metadataRowActionLabelClass,
+  metadataTableFiltersToolbarClass,
+  metadataTableRowClass,
+  metadataToolbarActionsClass,
+  metadataToolbarClass,
+  metadataToolbarTitleClass,
+  metadataTypeBadgeClass,
+  resultsTableMetadataListClass,
+} from '../../lib/tableClasses'
 import type { ColumnRow, TableRow } from '../../types/semantic'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { Select } from '../ui/Select'
@@ -71,15 +90,15 @@ export function MetadataTablesPanel({
   onSaveDisplayExpression: (tab: TableRow, expr: string) => Promise<boolean>
 }) {
   return (
-    <div className="card">
-      <div className="metadata-toolbar">
-        <h2 className="metadata-toolbar__title">
+    <div className={legacyCardClass('card')}>
+      <div className={metadataToolbarClass}>
+        <h2 className={metadataToolbarTitleClass}>
           {t('metadata.tables')} ({filteredTables.length}
           {filteredTables.length !== tables.length ? ` / ${tables.length}` : ''})
         </h2>
         {tables.length > 0 && (
-          <div className="metadata-table-filters metadata-table-filters--toolbar">
-            <div className="metadata-filter-field">
+          <div className={metadataTableFiltersToolbarClass}>
+            <div className={metadataFilterFieldClass}>
               <Select
                 id="metadata-filter-schema"
                 size="sm"
@@ -92,7 +111,7 @@ export function MetadataTablesPanel({
                 ]}
               />
             </div>
-            <div className="metadata-filter-field">
+            <div className={metadataFilterFieldClass}>
               <Select
                 id="metadata-filter-type"
                 size="sm"
@@ -107,9 +126,9 @@ export function MetadataTablesPanel({
             </div>
           </div>
         )}
-        <div className="metadata-toolbar__actions">
+        <div className={metadataToolbarActionsClass}>
           <div
-            className="metadata-lang-tabs"
+            className={metadataLangTabsClass}
             role="tablist"
             aria-label={t('metadata.lang_tabs_aria')}
           >
@@ -119,7 +138,7 @@ export function MetadataTablesPanel({
                 type="button"
                 role="tab"
                 aria-selected={editLocale === loc}
-                className={`metadata-lang-tab${editLocale === loc ? ' metadata-lang-tab--active' : ''}`}
+                className={metadataLangTabClass(editLocale === loc)}
                 onClick={() => onEditLocaleChange(loc)}
               >
                 {LOCALE_OPTIONS[loc].short}
@@ -129,7 +148,7 @@ export function MetadataTablesPanel({
           {editLocale !== FALLBACK_LOCALE && (
             <button
               type="button"
-              className="metadata-hint-btn"
+              className={metadataHintBtnClass}
               aria-label={t('metadata.desc_lang_hint_aria')}
               title={t('metadata.desc_lang_tr_hint')}
             >
@@ -139,7 +158,10 @@ export function MetadataTablesPanel({
           {tables.length > 0 && (
             <button
               type="button"
-              className="btn btn-sm"
+              className={cn(
+                legacyButtonClass('btn btn-sm'),
+                'text-[0.75rem] px-[0.55rem] py-[0.28rem]',
+              )}
               onClick={onBulkOpen}
               disabled={bulkRunning || !!activeDescribeBatchJob}
             >
@@ -151,7 +173,7 @@ export function MetadataTablesPanel({
       {tablesLoading && tables.length === 0 ? (
         <LoadingScreen minHeight="150px" />
       ) : tables.length === 0 && !loading ? (
-        <p className="metadata-empty-hint">
+        <p className={metadataEmptyHintClass}>
           {t('metadata.no_tables_before')}
           <strong>{t('datasources.sync')}</strong>
           {t('metadata.no_tables_after')}
@@ -159,7 +181,7 @@ export function MetadataTablesPanel({
       ) : null}
 
       {(!tablesLoading || tables.length > 0) && tables.length > 0 && (
-        <table className="results-table results-table--metadata-list" lang={locale}>
+        <table className={resultsTableMetadataListClass()} lang={locale}>
           <colgroup>
             <col className="metadata-cw-name" />
             <col className="metadata-cw-type" />
@@ -199,17 +221,14 @@ export function MetadataTablesPanel({
             )}
             {filteredTables.map((tab) => (
               <Fragment key={tab.id}>
-                <tr
-                  className={
-                    openTableId === tab.id
-                      ? 'metadata-table-row metadata-table-row--expanded'
-                      : 'metadata-table-row'
-                  }
-                >
+                <tr className={metadataTableRowClass(openTableId === tab.id)}>
                   <td>
                     <button
                       type="button"
-                      className="icon-btn"
+                      className={cn(
+                        legacyButtonClass('icon-btn'),
+                        'text-[0.8125rem] gap-[0.35rem]',
+                      )}
                       aria-expanded={openTableId === tab.id}
                       aria-label={
                         openTableId === tab.id
@@ -222,17 +241,17 @@ export function MetadataTablesPanel({
                       }
                       onClick={() => onToggleTable(tab)}
                     >
-                      <span className="chevron">{openTableId === tab.id ? '▼' : '▶'}</span>
+                      <span className="inline-block w-[0.7rem] text-foreground-muted text-[0.7rem]">
+                        {openTableId === tab.id ? '▼' : '▶'}
+                      </span>
                       {tab.schema_name}.{tab.table_name}
                     </button>
                   </td>
                   <td className="metadata-col-type">
                     <span
-                      className={`metadata-type-badge${
-                        tab.table_type.toUpperCase().includes('VIEW')
-                          ? ' metadata-type-badge--view'
-                          : ''
-                      }`}
+                      className={metadataTypeBadgeClass(
+                        tab.table_type.toUpperCase().includes('VIEW'),
+                      )}
                     >
                       {tab.table_type}
                     </span>
@@ -251,7 +270,7 @@ export function MetadataTablesPanel({
                   <td className="actions">
                     <button
                       type="button"
-                      className="metadata-row-action"
+                      className={metadataRowActionClass}
                       onClick={() => onDescribeOpen(tab)}
                       aria-label={t('metadata.btn_ai_describe_aria', {
                         name: `${tab.schema_name}.${tab.table_name}`,
@@ -259,7 +278,7 @@ export function MetadataTablesPanel({
                       title={t('metadata.btn_ai_describe')}
                     >
                       <span aria-hidden="true">✨</span>
-                      <span className="metadata-row-action__label">
+                      <span className={metadataRowActionLabelClass}>
                         {t('metadata.btn_ai_describe')}
                       </span>
                     </button>

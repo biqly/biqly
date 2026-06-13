@@ -1,3 +1,10 @@
+import {
+  aiScopeLabelClass,
+  aiScopeMultiselectClass,
+  aiScopeTypeFiltersClass,
+  aiScopeTypeOptionClass,
+} from '../../lib/aiScopeClasses'
+import { legacyFormClass } from '../../lib/formClasses'
 import { MultiSelect } from '../ui/MultiSelect'
 import { routingTableLabel } from './routingPanelUtils'
 import type { RoutingPanelProps } from './types'
@@ -30,10 +37,10 @@ export function RoutingPanelManualScope({
   filteredTables: RoutingPanelProps['tables']
 }) {
   return (
-    <div className="form-group">
-      <span className="ai-scope-label">{t('ai_query.scope_label')}</span>
-      <div className="ai-scope-type-filters" role="group">
-        <label className="ai-scope-type-option">
+    <div className={legacyFormClass('form-group')}>
+      <span className={aiScopeLabelClass()}>{t('ai_query.scope_label')}</span>
+      <div className={aiScopeTypeFiltersClass()} role="group">
+        <label className={aiScopeTypeOptionClass()}>
           <input
             type="checkbox"
             checked={includeBaseTables}
@@ -42,7 +49,7 @@ export function RoutingPanelManualScope({
           />
           <span>{t('ai_query.scope_base_tables')}</span>
         </label>
-        <label className="ai-scope-type-option">
+        <label className={aiScopeTypeOptionClass()}>
           <input
             type="checkbox"
             checked={includeViews}
@@ -61,7 +68,7 @@ export function RoutingPanelManualScope({
       />
       <MultiSelect
         display="inline"
-        className="ai-scope-multiselect"
+        className={aiScopeMultiselectClass()}
         ariaLabel={t('ai_query.selected_tables_aria')}
         value={selectedTables}
         onChange={setSelectedTables}

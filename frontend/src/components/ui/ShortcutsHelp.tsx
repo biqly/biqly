@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 
 import type { ShortcutDef, ShortcutKeys } from '../../hooks/useKeyboardShortcuts'
 import { useT } from '../../i18n'
+import { legacyCardClass } from '../../lib/cardClasses'
 import { noop } from '../../utils/constants'
 import { Modal } from './Modal'
 
@@ -62,14 +63,18 @@ export function ShortcutsHelp({ open, shortcuts, onClose }: ShortcutsHelpProps) 
               {defs.map((def) => (
                 <li
                   key={def.id}
-                  className="flex items-center justify-between gap-4 rounded-[0.4rem] px-2 py-[0.4rem] hover:bg-card-raised"
+                  className={legacyCardClass(
+                    'flex items-center justify-between gap-4 rounded-[0.4rem] px-2 py-[0.4rem] hover:bg-card-raised',
+                  )}
                 >
                   <span className="text-[0.88rem] text-foreground">{def.description}</span>
                   <span className="inline-flex shrink-0 gap-1">
                     {comboParts(def.keys).map((part, i) => (
                       <kbd
                         key={i}
-                        className="inline-grid h-6 min-w-6 place-items-center rounded-[0.35rem] border-x border-t border-b-2 border-border-strong bg-card-raised px-[0.4rem] text-[0.78rem] leading-none text-foreground [font-family:inherit]"
+                        className={legacyCardClass(
+                          'inline-grid h-6 min-w-6 place-items-center rounded-[0.35rem] border-x border-t border-b-2 border-border-strong bg-card-raised px-[0.4rem] text-[0.78rem] leading-none text-foreground [font-family:inherit]',
+                        )}
                       >
                         {part}
                       </kbd>

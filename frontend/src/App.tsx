@@ -21,7 +21,18 @@ import { LanguageSwitcher } from './components/ui/LanguageSwitcher'
 import { LoadingScreen } from './components/ui/LoadingScreen'
 import { ThemeToggle } from './components/ui/ThemeToggle'
 import { LocaleSection, type TranslationKey, useLocaleSection, useT } from './i18n'
-
+import { authCardClass, authPageClass } from './lib/authClasses'
+import { legacyButtonClass } from './lib/buttonClasses'
+import { legacyCardClass } from './lib/cardClasses'
+import { legacyFeedbackClass } from './lib/feedbackClasses'
+import { headerControlsClass } from './lib/headerControlClasses'
+import {
+  mainClass,
+  navLinkClass,
+  navLinkIconClass,
+  pageHeaderClass,
+  skipLinkClass,
+} from './lib/layoutClasses'
 interface Preloadable {
   preload: () => Promise<unknown>
 }
@@ -449,8 +460,8 @@ const DEFAULT_PATH = routeDefs[0]!.path
 
 const AuthLoading = () => {
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <div className={authPageClass}>
+      <div className={authCardClass}>
         <LoadingScreen minHeight="auto" variant="center" />
       </div>
     </div>
@@ -502,7 +513,9 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
           </Link>
           <button
             type="button"
-            className="btn inline-flex items-center justify-center gap-[0.45rem] w-full mt-0 min-h-9 border border-[rgba(239,68,68,0.45)] text-[#f87171] bg-[rgba(239,68,68,0.1)] text-[0.8rem] font-semibold hover:border-[rgba(248,113,113,0.65)] hover:text-[#fecaca] hover:bg-[rgba(239,68,68,0.18)] hover:transform-none"
+            className={legacyButtonClass(
+              'btn inline-flex items-center justify-center gap-[0.45rem] w-full mt-0 min-h-9 border border-[rgba(239,68,68,0.45)] text-[#f87171] bg-[rgba(239,68,68,0.1)] text-[0.8rem] font-semibold hover:border-[rgba(248,113,113,0.65)] hover:text-[#fecaca] hover:bg-[rgba(239,68,68,0.18)] hover:transform-none',
+            )}
             onClick={onLogout}
           >
             <span className="text-[0.95rem] leading-none" aria-hidden="true">
@@ -512,13 +525,15 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
           </button>
         </>
       )}
-      <div className="header-controls">
+      <div className={headerControlsClass}>
         <LanguageSwitcher />
         <ThemeToggle />
       </div>
       <div className="inline-flex items-center gap-2">
         <span
-          className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_var(--success)]"
+          className={legacyFeedbackClass(
+            'w-2 h-2 rounded-full bg-success shadow-[0_0_8px_var(--success)]',
+          )}
           aria-hidden="true"
         />
         <span>{apiLabel}</span>
@@ -675,10 +690,8 @@ function App() {
       }
     }
     window.addEventListener('keydown', onKey)
-    document.body.classList.add('app-shell--nav-open')
     return () => {
       window.removeEventListener('keydown', onKey)
-      document.body.classList.remove('app-shell--nav-open')
     }
   }, [mobileNavOpen])
 
@@ -819,7 +832,7 @@ function App() {
               className={`grid grid-cols-1 min-[981px]:grid-cols-[16rem_minmax(0,1fr)] min-h-screen`}
             >
               <CommandPalette items={commandItems} />
-              <a className="skip-link" href="#main-content">
+              <a className={skipLinkClass} href="#main-content">
                 {t('common.skip_to_content')}
               </a>
 
@@ -877,17 +890,14 @@ function App() {
                   {homeRoute && (
                     <div className="grid gap-[0.2rem]">
                       <a
-                        className="group flex items-center gap-[0.7rem] min-w-0 rounded-lg text-foreground-muted py-2 px-3 font-['Plus_Jakarta_Sans',sans-serif] text-[0.86rem] font-medium border-l-2 border-transparent transition-all duration-180 ease-in-out hover:bg-card hover:text-foreground hover:translate-x-[2px] aria-[current=page]:bg-(--accent-glow) aria-[current=page]:border-l-accent aria-[current=page]:text-foreground aria-[current=page]:font-semibold aria-[current=page]:shadow-[inset_0_1px_0_rgba(255,255,255,0.01)]"
+                        className={navLinkClass}
                         href={homeRoute.path}
                         aria-current={activeRoute?.path === homeRoute.path ? 'page' : undefined}
                         onClick={(event) => handleNavClick(event, homeRoute.path)}
                         onMouseEnter={() => handleNavHover(homeRoute.component)}
                         onFocus={() => handleNavHover(homeRoute.component)}
                       >
-                        <span
-                          className="inline-flex items-center justify-center w-[1.05rem] h-[1.05rem] shrink-0 text-foreground-muted transition-all duration-180 group-hover:text-accent group-hover:scale-105 group-aria-[current=page]:text-accent"
-                          aria-hidden="true"
-                        >
+                        <span className={navLinkIconClass} aria-hidden="true">
                           {homeRoute.icon}
                         </span>
                         <span className="overflow-hidden text-ellipsis whitespace-nowrap">
@@ -912,17 +922,14 @@ function App() {
                         {section.routes.map((route) => (
                           <a
                             key={route.path}
-                            className="group flex items-center gap-[0.7rem] min-w-0 rounded-lg text-foreground-muted py-2 px-3 font-['Plus_Jakarta_Sans',sans-serif] text-[0.86rem] font-medium border-l-2 border-transparent transition-all duration-180 ease-in-out hover:bg-card hover:text-foreground hover:translate-x-[2px] aria-[current=page]:bg-(--accent-glow) aria-[current=page]:border-l-accent aria-[current=page]:text-foreground aria-[current=page]:font-semibold aria-[current=page]:shadow-[inset_0_1px_0_rgba(255,255,255,0.01)]"
+                            className={navLinkClass}
                             href={route.path}
                             aria-current={activeRoute?.path === route.path ? 'page' : undefined}
                             onClick={(event) => handleNavClick(event, route.path)}
                             onMouseEnter={() => handleNavHover(route.component)}
                             onFocus={() => handleNavHover(route.component)}
                           >
-                            <span
-                              className="inline-flex items-center justify-center w-[1.05rem] h-[1.05rem] shrink-0 text-foreground-muted transition-all duration-180 group-hover:text-accent group-hover:scale-105 group-aria-[current=page]:text-accent"
-                              aria-hidden="true"
-                            >
+                            <span className={navLinkIconClass} aria-hidden="true">
                               {route.icon}
                             </span>
                             <span className="overflow-hidden text-ellipsis whitespace-nowrap">
@@ -945,8 +952,8 @@ function App() {
                 />
               </aside>
 
-              <main id="main-content" className="main" tabIndex={-1}>
-                <header className="page-header">
+              <main id="main-content" className={mainClass} tabIndex={-1}>
+                <header className={pageHeaderClass}>
                   <Breadcrumbs items={breadcrumbs} ariaLabel={t('common.primary_nav')} />
                   <p>{activeRoute?.eyebrow ?? t('common.not_found_eyebrow')}</p>
                   <div>
@@ -1001,13 +1008,13 @@ function App() {
                     <Route
                       path="*"
                       element={
-                        <section className="card card--elevated">
+                        <section className={legacyCardClass('card card--elevated')}>
                           <EmptyState
                             title={t('common.module_not_found')}
                             description={t('common.module_not_found_desc')}
                           >
                             <a
-                              className="btn"
+                              className={legacyButtonClass('btn')}
                               href={DEFAULT_PATH}
                               onClick={(event) => handleNavClick(event, DEFAULT_PATH)}
                             >

@@ -1,3 +1,6 @@
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+import { semanticModelSetupClass, semanticModelSetupStatusClass } from '../../lib/feedbackClasses'
 import type { GenerateSemanticModelResponse } from '../../types/semantic'
 import type { MetadataTFunction } from '../metadata/utils'
 
@@ -36,12 +39,17 @@ export function QueryBuilderEmptyModelSetup({
     return null
   }
   return (
-    <div className="semantic-model-setup" style={{ marginBottom: '1rem' }}>
+    <div className={cn(semanticModelSetupClass, 'mb-4')}>
       <div>
         <strong>{t('query_builder.model_setup_title')}</strong>
         <p>{t('query_builder.model_setup_body')}</p>
       </div>
-      <button type="button" className="btn btn-sm" onClick={onCreate} disabled={generatingModel}>
+      <button
+        type="button"
+        className={legacyButtonClass('btn btn-sm')}
+        onClick={onCreate}
+        disabled={generatingModel}
+      >
         {generatingModel
           ? t('query_builder.model_setup_generating')
           : t('query_builder.model_setup_create')}
@@ -62,14 +70,7 @@ export function QueryBuilderGeneratedModelBanner({
   }
   const isError = generatedModel.validation?.valid === false
   return (
-    <div
-      className={
-        isError
-          ? 'semantic-model-setup semantic-model-setup--error'
-          : 'semantic-model-setup semantic-model-setup--success'
-      }
-      style={{ marginBottom: '1rem' }}
-    >
+    <div className={cn(semanticModelSetupStatusClass(isError ? 'error' : 'success'), 'mb-4')}>
       <div>
         <strong>
           {generatedModel.published

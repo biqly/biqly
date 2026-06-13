@@ -12,6 +12,8 @@ import {
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
+import { formHintClass, formHintWarningClass } from '../../lib/formClasses'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import {
@@ -98,7 +100,7 @@ function RemoteModelIdPicker({
         </button>
       </div>
       {remoteModels.length > 0 && !remoteError && (
-        <small className="form-hint" style={{ margin: 0 }}>
+        <small className={cn(formHintClass, 'm-0')}>
           {t('admin.ai_providers.fields.remote_models_count', { count: remoteModels.length })}
           {' · '}
           <button
@@ -119,12 +121,8 @@ function RemoteModelIdPicker({
           ))}
         </datalist>
       )}
-      {remoteError && (
-        <small className="form-hint form-hint--warning" style={{ margin: 0 }}>
-          {remoteError}
-        </small>
-      )}
-      <small className="form-hint" style={{ margin: 0 }}>
+      {remoteError && <small className={cn(formHintWarningClass, 'm-0')}>{remoteError}</small>}
+      <small className={cn(formHintClass, 'm-0')}>
         {t('admin.ai_providers.fields.model_id_hint')}
       </small>
     </div>

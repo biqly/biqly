@@ -7,6 +7,29 @@ import { useDatasources } from '../hooks/useDatasources'
 import { useModelDetail } from '../hooks/useModelDetail'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
+import { legacyButtonClass, rowActionsClass } from '../lib/buttonClasses'
+import { legacyCardClass } from '../lib/cardClasses'
+import { cn } from '../lib/cn'
+import { fieldBadgeBtnClass, fieldBadgeBtnTypeClass } from '../lib/fewShotLayoutClasses'
+import {
+  fewShotMainFormClass,
+  fewShotModalCardClass,
+  fewShotSidebarClass,
+  fewShotSidebarHeaderClass,
+  fewShotSidebarListClass,
+  modalBodyTwoColClass,
+} from '../lib/fewShotLayoutClasses'
+import { formControlClass, formRowClass, legacyFormClass } from '../lib/formClasses'
+import { legacyLayoutClass } from '../lib/layoutClasses'
+import {
+  modalActionsClass,
+  modalBackdropClass,
+  modalCloseClass,
+  modalFormRowClass,
+  modalHeaderClass,
+  modalTitleClass,
+} from '../lib/modalClasses'
+import { legacyTableClass } from '../lib/tableClasses'
 import type { EnrichAnalyzeResult, EnrichApplyResult } from '../types/enrichContext'
 import type { BusinessGlossaryTerm, GlossaryAIContext } from '../types/glossary'
 import { GlossaryEnrichPanel } from './GlossaryEnrichPanel'
@@ -14,7 +37,6 @@ import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
 import { Select } from './ui/Select'
-
 export default function Glossary() {
   const t = useT()
   const confirm = useConfirm()
@@ -485,15 +507,15 @@ export default function Glossary() {
   }
 
   return (
-    <div className="page-stack">
-      <div className="card">
-        <div className="card-intro">
-          <div className="card-header-row">
+    <div className={legacyLayoutClass('page-stack')}>
+      <div className={legacyCardClass('card')}>
+        <div className={legacyCardClass('card-intro')}>
+          <div className={legacyCardClass('card-header-row')}>
             <h2>{t('glossary.title')}</h2>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <button
                 type="button"
-                className="btn btn-sm btn-secondary"
+                className={legacyButtonClass('btn btn-sm btn-secondary')}
                 disabled={!selectedModelId || enrichLoading}
                 title={t('glossary.enrich_context_hint')}
                 onClick={() => {
@@ -502,23 +524,27 @@ export default function Glossary() {
               >
                 {t('glossary.enrich_context')}
               </button>
-              <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
+              <button
+                type="button"
+                className={legacyButtonClass('btn btn-sm btn-primary')}
+                onClick={openAdd}
+              >
                 {t('glossary.new')}
               </button>
             </div>
           </div>
-          <p className="card-lead card-lead--single-line" title={t('glossary.manage_hint')}>
+          <p
+            className={legacyCardClass('card-lead card-lead--single-line')}
+            title={t('glossary.manage_hint')}
+          >
             {t('glossary.manage_hint')}
           </p>
         </div>
 
         {/* Filters & Search */}
-        <div
-          className="form-row"
-          style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}
-        >
-          <label className="form-field" style={{ minWidth: '14rem' }}>
-            <span className="form-label">{t('glossary.label_datasource')}</span>
+        <div className={cn(formRowClass, 'mb-5')}>
+          <label className={legacyFormClass('form-field')} style={{ minWidth: '14rem' }}>
+            <span className={legacyFormClass('form-label')}>{t('glossary.label_datasource')}</span>
             <Select
               value={selectedDatasourceId}
               options={datasources.map((d) => ({ value: d.id, label: d.name }))}
@@ -528,8 +554,8 @@ export default function Glossary() {
               }}
             />
           </label>
-          <label className="form-field" style={{ minWidth: '14rem' }}>
-            <span className="form-label">{t('glossary.label_model')}</span>
+          <label className={legacyFormClass('form-field')} style={{ minWidth: '14rem' }}>
+            <span className={legacyFormClass('form-label')}>{t('glossary.label_model')}</span>
             <Select
               value={selectedModelId}
               options={[
@@ -539,14 +565,14 @@ export default function Glossary() {
               onChange={setSelectedModelId}
             />
           </label>
-          <div className="form-field" style={{ flex: 1, minWidth: '16rem' }}>
-            <span className="form-label">{t('common.search')}</span>
+          <div className={legacyFormClass('form-field')} style={{ flex: 1, minWidth: '16rem' }}>
+            <span className={legacyFormClass('form-label')}>{t('common.search')}</span>
             <input
               type="text"
               placeholder={t('glossary.search_placeholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="input"
+              className={legacyFormClass('input')}
             />
           </div>
         </div>
@@ -601,7 +627,7 @@ export default function Glossary() {
 
         {displayedTerms.length > 0 && (
           <div className="table-wrap">
-            <table className="results-table">
+            <table className={legacyTableClass('results-table')}>
               <thead>
                 <tr>
                   <th>{t('glossary.col_term')}</th>
@@ -685,17 +711,17 @@ export default function Glossary() {
                       )}
                     </td>
                     <td className="actions">
-                      <div className="row-actions">
+                      <div className={rowActionsClass}>
                         <button
                           type="button"
-                          className="btn btn-sm btn-ghost"
+                          className={legacyButtonClass('btn btn-sm btn-ghost')}
                           onClick={() => openEdit(term)}
                         >
                           {t('common.edit')}
                         </button>
                         <button
                           type="button"
-                          className="btn btn-sm btn-danger"
+                          className={legacyButtonClass('btn btn-sm btn-danger')}
                           onClick={() => {
                             void handleDelete(term.id)
                           }}
@@ -714,18 +740,20 @@ export default function Glossary() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className="modal-backdrop" onClick={resetForm}>
-          <div className="modal-card modal-card--few-shot" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{editId ? t('glossary.form_edit_title') : t('glossary.form_add_title')}</h2>
-              <button className="modal-close" onClick={resetForm}>
+        <div className={modalBackdropClass()} onClick={resetForm}>
+          <div className={fewShotModalCardClass()} onClick={(e) => e.stopPropagation()}>
+            <div className={modalHeaderClass()}>
+              <h2 className={modalTitleClass()}>
+                {editId ? t('glossary.form_edit_title') : t('glossary.form_add_title')}
+              </h2>
+              <button type="button" className={modalCloseClass()} onClick={resetForm}>
                 ×
               </button>
             </div>
-            <div className="modal-body modal-body--two-col">
-              <div className="few-shot-main-form">
-                <div className="modal-form-row">
-                  <div className="form-group">
+            <div className={modalBodyTwoColClass()}>
+              <div className={fewShotMainFormClass()}>
+                <div className={modalFormRowClass()}>
+                  <div className={legacyFormClass('form-group')}>
                     <label>{t('glossary.label_datasource')}</label>
                     <Select
                       value={formDatasourceId}
@@ -738,7 +766,7 @@ export default function Glossary() {
                       disabled={!!editId}
                     />
                   </div>
-                  <div className="form-group">
+                  <div className={legacyFormClass('form-group')}>
                     <label>{t('glossary.label_model')}</label>
                     <Select
                       value={formModelId}
@@ -755,7 +783,7 @@ export default function Glossary() {
                   </div>
                 </div>
 
-                <div className="form-group">
+                <div className={legacyFormClass('form-group')}>
                   <label htmlFor="gl-term">{t('glossary.label_term')}</label>
                   <input
                     id="gl-term"
@@ -766,7 +794,7 @@ export default function Glossary() {
                   />
                 </div>
 
-                <div className="form-group">
+                <div className={legacyFormClass('form-group')}>
                   <label htmlFor="gl-definition">{t('glossary.label_definition')}</label>
                   <textarea
                     id="gl-definition"
@@ -777,8 +805,8 @@ export default function Glossary() {
                   />
                 </div>
 
-                <div className="modal-form-row">
-                  <div className="form-group">
+                <div className={modalFormRowClass()}>
+                  <div className={legacyFormClass('form-group')}>
                     <label>{t('glossary.label_maps_to_type')}</label>
                     <Select
                       value={formMapsToType}
@@ -793,7 +821,7 @@ export default function Glossary() {
                       ]}
                     />
                   </div>
-                  <div className="form-group">
+                  <div className={legacyFormClass('form-group')}>
                     <label htmlFor="gl-maps-to-name">{t('glossary.label_maps_to_name')}</label>
                     {formModelId && activeModelDetail ? (
                       <Select
@@ -817,7 +845,7 @@ export default function Glossary() {
                   </div>
                 </div>
 
-                <div className="form-group">
+                <div className={legacyFormClass('form-group')}>
                   <label htmlFor="gl-aliases">{t('glossary.label_aliases')}</label>
                   <div
                     style={{
@@ -888,9 +916,9 @@ export default function Glossary() {
                   </div>
                 </div>
 
-                <div className="form-group">
+                <div className={legacyFormClass('form-group')}>
                   <label>{t('glossary.section_ai_context')}</label>
-                  <div className="form-group">
+                  <div className={legacyFormClass('form-group')}>
                     <label htmlFor="gl-context-synonyms">
                       {t('glossary.label_context_synonyms')}
                     </label>
@@ -962,8 +990,8 @@ export default function Glossary() {
                       />
                     </div>
                   </div>
-                  <div className="modal-form-row">
-                    <div className="form-group">
+                  <div className={modalFormRowClass()}>
+                    <div className={legacyFormClass('form-group')}>
                       <label htmlFor="gl-unit">{t('glossary.label_unit')}</label>
                       <input
                         id="gl-unit"
@@ -973,7 +1001,7 @@ export default function Glossary() {
                         placeholder={t('glossary.placeholder_unit')}
                       />
                     </div>
-                    <div className="form-group">
+                    <div className={legacyFormClass('form-group')}>
                       <label htmlFor="gl-null-meaning">{t('glossary.label_null_meaning')}</label>
                       <input
                         id="gl-null-meaning"
@@ -984,7 +1012,7 @@ export default function Glossary() {
                       />
                     </div>
                   </div>
-                  <div className="form-group">
+                  <div className={legacyFormClass('form-group')}>
                     <label htmlFor="gl-business-rules">{t('glossary.label_business_rules')}</label>
                     <div
                       style={{
@@ -1059,24 +1087,24 @@ export default function Glossary() {
                 <ErrorAlert error={formError} />
               </div>
 
-              <div className="few-shot-sidebar">
-                <div className="few-shot-sidebar__header">
+              <div className={fewShotSidebarClass()}>
+                <div className={fewShotSidebarHeaderClass()}>
                   {t('few_shot.available_fields_title')}
                 </div>
                 {activeModelDetail ? (
                   <>
                     <input
                       type="text"
-                      className="input input-sm few-shot-sidebar__search"
+                      className={cn(formControlClass, 'mb-1')}
                       placeholder={t('few_shot.search_fields_placeholder')}
                       value={sidebarSearch}
                       onChange={(e) => setSidebarSearch(e.target.value)}
                     />
-                    <div className="few-shot-sidebar__list">
+                    <div className={fewShotSidebarListClass()}>
                       {/* Model itself */}
                       <button
                         type="button"
-                        className="field-badge-btn"
+                        className={fieldBadgeBtnClass}
                         onClick={() => handleInsertField(activeModelDetail.name, 'model')}
                         title={
                           activeModelDetail.description ??
@@ -1085,19 +1113,19 @@ export default function Glossary() {
                         }
                       >
                         <span>{activeModelDetail.name}</span>
-                        <span className="field-badge-btn__type">model</span>
+                        <span className={fieldBadgeBtnTypeClass}>model</span>
                       </button>
                       {/* Dimensions */}
                       {filteredDimensions.map((d) => (
                         <button
                           key={d.id}
                           type="button"
-                          className="field-badge-btn"
+                          className={fieldBadgeBtnClass}
                           onClick={() => handleInsertField(d.name, 'dimension')}
                           title={d.description ?? d.label ?? d.name}
                         >
                           <span>{d.name}</span>
-                          <span className="field-badge-btn__type">dim</span>
+                          <span className={fieldBadgeBtnTypeClass}>dim</span>
                         </button>
                       ))}
                       {/* Metrics */}
@@ -1105,12 +1133,12 @@ export default function Glossary() {
                         <button
                           key={m.id}
                           type="button"
-                          className="field-badge-btn"
+                          className={fieldBadgeBtnClass}
                           onClick={() => handleInsertField(m.name, 'metric')}
                           title={m.description ?? m.label ?? m.name}
                         >
                           <span>{m.name}</span>
-                          <span className="field-badge-btn__type">met</span>
+                          <span className={fieldBadgeBtnTypeClass}>met</span>
                         </button>
                       ))}
                       {filteredDimensions.length === 0 && filteredMetrics.length === 0 && (
@@ -1141,13 +1169,17 @@ export default function Glossary() {
                 )}
               </div>
             </div>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={resetForm}>
+            <div className={modalActionsClass()}>
+              <button
+                type="button"
+                className={legacyButtonClass('btn btn-ghost')}
+                onClick={resetForm}
+              >
                 {t('common.cancel')}
               </button>
               <button
                 type="button"
-                className="btn btn-primary"
+                className={legacyButtonClass('btn btn-primary')}
                 onClick={() => {
                   void handleSave()
                 }}

@@ -1,6 +1,9 @@
 import type { DescribeResult } from '../../api/metadataDescribe'
 import type { useT } from '../../i18n'
-
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyFeedbackClass, suggestionBlockClass } from '../../lib/feedbackClasses'
+import { modalActionsClass } from '../../lib/modalClasses'
+import { legacyTableClass } from '../../lib/tableClasses'
 export function MetadataDescribeResults({
   result,
   t,
@@ -30,7 +33,9 @@ export function MetadataDescribeResults({
       <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
         {t('metadata.describe_rows_sampled', { n: result.sample_rows })}{' '}
         {result.applied ? (
-          <span className="success">{t('metadata.describe_all_applied')}</span>
+          <span className={legacyFeedbackClass('success')}>
+            {t('metadata.describe_all_applied')}
+          </span>
         ) : (
           t('metadata.describe_review_apply')
         )}
@@ -43,16 +48,16 @@ export function MetadataDescribeResults({
 
       <div>
         <h3 style={{ marginBottom: '0.4rem' }}>{t('metadata.describe_section_table')}</h3>
-        <div className="suggestion-block">
+        <div className={suggestionBlockClass}>
           {result.description || (
             <em style={{ color: 'var(--text-secondary)' }}>{t('metadata.describe_empty_paren')}</em>
           )}
         </div>
         {!result.applied && result.description && (
-          <div className="modal-actions">
+          <div className={modalActionsClass()}>
             <button
               type="button"
-              className="btn btn-sm"
+              className={legacyButtonClass('btn btn-sm')}
               onClick={() => onApplyTable(result.description)}
             >
               {t('metadata.describe_apply_table')}
@@ -63,7 +68,7 @@ export function MetadataDescribeResults({
 
       <div>
         <h3 style={{ marginBottom: '0.4rem' }}>{t('metadata.describe_section_columns')}</h3>
-        <table className="results-table">
+        <table className={legacyTableClass('results-table')}>
           <thead>
             <tr>
               <th>{t('metadata.describe_col_column')}</th>
@@ -91,7 +96,7 @@ export function MetadataDescribeResults({
                     {c.description && (
                       <button
                         type="button"
-                        className="btn btn-sm"
+                        className={legacyButtonClass('btn btn-sm')}
                         onClick={() => onApplyColumn(c.name, c.description)}
                       >
                         {t('metadata.describe_apply')}
@@ -105,8 +110,12 @@ export function MetadataDescribeResults({
         </table>
       </div>
 
-      <div className="modal-actions">
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
+      <div className={modalActionsClass()}>
+        <button
+          type="button"
+          className={legacyButtonClass('btn btn-ghost btn-sm')}
+          onClick={onClose}
+        >
           {t('metadata.describe_close_footer')}
         </button>
       </div>

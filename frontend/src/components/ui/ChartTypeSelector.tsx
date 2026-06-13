@@ -1,3 +1,5 @@
+import { cn } from '../../lib/cn'
+import { toggleGroupClass } from '../../lib/toggleClasses'
 import { ToggleButtonGroup, type ToggleButtonOption } from './ToggleButtonGroup'
 
 export type ChartTypeOption = 'bar' | 'line' | 'pie' | 'table'
@@ -32,10 +34,7 @@ export function ChartTypeSelector<T extends ChartTypeOption>({
 }: ChartTypeSelectorProps<T>) {
   const items = options ?? (DEFAULT_OPTIONS as readonly T[])
   const wrapperClass =
-    variant === 'group'
-      ? `toggle-group${className ? ` ${className}` : ''}`
-      : `chart-toggle${className ? ` ${className}` : ''}`
-  const btnClass = variant === 'group' ? 'toggle-btn' : undefined
+    variant === 'group' ? cn(toggleGroupClass(), className) : cn('chart-toggle', className)
   const toggleOptions: ToggleButtonOption<T>[] = items.map((opt) => ({
     value: opt,
     label: labels?.[opt] ?? FALLBACK_LABELS[opt],
@@ -48,7 +47,7 @@ export function ChartTypeSelector<T extends ChartTypeOption>({
       onChange={onChange}
       ariaLabel={ariaLabel}
       className={wrapperClass}
-      buttonClassName={btnClass}
+      toggleButtons={variant === 'group'}
     />
   )
 }

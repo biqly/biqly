@@ -1,8 +1,9 @@
-import clsx from 'clsx'
 import type { KeyboardEvent } from 'react'
 
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
+import { metadataDescCellClass, metadataInlineFieldFitRowsClass } from '../../lib/tableClasses'
 
 interface InlineEditProps {
   editing: boolean
@@ -21,7 +22,7 @@ export function InlineEdit({
   value,
   placeholder,
   rows = 1,
-  className = 'metadata-desc-cell',
+  className,
   onStart,
   onChange,
   onSave,
@@ -50,7 +51,7 @@ export function InlineEdit({
 
   return (
     <td
-      className={clsx(className, editing && `${className}--editing`)}
+      className={cn(metadataDescCellClass(editing), className)}
       onDoubleClick={onStart}
       onKeyDown={editing ? undefined : handleDisplayKeyDown}
       role={editing ? undefined : 'button'}
@@ -60,7 +61,7 @@ export function InlineEdit({
       {editing ? (
         <textarea
           ref={editInputRef}
-          className="metadata-inline-field metadata-inline-field--fit-rows"
+          className={metadataInlineFieldFitRowsClass}
           title={t('common.inline_edit_save_hint')}
           rows={rows}
           value={value}

@@ -2,6 +2,9 @@ import type { KeyboardEvent } from 'react'
 import { useEffect, useMemo, useRef } from 'react'
 
 import type { TranslationKey } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import {
   chatBubbleClass,
@@ -44,7 +47,6 @@ import { AssistantMessageCard } from './AssistantMessageCard'
 import { formatAiWaitElapsed } from './routingViz'
 import type { ChatPanelProps } from './types'
 import { AI_QUERY_TIMEOUT_MS } from './types'
-
 interface TypingIndicatorProps {
   queryAction: string | null
   aiElapsedMs: number
@@ -304,19 +306,19 @@ export function ChatPanel({
             </div>
             <div className={chatComposerActionsClass}>
               {loading && queryAction !== null && (
-                <button className="btn btn-ghost" onClick={onAbort}>
+                <button className={legacyButtonClass('btn btn-ghost')} onClick={onAbort}>
                   {t('ai_query.cancel')}
                 </button>
               )}
               <button
-                className="btn"
+                className={legacyButtonClass('btn')}
                 onClick={() => onSendQuery(question, false)}
                 disabled={loading || !question || !datasourceId}
               >
                 {previewButtonLabel}
               </button>
               <button
-                className={`btn btn-primary ${chatComposerSendClass}`}
+                className={cn(legacyButtonClass('btn btn-primary'), chatComposerSendClass)}
                 onClick={() => onSendQuery(question, true)}
                 disabled={loading || !question || !datasourceId}
               >
@@ -329,7 +331,7 @@ export function ChatPanel({
           </div>
         </div>
 
-        <ErrorAlert error={error ?? jobError} className="error--top-gap" />
+        <ErrorAlert error={error ?? jobError} className={legacyFeedbackClass('error--top-gap')} />
       </footer>
     </>
   )

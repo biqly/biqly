@@ -9,6 +9,10 @@ import {
 } from '../../api/ldap'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+import { formHintClass } from '../../lib/formClasses'
+import { legacyLayoutClass } from '../../lib/layoutClasses'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { Select } from '../ui/Select'
@@ -126,12 +130,10 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
   ]
 
   return (
-    <div className="page-stack" style={{ maxWidth: 760 }}>
+    <div className={legacyLayoutClass('page-stack')} style={{ maxWidth: 760 }}>
       <div>
         <h2 style={{ margin: 0 }}>{t('admin.ldap.title')}</h2>
-        <p className="form-hint" style={{ marginTop: 8 }}>
-          {t('admin.ldap.description')}
-        </p>
+        <p className={formHintClass}>{t('admin.ldap.description')}</p>
       </div>
 
       {!canEdit && <ReadOnlyNote />}
@@ -253,7 +255,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           type="button"
-          className="btn btn-secondary"
+          className={legacyButtonClass('btn btn-secondary')}
           disabled={!canEdit || testing}
           onClick={() => void onTest()}
         >
@@ -261,7 +263,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
         </button>
         <button
           type="button"
-          className="btn btn-primary"
+          className={legacyButtonClass('btn btn-primary')}
           disabled={!canEdit || saving}
           onClick={() => void onSave()}
         >
@@ -290,11 +292,7 @@ function Field({
     >
       <span className={adminLabelTextClass}>{label}</span>
       {children}
-      {hint && (
-        <span className="form-hint" style={{ margin: 0 }}>
-          {hint}
-        </span>
-      )}
+      {hint && <span className={cn(formHintClass, 'm-0')}>{hint}</span>}
     </label>
   )
 }
@@ -322,11 +320,7 @@ function Toggle({
       />
       <span>
         <strong style={{ display: 'block' }}>{label}</strong>
-        {hint && (
-          <span className="form-hint" style={{ margin: 0 }}>
-            {hint}
-          </span>
-        )}
+        {hint && <span className={cn(formHintClass, 'm-0')}>{hint}</span>}
       </span>
     </label>
   )
@@ -356,11 +350,7 @@ function CheckRow({
       />
       <span>
         {label}
-        {hint && (
-          <span className="form-hint" style={{ margin: 0, display: 'block' }}>
-            {hint}
-          </span>
-        )}
+        {hint && <span className={cn(formHintClass, 'm-0')}>{hint}</span>}
       </span>
     </label>
   )

@@ -11,6 +11,7 @@ import {
 import abiLogo from '../../assets/abi-logo.png'
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
+import { authCardClass, authPageClass } from '../../lib/authClasses'
 import {
   base64urlToBuffer,
   bufferToBase64url,
@@ -208,8 +209,8 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <div className={authPageClass}>
+      <div className={authCardClass}>
         <div className="flex flex-col items-center text-center mb-6">
           <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
             <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />

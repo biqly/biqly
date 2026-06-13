@@ -2,10 +2,14 @@ import { type SubmitEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 import type { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
+import { legacyFormClass } from '../../lib/formClasses'
 import type { AuthUser } from '../../types/auth'
 import { adminBtnAutoWidthClass } from '../admin/adminClasses'
 import PasswordStrengthMeter from '../auth/PasswordStrengthMeter'
-
 interface ProfileMessage {
   type: 'success' | 'error'
   text: string
@@ -40,7 +44,7 @@ export function AccountProfileHero({
 
   return (
     <section
-      className="card card--elevated flex flex-col gap-6"
+      className={legacyCardClass('card card--elevated flex flex-col gap-6')}
       aria-labelledby="settings-profile-heading"
     >
       <div className="flex gap-4 items-center flex-wrap">
@@ -77,7 +81,9 @@ export function AccountProfileHero({
           {user.avatarUrl && (
             <button
               type="button"
-              className={`absolute -bottom-1 -right-1 w-[1.35rem] h-[1.35rem] rounded-full bg-card border border-border text-foreground-faint flex items-center justify-center cursor-pointer shadow-[0_2px_6px_rgba(0,0,0,0.4)] transition-all duration-180 hover:text-error hover:border-error hover:bg-[color-mix(in_srgb,var(--error)_10%,var(--bg-card))] hover:scale-105`}
+              className={legacyCardClass(
+                'absolute -bottom-1 -right-1 w-[1.35rem] h-[1.35rem] rounded-full bg-card border border-border text-foreground-faint flex items-center justify-center cursor-pointer shadow-[0_2px_6px_rgba(0,0,0,0.4)] transition-all duration-180 hover:text-error hover:border-error hover:bg-[color-mix(in_srgb,var(--error)_10%,var(--bg-card))] hover:scale-105',
+              )}
               onClick={onAvatarRemove}
               title={t('settings.profile_picture_remove')}
             >
@@ -125,7 +131,7 @@ export function AccountProfileHero({
         style={{ borderTop: 'none', paddingTop: 0 }}
       >
         <h3 className="m-0 text-[0.95rem] font-semibold">{t('settings.profile_name_title')}</h3>
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor="settings-display-name">{t('settings.profile_display_name')}</label>
           <input
             id="settings-display-name"
@@ -136,7 +142,7 @@ export function AccountProfileHero({
             maxLength={120}
           />
         </div>
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor="settings-email-readonly">{t('settings.profile_email')}</label>
           <input
             id="settings-email-readonly"
@@ -160,7 +166,7 @@ export function AccountProfileHero({
         )}
         <button
           type="submit"
-          className={`btn btn-primary btn-sm ${adminBtnAutoWidthClass}`}
+          className={cn(legacyButtonClass('btn btn-primary btn-sm'), adminBtnAutoWidthClass)}
           disabled={profileSaving}
         >
           {profileSaving ? '...' : t('settings.profile_save')}
@@ -187,7 +193,7 @@ export function AccountEmailChangeSection({
 }) {
   return (
     <section
-      className="card card--elevated flex flex-col gap-6"
+      className={legacyCardClass('card card--elevated flex flex-col gap-6')}
       aria-labelledby="settings-email-change-heading"
     >
       <form
@@ -201,7 +207,7 @@ export function AccountEmailChangeSection({
         <p className="m-0 text-foreground-muted text-[0.85rem] leading-[1.45]">
           {t('settings.profile_email_change_hint')}
         </p>
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor="settings-new-email">{t('settings.profile_new_email')}</label>
           <input
             id="settings-new-email"
@@ -225,7 +231,7 @@ export function AccountEmailChangeSection({
         )}
         <button
           type="submit"
-          className={`btn btn-secondary btn-sm ${adminBtnAutoWidthClass}`}
+          className={cn(legacyButtonClass('btn btn-secondary btn-sm'), adminBtnAutoWidthClass)}
           disabled={emailSaving || !newEmail.trim()}
         >
           {emailSaving ? '...' : t('settings.profile_email_request')}
@@ -266,7 +272,7 @@ export function AccountPasswordSection({
 }) {
   return (
     <section
-      className="card card--elevated flex flex-col gap-6"
+      className={legacyCardClass('card card--elevated flex flex-col gap-6')}
       aria-labelledby="settings-password-heading"
     >
       <form
@@ -283,7 +289,7 @@ export function AccountPasswordSection({
           </p>
         ) : (
           <>
-            <div className="form-group">
+            <div className={legacyFormClass('form-group')}>
               <label htmlFor="settings-current-password">
                 {t('settings.profile_current_password')}
               </label>
@@ -295,7 +301,7 @@ export function AccountPasswordSection({
                 autoComplete="current-password"
               />
             </div>
-            <div className="form-group">
+            <div className={legacyFormClass('form-group')}>
               <label htmlFor="settings-new-password">{t('settings.profile_new_password')}</label>
               <input
                 id="settings-new-password"
@@ -306,7 +312,7 @@ export function AccountPasswordSection({
               />
               <PasswordStrengthMeter password={newPassword} onValidityChange={onValidityChange} />
             </div>
-            <div className="form-group">
+            <div className={legacyFormClass('form-group')}>
               <label htmlFor="settings-confirm-password">
                 {t('settings.profile_confirm_password')}
               </label>
@@ -332,7 +338,7 @@ export function AccountPasswordSection({
             <div className="flex flex-wrap items-center gap-y-3 gap-x-4">
               <button
                 type="submit"
-                className={`btn btn-primary btn-sm ${adminBtnAutoWidthClass}`}
+                className={cn(legacyButtonClass('btn btn-primary btn-sm'), adminBtnAutoWidthClass)}
                 disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
               >
                 {passwordSaving ? '...' : t('settings.profile_password_save')}
@@ -367,7 +373,7 @@ export function AccountMfaBypassSection({
 }) {
   return (
     <section
-      className="card card--elevated flex flex-col gap-6"
+      className={legacyCardClass('card card--elevated flex flex-col gap-6')}
       style={{
         borderColor: 'color-mix(in srgb, var(--warning, #f59e0b) 20%, var(--border))',
         background:
@@ -384,14 +390,16 @@ export function AccountMfaBypassSection({
         </p>
         <button
           type="button"
-          className={`btn btn-secondary btn-sm ${adminBtnAutoWidthClass}`}
+          className={cn(legacyButtonClass('btn btn-secondary btn-sm'), adminBtnAutoWidthClass)}
           onClick={onGenerate}
           disabled={bypassGenerating}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
           {t('settings.profile_mfa_bypass_btn')}
         </button>
-        {bypassError && <p className="m-0 text-[0.875rem] text-error">{bypassError}</p>}
+        {bypassError && (
+          <p className={legacyFeedbackClass('m-0 text-[0.875rem] text-error')}>{bypassError}</p>
+        )}
         {bypassCode && (
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <code
@@ -401,7 +409,7 @@ export function AccountMfaBypassSection({
             </code>
             <button
               type="button"
-              className={`btn btn-secondary btn-sm ${adminBtnAutoWidthClass}`}
+              className={cn(legacyButtonClass('btn btn-secondary btn-sm'), adminBtnAutoWidthClass)}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               onClick={() => void navigator.clipboard.writeText(bypassCode)}
             >

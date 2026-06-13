@@ -1,6 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+import {
+  modalActionsClass,
+  modalAvatarCardClass,
+  modalBackdropClass,
+  modalBodyClass,
+  modalCloseClass,
+  modalHeaderClass,
+  modalSubtitleClass,
+  modalTitleClass,
+} from '../../lib/modalClasses'
 
 interface AvatarCropModalProps {
   imageSrc: string
@@ -184,23 +196,16 @@ export function AvatarCropModal({ imageSrc, onClose, onSave }: AvatarCropModalPr
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div
-        className="modal-card modal-card--avatar"
-        onClick={(e) => e.stopPropagation()}
-        style={{ width: 'min(100%, 25rem)' }}
-      >
-        <div className="modal-header">
-          <h2>{t('settings.profile_picture_crop_title')}</h2>
-          <button className="modal-close" onClick={onClose}>
+    <div className={modalBackdropClass()} onClick={onClose}>
+      <div className={modalAvatarCardClass()} onClick={(e) => e.stopPropagation()}>
+        <div className={modalHeaderClass()}>
+          <h2 className={modalTitleClass()}>{t('settings.profile_picture_crop_title')}</h2>
+          <button type="button" className={modalCloseClass()} onClick={onClose}>
             ×
           </button>
         </div>
-        <div
-          className="modal-body"
-          style={{ alignItems: 'center', justifyItems: 'center', gap: '1.25rem' }}
-        >
-          <p className="modal-subtitle" style={{ textAlign: 'center', width: '100%' }}>
+        <div className={cn(modalBodyClass(), 'items-center justify-items-center gap-5')}>
+          <p className={cn(modalSubtitleClass(), 'w-full text-center')}>
             {t('settings.profile_picture_crop_desc')}
           </p>
           <div
@@ -263,10 +268,10 @@ export function AvatarCropModal({ imageSrc, onClose, onSave }: AvatarCropModalPr
             />
           </div>
         </div>
-        <div className="modal-actions">
+        <div className={modalActionsClass()}>
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
+            className={legacyButtonClass('btn btn-secondary btn-sm')}
             onClick={onClose}
             disabled={saving}
           >
@@ -274,7 +279,7 @@ export function AvatarCropModal({ imageSrc, onClose, onSave }: AvatarCropModalPr
           </button>
           <button
             type="button"
-            className="btn btn-primary btn-sm"
+            className={legacyButtonClass('btn btn-primary btn-sm')}
             onClick={() => {
               void handleSave()
             }}

@@ -1,9 +1,10 @@
+import { legacyCardClass } from '../../lib/cardClasses'
+import { legacyTableClass } from '../../lib/tableClasses'
 import type { rowsToChartData } from '../../utils/chartData'
 import { formatResultCell } from '../../utils/resultCellFormat'
 import type { MetadataTFunction } from '../metadata/utils'
 import { ChartContainer, type ChartKind } from '../ui/ChartContainer'
 import { ChartTypeSelector } from '../ui/ChartTypeSelector'
-
 interface QueryBuilderResult {
   columns?: { name: string; type?: string }[]
   rows?: unknown[][]
@@ -32,9 +33,9 @@ export function QueryBuilderResults({
   })
 
   return (
-    <div className="card">
+    <div className={legacyCardClass('card')}>
       {chartData.length > 0 ? (
-        <div className="card-header-row card-header-row--spaced">
+        <div className={legacyCardClass('card-header-row card-header-row--spaced')}>
           <h2>{title}</h2>
           <ChartTypeSelector
             value={chartType}
@@ -56,8 +57,8 @@ export function QueryBuilderResults({
       {chartData.length > 0 && <ChartContainer data={chartData} type={chartType} />}
 
       {result.columns && result.rows && (
-        <div className="results-table-scroll">
-          <table className="results-table">
+        <div className={legacyTableClass('results-table-scroll')}>
+          <table className={legacyTableClass('results-table')}>
             <thead>
               <tr>
                 {result.columns.map((col) => (

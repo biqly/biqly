@@ -320,7 +320,12 @@ export const clarificationRoundIndicatorClass =
   'ml-auto px-2 py-[0.1rem] rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-card))] text-foreground-muted text-[0.72rem] font-semibold whitespace-nowrap'
 
 export const clarificationCapNoticeClass =
-  'm-0 mb-2 p-[0.4rem_0.6rem] rounded border border-warning bg-warning/12 text-foreground text-[0.82rem]'
+  'm-0 mb-2 rounded border border-warning bg-warning/12 p-[0.4rem_0.6rem] text-[0.82rem] text-foreground'
+
+export const clarificationReasonClass = 'm-0 mb-[0.35rem] text-[0.82rem] text-foreground-muted'
+
+export const clarificationOptionHintClass =
+  'mt-[0.1rem] block text-[0.74rem] font-normal leading-[1.35] text-foreground-faint'
 
 export const clarificationAmbiguityTermsClass = 'list-none m-0 mt-2 mb-1 flex flex-col gap-1'
 

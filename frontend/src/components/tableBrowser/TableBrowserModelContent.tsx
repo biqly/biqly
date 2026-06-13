@@ -2,6 +2,9 @@ import clsx from 'clsx'
 import type { DragEvent } from 'react'
 
 import type { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
+import { legacyTableClass } from '../../lib/tableClasses'
 import { formatResultCell } from '../../utils/resultCellFormat'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { PaginationControls } from '../ui/PaginationControls'
@@ -37,7 +40,6 @@ import { TableBrowserFilterPopover } from './TableBrowserFilterPopover'
 import { formatTableBrowserFilterValue, tableBrowserOperatorLabel } from './tableBrowserFilterUtils'
 import { buildTableBrowserRangeLabel } from './tableBrowserRangeLabel'
 import type { TableRowsResult, TableSort } from './useTableBrowserQueryState'
-
 function ValidationErrorBanner({
   error,
   t,
@@ -53,18 +55,25 @@ function ValidationErrorBanner({
   const isValidation = /validation failed/i.test(error)
   if (!isValidation) {
     return (
-      <div className="error" role="alert">
+      <div className={legacyFeedbackClass('error')} role="alert">
         {error}
       </div>
     )
   }
   return (
-    <div className="error p-4 bg-red-500/12 rounded-lg border border-red-500/20" role="alert">
+    <div
+      className={legacyFeedbackClass('error p-4 bg-red-500/12 rounded-lg border border-red-500/20')}
+      role="alert"
+    >
       <div className={validationErrorBannerRowClass}>
         <span className={validationErrorBannerTitleClass}>
           ⚠ {t('table_browser.validation_error_summary', { count: '1' })}
         </span>
-        <button type="button" className="btn btn-sm btn-primary" onClick={onOpenModeling}>
+        <button
+          type="button"
+          className={legacyButtonClass('btn btn-sm btn-primary')}
+          onClick={onOpenModeling}
+        >
           {t('table_browser.validation_error_open_modeling')}
         </button>
       </div>
@@ -279,7 +288,7 @@ export function TableBrowserModelContent({
               aria-live="polite"
               aria-busy="true"
             >
-              <span className="loading-overlay-spinner" aria-hidden="true" />
+              <span className={legacyFeedbackClass('loading-overlay-spinner')} aria-hidden="true" />
               <span>{t('table_browser.loading')}</span>
             </div>
           ) : result?.columns ? (
@@ -294,7 +303,11 @@ export function TableBrowserModelContent({
                   fetching && 'blur-[2px] opacity-55 pointer-events-none',
                 )}
               >
-                <table className="results-table w-full border-collapse text-left text-sm max-[899px]:min-w-[36rem] max-[680px]:min-w-[32rem]">
+                <table
+                  className={legacyTableClass(
+                    'results-table w-full border-collapse text-left text-sm max-[899px]:min-w-[36rem] max-[680px]:min-w-[32rem]',
+                  )}
+                >
                   <thead>
                     <tr>
                       <th scope="col" className="w-12 max-w-12 text-center"></th>

@@ -1,3 +1,14 @@
+import { promptWarningClass, wfBadgeClass } from '../../lib/badgeClasses'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+import {
+  sqlPreviewClass,
+  warningPanelClass,
+  warningPanelLiClass,
+  warningPanelListClass,
+  warningPanelPClass,
+  warningPanelStrongClass,
+} from '../../lib/feedbackClasses'
 import type { AIQueryResponse, AIRuntimeSettings, SelectField } from '../../types/ai'
 import { rowsToChartData } from '../../utils/chartData'
 import type { PivotTableData } from '../../utils/pivotTable'
@@ -200,7 +211,7 @@ function AssistantTableRoutingSection({
       {(result.table_routing.selected_tables?.length ?? 0) > 0 && (
         <button
           type="button"
-          className="btn btn-sm btn-sample"
+          className={legacyButtonClass('btn btn-sm btn-sample')}
           onClick={() => {
             const firstSel = result.table_routing?.selected_tables?.[0]
             if (firstSel) {
@@ -226,7 +237,9 @@ function ValidationPlanSection({ result, t }: { result: AIQueryResponse; t: Assi
       defaultOpen={!planOk}
     >
       {result.validation_result.explain_output && (
-        <pre className="sql-preview explain-output">{result.validation_result.explain_output}</pre>
+        <pre className={cn(sqlPreviewClass, 'explain-output')}>
+          {result.validation_result.explain_output}
+        </pre>
       )}
       <p className={`plan-status ${planOk ? 'plan-ok' : 'plan-warn'}`}>
         {planOk ? t('ai_query.plan_ok_body') : t('ai_query.plan_warn_body')}
@@ -246,7 +259,7 @@ function WindowFieldBadges({ result, t }: { result: AIQueryResponse; t: Assistan
   return (
     <div style={{ marginBottom: '0.5rem' }}>
       {windowFields.map((s, i) => (
-        <span key={i} className="wf-badge">
+        <span key={i} className={wfBadgeClass}>
           {t('ai_query.window_fn_badge', { name: s.window?.aggregation ?? s.name })}
         </span>
       ))}
@@ -268,7 +281,7 @@ function PromptCollapsible({
   }
   return (
     <Collapsible title={t('ai_query.collapsible_prompt')}>
-      <pre className="sql-preview prompt-preview">{result.prompt}</pre>
+      <pre className={cn(sqlPreviewClass, 'prompt-preview')}>{result.prompt}</pre>
       {result.token_usage && (
         <p className="token-info">
           {t('ai_query.token_line', {
@@ -279,7 +292,7 @@ function PromptCollapsible({
         </p>
       )}
       {result.token_usage && result.token_usage.prompt > 30000 && (
-        <p className="prompt-warning">
+        <p className={promptWarningClass}>
           {t('ai_query.prompt_large_warning', {
             k: (result.token_usage.prompt / 1000).toFixed(1),
           })}
@@ -294,14 +307,16 @@ function WarningsPanel({ result, t }: { result: AIQueryResponse; t: AssistantT }
     return null
   }
   return (
-    <section className="warning-panel" aria-live="polite">
+    <section className={warningPanelClass} aria-live="polite">
       <div>
-        <strong>{t('ai_query.warnings_title')}</strong>
-        <p>{t(warningBodyKey(result))}</p>
+        <strong className={warningPanelStrongClass}>{t('ai_query.warnings_title')}</strong>
+        <p className={warningPanelPClass}>{t(warningBodyKey(result))}</p>
       </div>
-      <ul>
+      <ul className={warningPanelListClass}>
         {result.warnings.map((w, i) => (
-          <li key={i}>{w}</li>
+          <li key={i} className={warningPanelLiClass}>
+            {w}
+          </li>
         ))}
       </ul>
     </section>
@@ -330,12 +345,12 @@ export function AssistantMessageQueryDetails({
       {result.logical_query && (
         <Collapsible title={t('ai_query.collapsible_lq')} defaultOpen>
           <LogicalQueryMetaBadges lq={result.logical_query} />
-          <pre className="sql-preview">{JSON.stringify(result.logical_query, null, 2)}</pre>
+          <pre className={sqlPreviewClass}>{JSON.stringify(result.logical_query, null, 2)}</pre>
         </Collapsible>
       )}
       {result.sql && (
         <Collapsible title={t('ai_query.collapsible_sql')} defaultOpen>
-          <pre className="sql-preview">{result.sql}</pre>
+          <pre className={sqlPreviewClass}>{result.sql}</pre>
         </Collapsible>
       )}
       <PromptCollapsible result={result} t={t} localeTag={localeTag} />
@@ -362,7 +377,12 @@ export function AssistantMessageRunQuery({
 }) {
   return (
     <div className={btnRunQueryContainerClass}>
-      <button type="button" className="btn btn-primary" disabled={loading} onClick={onRunQuery}>
+      <button
+        type="button"
+        className={legacyButtonClass('btn btn-primary')}
+        disabled={loading}
+        onClick={onRunQuery}
+      >
         {loading ? t('ai_query.loading_thinking') : t('ai_query.btn_run_query')}
       </button>
     </div>

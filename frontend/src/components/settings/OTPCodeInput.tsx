@@ -1,5 +1,6 @@
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
+import { legacyFormClass } from '../../lib/formClasses'
 import { mfaOtpInputClass } from '../admin/adminClasses'
 import { normalizeOTPCode } from './otp'
 
@@ -22,7 +23,7 @@ export function OTPCodeInput({
   const inputRef = useAutofocus<HTMLInputElement>(autoFocus)
 
   return (
-    <div className="form-group" style={{ margin: 0 }}>
+    <div className={legacyFormClass('form-group')} style={{ margin: 0 }}>
       <label htmlFor={id}>{t('mfa.label_code')}</label>
       <input
         id={id}

@@ -1,6 +1,41 @@
 import { type ReactNode, useMemo, useState } from 'react'
 
 import type { TranslationKey } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+import {
+  modelingAddBtnClass,
+  modelingBaseBadgeClass,
+  modelingDeleteBtnClass,
+  modelingEmptyClass,
+  modelingGroupBodyClass,
+  modelingGroupChevronClass,
+  modelingGroupClass,
+  modelingGroupCountClass,
+  modelingGroupHeaderClass,
+  modelingGroupMetaClass,
+  modelingGroupTitleClass,
+  modelingJoinListClass,
+  modelingJoinMetaClass,
+  modelingJoinPillClass,
+  modelingJoinPillHeaderClass,
+  modelingKickerClass,
+  modelingPaletteClass,
+  modelingPaletteSideBodyClass,
+  modelingPillActionsClass,
+  modelingRenameBtnClass,
+  modelingSchemaTagClass,
+  modelingSchemaTagListClass,
+  modelingSchemaTagNameClass,
+  modelingSchemaTagToggleClass,
+  modelingSectionAddBtnClass,
+  modelingSectionHeaderClass,
+  modelingSideToggleClass,
+  modelingTabClass,
+  modelingTabContentClass,
+  modelingTabCountClass,
+  modelingTabsClass,
+} from '../../lib/modelingClasses'
 import type {
   SemanticDimension,
   SemanticJoin,
@@ -10,7 +45,6 @@ import type {
 } from '../../types/semantic'
 import type { SuggestedJoin, Tab } from './types'
 import { columnRefMatchesTable, tableKey } from './utils'
-
 type Translate = (key: TranslationKey, vars?: Record<string, string | number>) => string
 interface EntityImpact {
   joins: number
@@ -80,21 +114,21 @@ function CollapsibleGroup({
 }: CollapsibleGroupProps) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className={`modeling-group ${open ? 'modeling-group--open' : ''}`}>
+    <div className={modelingGroupClass(open)}>
       <button
         type="button"
-        className="modeling-group-header"
+        className={modelingGroupHeaderClass}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="modeling-group-chevron" aria-hidden="true">
+        <span className={modelingGroupChevronClass} aria-hidden="true">
           {open ? '▾' : '▸'}
         </span>
-        <span className="modeling-group-title">{title}</span>
-        {meta && <span className="modeling-group-meta">{meta}</span>}
-        <span className="modeling-group-count">{count}</span>
+        <span className={modelingGroupTitleClass}>{title}</span>
+        {meta && <span className={modelingGroupMetaClass}>{meta}</span>}
+        <span className={modelingGroupCountClass}>{count}</span>
       </button>
-      {open && <div className="modeling-group-body">{children}</div>}
+      {open && <div className={modelingGroupBodyClass}>{children}</div>}
     </div>
   )
 }
@@ -254,25 +288,22 @@ export function ModelingPalette({
   )
 
   return (
-    <aside
-      className={`modeling-palette ${open ? '' : 'modeling-side--collapsed'}`}
-      aria-label={t('modeling.model_summary_aria')}
-    >
+    <aside className={modelingPaletteClass(open)} aria-label={t('modeling.model_summary_aria')}>
       <button
         type="button"
-        className="modeling-side-toggle modeling-side-toggle--left"
+        className={modelingSideToggleClass('left')}
         onClick={onToggle}
         title={open ? t('modeling.collapse_panel') : t('modeling.expand_panel')}
       >
         {open ? '‹' : '›'}
       </button>
-      <div className="modeling-side-body">
+      <div className={modelingPaletteSideBodyClass}>
         <div>
-          <span className="modeling-kicker">{t('modeling.semantic_layer')}</span>
+          <span className={modelingKickerClass}>{t('modeling.semantic_layer')}</span>
           <h2>{model?.label ?? model?.name ?? t('modeling.no_model_selected')}</h2>
           <p>{t('modeling.semantic_description')}</p>
         </div>
-        <div className="modeling-tabs">
+        <div className={modelingTabsClass}>
           {(['tables', 'joins', 'dimensions', 'metrics'] as const).map((tab) => {
             const count =
               tab === 'tables'
@@ -284,7 +315,7 @@ export function ModelingPalette({
                     : visibleMetricsCount
             return (
               <button
-                className={`modeling-tab ${activeTab === tab ? 'modeling-tab--active' : ''}`}
+                className={modelingTabClass(activeTab === tab)}
                 key={tab}
                 onClick={() => onTabChange(tab)}
                 title={t(`modeling.${tab}_tab`)}
@@ -294,36 +325,32 @@ export function ModelingPalette({
                     ? 'modeling.tab_short_rel'
                     : `modeling.tab_short_${tab === 'dimensions' ? 'dim' : tab === 'metrics' ? 'metric' : 'tables'}`,
                 )}
-                <span
-                  className={`modeling-tab__count${count === 0 ? ' modeling-tab__count--zero' : ''}`}
-                >
-                  {count}
-                </span>
+                <span className={modelingTabCountClass(count === 0)}>{count}</span>
               </button>
             )
           })}
         </div>
 
-        <div className="modeling-tab-content">
+        <div className={modelingTabContentClass}>
           {activeTab === 'tables' && (
-            <div className="modeling-join-list">
+            <div className={modelingJoinListClass}>
               <h3>{t('modeling.schemas_heading')}</h3>
-              <div className="modeling-schema-tag-list">
+              <div className={modelingSchemaTagListClass}>
                 {Array.from(new Set(tables.map((table) => table.schema_name)))
                   .sort()
                   .map((schemaName) => {
                     const isExcluded = excludedSchemas.has(schemaName)
                     return (
                       <div
-                        className={`modeling-schema-tag ${isExcluded ? '' : 'modeling-schema-tag--active'}`}
+                        className={modelingSchemaTagClass(!isExcluded)}
                         key={`schema-${schemaName}`}
                       >
-                        <span className="modeling-schema-tag__name" title={schemaName}>
+                        <span className={modelingSchemaTagNameClass} title={schemaName}>
                           {schemaName}
                         </span>
                         <button
                           type="button"
-                          className="modeling-schema-tag__toggle"
+                          className={modelingSchemaTagToggleClass}
                           onClick={() => onSchemaToggle(schemaName, isExcluded)}
                           title={
                             isExcluded
@@ -340,7 +367,7 @@ export function ModelingPalette({
 
               <h3>{t('modeling.datasource_tables_heading')}</h3>
               {tables.length === 0 ? (
-                <p className="modeling-empty">{t('modeling.no_tables_sync')}</p>
+                <p className={modelingEmptyClass}>{t('modeling.no_tables_sync')}</p>
               ) : (
                 includedTables.map((table) => {
                   const key = tableKey(table.schema_name, table.table_name)
@@ -356,16 +383,13 @@ export function ModelingPalette({
                   const inModel =
                     isBase || impact.joins > 0 || impact.dims > 0 || impact.metrics > 0
                   return (
-                    <div
-                      className={`modeling-join-pill ${isOnCanvas ? 'modeling-join-pill--active' : ''}`}
-                      key={table.id}
-                    >
-                      <div className="modeling-join-pill-header">
+                    <div className={modelingJoinPillClass({ active: isOnCanvas })} key={table.id}>
+                      <div className={modelingJoinPillHeaderClass}>
                         <strong>
                           {table.label ?? table.table_name}
                           {isBase && (
                             <span
-                              className="modeling-base-badge"
+                              className={modelingBaseBadgeClass}
                               title={t('modeling.base_table_label')}
                             >
                               {' '}
@@ -373,9 +397,9 @@ export function ModelingPalette({
                             </span>
                           )}
                         </strong>
-                        <span className="modeling-pill-actions">
+                        <span className={modelingPillActionsClass}>
                           <button
-                            className="modeling-rename-btn"
+                            className={modelingRenameBtnClass}
                             onClick={() => onRenameTable(table)}
                             title={t('modeling.edit_display_name_title')}
                           >
@@ -383,7 +407,7 @@ export function ModelingPalette({
                           </button>
                           {!isBase && inModel && (
                             <button
-                              className="modeling-rename-btn"
+                              className={modelingRenameBtnClass}
                               onClick={() => onMakeBase(table.schema_name, table.table_name)}
                               title={t('modeling.make_base_title')}
                             >
@@ -392,7 +416,7 @@ export function ModelingPalette({
                           )}
                           {isOnCanvas && !isBase && (
                             <button
-                              className="modeling-delete-btn"
+                              className={modelingDeleteBtnClass}
                               onClick={() => onRemoveTable(table.schema_name, table.table_name)}
                               title={
                                 inModel
@@ -405,7 +429,7 @@ export function ModelingPalette({
                           )}
                           {!isOnCanvas && (
                             <button
-                              className="modeling-add-btn"
+                              className={modelingAddBtnClass}
                               onClick={() =>
                                 onToggleTableVisibility(table.schema_name, table.table_name, true)
                               }
@@ -416,7 +440,7 @@ export function ModelingPalette({
                           )}
                           {isBase && (
                             <button
-                              className="modeling-delete-btn"
+                              className={modelingDeleteBtnClass}
                               onClick={onOpenBaseSwap}
                               title={t('modeling.change_base_title')}
                             >
@@ -425,10 +449,10 @@ export function ModelingPalette({
                           )}
                         </span>
                       </div>
-                      <span className="modeling-join-meta">
+                      <span className={modelingJoinMetaClass}>
                         {table.schema_name}.{table.table_name}
                       </span>
-                      <span className="modeling-join-meta">
+                      <span className={modelingJoinMetaClass}>
                         {isOnCanvas ? t('modeling.on_canvas') : t('modeling.not_visible')}
                       </span>
                     </div>
@@ -439,22 +463,22 @@ export function ModelingPalette({
           )}
 
           {activeTab === 'joins' && (
-            <div className="modeling-join-list">
+            <div className={modelingJoinListClass}>
               <h3>{t('modeling.active_relationships')}</h3>
               {joins.length === 0 ? (
-                <p className="modeling-empty">{t('modeling.no_relationships')}</p>
+                <p className={modelingEmptyClass}>{t('modeling.no_relationships')}</p>
               ) : (
                 joins.map((join) => (
                   <div
-                    className={`modeling-join-pill ${highlightJoinId === join.id ? 'modeling-join-pill--active' : ''}`}
+                    className={modelingJoinPillClass({ active: highlightJoinId === join.id })}
                     key={join.id}
                     onMouseEnter={() => onHighlightJoin(join.id)}
                     onMouseLeave={() => onHighlightJoin(null)}
                   >
-                    <div className="modeling-join-pill-header">
+                    <div className={modelingJoinPillHeaderClass}>
                       <strong>{join.name}</strong>
                       <button
-                        className="modeling-delete-btn"
+                        className={modelingDeleteBtnClass}
                         onClick={() => onDeleteJoin(join.id)}
                         title={t('modeling.delete_relationship_title')}
                       >
@@ -464,7 +488,7 @@ export function ModelingPalette({
                     <span>
                       {join.from_table}.{join.from_column} → {join.to_table}.{join.to_column}
                     </span>
-                    <span className="modeling-join-meta">
+                    <span className={modelingJoinMetaClass}>
                       {join.join_type} · {join.relationship}
                     </span>
                   </div>
@@ -474,13 +498,13 @@ export function ModelingPalette({
                 <>
                   <h3>{t('modeling.suggested_fk_relationships')}</h3>
                   {visibleSuggestedJoins.map((join, index) => (
-                    <div className="modeling-join-pill modeling-join-pill--suggested" key={index}>
-                      <div className="modeling-join-pill-header">
+                    <div className={modelingJoinPillClass({ suggested: true })} key={index}>
+                      <div className={modelingJoinPillHeaderClass}>
                         <strong>
                           {join.from_table}.{join.from_column} → {join.to_table}.{join.to_column}
                         </strong>
                         <button
-                          className="modeling-add-btn"
+                          className={modelingAddBtnClass}
                           onClick={() => onAddSuggestedJoin(join)}
                           title={t('common.add')}
                         >
@@ -495,11 +519,11 @@ export function ModelingPalette({
                 <>
                   <h3>{t('modeling.inactive_joins_heading')}</h3>
                   {inactiveJoins.map((join) => (
-                    <div className="modeling-join-pill modeling-join-pill--suggested" key={join.id}>
-                      <div className="modeling-join-pill-header">
+                    <div className={modelingJoinPillClass({ suggested: true })} key={join.id}>
+                      <div className={modelingJoinPillHeaderClass}>
                         <strong>{join.name}</strong>
                         <button
-                          className="modeling-add-btn"
+                          className={modelingAddBtnClass}
                           onClick={() => onReactivateJoin(join)}
                           title={t('modeling.reactivate_title')}
                         >
@@ -517,11 +541,14 @@ export function ModelingPalette({
           )}
 
           {activeTab === 'dimensions' && (
-            <div className="modeling-join-list">
-              <div className="modeling-section-header">
+            <div className={modelingJoinListClass}>
+              <div className={modelingSectionHeaderClass}>
                 <h3>{t('modeling.dimensions_tab')}</h3>
                 <button
-                  className="btn btn-sm btn-primary modeling-section-add-btn"
+                  className={cn(
+                    legacyButtonClass('btn btn-sm btn-primary'),
+                    modelingSectionAddBtnClass,
+                  )}
                   type="button"
                   onClick={onSyncDimensions}
                   disabled={!model}
@@ -531,7 +558,7 @@ export function ModelingPalette({
                 </button>
               </div>
               {visibleDimsCount === 0 ? (
-                <p className="modeling-empty">{t('modeling.no_dimensions')}</p>
+                <p className={modelingEmptyClass}>{t('modeling.no_dimensions')}</p>
               ) : (
                 dimGroups.map((group) => {
                   const table = tableByKey.get(group.key)
@@ -545,26 +572,26 @@ export function ModelingPalette({
                       defaultOpen={dimGroups.length === 1}
                     >
                       {group.values.map((dimension) => (
-                        <div className="modeling-join-pill" key={dimension.id}>
-                          <div className="modeling-join-pill-header">
+                        <div className={modelingJoinPillClass()} key={dimension.id}>
+                          <div className={modelingJoinPillHeaderClass}>
                             <strong>{dimension.label ?? dimension.name}</strong>
-                            <span className="modeling-pill-actions">
+                            <span className={modelingPillActionsClass}>
                               <button
-                                className="modeling-rename-btn"
+                                className={modelingRenameBtnClass}
                                 onClick={() => onEditDimension(dimension)}
                                 title={t('modeling.edit_display_name_title')}
                               >
                                 ✎
                               </button>
                               <button
-                                className="modeling-rename-btn"
+                                className={modelingRenameBtnClass}
                                 onClick={() => onEditDimensionValues(dimension)}
                                 title={t('modeling.enum_values_edit_title')}
                               >
                                 ≣
                               </button>
                               <button
-                                className="modeling-delete-btn"
+                                className={modelingDeleteBtnClass}
                                 onClick={() => onDeleteDimension(dimension.id)}
                                 title={t('modeling.delete_dimension_title')}
                               >
@@ -573,7 +600,7 @@ export function ModelingPalette({
                             </span>
                           </div>
                           <span>{dimension.column_ref}</span>
-                          <span className="modeling-join-meta">{dimension.type}</span>
+                          <span className={modelingJoinMetaClass}>{dimension.type}</span>
                         </div>
                       ))}
                     </CollapsibleGroup>
@@ -584,16 +611,16 @@ export function ModelingPalette({
                 <>
                   <h3>{t('modeling.inactive_dimensions_heading')}</h3>
                   {inactiveDimGroups.map((group) => (
-                    <div className="modeling-group-body" key={group.key}>
+                    <div className={modelingGroupBodyClass} key={group.key}>
                       {group.values.map((dimension) => (
                         <div
-                          className="modeling-join-pill modeling-join-pill--suggested"
+                          className={modelingJoinPillClass({ suggested: true })}
                           key={dimension.id}
                         >
-                          <div className="modeling-join-pill-header">
+                          <div className={modelingJoinPillHeaderClass}>
                             <strong>{dimension.label ?? dimension.name}</strong>
                             <button
-                              className="modeling-add-btn"
+                              className={modelingAddBtnClass}
                               onClick={() => onReactivateDimension(dimension)}
                               title={t('modeling.reactivate_title')}
                             >
@@ -611,11 +638,14 @@ export function ModelingPalette({
           )}
 
           {activeTab === 'metrics' && (
-            <div className="modeling-join-list">
-              <div className="modeling-section-header">
+            <div className={modelingJoinListClass}>
+              <div className={modelingSectionHeaderClass}>
                 <h3>{t('modeling.metrics_tab')}</h3>
                 <button
-                  className="btn btn-sm btn-primary modeling-section-add-btn"
+                  className={cn(
+                    legacyButtonClass('btn btn-sm btn-primary'),
+                    modelingSectionAddBtnClass,
+                  )}
                   type="button"
                   onClick={onOpenAddMetric}
                   disabled={!model}
@@ -624,7 +654,7 @@ export function ModelingPalette({
                 </button>
               </div>
               {visibleMetricsCount === 0 ? (
-                <p className="modeling-empty">{t('modeling.no_metrics')}</p>
+                <p className={modelingEmptyClass}>{t('modeling.no_metrics')}</p>
               ) : (
                 metricGroups.map((group) => {
                   const table = tableByKey.get(group.key)
@@ -638,19 +668,19 @@ export function ModelingPalette({
                       defaultOpen={metricGroups.length === 1}
                     >
                       {group.values.map((metric) => (
-                        <div className="modeling-join-pill" key={metric.id}>
-                          <div className="modeling-join-pill-header">
+                        <div className={modelingJoinPillClass()} key={metric.id}>
+                          <div className={modelingJoinPillHeaderClass}>
                             <strong>{metric.label ?? metric.name}</strong>
-                            <span className="modeling-pill-actions">
+                            <span className={modelingPillActionsClass}>
                               <button
-                                className="modeling-rename-btn"
+                                className={modelingRenameBtnClass}
                                 onClick={() => onEditMetric(metric)}
                                 title={t('modeling.edit_display_name_title')}
                               >
                                 ✎
                               </button>
                               <button
-                                className="modeling-delete-btn"
+                                className={modelingDeleteBtnClass}
                                 onClick={() => onDeleteMetric(metric.id)}
                                 title={t('modeling.delete_metric_title')}
                               >
@@ -659,7 +689,7 @@ export function ModelingPalette({
                             </span>
                           </div>
                           <span>{metric.expression}</span>
-                          <span className="modeling-join-meta">{metric.aggregation}</span>
+                          <span className={modelingJoinMetaClass}>{metric.aggregation}</span>
                         </div>
                       ))}
                     </CollapsibleGroup>
@@ -670,16 +700,13 @@ export function ModelingPalette({
                 <>
                   <h3>{t('modeling.inactive_metrics_heading')}</h3>
                   {inactiveMetricGroups.map((group) => (
-                    <div className="modeling-group-body" key={group.key}>
+                    <div className={modelingGroupBodyClass} key={group.key}>
                       {group.values.map((metric) => (
-                        <div
-                          className="modeling-join-pill modeling-join-pill--suggested"
-                          key={metric.id}
-                        >
-                          <div className="modeling-join-pill-header">
+                        <div className={modelingJoinPillClass({ suggested: true })} key={metric.id}>
+                          <div className={modelingJoinPillHeaderClass}>
                             <strong>{metric.label ?? metric.name}</strong>
                             <button
-                              className="modeling-add-btn"
+                              className={modelingAddBtnClass}
                               onClick={() => onReactivateMetric(metric)}
                               title={t('modeling.reactivate_title')}
                             >

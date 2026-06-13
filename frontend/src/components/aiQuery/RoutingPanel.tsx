@@ -1,3 +1,8 @@
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
+import { legacyFormClass } from '../../lib/formClasses'
+import { toggleBtnClass, toggleGroupClass } from '../../lib/toggleClasses'
 import { ModelBadgeRow } from '../ui/ModelBadgeRow'
 import { Select } from '../ui/Select'
 import {
@@ -20,7 +25,6 @@ import {
   routingEmbedButtonLabel,
 } from './routingPanelUtils'
 import type { RoutingPanelProps } from './types'
-
 export function RoutingPanel({
   t,
   aiRuntime,
@@ -90,7 +94,7 @@ export function RoutingPanel({
         {embeddingsAvailable && (
           <button
             type="button"
-            className={`btn btn-sm ${queryConfigEmbedBtnClass}`}
+            className={cn(legacyButtonClass('btn btn-sm'), queryConfigEmbedBtnClass)}
             onClick={onRefreshEmbeddings}
             disabled={!datasourceId || embeddingLoading || embeddingRunning}
             title={
@@ -109,12 +113,12 @@ export function RoutingPanel({
         <div className={queryConfigEmbedStatusClass}>
           {embeddingStatus && <span className={aiEmbeddingStatusClass}>{embeddingStatus}</span>}
           {embeddingError && <span className={aiEmbeddingErrorClass}>{embeddingError}</span>}
-          {aiRuntimeErr && <span className="error">{aiRuntimeErr}</span>}
+          {aiRuntimeErr && <span className={legacyFeedbackClass('error')}>{aiRuntimeErr}</span>}
         </div>
       )}
 
       <div className={queryControlsClass}>
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor="ai-datasource">{t('ai_query.datasource_label')}</label>
           <Select
             id="ai-datasource"
@@ -125,7 +129,7 @@ export function RoutingPanel({
             options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
           />
         </div>
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor="ai-semantic-model">{t('ai_query.semantic_model_label')}</label>
           <Select
             id="ai-semantic-model"
@@ -148,24 +152,24 @@ export function RoutingPanel({
             ]}
           />
         </div>
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <span className={formLabelClass}>{t('ai_query.table_routing_label')}</span>
           <div className={routingToggleRowClass}>
             <div
-              className={`${routingToggleRowGroupClass} toggle-group`}
+              className={toggleGroupClass(routingToggleRowGroupClass)}
               role="group"
               aria-label={t('ai_query.table_routing_label')}
             >
               <button
                 type="button"
-                className={`${routingToggleRowBtnClass} toggle-btn ${autoTableRouting ? 'active' : ''}`}
+                className={toggleBtnClass(autoTableRouting, routingToggleRowBtnClass)}
                 onClick={() => setAutoTableRouting(true)}
               >
                 {t('ai_query.table_routing_auto')}
               </button>
               <button
                 type="button"
-                className={`${routingToggleRowBtnClass} toggle-btn ${!autoTableRouting ? 'active' : ''}`}
+                className={toggleBtnClass(!autoTableRouting, routingToggleRowBtnClass)}
                 onClick={() => setAutoTableRouting(false)}
               >
                 {t('ai_query.table_routing_manual')}

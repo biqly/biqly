@@ -1,3 +1,5 @@
+import { semanticModelSetupStatusClass } from '../lib/feedbackClasses'
+import { modelingPageClass, modelingShellClass } from '../lib/modelingClasses'
 import { DriftPanel } from './admin/DriftPanel'
 import { JoinEditor } from './modeling/JoinEditor'
 import { ModelingCanvas } from './modeling/ModelingCanvas'
@@ -17,7 +19,7 @@ export default function Modeling() {
   }
 
   return (
-    <div className="modeling-page">
+    <div className={modelingPageClass}>
       <ModelingToolbar
         t={s.t}
         datasourceId={s.datasourceId}
@@ -43,14 +45,15 @@ export default function Modeling() {
       ) : (
         <>
           {s.error && <ErrorAlert error={s.error} />}
-          {s.message && (
-            <div className="semantic-model-setup semantic-model-setup--success">{s.message}</div>
-          )}
+          {s.message && <div className={semanticModelSetupStatusClass('success')}>{s.message}</div>}
 
           {s.model && <DriftPanel modelId={s.model.id} />}
 
           <section
-            className={`modeling-shell ${s.paletteOpen ? '' : 'modeling-shell--palette-closed'} ${s.editorOpen ? '' : 'modeling-shell--editor-closed'}`}
+            className={modelingShellClass({
+              paletteOpen: s.paletteOpen,
+              editorOpen: s.editorOpen,
+            })}
           >
             <ModelingPalette
               open={s.paletteOpen}

@@ -2,6 +2,7 @@ import clsx from 'clsx'
 
 import type { ToastItem } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { legacyCardClass } from '../../lib/cardClasses'
 
 const VARIANT_ICON: Record<ToastItem['variant'], string> = {
   success: '✓',
@@ -71,7 +72,9 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
           </div>
           <button
             type="button"
-            className="inline-grid w-6 h-6 place-items-center border-0 rounded-[0.35rem] bg-transparent text-foreground-muted cursor-pointer text-[0.85rem] leading-none hover:bg-card-raised hover:text-foreground"
+            className={legacyCardClass(
+              'inline-grid w-6 h-6 place-items-center border-0 rounded-[0.35rem] bg-transparent text-foreground-muted cursor-pointer text-[0.85rem] leading-none hover:bg-card-raised hover:text-foreground',
+            )}
             onClick={() => onDismiss(toast.id)}
             aria-label={t('common.close')}
           >

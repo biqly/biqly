@@ -5,6 +5,18 @@ import { driverLabelKey, driverLogoUrl, driverStructuredDefaults } from '../dbDr
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import { useT } from '../i18n'
+import {
+  datasourceAccessBadgeClass,
+  datasourceAccessBadgeIconClass,
+  datasourceAccessNoteClass,
+  datasourceIdCopyButtonClass,
+} from '../lib/badgeClasses'
+import { legacyButtonClass, rowActionsClass } from '../lib/buttonClasses'
+import { legacyCardClass } from '../lib/cardClasses'
+import { driverCellClass, driverCellLabelClass, driverCellLogoClass } from '../lib/driverClasses'
+import { errorAlertTopGapClass, uiEmptyStateInlineClass } from '../lib/feedbackClasses'
+import { legacyLayoutClass } from '../lib/layoutClasses'
+import { legacyTableClass } from '../lib/tableClasses'
 import type { Datasource } from '../types/metadata'
 import { noop } from '../utils/constants'
 import { useAuth } from './auth/AuthProvider'
@@ -13,7 +25,6 @@ import { DatasourceFormModal } from './datasources/DatasourceFormModal'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
-
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
@@ -311,7 +322,7 @@ export default function Datasources() {
   const showAccessBadge = accessibleDatasourceIDs !== null
 
   return (
-    <div className="page-stack min-w-0">
+    <div className={legacyLayoutClass('page-stack min-w-0')}>
       <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4">
         <div className="min-w-0">
           <h2 className="m-0 text-foreground font-['Plus_Jakarta_Sans',sans-serif] text-base font-bold">
@@ -321,17 +332,21 @@ export default function Datasources() {
             {t('datasources.form_subtitle')}
           </p>
         </div>
-        <button className="btn btn-primary" type="button" onClick={openNewForm}>
+        <button
+          className={legacyButtonClass('btn btn-primary')}
+          type="button"
+          onClick={openNewForm}
+        >
           {t('datasources.new')}
         </button>
       </div>
 
-      <ErrorAlert error={error} className="error--top-gap" />
+      <ErrorAlert error={error} className={errorAlertTopGapClass} />
 
-      <div className="card">
+      <div className={legacyCardClass('card')}>
         <h2>{t('datasources.registered_count', { count: datasourceRows.length })}</h2>
         {accessibleDatasourceIDs !== null && datasourceRows.length < items.length && (
-          <p className="datasource-access-note">
+          <p className={datasourceAccessNoteClass}>
             {t(
               items.length - datasourceRows.length === 1
                 ? 'datasources.hidden_by_access_policy'
@@ -341,9 +356,9 @@ export default function Datasources() {
           </p>
         )}
         {datasourceRows.length === 0 && !loading && (
-          <EmptyState description={t('datasources.empty')} className="ui-empty-state--inline" />
+          <EmptyState description={t('datasources.empty')} className={uiEmptyStateInlineClass} />
         )}
-        <table className="results-table">
+        <table className={legacyTableClass('results-table')}>
           <thead>
             <tr>
               <th>{t('datasources.record_name')}</th>
@@ -370,11 +385,8 @@ export default function Datasources() {
                           {ds.name}
                         </span>
                         {showAccessBadge && access === 'allowed' && (
-                          <span className="inline-flex items-center gap-[0.3rem] px-[0.55rem] py-[0.12rem] rounded-full text-[0.68rem] font-semibold tracking-wide whitespace-nowrap border border-[color-mix(in_srgb,var(--success)_35%,transparent)] bg-[color-mix(in_srgb,var(--success)_14%,transparent)] text-[color-mix(in_srgb,var(--success)_90%,var(--text-primary))]">
-                            <span
-                              className="inline-flex items-center justify-center w-[0.95rem] h-[0.95rem] rounded-full text-[0.62rem] leading-none bg-success text-white"
-                              aria-hidden
-                            >
+                          <span className={datasourceAccessBadgeClass}>
+                            <span className={datasourceAccessBadgeIconClass} aria-hidden>
                               ✓
                             </span>
                             {t('datasources.access_allowed')}
@@ -391,7 +403,7 @@ export default function Datasources() {
                           type="button"
                           title={ds.id}
                           aria-label={t('datasources.copy_id_aria', { id: ds.id })}
-                          className={`inline-flex items-center px-[0.45rem] py-[0.1rem] border border-border rounded-[0.35rem] bg-transparent font-['Geist_Mono',ui-monospace,monospace] text-[0.68rem] text-foreground-faint cursor-copy tracking-wide hover:border-border-strong hover:text-foreground-muted focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2`}
+                          className={datasourceIdCopyButtonClass}
                           onClick={() => {
                             navigator.clipboard.writeText(ds.id).catch(noop)
                           }}
@@ -402,13 +414,13 @@ export default function Datasources() {
                     </div>
                   </td>
                   <td>
-                    <div className={`driver-cell driver-cell--${ds.type}`}>
+                    <div className={driverCellClass()}>
                       {logoSrc ? (
-                        <span className="driver-cell__logo" aria-hidden>
+                        <span className={driverCellLogoClass(ds.type)} aria-hidden>
                           <img src={logoSrc} alt="" width={26} height={26} />
                         </span>
                       ) : null}
-                      <span className="driver-cell__label">{t(driverLabelKey(ds.type))}</span>
+                      <span className={driverCellLabelClass()}>{t(driverLabelKey(ds.type))}</span>
                     </div>
                   </td>
                   <td>
@@ -425,13 +437,17 @@ export default function Datasources() {
                     )}
                   </td>
                   <td className="actions">
-                    <div className="row-actions">
-                      <button type="button" className="btn btn-sm" onClick={() => edit(ds)}>
+                    <div className={rowActionsClass}>
+                      <button
+                        type="button"
+                        className={legacyButtonClass('btn btn-sm')}
+                        onClick={() => edit(ds)}
+                      >
                         {t('datasources.edit')}
                       </button>
                       <button
                         type="button"
-                        className="btn btn-sm"
+                        className={legacyButtonClass('btn btn-sm')}
                         onClick={() => {
                           void test(ds.id)
                         }}
@@ -440,7 +456,7 @@ export default function Datasources() {
                       </button>
                       <button
                         type="button"
-                        className="btn btn-sm"
+                        className={legacyButtonClass('btn btn-sm')}
                         onClick={() => {
                           void sync(ds.id)
                         }}
@@ -449,7 +465,7 @@ export default function Datasources() {
                       </button>
                       <button
                         type="button"
-                        className="btn btn-sm btn-danger"
+                        className={legacyButtonClass('btn btn-sm btn-danger')}
                         onClick={() => {
                           void del(ds.id)
                         }}

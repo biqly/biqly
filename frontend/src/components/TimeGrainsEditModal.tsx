@@ -1,4 +1,15 @@
 import { useT } from '../i18n'
+import { legacyButtonClass } from '../lib/buttonClasses'
+import { legacyFormClass } from '../lib/formClasses'
+import {
+  modalActionsClass,
+  modalBackdropClass,
+  modalBodyClass,
+  modalCardClass,
+  modalCloseClass,
+  modalHeaderClass,
+  modalTitleClass,
+} from '../lib/modalClasses'
 import { ErrorAlert } from './ui/ErrorAlert'
 
 interface TimeGrain {
@@ -38,18 +49,18 @@ export function TimeGrainsEditModal({
     return null
   }
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>
+    <div className={modalBackdropClass()} onClick={onCancel}>
+      <div className={modalCardClass()} onClick={(e) => e.stopPropagation()}>
+        <div className={modalHeaderClass()}>
+          <h2 className={modalTitleClass()}>
             {t('time_grains.edit_title') || 'Edit Time Grain'}: {editingGrain.grain}
           </h2>
-          <button className="modal-close" onClick={onCancel}>
+          <button type="button" className={modalCloseClass()} onClick={onCancel}>
             ×
           </button>
         </div>
-        <div className="modal-body">
-          <div className="form-group">
+        <div className={modalBodyClass()}>
+          <div className={legacyFormClass('form-group')}>
             <label htmlFor="tg-suffix">{t('time_grains.label_suffix') || 'Suffix'}</label>
             <input
               id="tg-suffix"
@@ -59,7 +70,7 @@ export function TimeGrainsEditModal({
             />
           </div>
           <div
-            className="form-group"
+            className={legacyFormClass('form-group')}
             style={{
               flexDirection: 'row',
               alignItems: 'flex-start',
@@ -87,7 +98,7 @@ export function TimeGrainsEditModal({
               </p>
             </div>
           </div>
-          <div className="form-group" style={{ marginTop: '1.25rem' }}>
+          <div className={legacyFormClass('form-group')} style={{ marginTop: '1.25rem' }}>
             <label htmlFor="tg-synonyms">
               {t('time_grains.label_synonyms') || 'Synonyms (comma-separated)'}
             </label>
@@ -101,11 +112,16 @@ export function TimeGrainsEditModal({
           </div>
           {formError && <ErrorAlert error={formError} />}
         </div>
-        <div className="modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onCancel}>
+        <div className={modalActionsClass()}>
+          <button type="button" className={legacyButtonClass('btn btn-ghost')} onClick={onCancel}>
             {t('common.cancel') || 'Cancel'}
           </button>
-          <button type="button" className="btn btn-primary" onClick={onSave} disabled={loading}>
+          <button
+            type="button"
+            className={legacyButtonClass('btn btn-primary')}
+            onClick={onSave}
+            disabled={loading}
+          >
             {loading ? t('common.saving') || 'Saving…' : t('common.save') || 'Save'}
           </button>
         </div>

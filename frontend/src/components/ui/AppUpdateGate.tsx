@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
 import {
   canReloadForUpdate,
   isLikelyAssetLoadFailure,
@@ -94,7 +96,9 @@ export function AppUpdateGate() {
 
   return (
     <div
-      className="fixed left-4 right-4 bottom-4 max-[520px]:left-3 max-[520px]:right-3 max-[520px]:bottom-3 z-[2000] flex max-[520px]:flex-col items-center max-[520px]:items-start justify-between gap-3.5 p-[12px_14px] rounded-xl border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--bg-card)_92%,var(--accent)_8%)] shadow-[0_14px_42px_rgba(0,0,0,0.55)] backdrop-blur-[10px]"
+      className={legacyCardClass(
+        'fixed left-4 right-4 bottom-4 max-[520px]:left-3 max-[520px]:right-3 max-[520px]:bottom-3 z-[2000] flex max-[520px]:flex-col items-center max-[520px]:items-start justify-between gap-3.5 p-[12px_14px] rounded-xl border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--bg-card)_92%,var(--accent)_8%)] shadow-[0_14px_42px_rgba(0,0,0,0.55)] backdrop-blur-[10px]',
+      )}
       role="status"
       aria-live="polite"
     >
@@ -108,7 +112,7 @@ export function AppUpdateGate() {
         </div>
         <button
           type="button"
-          className="btn btn-sm"
+          className={legacyButtonClass('btn btn-sm')}
           onClick={() => {
             markReloadForUpdate()
             window.location.reload()

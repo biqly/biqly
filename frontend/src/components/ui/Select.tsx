@@ -1,6 +1,8 @@
 import { useId, useMemo } from 'react'
 
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
+import { selectRootClass } from '../../lib/selectClasses'
 import { handleSelectTriggerKeyDown } from './selectKeyboard'
 import { SelectPopover } from './SelectPopover'
 import { SelectTrigger } from './SelectTrigger'
@@ -105,7 +107,7 @@ export function Select<T extends string = string>({
     : (placeholder ?? t('common.select_placeholder'))
 
   return (
-    <div ref={rootRef} className={['ui-select', className].filter(Boolean).join(' ')}>
+    <div ref={rootRef} className={cn(selectRootClass, className)}>
       <SelectTrigger
         baseId={baseId}
         name={name}

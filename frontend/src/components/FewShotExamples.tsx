@@ -6,12 +6,33 @@ import { useDatasources } from '../hooks/useDatasources'
 import { useModelDetail } from '../hooks/useModelDetail'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
+import { legacyButtonClass, rowActionsClass } from '../lib/buttonClasses'
+import { legacyCardClass } from '../lib/cardClasses'
+import { cn } from '../lib/cn'
+import { fieldBadgeBtnClass, fieldBadgeBtnTypeClass } from '../lib/fewShotLayoutClasses'
+import {
+  fewShotMainFormClass,
+  fewShotModalCardClass,
+  fewShotSidebarClass,
+  fewShotSidebarHeaderClass,
+  fewShotSidebarListClass,
+  modalBodyTwoColClass,
+} from '../lib/fewShotLayoutClasses'
+import { formControlClass, formRowClass, legacyFormClass } from '../lib/formClasses'
+import { legacyLayoutClass } from '../lib/layoutClasses'
+import {
+  modalActionsClass,
+  modalBackdropClass,
+  modalCloseClass,
+  modalFormRowClass,
+  modalHeaderClass,
+} from '../lib/modalClasses'
+import { legacyTableClass } from '../lib/tableClasses'
 import { parseJsonRecord } from '../utils/record'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
 import { Select } from './ui/Select'
-
 interface FewShotExample {
   id: string
   datasource_id: string
@@ -342,29 +363,33 @@ export default function FewShotExamples() {
   }
 
   return (
-    <div className="page-stack">
+    <div className={legacyLayoutClass('page-stack')}>
       {!apiReady && <ErrorAlert error={t('few_shot.api_offline_alert')} />}
 
-      <div className="card">
-        <div className="card-intro">
-          <div className="card-header-row">
+      <div className={legacyCardClass('card')}>
+        <div className={legacyCardClass('card-intro')}>
+          <div className={legacyCardClass('card-header-row')}>
             <h2>{t('few_shot.title')}</h2>
-            <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
+            <button
+              type="button"
+              className={legacyButtonClass('btn btn-sm btn-primary')}
+              onClick={openAdd}
+            >
               {t('few_shot.new')}
             </button>
           </div>
-          <p className="card-lead card-lead--single-line" title={t('few_shot.manage_hint')}>
+          <p
+            className={legacyCardClass('card-lead card-lead--single-line')}
+            title={t('few_shot.manage_hint')}
+          >
             {t('few_shot.manage_hint')}
           </p>
         </div>
 
         {/* Filters */}
-        <div
-          className="form-row"
-          style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}
-        >
-          <label className="form-field" style={{ minWidth: '14rem' }}>
-            <span className="form-label">{t('few_shot.label_datasource')}</span>
+        <div className={cn(formRowClass, 'mb-5')}>
+          <label className={legacyFormClass('form-field')} style={{ minWidth: '14rem' }}>
+            <span className={legacyFormClass('form-label')}>{t('few_shot.label_datasource')}</span>
             <Select
               value={selectedDatasourceId}
               options={[
@@ -378,8 +403,8 @@ export default function FewShotExamples() {
             />
           </label>
           {selectedDatasourceId && (
-            <label className="form-field" style={{ minWidth: '14rem' }}>
-              <span className="form-label">{t('few_shot.label_model')}</span>
+            <label className={legacyFormClass('form-field')} style={{ minWidth: '14rem' }}>
+              <span className={legacyFormClass('form-label')}>{t('few_shot.label_model')}</span>
               <Select
                 value={selectedModelId}
                 options={[
@@ -397,7 +422,7 @@ export default function FewShotExamples() {
 
         {displayedExamples.length > 0 && (
           <div className="table-wrap">
-            <table className="results-table">
+            <table className={legacyTableClass('results-table')}>
               <thead>
                 <tr>
                   <th>{t('few_shot.col_question')}</th>
@@ -448,17 +473,17 @@ export default function FewShotExamples() {
                       ))}
                     </td>
                     <td className="actions">
-                      <div className="row-actions">
+                      <div className={rowActionsClass}>
                         <button
                           type="button"
-                          className="btn btn-sm btn-ghost"
+                          className={legacyButtonClass('btn btn-sm btn-ghost')}
                           onClick={() => openEdit(ex)}
                         >
                           {t('common.edit')}
                         </button>
                         <button
                           type="button"
-                          className="btn btn-sm btn-danger"
+                          className={legacyButtonClass('btn btn-sm btn-danger')}
                           onClick={() => {
                             void handleDelete(ex.id)
                           }}
@@ -477,18 +502,18 @@ export default function FewShotExamples() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className="modal-backdrop" onClick={resetForm}>
-          <div className="modal-card modal-card--few-shot" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className={modalBackdropClass()} onClick={resetForm}>
+          <div className={fewShotModalCardClass()} onClick={(e) => e.stopPropagation()}>
+            <div className={modalHeaderClass()}>
               <h2>{editId ? t('few_shot.form_edit_title') : t('few_shot.form_add_title')}</h2>
-              <button className="modal-close" onClick={resetForm}>
+              <button className={modalCloseClass()} onClick={resetForm}>
                 ×
               </button>
             </div>
-            <div className="modal-body modal-body--two-col">
-              <div className="few-shot-main-form">
-                <div className="modal-form-row">
-                  <div className="form-group">
+            <div className={modalBodyTwoColClass()}>
+              <div className={fewShotMainFormClass()}>
+                <div className={modalFormRowClass()}>
+                  <div className={legacyFormClass('form-group')}>
                     <label htmlFor="fs-datasource">{t('few_shot.label_datasource')}</label>
                     <Select
                       id="fs-datasource"
@@ -500,7 +525,7 @@ export default function FewShotExamples() {
                       options={datasources.map((d) => ({ value: d.id, label: d.name }))}
                     />
                   </div>
-                  <div className="form-group">
+                  <div className={legacyFormClass('form-group')}>
                     <label htmlFor="fs-model">{t('few_shot.label_model')}</label>
                     <Select
                       id="fs-model"
@@ -514,7 +539,7 @@ export default function FewShotExamples() {
                   </div>
                 </div>
 
-                <div className="form-group">
+                <div className={legacyFormClass('form-group')}>
                   <label htmlFor="fs-question">{t('few_shot.label_nl_question')}</label>
                   <textarea
                     ref={questionRef}
@@ -528,7 +553,7 @@ export default function FewShotExamples() {
                 </div>
 
                 <div
-                  className="form-group"
+                  className={legacyFormClass('form-group')}
                   style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
                 >
                   <label htmlFor="fs-lq">{t('few_shot.label_lq_json')}</label>
@@ -548,8 +573,8 @@ export default function FewShotExamples() {
                   />
                 </div>
 
-                <div className="modal-form-row">
-                  <div className="form-group">
+                <div className={modalFormRowClass()}>
+                  <div className={legacyFormClass('form-group')}>
                     <label htmlFor="fs-tags">{t('few_shot.label_tags')}</label>
                     <input
                       id="fs-tags"
@@ -558,7 +583,7 @@ export default function FewShotExamples() {
                       placeholder={t('few_shot.placeholder_tags')}
                     />
                   </div>
-                  <div className="form-group">
+                  <div className={legacyFormClass('form-group')}>
                     <label htmlFor="fs-dialect">{t('few_shot.label_dialect')}</label>
                     <Select
                       id="fs-dialect"
@@ -572,42 +597,42 @@ export default function FewShotExamples() {
                 <ErrorAlert error={formError} />
               </div>
 
-              <div className="few-shot-sidebar">
-                <div className="few-shot-sidebar__header">
+              <div className={fewShotSidebarClass()}>
+                <div className={fewShotSidebarHeaderClass()}>
                   {t('few_shot.available_fields_title')}
                 </div>
                 {activeModelDetail ? (
                   <>
                     <input
                       type="text"
-                      className="input input-sm few-shot-sidebar__search"
+                      className={cn(formControlClass, 'mb-1')}
                       placeholder={t('few_shot.search_fields_placeholder')}
                       value={sidebarSearch}
                       onChange={(e) => setSidebarSearch(e.target.value)}
                     />
-                    <div className="few-shot-sidebar__list">
+                    <div className={fewShotSidebarListClass()}>
                       {filteredDimensions.map((d) => (
                         <button
                           key={d.id}
                           type="button"
-                          className="field-badge-btn"
+                          className={fieldBadgeBtnClass}
                           onClick={() => handleInsertField(d.name)}
                           title={d.description ?? d.label ?? d.name}
                         >
                           <span>{d.name}</span>
-                          <span className="field-badge-btn__type">dim</span>
+                          <span className={fieldBadgeBtnTypeClass}>dim</span>
                         </button>
                       ))}
                       {filteredMetrics.map((m) => (
                         <button
                           key={m.id}
                           type="button"
-                          className="field-badge-btn"
+                          className={fieldBadgeBtnClass}
                           onClick={() => handleInsertField(m.name)}
                           title={m.description ?? m.label ?? m.name}
                         >
                           <span>{m.name}</span>
-                          <span className="field-badge-btn__type">met</span>
+                          <span className={fieldBadgeBtnTypeClass}>met</span>
                         </button>
                       ))}
                       {filteredDimensions.length === 0 && filteredMetrics.length === 0 && (
@@ -638,13 +663,17 @@ export default function FewShotExamples() {
                 )}
               </div>
             </div>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={resetForm}>
+            <div className={modalActionsClass()}>
+              <button
+                type="button"
+                className={legacyButtonClass('btn btn-ghost')}
+                onClick={resetForm}
+              >
                 {t('common.cancel')}
               </button>
               <button
                 type="button"
-                className="btn btn-primary"
+                className={legacyButtonClass('btn btn-primary')}
                 onClick={() => {
                   void handleSave()
                 }}

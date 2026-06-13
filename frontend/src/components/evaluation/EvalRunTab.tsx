@@ -11,6 +11,10 @@ import { Tooltip as RechartsTooltip } from 'recharts/es6/component/Tooltip'
 import { Pie } from 'recharts/es6/polar/Pie'
 
 import type { TFunction } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { chartContainerClass, evalStatusBadgeClass } from '../../lib/feedbackClasses'
+import { legacyTableClass } from '../../lib/tableClasses'
 import {
   chartAxisStroke,
   chartGridStroke,
@@ -19,7 +23,6 @@ import {
 } from '../../utils/chartConfig'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { KPICard } from '../ui/KPICard'
-
 interface EvalTestCase {
   id: string
   question: string
@@ -59,7 +62,9 @@ function DiffView({
   const gotStr = JSON.stringify(got, null, 2)
   return (
     <div
-      className={`grid grid-cols-2 gap-3 p-3 bg-card-raised border border-border rounded-lg mt-2`}
+      className={legacyCardClass(
+        'grid grid-cols-2 gap-3 p-3 bg-card-raised border border-border rounded-lg mt-2',
+      )}
     >
       <div className="diff-col">
         <div className="text-[0.72rem] font-bold uppercase tracking-wider text-foreground-faint mb-1.5">
@@ -93,13 +98,7 @@ function TestCaseRow({ tc, t }: { tc: EvalTestCase; t: TFunction }) {
           {tc.question}
         </td>
         <td>
-          <span
-            className={`inline-block text-[0.72rem] font-bold uppercase tracking-normal px-2 py-0.5 rounded-full ${
-              isFail
-                ? 'bg-[rgba(251,113,133,0.12)] text-error'
-                : 'bg-[rgba(52,211,153,0.12)] text-success'
-            }`}
-          >
+          <span className={evalStatusBadgeClass(!isFail)}>
             {isFail ? t('evaluation.status_fail_short') : t('evaluation.status_pass_short')}
           </span>
         </td>
@@ -114,7 +113,10 @@ function TestCaseRow({ tc, t }: { tc: EvalTestCase; t: TFunction }) {
               {tc.error_message}
             </span>
           )}
-          <button className="btn btn-sm btn-ghost" onClick={() => setOpen(!open)}>
+          <button
+            className={legacyButtonClass('btn btn-sm btn-ghost')}
+            onClick={() => setOpen(!open)}
+          >
             {open ? t('evaluation.hide_diff') : t('evaluation.show_diff')}
           </button>
         </td>
@@ -142,11 +144,15 @@ export function EvalRunTab({
 }: EvalRunTabProps) {
   return (
     <>
-      <div className="card">
-        <div className="card-header-row">
+      <div className={legacyCardClass('card')}>
+        <div className={legacyCardClass('card-header-row')}>
           <h2>{t('evaluation.panel_title')}</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn btn-sm btn-primary" onClick={runEvaluation} disabled={running}>
+            <button
+              className={legacyButtonClass('btn btn-sm btn-primary')}
+              onClick={runEvaluation}
+              disabled={running}
+            >
               {running ? t('evaluation.running') : t('evaluation.run_submit')}
             </button>
           </div>
@@ -189,9 +195,9 @@ export function EvalRunTab({
 
           {/* Charts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="card">
+            <div className={legacyCardClass('card')}>
               <h3>{t('evaluation.chart_pass_distribution')}</h3>
-              <div className="chart-container" style={{ height: 240 }}>
+              <div className={chartContainerClass} style={{ height: 240 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -213,10 +219,10 @@ export function EvalRunTab({
               </div>
             </div>
 
-            <div className="card">
+            <div className={legacyCardClass('card')}>
               <h3>{t('evaluation.chart_accuracy_trend')}</h3>
               {trendData.length > 0 ? (
-                <div className="chart-container" style={{ height: 240 }}>
+                <div className={chartContainerClass} style={{ height: 240 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={trendData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
@@ -244,9 +250,9 @@ export function EvalRunTab({
           </div>
 
           {/* Test Cases Table */}
-          <div className="card">
+          <div className={legacyCardClass('card')}>
             <h3>{t('evaluation.test_cases_title')}</h3>
-            <table className="results-table mt-2">
+            <table className={legacyTableClass('results-table mt-2')}>
               <thead>
                 <tr>
                   <th style={{ width: '80px' }}>ID</th>

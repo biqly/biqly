@@ -12,6 +12,7 @@ import {
 } from '../../api/admin'
 import { useConfirm } from '../../hooks/useConfirm'
 import { useLocale, useT } from '../../i18n'
+import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { AuthUser, Role, UserRoleInfo } from '../../types/auth'
 import { useAuth } from '../auth/AuthProvider'
 import { adminErrTextClass, adminTextMutedClass } from './adminClasses'
@@ -220,7 +221,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   }
 
   return (
-    <div className="page-stack" style={{ gap: 24 }}>
+    <div className={legacyLayoutClass('page-stack')} style={{ gap: 24 }}>
       <UserDetailProfileCard
         t={t}
         locale={locale}

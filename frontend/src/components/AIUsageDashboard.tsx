@@ -9,13 +9,14 @@ import { Tooltip } from 'recharts/es6/component/Tooltip'
 
 import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
+import { legacyCardClass } from '../lib/cardClasses'
+import { legacyTableClass } from '../lib/tableClasses'
 import type { ModelStats } from '../types/ai'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/chartConfig'
 import { getRateColor } from '../utils/formatters'
 import { ChartContainer } from './ui/ChartContainer'
 import { KPICard } from './ui/KPICard'
 import { Skeleton } from './ui/Skeleton'
-
 interface AIUsageSummary {
   total_queries: number
   success_rate: number
@@ -88,7 +89,11 @@ function AIUsageSkeleton({ heading }: { heading: string }) {
         }}
       >
         {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="card" style={{ display: 'grid', gap: '0.6rem' }}>
+          <div
+            key={i}
+            className={legacyCardClass('card')}
+            style={{ display: 'grid', gap: '0.6rem' }}
+          >
             <Skeleton height="0.7rem" width="55%" />
             <Skeleton height="1.6rem" width="70%" />
           </div>
@@ -102,7 +107,11 @@ function AIUsageSkeleton({ heading }: { heading: string }) {
         }}
       >
         {Array.from({ length: 2 }, (_, i) => (
-          <div key={i} className="card" style={{ display: 'grid', gap: '0.8rem' }}>
+          <div
+            key={i}
+            className={legacyCardClass('card')}
+            style={{ display: 'grid', gap: '0.8rem' }}
+          >
             <Skeleton height="1rem" width="40%" />
             <Skeleton height={250} radius="0.5rem" />
           </div>
@@ -172,7 +181,7 @@ function AIUsageSection({ summary, daily }: { summary: AIUsageSummary; daily: Da
           gap: '1.5rem',
         }}
       >
-        <div className="card">
+        <div className={legacyCardClass('card')}>
           <h3>{t('dashboard.daily_queries')}</h3>
           {trendData.length > 0 ? (
             <ChartContainer data={trendData} type="line" height={250} dataKey="queries" />
@@ -183,7 +192,7 @@ function AIUsageSection({ summary, daily }: { summary: AIUsageSummary; daily: Da
           )}
         </div>
 
-        <div className="card">
+        <div className={legacyCardClass('card')}>
           <h3>{t('dashboard.daily_cost')}</h3>
           {trendData.length > 0 ? (
             <ChartContainer
@@ -214,8 +223,8 @@ function ModelSuccessRates({ models }: { models: ModelStats[] }) {
   return (
     <div>
       <h2 style={{ marginBottom: '1rem' }}>{t('dashboard.model_rates_heading')}</h2>
-      <div className="results-table-scroll">
-        <table className="results-table">
+      <div className={legacyTableClass('results-table-scroll')}>
+        <table className={legacyTableClass('results-table')}>
           <thead>
             <tr>
               <th>{t('dashboard.col_model')}</th>
@@ -258,7 +267,7 @@ function ModelSuccessRates({ models }: { models: ModelStats[] }) {
         </table>
       </div>
 
-      <div className="card" style={{ marginTop: '1rem' }}>
+      <div className={legacyCardClass('card')} style={{ marginTop: '1rem' }}>
         <h3>{t('dashboard.chart_success_compare')}</h3>
         <div style={{ height: 250 }}>
           <ResponsiveContainer width="100%" height="100%">

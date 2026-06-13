@@ -1,10 +1,16 @@
 import type { TFunction } from '../../i18n'
+import { tagPillMetaClass } from '../../lib/badgeClasses'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
+import {
+  savedQuestionActionsClass,
+  savedQuestionDescriptionClass,
+} from '../../lib/savedQuestionClasses'
 import { ResultTable } from '../ResultTable'
 import { EmptyState } from '../ui/EmptyState'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import type { SavedQuestion, SavedQuestionSemanticModel } from './types'
-
 interface QuestionDetailPaneProps {
   selectedQuestion: SavedQuestion | null
   semanticModels: SavedQuestionSemanticModel[]
@@ -40,17 +46,12 @@ export function QuestionDetailPane({
     <div>
       <h2>{selectedQuestion.name}</h2>
       {selectedQuestion.description && (
-        <p className="saved-question-description" style={{ marginTop: '0.5rem' }}>
-          {selectedQuestion.description}
-        </p>
+        <p className={`${savedQuestionDescriptionClass()} mt-2`}>{selectedQuestion.description}</p>
       )}
 
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', margin: '1rem 0' }}>
         {selectedQuestion.model_id && (
-          <span
-            className="tag-pill"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-          >
+          <span className={tagPillMetaClass}>
             <strong>{t('saved_questions.label_select_model')}:</strong>
             <code>
               {semanticModels.find((m) => m.id === selectedQuestion.model_id)?.label ??
@@ -58,18 +59,12 @@ export function QuestionDetailPane({
             </code>
           </span>
         )}
-        <span
-          className="tag-pill"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-        >
+        <span className={tagPillMetaClass}>
           <strong>{t('saved_questions.label_dialect')}:</strong>
           <code>{selectedQuestion.dialect}</code>
         </span>
         {selectedQuestion.locale && (
-          <span
-            className="tag-pill"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-          >
+          <span className={tagPillMetaClass}>
             <strong>{t('saved_questions.label_locale')}:</strong>
             <code>{selectedQuestion.locale}</code>
           </span>
@@ -93,14 +88,17 @@ export function QuestionDetailPane({
       <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>
         {t('saved_questions.logical_query_heading')}
       </h3>
-      <pre className="sql-preview" style={{ maxHeight: '250px', overflowY: 'auto' }}>
+      <pre
+        className={legacyFeedbackClass('sql-preview')}
+        style={{ maxHeight: '250px', overflowY: 'auto' }}
+      >
         {JSON.stringify(selectedQuestion.logical_query, null, 2)}
       </pre>
 
-      <div className="saved-question-actions">
+      <div className={savedQuestionActionsClass()}>
         <button
           type="button"
-          className="btn btn-primary"
+          className={legacyButtonClass('btn btn-primary')}
           onClick={() => onRun(selectedQuestion.logical_query)}
           disabled={runLoading}
           aria-label={t('saved_questions.aria_run_query')}
@@ -109,7 +107,7 @@ export function QuestionDetailPane({
         </button>
         <button
           type="button"
-          className="btn"
+          className={legacyButtonClass('btn')}
           onClick={() => onOpenEdit(selectedQuestion)}
           aria-label={t('saved_questions.aria_edit_query')}
         >
@@ -117,7 +115,7 @@ export function QuestionDetailPane({
         </button>
         <button
           type="button"
-          className="btn btn-danger"
+          className={legacyButtonClass('btn btn-danger')}
           onClick={() => onDelete(selectedQuestion.id)}
           aria-label={t('saved_questions.aria_delete_query')}
         >

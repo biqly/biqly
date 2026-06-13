@@ -2,6 +2,8 @@ import { useState } from 'react'
 
 import { useAdminApi } from '../../hooks/useApi'
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
 
 export interface Experiment {
   id?: string
@@ -70,7 +72,7 @@ export function ABExperimentForm({ experiment, onSave, onCancel }: ABExperimentF
   }
 
   return (
-    <div className={`bg-card border border-border rounded-lg p-6 shadow-card-sm`}>
+    <div className={legacyCardClass('bg-card border border-border rounded-lg p-6 shadow-card-sm')}>
       <h2 className={`text-lg font-semibold mt-0 mb-4 border-b border-border pb-3`}>
         {isEdit ? t('admin.ab_experiments.edit_title') : t('admin.ab_experiments.new_title')}
       </h2>
@@ -154,10 +156,19 @@ export function ABExperimentForm({ experiment, onSave, onCancel }: ABExperimentF
         )}
 
         <div className="flex justify-end gap-3 mt-3">
-          <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={loading}>
+          <button
+            type="button"
+            className={legacyButtonClass('btn btn-secondary')}
+            onClick={onCancel}
+            disabled={loading}
+          >
             {t('common.cancel')}
           </button>
-          <button type="submit" className="btn btn-primary" disabled={loading || !name.trim()}>
+          <button
+            type="submit"
+            className={legacyButtonClass('btn btn-primary')}
+            disabled={loading || !name.trim()}
+          >
             {loading ? t('common.saving') : t('common.save')}
           </button>
         </div>

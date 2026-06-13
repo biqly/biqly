@@ -4,10 +4,20 @@ import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import type { Locale, TranslationKey } from '../i18n'
 import { DEFAULT_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, useT } from '../i18n'
+import { legacyButtonClass } from '../lib/buttonClasses'
+import { legacyCardClass } from '../lib/cardClasses'
+import { cn } from '../lib/cn'
+import { formRowClass, legacyFormClass } from '../lib/formClasses'
+import { legacyLayoutClass } from '../lib/layoutClasses'
+import {
+  promptEditorContainerClass,
+  promptEditorTextareaClass,
+  promptEditorUnderlayClass,
+} from '../lib/promptEditorClasses'
+import { legacyTableClass } from '../lib/tableClasses'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
 import { Select } from './ui/Select'
-
 const TEMPLATE_NAMES = [
   'system_rules',
   'output_format',
@@ -375,24 +385,29 @@ export default function PromptTemplates() {
   }
 
   return (
-    <div className="page-stack">
+    <div className={legacyLayoutClass('page-stack')}>
       {error && <ErrorAlert error={error} />}
       {actionError && <ErrorAlert error={actionError} />}
-      {saveOk && <p className="card-subtitle">{saveOk}</p>}
+      {saveOk && <p className={legacyCardClass('card-subtitle')}>{saveOk}</p>}
 
-      <div className="card">
-        <div className="card-intro">
-          <div className="card-header-row">
+      <div className={legacyCardClass('card')}>
+        <div className={legacyCardClass('card-intro')}>
+          <div className={legacyCardClass('card-header-row')}>
             <h2>{t('prompt_templates.title')}</h2>
           </div>
-          <p className="card-lead card-lead--single-line" title={t('prompt_templates.manage_hint')}>
+          <p
+            className={legacyCardClass('card-lead card-lead--single-line')}
+            title={t('prompt_templates.manage_hint')}
+          >
             {t('prompt_templates.manage_hint')}
           </p>
         </div>
 
-        <div className="form-row" style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <label className="form-field" style={{ minWidth: '10rem' }}>
-            <span className="form-label">{t('prompt_templates.label_locale')}</span>
+        <div className={formRowClass}>
+          <label className={legacyFormClass('form-field')} style={{ minWidth: '10rem' }}>
+            <span className={legacyFormClass('form-label')}>
+              {t('prompt_templates.label_locale')}
+            </span>
             <Select
               value={editLocale}
               options={localeOptions}
@@ -400,8 +415,10 @@ export default function PromptTemplates() {
               size="sm"
             />
           </label>
-          <label className="form-field" style={{ minWidth: '14rem', flex: 1 }}>
-            <span className="form-label">{t('prompt_templates.label_section')}</span>
+          <label className={legacyFormClass('form-field')} style={{ minWidth: '14rem', flex: 1 }}>
+            <span className={legacyFormClass('form-label')}>
+              {t('prompt_templates.label_section')}
+            </span>
             <Select
               value={selectedName}
               options={templateOptions}
@@ -488,7 +505,7 @@ export default function PromptTemplates() {
                 <button
                   key={param}
                   type="button"
-                  className="btn btn-sm"
+                  className={legacyButtonClass('btn btn-sm')}
                   style={{
                     width: 'auto',
                     marginTop: 0,
@@ -513,11 +530,11 @@ export default function PromptTemplates() {
           </div>
         )}
 
-        <div className="prompt-editor-container">
-          <pre className="prompt-editor-underlay">{highlightContent(draft)}</pre>
+        <div className={promptEditorContainerClass}>
+          <pre className={promptEditorUnderlayClass}>{highlightContent(draft)}</pre>
           <textarea
             ref={textareaRef}
-            className="prompt-editor-textarea"
+            className={promptEditorTextareaClass}
             rows={22}
             value={draft}
             onChange={handleTextareaChange}
@@ -583,10 +600,10 @@ export default function PromptTemplates() {
           )}
         </div>
 
-        <div className="form-row" style={{ marginTop: '1rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div className={cn(formRowClass, 'mt-4 gap-2')}>
           <button
             type="button"
-            className="btn btn-primary btn-sm"
+            className={legacyButtonClass('btn btn-primary btn-sm')}
             disabled={loading || !dirty}
             onClick={() => void handleSave()}
           >
@@ -594,7 +611,7 @@ export default function PromptTemplates() {
           </button>
           <button
             type="button"
-            className="btn btn-sm"
+            className={legacyButtonClass('btn btn-sm')}
             disabled={loading}
             onClick={() => void handleRestore()}
           >
@@ -602,7 +619,7 @@ export default function PromptTemplates() {
           </button>
           <button
             type="button"
-            className="btn btn-sm btn-danger-outline"
+            className={legacyButtonClass('btn btn-sm btn-danger-outline')}
             disabled={loading}
             onClick={() => void handleReseed()}
           >
@@ -616,7 +633,7 @@ export default function PromptTemplates() {
               {t('prompt_templates.version_history')}
             </h3>
             <div className="table-wrap">
-              <table className="results-table">
+              <table className={legacyTableClass('results-table')}>
                 <thead>
                   <tr>
                     <th>{t('prompt_templates.col_version')}</th>

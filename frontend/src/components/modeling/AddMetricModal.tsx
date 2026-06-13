@@ -1,5 +1,13 @@
 import { useAutofocus } from '../../hooks/useAutofocus'
 import type { TranslationKey, useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { modelingFormGroupClass } from '../../lib/formClasses'
+import {
+  modalActionsBorderedClass,
+  modalFormRowClass,
+  modalModelingCardClass,
+} from '../../lib/modalClasses'
+import { metricModeToggleClass, toggleBtnClass, toggleGroupClass } from '../../lib/toggleClasses'
 import type { ColumnRow, SemanticMetric, SemanticModelDetail, TableRow } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
 import { AddMetricSimpleFields } from './AddMetricSimpleFields'
@@ -59,7 +67,7 @@ export function AddMetricModal({
       className={
         state.mode === 'custom'
           ? 'w-full max-w-184 transition-[width] duration-200 ease-in-out'
-          : 'modal-card--modeling'
+          : modalModelingCardClass()
       }
       labelledBy="modeling-add-metric-title"
       title={metric ? t('modeling.edit_metric_title') : t('modeling.add_metric_title')}
@@ -70,8 +78,8 @@ export function AddMetricModal({
           void submit()
         }}
       >
-        <div className="modal-form-row">
-          <div className="form-group">
+        <div className={modalFormRowClass()}>
+          <div className={modelingFormGroupClass}>
             <label htmlFor="metric-name">{t('modeling.metric_name_label')}</label>
             <input
               id="metric-name"
@@ -82,7 +90,7 @@ export function AddMetricModal({
               autoComplete="off"
             />
           </div>
-          <div className="form-group">
+          <div className={modelingFormGroupClass}>
             <label htmlFor="metric-label">{t('modeling.metric_label_label')}</label>
             <input
               id="metric-label"
@@ -96,13 +104,13 @@ export function AddMetricModal({
         </div>
 
         <div
-          className="toggle-group metric-mode-toggle"
+          className={toggleGroupClass(metricModeToggleClass)}
           role="tablist"
           aria-label={metric ? t('modeling.edit_metric_title') : t('modeling.add_metric_title')}
         >
           <button
             type="button"
-            className={`toggle-btn ${state.mode === 'simple' ? 'active' : ''}`}
+            className={toggleBtnClass(state.mode === 'simple')}
             onClick={() => state.handleModeChange('simple')}
             disabled={state.saving}
             role="tab"
@@ -112,7 +120,7 @@ export function AddMetricModal({
           </button>
           <button
             type="button"
-            className={`toggle-btn ${state.mode === 'custom' ? 'active' : ''}`}
+            className={toggleBtnClass(state.mode === 'custom')}
             onClick={() => state.handleModeChange('custom')}
             disabled={state.saving}
             role="tab"
@@ -139,7 +147,7 @@ export function AddMetricModal({
             onAggregationChange={state.setSelectedAggregation}
           />
         ) : (
-          <div className="form-group" style={{ display: 'block', width: '100%' }}>
+          <div className={modelingFormGroupClass} style={{ display: 'block', width: '100%' }}>
             <label htmlFor="metric-expression">{t('modeling.metric_expression_label')}</label>
             <ExpressionBuilder
               model={model}
@@ -155,7 +163,7 @@ export function AddMetricModal({
           </div>
         )}
 
-        <div className="form-group">
+        <div className={modelingFormGroupClass}>
           <label htmlFor="metric-format">{t('modeling.metric_format_label')}</label>
           <input
             id="metric-format"
@@ -166,16 +174,20 @@ export function AddMetricModal({
             autoComplete="off"
           />
         </div>
-        <div className="modal-actions">
+        <div className={modalActionsBorderedClass()}>
           <button
-            className="btn btn-secondary"
+            className={legacyButtonClass('btn btn-secondary')}
             type="button"
             onClick={onClose}
             disabled={state.saving}
           >
             {t('common.cancel')}
           </button>
-          <button className="btn btn-primary" type="submit" disabled={!state.canSubmit}>
+          <button
+            className={legacyButtonClass('btn btn-primary')}
+            type="submit"
+            disabled={!state.canSubmit}
+          >
             {state.saving ? t('common.saving') : metric ? t('common.save') : t('common.create')}
           </button>
         </div>

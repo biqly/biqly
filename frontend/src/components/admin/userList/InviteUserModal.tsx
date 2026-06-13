@@ -2,6 +2,9 @@ import { useState } from 'react'
 
 import { apiInviteUser } from '../../../api/auth'
 import { useT } from '../../../i18n'
+import { cn } from '../../../lib/cn'
+import { legacyLayoutClass } from '../../../lib/layoutClasses'
+import { modalInviteUserCardClass } from '../../../lib/modalClasses'
 import { Modal } from '../../ui/Modal'
 import { Select } from '../../ui/Select'
 import {
@@ -66,10 +69,10 @@ export function InviteUserModal({ open, onClose, token, onSuccess }: InviteUserM
       title={t('auth.invite_user_modal_title')}
       onClose={onClose}
       labelledBy="invite-user-modal-title"
-      className="modal-card--invite-user"
+      className={modalInviteUserCardClass()}
     >
       {inviteSuccess ? (
-        <div className="page-stack" style={gap16}>
+        <div className={legacyLayoutClass('page-stack')} style={gap16}>
           <div className={adminSuccessBoxClass}>
             {t('auth.invite_user_success', { email: inviteEmail })}
           </div>
@@ -82,7 +85,7 @@ export function InviteUserModal({ open, onClose, token, onSuccess }: InviteUserM
           onSubmit={(e) => {
             void handleSubmit(e)
           }}
-          className="page-stack"
+          className={legacyLayoutClass('page-stack')}
           style={gap16}
         >
           {inviteError && (
@@ -91,7 +94,7 @@ export function InviteUserModal({ open, onClose, token, onSuccess }: InviteUserM
             </div>
           )}
 
-          <div className="page-stack" style={gap6}>
+          <div className={legacyLayoutClass('page-stack')} style={gap6}>
             <label style={labelStyle} htmlFor="invite-email-input">
               {t('auth.invite_user_email')}
             </label>
@@ -105,7 +108,7 @@ export function InviteUserModal({ open, onClose, token, onSuccess }: InviteUserM
             />
           </div>
 
-          <div className={`page-stack ${adminFormLabelClass}`} style={gap6}>
+          <div className={cn(legacyLayoutClass('page-stack'), adminFormLabelClass)} style={gap6}>
             <label style={labelStyle} htmlFor="invite-role-input">
               {t('auth.invite_user_role')}
             </label>

@@ -1,6 +1,9 @@
 import { useState } from 'react'
 
 import type { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { modalActionsBorderedClass, modalModelingCardClass } from '../../lib/modalClasses'
+import { modelingDeleteBtnClass } from '../../lib/modelingClasses'
 import type { EnumMapping, SemanticDimension } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
 
@@ -77,7 +80,7 @@ export function EnumValuesModal({
     <Modal
       open
       onClose={onClose}
-      className="modal-card--modeling"
+      className={modalModelingCardClass()}
       labelledBy="modeling-enum-title"
       title={t('modeling.enum_values_title')}
       subtitle={dimension.column_ref}
@@ -120,7 +123,7 @@ export function EnumValuesModal({
               />
               <button
                 type="button"
-                className="modeling-delete-btn"
+                className={modelingDeleteBtnClass}
                 onClick={() => removeRow(index)}
                 title={t('common.delete')}
                 disabled={saving}
@@ -132,17 +135,22 @@ export function EnumValuesModal({
         </div>
         <button
           type="button"
-          className="btn btn-secondary btn-sm"
+          className={legacyButtonClass('btn btn-secondary btn-sm')}
           onClick={addRow}
           disabled={saving}
         >
           {t('modeling.enum_add_value')}
         </button>
-        <div className="modal-actions">
-          <button className="btn btn-secondary" type="button" onClick={onClose} disabled={saving}>
+        <div className={modalActionsBorderedClass()}>
+          <button
+            className={legacyButtonClass('btn btn-secondary')}
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+          >
             {t('common.cancel')}
           </button>
-          <button className="btn btn-primary" type="submit" disabled={saving}>
+          <button className={legacyButtonClass('btn btn-primary')} type="submit" disabled={saving}>
             {saving ? t('common.saving') : t('common.save')}
           </button>
         </div>

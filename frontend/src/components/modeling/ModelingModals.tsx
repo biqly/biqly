@@ -1,5 +1,8 @@
 import { useAutofocus } from '../../hooks/useAutofocus'
 import type { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { modelingFormGroupClass } from '../../lib/formClasses'
+import { modalActionsBorderedClass, modalModelingCardClass } from '../../lib/modalClasses'
 import type {
   ColumnRow,
   SemanticDimension,
@@ -78,7 +81,7 @@ export function ModelingModals({
         <Modal
           open
           onClose={onCloseRename}
-          className="modal-card--modeling"
+          className={modalModelingCardClass()}
           labelledBy="modeling-rename-title"
           title={renameTarget.title}
           subtitle={renameTarget.subtitle}
@@ -89,7 +92,7 @@ export function ModelingModals({
               onSubmitRename()
             }}
           >
-            <div className="form-group">
+            <div className={modelingFormGroupClass}>
               <label htmlFor="modeling-rename-value">{t('modeling.display_name_label')}</label>
               <input
                 id="modeling-rename-value"
@@ -100,9 +103,9 @@ export function ModelingModals({
                 disabled={savingRename}
               />
             </div>
-            <div className="modal-actions">
+            <div className={modalActionsBorderedClass()}>
               <button
-                className="btn btn-secondary"
+                className={legacyButtonClass('btn btn-secondary')}
                 type="button"
                 onClick={onCloseRename}
                 disabled={savingRename}
@@ -110,7 +113,7 @@ export function ModelingModals({
                 {t('common.cancel')}
               </button>
               <button
-                className="btn btn-primary"
+                className={legacyButtonClass('btn btn-primary')}
                 type="submit"
                 disabled={savingRename || !renameValue.trim()}
               >

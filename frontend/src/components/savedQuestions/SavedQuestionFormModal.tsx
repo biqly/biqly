@@ -1,4 +1,8 @@
 import type { TFunction } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+import { formStackClass, legacyFormClass } from '../../lib/formClasses'
+import { modalActionsClass } from '../../lib/modalClasses'
 import type { Datasource } from '../../types/metadata'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { Modal } from '../ui/Modal'
@@ -39,10 +43,10 @@ export function SavedQuestionFormModal({
 
   return (
     <Modal open={open} title={title} onClose={onClose}>
-      <div className="form-stack">
+      <div className={formStackClass}>
         {formError && <ErrorAlert error={formError} />}
 
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor={id('ds')}>{t('saved_questions.label_select_datasource')}</label>
           <Select
             id={id('ds')}
@@ -52,7 +56,7 @@ export function SavedQuestionFormModal({
           />
         </div>
 
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor={id('model')}>{t('saved_questions.label_select_model')}</label>
           <Select
             id={id('model')}
@@ -65,7 +69,7 @@ export function SavedQuestionFormModal({
           />
         </div>
 
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor={id('name')}>{t('saved_questions.label_name')}</label>
           <input
             id={id('name')}
@@ -76,7 +80,7 @@ export function SavedQuestionFormModal({
           />
         </div>
 
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor={id('desc')}>{t('saved_questions.label_description')}</label>
           <textarea
             id={id('desc')}
@@ -87,7 +91,7 @@ export function SavedQuestionFormModal({
           />
         </div>
 
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor={id('question')}>{t('saved_questions.label_question')}</label>
           <textarea
             id={id('question')}
@@ -98,7 +102,7 @@ export function SavedQuestionFormModal({
           />
         </div>
 
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor={id('lq')}>{t('saved_questions.label_logical_query')}</label>
           <textarea
             id={id('lq')}
@@ -110,7 +114,7 @@ export function SavedQuestionFormModal({
           />
         </div>
 
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor={id('tags')}>{t('saved_questions.label_tags')}</label>
           <input
             id={id('tags')}
@@ -121,7 +125,7 @@ export function SavedQuestionFormModal({
           />
         </div>
 
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor={id('dialect')}>{t('saved_questions.label_dialect')}</label>
           <Select
             id={id('dialect')}
@@ -131,7 +135,7 @@ export function SavedQuestionFormModal({
           />
         </div>
 
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor={id('locale')}>{t('saved_questions.label_locale')}</label>
           <Select
             id={id('locale')}
@@ -142,7 +146,7 @@ export function SavedQuestionFormModal({
         </div>
 
         <div
-          className="form-group"
+          className={legacyFormClass('form-group')}
           style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}
         >
           <input
@@ -156,14 +160,11 @@ export function SavedQuestionFormModal({
           </label>
         </div>
 
-        <div
-          className="modal-actions"
-          style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}
-        >
-          <button type="button" className="btn btn--neutral" onClick={onClose}>
+        <div className={cn(modalActionsClass(), 'mt-4')}>
+          <button type="button" className={legacyButtonClass('btn btn--neutral')} onClick={onClose}>
             {t('saved_questions.btn_cancel')}
           </button>
-          <button type="button" className="btn btn-primary" onClick={onSave}>
+          <button type="button" className={legacyButtonClass('btn btn-primary')} onClick={onSave}>
             {t('saved_questions.btn_save')}
           </button>
         </div>

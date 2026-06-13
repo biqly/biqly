@@ -2,7 +2,8 @@ import type { SubmitEvent } from 'react'
 
 import { useAutofocus } from '../../hooks/useAutofocus'
 import type { TFunction } from '../../i18n'
-
+import { legacyCardClass } from '../../lib/cardClasses'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 export function SignInCredentialsForm({
   t,
   ldapEnabled,
@@ -55,7 +56,9 @@ export function SignInCredentialsForm({
         )}
         {error && (
           <div
-            className="p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2"
+            className={legacyFeedbackClass(
+              'p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2',
+            )}
             role="alert"
             aria-live="assertive"
           >
@@ -64,7 +67,9 @@ export function SignInCredentialsForm({
         )}
         {throttleMs > 0 && (
           <div
-            className="p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2"
+            className={legacyFeedbackClass(
+              'p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2',
+            )}
             role="status"
             aria-live="polite"
           >
@@ -145,7 +150,9 @@ export function SignInCredentialsForm({
       <div className="flex flex-col gap-2.5">
         <button
           type="button"
-          className={`flex items-center justify-center gap-2.5 w-full py-[10px] px-[16px] rounded-lg border border-border bg-card text-foreground-muted text-[14px] font-medium cursor-pointer transition-colors duration-200 hover:bg-[var(--bg-hover,#f9fafb)] hover:border-foreground-muted dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-[#e2e8f0] dark:hover:bg-white/[0.08] dark:hover:border-white/[0.2]`}
+          className={legacyCardClass(
+            'flex items-center justify-center gap-2.5 w-full py-[10px] px-[16px] rounded-lg border border-border bg-card text-foreground-muted text-[14px] font-medium cursor-pointer transition-colors duration-200 hover:bg-[var(--bg-hover,#f9fafb)] hover:border-foreground-muted dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-[#e2e8f0] dark:hover:bg-white/[0.08] dark:hover:border-white/[0.2]',
+          )}
           onClick={() => onOAuth('github')}
           disabled={loading || passkeyLoading}
         >
@@ -157,7 +164,9 @@ export function SignInCredentialsForm({
 
         <button
           type="button"
-          className={`flex items-center justify-center gap-2.5 w-full py-[10px] px-[16px] rounded-lg border border-border bg-card text-foreground-muted text-[14px] font-medium cursor-pointer transition-colors duration-200 hover:bg-[var(--bg-hover,#f9fafb)] hover:border-foreground-muted dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-[#e2e8f0] dark:hover:bg-white/[0.08] dark:hover:border-white/[0.2]`}
+          className={legacyCardClass(
+            'flex items-center justify-center gap-2.5 w-full py-[10px] px-[16px] rounded-lg border border-border bg-card text-foreground-muted text-[14px] font-medium cursor-pointer transition-colors duration-200 hover:bg-[var(--bg-hover,#f9fafb)] hover:border-foreground-muted dark:bg-white/[0.03] dark:border-white/[0.08] dark:text-[#e2e8f0] dark:hover:bg-white/[0.08] dark:hover:border-white/[0.2]',
+          )}
           onClick={() => onOAuth('google')}
           disabled={loading || passkeyLoading}
         >

@@ -8,6 +8,7 @@ import { useDatasources } from '../hooks/useDatasources'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useLocale, useT } from '../i18n'
+import { legacyButtonClass } from '../lib/buttonClasses'
 import type {
   AIJob,
   AIQueryRequest,
@@ -506,7 +507,7 @@ export default function AIQuery() {
             {t('ai_query.conv_title')}
           </h3>
           <button
-            className="btn btn-primary btn-sm"
+            className={legacyButtonClass('btn btn-primary btn-sm')}
             style={{
               width: '100%',
               display: 'flex',

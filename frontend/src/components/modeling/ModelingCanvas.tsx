@@ -1,9 +1,19 @@
 import type { TranslationKey } from '../../i18n'
+import {
+  modelingCanvasClass,
+  modelingCanvasWrapClass,
+  modelingColumnNameClass,
+  modelingJoinLineClass,
+  modelingLinesClass,
+  modelingTableCardClass,
+  modelingTableRowClass,
+  modelingZoomControlsClass,
+  modelingZoomReadoutClass,
+} from '../../lib/modelingClasses'
 import type { SemanticJoin, TableRow } from '../../types/semantic'
 import { CARD_WIDTH } from './constants'
 import type { ModelingCanvasState } from './useModelingCanvas'
 import { formatDataType, tableKey } from './utils'
-
 interface ModelingCanvasProps {
   canvas: ModelingCanvasState
   tableCards: TableRow[]
@@ -43,8 +53,8 @@ export function ModelingCanvas({
   } = canvas
 
   return (
-    <div className="modeling-canvas-wrap" ref={wrapRef} onMouseDown={onCanvasMouseDown}>
-      <div className="modeling-zoom-controls" onMouseDown={(e) => e.stopPropagation()}>
+    <div className={modelingCanvasWrapClass} ref={wrapRef} onMouseDown={onCanvasMouseDown}>
+      <div className={modelingZoomControlsClass} onMouseDown={(e) => e.stopPropagation()}>
         <button type="button" onClick={() => zoomBy(1)} title={t('modeling.zoom_in')}>
           +
         </button>
@@ -57,10 +67,10 @@ export function ModelingCanvas({
         <button type="button" onClick={resetView} title={t('modeling.reset_view')}>
           1:1
         </button>
-        <span className="modeling-zoom-readout">{Math.round(viewport.scale * 100)}%</span>
+        <span className={modelingZoomReadoutClass}>{Math.round(viewport.scale * 100)}%</span>
       </div>
       <div
-        className="modeling-canvas"
+        className={modelingCanvasClass}
         style={{
           width: canvasBounds.width,
           height: canvasBounds.height,
@@ -69,7 +79,7 @@ export function ModelingCanvas({
         }}
       >
         <svg
-          className="modeling-lines"
+          className={modelingLinesClass}
           width={canvasBounds.width}
           height={canvasBounds.height}
           aria-hidden="true"
@@ -97,10 +107,7 @@ export function ModelingCanvas({
               return null
             }
             return (
-              <g
-                key={join.id}
-                className={`modeling-join-line ${isHi ? 'modeling-join-line--hi' : ''}`}
-              >
+              <g key={join.id} className={modelingJoinLineClass(isHi)}>
                 <path d={path.d} markerEnd="url(#modeling-arrow)" />
                 <circle cx={path.x1} cy={path.y1} r={4} />
                 <circle cx={path.x2} cy={path.y2} r={4} />
@@ -124,7 +131,7 @@ export function ModelingCanvas({
           const hiddenCount = layout.hiddenCount
           return (
             <article
-              className={`modeling-table-card ${isBase ? 'modeling-table-card--base' : ''} ${isHi ? 'modeling-table-card--hi' : ''}`}
+              className={modelingTableCardClass({ base: isBase, hi: isHi })}
               key={key}
               style={{ left: pos.x, top: pos.y, width: CARD_WIDTH, height: layout.height }}
             >
@@ -150,9 +157,12 @@ export function ModelingCanvas({
                   return (
                     <li
                       key={column.id}
-                      className={`${isJoinCol ? 'modeling-row--joined' : ''} ${isActiveJoinCol ? 'modeling-row--active' : ''}`}
+                      className={modelingTableRowClass({
+                        joined: isJoinCol,
+                        active: isActiveJoinCol,
+                      })}
                     >
-                      <span className="modeling-column-name">
+                      <span className={modelingColumnNameClass}>
                         {column.is_primary_key && <b>{t('modeling.pk_badge')}</b>}
                         {column.is_foreign_key && <b>{t('modeling.fk_badge')}</b>}
                         {column.column_name}
@@ -162,7 +172,7 @@ export function ModelingCanvas({
                   )
                 })}
                 {hiddenCount > 0 && (
-                  <li className="modeling-row--more">
+                  <li className={modelingTableRowClass({ more: true })}>
                     +{hiddenCount} {t('modeling.more_columns')}
                   </li>
                 )}

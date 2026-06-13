@@ -7,6 +7,8 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useQueryParam } from '../../hooks/useQueryParam'
 import { useT } from '../../i18n'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { AuthUser, Invitation } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
@@ -202,8 +204,8 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const displayedUsers = users
 
   return (
-    <div className="page-stack">
-      <div className="card-header-row">
+    <div className={legacyLayoutClass('page-stack')}>
+      <div className={legacyCardClass('card-header-row')}>
         <h2 style={{ margin: 0, fontSize: 20 }}>{t('admin.users.title')}</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span className={adminCountBadgeClass}>

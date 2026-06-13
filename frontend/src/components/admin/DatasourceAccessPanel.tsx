@@ -11,6 +11,7 @@ import { useConfirm } from '../../hooks/useConfirm'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { errorMessage } from '../../hooks/usePaginatedListLogic'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
+import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { DatasourceAccess } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { formatDateTime } from '../../utils/formatters'
@@ -183,7 +184,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
   ]
 
   return (
-    <div className="page-stack">
+    <div className={legacyLayoutClass('page-stack')}>
       <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.datasource_access.title')}</h2>
 
       {!canEdit && <ReadOnlyNote />}

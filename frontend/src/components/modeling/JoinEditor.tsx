@@ -1,11 +1,21 @@
 import type { TranslationKey } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
+import { modelingFormGroupClass } from '../../lib/formClasses'
+import {
+  modelingEditorClass,
+  modelingEditorSideBodyClass,
+  modelingKickerClass,
+  modelingSideToggleClass,
+  modelingTypeHintClass,
+} from '../../lib/modelingClasses'
 import type { ColumnRow } from '../../types/semantic'
 import { joinTypeHintKey } from '../ui/joinType'
 import { JoinTypeIcon } from '../ui/JoinTypeIcon'
 import { Select, type SelectOption } from '../ui/Select'
 import type { JoinForm } from './types'
 import { formatDataType } from './utils'
-
 const JOIN_TYPES = ['LEFT', 'INNER', 'RIGHT'] as const
 
 const CARDINALITY_OPTIONS = [
@@ -64,24 +74,24 @@ export function JoinEditor({
   const previewHintKey = joinTypeHintKey(joinForm.joinType)
   return (
     <aside
-      className={`modeling-editor ${open ? '' : 'modeling-side--collapsed'}`}
+      className={modelingEditorClass(open)}
       aria-label={t('modeling.relationship_editor_aria')}
     >
       <button
         type="button"
-        className="modeling-side-toggle modeling-side-toggle--right"
+        className={modelingSideToggleClass('right')}
         onClick={onToggle}
         title={open ? t('modeling.collapse_panel') : t('modeling.expand_panel')}
       >
         {open ? '›' : '‹'}
       </button>
-      <div className="modeling-side-body">
+      <div className={modelingEditorSideBodyClass}>
         <div>
-          <span className="modeling-kicker">{t('modeling.manual_relationship')}</span>
+          <span className={modelingKickerClass}>{t('modeling.manual_relationship')}</span>
           <h2>{t('modeling.manual_title')}</h2>
           <p>{t('modeling.manual_desc')}</p>
         </div>
-        <div className="form-group">
+        <div className={modelingFormGroupClass}>
           <label>{t('modeling.source_table')}</label>
           <Select
             name="fromTable"
@@ -92,7 +102,7 @@ export function JoinEditor({
             options={tableOptions}
           />
         </div>
-        <div className="form-group">
+        <div className={modelingFormGroupClass}>
           <label>{t('modeling.source_column')}</label>
           <Select
             name="fromColumn"
@@ -106,7 +116,7 @@ export function JoinEditor({
             disabled={!joinForm.fromTable || fromColumns.length === 0}
           />
         </div>
-        <div className="form-group">
+        <div className={modelingFormGroupClass}>
           <label>{t('modeling.target_table')}</label>
           <Select
             name="toTable"
@@ -117,7 +127,7 @@ export function JoinEditor({
             options={tableOptions}
           />
         </div>
-        <div className="form-group">
+        <div className={modelingFormGroupClass}>
           <label>{t('modeling.target_column')}</label>
           <Select
             name="toColumn"
@@ -133,14 +143,14 @@ export function JoinEditor({
             disabled={!joinForm.toTable || toColumns.length === 0}
           />
           {selectedFromColumn && (
-            <small className="modeling-type-hint">
+            <small className={modelingTypeHintClass}>
               {t('modeling.compatible_columns_hint', {
                 type: formatDataType(t, selectedFromColumn.data_type),
               })}
             </small>
           )}
         </div>
-        <div className="form-group">
+        <div className={modelingFormGroupClass}>
           <label id="join-type-label">{t('modeling.join_type_label')}</label>
           <div className="flex gap-[0.35rem]" role="radiogroup" aria-labelledby="join-type-label">
             {JOIN_TYPES.map((jt) => {
@@ -152,11 +162,14 @@ export function JoinEditor({
                   type="button"
                   role="radio"
                   aria-checked={isActive}
-                  className={`flex-1 inline-flex items-center justify-center gap-[0.35rem] px-2 py-[0.45rem] border rounded-lg bg-card-raised text-[0.74rem] font-semibold cursor-pointer transition-[border-color,color,background] duration-[120ms] ease-in-out focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
+                  className={cn(
+                    legacyCardClass(
+                      'flex-1 inline-flex items-center justify-center gap-[0.35rem] px-2 py-[0.45rem] border rounded-lg bg-card-raised text-[0.74rem] font-semibold cursor-pointer transition-[border-color,color,background] duration-[120ms] ease-in-out focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2',
+                    ),
                     isActive
                       ? 'border-accent text-accent bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]'
-                      : 'border-border text-foreground-muted hover:border-accent hover:text-foreground'
-                  }`}
+                      : 'border-border text-foreground-muted hover:border-accent hover:text-foreground',
+                  )}
                   title={hintKey ? t(hintKey) : undefined}
                   onClick={() => onChange({ joinType: jt })}
                 >
@@ -167,7 +180,7 @@ export function JoinEditor({
             })}
           </div>
         </div>
-        <div className="form-group">
+        <div className={modelingFormGroupClass}>
           <label>{t('modeling.cardinality')}</label>
           <Select
             value={joinForm.relationship}
@@ -182,7 +195,9 @@ export function JoinEditor({
           >
             <div className="flex items-center justify-center gap-2 flex-wrap">
               <span
-                className={`font-mono text-[0.76rem] text-foreground bg-card-raised border border-border rounded-[0.35rem] py-[0.2rem] px-2 max-w-36 overflow-hidden text-ellipsis whitespace-nowrap`}
+                className={legacyCardClass(
+                  'font-mono text-[0.76rem] text-foreground bg-card-raised border border-border rounded-[0.35rem] py-[0.2rem] px-2 max-w-36 overflow-hidden text-ellipsis whitespace-nowrap',
+                )}
               >
                 {shortTableName(joinForm.fromTable)}
               </span>
@@ -193,7 +208,9 @@ export function JoinEditor({
                 <JoinTypeIcon type={joinForm.joinType} size={22} />
               </span>
               <span
-                className={`font-mono text-[0.76rem] text-foreground bg-card-raised border border-border rounded-[0.35rem] py-[0.2rem] px-2 max-w-36 overflow-hidden text-ellipsis whitespace-nowrap`}
+                className={legacyCardClass(
+                  'font-mono text-[0.76rem] text-foreground bg-card-raised border border-border rounded-[0.35rem] py-[0.2rem] px-2 max-w-36 overflow-hidden text-ellipsis whitespace-nowrap',
+                )}
               >
                 {shortTableName(joinForm.toTable)}
               </span>
@@ -207,7 +224,7 @@ export function JoinEditor({
           </div>
         )}
         <button
-          className="btn btn-primary"
+          className={legacyButtonClass('btn btn-primary')}
           type="button"
           onClick={onSave}
           disabled={!canSave || saving || loading}

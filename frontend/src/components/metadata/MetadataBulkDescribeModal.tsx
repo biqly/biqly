@@ -1,4 +1,13 @@
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
+import {
+  modalBackdropClass,
+  modalBodyCompactClass,
+  modalBodyScrollClass,
+  modalBulkCardClass,
+  modalBulkHeaderClass,
+  modalCloseClass,
+} from '../../lib/modalClasses'
 import type { AIRuntimeSettings } from '../../types/ai'
 import type { TableRow } from '../../types/semantic'
 import { ModelBadgeRow } from '../ui/ModelBadgeRow'
@@ -83,7 +92,7 @@ export function MetadataBulkDescribeModal({
 
   return (
     <div
-      className="modal-backdrop"
+      className={modalBackdropClass()}
       role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
@@ -92,12 +101,12 @@ export function MetadataBulkDescribeModal({
       }}
     >
       <section
-        className="modal-card w-[min(100%,52rem)] max-h-[min(calc(100vh-1.5rem),90vh)] flex flex-col min-h-0"
+        className={modalBulkCardClass()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="bulk-metadata-title"
       >
-        <header className="modal-header items-start p-[0.65rem_1rem] gap-3">
+        <header className={modalBulkHeaderClass()}>
           <div>
             <h2
               id="bulk-metadata-title"
@@ -120,20 +129,14 @@ export function MetadataBulkDescribeModal({
           </div>
           <button
             type="button"
-            className="modal-close shrink-0 mt-[0.05rem]"
+            className={cn(modalCloseClass(), 'mt-[0.05rem] shrink-0')}
             aria-label={t('metadata.bulk_close_aria')}
             onClick={onClose}
           >
             ×
           </button>
         </header>
-        <div
-          className={`modal-body ${
-            bulkEntries.length > 0
-              ? 'modal-body--scroll flex-1 min-h-0 flex flex-col overflow-hidden gap-[0.65rem] pt-[0.85rem] pb-4'
-              : 'gap-[0.65rem] p-[0.85rem_1rem_1rem]'
-          }`}
-        >
+        <div className={bulkEntries.length > 0 ? modalBodyScrollClass() : modalBodyCompactClass()}>
           {bulkEntries.length === 0 && !bulkRunning && (
             <MetadataBulkDescribeSetup
               t={t}

@@ -155,6 +155,8 @@ export const rowModalBackClass =
 export const rowModalNavPathClass =
   'text-[0.78rem] text-foreground-muted overflow-hidden text-ellipsis whitespace-nowrap'
 
+export const rowModalNavCrumbClass = rowModalNavPathClass
+
 export const rowModalLayoutClass =
   'grid grid-cols-[1fr_minmax(16rem,18rem)] gap-4 items-start max-[860px]:grid-cols-1'
 

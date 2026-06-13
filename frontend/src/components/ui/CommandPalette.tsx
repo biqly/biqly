@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useShortcut } from '../../hooks/useKeyboardShortcuts'
 import { useT } from '../../i18n'
+import { legacyCardClass } from '../../lib/cardClasses'
 
 export interface CommandItem {
   id: string
@@ -114,7 +115,9 @@ export function CommandPalette({ items }: CommandPaletteProps) {
       }}
     >
       <div
-        className="w-full max-w-[36rem] border border-border-strong rounded-xl bg-card shadow-[0_24px_64px_rgba(0,0,0,0.55)] text-foreground overflow-hidden animate-cmdk-pop motion-reduce:animate-none"
+        className={legacyCardClass(
+          'w-full max-w-[36rem] border border-border-strong rounded-xl bg-card shadow-[0_24px_64px_rgba(0,0,0,0.55)] text-foreground overflow-hidden animate-cmdk-pop motion-reduce:animate-none',
+        )}
         role="dialog"
         aria-modal="true"
         aria-label={t('command_palette.title')}
@@ -137,7 +140,9 @@ export function CommandPalette({ items }: CommandPaletteProps) {
             aria-autocomplete="list"
           />
           <kbd
-            className={`border border-border rounded-[0.35rem] bg-card-raised text-foreground-muted text-[0.7rem] p-[0.1rem_0.4rem]`}
+            className={legacyCardClass(
+              'border border-border rounded-[0.35rem] bg-card-raised text-foreground-muted text-[0.7rem] p-[0.1rem_0.4rem]',
+            )}
           >
             Esc
           </kbd>

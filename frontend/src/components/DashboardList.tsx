@@ -4,6 +4,12 @@ import { useApi } from '../hooks/useApi'
 import { useAutofocus } from '../hooks/useAutofocus'
 import { useConfirm } from '../hooks/useConfirm'
 import { useT } from '../i18n'
+import { legacyButtonClass } from '../lib/buttonClasses'
+import { legacyCardClass } from '../lib/cardClasses'
+import { cn } from '../lib/cn'
+import { legacyFormClass } from '../lib/formClasses'
+import { legacyLayoutClass } from '../lib/layoutClasses'
+import { modalActionsBorderedClass, modalDashboardCardClass } from '../lib/modalClasses'
 import { adminBtnAutoWidthClass } from './admin/adminClasses'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -105,33 +111,40 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
   }
 
   return (
-    <div className="page-stack dashboard-list-page" style={{ position: 'relative' }}>
+    <div
+      className={legacyLayoutClass('page-stack dashboard-list-page')}
+      style={{ position: 'relative' }}
+    >
       <LoadingOverlay loading={loading}>
         {error && <ErrorAlert error={error} />}
 
-        <div className="card">
-          <div className="card-header-row card-header-row--spaced">
+        <div className={legacyCardClass('card')}>
+          <div className={legacyCardClass('card-header-row card-header-row--spaced')}>
             <div>
               <h2>{t('customDashboards.title')}</h2>
-              <p className="card-lead" style={{ marginTop: '0.4rem' }}>
+              <p className={legacyCardClass('card-lead')} style={{ marginTop: '0.4rem' }}>
                 {t('customDashboards.lead')}
               </p>
             </div>
-            <button type="button" className="btn btn-primary" onClick={openCreateModal}>
+            <button
+              type="button"
+              className={legacyButtonClass('btn btn-primary')}
+              onClick={openCreateModal}
+            >
               + {t('customDashboards.new')}
             </button>
           </div>
         </div>
 
         {dashboards.length === 0 ? (
-          <div className="card py-16 px-8 text-center">
+          <div className={legacyCardClass('card py-16 px-8 text-center')}>
             <EmptyState
               title={t('customDashboards.empty_title')}
               description={t('customDashboards.empty_description')}
             >
               <button
                 type="button"
-                className={`btn btn-primary ${adminBtnAutoWidthClass} mt-4`}
+                className={cn(legacyButtonClass('btn btn-primary mt-4'), adminBtnAutoWidthClass)}
                 onClick={openCreateModal}
               >
                 + {t('customDashboards.empty_cta')}
@@ -143,7 +156,9 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
             {dashboards.map((d) => (
               <div
                 key={d.id}
-                className="card card--elevated flex flex-col justify-between min-h-[10rem] cursor-pointer transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg"
+                className={legacyCardClass(
+                  'card card--elevated flex flex-col justify-between min-h-[10rem] cursor-pointer transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg',
+                )}
                 role="button"
                 tabIndex={0}
                 onClick={() => onSelect(d.id)}
@@ -196,7 +211,8 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
         title={t('customDashboards.create_title')}
         subtitle={t('customDashboards.create_subtitle')}
         onClose={closeCreateModal}
-        className="modal-card--dashboard"
+        className={modalDashboardCardClass()}
+        bodyClassName="gap-4"
         labelledBy="dashboard-create-title"
       >
         <form
@@ -206,7 +222,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
           className="dashboard-create-form"
         >
           {formError && <ErrorAlert error={formError} />}
-          <div className="form-group">
+          <div className={legacyFormClass('form-group')}>
             <label htmlFor="dash-name">{t('customDashboards.name_label')}</label>
             <input
               id="dash-name"
@@ -218,7 +234,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
               required
             />
           </div>
-          <div className="form-group">
+          <div className={legacyFormClass('form-group')}>
             <label htmlFor="dash-desc">
               {t('customDashboards.desc_label')}{' '}
               <span className="font-normal">({t('common.optional')})</span>
@@ -231,17 +247,17 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
               rows={3}
             />
           </div>
-          <div className="modal-actions">
+          <div className={cn(modalActionsBorderedClass(), 'mt-1')}>
             <button
               type="button"
-              className={`btn btn-secondary ${adminBtnAutoWidthClass}`}
+              className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
               onClick={closeCreateModal}
             >
               {t('customDashboards.cancel')}
             </button>
             <button
               type="submit"
-              className={`btn btn-primary ${adminBtnAutoWidthClass}`}
+              className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
               disabled={loading || !name.trim()}
             >
               {t('customDashboards.create')}

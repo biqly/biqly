@@ -6,6 +6,8 @@ import { useConfirm } from '../../hooks/useConfirm'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { errorMessage } from '../../hooks/usePaginatedListLogic'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { ResourceShare } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { formatDateOnly } from '../../utils/formatters'
@@ -15,7 +17,6 @@ import type { ColumnDef } from '../ui/DataTable'
 import { DataTable } from '../ui/DataTable'
 import { EmptyState } from '../ui/EmptyState'
 import { Pagination } from '../ui/Pagination'
-
 interface Props {
   resourceType?: string
   refreshKey?: number
@@ -151,7 +152,9 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
           onClick={() => {
             void onRevoke(share.id)
           }}
-          className="py-[3px] px-2.5 bg-transparent border border-[rgba(239,68,68,0.3)] text-error rounded-[4px] cursor-pointer text-[12px] hover:bg-error/6 transition-colors"
+          className={legacyFeedbackClass(
+            'py-[3px] px-2.5 bg-transparent border border-[rgba(239,68,68,0.3)] text-error rounded-[4px] cursor-pointer text-[12px] hover:bg-error/6 transition-colors',
+          )}
         >
           {t('common.delete')}
         </button>
@@ -161,7 +164,11 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
 
   return (
     <div className="overflow-x-auto">
-      <div className={`bg-card border border-border rounded-[8px] overflow-hidden shadow-card-sm`}>
+      <div
+        className={legacyCardClass(
+          'bg-card border border-border rounded-[8px] overflow-hidden shadow-card-sm',
+        )}
+      >
         <DataState
           loading={loading}
           error={error}

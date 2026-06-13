@@ -7,6 +7,9 @@ import { useApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import type { Locale } from '../i18n'
 import { FALLBACK_LOCALE, useLocale, useT } from '../i18n'
+import { legacyCardClass } from '../lib/cardClasses'
+import { legacyFormClass } from '../lib/formClasses'
+import { legacyLayoutClass } from '../lib/layoutClasses'
 import type { AIRuntimeSettings } from '../types/ai'
 import type { Datasource } from '../types/metadata'
 import type { ColumnRow, TableRow } from '../types/semantic'
@@ -301,10 +304,10 @@ export default function Metadata() {
   }
 
   return (
-    <div className="page-stack">
-      <div className="card">
+    <div className={legacyLayoutClass('page-stack')}>
+      <div className={legacyCardClass('card')}>
         <h2>{t('metadata.page_title')}</h2>
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label>{t('metadata.datasource_label')}</label>
           <Select
             value={datasourceId}

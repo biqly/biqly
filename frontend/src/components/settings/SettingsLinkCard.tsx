@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 
+import { legacyCardClass } from '../../lib/cardClasses'
+
 interface SettingsLinkCardProps {
   title: string
   description: string
@@ -9,11 +11,17 @@ interface SettingsLinkCardProps {
 
 export function SettingsLinkCard({ title, description, action, icon }: SettingsLinkCardProps) {
   return (
-    <article className="card card--elevated flex flex-col gap-[0.85rem] min-h-full mb-0 p-5 transition-all duration-[220ms] ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-[3px] hover:border-accent hover:shadow-[0_12px_30px_var(--accent-glow)]">
+    <article
+      className={legacyCardClass(
+        'card card--elevated flex flex-col gap-[0.85rem] min-h-full mb-0 p-5 transition-all duration-[220ms] ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-[3px] hover:border-accent hover:shadow-[0_12px_30px_var(--accent-glow)]',
+      )}
+    >
       <div className="flex items-center gap-3">
         {icon && (
           <div
-            className={`flex items-center justify-center w-9 h-9 rounded-lg bg-[var(--bg-card-raised)] border border-border shrink-0`}
+            className={legacyCardClass(
+              'flex items-center justify-center w-9 h-9 rounded-lg bg-[var(--bg-card-raised)] border border-border shrink-0',
+            )}
           >
             {icon}
           </div>

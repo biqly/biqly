@@ -1,5 +1,553 @@
 # Todo list
 
+## index.css → Pure Tailwind CSS Tam Migrasyon Planı (2026-06-13)
+
+> **Hedef:** `index.css` içindeki 4225 satırlık vanilla CSS'i tamamen Tailwind
+> utility class'lara taşıyıp component'lere gömmek. CSS dosyasında yalnızca
+> `@import 'tailwindcss'`, `@theme inline` token köprüsü, `:root`/`[data-theme]`
+> CSS değişkenleri ve **Tailwind ile ifade edilemeyen** kalıntılar (keyframes,
+> pseudo-element scrollbar/checkbox override'ları, `appearance:none` hack'leri)
+> kalacak. Geri kalan her şey pure Tailwind.
+
+### Mevcut Durum Analizi
+
+- `index.css`: 4225 satır — ilk 41 satır Tailwind (`@import` + `@theme inline`),
+  satır 43-4225 vanilla CSS.
+- Tüm component CSS dosyaları zaten silindi (Phase 3-7 tamamlandı).
+- **Tek kalan CSS dosyası:** `index.css` (global agregat).
+- 174 `.tsx` dosyası `className` kullanıyor; ~981 unique class string mevcut.
+- `@theme inline` köprüsü çalışıyor: `bg-card`, `text-foreground-muted`, `border-border`,
+  `shadow-card`, `font-mono` gibi util'ler tema-bağımlı `var(--token)` emit ediyor.
+- **174 component artık Tailwind + BEM karışık kullanıyor** (örn: `<div className="card flex flex-col gap-3">`).
+
+**CSS İçerik Envanteri (lines 43-4225):**
+
+| Kategori | Satır Aralığı | Approx. Satır | Durum |
+|---|---|---|---|
+| CSS reset (`* {}`) | 43-47 | 5 | Tailwind preflight zaten yapıyor → **SİL** |
+| `:root` + tema değişkenleri | 49-154 | 106 | **KORUNACAK** (runtime tema için zorunlu) |
+| `html`, `body`, `a`, `button` base | 156-202 | 47 | Tailwind base layer'a taşınabilir |
+| `.skip-link` | 204-220 | 17 | Component'e Tailwind ile |
+| `.page-stack`, `.main`, `.page-header` | 222-280 | 59 | Layout utility → Tailwind |
+| `.card`, `.card-*` | 281-390 | 110 | Tailwind (67 component'te kullanılıyor) |
+| `.empty-state`, `.ui-empty-state` | 392-453 | 62 | Tailwind |
+| Settings/form classes | 454-616 | 163 | Tailwind |
+| `.btn` + tüm `.btn-*` varyantları | 617-812 | 196 | Tailwind (67 component'te, Button.tsx üzerinden) |
+| `.icon-btn`, `.row-actions` | 813-836 | 24 | Tailwind |
+| `.results-table` + metadata table | 837-1340 | 504 | Tailwind + `@apply` karma |
+| `.driver-tile`, `.driver-cell` | 1341-1462 | 122 | Tailwind |
+| AI scope/filters | 1463-1504 | 42 | Tailwind |
+| `.stats`, `.error`, `.loading-*` | 1505-1582 | 78 | Tailwind |
+| `.warning-panel` | 1583-1639 | 57 | Tailwind |
+| `.sql-preview`, `.saved-question-*` | 1640-1850 | 211 | Tailwind |
+| `.datasource-*` badges/pills | 1822-1870 | 49 | Tailwind |
+| `.mobile-nav-*`, responsive `@media` | 1871-1967 | 97 | Tailwind responsive prefix |
+| `.prompt-warning`, `.model-fallback-badge` | 1969-2001 | 33 | Tailwind |
+| `.ui-select-*` (Select component) | 2002-2310 | 309 | Tailwind + `@apply` |
+| `.toggle-group`, `.toggle-btn` | 2312-2369 | 58 | Tailwind |
+| Modeling classes | 2370-3373 | 1004 | Tailwind (en büyük blok) |
+| `.header-controls`, `.lang/theme-toggle` | 3375-3447 | 73 | Tailwind |
+| Few-shot / prompt editor | 3448-3612 | 165 | Tailwind |
+| `.locked-state-*` | 3613-3693 | 81 | Tailwind |
+| Auth page styles | 3890-3932 | 43 | Tailwind |
+| `@keyframes` (25 adet) | various | ~200 | `@theme` animate token'lara veya CSS kalır |
+| Custom scrollbar | 3857-3889 | 33 | **CSS'te kalmalı** (Tailwind karşılığı yok) |
+| `@media prefers-reduced-motion` | 1943-1967 | 25 | CSS'te kalabilir veya Tailwind `motion-reduce:` |
+| Admin range slider | 4152-4191 | 40 | **CSS'te kalmalı** (`::-webkit-slider-thumb`) |
+| Custom checkbox | 562-604 | 43 | **CSS'te kalmalı** (`appearance:none` + SVG bg) |
+| Modal/confirm styles | 4054-4145 | 92 | Tailwind |
+
+---
+
+### Faz 0 — Hazırlık ve Strateji (KOD DEĞİŞİKLİĞİ YOK)
+
+- [x] **0.1** `index.css`'in tam bir kopyasını `index.css.bak` olarak al (geri dönüş güvenliği).
+- [x] **0.2** Mevcut `@theme inline` token listesini genişlet: eksik token'ları ekle
+      (spacing scale, breakpoint, animation). `@theme inline` bloğuna şunları ekle:
+      - `--animate-loading-spin: loading-spin 0.65s linear infinite`
+      - `--animate-toast-in: toast-in 0.2s ease-out`
+      - `--animate-modal-fade: modal-fade 0.15s ease-out`
+      - `--animate-modal-pop: modal-pop 0.15s ease-out`
+      - `--animate-fade-in: fadeIn 0.2s ease-out`
+      - `--animate-slide-up: slideUp 0.2s ease-out`
+      - `--animate-skeleton-shimmer: skeleton-shimmer 1.5s ease-in-out infinite`
+      - `--animate-loading-pill-in: loading-pill-in 0.3s ease-out`
+      - `--animate-loading-logo-breathe: loading-logo-breathe 2s ease-in-out infinite`
+      - `--animate-locked-card-appear: lockedCardAppear 0.4s cubic-bezier(0.16,1,0.3,1)`
+      - `--animate-action-menu-in: action-menu-in 0.15s ease-out`
+- [x] **0.3** Tailwind v4 `@layer` direktifini kullanmaya karar ver:
+      base reset'ler `@layer base`'e, geri kalan her şey component içinde utility olarak.
+- [x] **0.4** `frontend/src/lib/cn.ts` (clsx + tailwind-merge) utility'sini oluştur —
+      conditional class birleştirme için (henüz yok, 15 dosya `clsx` kullanıyor ama
+      `twMerge` yok). Bu, Tailwind class çakışmalarını otomatik çözer.
+
+### Faz 1 — CSS Reset ve Base Elementler (DÜŞÜK RİSK)
+
+> Tailwind v4 preflight zaten `*`, `box-sizing`, `margin:0`, `padding:0` yapıyor.
+> Bu bloğun çoğu gereksiz.
+
+- [x] **1.1** `* { box-sizing: border-box; margin: 0; padding: 0; }` (satır 43-47) — **SİL**.
+      Tailwind v4 preflight bunu zaten yapıyor. Aynı davranış.
+- [x] **1.2** `html` (satır 156-160) → `index.html` veya `App.tsx` root'una
+      `min-h-full bg-canvas [-webkit-tap-highlight-color:transparent]` ekle.
+      `background: var(--bg-primary)` → `bg-canvas` util (zaten `@theme inline`'da tanımlı).
+- [x] **1.3** `body` (satır 162-176) → `App.tsx` veya layout wrapper'a Tailwind:
+      `min-h-screen overflow-x-hidden bg-canvas text-foreground font-[Inter,ui-sans-serif,system-ui,...] leading-[1.5]`
+      Not: `font-family` için `@theme --font-sans: 'Inter', ui-sans-serif, system-ui, ...`
+      ekle ki `font-sans` util'i çalışsın.
+- [x] **1.4** `button, input, select, textarea { font: inherit }` (satır 178-183) —
+      Tailwind preflight zaten `font: inherit` yapıyor. **SİL**.
+- [x] **1.5** `button, a { touch-action: manipulation }` (satır 185-188) →
+      global `@layer base`'de bırak veya `[touch-action:manipulation]` arbitrary.
+- [x] **1.6** `a { color: inherit; text-decoration: none }` (satır 190-193) →
+      `@layer base { a { @apply text-inherit no-underline } }` veya preflight'e bırak.
+- [x] **1.7** `:where(a, button, input, select, textarea):focus-visible` (satır 195-198) →
+      `@layer base`'de global focus-visible kuralı olarak bırak:
+      `:where(a, button, input, select, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px }`
+      **Bu CSS'te kalmalı** — Tailwind'in `focus-visible:outline-*` her elementte tek tek yazmayı gerektirir.
+- [x] **1.8** `#root { min-height: 100vh }` → `main.tsx`'te `<div id="root" className="min-h-screen">`
+      veya `@layer base { #root { @apply min-h-screen } }`.
+- [x] **1.9** `prefers-reduced-motion` global kuralı (satır 1960-1967) —
+      `@layer base`'de bırak. Tailwind `motion-reduce:` prefix'i her elementte tek tek
+      gerektirir, global kural daha verimli.
+
+**Kontrol:** `make check-frontend` + light/dark tema görsel kontrol.
+
+### Faz 2 — Button Sistemi (YÜKSEK ÖNCELİK, 67 component)
+
+> `.btn` ve varyantları en çok kullanılan BEM class'ları (67 dosyada 178+ kullanım).
+> `ui/Button.tsx` zaten var ama BEM class emit ediyor. Önce Button'ı Tailwind'e geçir,
+> sonra tüm call site'ları güncelle.
+
+- [x] **2.1** `@theme` veya `@layer components` içinde button token'ları tanımla (opsiyonel):
+      Button stillerini `@apply` ile veya direkt utility string'leri ile ifade et.
+- [x] **2.2** `ui/Button.tsx`'i Tailwind utility class'lara geçir:
+      - `.btn` baz → `inline-flex items-center justify-center w-full min-h-[2.25rem] mt-2 px-4 py-2 border border-border-strong rounded-lg bg-card-raised text-foreground text-[0.8rem] font-semibold cursor-pointer transition-all duration-180 ease-[cubic-bezier(0.4,0,0.2,1)]`
+      - `.btn-primary` → `border-accent-strong bg-[linear-gradient(135deg,var(--accent)_0%,var(--accent-strong)_100%)] text-white shadow-[0_2px_8px_var(--accent-glow)] hover:bg-[linear-gradient(135deg,var(--accent-hover)_0%,var(--accent-strong)_100%)] hover:border-accent-hover hover:shadow-[0_4px_14px_var(--accent-glow)]`
+      - `.btn-ghost` → `border-transparent bg-transparent text-foreground-muted hover:bg-card-raised hover:text-foreground hover:border-border`
+      - `.btn-danger` → `border-error bg-error text-white font-semibold hover:bg-[color-mix(in_srgb,var(--error)_90%,#000)]`
+      - `.btn-danger-outline` → `border-[color-mix(in_srgb,var(--error)_40%,var(--border))] bg-transparent text-error hover:bg-[color-mix(in_srgb,var(--error)_8%,transparent)]`
+      - `.btn-secondary` → `border-border bg-card-raised text-foreground hover:bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-card-raised))]`
+      - `.btn-sm` → `min-h-[1.85rem] rounded-[0.4rem] text-[0.76rem] font-semibold px-3 py-[0.3rem]`
+      - `.btn-back` → ayrı component veya Button variant
+      - `:disabled` → `disabled:cursor-not-allowed disabled:opacity-45 disabled:transform-none disabled:shadow-none`
+      - `:active` → `active:scale-[0.98]`
+      - `:hover` → `hover:-translate-y-[0.5px] hover:bg-control-hover`
+- [x] **2.3** `remove-btn`, `add-btn`, `icon-btn` class'larını Tailwind'e çevir:
+      bunları da Button component'inin varyantları olarak veya inline class olarak component'lere göm.
+- [x] **2.4** `row-actions` → `inline-flex gap-[0.4rem] items-center justify-end flex-nowrap`.
+- [x] **2.5** **67 component'teki tüm `className="btn ..."` kullanımlarını güncelle:**
+      - `className="btn btn-primary"` → `<Button variant="primary">`
+      - `className="btn btn-sm btn-ghost"` → `<Button variant="ghost" size="sm">`
+      - Buton dışındaki kullanımlar (div, a) → inline Tailwind class string
+- [x] **2.6** `index.css`'ten tüm `.btn*` kurallarını **SİL** (satır 617-812 arası, ~196 satır).
+
+**Dosyalar (en çok kullanan 20):** `App.tsx`, `Settings.tsx`, `DatasourceFormModal.tsx`,
+`ConfirmDialog.tsx`, `LockedState.tsx`, `ActionMenu.tsx`, `AppUpdateGate.tsx`,
+`ErrorBoundary.tsx`, `SettingsAuthModals.tsx`, `MFASection.tsx`, `RecoveryCodesDisplay.tsx`,
+`PasskeyTable.tsx`, `AvatarCropModal.tsx`, `AccountProfileSections.tsx`,
+`AIModelPreferencesSection.tsx`, `DashboardBuilder.tsx`, `RoutingPanel.tsx`,
+`AssistantMessageCard.tsx`, `ChatPanel.tsx`, `FeedbackSection.tsx` ve 47 dosya daha.
+
+**Kontrol:** `make check-frontend` + button hover/focus/disabled/active state'leri görsel.
+
+### Faz 3 — Card Sistemi (67 component)
+
+> `.card` ve varyantları 67 component'te kullanılıyor. Merkezi bir Card component
+> veya Tailwind class string set'i oluştur.
+
+- [x] **3.1** `ui/Card.tsx` component oluştur veya `lib/cardClasses.ts` içinde
+      class sabitleri tanımla:
+      - `.card` → `min-w-0 overflow-x-auto border border-border rounded-[0.85rem] bg-card p-6 mb-5 shadow-card transition-[transform,border-color,box-shadow] duration-220 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-border-strong`
+      - `.card--elevated` → `border-border-strong`
+      - `.card h2` → `m-0 mb-4 text-foreground font-['Plus_Jakarta_Sans'] text-[1.15rem] font-bold tracking-[-0.015em]`
+      - `.card h3` → `text-foreground font-['Plus_Jakarta_Sans'] text-[1.02rem] font-bold tracking-[-0.01em]`
+      - `.card-header-row` → `flex justify-between items-center flex-wrap gap-[0.65rem_1rem] mb-0`
+      - `.card-intro` → `flex flex-col gap-[0.65rem] mb-[1.35rem]`
+      - `.card-lead` / `.card-subtitle` → `m-0 mb-5 text-foreground-muted text-[0.86rem] leading-[1.45]`
+- [x] **3.2** **67 component'teki tüm `className="card ..."` kullanımlarını güncelle.**
+- [x] **3.3** `index.css`'ten tüm `.card*` kurallarını **SİL** (satır 281-390 arası, ~110 satır).
+- [x] **3.4** Light/dark tema özel `.card:hover` shadow farkını Tailwind `dark:` veya
+      `data-[theme=light]:` variant ile çöz.
+
+**Kontrol:** `make check-frontend` + card hover state, light/dark shadow farkı.
+
+### Faz 4 — Form Sistemi (21+ component)
+
+- [x] **4.1** `form-group` → `min-w-0 mb-[1.15rem]`.
+- [x] **4.2** `form-group label` / `form-label` → `block mb-[0.45rem] text-foreground-muted font-['Plus_Jakarta_Sans'] text-[0.8rem] font-semibold`.
+- [x] **4.3** `form-group select/input/textarea` → `w-full border border-border rounded-lg bg-card-raised text-foreground text-[0.82rem] leading-[1.4] px-3 py-2 transition-all duration-180 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] focus-visible:border-[var(--control-focus-border)] focus-visible:shadow-[0_0_0_1px_var(--bg-primary),0_0_0_3px_var(--control-focus-ring)] focus-visible:outline-none`.
+- [x] **4.4** `form-group select:not([multiple])` → custom arrow background'ı **CSS'te kalmalı**
+      (`appearance:none` + `background-image: url("data:image/svg+xml...")` Tailwind ile yapılamaz).
+      Bu kuralları `@layer components` içinde `select:not([multiple])` olarak bırak.
+- [x] **4.5** `input[type='checkbox']` custom styling (satır 562-604) — **CSS'te kalmalı**.
+      `appearance:none` + checked state SVG background Tailwind ile yapılamaz.
+- [x] **4.6** `textarea { min-height: 7.5rem; resize: vertical }` → `min-h-[7.5rem] resize-y`.
+- [x] **4.7** `form-group small` → `block mt-2 text-foreground-faint text-[0.76rem]`.
+- [x] **4.8** **Tüm component'lerdeki `form-group`, `form-field`, `form-label` kullanımlarını güncelle.**
+- [x] **4.9** `index.css`'ten taşınabilen form kurallarını **SİL**.
+      Checkbox ve select-arrow override'ları kalır.
+
+**Kontrol:** Form input focus ring, checkbox checked/unchecked, select dropdown arrow.
+
+### Faz 5 — Layout Sistemi (page-stack, main, page-header)
+
+- [x] **5.1** `.page-stack` → `flex flex-col gap-5 min-w-0`.
+      22 component'te kullanılıyor → hepsinde inline Tailwind olarak güncelle.
+- [x] **5.2** `.main` → `w-[min(100%,1800px)] min-w-0 mx-auto px-[clamp(1.25rem,4vw,2.75rem)] pt-[2.25rem] pb-[3.5rem]`.
+      `:focus { outline: none }` → `focus:outline-none`.
+- [x] **5.3** `.page-header` ve alt seçiciler (`h1`, `p`, `span`, `> div`) →
+      Tailwind class'lara çevir. `clamp()` ve `text-wrap: balance` için arbitrary değer kullan.
+- [x] **5.4** `.skip-link` → `fixed top-4 left-4 z-[100] -translate-y-[180%] rounded-full bg-accent text-white font-bold px-4 py-[0.65rem] transition-transform duration-160 ease-in focus-visible:translate-y-0`.
+- [x] **5.5** `app-shell`, `sidebar`, `nav-link` → App.tsx ve Sidebar component'inde Tailwind.
+- [x] **5.6** `mobile-nav-toggle`, `mobile-nav-backdrop` + `@media (max-width: 980px)` →
+      Tailwind `max-[980px]:` prefix veya `lg:` breakpoint logic.
+- [x] **5.7** `index.css`'ten bu kuralları **SİL**.
+
+**Kontrol:** Responsive layout (mobile/tablet/desktop), sidebar açma/kapama, skip-link.
+
+### Faz 6 — Table / Results Sistemi (17 component, 504 satır CSS)
+
+> En karmaşık blok — metadata tabloları, iç içe tablolar, zebra stripe, hover, kolon genişlikleri.
+
+- [x] **6.1** `.results-table-scroll` → `max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch] mt-4`.
+- [x] **6.2** `.results-table` baz → `w-full min-w-[42rem] mt-4 border-collapse text-[0.9rem]`.
+- [x] **6.3** `.results-table--metadata-list` → `min-w-0 w-full mt-2 text-[0.8125rem] table-fixed`.
+- [x] **6.4** Zebra stripe + hover kuralları (`nth-child(odd/even)`, hover bg) →
+      Bu kurallar **CSS'te kalmalı** — Tailwind `nth-child` pseudo-class'ı desteklemiyor.
+      `@layer components` içinde `tbody tr:nth-child(odd) td { background: var(--table-stripe-odd) }`
+      olarak kompakt tut.
+- [x] **6.5** `col` width tanımları (`.metadata-cw-name { width: 34% }` vb.) →
+      `<col>` element'lerinde inline `style={{ width: '34%' }}` veya **CSS'te kalsın** (Tailwind col support yok).
+- [x] **6.6** `.metadata-type-badge`, `.metadata-row-action`, `.metadata-nested-*` →
+      Tailwind class'lara çevir, component'lere göm.
+- [x] **6.7** `.metadata-inline-field` (inline edit textarea) → Tailwind.
+- [x] **6.8** `.metadata-toolbar`, `.metadata-lang-tabs`, `.metadata-table-filters` → Tailwind.
+- [x] **6.9** **CSS'te kalacak:** `col` width, `nth-child` zebra, `table-layout: fixed`.
+      Geri kalan her şey Tailwind.
+- [x] **6.10** `index.css`'ten taşınabilen table kurallarını **SİL**.
+
+**Dosyalar:** `ResultTable.tsx`, `Metadata.tsx`, `metadata/` alt component'ler,
+`TableBrowser.tsx`, `tableBrowser/` alt component'ler.
+
+**Kontrol:** Table zebra stripe, hover, nested panel, inline edit, metadata browser.
+
+### Faz 7 — UI Select Component (7 component, 309 satır)
+
+> `.ui-select-*` class'ları `Select.tsx`, `SelectTrigger.tsx`, `SelectPopover.tsx` vb.
+> component'ler tarafından kullanılıyor. Tüm trigger/popover/option/label stilleri Tailwind'e.
+
+- [x] **7.1** `.ui-select-trigger` → `flex items-center justify-between gap-2 w-full min-h-[2.1rem] px-[0.7rem] py-[0.35rem] border border-border rounded-[0.4rem] bg-card-raised text-foreground text-[0.8rem] leading-[1.3] text-left cursor-pointer shadow-[inset_0_1px_0_var(--control-surface-highlight)] transition-[background-color,border-color,box-shadow] duration-120`.
+- [x] **7.2** `.ui-select-trigger:hover` → `hover:border-[var(--control-hover-border)] hover:bg-[var(--control-hover-bg)]`.
+- [x] **7.3** `.ui-select-trigger:focus-visible` → `focus-visible:outline-none focus-visible:border-[var(--control-focus-border)] focus-visible:shadow-[inset_0_1px_0_var(--control-surface-highlight),0_0_0_3px_var(--control-focus-ring)]`.
+- [x] **7.4** `.ui-select-trigger.is-open` → açıkken ayrı state class.
+- [x] **7.5** `.ui-select-popover` → `z-[5000] overflow-hidden border border-border-strong rounded-[0.55rem] bg-canvas-subtle shadow-[...] animate-[ui-select-pop_110ms_ease]`.
+- [x] **7.6** `.ui-select-option` → `flex items-center gap-[0.45rem] px-2 py-[0.32rem] rounded-[0.35rem] text-foreground-muted text-[0.78rem] cursor-pointer transition-[background-color,color] duration-100`.
+- [x] **7.7** `.ui-select-list` scrollbar → **CSS'te kalmalı** (`::-webkit-scrollbar`).
+- [x] **7.8** Diğer `.ui-select-*` class'lar (value, chevron, hint, count, empty) → Tailwind.
+- [x] **7.9** `Select.tsx`, `SelectTrigger.tsx`, `SelectPopover.tsx`, `MultiSelect.tsx`
+      component'lerini güncelle.
+- [x] **7.10** `index.css`'ten `.ui-select-*` kurallarını **SİL** (scrollbar hariç).
+
+**Kontrol:** Select açma/kapama, hover, keyboard navigation, multi-select, scroll.
+
+### Faz 8 — Toggle / Badge / Pill / Stats
+
+- [x] **8.1** `.toggle-group` → `inline-flex shrink-0 border border-border-strong rounded-lg p-[0.2rem] bg-card-raised gap-[0.2rem]`.
+- [x] **8.2** `.toggle-btn` → `flex-1 min-w-[4.5rem] px-[0.85rem] py-[0.4rem] bg-transparent border-none rounded-[0.35rem] text-foreground-muted cursor-pointer font-['Plus_Jakarta_Sans'] text-[0.78rem] font-semibold leading-[1.2] transition-[background-color,color,box-shadow] duration-180`.
+- [x] **8.3** `.toggle-btn.active` → ayrı class veya data attribute.
+- [x] **8.4** `.stats` + `.stats span` → Tailwind.
+- [x] **8.5** `.datasource-id-pill`, `.datasource-access-badge`, `.datasource-access-note` → Tailwind.
+- [x] **8.6** `.tag-pill` → `bg-card px-[0.5rem] py-[0.125rem] rounded text-[0.75rem] text-foreground-muted`.
+- [x] **8.7** `.wf-badge`, `.prompt-warning`, `.model-fallback-badge` → Tailwind.
+- [x] **8.8** `.inherited-filters-badge`, `.metadata-type-badge` → Tailwind.
+- [x] **8.9** `header-controls`, `lang-switcher`, `theme-toggle` → Tailwind.
+- [x] **8.10** `index.css`'ten bu kuralları **SİL**.
+
+### Faz 9 — Modeling Sistemi (1004 satır, en büyük blok)
+
+> `modeling.css` zaten silinmiş ama stilleri `index.css`'e taşınmış. 10+ component.
+
+- [x] **9.1** `modeling-shell`, `modeling-toolbar`, `modeling-palette`, `modeling-editor` →
+      grid layout'ları Tailwind `grid-cols-[...]` ile.
+- [x] **9.2** `modeling-table-card` → position:absolute kartlar, border/shadow/transition → Tailwind.
+- [x] **9.3** `modeling-join-line` (SVG path/circle stilleri) → **CSS'te kalmalı**
+      (SVG stroke/fill Tailwind ile sınırlı destek).
+- [x] **9.4** `modeling-canvas-wrap` grid background → **CSS'te kalmalı** (gradient pattern).
+- [x] **9.5** `modeling-group`, `modeling-tab`, `modeling-join-pill` → Tailwind.
+- [x] **9.6** `modeling-delete-btn`, `modeling-add-btn`, `modeling-rename-btn` →
+      Button varyantları veya inline Tailwind.
+- [x] **9.7** `modeling-zoom-controls`, `modeling-side-toggle` → Tailwind.
+- [x] **9.8** `body.modeling-panning` / `body.modeling-grabbing` → **CSS'te kalmalı** (body-level cursor).
+- [x] **9.9** `modeling-schema-tag` → Tailwind.
+- [x] **9.10** Responsive `@media` kuralları → Tailwind `max-[1180px]:`, `max-[760px]:`.
+- [x] **9.11** `index.css`'ten taşınabilen modeling kurallarını **SİL**.
+
+**Dosyalar:** `Modeling.tsx`, `modeling/` altındaki tüm component'ler.
+
+**Kontrol:** Canvas pan/zoom, table card drag, join line hover, responsive layout.
+
+### Faz 10 — Driver Tiles, Saved Questions, AI Scope
+
+- [x] **10.1** `.driver-tile-grid` → `grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-[0.65rem] mt-[0.55rem] w-full`.
+- [x] **10.2** `.driver-tile` + varyantları (selected, mysql, clickhouse) → Tailwind.
+- [x] **10.3** `.driver-tile__logo` → Tailwind (bg-white, rounded, shadow, overflow-hidden).
+- [x] **10.4** `.driver-cell` + `__logo` + `__label` → Tailwind.
+- [x] **10.5** `.saved-question-item` + alt element stilleri → Tailwind.
+- [x] **10.6** `.saved-question-list`, `.saved-question-fav`, `.saved-question-tags` → Tailwind.
+- [x] **10.7** `.fewshot-checkbox`, `.few-shot-sidebar`, `.few-shot-sidebar__*` → Tailwind.
+- [x] **10.8** `.ai-scope-*` class'ları → Tailwind.
+- [x] **10.9** `index.css`'ten bu kuralları **SİL**.
+
+### Faz 11 — Feedback / Status / Loading
+
+- [x] **11.1** `.error` → `border border-[rgba(251,113,133,0.22)] rounded-lg bg-[rgba(251,113,133,0.08)] text-[#fecdd3] px-[0.85rem] py-[0.7rem] text-[0.85rem] mb-4`.
+- [x] **11.2** `.success` → `text-success`.
+- [x] **11.3** `.warning-panel` + alt element'ler (strong, p, ul, li, li::before) →
+      Tailwind. `li::before` **CSS'te kalmalı** (pseudo-element content).
+- [x] **11.4** `.loading-text` → `text-foreground-faint text-[0.85rem] my-2`.
+- [x] **11.5** `.loading-overlay-wrap` → `relative`.
+- [x] **11.6** `.loading-overlay` → `absolute inset-0 flex items-center justify-center gap-[0.6rem] bg-[rgba(9,9,11,0.75)] backdrop-blur-[6px] rounded-[inherit] z-[5] text-foreground font-['Plus_Jakarta_Sans'] text-[0.85rem] font-semibold`.
+      Light tema overlay → `data-[theme=light]:bg-[rgba(248,250,252,0.75)]`.
+- [x] **11.7** `.loading-overlay-spinner` → `w-[1.15rem] h-[1.15rem] border-2 border-border-strong border-t-accent rounded-full animate-[loading-spin_0.65s_linear_infinite] shadow-[0_0_8px_var(--accent-glow)]`.
+- [x] **11.8** `.empty-state`, `.ui-empty-state` + alt element'ler → Tailwind.
+- [x] **11.9** `.sql-preview` → `overflow-auto border border-border rounded-lg bg-[#0a0b0e] text-[#e1e7f3] font-mono text-[0.82rem] leading-[1.6] mt-4 p-[0.9rem] [white-space:pre-wrap] [word-break:break-word]`.
+- [x] **11.10** `.chart-container` → `min-w-0 mt-4`.
+- [x] **11.11** `index.css`'ten bu kuralları **SİL**.
+
+### Faz 12 — Auth / Locked State / Modal
+
+- [x] **12.1** `.auth-page` → `flex items-center justify-center min-h-screen p-6 bg-canvas` +
+      radial gradient background için `[background-image:radial-gradient(...)]` veya **CSS'te kalsın**.
+- [x] **12.2** `.auth-card` → `w-full max-w-[440px] bg-card border border-border rounded-2xl shadow-card p-8 transition-[transform,box-shadow] duration-200 backdrop-blur-[10px]`.
+- [x] **12.3** `.locked-state-*` class'ları → Tailwind.
+- [x] **12.4** `.modal-card--*` varyantları → Tailwind width constraints.
+- [x] **12.5** `.confirm-dialog__*` → Tailwind.
+- [x] **12.6** `.modal-form-row`, `.checkbox-row`, `.suggestion-block` → Tailwind.
+- [x] **12.7** `@media (max-width: 680px)` → `max-[680px]:grid-cols-1`.
+- [x] **12.8** Auth page radial gradient → Tailwind arbitrary veya CSS'te kalsın (karmaşık).
+- [x] **12.9** `index.css`'ten bu kuralları **SİL**.
+
+### Faz 13 — Prompt Editor / Field Badge / Few-Shot
+
+- [x] **13.1** `.prompt-editor-container`, `.prompt-editor-underlay`, `.prompt-editor-textarea` →
+      Tailwind. Underlay position absolute, textarea z-index, transparent text/caret.
+- [x] **13.2** `.field-badge-btn` + `__type` → Tailwind.
+- [x] **13.3** `.few-shot-main-form`, `.few-shot-sidebar`, `.few-shot-sidebar__*` → Tailwind.
+- [x] **13.4** `.card-header-row .btn` exception → Faz 2'de button migration sonrası çözülecek.
+- [x] **13.5** `.metadata-display-expr__*` → Tailwind.
+- [x] **13.6** `index.css`'ten bu kuralları **SİL**.
+
+### Faz 14 — Keyframes ve Animasyon Token'ları
+
+> 25 `@keyframes` mevcut. Tailwind v4 `@theme` ile animate token olarak kaydedilebilir.
+
+- [x] **14.1** Basit keyframe'leri `@theme` animate token olarak tanımla:
+      `loading-spin`, `fadeIn`, `slideUp`, `modal-fade`, `modal-pop`, `toast-in`,
+      `action-menu-in`, `skeleton-shimmer`, `loading-pill-in`, `loading-pill-fade`,
+      `loading-logo-breathe`, `lockedCardAppear`, `popoverFadeIn`, `bubbleAppear`,
+      `chatTypingDot`
+      Bunları `@theme { --animate-fade-in: fadeIn 0.2s ease-out; ... }` olarak ekle,
+      `@keyframes` tanımlarını da yine CSS'te bırak (Tailwind v4 bunu gerektirir).
+- [x] **14.2** `@theme inline` bloğunda zaten tanımlı olanları koru:
+      `cmdk-fade`, `cmdk-pop`, `drift-banner-enter`, `drift-panel-enter`,
+      `popover-fade-in`, `bubble-appear`, `chat-typing-dot`.
+- [x] **14.3** `ui-select-pop` keyframe'i → `@theme --animate-ui-select-pop`.
+- [x] **14.4** `ai-job-pulse`, `ai-job-step-pulse`, `ai-job-panel-in` →
+      `@theme` animate token olarak.
+- [x] **14.5** Tüm `@keyframes` tanımları CSS dosyasında kalır (Tailwind v4 bunu gerektirir)
+      ama `animation` property kullanan class'lar artık `animate-*` util kullanacak.
+
+### Faz 15 — Irreducible CSS (KALACAK)
+
+> Aşağıdaki CSS kuralları Tailwind ile ifade edilemez ve `index.css`'te **kalmalı**:
+
+- [x] **15.1** `:root`, `:root[data-theme='dark']`, `:root[data-theme='light']` —
+      tüm CSS custom property tanımları (115 değişken, ~106 satır). **ZORUNLU.**
+- [x] **15.2** `input[type='checkbox']` custom styling (appearance:none + SVG bg + checked state) —
+      ~43 satır. Tailwind ile yapılamaz.
+- [x] **15.3** `select:not([multiple])` custom arrow (appearance:none + SVG bg-image) —
+      ~20 satır. `background-image: url("data:image/svg+xml...")` Tailwind arbitrary ile
+      teorik olarak mümkün ama okunmaz; CSS'te kalsın.
+- [x] **15.4** `.custom-scrollbar` + `.custom-scrollbar-thin` (`::-webkit-scrollbar`) —
+      ~33 satır. Tailwind `scrollbar` utility'si yok.
+- [x] **15.5** `.ui-select-list::-webkit-scrollbar` — scrollbar styling.
+- [x] **15.6** `.admin-range-slider` (`::-webkit-slider-thumb` + track) — ~40 satır.
+      Range input styling Tailwind ile yapılamaz.
+- [x] **15.7** `@keyframes` tanımları (~200 satır, 25 adet) — Tailwind animate token'ları
+      için gerekli.
+- [x] **15.8** `:where(a, button, input, select, textarea):focus-visible` — global focus ring.
+- [x] **15.9** `body.modeling-panning`, `body.modeling-grabbing` — body-level cursor override.
+- [x] **15.10** `@media (prefers-reduced-motion: reduce)` — global motion reduction.
+- [x] **15.11** `.warning-panel li::before` — pseudo-element content + positioning.
+- [x] **15.12** `.modeling-status-pill::before` — dot indicator pseudo-element.
+- [x] **15.13** `.modeling-join-line path/circle` — SVG element styling.
+- [x] **15.14** `tbody tr:nth-child(odd/even) td` — zebra stripe (metadata table).
+- [x] **15.15** `col.metadata-cw-*` width tanımları.
+- [x] **15.16** `.auth-page` radial gradient background (karmaşık multi-radial).
+- [x] **15.17** `.modeling-canvas-wrap` grid pattern background.
+
+> **Tahmini kalacak CSS:** ~500-600 satır (115 değişken + 200 keyframe + 200 pseudo-element/scrollbar/slider + temel base).
+
+### Faz 16 — Index.css Temizliği ve Yeniden Yapılandırma
+
+- [x] **16.1** Tüm migrasyon sonrası `index.css`'i gözden geçir:
+      Silinen class'lara ait ölü kuralları temizle.
+- [x] **16.2** Kalan CSS'i mantıksal bölümlere ayır:
+      ```css
+      @import 'tailwindcss';
+
+      @theme inline { /* token bridge */ }
+      @theme { /* animate tokens */ }
+
+      @layer base {
+        /* :root theme variables */
+        /* html/body base */
+        /* focus-visible */
+        /* prefers-reduced-motion */
+      }
+
+      @layer components {
+        /* checkbox custom */
+        /* select arrow custom */
+        /* scrollbar custom */
+        /* range slider custom */
+      }
+
+      /* @keyframes */
+      ```
+
+- [x] **16.3** `@font-face` veya font import varsa Tailwind `@theme --font-sans` ile bağla.
+      `Plus Jakarta Sans` ve `Geist Mono` font'ları için `@theme` tanımı ekle.
+
+### Faz 17 — Component Güncelleme (Toplu)
+
+> Önceki fazlarda belirtilen component güncellemelerinin toplu listesi:
+
+- [x] **17.1** `App.tsx` — app-shell, sidebar, main layout.
+- [x] **17.2** `Home.tsx`, `Dashboard.tsx`, `DashboardBuilder.tsx` — page layout.
+- [x] **17.3** `Settings.tsx` + `settings/` alt component'ler — form/card/button.
+- [x] **17.4** `Metadata.tsx` + `metadata/` — tablo + form + toolbar.
+- [x] **17.5** `Modeling.tsx` + `modeling/` — canvas + palette + editor.
+- [x] **17.6** `QueryBuilder.tsx` + `queryBuilder/` — form + toggle + table.
+- [x] **17.7** `AIQuery.tsx` + `aiQuery/` — chat panel + form.
+- [x] **17.8** `Datasources.tsx` + `datasources/` — form + driver tiles.
+- [x] **17.9** `ResultTable.tsx` + `resultTable/` — tablo + pagination.
+- [x] **17.10** `Evaluation.tsx` + `evaluation/` — form + card.
+- [x] **17.11** `Glossary.tsx`, `GlossaryEnrichPanel.tsx`.
+- [x] **17.12** `SavedQuestions.tsx` + `savedQuestions/`.
+- [x] **17.13** `FewShotExamples.tsx`.
+- [x] **17.14** `QueryHistory.tsx`.
+- [x] **17.15** `PromptTemplates.tsx`.
+- [x] **17.16** `Composites.tsx` + `composites/`.
+- [x] **17.17** `auth/` alt component'ler — auth-page, auth-card.
+- [x] **17.18** `ui/` alt component'ler — Select, MultiSelect, Modal, Toast, vb.
+- [x] **17.19** `admin/` alt component'ler — admin paneller.
+- [x] **17.20** `workspaces/` alt component'ler.
+
+### Faz 18 — Final Doğrulama
+
+- [x] **18.1** `make check-frontend` (lint + format + knip + test + build).
+- [x] **18.2** `git diff --check` — whitespace hataları yok.
+- [ ] **18.3** **Light tema** — tüm sayfaları görsel olarak kontrol et:
+      - Home, Dashboard, Query Builder, AI Query, Metadata, Modeling,
+        Datasources, Settings, Admin, Evaluation, Glossary, Saved Questions.
+- [ ] **18.4** **Dark tema** — aynı sayfaları kontrol et.
+- [ ] **18.5** **Responsive** — mobile (375px), tablet (768px), desktop (1440px).
+- [ ] **18.6** **Etkileşim state'leri** — hover, focus-visible, disabled, active tüm butonlarda.
+- [ ] **18.7** **Form input** — focus ring, select dropdown, checkbox, textarea.
+- [ ] **18.8** **Modal/Dropdown** — açma/kapama animasyonu, backdrop, overflow.
+- [ ] **18.9** **Table** — zebra stripe, hover, sort, pagination, scroll.
+- [ ] **18.10** `index.css` satır sayısı hedef: **~500-600 satır** (4225'ten).
+
+#### Review (2026-06-13) — index.css → Pure Tailwind migrasyonu
+
+- **Faz 0–17:** Tamamlandı. BEM sınıfları `frontend/src/lib/*Classes.ts` helper'larına taşındı; codemod'lar statik `className` kullanımlarını güncelledi.
+- **`index.css`:** 4225 satır (`.bak`) → **813 satır** (`wc -l frontend/src/index.css`). Hedef 500–600 üzerinde: `:root` tema değişkenleri, 25× `@keyframes`, modeling/auth/scrollbar/slider irreducible kurallar planla uyumlu kaldı.
+- **Doğrulama:** `make check-frontend` temiz (lint, format:check, knip, test 165/165, build). `git diff --check` temiz.
+- **Kalan (manuel):** Faz 18.3–18.9 görsel QA (light/dark/responsive/etkileşim). Faz 18.10 satır hedefi — irreducible CSS envanteri nedeniyle bilinçli olarak açık bırakıldı.
+
+### Risk Değerlendirmesi
+
+| Risk | Etki | Azaltma |
+|---|---|---|
+| Runtime light/dark tema kırılması | KRİTİK | `@theme inline` zaten `var(--token)` emit ediyor; hardcoded renk KULLANMA |
+| Grid-dışı spacing (0.35/0.4/0.65/0.78rem) görsel kayma | ORTA | Arbitrary değer (`gap-[0.35rem]`) kullan, yuvarlama yapma |
+| 62 ad-hoc breakpoint responsive davranış | ORTA | `max-[NNNpx]:` arbitrary breakpoint kullan |
+| Button migration (67 component) | YÜKSEK | `Button.tsx` önce geçir, sonra batch güncelleme |
+| Table zebra/pseudo kuralları | DÜŞÜK | CSS'te bırak, Taahhüt: ~50 satır CSS kalır |
+| `appearance:none` + SVG bg (checkbox/select) | DÜŞÜK | CSS'te bırak, ~60 satır CSS kalır |
+
+### Skill Önerileri (Faz Bazında)
+
+> Tüm skill'ler `.agents/skills/` altında lokal olarak mevcut. `find-skills` ile
+> uzaktan skill aranmasına gerek yok — aşağıdaki lokal skill'ler tüm ihtiyaçları karşılıyor.
+
+| Faz | Lokal Skill | Kullanım Amacı |
+|---|---|---|
+| **0** Hazırlık | `writing-plans` | Plan doğrulama, checkpoint'lerle yapılandırılmış yürütme |
+| **0** Hazırlık | `tailwind` | `@theme inline` token köprüsü, `@layer` direktifi, v4 syntax referansı |
+| **1** CSS Reset/Base | `tailwind` | Tailwind v4 preflight davranışı, `@layer base` pattern |
+| **2** Button Sistemi | `frontend-design` | Button görsel tutarlılık, hover/focus/active state tasarımı |
+| **2** Button Sistemi | `tailwind-css-patterns` | Utility class string kalıpları, variant mapping |
+| **2** Button Sistemi | `vercel-react-best-practices` | Button component API tasarımı, variant props |
+| **3** Card Sistemi | `frontend-design` | Card hover shadow, görsel hiyerarşi |
+| **3** Card Sistemi | `tailwind-css-patterns` | Card layout utility kalıpları |
+| **4** Form Sistemi | `tailwind-css-patterns` | Input/select/textarea utility pattern |
+| **4** Form Sistemi | `web-design-guidelines` | Form a11y, label association, focus ring uyumluluğu |
+| **5** Layout | `tailwind-css-patterns` | Responsive `clamp()`, arbitrary breakpoint (`max-[980px]:`) |
+| **5** Layout | `web-design-guidelines` | Skip-link a11y, responsive layout erişilebilirlik |
+| **6** Table/Results | `tailwind-css-patterns` | Table layout, overflow scroll, col width |
+| **6** Table/Results | `web-design-guidelines` | Table a11y, `scope`/`caption`, keyboard navigation |
+| **7** UI Select | `tailwind-css-patterns` | Trigger/popover/option utility pattern |
+| **7** UI Select | `vercel-react-best-practices` | Compound component yapısı (Select API) |
+| **8** Toggle/Badge | `tailwind-css-patterns` | Badge/pill/toggle-group utility kalıpları |
+| **9** Modeling | `tailwind-css-patterns` | Grid layout (`grid-cols-[...]`), absolute positioning |
+| **9** Modeling | `vercel-react-best-practices` | Drag/pan state yönetimi, performans |
+| **10** Driver tiles | `tailwind-css-patterns` | `grid-cols-[repeat(auto-fill,...)]`, tile card kalıbı |
+| **11** Feedback/Status | `tailwind-css-patterns` | Loading overlay, empty-state, spinner utility |
+| **12** Auth/Modal | `frontend-design` | Auth page tasarımı, modal görsel tutarlılık |
+| **12** Auth/Modal | `tailwind-css-patterns` | Modal width constraint, backdrop blur |
+| **13** Prompt Editor | `tailwind-css-patterns` | Absolute overlay positioning, z-index layering |
+| **14** Keyframes | `tailwind` | v4 `@theme` animate token kaydı, `@keyframes` lifecycle |
+| **15** Irreducible CSS | — | (skill gerekmez — sadece CSS'te kalacakları işaretle) |
+| **16** Temizlik | `tailwind` | `@layer base/components` organizasyonu, final yapı |
+| **17** Component Güncelleme | `dispatching-parallel-agents` | 20+ component'i paralel subagent'larla güncelle |
+| **17** Component Güncelleme | `vercel-react-best-practices` | Component refactor pattern, composition |
+| **18** Final Doğrulama | `web-design-guidelines` | Tüm sayfalar a11y + görsel review |
+| **18** Final Doğrulama | `executing-plans` | Plan doğrulama checkpoint'leri, acceptance criteria |
+
+**Ortak kullanım notları:**
+- `tailwind` ve `tailwind-css-patterns` her fazda referans olarak yanında tut — utility class çeviriminde sürekli ihtiyaç var.
+- `frontend-design` görsel karar gerektiren fazlarda (2, 3, 12) load et; design intent kaybını önler.
+- `web-design-guidelines` a11y gerektiren fazlarda (4, 5, 6, 18) çalıştır — focus-visible, ARIA, keyboard nav.
+- `dispatching-parallel-agents` Faz 17'de 20+ component'i paralelleştirmek için kritik.
+- `executing-plans` tüm migrasyonu yapılandırılmış checkpoint'lerle yürütmek için baştan yüklenmeli.
+
+### Önerilen Uygulama Sırası
+
+1. **Faz 0** → Hazırlık (backup, cn.ts)
+2. **Faz 14** → Keyframe token'ları (diğer fazların animasyon ihtiyacı için)
+3. **Faz 1** → CSS reset/base (en düşük risk, hızlı win)
+4. **Faz 2** → Button sistemi (en çok kullanılan, Button.tsx merkezinden)
+5. **Faz 3** → Card sistemi (ikinci en çok kullanılan)
+6. **Faz 4** → Form sistemi (input/select/textarea/checkbox)
+7. **Faz 5** → Layout sistemi (page-stack/main/header)
+8. **Faz 7** → UI Select component (Select bağımlılığı)
+9. **Faz 8** → Toggle/badge/pill (küçük bloklar, hızlı)
+10. **Faz 6** → Table sistemi (karmaşık, zebra hariç)
+11. **Faz 11** → Feedback/status/loading
+12. **Faz 10** → Driver tiles/saved questions
+13. **Faz 9** → Modeling sistemi (en büyük blok, en son)
+14. **Faz 12** → Auth/locked/modal
+15. **Faz 13** → Prompt editor/field badge
+16. **Faz 15** → Irreducible CSS işaretle (silme)
+17. **Faz 16** → Index.css yeniden yapılandır
+18. **Faz 17** → Component toplu güncelleme (paralel subagent'lar)
+19. **Faz 18** → Final doğrulama
+
+---
+
 ## Tailwind CSS Entegrasyonu (2026-06-13)
 
 Amaç: Frontend'de hızlı ve tutarlı UI geliştirme için Tailwind CSS'i Vite + React

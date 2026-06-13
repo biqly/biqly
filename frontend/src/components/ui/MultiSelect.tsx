@@ -1,6 +1,25 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
+import {
+  selectCheckClass,
+  selectChevronClass,
+  selectCountClass,
+  selectEmptyClass,
+  selectHeaderClass,
+  selectHintClass,
+  selectLabelClass,
+  selectListClass,
+  selectMultiselectClass,
+  selectMultiselectInlineRootClass,
+  selectOptionClass,
+  selectPopoverClass,
+  selectPopoverLabelClass,
+  selectRootClass,
+  selectTriggerClass,
+  selectValueClass,
+} from '../../lib/selectClasses'
 import type { SelectOption } from './Select'
 import { resolveSelectPopoverLayout } from './selectLayout'
 
@@ -135,6 +154,8 @@ export function MultiSelect({
   const listMaxStyle =
     display === 'inline' ? { maxHeight } : popover ? { maxHeight: popover.maxHeight } : undefined
 
+  const labelClass = display === 'inline' ? selectLabelClass : selectPopoverLabelClass
+
   const renderOptions = () => (
     <ul
       ref={listRef}
@@ -142,12 +163,12 @@ export function MultiSelect({
       role="listbox"
       aria-multiselectable="true"
       aria-label={ariaLabel}
-      className="ui-select-list"
+      className={selectListClass}
       style={listMaxStyle}
       tabIndex={-1}
     >
       {options.length === 0 && (
-        <li className="ui-select-empty" role="option" aria-disabled="true">
+        <li className={selectEmptyClass} role="option" aria-disabled="true">
           {t('common.no_options')}
         </li>
       )}
@@ -161,14 +182,11 @@ export function MultiSelect({
             aria-selected={isSelected}
             aria-disabled={opt.disabled ?? undefined}
             data-index={idx}
-            className={[
-              'ui-select-option',
-              isSelected ? 'is-selected' : '',
-              idx === activeIndex ? 'is-active' : '',
-              opt.disabled ? 'is-disabled' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
+            className={selectOptionClass({
+              selected: isSelected,
+              active: idx === activeIndex,
+              disabled: Boolean(opt.disabled),
+            })}
             onMouseEnter={() => !opt.disabled && setActiveIndex(idx)}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
@@ -178,7 +196,7 @@ export function MultiSelect({
               toggleValue(opt.value)
             }}
           >
-            <span className="ui-select-check" aria-hidden="true">
+            <span className={selectCheckClass} aria-hidden="true">
               {isSelected ? (
                 <svg viewBox="0 0 12 12" width="10" height="10">
                   <path
@@ -192,11 +210,11 @@ export function MultiSelect({
                 </svg>
               ) : null}
             </span>
-            <span className="ui-select-label">
+            <span className={labelClass}>
               {opt.label}
-              {opt.hint && <span className="ui-select-hint">{opt.hint}</span>}
+              {opt.hint && <span className={selectHintClass}>{opt.hint}</span>}
             </span>
-            {typeof opt.count === 'number' && <span className="ui-select-count">{opt.count}</span>}
+            {typeof opt.count === 'number' && <span className={selectCountClass}>{opt.count}</span>}
           </li>
         )
       })}
@@ -205,39 +223,24 @@ export function MultiSelect({
 
   if (display === 'inline') {
     return (
-      <div
-        ref={rootRef}
-        className={['ui-select', 'ui-multiselect', 'ui-multiselect--inline', className]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        {header && <div className="ui-select-header">{header}</div>}
+      <div ref={rootRef} className={cn(selectMultiselectInlineRootClass, className)}>
+        {header && <div className={selectHeaderClass}>{header}</div>}
         {renderOptions()}
       </div>
     )
   }
 
-  const triggerClasses = ['ui-select-trigger']
-  if (size === 'sm') {
-    triggerClasses.push('ui-select-trigger--sm')
-  }
-  if (open) {
-    triggerClasses.push('is-open')
-  }
-  if (value.length === 0) {
-    triggerClasses.push('is-empty')
-  }
-
   return (
-    <div
-      ref={rootRef}
-      className={['ui-select', 'ui-multiselect', className].filter(Boolean).join(' ')}
-    >
+    <div ref={rootRef} className={cn(selectRootClass, selectMultiselectClass, className)}>
       <button
         ref={triggerRef}
         type="button"
         id={baseId}
-        className={triggerClasses.join(' ')}
+        className={selectTriggerClass({
+          size,
+          open,
+          empty: value.length === 0,
+        })}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
@@ -250,11 +253,15 @@ export function MultiSelect({
           setOpen((o) => !o)
         }}
       >
-        <span className={`ui-select-value${value.length === 0 ? ' is-placeholder' : ''}`}>
+        <span
+          className={selectValueClass({
+            placeholder: value.length === 0,
+          })}
+        >
           {triggerLabel}
         </span>
         <svg
-          className="ui-select-chevron"
+          className={selectChevronClass(open)}
           viewBox="0 0 12 8"
           width="9"
           height="5.5"
@@ -272,7 +279,7 @@ export function MultiSelect({
       </button>
       {open && popover && (
         <div
-          className={`ui-select-popover ui-select-popover--${popover.placement}`}
+          className={selectPopoverClass(popover.placement)}
           style={{
             position: 'fixed',
             left: popover.left,
@@ -281,7 +288,7 @@ export function MultiSelect({
           }}
           role="presentation"
         >
-          {header && <div className="ui-select-header">{header}</div>}
+          {header && <div className={selectHeaderClass}>{header}</div>}
           {renderOptions()}
         </div>
       )}

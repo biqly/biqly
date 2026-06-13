@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import type { TranslationKey, useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { modelingFormGroupClass } from '../../lib/formClasses'
+import {
+  modalActionsBorderedClass,
+  modalFormRowClass,
+  modalModelingCardClass,
+} from '../../lib/modalClasses'
 import type {
   ColumnRow,
   SemanticDimension,
@@ -186,7 +193,7 @@ export function EditDimensionModal({
       className={
         sourceMode === 'calculated'
           ? 'w-full max-w-184 transition-[width] duration-200 ease-in-out'
-          : 'modal-card--modeling'
+          : modalModelingCardClass()
       }
       labelledBy="modeling-edit-dimension-title"
       title={t('modeling.edit_dimension_title')}
@@ -197,12 +204,12 @@ export function EditDimensionModal({
           void submit()
         }}
       >
-        <div className="modal-form-row">
-          <div className="form-group">
+        <div className={modalFormRowClass()}>
+          <div className={modelingFormGroupClass}>
             <label htmlFor="dim-name">{t('modeling.metric_name_label')}</label>
             <input id="dim-name" value={dimension.name} disabled readOnly />
           </div>
-          <div className="form-group">
+          <div className={modelingFormGroupClass}>
             <label htmlFor="dim-label">{t('modeling.metric_label_label')}</label>
             <input
               id="dim-label"
@@ -214,8 +221,8 @@ export function EditDimensionModal({
           </div>
         </div>
 
-        <div className="modal-form-row">
-          <div className="form-group">
+        <div className={modalFormRowClass()}>
+          <div className={modelingFormGroupClass}>
             <label htmlFor="dim-type">{t('modeling.display_name_label')}</label>
             <Select
               id="dim-type"
@@ -232,7 +239,7 @@ export function EditDimensionModal({
               ]}
             />
           </div>
-          <div className="form-group">
+          <div className={modelingFormGroupClass}>
             <label htmlFor="dim-source-mode">{t('modeling.join_type_label')}</label>
             <Select
               id="dim-source-mode"
@@ -250,8 +257,8 @@ export function EditDimensionModal({
 
         {sourceMode === 'column' ? (
           <>
-            <div className="modal-form-row">
-              <div className="form-group">
+            <div className={modalFormRowClass()}>
+              <div className={modelingFormGroupClass}>
                 <label htmlFor="dim-schema">{t('modeling.pick_schema')}</label>
                 <Select
                   id="dim-schema"
@@ -262,7 +269,7 @@ export function EditDimensionModal({
                   options={availableSchemas.map((s) => ({ value: s, label: s }))}
                 />
               </div>
-              <div className="form-group">
+              <div className={modelingFormGroupClass}>
                 <label htmlFor="dim-table">{t('modeling.pick_table')}</label>
                 <Select
                   id="dim-table"
@@ -277,8 +284,8 @@ export function EditDimensionModal({
                 />
               </div>
             </div>
-            <div className="modal-form-row">
-              <div className="form-group">
+            <div className={modalFormRowClass()}>
+              <div className={modelingFormGroupClass}>
                 <label htmlFor="dim-column">{t('modeling.pick_column')}</label>
                 <Select
                   id="dim-column"
@@ -295,7 +302,7 @@ export function EditDimensionModal({
             </div>
           </>
         ) : (
-          <div className="form-group" style={{ display: 'block', width: '100%' }}>
+          <div className={modelingFormGroupClass} style={{ display: 'block', width: '100%' }}>
             <label htmlFor="dim-expression">{t('modeling.metric_expression_label')}</label>
             <ExpressionBuilder
               model={model}
@@ -311,12 +318,17 @@ export function EditDimensionModal({
           </div>
         )}
 
-        <div className="modal-actions">
-          <button className="btn btn-secondary" type="button" onClick={onClose} disabled={saving}>
+        <div className={modalActionsBorderedClass()}>
+          <button
+            className={legacyButtonClass('btn btn-secondary')}
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+          >
             {t('common.cancel')}
           </button>
           <button
-            className="btn btn-primary"
+            className={legacyButtonClass('btn btn-primary')}
             type="submit"
             disabled={
               saving ||

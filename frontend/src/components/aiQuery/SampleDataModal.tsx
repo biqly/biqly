@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { useT } from '../../i18n'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
 import { formatResultCell } from '../../utils/resultCellFormat'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Modal } from '../ui/Modal'
@@ -176,12 +178,18 @@ export function SampleDataModal({
       {!loading && sample && rowCount > 0 && (
         <>
           <div className="flex items-center justify-between gap-3" aria-live="polite">
-            <span className="inline-flex items-center px-[0.65rem] py-[0.28rem] rounded-full border border-[color-mix(in_srgb,var(--accent)_28%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--bg-card-raised))] text-foreground-muted text-[0.76rem] font-semibold tracking-wide">
+            <span
+              className={legacyCardClass(
+                'inline-flex items-center px-[0.65rem] py-[0.28rem] rounded-full border border-[color-mix(in_srgb,var(--accent)_28%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--bg-card-raised))] text-foreground-muted text-[0.76rem] font-semibold tracking-wide',
+              )}
+            >
               {t('ai_query.sample_modal_meta', { rows: rowCount, cols: colCount })}
             </span>
           </div>
           <div
-            className={`flex-1 min-h-0 max-h-[min(62vh,40rem)] max-[720px]:max-h-[58vh] overflow-auto border border-border rounded-[0.65rem] bg-card-raised shadow-[inset_0_1px_0_color-mix(in_srgb,var(--text-primary)_4%,transparent)] overscroll-contain custom-scrollbar-thin`}
+            className={legacyCardClass(
+              'flex-1 min-h-0 max-h-[min(62vh,40rem)] max-[720px]:max-h-[58vh] overflow-auto border border-border rounded-[0.65rem] bg-card-raised shadow-[inset_0_1px_0_color-mix(in_srgb,var(--text-primary)_4%,transparent)] overscroll-contain custom-scrollbar-thin',
+            )}
           >
             <table className="m-0 min-w-full w-max border-collapse">
               <thead>
@@ -191,7 +199,12 @@ export function SampleDataModal({
                     return (
                       <th
                         key={c.name}
-                        className={`sticky top-0 z-[2] p-[0.7rem_0.85rem] text-[0.68rem] text-left align-top bg-[color-mix(in_srgb,var(--table-header-bg)_92%,var(--bg-card))] backdrop-blur-[6px] font-['Plus_Jakarta_Sans',sans-serif] font-bold tracking-wider uppercase border-b-2 border-[var(--border-strong)] shadow-[0_1px_0_var(--table-header-shadow-line)] ${columnClass(kind)}`}
+                        className={cn(
+                          legacyCardClass(
+                            "sticky top-0 z-[2] p-[0.7rem_0.85rem] text-[0.68rem] text-left align-top bg-[color-mix(in_srgb,var(--table-header-bg)_92%,var(--bg-card))] backdrop-blur-[6px] font-['Plus_Jakarta_Sans',sans-serif] font-bold tracking-wider uppercase border-b-2 border-[var(--border-strong)] shadow-[0_1px_0_var(--table-header-shadow-line)]",
+                          ),
+                          columnClass(kind),
+                        )}
                       >
                         {c.name}
                       </th>
@@ -226,7 +239,9 @@ export function SampleDataModal({
       )}
       {!loading && sample && rowCount === 0 && (
         <p
-          className={`mt-2 p-[1.25rem_1rem] border border-dashed border-border rounded-[0.55rem] bg-card-raised text-foreground-muted text-[0.88rem] text-center`}
+          className={legacyCardClass(
+            'mt-2 p-[1.25rem_1rem] border border-dashed border-border rounded-[0.55rem] bg-card-raised text-foreground-muted text-[0.88rem] text-center',
+          )}
         >
           {t('ai_query.sample_modal_empty')}
         </p>

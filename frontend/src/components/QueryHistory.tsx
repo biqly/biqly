@@ -7,6 +7,11 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { usePaginatedList } from '../hooks/usePaginatedList'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
+import { legacyButtonClass } from '../lib/buttonClasses'
+import { legacyCardClass } from '../lib/cardClasses'
+import { cn } from '../lib/cn'
+import { formRowClass, legacyFormClass } from '../lib/formClasses'
+import { legacyLayoutClass } from '../lib/layoutClasses'
 import type { AIHistoryEntry } from '../types/auth'
 import type { PageQuery } from '../types/pagination'
 import { pickValidId } from '../utils/effectiveSelection'
@@ -170,19 +175,18 @@ export default function QueryHistory() {
   }
 
   return (
-    <div className="page-stack">
-      <div className="card">
-        <div className="card-intro">
+    <div className={legacyLayoutClass('page-stack')}>
+      <div className={legacyCardClass('card')}>
+        <div className={legacyCardClass('card-intro')}>
           <h2>{t('query_history.title')}</h2>
-          <p className="card-lead card-lead--single-line">{t('app.nav.query_history_desc')}</p>
+          <p className={legacyCardClass('card-lead card-lead--single-line')}>
+            {t('app.nav.query_history_desc')}
+          </p>
         </div>
 
-        <div
-          className="form-row"
-          style={{ gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.25rem' }}
-        >
-          <label className="form-field" style={{ minWidth: '13rem' }}>
-            <span className="form-label">{t('glossary.label_datasource')}</span>
+        <div className={cn(formRowClass, 'mb-5')}>
+          <label className={legacyFormClass('form-field')} style={{ minWidth: '13rem' }}>
+            <span className={legacyFormClass('form-label')}>{t('glossary.label_datasource')}</span>
             <Select
               value={selectedDatasourceId}
               options={[
@@ -195,8 +199,8 @@ export default function QueryHistory() {
               }}
             />
           </label>
-          <label className="form-field" style={{ minWidth: '13rem' }}>
-            <span className="form-label">{t('glossary.label_model')}</span>
+          <label className={legacyFormClass('form-field')} style={{ minWidth: '13rem' }}>
+            <span className={legacyFormClass('form-label')}>{t('glossary.label_model')}</span>
             <Select
               value={selectedModelId}
               options={[
@@ -206,8 +210,8 @@ export default function QueryHistory() {
               onChange={setSelectedModelId}
             />
           </label>
-          <label className="form-field" style={{ minWidth: '10rem' }}>
-            <span className="form-label">{t('query_history.label_status')}</span>
+          <label className={legacyFormClass('form-field')} style={{ minWidth: '10rem' }}>
+            <span className={legacyFormClass('form-label')}>{t('query_history.label_status')}</span>
             <Select
               value={statusFilter}
               options={[
@@ -219,14 +223,14 @@ export default function QueryHistory() {
               onChange={setStatusFilter}
             />
           </label>
-          <div className="form-field" style={{ flex: 1, minWidth: '15rem' }}>
-            <span className="form-label">{t('common.search')}</span>
+          <div className={legacyFormClass('form-field')} style={{ flex: 1, minWidth: '15rem' }}>
+            <span className={legacyFormClass('form-label')}>{t('common.search')}</span>
             <input
               type="text"
               placeholder={t('query_history.search_placeholder')}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="input"
+              className={legacyFormClass('input')}
             />
           </div>
         </div>
@@ -404,7 +408,7 @@ export default function QueryHistory() {
                               <button
                                 type="button"
                                 onClick={() => handleRerun(entry.question)}
-                                className="btn btn-sm btn-ghost"
+                                className={legacyButtonClass('btn btn-sm btn-ghost')}
                                 style={{ padding: '4px 8px', fontSize: '0.75rem' }}
                               >
                                 {t('query_history.action_rerun')}

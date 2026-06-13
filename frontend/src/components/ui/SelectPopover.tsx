@@ -1,5 +1,18 @@
 import type { KeyboardEvent, Ref, RefObject } from 'react'
 
+import {
+  selectCheckClass,
+  selectCountClass,
+  selectEmptyClass,
+  selectHeaderClass,
+  selectHintClass,
+  selectListClass,
+  selectOptionClass,
+  selectPopoverClass,
+  selectPopoverLabelClass,
+  selectSearchInputClass,
+  selectSearchWrapClass,
+} from '../../lib/selectClasses'
 import type { SelectOption } from './Select'
 import { handleSelectTriggerKeyDown, type SelectKeyboardContext } from './selectKeyboard'
 
@@ -50,7 +63,7 @@ export function SelectPopover<T extends string>({
 
   return (
     <div
-      className={`ui-select-popover ui-select-popover--${popover.placement}`}
+      className={selectPopoverClass(popover.placement)}
       style={{
         position: 'fixed',
         left: popover.left,
@@ -59,13 +72,13 @@ export function SelectPopover<T extends string>({
       }}
       role="presentation"
     >
-      {header && <div className="ui-select-header">{header}</div>}
+      {header && <div className={selectHeaderClass}>{header}</div>}
       {searchable && (
-        <div className="ui-select-search">
+        <div className={selectSearchWrapClass}>
           <input
             ref={searchRef}
             type="search"
-            className="ui-select-search-input"
+            className={selectSearchInputClass}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={searchPlaceholder}
@@ -91,7 +104,7 @@ export function SelectPopover<T extends string>({
         id={`${baseId}-list`}
         role="listbox"
         aria-activedescendant={activeIndex >= 0 ? `${baseId}-opt-${activeIndex}` : undefined}
-        className="ui-select-list"
+        className={selectListClass}
         style={{
           maxHeight: searchable ? Math.max(120, popover.maxHeight - 44) : popover.maxHeight,
         }}
@@ -99,23 +112,13 @@ export function SelectPopover<T extends string>({
         onKeyDown={handleListKeyDown}
       >
         {displayOptions.length === 0 && (
-          <li className="ui-select-empty" role="option" aria-disabled="true">
+          <li className={selectEmptyClass} role="option" aria-disabled="true">
             {emptyLabel}
           </li>
         )}
         {displayOptions.map((opt, idx) => {
           const isSelected = opt.value === value
           const isActive = idx === activeIndex
-          const classes = ['ui-select-option']
-          if (isSelected) {
-            classes.push('is-selected')
-          }
-          if (isActive) {
-            classes.push('is-active')
-          }
-          if (opt.disabled) {
-            classes.push('is-disabled')
-          }
           return (
             <li
               key={`${opt.value}-${idx}`}
@@ -124,12 +127,16 @@ export function SelectPopover<T extends string>({
               aria-selected={isSelected}
               aria-disabled={opt.disabled ?? undefined}
               data-index={idx}
-              className={classes.join(' ')}
+              className={selectOptionClass({
+                selected: isSelected,
+                active: isActive,
+                disabled: Boolean(opt.disabled),
+              })}
               onMouseEnter={() => !opt.disabled && setActiveIndex(idx)}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => pickByIndex(idx)}
             >
-              <span className="ui-select-check" aria-hidden="true">
+              <span className={selectCheckClass} aria-hidden="true">
                 {isSelected ? (
                   <svg viewBox="0 0 12 12" width="10" height="10">
                     <path
@@ -143,12 +150,12 @@ export function SelectPopover<T extends string>({
                   </svg>
                 ) : null}
               </span>
-              <span className="ui-select-label">
+              <span className={selectPopoverLabelClass}>
                 {opt.label}
-                {opt.hint && <span className="ui-select-hint">{opt.hint}</span>}
+                {opt.hint && <span className={selectHintClass}>{opt.hint}</span>}
               </span>
               {typeof opt.count === 'number' && (
-                <span className="ui-select-count">{opt.count}</span>
+                <span className={selectCountClass}>{opt.count}</span>
               )}
             </li>
           )

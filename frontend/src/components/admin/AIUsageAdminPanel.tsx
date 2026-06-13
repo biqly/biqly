@@ -4,6 +4,7 @@ import { type AIUsageBreakdownRow, type AIUsageTotals, getAIUsageBreakdown } fro
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useT } from '../../i18n'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { PageQuery } from '../../types/pagination'
 import { formatDurationMs } from '../../utils/formatters'
 import {
@@ -25,7 +26,6 @@ import {
   adminTableContainerClass,
 } from './adminClasses'
 import { numberSelectOptions } from './adminSelectOptions'
-
 const DEFAULT_PAGE_SIZE = 25
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
@@ -170,7 +170,7 @@ export function AIUsageAdminPanel() {
         </div>
       </div>
 
-      <ErrorAlert error={error} className="error--top-gap" />
+      <ErrorAlert error={error} className={legacyFeedbackClass('error--top-gap')} />
 
       <div style={{ position: 'relative', marginTop: '1.25rem', minHeight: 120 }}>
         <LoadingOverlay loading={loading || lookupsLoading} />

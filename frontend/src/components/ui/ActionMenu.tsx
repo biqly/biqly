@@ -1,6 +1,9 @@
-import clsx from 'clsx'
 import type { ReactNode } from 'react'
 import { useEffect, useId, useRef, useState } from 'react'
+
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
 
 export interface ActionMenuItem {
   key: string
@@ -53,7 +56,10 @@ export function ActionMenu({
     <div className="relative inline-flex" ref={rootRef}>
       <button
         type="button"
-        className="btn btn-secondary inline-flex items-center gap-[0.35rem]"
+        className={cn(
+          legacyButtonClass('btn btn-secondary'),
+          'inline-flex items-center gap-[0.35rem]',
+        )}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
@@ -64,7 +70,9 @@ export function ActionMenu({
       </button>
       {open && (
         <div
-          className="absolute top-[calc(100%+0.35rem)] right-0 z-30 min-w-[13rem] p-[0.35rem] border border-border-strong rounded-[0.6rem] bg-card shadow-[0_12px_36px_rgba(0,0,0,0.35)] grid gap-[0.1rem] motion-safe:animate-[action-menu-in_120ms_ease]"
+          className={legacyCardClass(
+            'absolute top-[calc(100%+0.35rem)] right-0 z-30 min-w-[13rem] p-[0.35rem] border border-border-strong rounded-[0.6rem] bg-card shadow-[0_12px_36px_rgba(0,0,0,0.35)] grid gap-[0.1rem] motion-safe:animate-[action-menu-in_120ms_ease]',
+          )}
           id={menuId}
           role="menu"
         >
@@ -80,7 +88,7 @@ export function ActionMenu({
               key={item.key}
               type="button"
               role="menuitem"
-              className={clsx(
+              className={cn(
                 'flex items-center gap-2 w-full py-[0.45rem] px-[0.6rem] border-0 rounded-[0.4rem] bg-transparent text-[0.82rem] text-left cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-[-2px] enabled:hover:bg-[var(--control-hover-bg,rgba(127,127,127,0.12))] disabled:text-foreground-faint disabled:cursor-not-allowed',
                 item.danger ? 'text-error' : 'text-foreground',
               )}

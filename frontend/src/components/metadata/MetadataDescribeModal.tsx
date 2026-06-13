@@ -2,6 +2,14 @@ import { useEffect, useState } from 'react'
 
 import { type DescribeResult, runMetadataDescribeDirect } from '../../api/metadataDescribe'
 import { useT } from '../../i18n'
+import {
+  modalBackdropClass,
+  modalBodyClass,
+  modalCardClass,
+  modalCloseClass,
+  modalHeaderClass,
+  modalTitleClass,
+} from '../../lib/modalClasses'
 import type { AIRuntimeSettings } from '../../types/ai'
 import type { ColumnRow, TableRow } from '../../types/semantic'
 import { ModelBadgeRow } from '../ui/ModelBadgeRow'
@@ -102,7 +110,7 @@ export function MetadataDescribeModal({
 
   return (
     <div
-      className="modal-backdrop"
+      className={modalBackdropClass()}
       role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
@@ -111,14 +119,14 @@ export function MetadataDescribeModal({
       }}
     >
       <section
-        className="modal-card"
+        className={modalCardClass()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="describe-title"
       >
-        <header className="modal-header">
+        <header className={modalHeaderClass()}>
           <div>
-            <h2 id="describe-title">
+            <h2 id="describe-title" className={modalTitleClass()}>
               {t('metadata.describe_modal_title', {
                 fqn: `${table.schema_name}.${table.table_name}`,
               })}
@@ -139,7 +147,7 @@ export function MetadataDescribeModal({
           </div>
           <button
             type="button"
-            className="modal-close"
+            className={modalCloseClass()}
             aria-label={t('metadata.describe_close_aria')}
             onClick={onClose}
           >
@@ -147,7 +155,7 @@ export function MetadataDescribeModal({
           </button>
         </header>
 
-        <div className="modal-body">
+        <div className={modalBodyClass()}>
           <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
             {t('metadata.describe_intro')}
           </p>

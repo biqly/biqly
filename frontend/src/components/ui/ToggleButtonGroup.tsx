@@ -1,4 +1,5 @@
-import clsx from 'clsx'
+import { cn } from '../../lib/cn'
+import { toggleBtnClass } from '../../lib/toggleClasses'
 
 export interface ToggleButtonOption<T extends string> {
   value: T
@@ -13,6 +14,7 @@ interface ToggleButtonGroupProps<T extends string> {
   className?: string
   buttonClassName?: string
   activeClassName?: string
+  toggleButtons?: boolean
 }
 
 export function ToggleButtonGroup<T extends string>({
@@ -23,6 +25,7 @@ export function ToggleButtonGroup<T extends string>({
   className,
   buttonClassName,
   activeClassName = 'active',
+  toggleButtons = false,
 }: ToggleButtonGroupProps<T>) {
   return (
     <div className={className} role="group" aria-label={ariaLabel}>
@@ -32,7 +35,11 @@ export function ToggleButtonGroup<T extends string>({
           <button
             key={option.value}
             type="button"
-            className={clsx(buttonClassName, active && activeClassName)}
+            className={
+              toggleButtons
+                ? toggleBtnClass(active, buttonClassName)
+                : cn(buttonClassName, active && activeClassName)
+            }
             onClick={() => onChange(option.value)}
             aria-pressed={active}
           >

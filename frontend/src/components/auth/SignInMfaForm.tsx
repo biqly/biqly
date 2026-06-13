@@ -1,7 +1,7 @@
 import type { RefObject, SubmitEvent } from 'react'
 
 import type { TFunction } from '../../i18n'
-
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 export function SignInMfaForm({
   t,
   error,
@@ -37,7 +37,9 @@ export function SignInMfaForm({
 
       {error && (
         <div
-          className="p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2"
+          className={legacyFeedbackClass(
+            'p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2',
+          )}
           role="alert"
           aria-live="assertive"
         >

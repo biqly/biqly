@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
+import { buttonClass, legacyButtonClass } from '../../lib/buttonClasses'
+import { confirmDialogActionsClass, confirmDialogMessageClass } from '../../lib/modalClasses'
 import { Modal } from './Modal'
 
 interface ConfirmDialogProps {
@@ -33,16 +35,26 @@ export function ConfirmDialog({
 
   return (
     <Modal open={open} title={title} onClose={onCancel} closeOnBackdrop={false}>
-      <div className="confirm-dialog">
-        {message && <p className="confirm-dialog__message">{message}</p>}
-        <div className="confirm-dialog__actions">
-          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+      <div>
+        {message && <p className={confirmDialogMessageClass}>{message}</p>}
+        <div className={confirmDialogActionsClass}>
+          <button
+            type="button"
+            className={legacyButtonClass('btn btn-secondary')}
+            onClick={onCancel}
+          >
             {cancelText}
           </button>
           <button
             type="button"
             ref={confirmButtonRef}
-            className={`btn ${variant === 'danger' ? 'btn-danger' : variant === 'warning' ? 'btn-danger-outline' : 'btn-primary'}`}
+            className={buttonClass(
+              variant === 'danger'
+                ? 'danger'
+                : variant === 'warning'
+                  ? 'danger-outline'
+                  : 'primary',
+            )}
             onClick={onConfirm}
           >
             {confirmText}

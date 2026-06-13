@@ -7,6 +7,10 @@ import {
 } from '../../dbDrivers'
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { formStackClass, legacyFormClass } from '../../lib/formClasses'
+import { modalActionsBorderedClass, modalFormRowClass } from '../../lib/modalClasses'
 import { DriverTileGrid } from '../DriverTileGrid'
 import { Modal } from '../ui/Modal'
 
@@ -73,15 +77,18 @@ export function DatasourceFormModal({
       title={editingId ? t('datasources.edit_title') : t('datasources.new')}
       subtitle={t('datasources.form_subtitle')}
       onClose={onClose}
-      className="w-full sm:max-w-136 [&_.modal-body]:gap-0 [&_.modal-body_.form-stack]:gap-[0.85rem]"
+      className="w-full sm:max-w-136"
+      bodyClassName="gap-0"
     >
-      <div className="form-stack">
-        <div className="form-group">
+      <div className={formStackClass}>
+        <div className={legacyFormClass('form-group')}>
           <span className="block mb-[0.35rem] font-semibold text-[0.875rem]">
             {t('datasources.connection_mode')}
           </span>
           <div
-            className={`grid grid-cols-2 gap-1 w-full p-1 border border-border rounded-lg bg-card-raised`}
+            className={legacyCardClass(
+              'grid grid-cols-2 gap-1 w-full p-1 border border-border rounded-lg bg-card-raised',
+            )}
             role="group"
             aria-label={t('datasources.connection_mode')}
           >
@@ -124,7 +131,7 @@ export function DatasourceFormModal({
           </div>
         </div>
 
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <label htmlFor="datasource-name">{t('datasources.name')}</label>
           <input
             id="datasource-name"
@@ -137,7 +144,7 @@ export function DatasourceFormModal({
           />
         </div>
 
-        <div className="form-group">
+        <div className={legacyFormClass('form-group')}>
           <span className="block mb-[0.35rem] font-semibold text-[0.875rem]">
             {t('datasources.type')}
           </span>
@@ -151,7 +158,7 @@ export function DatasourceFormModal({
         </div>
 
         {connMode === 'raw' ? (
-          <div className="form-group">
+          <div className={legacyFormClass('form-group')}>
             <label htmlFor="datasource-dsn">{t('datasources.dsn')}</label>
             <input
               id="datasource-dsn"
@@ -169,8 +176,8 @@ export function DatasourceFormModal({
           </div>
         ) : (
           <>
-            <div className="modal-form-row">
-              <div className="form-group">
+            <div className={modalFormRowClass()}>
+              <div className={legacyFormClass('form-group')}>
                 <label htmlFor="ds-host">{t('datasources.fields.host')}</label>
                 <input
                   id="ds-host"
@@ -180,7 +187,7 @@ export function DatasourceFormModal({
                   autoComplete="off"
                 />
               </div>
-              <div className="form-group">
+              <div className={legacyFormClass('form-group')}>
                 <label htmlFor="ds-port">{t('datasources.fields.port')}</label>
                 <input
                   id="ds-port"
@@ -195,8 +202,8 @@ export function DatasourceFormModal({
                 </small>
               </div>
             </div>
-            <div className="modal-form-row">
-              <div className="form-group">
+            <div className={modalFormRowClass()}>
+              <div className={legacyFormClass('form-group')}>
                 <label htmlFor="ds-db">{t('datasources.fields.database')}</label>
                 <input
                   id="ds-db"
@@ -207,7 +214,7 @@ export function DatasourceFormModal({
                   autoComplete="off"
                 />
               </div>
-              <div className="form-group">
+              <div className={legacyFormClass('form-group')}>
                 <label htmlFor="ds-user">{t('datasources.fields.username')}</label>
                 <input
                   id="ds-user"
@@ -217,7 +224,7 @@ export function DatasourceFormModal({
                 />
               </div>
             </div>
-            <div className="form-group">
+            <div className={legacyFormClass('form-group')}>
               <label htmlFor="ds-pass">{t('datasources.fields.password')}</label>
               <input
                 id="ds-pass"
@@ -230,7 +237,7 @@ export function DatasourceFormModal({
                 {editingId ? t('datasources.password_keep_hint') : t('datasources.dsn_hint')}
               </small>
             </div>
-            <div className="form-group">
+            <div className={legacyFormClass('form-group')}>
               <label htmlFor="ds-ssl">{t('datasources.fields.ssl_mode')}</label>
               <input
                 id="ds-ssl"
@@ -265,15 +272,25 @@ export function DatasourceFormModal({
         )}
       </div>
 
-      <div className={`modal-actions mt-0 pt-[0.85rem] border-t border-border`}>
-        <button className="btn" type="button" onClick={onClose} disabled={loading}>
+      <div className={modalActionsBorderedClass()}>
+        <button
+          className={legacyButtonClass('btn')}
+          type="button"
+          onClick={onClose}
+          disabled={loading}
+        >
           {t('datasources.cancel')}
         </button>
-        <button className="btn" type="button" onClick={onTest} disabled={loading || !canSubmit}>
+        <button
+          className={legacyButtonClass('btn')}
+          type="button"
+          onClick={onTest}
+          disabled={loading || !canSubmit}
+        >
           {t('datasources.test_before_save')}
         </button>
         <button
-          className="btn btn-primary"
+          className={legacyButtonClass('btn btn-primary')}
           type="button"
           onClick={onSave}
           disabled={loading || !canSubmit}

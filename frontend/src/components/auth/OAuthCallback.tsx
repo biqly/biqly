@@ -4,8 +4,16 @@ import { useNavigate } from 'react-router-dom'
 import { apiOAuthExchange } from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
 import { useT } from '../../i18n'
+import {
+  authBtnClass,
+  authCardClass,
+  authErrorClass,
+  authHeaderClass,
+  authLogoClass,
+  authPageClass,
+  authTitleClass,
+} from '../../lib/authClasses'
 import { useAuth } from './AuthProvider'
-
 export default function OAuthCallback() {
   const navigate = useNavigate()
   const t = useT()
@@ -59,21 +67,21 @@ export default function OAuthCallback() {
   }, [loginWithTokens, navigate, t])
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <div className="auth-header">
-          <div className="auth-logo">
+    <div className={authPageClass}>
+      <div className={authCardClass}>
+        <div className={authHeaderClass}>
+          <div className={authLogoClass}>
             <img src={abiLogo} alt="" width={34} height={34} />
           </div>
-          <h1 className="auth-title">Authenticating…</h1>
+          <h1 className={authTitleClass}>Authenticating…</h1>
         </div>
 
         {error ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className="auth-error">{error}</div>
+            <div className={authErrorClass}>{error}</div>
             <button
               type="button"
-              className="auth-btn"
+              className={authBtnClass}
               onClick={() => {
                 void navigate('/auth/signin')
               }}

@@ -16,6 +16,10 @@ import {
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { useConfirm } from '../../hooks/useConfirm'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { Role, Workspace, WorkspaceDatasource, WorkspaceMember } from '../../types/auth'
 import { formatDateOnly } from '../../utils/formatters'
 import {
@@ -33,7 +37,6 @@ import {
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
-
 interface Props {
   token: string
   workspaceID: string
@@ -215,7 +218,9 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
   if (!workspace) {
     return (
       <div className="flex flex-col gap-5">
-        <div className="py-6 px-0 text-center text-error">{t('common.error')}</div>
+        <div className={legacyFeedbackClass('py-6 px-0 text-center text-error')}>
+          {t('common.error')}
+        </div>
       </div>
     )
   }
@@ -226,18 +231,26 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
         <h2 className="m-0 text-[20px]">{t('admin.workspaces.settings_title')}</h2>
 
         {error && (
-          <div className="py-2.5 px-3.5 bg-error/10 border border-error/25 rounded-[6px] text-error text-[13px]">
+          <div
+            className={legacyFeedbackClass(
+              'py-2.5 px-3.5 bg-error/10 border border-error/25 rounded-[6px] text-error text-[13px]',
+            )}
+          >
             {error}
           </div>
         )}
         {success && (
-          <div className="py-2.5 px-3.5 bg-success/10 border border-success/25 rounded-[6px] text-success text-[13px]">
+          <div
+            className={legacyFeedbackClass(
+              'py-2.5 px-3.5 bg-success/10 border border-success/25 rounded-[6px] text-success text-[13px]',
+            )}
+          >
             {success}
           </div>
         )}
 
         {/* ── Info / Edit Form ── */}
-        <section className={`p-4 border border-border rounded-[8px] bg-card`}>
+        <section className={legacyCardClass('p-4 border border-border rounded-[8px] bg-card')}>
           <div className="flex items-center gap-2.5 mb-3">
             <span
               className={clsx(
@@ -287,7 +300,10 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                 />
                 <span>{t('admin.workspaces.mfa_required')}</span>
               </label>
-              <button type="submit" className={`btn btn-primary ${adminBtnAutoWidthClass}`}>
+              <button
+                type="submit"
+                className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
+              >
                 {t('common.save')}
               </button>
             </form>
@@ -295,7 +311,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
         </section>
 
         {/* ── Members ── */}
-        <section className={`p-4 border border-border rounded-[8px] bg-card`}>
+        <section className={legacyCardClass('p-4 border border-border rounded-[8px] bg-card')}>
           <h3 className="m-0 mb-3 text-[15px] font-semibold">{t('admin.workspaces.members')}</h3>
           {members.length === 0 ? (
             <p className="text-foreground-muted text-[13px] my-2 mx-0">
@@ -339,7 +355,9 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                           onClick={() => {
                             void onRemoveMember(m.user_id)
                           }}
-                          className="inline-flex items-center justify-center min-h-[1.85rem] px-2.5 bg-transparent border border-error/30 text-error rounded-[6px] cursor-pointer text-[12px] leading-[1.2] hover:bg-error/6 transition-colors"
+                          className={legacyFeedbackClass(
+                            'inline-flex items-center justify-center min-h-[1.85rem] px-2.5 bg-transparent border border-error/30 text-error rounded-[6px] cursor-pointer text-[12px] leading-[1.2] hover:bg-error/6 transition-colors',
+                          )}
                           disabled={!canManageMembers}
                         >
                           {t('common.delete')}
@@ -383,7 +401,10 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               </label>
               <button
                 type="submit"
-                className={`btn btn-primary ${adminBtnAutoWidthClass} self-end min-h-[2.1rem] mb-0`}
+                className={cn(
+                  legacyButtonClass('btn btn-primary self-end min-h-[2.1rem] mb-0'),
+                  adminBtnAutoWidthClass,
+                )}
               >
                 {t('admin.workspaces.invite_member')}
               </button>
@@ -394,7 +415,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
         </section>
 
         {/* ── Datasources ── */}
-        <section className={`p-4 border border-border rounded-[8px] bg-card`}>
+        <section className={legacyCardClass('p-4 border border-border rounded-[8px] bg-card')}>
           <h3 className="m-0 mb-3 text-[15px] font-semibold">
             {t('admin.workspaces.datasources')}
           </h3>
@@ -429,7 +450,9 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                           onClick={() => {
                             void onDetachDS(d.datasource_id)
                           }}
-                          className="inline-flex items-center justify-center min-h-[1.85rem] px-2.5 bg-transparent border border-error/30 text-error rounded-[6px] cursor-pointer text-[12px] leading-[1.2] hover:bg-error/6 transition-colors"
+                          className={legacyFeedbackClass(
+                            'inline-flex items-center justify-center min-h-[1.85rem] px-2.5 bg-transparent border border-error/30 text-error rounded-[6px] cursor-pointer text-[12px] leading-[1.2] hover:bg-error/6 transition-colors',
+                          )}
                           disabled={!canManageDatasources}
                         >
                           {t('common.delete')}
@@ -462,7 +485,10 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               </label>
               <button
                 type="submit"
-                className={`btn btn-primary ${adminBtnAutoWidthClass} self-end min-h-[2.1rem] mb-0`}
+                className={cn(
+                  legacyButtonClass('btn btn-primary self-end min-h-[2.1rem] mb-0'),
+                  adminBtnAutoWidthClass,
+                )}
               >
                 {t('admin.workspaces.attach_datasource')}
               </button>

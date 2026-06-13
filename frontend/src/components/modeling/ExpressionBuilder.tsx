@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { LooseTFunction } from '../../i18n'
+import { legacyCardClass } from '../../lib/cardClasses'
+import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { ColumnRow, SemanticExprNode, SemanticModelDetail } from '../../types/semantic'
 import { isRecord } from '../../utils/record'
-
 // Whitelisted SQL functions with arity hints (-1 = variadic)
 export interface FunctionInfo {
   name: string
@@ -639,7 +640,9 @@ export function ExpressionBuilder({
 
   return (
     <div
-      className={`flex flex-col gap-4 bg-card border border-border rounded-lg p-5 shadow-card-sm mt-3`}
+      className={legacyCardClass(
+        'flex flex-col gap-4 bg-card border border-border rounded-lg p-5 shadow-card-sm mt-3',
+      )}
     >
       <div className={`flex gap-2 border-b border-border pb-3`}>
         <button type="button" className={exprModeToggleClass(mode === 'text')} onClick={toggleMode}>
@@ -678,7 +681,11 @@ export function ExpressionBuilder({
       </div>
 
       {errorMsg && (
-        <div className="bg-error/10 border border-error/30 text-error rounded-md py-[0.6rem] px-[0.8rem] text-[0.78rem] font-mono mt-2">
+        <div
+          className={legacyFeedbackClass(
+            'bg-error/10 border border-error/30 text-error rounded-md py-[0.6rem] px-[0.8rem] text-[0.78rem] font-mono mt-2',
+          )}
+        >
           {errorMsg}
         </div>
       )}

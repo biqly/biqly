@@ -1,4 +1,6 @@
 import type { useT } from '../../i18n'
+import { modelingFormGroupClass } from '../../lib/formClasses'
+import { modalFormRowClass } from '../../lib/modalClasses'
 import type { ColumnRow, TableRow } from '../../types/semantic'
 import { Select } from '../ui/Select'
 
@@ -44,8 +46,8 @@ export function AddMetricSimpleFields({
 }) {
   return (
     <>
-      <div className="modal-form-row">
-        <div className="form-group">
+      <div className={modalFormRowClass()}>
+        <div className={modelingFormGroupClass}>
           <label htmlFor="metric-schema">{t('modeling.pick_schema')}</label>
           <Select
             id="metric-schema"
@@ -56,7 +58,7 @@ export function AddMetricSimpleFields({
             options={availableSchemas.map((s) => ({ value: s, label: s }))}
           />
         </div>
-        <div className="form-group">
+        <div className={modelingFormGroupClass}>
           <label htmlFor="metric-table">{t('modeling.pick_table')}</label>
           <Select
             id="metric-table"
@@ -71,8 +73,8 @@ export function AddMetricSimpleFields({
           />
         </div>
       </div>
-      <div className="modal-form-row">
-        <div className="form-group">
+      <div className={modalFormRowClass()}>
+        <div className={modelingFormGroupClass}>
           <label htmlFor="metric-column">{t('modeling.pick_column')}</label>
           <Select
             id="metric-column"
@@ -86,7 +88,7 @@ export function AddMetricSimpleFields({
             }))}
           />
         </div>
-        <div className="form-group">
+        <div className={modelingFormGroupClass}>
           <label htmlFor="metric-aggregation">{t('modeling.metric_aggregation_label')}</label>
           <Select
             id="metric-aggregation"
