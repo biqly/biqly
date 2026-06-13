@@ -88,6 +88,7 @@ export default function TableBrowser() {
           browserFields={page.browserFields}
           filters={page.filters}
           popoverOpen={page.popoverOpen}
+          popoverAnchorEl={page.popoverAnchorEl}
           popoverField={page.popoverField}
           popoverOperator={page.popoverOperator}
           popoverChips={page.popoverChips}
@@ -121,7 +122,7 @@ export default function TableBrowser() {
           onOpenEditFilter={page.handleOpenEditFilter}
           onRemoveFilter={page.handleRemoveFilter}
           onOpenAddFilter={page.handleOpenAddFilter}
-          onClosePopover={() => page.setPopoverOpen(false)}
+          onClosePopover={page.handleCloseFilterPopover}
           onOperatorChange={page.setPopoverOperator}
           onFieldChange={page.setPopoverField}
           onChipInputChange={page.setChipInputText}

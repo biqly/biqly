@@ -5,6 +5,31 @@ export const resultsTableScrollClass =
 
 export const resultsTableClass = 'w-full min-w-[42rem] mt-4 border-collapse text-[0.9rem]'
 
+export const resultsTableDatasourcesListClass = cn(
+  resultsTableClass,
+  'results-table--datasources-list min-w-0 w-full table-fixed text-[0.875rem]',
+  '[&_th]:px-4 [&_td]:px-4 [&_th]:py-3 [&_td]:py-[0.85rem]',
+  '[&_thead_th]:bg-[var(--table-header-bg)] [&_thead_th]:text-[var(--table-header-fg)]',
+  '[&_thead_th]:text-[0.68rem] [&_thead_th]:font-bold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.08em]',
+  '[&_thead_th]:border-b [&_thead_th]:border-border-strong [&_thead_th]:align-middle',
+  '[&_tbody_td]:align-middle [&_tbody_td]:border-b [&_tbody_td]:border-border',
+  '[&_tbody_tr:last-child_td]:border-b-0',
+  '[&_thead_th.datasources-col-actions]:text-right',
+  '[&_tbody_td.actions]:text-right',
+  '[&_tbody_td.datasources-col-driver]:whitespace-nowrap',
+  '[&_tbody_td.datasources-col-sync]:whitespace-nowrap text-[0.84rem] text-foreground-muted',
+)
+
+export const datasourceTableSectionLabelClass =
+  'm-0 mb-3 text-[0.72rem] font-bold uppercase tracking-[0.08em] text-foreground-muted'
+
+export const datasourceRowStatusClass = 'mt-1 text-[0.75rem] leading-snug text-foreground-muted'
+
+export const datasourceConnectionHintClass = cn(
+  'font-[family-name:var(--font-mono)] text-[0.75rem] leading-[1.4] text-foreground-muted',
+  'break-all',
+)
+
 const resultsTableMetadataListBase = cn(
   resultsTableClass,
   'min-w-0 w-full mt-2 text-[0.8125rem] table-fixed',
@@ -16,13 +41,25 @@ const resultsTableMetadataListBase = cn(
   '[&_td.metadata-desc-cell]:text-left',
   '[&_thead_th.metadata-col-actions]:text-right',
   '[&_td.actions]:text-right',
-  '[&_th.metadata-col-type]:whitespace-nowrap [&_th.metadata-col-type]:w-[1%] [&_th.metadata-col-type]:align-middle [&_th.metadata-col-type]:text-foreground-muted',
+  '[&_th.metadata-col-type]:align-middle [&_th.metadata-col-type]:text-foreground-muted',
   '[&_td.metadata-col-type]:align-middle [&_td.metadata-col-type]:text-foreground-muted [&_td.metadata-col-type]:text-[0.82rem]',
+  '[&_td.metadata-col-type]:whitespace-normal [&_td.metadata-col-type]:break-words [&_td.metadata-col-type]:overflow-hidden',
   '[&_tbody_tr.metadata-table-row:hover>td]:bg-[color-mix(in_srgb,var(--accent)_4%,transparent)]',
-  '[&_tbody_tr.metadata-table-row--expanded>td]:!bg-[rgba(91,142,255,0.08)]',
+  '[&_tbody_tr.metadata-table-row--expanded>td]:!bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]',
   '[&_tbody_tr.metadata-table-row--expanded>td]:border-b-0',
-  '[&_tbody_tr.metadata-table-row--expanded>td]:shadow-[inset_0_-1px_0_rgba(91,142,255,0.22)]',
+  '[&_tbody_tr.metadata-table-row--expanded>td]:shadow-[inset_0_-1px_0_color-mix(in_srgb,var(--accent)_22%,transparent)]',
 )
+
+export const metadataTableColNameClass = 'w-[30%]'
+export const metadataTableColTypeClass = 'w-[15%]'
+export const metadataTableColDescClass = 'w-[41%]'
+export const metadataTableColActionsClass = 'w-[14%]'
+
+export const metadataNestedColNameClass = 'w-[30%]'
+export const metadataNestedColTypeClass = 'w-[22%]'
+export const metadataNestedColDescClass = 'w-[48%]'
+
+export const metadataFilterEmptyRowClass = 'py-3 px-3 text-[0.85rem] text-foreground-muted'
 
 export function resultsTableMetadataListClass(extra?: string): string {
   return cn(resultsTableMetadataListBase, extra)
@@ -45,18 +82,29 @@ export function resultsTableNestedClass(extra?: string): string {
   )
 }
 
-export const metadataToolbarClass = 'flex flex-wrap items-center gap-x-3 gap-y-2 mb-3'
+export const metadataToolbarClass = 'flex flex-col gap-3 mb-4'
 
 export const metadataToolbarTitleClass =
-  'm-0 text-[1.05rem] font-[650] leading-[1.85rem] whitespace-nowrap shrink-0'
+  'm-0 min-w-0 truncate text-[1.05rem] font-[650] leading-snug'
 
-export const metadataToolbarActionsClass = cn(
-  'flex flex-wrap items-center justify-end gap-[0.45rem] shrink-0 ml-auto',
-  '[&_button]:w-auto [&_button]:mt-0 [&_button]:min-h-[1.85rem]',
+export const metadataToolbarTopRowClass =
+  'grid grid-cols-1 gap-3 min-w-0 min-[981px]:grid-cols-[minmax(0,1fr)_auto] min-[981px]:items-center min-[981px]:gap-x-4'
+
+export const metadataTableFiltersRowClass = cn(
+  'flex flex-wrap gap-x-3 gap-y-2 items-center min-w-0',
+  '[&_.metadata-filter-field]:flex-[0_1_11rem] [&_.metadata-filter-field]:min-w-[9rem] [&_.metadata-filter-field]:max-w-[11rem]',
 )
 
+export const metadataToolbarActionsClass = cn(
+  'flex flex-wrap items-center justify-start gap-2 sm:gap-3 min-w-0 min-[981px]:justify-end',
+  '[&_.metadata-toolbar-action-btn]:w-auto [&_.metadata-toolbar-action-btn]:mt-0',
+  '[&_.metadata-toolbar-action-btn]:min-h-[1.85rem] [&_.metadata-toolbar-action-btn]:shrink-0',
+)
+
+export const metadataToolbarLangGroupClass = 'inline-flex items-center gap-2 shrink-0'
+
 export const metadataLangTabsClass = cn(
-  'inline-flex flex-row items-center border border-border-strong rounded-[0.4rem]',
+  'inline-flex shrink-0 flex-none flex-row items-center border border-border-strong rounded-[0.4rem]',
   'bg-card-raised p-0.5 gap-0.5 h-[1.85rem] box-border',
 )
 
@@ -71,7 +119,7 @@ export function metadataLangTabClass(active?: boolean): string {
 }
 
 export const metadataHintBtnClass = cn(
-  'appearance-none inline-flex items-center justify-center w-[1.35rem] h-[1.35rem] p-0',
+  'appearance-none inline-flex shrink-0 flex-none items-center justify-center w-[1.85rem] h-[1.85rem] p-0',
   'border border-border rounded-full bg-card-raised text-foreground-muted',
   'text-[0.72rem] font-bold italic leading-none cursor-help',
   "font-[Georgia,'Times_New_Roman',serif]",
@@ -92,9 +140,9 @@ export const metadataFilterFieldClass = cn('m-0 min-w-0', '[&_.ui-select]:w-full
 
 export function metadataTypeBadgeClass(isView?: boolean): string {
   return cn(
-    'inline-block px-[0.12rem_0.5rem] py-[0.12rem] rounded-full border border-border',
+    'inline-block max-w-full box-border px-[0.35rem_0.55rem] py-[0.15rem] rounded-full border border-border',
     'bg-card-raised text-foreground-muted text-[0.66rem] font-semibold tracking-[0.04em]',
-    'uppercase whitespace-nowrap',
+    'uppercase break-words text-center leading-snug',
     isView &&
       'border-[color-mix(in_srgb,var(--accent)_35%,transparent)] text-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]',
   )
@@ -148,6 +196,10 @@ export function metadataColNameSuffixClass(multiline?: boolean): string {
     multiline && 'block mt-[0.2rem] leading-[1.35]',
   )
 }
+
+export const metadataDescDisplayValueClass = 'text-foreground'
+
+export const metadataDescDisplayPlaceholderClass = 'text-foreground-muted italic'
 
 export function metadataDescCellClass(editing?: boolean): string {
   return cn(
@@ -252,6 +304,12 @@ function resolveLegacyTableShell(set: Set<string>): { classes: string; consumed:
     return {
       classes: resultsTableMetadataListClass(),
       consumed: new Set(['results-table', 'results-table--metadata-list']),
+    }
+  }
+  if (set.has('results-table--datasources-list')) {
+    return {
+      classes: resultsTableDatasourcesListClass,
+      consumed: new Set(['results-table', 'results-table--datasources-list']),
     }
   }
   if (set.has('results-table-scroll')) {

@@ -1,4 +1,5 @@
 import type { KeyboardEvent, Ref, RefObject } from 'react'
+import { createPortal } from 'react-dom'
 
 import {
   selectCheckClass,
@@ -61,7 +62,7 @@ export function SelectPopover<T extends string>({
 }) {
   const handleListKeyDown = (e: KeyboardEvent) => handleSelectTriggerKeyDown(e, keyboardCtx)
 
-  return (
+  return createPortal(
     <div
       className={selectPopoverClass(popover.placement)}
       style={{
@@ -161,6 +162,7 @@ export function SelectPopover<T extends string>({
           )
         })}
       </ul>
-    </div>
+    </div>,
+    document.body,
   )
 }

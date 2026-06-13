@@ -88,19 +88,6 @@ export const qbSummarizeSectionClass = 'flex min-w-48 flex-1 flex-wrap items-cen
 export const qbSummarizeDividerClass =
   'select-none text-[0.76rem] font-semibold lowercase text-foreground-faint'
 
-export const qbSummarizeAvailableClass = 'mt-4 border-t border-dashed border-border pt-3'
-
-export const qbSummarizeAvailableTitleClass =
-  'mb-2 text-[0.74rem] font-bold uppercase tracking-wide text-foreground-muted'
-
-export const qbSummarizeAvailableListClass = 'flex flex-wrap gap-[0.35rem]'
-
-export const qbDimensionBadgeClass =
-  'cursor-pointer rounded-[0.4rem] border border-border bg-white/[0.03] px-[0.6rem] py-1 text-[0.76rem] font-semibold text-foreground-muted transition-all duration-150 hover:border-foreground-muted hover:bg-white/[0.08] hover:text-foreground'
-
-export const qbDimensionBadgeActiveClass =
-  'border-indigo-500/40 bg-indigo-500/12 text-indigo-300 hover:border-indigo-500/60 hover:bg-indigo-500/18 hover:text-indigo-200'
-
 export const qbToolbarClass =
   'mt-4 flex flex-wrap items-center gap-2 border-t border-border px-2 pt-[0.85rem]'
 

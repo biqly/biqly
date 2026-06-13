@@ -16,7 +16,13 @@ import { legacyCardClass } from '../lib/cardClasses'
 import { driverCellClass, driverCellLabelClass, driverCellLogoClass } from '../lib/driverClasses'
 import { errorAlertTopGapClass, uiEmptyStateInlineClass } from '../lib/feedbackClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
-import { legacyTableClass } from '../lib/tableClasses'
+import {
+  datasourceConnectionHintClass,
+  datasourceRowStatusClass,
+  datasourceTableSectionLabelClass,
+  legacyTableClass,
+  resultsTableScrollClass,
+} from '../lib/tableClasses'
 import type { Datasource } from '../types/metadata'
 import { noop } from '../utils/constants'
 import { useAuth } from './auth/AuthProvider'
@@ -323,28 +329,23 @@ export default function Datasources() {
 
   return (
     <div className={legacyLayoutClass('page-stack min-w-0')}>
-      <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4">
-        <div className="min-w-0">
-          <h2 className="m-0 text-foreground font-['Plus_Jakarta_Sans',sans-serif] text-base font-bold">
-            {t('datasources.panel_title')}
-          </h2>
-          <p className="mt-[0.2rem] mr-0 mb-0 ml-0 text-foreground-muted text-[0.82rem] leading-[1.4]">
-            {t('datasources.form_subtitle')}
-          </p>
-        </div>
-        <button
-          className={legacyButtonClass('btn btn-primary')}
-          type="button"
-          onClick={openNewForm}
-        >
-          {t('datasources.new')}
-        </button>
-      </div>
-
       <ErrorAlert error={error} className={errorAlertTopGapClass} />
 
       <div className={legacyCardClass('card')}>
-        <h2>{t('datasources.registered_count', { count: datasourceRows.length })}</h2>
+        <div className={legacyCardClass('card-intro card-intro--compact')}>
+          <div className={legacyCardClass('card-header-row')}>
+            <h2>{t('datasources.panel_title')}</h2>
+            <button
+              className={legacyButtonClass('btn btn-primary')}
+              type="button"
+              onClick={openNewForm}
+            >
+              + {t('datasources.new')}
+            </button>
+          </div>
+          <p className={legacyCardClass('card-lead')}>{t('datasources.form_subtitle')}</p>
+        </div>
+
         {accessibleDatasourceIDs !== null && datasourceRows.length < items.length && (
           <p className={datasourceAccessNoteClass}>
             {t(
@@ -355,130 +356,141 @@ export default function Datasources() {
             )}
           </p>
         )}
-        {datasourceRows.length === 0 && !loading && (
+
+        {datasourceRows.length === 0 && !loading ? (
           <EmptyState description={t('datasources.empty')} className={uiEmptyStateInlineClass} />
-        )}
-        <table className={legacyTableClass('results-table')}>
-          <thead>
-            <tr>
-              <th>{t('datasources.record_name')}</th>
-              <th>{t('datasources.driver_type')}</th>
-              <th>{t('datasources.last_sync')}</th>
-              <th className="actions">{t('datasources.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {datasourceRows.map(({ datasource: ds, access }) => {
-              const hint = connectionSummary(ds)
-              const logoSrc = driverLogoUrl(ds.type)
-              const modeHint =
-                hint.line1 ||
-                (ds.dsn_mode === 'structured'
-                  ? t('datasources.mode_structured')
-                  : t('datasources.mode_raw'))
-              return (
-                <tr key={ds.id}>
-                  <td>
-                    <div className="flex flex-col gap-[0.35rem] min-w-0 max-w-md">
-                      <div className="flex flex-wrap items-center gap-x-[0.65rem] gap-y-[0.45rem]">
-                        <span className="text-foreground font-semibold text-[0.9375rem]">
-                          {ds.name}
-                        </span>
-                        {showAccessBadge && access === 'allowed' && (
-                          <span className={datasourceAccessBadgeClass}>
-                            <span className={datasourceAccessBadgeIconClass} aria-hidden>
-                              ✓
+        ) : (
+          <>
+            <p className={datasourceTableSectionLabelClass}>
+              {t('datasources.registered_count', { count: datasourceRows.length })}
+            </p>
+            <div className={resultsTableScrollClass}>
+              <table className={legacyTableClass('results-table results-table--datasources-list')}>
+                <colgroup>
+                  <col className="datasources-cw-record" />
+                  <col className="datasources-cw-driver" />
+                  <col className="datasources-cw-sync" />
+                  <col className="datasources-cw-actions" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th className="datasources-col-record">{t('datasources.record_name')}</th>
+                    <th className="datasources-col-driver">{t('datasources.driver_type')}</th>
+                    <th className="datasources-col-sync">{t('datasources.last_sync')}</th>
+                    <th className="datasources-col-actions actions">{t('datasources.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {datasourceRows.map(({ datasource: ds, access }) => {
+                    const hint = connectionSummary(ds)
+                    const logoSrc = driverLogoUrl(ds.type)
+                    const modeHint =
+                      hint.line1 ||
+                      (ds.dsn_mode === 'structured'
+                        ? t('datasources.mode_structured')
+                        : t('datasources.mode_raw'))
+                    return (
+                      <tr key={ds.id}>
+                        <td className="datasources-col-record">
+                          <div className="flex min-w-0 flex-col gap-1.5">
+                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                              <span className="text-[0.9375rem] font-semibold text-foreground">
+                                {ds.name}
+                              </span>
+                              {showAccessBadge && access === 'allowed' && (
+                                <span className={datasourceAccessBadgeClass}>
+                                  <span className={datasourceAccessBadgeIconClass} aria-hidden>
+                                    ✓
+                                  </span>
+                                  {t('datasources.access_allowed')}
+                                </span>
+                              )}
+                            </div>
+                            {modeHint ? (
+                              <div className={datasourceConnectionHintClass}>{modeHint}</div>
+                            ) : null}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <button
+                                type="button"
+                                title={ds.id}
+                                aria-label={t('datasources.copy_id_aria', { id: ds.id })}
+                                className={datasourceIdCopyButtonClass}
+                                onClick={() => {
+                                  navigator.clipboard.writeText(ds.id).catch(noop)
+                                }}
+                              >
+                                <span aria-hidden="true">id · {ds.id.slice(0, 8)}…</span>
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="datasources-col-driver">
+                          <div className={driverCellClass()}>
+                            {logoSrc ? (
+                              <span className={driverCellLogoClass(ds.type)} aria-hidden>
+                                <img src={logoSrc} alt="" width={26} height={26} />
+                              </span>
+                            ) : null}
+                            <span className={driverCellLabelClass()}>
+                              {t(driverLabelKey(ds.type))}
                             </span>
-                            {t('datasources.access_allowed')}
-                          </span>
-                        )}
-                      </div>
-                      {modeHint ? (
-                        <div className="text-foreground-muted text-[0.8rem] leading-[1.35] break-all">
-                          {modeHint}
-                        </div>
-                      ) : null}
-                      <div className="flex flex-wrap items-center gap-[0.35rem]">
-                        <button
-                          type="button"
-                          title={ds.id}
-                          aria-label={t('datasources.copy_id_aria', { id: ds.id })}
-                          className={datasourceIdCopyButtonClass}
-                          onClick={() => {
-                            navigator.clipboard.writeText(ds.id).catch(noop)
-                          }}
-                        >
-                          <span aria-hidden="true">id · {ds.id.slice(0, 8)}…</span>
-                        </button>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className={driverCellClass()}>
-                      {logoSrc ? (
-                        <span className={driverCellLogoClass(ds.type)} aria-hidden>
-                          <img src={logoSrc} alt="" width={26} height={26} />
-                        </span>
-                      ) : null}
-                      <span className={driverCellLabelClass()}>{t(driverLabelKey(ds.type))}</span>
-                    </div>
-                  </td>
-                  <td>
-                    {formatDateTime(ds.last_sync_at)}
-                    {syncResult[ds.id] && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        {syncResult[ds.id]}
-                      </div>
-                    )}
-                    {testResult[ds.id] && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        {testResult[ds.id]}
-                      </div>
-                    )}
-                  </td>
-                  <td className="actions">
-                    <div className={rowActionsClass}>
-                      <button
-                        type="button"
-                        className={legacyButtonClass('btn btn-sm')}
-                        onClick={() => edit(ds)}
-                      >
-                        {t('datasources.edit')}
-                      </button>
-                      <button
-                        type="button"
-                        className={legacyButtonClass('btn btn-sm')}
-                        onClick={() => {
-                          void test(ds.id)
-                        }}
-                      >
-                        {t('datasources.test')}
-                      </button>
-                      <button
-                        type="button"
-                        className={legacyButtonClass('btn btn-sm')}
-                        onClick={() => {
-                          void sync(ds.id)
-                        }}
-                      >
-                        {t('datasources.sync')}
-                      </button>
-                      <button
-                        type="button"
-                        className={legacyButtonClass('btn btn-sm btn-danger')}
-                        onClick={() => {
-                          void del(ds.id)
-                        }}
-                      >
-                        {t('datasources.delete')}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                          </div>
+                        </td>
+                        <td className="datasources-col-sync">
+                          <span>{formatDateTime(ds.last_sync_at)}</span>
+                          {syncResult[ds.id] && (
+                            <div className={datasourceRowStatusClass}>{syncResult[ds.id]}</div>
+                          )}
+                          {testResult[ds.id] && (
+                            <div className={datasourceRowStatusClass}>{testResult[ds.id]}</div>
+                          )}
+                        </td>
+                        <td className="actions">
+                          <div className={rowActionsClass}>
+                            <button
+                              type="button"
+                              className={legacyButtonClass('btn btn-sm btn-ghost')}
+                              onClick={() => edit(ds)}
+                            >
+                              {t('datasources.edit')}
+                            </button>
+                            <button
+                              type="button"
+                              className={legacyButtonClass('btn btn-sm btn-secondary')}
+                              onClick={() => {
+                                void test(ds.id)
+                              }}
+                            >
+                              {t('datasources.test')}
+                            </button>
+                            <button
+                              type="button"
+                              className={legacyButtonClass('btn btn-sm btn-secondary')}
+                              onClick={() => {
+                                void sync(ds.id)
+                              }}
+                            >
+                              {t('datasources.sync')}
+                            </button>
+                            <button
+                              type="button"
+                              className={legacyButtonClass('btn btn-sm btn-danger-outline')}
+                              onClick={() => {
+                                void del(ds.id)
+                              }}
+                            >
+                              {t('datasources.delete')}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       <DatasourceFormModal

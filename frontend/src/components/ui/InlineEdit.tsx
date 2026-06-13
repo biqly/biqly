@@ -3,7 +3,12 @@ import type { KeyboardEvent } from 'react'
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
 import { cn } from '../../lib/cn'
-import { metadataDescCellClass, metadataInlineFieldFitRowsClass } from '../../lib/tableClasses'
+import {
+  metadataDescCellClass,
+  metadataDescDisplayPlaceholderClass,
+  metadataDescDisplayValueClass,
+  metadataInlineFieldFitRowsClass,
+} from '../../lib/tableClasses'
 
 interface InlineEditProps {
   editing: boolean
@@ -71,10 +76,7 @@ export function InlineEdit({
         />
       ) : (
         <span
-          style={{
-            color: value ? 'var(--text-primary)' : 'var(--text-secondary)',
-            fontStyle: value ? 'normal' : 'italic',
-          }}
+          className={value ? metadataDescDisplayValueClass : metadataDescDisplayPlaceholderClass}
         >
           {value || placeholder}
         </span>

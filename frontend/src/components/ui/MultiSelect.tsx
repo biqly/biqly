@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { useT } from '../../i18n'
 import { cn } from '../../lib/cn'
@@ -277,21 +278,24 @@ export function MultiSelect({
           />
         </svg>
       </button>
-      {open && popover && (
-        <div
-          className={selectPopoverClass(popover.placement)}
-          style={{
-            position: 'fixed',
-            left: popover.left,
-            top: popover.top,
-            width: popover.width,
-          }}
-          role="presentation"
-        >
-          {header && <div className={selectHeaderClass}>{header}</div>}
-          {renderOptions()}
-        </div>
-      )}
+      {open &&
+        popover &&
+        createPortal(
+          <div
+            className={selectPopoverClass(popover.placement)}
+            style={{
+              position: 'fixed',
+              left: popover.left,
+              top: popover.top,
+              width: popover.width,
+            }}
+            role="presentation"
+          >
+            {header && <div className={selectHeaderClass}>{header}</div>}
+            {renderOptions()}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

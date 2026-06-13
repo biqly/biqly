@@ -12,3 +12,9 @@ export function segmentedControlBtnClass(active: boolean, options?: { theme?: bo
     active && 'bg-[var(--bg-primary)] text-foreground shadow-[0_0_0_1px_var(--border-strong)]',
   )
 }
+
+export const sidebarLogoutBtnClass = cn(
+  'inline-flex items-center justify-center w-8 h-8 rounded-full border border-border bg-transparent text-foreground-muted cursor-pointer transition-[background,color,border-color] duration-140 ease-in-out',
+  'hover:border-[rgba(248,113,113,0.55)] hover:text-[#f87171] hover:bg-[rgba(239,68,68,0.1)]',
+  '[&_svg]:w-[0.95rem] [&_svg]:h-[0.95rem]',
+)

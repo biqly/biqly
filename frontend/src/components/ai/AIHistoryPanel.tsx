@@ -17,7 +17,10 @@ import {
   aiHistoryClass,
   aiHistoryDetailBlockClass,
   aiHistoryDetailBtnClass,
+  aiHistoryDetailCellClass,
+  aiHistoryDetailCloseBtnClass,
   aiHistoryDetailContentClass,
+  aiHistoryDetailHeaderClass,
   aiHistoryDetailRowClass,
   aiHistoryHeaderClass,
   aiHistoryMonoClass,
@@ -158,10 +161,17 @@ export function AIHistoryPanel() {
         >
           <>
             <div className={aiHistoryTableWrapClass}>
-              <table
-                className={aiHistoryTableClass}
-                style={{ borderCollapse: 'collapse', width: '100%' }}
-              >
+              <table className={aiHistoryTableClass}>
+                <colgroup>
+                  <col className="w-[26%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[10%]" />
+                </colgroup>
                 <thead>
                   <tr style={theadRow}>
                     <th style={thStyle}>{t('admin.ai_history.question')}</th>
@@ -221,21 +231,25 @@ export function AIHistoryPanel() {
                         </tr>
                         {isExpanded && (
                           <tr className={aiHistoryDetailRowClass}>
-                            <td colSpan={8}>
+                            <td colSpan={8} className={aiHistoryDetailCellClass}>
                               {detailLoading ? (
-                                <div
-                                  style={{
-                                    position: 'relative',
-                                    minHeight: 85,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                  }}
-                                >
+                                <div className="relative flex min-h-[5.5rem] items-center justify-center">
                                   <LoadingOverlay loading={true} />
                                 </div>
                               ) : detail ? (
                                 <div className={aiHistoryDetailContentClass}>
+                                  <div className={aiHistoryDetailHeaderClass}>
+                                    <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground-muted">
+                                      {t('admin.ai_history.detail')}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className={aiHistoryDetailCloseBtnClass}
+                                      onClick={() => toggleDetail(entry.id)}
+                                    >
+                                      {t('common.close')}
+                                    </button>
+                                  </div>
                                   {detail.prompt_context != null && (
                                     <div className={aiHistoryDetailBlockClass}>
                                       <h4>{t('admin.ai_history.prompt')}</h4>
@@ -256,7 +270,7 @@ export function AIHistoryPanel() {
                                   )}
                                 </div>
                               ) : (
-                                <p style={{ padding: 16 }}>—</p>
+                                <p className="px-4 py-3">—</p>
                               )}
                             </td>
                           </tr>

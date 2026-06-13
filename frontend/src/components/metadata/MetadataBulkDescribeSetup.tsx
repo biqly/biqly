@@ -77,7 +77,7 @@ export function MetadataBulkDescribeSetup({
                     'inline-flex items-baseline gap-[0.35rem] border bg-card text-foreground-muted p-[0.28rem_0.55rem] rounded-full text-[0.75rem] leading-[1.2] cursor-pointer transition-[background,border-color,color] duration-120 hover:border-border-strong hover:text-foreground',
                   ),
                   bulkTypeEnabled[ty] === true
-                    ? 'bg-card-raised border-border-strong text-foreground shadow-[inset_0_0_0_1px_rgba(91,142,255,0.35)]'
+                    ? 'bg-card-raised border-border-strong text-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]'
                     : 'border-border',
                 )}
                 aria-pressed={bulkTypeEnabled[ty] === true}
@@ -85,9 +85,10 @@ export function MetadataBulkDescribeSetup({
               >
                 <span className="font-semibold whitespace-nowrap">{objectTypeLabel(ty, t)}</span>
                 <span
-                  className={`text-[0.65rem] font-medium uppercase tracking-[0.04em] ${
-                    bulkTypeEnabled[ty] === true ? 'text-blue-300/85' : 'text-foreground-faint'
-                  }`}
+                  className={cn(
+                    'text-[0.65rem] font-medium uppercase tracking-[0.04em]',
+                    bulkTypeEnabled[ty] === true ? 'text-accent' : 'text-foreground-faint',
+                  )}
                 >
                   {ty}
                 </span>
@@ -137,11 +138,10 @@ export function MetadataBulkDescribeSetup({
             </button>
           </div>
           <div
-            className={`mt-[0.45rem] min-h-[4.5rem] rounded-md p-[0.45rem_0.5rem] bg-slate-900/25 border ${
-              bulkSchemaRestrict
-                ? 'border-solid border-slate-400/28'
-                : 'border-dashed border-slate-400/25'
-            }`}
+            className={cn(
+              'mt-[0.45rem] min-h-[4.5rem] rounded-md p-[0.45rem_0.5rem] bg-card-raised border',
+              bulkSchemaRestrict ? 'border-solid border-border' : 'border-dashed border-border',
+            )}
           >
             {!bulkSchemaRestrict ? (
               <p className="m-0 text-[0.72rem] leading-[1.4] text-foreground-faint p-[0.35rem_0.15rem]">
@@ -215,7 +215,7 @@ export function MetadataBulkDescribeSetup({
           <span>{t('metadata.bulk_skip_existing')}</span>
         </label>
       </div>
-      <div className="pt-[0.35rem] px-0 pb-0 border-t border-slate-400/12">
+      <div className="pt-[0.35rem] px-0 pb-0 border-t border-border">
         <span className="text-[0.76rem] text-foreground-faint">
           {t('metadata.bulk_scope_objects')}{' '}
           <strong className="text-foreground font-[650]">{bulkTargetTables.length}</strong>{' '}

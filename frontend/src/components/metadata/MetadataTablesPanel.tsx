@@ -7,19 +7,27 @@ import { legacyCardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import {
   metadataEmptyHintClass,
+  metadataFilterEmptyRowClass,
   metadataFilterFieldClass,
   metadataHintBtnClass,
   metadataLangTabClass,
   metadataLangTabsClass,
   metadataRowActionClass,
   metadataRowActionLabelClass,
-  metadataTableFiltersToolbarClass,
+  metadataTableColActionsClass,
+  metadataTableColDescClass,
+  metadataTableColNameClass,
+  metadataTableColTypeClass,
+  metadataTableFiltersRowClass,
   metadataTableRowClass,
   metadataToolbarActionsClass,
   metadataToolbarClass,
+  metadataToolbarLangGroupClass,
   metadataToolbarTitleClass,
+  metadataToolbarTopRowClass,
   metadataTypeBadgeClass,
   resultsTableMetadataListClass,
+  resultsTableScrollClass,
 } from '../../lib/tableClasses'
 import type { ColumnRow, TableRow } from '../../types/semantic'
 import { LoadingScreen } from '../ui/LoadingScreen'
@@ -92,12 +100,59 @@ export function MetadataTablesPanel({
   return (
     <div className={legacyCardClass('card')}>
       <div className={metadataToolbarClass}>
-        <h2 className={metadataToolbarTitleClass}>
-          {t('metadata.tables')} ({filteredTables.length}
-          {filteredTables.length !== tables.length ? ` / ${tables.length}` : ''})
-        </h2>
+        <div className={metadataToolbarTopRowClass}>
+          <h2 className={metadataToolbarTitleClass}>
+            {t('metadata.tables')} ({filteredTables.length}
+            {filteredTables.length !== tables.length ? ` / ${tables.length}` : ''})
+          </h2>
+          <div className={metadataToolbarActionsClass}>
+            <div className={metadataToolbarLangGroupClass}>
+              <div
+                className={metadataLangTabsClass}
+                role="tablist"
+                aria-label={t('metadata.lang_tabs_aria')}
+              >
+                {SUPPORTED_LOCALES.map((loc) => (
+                  <button
+                    key={loc}
+                    type="button"
+                    role="tab"
+                    aria-selected={editLocale === loc}
+                    className={metadataLangTabClass(editLocale === loc)}
+                    onClick={() => onEditLocaleChange(loc)}
+                  >
+                    {LOCALE_OPTIONS[loc].short}
+                  </button>
+                ))}
+              </div>
+              {editLocale !== FALLBACK_LOCALE && (
+                <button
+                  type="button"
+                  className={metadataHintBtnClass}
+                  aria-label={t('metadata.desc_lang_hint_aria')}
+                  title={t('metadata.desc_lang_tr_hint')}
+                >
+                  i
+                </button>
+              )}
+            </div>
+            {tables.length > 0 && (
+              <button
+                type="button"
+                className={cn(
+                  legacyButtonClass('btn btn-sm btn-secondary'),
+                  'metadata-toolbar-action-btn shrink-0 text-[0.75rem] px-2.5 py-1 whitespace-nowrap',
+                )}
+                onClick={onBulkOpen}
+                disabled={bulkRunning || !!activeDescribeBatchJob}
+              >
+                {t('metadata.bulk_ai_btn')}
+              </button>
+            )}
+          </div>
+        </div>
         {tables.length > 0 && (
-          <div className={metadataTableFiltersToolbarClass}>
+          <div className={metadataTableFiltersRowClass}>
             <div className={metadataFilterFieldClass}>
               <Select
                 id="metadata-filter-schema"
@@ -126,49 +181,6 @@ export function MetadataTablesPanel({
             </div>
           </div>
         )}
-        <div className={metadataToolbarActionsClass}>
-          <div
-            className={metadataLangTabsClass}
-            role="tablist"
-            aria-label={t('metadata.lang_tabs_aria')}
-          >
-            {SUPPORTED_LOCALES.map((loc) => (
-              <button
-                key={loc}
-                type="button"
-                role="tab"
-                aria-selected={editLocale === loc}
-                className={metadataLangTabClass(editLocale === loc)}
-                onClick={() => onEditLocaleChange(loc)}
-              >
-                {LOCALE_OPTIONS[loc].short}
-              </button>
-            ))}
-          </div>
-          {editLocale !== FALLBACK_LOCALE && (
-            <button
-              type="button"
-              className={metadataHintBtnClass}
-              aria-label={t('metadata.desc_lang_hint_aria')}
-              title={t('metadata.desc_lang_tr_hint')}
-            >
-              i
-            </button>
-          )}
-          {tables.length > 0 && (
-            <button
-              type="button"
-              className={cn(
-                legacyButtonClass('btn btn-sm'),
-                'text-[0.75rem] px-[0.55rem] py-[0.28rem]',
-              )}
-              onClick={onBulkOpen}
-              disabled={bulkRunning || !!activeDescribeBatchJob}
-            >
-              {t('metadata.bulk_ai_btn')}
-            </button>
-          )}
-        </div>
       </div>
       {tablesLoading && tables.length === 0 ? (
         <LoadingScreen minHeight="150px" />
@@ -181,126 +193,121 @@ export function MetadataTablesPanel({
       ) : null}
 
       {(!tablesLoading || tables.length > 0) && tables.length > 0 && (
-        <table className={resultsTableMetadataListClass()} lang={locale}>
-          <colgroup>
-            <col className="metadata-cw-name" />
-            <col className="metadata-cw-type" />
-            <col className="metadata-cw-desc" />
-            <col className="metadata-cw-actions" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th scope="col" className="metadata-col-name">
-                {t('metadata.col_table_name')}
-              </th>
-              <th scope="col" className="metadata-col-type">
-                {t('metadata.col_object_type')}
-              </th>
-              <th scope="col" className="metadata-col-desc">
-                {t('metadata.col_table_desc')}
-              </th>
-              <th scope="col" className="actions metadata-col-actions">
-                {t('metadata.col_actions')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTables.length === 0 && tables.length > 0 && (
+        <div className={cn(resultsTableScrollClass, 'mt-2')}>
+          <table className={resultsTableMetadataListClass()} lang={locale}>
+            <colgroup>
+              <col className={metadataTableColNameClass} />
+              <col className={metadataTableColTypeClass} />
+              <col className={metadataTableColDescClass} />
+              <col className={metadataTableColActionsClass} />
+            </colgroup>
+            <thead>
               <tr>
-                <td
-                  colSpan={4}
-                  style={{
-                    color: 'var(--text-secondary)',
-                    fontSize: '0.85rem',
-                    padding: '0.75rem',
-                  }}
-                >
-                  {t('metadata.filter_no_match')}
-                </td>
+                <th scope="col" className="metadata-col-name">
+                  {t('metadata.col_table_name')}
+                </th>
+                <th scope="col" className="metadata-col-type">
+                  {t('metadata.col_object_type')}
+                </th>
+                <th scope="col" className="metadata-col-desc">
+                  {t('metadata.col_table_desc')}
+                </th>
+                <th scope="col" className="actions metadata-col-actions">
+                  {t('metadata.col_actions')}
+                </th>
               </tr>
-            )}
-            {filteredTables.map((tab) => (
-              <Fragment key={tab.id}>
-                <tr className={metadataTableRowClass(openTableId === tab.id)}>
-                  <td>
-                    <button
-                      type="button"
-                      className={cn(
-                        legacyButtonClass('icon-btn'),
-                        'text-[0.8125rem] gap-[0.35rem]',
-                      )}
-                      aria-expanded={openTableId === tab.id}
-                      aria-label={
-                        openTableId === tab.id
-                          ? t('metadata.aria_table_collapse', {
-                              name: `${tab.schema_name}.${tab.table_name}`,
-                            })
-                          : t('metadata.aria_table_expand', {
-                              name: `${tab.schema_name}.${tab.table_name}`,
-                            })
-                      }
-                      onClick={() => onToggleTable(tab)}
-                    >
-                      <span className="inline-block w-[0.7rem] text-foreground-muted text-[0.7rem]">
-                        {openTableId === tab.id ? '▼' : '▶'}
-                      </span>
-                      {tab.schema_name}.{tab.table_name}
-                    </button>
-                  </td>
-                  <td className="metadata-col-type">
-                    <span
-                      className={metadataTypeBadgeClass(
-                        tab.table_type.toUpperCase().includes('VIEW'),
-                      )}
-                    >
-                      {tab.table_type}
-                    </span>
-                  </td>
-                  <MetadataDescriptionCell
-                    kind="table"
-                    entityId={tab.id}
-                    description={tab.description}
-                    editing={editing}
-                    placeholder={t('metadata.placeholder_double_click')}
-                    onStartEdit={() => onStartEditTable(tab)}
-                    onChange={(value) => onEditTableChange(tab.id, value)}
-                    onSave={onSaveDescription}
-                    onCancel={onCancelEdit}
-                  />
-                  <td className="actions">
-                    <button
-                      type="button"
-                      className={metadataRowActionClass}
-                      onClick={() => onDescribeOpen(tab)}
-                      aria-label={t('metadata.btn_ai_describe_aria', {
-                        name: `${tab.schema_name}.${tab.table_name}`,
-                      })}
-                      title={t('metadata.btn_ai_describe')}
-                    >
-                      <span aria-hidden="true">✨</span>
-                      <span className={metadataRowActionLabelClass}>
-                        {t('metadata.btn_ai_describe')}
-                      </span>
-                    </button>
+            </thead>
+            <tbody>
+              {filteredTables.length === 0 && tables.length > 0 && (
+                <tr>
+                  <td colSpan={4} className={metadataFilterEmptyRowClass}>
+                    {t('metadata.filter_no_match')}
                   </td>
                 </tr>
-                {openTableId === tab.id && columns.length > 0 && (
-                  <MetadataColumnPanel
-                    table={tab}
-                    columns={columns}
-                    locale={locale}
-                    editing={editing}
-                    onStartEdit={onStartEditColumn}
-                    onEditChange={onEditColumnChange}
-                    onSave={onSaveDescription}
-                    onCancelEdit={onCancelEdit}
-                    onSaveDisplayExpression={onSaveDisplayExpression}
-                  />
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
+              )}
+              {filteredTables.map((tab) => (
+                <Fragment key={tab.id}>
+                  <tr className={metadataTableRowClass(openTableId === tab.id)}>
+                    <td>
+                      <button
+                        type="button"
+                        className={cn(
+                          legacyButtonClass('icon-btn'),
+                          'text-[0.8125rem] gap-[0.35rem]',
+                        )}
+                        aria-expanded={openTableId === tab.id}
+                        aria-label={
+                          openTableId === tab.id
+                            ? t('metadata.aria_table_collapse', {
+                                name: `${tab.schema_name}.${tab.table_name}`,
+                              })
+                            : t('metadata.aria_table_expand', {
+                                name: `${tab.schema_name}.${tab.table_name}`,
+                              })
+                        }
+                        onClick={() => onToggleTable(tab)}
+                      >
+                        <span className="inline-block w-[0.7rem] text-foreground-muted text-[0.7rem]">
+                          {openTableId === tab.id ? '▼' : '▶'}
+                        </span>
+                        {tab.schema_name}.{tab.table_name}
+                      </button>
+                    </td>
+                    <td className="metadata-col-type">
+                      <span
+                        className={metadataTypeBadgeClass(
+                          tab.table_type.toUpperCase().includes('VIEW'),
+                        )}
+                      >
+                        {tab.table_type}
+                      </span>
+                    </td>
+                    <MetadataDescriptionCell
+                      kind="table"
+                      entityId={tab.id}
+                      description={tab.description}
+                      editing={editing}
+                      placeholder={t('metadata.placeholder_double_click')}
+                      onStartEdit={() => onStartEditTable(tab)}
+                      onChange={(value) => onEditTableChange(tab.id, value)}
+                      onSave={onSaveDescription}
+                      onCancel={onCancelEdit}
+                    />
+                    <td className="actions">
+                      <button
+                        type="button"
+                        className={metadataRowActionClass}
+                        onClick={() => onDescribeOpen(tab)}
+                        aria-label={t('metadata.btn_ai_describe_aria', {
+                          name: `${tab.schema_name}.${tab.table_name}`,
+                        })}
+                        title={t('metadata.btn_ai_describe')}
+                      >
+                        <span aria-hidden="true">✨</span>
+                        <span className={metadataRowActionLabelClass}>
+                          {t('metadata.btn_ai_describe')}
+                        </span>
+                      </button>
+                    </td>
+                  </tr>
+                  {openTableId === tab.id && columns.length > 0 && (
+                    <MetadataColumnPanel
+                      table={tab}
+                      columns={columns}
+                      locale={locale}
+                      editing={editing}
+                      onStartEdit={onStartEditColumn}
+                      onEditChange={onEditColumnChange}
+                      onSave={onSaveDescription}
+                      onCancelEdit={onCancelEdit}
+                      onSaveDisplayExpression={onSaveDisplayExpression}
+                    />
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )

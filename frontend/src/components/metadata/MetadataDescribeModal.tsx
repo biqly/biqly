@@ -2,13 +2,18 @@ import { useEffect, useState } from 'react'
 
 import { type DescribeResult, runMetadataDescribeDirect } from '../../api/metadataDescribe'
 import { useT } from '../../i18n'
+import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
 import {
+  modalActionsBorderedClass,
   modalBackdropClass,
-  modalBodyClass,
-  modalCardClass,
   modalCloseClass,
-  modalHeaderClass,
-  modalTitleClass,
+  modalDescribeBodyClass,
+  modalDescribeCardClass,
+  modalDescribeFqnClass,
+  modalDescribeHeaderClass,
+  modalDescribeIntroClass,
+  modalDescribeTitleClass,
 } from '../../lib/modalClasses'
 import type { AIRuntimeSettings } from '../../types/ai'
 import type { ColumnRow, TableRow } from '../../types/semantic'
@@ -37,6 +42,58 @@ interface MetadataDescribeModalProps {
   onApplied: (table: TableRow) => void
 }
 
+function DescribeModalHeader({
+  fqn,
+  result,
+  aiRuntime,
+  onClose,
+}: {
+  fqn: string
+  result: DescribeResult | null
+  aiRuntime: AIRuntimeSettings | null
+  onClose: () => void
+}) {
+  const t = useT()
+  const dbManaged = aiRuntime?.db_managed === true
+  const managedRuntime = dbManaged ? aiRuntime : null
+  const activeDescribe = managedRuntime?.active_models?.find((m) => m.purpose === 'describe')
+  const activeTranslation = managedRuntime?.active_models?.find((m) => m.purpose === 'translation')
+  const translationModel = result?.translation_applied
+    ? result.translation_model
+    : aiRuntime?.translation_enabled
+      ? aiRuntime.translation_model
+      : undefined
+
+  return (
+    <header className={modalDescribeHeaderClass}>
+      <div className="min-w-0 flex-1">
+        <h2 id="describe-title" className={modalDescribeTitleClass}>
+          {t('metadata.btn_ai_describe')}
+        </h2>
+        <p className={modalDescribeFqnClass} translate="no">
+          {fqn}
+        </p>
+        <ModelBadgeRow
+          className="mt-1.5"
+          primaryLabel={t('metadata.describe_badge_label')}
+          primaryModel={result?.model ?? aiRuntime?.llm_model}
+          primaryNote={dbManaged ? activeDescribe?.provider_name : undefined}
+          translationModel={translationModel}
+          translationNote={dbManaged ? activeTranslation?.provider_name : undefined}
+        />
+      </div>
+      <button
+        type="button"
+        className={cn(modalCloseClass(), 'mt-0.5 shrink-0')}
+        aria-label={t('metadata.describe_close_aria')}
+        onClick={onClose}
+      >
+        ×
+      </button>
+    </header>
+  )
+}
+
 export function MetadataDescribeModal({
   table,
   datasourceId,
@@ -53,10 +110,7 @@ export function MetadataDescribeModal({
   const [result, setResult] = useState<DescribeResult | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const dbManaged = aiRuntime?.db_managed === true
-  const managedRuntime = dbManaged ? aiRuntime : null
-  const activeDescribe = managedRuntime?.active_models?.find((m) => m.purpose === 'describe')
-  const activeTranslation = managedRuntime?.active_models?.find((m) => m.purpose === 'translation')
+  const fqn = `${table.schema_name}.${table.table_name}`
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -119,60 +173,30 @@ export function MetadataDescribeModal({
       }}
     >
       <section
-        className={modalCardClass()}
+        className={modalDescribeCardClass(!!result)}
         role="dialog"
         aria-modal="true"
         aria-labelledby="describe-title"
       >
-        <header className={modalHeaderClass()}>
-          <div>
-            <h2 id="describe-title" className={modalTitleClass()}>
-              {t('metadata.describe_modal_title', {
-                fqn: `${table.schema_name}.${table.table_name}`,
-              })}
-            </h2>
-            <ModelBadgeRow
-              primaryLabel={t('metadata.describe_badge_label')}
-              primaryModel={result?.model ?? aiRuntime?.llm_model}
-              primaryNote={dbManaged ? activeDescribe?.provider_name : undefined}
-              translationModel={
-                result?.translation_applied
-                  ? result.translation_model
-                  : aiRuntime?.translation_enabled
-                    ? aiRuntime.translation_model
-                    : undefined
-              }
-              translationNote={dbManaged ? activeTranslation?.provider_name : undefined}
-            />
-          </div>
-          <button
-            type="button"
-            className={modalCloseClass()}
-            aria-label={t('metadata.describe_close_aria')}
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </header>
+        <DescribeModalHeader fqn={fqn} result={result} aiRuntime={aiRuntime} onClose={onClose} />
 
-        <div className={modalBodyClass()}>
-          <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-            {t('metadata.describe_intro')}
-          </p>
-
+        <div className={modalDescribeBodyClass(!!result)}>
           {!result && (
-            <MetadataDescribeForm
-              t={t}
-              sampleSize={form.sample_size}
-              autoApply={form.auto_apply}
-              running={running}
-              error={error}
-              apiError={apiError}
-              onSampleSizeChange={(size) => setForm({ ...form, sample_size: size })}
-              onAutoApplyChange={(checked) => setForm({ ...form, auto_apply: checked })}
-              onClose={onClose}
-              onRun={() => void runDescribe()}
-            />
+            <>
+              <p className={modalDescribeIntroClass}>{t('metadata.describe_intro')}</p>
+              <MetadataDescribeForm
+                t={t}
+                sampleSize={form.sample_size}
+                autoApply={form.auto_apply}
+                running={running}
+                error={error}
+                apiError={apiError}
+                onSampleSizeChange={(size) => setForm({ ...form, sample_size: size })}
+                onAutoApplyChange={(checked) => setForm({ ...form, auto_apply: checked })}
+                onClose={onClose}
+                onRun={() => void runDescribe()}
+              />
+            </>
           )}
 
           {result && (
@@ -183,13 +207,24 @@ export function MetadataDescribeModal({
               onApplyColumn={(name, description) =>
                 void applySuggestion('column', name, description)
               }
-              onClose={() => {
-                setResult(null)
-                onClose()
-              }}
             />
           )}
         </div>
+
+        {result && (
+          <footer className={cn(modalActionsBorderedClass(), 'shrink-0 px-5 pb-4')}>
+            <button
+              type="button"
+              className={legacyButtonClass('btn btn-ghost btn-sm')}
+              onClick={() => {
+                setResult(null)
+                onClose()
+              }}
+            >
+              {t('metadata.describe_close_footer')}
+            </button>
+          </footer>
+        )}
       </section>
     </div>
   )

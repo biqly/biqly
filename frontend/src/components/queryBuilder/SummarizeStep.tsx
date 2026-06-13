@@ -4,11 +4,6 @@ import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import {
   qbAddBtnClass,
-  qbDimensionBadgeActiveClass,
-  qbDimensionBadgeClass,
-  qbSummarizeAvailableClass,
-  qbSummarizeAvailableListClass,
-  qbSummarizeAvailableTitleClass,
   qbSummarizeDividerClass,
   qbSummarizeSectionClass,
   qbSummarizeSplitClass,
@@ -18,7 +13,7 @@ import {
   qbTagGreenClass,
 } from './queryBuilderClasses'
 import type { SelectItem } from './types'
-import { type dimOptionsForGroupRow, getFieldLabel, type metricFieldOptions } from './utils'
+import { type dimOptionsForGroupRow, type metricFieldOptions } from './utils'
 
 interface SummarizeStepProps {
   selectItems: SelectItem[]
@@ -38,8 +33,6 @@ interface SummarizeStepProps {
     groupBy: string[],
     i: number,
   ) => ReturnType<typeof dimOptionsForGroupRow>
-  fieldLabelMode: 'technical' | 'human'
-  setGroupBy: (v: string[]) => void
 }
 
 export function SummarizeStep({
@@ -56,8 +49,6 @@ export function SummarizeStep({
   onClear,
   metricFieldOptions,
   dimOptionsForGroupRow,
-  fieldLabelMode,
-  setGroupBy,
 }: SummarizeStepProps) {
   const t = useT()
   return (
@@ -132,32 +123,6 @@ export function SummarizeStep({
           <button type="button" className={qbAddBtnClass} onClick={addGroupByRow}>
             +
           </button>
-        </div>
-      </div>
-      <div className={qbSummarizeAvailableClass}>
-        <div className={qbSummarizeAvailableTitleClass}>
-          {t('query_builder.available_columns') || 'Available Columns (Dimensions)'}
-        </div>
-        <div className={qbSummarizeAvailableListClass}>
-          {dimensions.map((d) => {
-            const isSelected = groupBy.includes(d.name)
-            return (
-              <button
-                key={d.name}
-                type="button"
-                className={`${qbDimensionBadgeClass} ${isSelected ? qbDimensionBadgeActiveClass : ''}`}
-                onClick={() => {
-                  if (isSelected) {
-                    setGroupBy(groupBy.filter((g) => g !== d.name))
-                  } else {
-                    setGroupBy([...groupBy.filter(Boolean), d.name])
-                  }
-                }}
-              >
-                {getFieldLabel(d.name, d.label, fieldLabelMode)}
-              </button>
-            )
-          })}
         </div>
       </div>
     </NotebookStep>

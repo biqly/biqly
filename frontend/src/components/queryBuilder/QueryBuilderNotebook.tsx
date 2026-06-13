@@ -172,8 +172,6 @@ export function QueryBuilderNotebook({
           dimOptionsForGroupRow={(dims, gb, index) =>
             dimOptionsForGroupRow(dims, gb, index, selectItems, fieldLabelMode)
           }
-          fieldLabelMode={fieldLabelMode}
-          setGroupBy={setGroupBy}
         />
         <SortStep
           orderBy={orderBy}

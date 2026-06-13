@@ -14,6 +14,9 @@ import {
   metadataDisplayExprSavedClass,
   metadataNestedCaptionClass,
   metadataNestedCellClass,
+  metadataNestedColDescClass,
+  metadataNestedColNameClass,
+  metadataNestedColTypeClass,
   metadataNestedPanelClass,
   metadataNestedRowClass,
   resultsTableNestedClass,
@@ -127,9 +130,9 @@ export function MetadataColumnPanel({
               })}
             </caption>
             <colgroup>
-              <col className="metadata-ncol-name" />
-              <col className="metadata-ncol-type" />
-              <col className="metadata-ncol-desc" />
+              <col className={metadataNestedColNameClass} />
+              <col className={metadataNestedColTypeClass} />
+              <col className={metadataNestedColDescClass} />
             </colgroup>
             <thead>
               <tr>

@@ -371,32 +371,20 @@
  */
 
 /* Table column widths (colgroup / col classes) */
-.results-table--metadata-list col.metadata-cw-name {
-  width: 34%;
+.results-table--datasources-list col.datasources-cw-record {
+  width: 40%;
 }
 
-.results-table--metadata-list col.metadata-cw-type {
-  width: 12%;
+.results-table--datasources-list col.datasources-cw-driver {
+  width: 16%;
 }
 
-.results-table--metadata-list col.metadata-cw-desc {
-  width: 44%;
+.results-table--datasources-list col.datasources-cw-sync {
+  width: 18%;
 }
 
-.results-table--metadata-list col.metadata-cw-actions {
-  width: 12%;
-}
-
-.results-table--nested col.metadata-ncol-name {
-  width: 30%;
-}
-
-.results-table--nested col.metadata-ncol-type {
-  width: 22%;
-}
-
-.results-table--nested col.metadata-ncol-desc {
-  width: 48%;
+.results-table--datasources-list col.datasources-cw-actions {
+  width: 26%;
 }
 
 /* Keep <td> as table-cell; line-clamp on inner avoids border / row baseline glitches */

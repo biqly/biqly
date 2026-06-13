@@ -8,6 +8,7 @@ import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import {
   chatBubbleClass,
+  chatComposerActionBtnClass,
   chatComposerActionsClass,
   chatComposerBarClass,
   chatComposerClass,
@@ -306,19 +307,26 @@ export function ChatPanel({
             </div>
             <div className={chatComposerActionsClass}>
               {loading && queryAction !== null && (
-                <button className={legacyButtonClass('btn btn-ghost')} onClick={onAbort}>
+                <button
+                  className={cn(legacyButtonClass('btn btn-ghost'), chatComposerActionBtnClass)}
+                  onClick={onAbort}
+                >
                   {t('ai_query.cancel')}
                 </button>
               )}
               <button
-                className={legacyButtonClass('btn')}
+                className={cn(legacyButtonClass('btn btn-secondary'), chatComposerActionBtnClass)}
                 onClick={() => onSendQuery(question, false)}
                 disabled={loading || !question || !datasourceId}
               >
                 {previewButtonLabel}
               </button>
               <button
-                className={cn(legacyButtonClass('btn btn-primary'), chatComposerSendClass)}
+                className={cn(
+                  legacyButtonClass('btn btn-primary'),
+                  chatComposerActionBtnClass,
+                  chatComposerSendClass,
+                )}
                 onClick={() => onSendQuery(question, true)}
                 disabled={loading || !question || !datasourceId}
               >

@@ -3,12 +3,10 @@ import { describe, expect, it } from 'vitest'
 import type { PageToken } from './paginationTokens'
 import { buildStablePageTokens } from './paginationTokens'
 
-// Characterization tests (Faz 0.2): lock the current 7-slot stable window
-// behavior before any pagination refactor touches its consumers.
 describe('buildStablePageTokens', () => {
-  it('pads short page counts up to 7 slots', () => {
-    expect(buildStablePageTokens(1, 1)).toEqual([1, 'pad', 'pad', 'pad', 'pad', 'pad', 'pad'])
-    expect(buildStablePageTokens(2, 3)).toEqual([1, 2, 3, 'pad', 'pad', 'pad', 'pad'])
+  it('shows every page when the total fits in the window', () => {
+    expect(buildStablePageTokens(1, 1)).toEqual([1])
+    expect(buildStablePageTokens(2, 3)).toEqual([1, 2, 3])
     expect(buildStablePageTokens(4, 7)).toEqual([1, 2, 3, 4, 5, 6, 7])
   })
 
@@ -29,11 +27,10 @@ describe('buildStablePageTokens', () => {
     expect(buildStablePageTokens(20, 20)).toEqual(expected)
   })
 
-  it('always returns exactly 7 tokens so the control width never shifts', () => {
-    for (const total of [1, 3, 7, 8, 20, 500]) {
-      for (let current = 1; current <= Math.min(total, 30); current++) {
-        expect(buildStablePageTokens(current, total)).toHaveLength(7)
-      }
-    }
+  it('uses compact width for small counts and a 7-token window for large totals', () => {
+    expect(buildStablePageTokens(1, 1)).toHaveLength(1)
+    expect(buildStablePageTokens(2, 3)).toHaveLength(3)
+    expect(buildStablePageTokens(4, 7)).toHaveLength(7)
+    expect(buildStablePageTokens(1, 20)).toHaveLength(7)
   })
 })

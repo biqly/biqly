@@ -71,7 +71,7 @@ export function selectChevronClass(open?: boolean): string {
 
 export function selectPopoverClass(placement: 'down' | 'up'): string {
   return cn(
-    'ui-select-popover z-[5000] overflow-hidden border border-border-strong rounded-[0.55rem]',
+    'ui-select-popover z-[var(--z-select,1100)] overflow-hidden border border-border-strong rounded-[0.55rem]',
     'bg-canvas-subtle shadow-[0_1px_0_rgba(255,255,255,0.03)_inset,0_18px_40px_rgba(0,0,0,0.55),0_4px_14px_rgba(0,0,0,0.35)]',
     'animate-ui-select-pop',
     placement === 'up' ? 'ui-select-popover--up origin-bottom' : 'origin-top',

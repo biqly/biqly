@@ -1,17 +1,14 @@
-export type PageToken = number | 'gap' | 'pad'
+export type PageToken = number | 'gap'
+
+const MAX_WINDOW = 7
 
 /**
- * Stable 7-slot page window: the token count never changes while navigating,
- * so the control keeps a constant width (slots are min-width reserved).
+ * Compact page window: shows every page when the count is small, otherwise a
+ * sliding window with ellipsis — width grows with visible pages, not total pages.
  */
 export function buildStablePageTokens(current: number, total: number): PageToken[] {
-  const SLOTS = 7
-  if (total <= SLOTS) {
-    const tokens: PageToken[] = Array.from({ length: total }, (_, i) => i + 1)
-    while (tokens.length < SLOTS) {
-      tokens.push('pad')
-    }
-    return tokens
+  if (total <= MAX_WINDOW) {
+    return Array.from({ length: total }, (_, i) => i + 1)
   }
   if (current <= 4) {
     return [1, 2, 3, 4, 5, 'gap', total]

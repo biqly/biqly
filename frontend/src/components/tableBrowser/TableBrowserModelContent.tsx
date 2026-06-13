@@ -18,16 +18,19 @@ import {
   tableBrowserFilterBarClass,
   tableBrowserFilterTagClass,
   tableBrowserFilterTagCloseClass,
+  tableBrowserIndexTdClass,
+  tableBrowserIndexThClass,
   tableBrowserPageSizeClass,
   tableBrowserPageSizeLabelClass,
   tableBrowserPaginationClass,
   tableBrowserPaginationControlsClass,
   tableBrowserRangeClass,
   tableBrowserTableOverlayClass,
-  tableBrowserTablePlaceholderClass,
+  tableBrowserTableShellClass,
   tableBrowserTableWrapClass,
   tableBrowserThClass,
   tableBrowserThFilterClass,
+  tableBrowserThFilterIconClass,
   tableBrowserThGripClass,
   tableBrowserThInnerClass,
   tableBrowserThLabelClass,
@@ -86,6 +89,7 @@ export function TableBrowserModelContent({
   browserFields,
   filters,
   popoverOpen,
+  popoverAnchorEl,
   popoverField,
   popoverOperator,
   popoverChips,
@@ -140,6 +144,7 @@ export function TableBrowserModelContent({
   browserFields: { name: string }[]
   filters: TableBrowserFilter[]
   popoverOpen: boolean
+  popoverAnchorEl: HTMLElement | null
   popoverField: string
   popoverOperator: string
   popoverChips: string[]
@@ -170,9 +175,9 @@ export function TableBrowserModelContent({
   columnIndexByName: Map<string, number>
   getDimensionLabel: (name: string) => string
   onOpenModeling: () => void
-  onOpenEditFilter: (filter: TableBrowserFilter) => void
+  onOpenEditFilter: (filter: TableBrowserFilter, anchorEl?: HTMLElement | null) => void
   onRemoveFilter: (id: string) => void
-  onOpenAddFilter: (defaultField?: string) => void
+  onOpenAddFilter: (defaultField?: string, anchorEl?: HTMLElement | null) => void
   onClosePopover: () => void
   onOperatorChange: (op: string) => void
   onFieldChange: (field: string) => void
@@ -215,7 +220,7 @@ export function TableBrowserModelContent({
             key={f.id}
             className={tableBrowserFilterTagClass}
             style={{ cursor: 'pointer' }}
-            onClick={() => onOpenEditFilter(f)}
+            onClick={(e) => onOpenEditFilter(f, e.currentTarget)}
           >
             {getDimensionLabel(f.field)} {tableBrowserOperatorLabel(f.operator, operatorLabels)}{' '}
             {formatTableBrowserFilterValue(f.value)}
@@ -235,7 +240,7 @@ export function TableBrowserModelContent({
         <button
           type="button"
           className={tableBrowserAddFilterBtnClass}
-          onClick={() => onOpenAddFilter()}
+          onClick={(e) => onOpenAddFilter(undefined, e.currentTarget)}
           title={t('table_browser.add_filter')}
         >
           <svg
@@ -252,188 +257,192 @@ export function TableBrowserModelContent({
           </svg>
           {t('table_browser.filter')}
         </button>
-
-        {popoverOpen && (
-          <TableBrowserFilterPopover
-            t={t}
-            popoverField={popoverField}
-            popoverOperator={popoverOperator}
-            popoverChips={popoverChips}
-            chipInputText={chipInputText}
-            popoverCaseSensitive={popoverCaseSensitive}
-            editingFilterId={editingFilterId}
-            operatorOptions={operatorOptions}
-            filterFieldOpts={filterFieldOpts}
-            getDimensionLabel={getDimensionLabel}
-            onClose={onClosePopover}
-            onOperatorChange={onOperatorChange}
-            onFieldChange={onFieldChange}
-            onChipInputChange={onChipInputChange}
-            onAddChip={onAddChip}
-            onRemoveChip={onRemoveChip}
-            onCaseSensitiveChange={onCaseSensitiveChange}
-            onSave={onSaveFilter}
-          />
-        )}
       </div>
+
+      {popoverOpen && (
+        <TableBrowserFilterPopover
+          t={t}
+          popoverField={popoverField}
+          popoverOperator={popoverOperator}
+          popoverChips={popoverChips}
+          chipInputText={chipInputText}
+          popoverCaseSensitive={popoverCaseSensitive}
+          editingFilterId={editingFilterId}
+          operatorOptions={operatorOptions}
+          filterFieldOpts={filterFieldOpts}
+          getDimensionLabel={getDimensionLabel}
+          anchorEl={popoverAnchorEl}
+          onClose={onClosePopover}
+          onOperatorChange={onOperatorChange}
+          onFieldChange={onFieldChange}
+          onChipInputChange={onChipInputChange}
+          onAddChip={onAddChip}
+          onRemoveChip={onRemoveChip}
+          onCaseSensitiveChange={onCaseSensitiveChange}
+          onSave={onSaveFilter}
+        />
+      )}
 
       <ValidationErrorBanner error={error} t={t} onOpenModeling={onOpenModeling} />
 
-      {showTablePanel && (
-        <>
-          {showInitialPlaceholder ? (
+      {showTablePanel && displayColumnNames.length > 0 && (
+        <div className={tableBrowserTableShellClass}>
+          <LoadingOverlay
+            loading={fetching}
+            label={
+              showInitialPlaceholder ? t('table_browser.loading') : t('table_browser.loading_page')
+            }
+            className={tableBrowserTableOverlayClass}
+          >
             <div
-              className={tableBrowserTablePlaceholderClass}
-              role="status"
-              aria-live="polite"
-              aria-busy="true"
+              className={clsx(
+                tableBrowserTableWrapClass,
+                fetching && !showInitialPlaceholder && 'blur-[2px] opacity-55 pointer-events-none',
+              )}
             >
-              <span className={legacyFeedbackClass('loading-overlay-spinner')} aria-hidden="true" />
-              <span>{t('table_browser.loading')}</span>
-            </div>
-          ) : result?.columns ? (
-            <LoadingOverlay
-              loading={fetching}
-              label={t('table_browser.loading_page')}
-              className={tableBrowserTableOverlayClass}
-            >
-              <div
-                className={clsx(
-                  tableBrowserTableWrapClass,
-                  fetching && 'blur-[2px] opacity-55 pointer-events-none',
+              <table
+                className={legacyTableClass(
+                  'results-table !mt-0 w-full border-collapse text-left text-sm max-[899px]:min-w-[36rem] max-[680px]:min-w-[32rem]',
                 )}
               >
-                <table
-                  className={legacyTableClass(
-                    'results-table w-full border-collapse text-left text-sm max-[899px]:min-w-[36rem] max-[680px]:min-w-[32rem]',
-                  )}
-                >
-                  <thead>
-                    <tr>
-                      <th scope="col" className="w-12 max-w-12 text-center"></th>
-                      {displayColumnNames.map((colName) => {
-                        const sorted = sort?.column === colName ? sort.dir : null
-                        return (
-                          <th
-                            key={colName}
-                            scope="col"
-                            draggable={!fetching}
-                            aria-sort={
-                              sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : undefined
-                            }
-                            className={clsx(
-                              tableBrowserThClass,
-                              dragColumn === colName && 'opacity-45',
-                              dropTargetColumn === colName &&
-                                'shadow-[inset_0_-2px_0_var(--accent)]',
-                            )}
-                            onDragStart={onColumnDragStart(colName)}
-                            onDragOver={onColumnDragOver(colName)}
-                            onDrop={onColumnDrop(colName)}
-                            onDragEnd={onColumnDragEnd}
-                            onClick={() => !fetching && onToggleSort(colName)}
-                            title={t('table_browser.sort_hint')}
-                          >
-                            <span className={tableBrowserThInnerClass}>
-                              <span
-                                className={tableBrowserThGripClass}
-                                aria-hidden="true"
-                                title={t('table_browser.drag_column')}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                ⋮⋮
-                              </span>
-                              <span className={tableBrowserThLabelClass}>
-                                {getDimensionLabel(colName)}
-                              </span>
-                              {sorted && (
-                                <span className={tableBrowserThSortClass} aria-hidden="true">
-                                  {sorted === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                              <button
-                                type="button"
-                                className={tableBrowserThFilterClass}
-                                aria-label={t('table_browser.filter_column_aria', {
-                                  column: colName,
-                                })}
-                                title={t('table_browser.filter_by_column', { column: colName })}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (!fetching) {
-                                    onOpenAddFilter(colName)
-                                  }
-                                }}
-                              >
-                                ▼
-                              </button>
+                <thead>
+                  <tr>
+                    <th scope="col" className={tableBrowserIndexThClass}></th>
+                    {displayColumnNames.map((colName) => {
+                      const sorted = sort?.column === colName ? sort.dir : null
+                      return (
+                        <th
+                          key={colName}
+                          scope="col"
+                          draggable={!fetching}
+                          aria-sort={
+                            sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : undefined
+                          }
+                          className={clsx(
+                            tableBrowserThClass,
+                            dragColumn === colName && 'opacity-45',
+                            dropTargetColumn === colName && 'shadow-[inset_0_-2px_0_var(--accent)]',
+                          )}
+                          onDragStart={onColumnDragStart(colName)}
+                          onDragOver={onColumnDragOver(colName)}
+                          onDrop={onColumnDrop(colName)}
+                          onDragEnd={onColumnDragEnd}
+                          onClick={() => !fetching && onToggleSort(colName)}
+                          title={t('table_browser.sort_hint')}
+                        >
+                          <span className={tableBrowserThInnerClass}>
+                            <span
+                              className={tableBrowserThGripClass}
+                              aria-hidden="true"
+                              title={t('table_browser.drag_column')}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              ⋮⋮
                             </span>
-                          </th>
+                            <span className={tableBrowserThLabelClass}>
+                              {getDimensionLabel(colName)}
+                            </span>
+                            {sorted && (
+                              <span className={tableBrowserThSortClass} aria-hidden="true">
+                                {sorted === 'asc' ? '↑' : '↓'}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              className={tableBrowserThFilterClass}
+                              aria-label={t('table_browser.filter_column_aria', {
+                                column: colName,
+                              })}
+                              title={t('table_browser.filter_by_column', { column: colName })}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (!fetching) {
+                                  onOpenAddFilter(colName, e.currentTarget)
+                                }
+                              }}
+                            >
+                              <svg
+                                viewBox="0 0 16 16"
+                                aria-hidden="true"
+                                className={tableBrowserThFilterIconClass}
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M2 3h12L9 9v4l-2 1V9L2 3z" />
+                              </svg>
+                            </button>
+                          </span>
+                        </th>
+                      )
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(result?.rows ?? []).map((row, i) => (
+                    <tr
+                      key={i}
+                      className={clsx(tableBrowserDataRowClass, fetching && 'pointer-events-none')}
+                      onClick={() => {
+                        if (!fetching) {
+                          onRowClick(i, row)
+                        }
+                      }}
+                    >
+                      <td className={tableBrowserIndexTdClass}>
+                        <span className={rowIndexNumberClass}>{page * pageSize + i + 1}</span>
+                      </td>
+                      {displayColumnNames.map((colName) => {
+                        const j = columnIndexByName.get(colName)
+                        const cell = j != null ? row[j] : null
+                        const display = formatResultCell(cell, colName, {})
+                        return (
+                          <td key={colName} className={tableBrowserDataRowTdClass}>
+                            <TableBrowserCellValue value={display} />
+                          </td>
                         )
                       })}
                     </tr>
-                  </thead>
-                  <tbody>
-                    {(result.rows ?? []).map((row, i) => (
-                      <tr
-                        key={i}
-                        className={clsx(
-                          tableBrowserDataRowClass,
-                          fetching && 'pointer-events-none',
-                        )}
-                        onClick={() => {
-                          if (!fetching) {
-                            onRowClick(i, row)
-                          }
-                        }}
-                      >
-                        <td className="w-12 max-w-12 text-center">
-                          <span className={rowIndexNumberClass}>{page * pageSize + i + 1}</span>
-                        </td>
-                        {displayColumnNames.map((colName) => {
-                          const j = columnIndexByName.get(colName)
-                          const cell = j != null ? row[j] : null
-                          const display = formatResultCell(cell, colName, {})
-                          return (
-                            <td key={colName} className={tableBrowserDataRowTdClass}>
-                              <TableBrowserCellValue value={display} />
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </LoadingOverlay>
-          ) : null}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </LoadingOverlay>
 
-          {result?.columns?.length ? (
-            <div className={clsx(tableBrowserPaginationClass, fetching && 'opacity-72')}>
-              <span className={tableBrowserRangeClass}>{rangeLabel}</span>
-              <div className={tableBrowserPaginationControlsClass}>
-                <div className={tableBrowserPageSizeClass}>
-                  <span className={tableBrowserPageSizeLabelClass}>
-                    {t('table_browser.rows_per_page')}
-                  </span>
-                  <Select
-                    value={String(pageSize)}
-                    onChange={(v) => onPageSizeChange(Number(v))}
-                    options={pageSizeOptions}
-                    size="sm"
-                  />
-                </div>
-                <PaginationControls
-                  currentPage={page + 1}
-                  totalPages={totalPages ?? page + 1}
-                  onPageChange={(p) => onGoToPage(p - 1)}
-                  disabled={fetching}
-                  formatNumber={formatInt}
+          <div
+            className={clsx(
+              tableBrowserPaginationClass,
+              (fetching || showInitialPlaceholder) && 'opacity-72',
+            )}
+          >
+            <span className={tableBrowserRangeClass}>
+              {showInitialPlaceholder ? t('table_browser.loading') : rangeLabel}
+            </span>
+            <div className={tableBrowserPaginationControlsClass}>
+              <div className={tableBrowserPageSizeClass}>
+                <span className={tableBrowserPageSizeLabelClass}>
+                  {t('table_browser.rows_per_page')}
+                </span>
+                <Select
+                  value={String(pageSize)}
+                  onChange={(v) => onPageSizeChange(Number(v))}
+                  options={pageSizeOptions}
+                  size="sm"
+                  disabled={showInitialPlaceholder}
                 />
               </div>
+              <PaginationControls
+                currentPage={page + 1}
+                totalPages={totalPages ?? page + 1}
+                onPageChange={(p) => onGoToPage(p - 1)}
+                disabled={fetching || showInitialPlaceholder}
+                formatNumber={formatInt}
+              />
             </div>
-          ) : null}
-        </>
+          </div>
+        </div>
       )}
     </>
   )

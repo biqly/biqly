@@ -49,6 +49,7 @@ export function useTableBrowserFilterState({
     return scopedFilters.filter((f) => defaultColumnOrder.includes(f.field))
   }, [filtersState, scopeKey, defaultColumnOrder])
   const [popoverOpen, setPopoverOpen] = useState(false)
+  const [popoverAnchorEl, setPopoverAnchorEl] = useState<HTMLElement | null>(null)
   const [popoverField, setPopoverField] = useState('')
   const [popoverOperator, setPopoverOperator] = useState('contains')
   const [popoverChips, setPopoverChips] = useState<string[]>([])
@@ -115,10 +116,15 @@ export function useTableBrowserFilterState({
 
   const resetFilterPopover = () => {
     setPopoverOpen(false)
+    setPopoverAnchorEl(null)
     setEditingFilterId(null)
     setPopoverChips([])
     setChipInputText('')
     setPopoverCaseSensitive(false)
+  }
+
+  const handleCloseFilterPopover = () => {
+    resetFilterPopover()
   }
 
   const handleSaveFilter = () => {
@@ -178,13 +184,15 @@ export function useTableBrowserFilterState({
     setPopoverOpen(true)
   }
 
-  const handleOpenAddFilter = (defaultField = '') => {
+  const handleOpenAddFilter = (defaultField = '', anchorEl?: HTMLElement | null) => {
+    setPopoverAnchorEl(anchorEl ?? null)
     applyFilterPopoverState(
       filterPopoverStateForAdd(defaultField || defaultFilterField(activeDimensions)),
     )
   }
 
-  const handleOpenEditFilter = (filter: TableBrowserFilter) => {
+  const handleOpenEditFilter = (filter: TableBrowserFilter, anchorEl?: HTMLElement | null) => {
+    setPopoverAnchorEl(anchorEl ?? null)
     applyFilterPopoverState(filterPopoverStateForEdit(filter))
   }
 
@@ -245,6 +253,7 @@ export function useTableBrowserFilterState({
     setColumnOrder,
     popoverOpen,
     setPopoverOpen,
+    popoverAnchorEl,
     popoverField,
     setPopoverField,
     popoverOperator,
@@ -266,6 +275,7 @@ export function useTableBrowserFilterState({
     handleColumnDragEnd,
     handleOpenAddFilter,
     handleOpenEditFilter,
+    handleCloseFilterPopover,
     handleRemoveFilter,
     getDimensionLabel,
     operatorLabels,

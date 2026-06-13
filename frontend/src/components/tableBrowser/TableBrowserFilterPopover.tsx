@@ -1,12 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useReducer, useRef } from 'react'
 
 import type { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import { Select } from '../ui/Select'
 import {
   chipInputContainerClass,
   chipInputFieldClass,
   chipTagClass,
   chipTagCloseClass,
+  filterPopoverAnchoredClass,
   filterPopoverBackClass,
   filterPopoverBtnClass,
   filterPopoverCheckboxInputClass,
@@ -17,6 +19,16 @@ import {
   filterPopoverRowClass,
   filterPopoverRowLabelClass,
 } from './tableBrowserClasses'
+
+const POPOVER_WIDTH_PX = 288
+
+function getPopoverPosition(anchorEl: HTMLElement) {
+  const rect = anchorEl.getBoundingClientRect()
+  let left = rect.left
+  left = Math.min(left, window.innerWidth - POPOVER_WIDTH_PX - 8)
+  left = Math.max(8, left)
+  return { top: rect.bottom + 5, left }
+}
 
 export function TableBrowserFilterPopover({
   t,
@@ -29,6 +41,7 @@ export function TableBrowserFilterPopover({
   operatorOptions,
   filterFieldOpts,
   getDimensionLabel,
+  anchorEl,
   onClose,
   onOperatorChange,
   onFieldChange,
@@ -48,6 +61,7 @@ export function TableBrowserFilterPopover({
   operatorOptions: { value: string; label: string }[]
   filterFieldOpts: { value: string; label: string }[]
   getDimensionLabel: (name: string) => string
+  anchorEl?: HTMLElement | null
   onClose: () => void
   onOperatorChange: (op: string) => void
   onFieldChange: (field: string) => void
@@ -58,8 +72,25 @@ export function TableBrowserFilterPopover({
   onSave: () => void
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
+  const [, rerenderAnchor] = useReducer((count: number) => count + 1, 0)
+  const position = anchorEl ? getPopoverPosition(anchorEl) : null
+  const isAnchored = Boolean(anchorEl && position)
 
-  // Dismiss on outside click or Escape; the popover otherwise traps the page.
+  useEffect(() => {
+    if (!anchorEl) {
+      return
+    }
+    const update = () => {
+      rerenderAnchor()
+    }
+    window.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+    }
+  }, [anchorEl])
+
   useEffect(() => {
     const onPointerDown = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
@@ -80,7 +111,15 @@ export function TableBrowserFilterPopover({
   }, [onClose])
 
   return (
-    <div ref={rootRef} className={filterPopoverClass} style={{ width: '18rem' }}>
+    <div
+      ref={rootRef}
+      className={cn(isAnchored ? filterPopoverAnchoredClass : filterPopoverClass)}
+      style={
+        isAnchored && position
+          ? { top: position.top, left: position.left, width: '18rem' }
+          : { width: '18rem' }
+      }
+    >
       <div
         className={filterPopoverHeaderClass}
         style={{

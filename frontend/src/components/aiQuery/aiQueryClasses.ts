@@ -146,6 +146,9 @@ export const chatComposerHintClass = 'text-[0.72rem] text-foreground-faint white
 
 export const chatComposerActionsClass = 'flex items-center gap-2 ml-auto'
 
+export const chatComposerActionBtnClass =
+  '!w-auto !mt-0 h-[2.25rem] min-h-[2.25rem] shrink-0 whitespace-nowrap px-3.5'
+
 export const chatComposerSendClass = 'inline-flex items-center gap-[0.4rem]'
 
 export const chatComposerSendIconClass = 'text-[0.75rem] leading-none'

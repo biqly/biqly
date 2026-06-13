@@ -31,8 +31,12 @@ export const rowNumberBadgeClass =
 
 export const tableBrowserFilterBarClass = 'flex items-center gap-2 mb-5 flex-wrap relative'
 
-export const filterPopoverClass =
-  'absolute top-[calc(100%+5px)] left-0 z-popover bg-card-raised border border-border-strong rounded-[0.6rem] p-[0.85rem_1rem] shadow-card w-64 flex flex-col gap-3 animate-[popoverFadeIn_0.15s_ease-out]'
+export const filterPopoverBaseClass =
+  'z-popover bg-card-raised border border-border-strong rounded-[0.6rem] p-[0.85rem_1rem] shadow-card w-64 flex flex-col gap-3 animate-[popoverFadeIn_0.15s_ease-out]'
+
+export const filterPopoverClass = `${filterPopoverBaseClass} absolute top-[calc(100%+5px)] left-0`
+
+export const filterPopoverAnchoredClass = `${filterPopoverBaseClass} fixed`
 
 export const filterPopoverHeaderClass = 'flex items-center justify-between gap-3 pb-[0.2rem]'
 
@@ -78,7 +82,7 @@ export const rowIndexNumberClass =
   'text-foreground-muted text-[0.76rem] font-medium select-none inline-flex items-center justify-center w-full'
 
 export const tableBrowserThClass =
-  'group cursor-pointer bg-card-raised px-[0.55rem] py-2 text-[0.7rem] font-bold uppercase tracking-wider text-foreground-muted border-b-2 border-border transition-colors duration-150 select-none whitespace-nowrap leading-[1.15] align-middle max-w-none h-auto'
+  'group cursor-pointer sticky top-0 z-[2] bg-card-raised px-[0.55rem] py-2 text-[0.7rem] font-bold uppercase tracking-wider text-foreground-muted border-b-2 border-border transition-colors duration-150 select-none whitespace-nowrap leading-[1.15] align-middle max-w-none h-auto shadow-[0_1px_0_var(--border)]'
 
 export const tableBrowserThInnerClass = 'inline-flex items-center gap-[0.2rem] max-w-full'
 
@@ -90,10 +94,12 @@ export const tableBrowserThGripClass =
 export const tableBrowserTablePlaceholderClass =
   'flex flex-col items-center justify-center gap-[0.65rem] min-h-[min(28rem,55vh)] border border-border rounded-lg bg-card text-foreground-muted text-[0.85rem] font-semibold'
 
-export const tableBrowserTableOverlayClass = 'min-h-[min(28rem,55vh)] rounded-lg'
+export const tableBrowserTableOverlayClass = 'min-h-[min(28rem,55vh)] rounded-lg flex flex-col'
 
 export const tableBrowserTableWrapClass =
-  'overflow-x-auto max-h-[min(28rem,55vh)] overflow-y-auto border border-border rounded-lg transition-[filter,opacity] duration-200'
+  'overflow-x-auto max-h-[min(28rem,55vh)] overflow-y-auto border border-border rounded-lg transition-[filter,opacity] duration-200 flex-1 min-h-[min(28rem,55vh)]'
+
+export const tableBrowserTableShellClass = 'flex flex-col min-h-[min(28rem,55vh)]'
 
 export const tableBrowserDataRowClass = 'cursor-pointer h-[2.15rem] hover:[&>td]:bg-canvas-subtle'
 
@@ -109,7 +115,10 @@ export const tableBrowserCellValueMultilineClass =
 export const tableBrowserCellPopoverClass =
   'fixed z-[1020] w-[min(28rem,calc(100vw-1.5rem))] max-h-[min(18rem,42vh)] overflow-auto p-[0.65rem_0.75rem] border border-border-strong rounded-[0.45rem] bg-card-raised shadow-[0_16px_42px_rgba(0,0,0,0.46)] text-foreground text-[0.82rem] leading-[1.45] whitespace-pre-wrap [overflow-wrap:anywhere] pointer-events-none'
 
-export const tableBrowserColIndexClass = 'w-12 max-w-12 text-center'
+export const tableBrowserIndexThClass =
+  'sticky top-0 z-[2] w-12 max-w-12 bg-card-raised border-b-2 border-border shadow-[0_1px_0_var(--border)]'
+
+export const tableBrowserIndexTdClass = 'sticky left-0 z-[1] w-12 max-w-12 bg-card text-center'
 
 export const tableBrowserDetailModalBodyClass = 'min-h-0 max-h-none overflow-y-auto'
 
@@ -125,7 +134,7 @@ export const tableBrowserDetailLabelClass =
 export const tableBrowserDetailValueClass = 'text-[0.82rem] text-foreground'
 
 export const tableBrowserPaginationClass =
-  'flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mt-[0.85rem] pt-3 border-t border-border transition-opacity duration-200'
+  'flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mt-[0.85rem] pt-3 min-h-[2.75rem] border-t border-border transition-opacity duration-200'
 
 export const tableBrowserRangeClass = 'text-[0.8rem] text-foreground-muted'
 
@@ -138,10 +147,12 @@ export const tableBrowserPageSizeClass =
 export const tableBrowserPageSizeLabelClass =
   'text-[0.78rem] font-semibold text-foreground-muted whitespace-nowrap shrink-0'
 
-export const tableBrowserThSortClass = 'shrink-0 text-accent font-bold'
+export const tableBrowserThSortClass = 'shrink-0 text-accent font-bold text-[0.62rem] leading-none'
 
 export const tableBrowserThFilterClass =
-  'shrink-0 border-0 bg-transparent text-foreground-muted text-[0.58rem] p-[0.1rem_0.2rem] rounded-[0.25rem] cursor-pointer opacity-60 hover:text-accent group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150'
+  'shrink-0 inline-flex items-center justify-center w-[1.15rem] h-[1.15rem] border-0 bg-transparent text-foreground-muted rounded-[0.25rem] cursor-pointer opacity-60 hover:text-accent hover:bg-accent/10 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 transition-[opacity,color,background-color] duration-150'
+
+export const tableBrowserThFilterIconClass = 'w-[0.7rem] h-[0.7rem]'
 
 export const modalCardXlClass =
   'flex flex-col w-[min(70rem,calc(100vw-3rem))] max-w-[94vw] max-h-[min(90vh,56rem)] max-[560px]:w-[calc(100vw-1rem)] max-[560px]:max-h-[92vh]'

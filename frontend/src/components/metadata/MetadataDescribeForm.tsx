@@ -1,7 +1,12 @@
 import type { useT } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyFormClass } from '../../lib/formClasses'
-import { checkboxRowClass, modalActionsClass, modalFormRowClass } from '../../lib/modalClasses'
+import {
+  checkboxRowClass,
+  modalActionsBorderedClass,
+  modalDescribeFieldsetClass,
+  modalDescribeLegendClass,
+  modalDescribeSampleInputClass,
+} from '../../lib/modalClasses'
 import { ErrorAlert } from '../ui/ErrorAlert'
 
 export function MetadataDescribeForm({
@@ -29,21 +34,25 @@ export function MetadataDescribeForm({
 }) {
   return (
     <>
-      <div className={modalFormRowClass()}>
-        <div className={legacyFormClass('form-group')}>
-          <label htmlFor="describe-sample-size">{t('metadata.describe_sample_size')}</label>
-          <input
-            id="describe-sample-size"
-            name="sample_size"
-            type="number"
-            min={1}
-            max={100}
-            value={sampleSize}
-            onChange={(e) => onSampleSizeChange(Number(e.target.value))}
-          />
-        </div>
-        <div className={legacyFormClass('form-group')}>
-          <label>{t('metadata.describe_options')}</label>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
+        <fieldset className={modalDescribeFieldsetClass}>
+          <legend className={modalDescribeLegendClass}>{t('metadata.describe_sample_size')}</legend>
+          <div className="mt-2">
+            <input
+              id="describe-sample-size"
+              name="sample_size"
+              type="number"
+              min={1}
+              max={100}
+              className={modalDescribeSampleInputClass}
+              value={sampleSize}
+              onChange={(e) => onSampleSizeChange(Number(e.target.value))}
+              aria-label={t('metadata.describe_sample_size')}
+            />
+          </div>
+        </fieldset>
+        <fieldset className={modalDescribeFieldsetClass}>
+          <legend className={modalDescribeLegendClass}>{t('metadata.describe_options')}</legend>
           <div className={checkboxRowClass()}>
             <input
               id="auto-apply"
@@ -54,14 +63,15 @@ export function MetadataDescribeForm({
             />
             <label htmlFor="auto-apply">{t('metadata.describe_auto_apply')}</label>
           </div>
-        </div>
+        </fieldset>
       </div>
       <ErrorAlert error={error ?? apiError} />
-      <div className={modalActionsClass()}>
+      <footer className={modalActionsBorderedClass()}>
         <button
           type="button"
           className={legacyButtonClass('btn btn-ghost btn-sm')}
           onClick={onClose}
+          disabled={running}
         >
           {t('metadata.bulk_cancel')}
         </button>
@@ -73,7 +83,7 @@ export function MetadataDescribeForm({
         >
           {running ? t('metadata.describe_analyzing') : t('metadata.describe_generate')}
         </button>
-      </div>
+      </footer>
     </>
   )
 }

@@ -25,7 +25,7 @@ import { authCardClass, authPageClass } from './lib/authClasses'
 import { legacyButtonClass } from './lib/buttonClasses'
 import { legacyCardClass } from './lib/cardClasses'
 import { legacyFeedbackClass } from './lib/feedbackClasses'
-import { headerControlsClass } from './lib/headerControlClasses'
+import { headerControlsClass, sidebarLogoutBtnClass } from './lib/headerControlClasses'
 import {
   mainClass,
   navLinkClass,
@@ -488,47 +488,56 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
       className={`flex flex-col items-stretch gap-[0.65rem] mt-auto pt-3 px-2 pb-0 border-t border-border text-foreground-muted text-[0.74rem]`}
     >
       {user && (
-        <>
-          <Link
-            to="/settings"
-            className="flex items-center gap-3 p-[10px_12px] mb-0 rounded-lg cursor-pointer transition-colors duration-200 relative no-underline color-inherit hover:bg-(--bg-hover,#f3f4f6) dark:hover:bg-white/5"
-            onMouseEnter={() => handleNavHover(Settings)}
-            onFocus={() => handleNavHover(Settings)}
-          >
-            <div className="flex items-center justify-center w-9 h-9 rounded-full bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white font-semibold text-[14px] overflow-hidden">
-              {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                getInitials(user.displayName, user.email)
-              )}
-            </div>
-            <div className="flex flex-col flex-1 min-w-0">
-              <span className="text-[13px] font-semibold text-foreground whitespace-nowrap overflow-hidden text-ellipsis">
-                {user.displayName?.trim() ? user.displayName : user.email}
-              </span>
-              <span className="text-[11px] text-foreground-muted whitespace-nowrap overflow-hidden text-ellipsis">
-                {roleLabel}
-              </span>
-            </div>
-          </Link>
-          <button
-            type="button"
-            className={legacyButtonClass(
-              'btn inline-flex items-center justify-center gap-[0.45rem] w-full mt-0 min-h-9 border border-[rgba(239,68,68,0.45)] text-[#f87171] bg-[rgba(239,68,68,0.1)] text-[0.8rem] font-semibold hover:border-[rgba(248,113,113,0.65)] hover:text-[#fecaca] hover:bg-[rgba(239,68,68,0.18)] hover:transform-none',
+        <Link
+          to="/settings"
+          className="flex items-center gap-3 p-[10px_12px] mb-0 rounded-lg cursor-pointer transition-colors duration-200 relative no-underline color-inherit hover:bg-(--bg-hover,#f3f4f6) dark:hover:bg-white/5"
+          onMouseEnter={() => handleNavHover(Settings)}
+          onFocus={() => handleNavHover(Settings)}
+        >
+          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white font-semibold text-[14px] overflow-hidden">
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              getInitials(user.displayName, user.email)
             )}
-            onClick={onLogout}
-          >
-            <span className="text-[0.95rem] leading-none" aria-hidden="true">
-              🚪
+          </div>
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="text-[13px] font-semibold text-foreground whitespace-nowrap overflow-hidden text-ellipsis">
+              {user.displayName?.trim() ? user.displayName : user.email}
             </span>
-            {t('auth.logout')}
-          </button>
-        </>
+            <span className="text-[11px] text-foreground-muted whitespace-nowrap overflow-hidden text-ellipsis">
+              {roleLabel}
+            </span>
+          </div>
+        </Link>
       )}
       <div className={headerControlsClass}>
         <LanguageSwitcher />
         <ThemeToggle />
       </div>
+      {user && (
+        <button
+          type="button"
+          className={sidebarLogoutBtnClass}
+          onClick={onLogout}
+          aria-label={t('auth.logout')}
+          title={t('auth.logout')}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" x2="9" y1="12" y2="12" />
+          </svg>
+        </button>
+      )}
       <div className="inline-flex items-center gap-2">
         <span
           className={legacyFeedbackClass(

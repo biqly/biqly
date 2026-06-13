@@ -5,16 +5,17 @@ export const modelingPageClass = 'flex flex-col gap-4 min-h-0'
 export const modelingToolbarClass = cn(
   'grid items-end gap-4 border border-border rounded-[10px] bg-card shadow-[var(--shadow)] p-4 px-[1.15rem]',
   'grid-cols-[minmax(13rem,16rem)_minmax(15rem,26rem)_minmax(0,1fr)]',
-  'max-[760px]:grid-cols-1',
+  'max-[1024px]:grid-cols-1 max-[1024px]:items-stretch',
 )
 
 export const modelingToolbarModelRowClass = cn(
-  'flex items-center gap-2 min-w-0',
-  '[&>:first-child]:flex-1 [&>:first-child]:min-w-0',
+  'flex flex-wrap items-center gap-2 min-w-0',
+  '[&>:first-child]:flex-1 [&>:first-child]:min-w-[10rem]',
 )
 
 export const modelingToolbarActionsClass = cn(
-  'flex gap-2 items-stretch flex-nowrap self-end justify-self-end',
+  'flex flex-wrap gap-2 items-center self-end justify-end min-w-0 w-full',
+  'max-[1024px]:justify-start max-[1024px]:self-auto',
   '[&_.btn]:whitespace-nowrap [&_.btn]:px-4 [&_.btn]:min-h-[2.1rem] [&_.btn]:mt-0',
   '[&_.btn]:inline-flex [&_.btn]:items-center [&_.btn]:justify-center [&_.btn]:leading-none',
 )
@@ -70,7 +71,10 @@ export const modelingSideBodyClass = 'flex flex-col gap-4 min-h-0 p-4 overflow-h
 
 export const modelingPaletteSideBodyClass = cn(modelingSideBodyClass, 'flex-1')
 
-export const modelingEditorSideBodyClass = cn(modelingSideBodyClass, 'overflow-y-auto flex-1')
+export const modelingEditorSideBodyClass = cn(
+  modelingSideBodyClass,
+  'gap-3 overflow-y-auto flex-1 [&_.form-group]:mb-0',
+)
 
 export function modelingSideToggleClass(side: 'left' | 'right'): string {
   return cn(
@@ -99,12 +103,12 @@ export const modelingMenuModelNameClass =
   'block overflow-hidden text-ellipsis whitespace-nowrap text-foreground'
 
 export const modelingJoinListClass =
-  'flex min-h-0 flex-1 flex-col gap-[0.6rem] overflow-auto [&_h3]:text-[0.85rem]'
+  'flex min-h-0 flex-1 flex-col gap-3 overflow-auto pr-1 [&_h3]:text-[0.85rem] [&_h3]:mb-1'
 
 const modelingJoinPillBase = cn(
-  'join-pill flex flex-col gap-[0.2rem] border border-border rounded-lg bg-card-raised p-[0.7rem]',
-  '[&_strong]:break-anywhere [&_strong]:text-[0.78rem]',
-  '[&_span]:text-foreground-muted [&_span]:text-[0.74rem] [&_span]:break-anywhere',
+  'join-pill flex flex-col gap-1 border border-border rounded-lg bg-card-raised p-3',
+  '[&_strong]:break-all [&_strong]:text-[0.78rem] [&_strong]:leading-snug',
+  '[&_span]:text-foreground-muted [&_span]:text-[0.72rem] [&_span]:break-all [&_span]:leading-snug',
 )
 
 export function modelingJoinPillClass(opts?: { active?: boolean; suggested?: boolean }): string {
@@ -117,11 +121,15 @@ export function modelingJoinPillClass(opts?: { active?: boolean; suggested?: boo
   )
 }
 
-export function modelingTabCountClass(zero?: boolean): string {
+export function modelingTabCountClass(zero?: boolean, active?: boolean): string {
   return cn(
-    'inline-flex items-center justify-center min-w-[1.3rem] ml-[0.35rem] px-[0.05rem_0.35rem] rounded-full',
-    'bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-accent text-[0.68rem] font-bold tabular-nums',
-    zero && 'bg-card-raised text-foreground-muted',
+    'modeling-tab__count inline-flex shrink-0 items-center justify-center min-w-[1.15rem]',
+    'px-[0.35rem] py-[0.05rem] rounded-full text-[0.68rem] font-bold tabular-nums leading-none',
+    active
+      ? 'bg-white/25 text-white'
+      : zero
+        ? 'bg-card-raised text-foreground-muted'
+        : 'bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-accent',
   )
 }
 
@@ -129,11 +137,11 @@ export const modelingTabsClass = 'flex border border-border rounded-lg overflow-
 
 export function modelingTabClass(active?: boolean): string {
   return cn(
-    'flex-1 border-0 bg-card-raised text-foreground-muted text-[0.78rem] font-bold py-[0.55rem] px-2 cursor-pointer',
+    'flex flex-1 min-w-0 items-center justify-center gap-1 border-0 bg-card-raised text-foreground-muted',
+    'text-[0.78rem] font-bold py-[0.55rem] px-1.5 cursor-pointer',
     'transition-[background,color] duration-150 not-last:border-r not-last:border-border',
     'hover:bg-[color-mix(in_srgb,var(--accent)_12%,var(--bg-card-raised))]',
-    active &&
-      'bg-accent text-white hover:bg-accent [&_.modeling-tab__count]:bg-white/20 [&_.modeling-tab__count]:text-white',
+    active && 'bg-accent text-white hover:bg-accent',
   )
 }
 

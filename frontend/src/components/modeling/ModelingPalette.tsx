@@ -325,7 +325,9 @@ export function ModelingPalette({
                     ? 'modeling.tab_short_rel'
                     : `modeling.tab_short_${tab === 'dimensions' ? 'dim' : tab === 'metrics' ? 'metric' : 'tables'}`,
                 )}
-                <span className={modelingTabCountClass(count === 0)}>{count}</span>
+                <span className={modelingTabCountClass(count === 0, activeTab === tab)}>
+                  {count}
+                </span>
               </button>
             )
           })}

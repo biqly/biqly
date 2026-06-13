@@ -153,10 +153,10 @@ export const aiHistoryLoadingClass = 'text-[13px] text-foreground-muted'
 
 export const aiHistoryEmptyClass = 'text-[13px] text-foreground-muted'
 
-export const aiHistoryTableWrapClass = 'overflow-x-auto'
+export const aiHistoryTableWrapClass = 'max-w-full overflow-x-auto'
 
 export const aiHistoryTableClass =
-  'w-full border-collapse text-[13px] [&_td]:border-b [&_td]:border-border [&_td]:px-2.5 [&_td]:py-2 [&_td]:text-left [&_th]:border-b [&_th]:border-border [&_th]:px-2.5 [&_th]:py-2 [&_th]:text-left [&_th]:text-[11px] [&_th]:font-semibold [&_th]:tracking-wide [&_th]:text-foreground-muted [&_th]:uppercase [&_th]:whitespace-nowrap'
+  'w-full table-fixed border-collapse text-[13px] [&_td]:border-b [&_td]:border-border [&_td]:px-2.5 [&_td]:py-2 [&_td]:text-left [&_th]:border-b [&_th]:border-border [&_th]:px-2.5 [&_th]:py-2 [&_th]:text-left [&_th]:text-[11px] [&_th]:font-semibold [&_th]:tracking-wide [&_th]:text-foreground-muted [&_th]:uppercase [&_th]:whitespace-nowrap'
 
 export const aiHistoryQuestionClass =
   'max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap'
@@ -190,10 +190,18 @@ export const aiHistoryRowExpandedClass = 'bg-indigo-500/[0.03]'
 
 export const aiHistoryDetailRowClass = '[&_td]:!border-b-2 [&_td]:!border-accent [&_td]:!p-0'
 
-export const aiHistoryDetailContentClass = 'flex flex-col gap-3 px-4 py-3'
+export const aiHistoryDetailCellClass = 'max-w-0 w-full align-top'
+
+export const aiHistoryDetailContentClass = 'flex min-w-0 max-w-full flex-col gap-3 px-4 py-3'
+
+export const aiHistoryDetailHeaderClass =
+  'sticky top-0 z-[1] -mx-4 -mt-3 mb-1 flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-2'
+
+export const aiHistoryDetailCloseBtnClass =
+  'shrink-0 cursor-pointer rounded border border-border px-2.5 py-1 text-[11px] font-medium text-foreground-muted hover:bg-indigo-500/6 hover:text-foreground'
 
 export const aiHistoryDetailBlockClass =
-  '[&_h4]:m-0 [&_h4]:mb-1.5 [&_h4]:text-[12px] [&_h4]:font-semibold [&_h4]:tracking-wide [&_h4]:text-foreground-muted [&_h4]:uppercase [&_pre]:m-0 [&_pre]:max-h-[200px] [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-canvas-subtle [&_pre]:p-2.5 [&_pre]:text-[12px] [&_pre]:text-foreground [[data-theme=dark]_&_pre]:bg-white/5'
+  'min-w-0 max-w-full [&_h4]:m-0 [&_h4]:mb-1.5 [&_h4]:text-[12px] [&_h4]:font-semibold [&_h4]:tracking-wide [&_h4]:text-foreground-muted [&_h4]:uppercase [&_pre]:m-0 [&_pre]:max-h-[200px] [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:overflow-y-auto [&_pre]:rounded-md [&_pre]:bg-canvas-subtle [&_pre]:p-2.5 [&_pre]:text-[12px] [&_pre]:break-all [&_pre]:whitespace-pre-wrap [&_pre]:text-foreground [[data-theme=dark]_&_pre]:bg-white/5'
 
 export const aiHistoryLoadMoreClass =
   'cursor-pointer self-center rounded-md border border-accent px-5 py-2 text-[13px] text-accent hover:bg-indigo-500/6'

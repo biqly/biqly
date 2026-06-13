@@ -2,7 +2,14 @@ import { useState } from 'react'
 
 import type { useT } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
-import { modalActionsBorderedClass, modalModelingCardClass } from '../../lib/modalClasses'
+import {
+  modalActionsBorderedClass,
+  modalEnumValuesCardClass,
+  modalEnumValuesHeaderClass,
+  modalEnumValuesHelpClass,
+  modalEnumValuesListClass,
+  modalEnumValuesRowClass,
+} from '../../lib/modalClasses'
 import { modelingDeleteBtnClass } from '../../lib/modelingClasses'
 import type { EnumMapping, SemanticDimension } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
@@ -80,26 +87,31 @@ export function EnumValuesModal({
     <Modal
       open
       onClose={onClose}
-      className={modalModelingCardClass()}
+      className={modalEnumValuesCardClass()}
+      bodyClassName="gap-3"
       labelledBy="modeling-enum-title"
       title={t('modeling.enum_values_title')}
       subtitle={dimension.column_ref}
     >
       <form
+        className="flex min-h-0 flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault()
           void save()
         }}
       >
-        <p className="text-[0.85rem] text-foreground-faint mb-3">
-          {t('modeling.enum_values_help')}
-        </p>
-        <div className="flex flex-col gap-2 mb-3">
+        <p className={modalEnumValuesHelpClass}>{t('modeling.enum_values_help')}</p>
+
+        <div className={modalEnumValuesHeaderClass} aria-hidden="true">
+          <span>{t('modeling.enum_raw_value')}</span>
+          <span>{t('modeling.enum_label')}</span>
+          <span>{t('modeling.enum_description')}</span>
+          <span />
+        </div>
+
+        <div className={modalEnumValuesListClass}>
           {rows.map((row, index) => (
-            <div
-              className="grid grid-cols-[1fr_1fr_1.5fr_auto] gap-2 items-center [&_input]:w-full"
-              key={index}
-            >
+            <div className={modalEnumValuesRowClass} key={index}>
               <input
                 aria-label={t('modeling.enum_raw_value')}
                 placeholder={t('modeling.enum_raw_value')}
@@ -133,14 +145,16 @@ export function EnumValuesModal({
             </div>
           ))}
         </div>
+
         <button
           type="button"
-          className={legacyButtonClass('btn btn-secondary btn-sm')}
+          className={legacyButtonClass('btn btn-secondary btn-sm w-auto self-start')}
           onClick={addRow}
           disabled={saving}
         >
           {t('modeling.enum_add_value')}
         </button>
+
         <div className={modalActionsBorderedClass()}>
           <button
             className={legacyButtonClass('btn btn-secondary')}
