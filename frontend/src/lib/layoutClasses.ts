@@ -53,6 +53,35 @@ export const settingsFootnoteClass = cn(
   'text-[0.74rem] leading-[1.45] text-foreground-faint',
 )
 
+export const mobileNavScrimClass = cn(
+  'hidden fixed inset-0 z-40',
+  'bg-[var(--mobile-nav-scrim)] backdrop-blur-[length:var(--mobile-nav-scrim-blur)]',
+  '[-webkit-backdrop-filter:blur(var(--mobile-nav-scrim-blur))]',
+)
+
+export const mobileNavScrimVisibleClass = 'max-[980px]:block'
+
+export function mobileNavSidebarClass(open: boolean): string {
+  return cn(
+    'sticky top-0 flex flex-col gap-[0.85rem] h-screen border-r border-border bg-bg-secondary py-6 px-4 min-w-0',
+    'max-[980px]:fixed max-[980px]:left-0 max-[980px]:top-0 max-[980px]:z-50',
+    'max-[980px]:w-[min(18rem,86vw)] max-[980px]:border-r max-[980px]:border-[color:var(--mobile-nav-panel-edge)]',
+    'max-[980px]:bg-[var(--mobile-nav-panel-bg)] max-[980px]:shadow-[var(--mobile-nav-panel-shadow)]',
+    'max-[980px]:transition-transform max-[980px]:duration-200 motion-reduce:transition-none',
+    open ? 'max-[980px]:translate-x-0' : 'max-[980px]:translate-x-[-105%]',
+  )
+}
+
+export function mobileNavToggleClass(open: boolean): string {
+  return cn(
+    'hidden max-[980px]:inline-flex fixed top-3 z-60 w-10 h-10 items-center justify-center rounded-[0.65rem] text-[1.2rem] cursor-pointer',
+    'focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-all duration-200',
+    open
+      ? 'left-[calc(min(18rem,86vw)-3.25rem)] bg-[var(--mobile-nav-toggle-open-bg)] border border-[color:var(--mobile-nav-toggle-open-border)] text-foreground shadow-[var(--mobile-nav-toggle-open-shadow)] hover:bg-[var(--mobile-nav-toggle-open-hover-bg)]'
+      : 'left-3 bg-bg-secondary text-foreground border border-border shadow-[0_4px_14px_rgba(0,0,0,0.25)]',
+  )
+}
+
 /** Maps legacy layout class strings to Tailwind for gradual migration. */
 export function legacyLayoutClass(className: string): string {
   const parts = className.split(/\s+/).filter(Boolean)

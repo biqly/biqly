@@ -65,6 +65,8 @@ export const formGroupClass = cn(
   'form-group min-w-0 mb-[1.15rem]',
   formLabelDescendant,
   formControlDescendant,
+  '[&>.ui-select]:mt-0',
+  '[&>.ui-multiselect--inline]:mt-[0.35rem]',
   '[&_textarea]:min-h-[7.5rem] [&_textarea]:resize-y',
   '[&_small]:block [&_small]:mt-2 [&_small]:text-foreground-faint [&_small]:text-[0.76rem]',
 )

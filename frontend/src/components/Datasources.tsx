@@ -19,8 +19,12 @@ import { legacyLayoutClass } from '../lib/layoutClasses'
 import {
   datasourceConnectionHintClass,
   datasourceRowStatusClass,
+  datasourcesColActionsWidthClass,
+  datasourcesColDriverWidthClass,
+  datasourcesColRecordWidthClass,
+  datasourcesColSyncWidthClass,
   datasourceTableSectionLabelClass,
-  legacyTableClass,
+  resultsTableDatasourcesListClass,
   resultsTableScrollClass,
 } from '../lib/tableClasses'
 import type { Datasource } from '../types/metadata'
@@ -365,12 +369,12 @@ export default function Datasources() {
               {t('datasources.registered_count', { count: datasourceRows.length })}
             </p>
             <div className={resultsTableScrollClass}>
-              <table className={legacyTableClass('results-table results-table--datasources-list')}>
+              <table className={resultsTableDatasourcesListClass}>
                 <colgroup>
-                  <col className="datasources-cw-record" />
-                  <col className="datasources-cw-driver" />
-                  <col className="datasources-cw-sync" />
-                  <col className="datasources-cw-actions" />
+                  <col className={datasourcesColRecordWidthClass} />
+                  <col className={datasourcesColDriverWidthClass} />
+                  <col className={datasourcesColSyncWidthClass} />
+                  <col className={datasourcesColActionsWidthClass} />
                 </colgroup>
                 <thead>
                   <tr>

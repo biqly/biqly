@@ -28,6 +28,10 @@ import { legacyFeedbackClass } from './lib/feedbackClasses'
 import { headerControlsClass, sidebarLogoutBtnClass } from './lib/headerControlClasses'
 import {
   mainClass,
+  mobileNavScrimClass,
+  mobileNavScrimVisibleClass,
+  mobileNavSidebarClass,
+  mobileNavToggleClass,
   navLinkClass,
   navLinkIconClass,
   pageHeaderClass,
@@ -511,33 +515,33 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
           </div>
         </Link>
       )}
-      <div className={headerControlsClass}>
+      <div className={`${headerControlsClass} flex-nowrap`}>
         <LanguageSwitcher />
         <ThemeToggle />
-      </div>
-      {user && (
-        <button
-          type="button"
-          className={sidebarLogoutBtnClass}
-          onClick={onLogout}
-          aria-label={t('auth.logout')}
-          title={t('auth.logout')}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+        {user && (
+          <button
+            type="button"
+            className={sidebarLogoutBtnClass}
+            onClick={onLogout}
+            aria-label={t('auth.logout')}
+            title={t('auth.logout')}
           >
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" x2="9" y1="12" y2="12" />
-          </svg>
-        </button>
-      )}
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" x2="9" y1="12" y2="12" />
+            </svg>
+          </button>
+        )}
+      </div>
       <div className="inline-flex items-center gap-2">
         <span
           className={legacyFeedbackClass(
@@ -698,8 +702,11 @@ function App() {
         setMobileNavOpen(false)
       }
     }
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', onKey)
     return () => {
+      document.body.style.overflow = prevOverflow
       window.removeEventListener('keydown', onKey)
     }
   }, [mobileNavOpen])
@@ -847,7 +854,7 @@ function App() {
 
               <button
                 type="button"
-                className={`hidden max-[980px]:inline-flex fixed top-3 z-60 w-10 h-10 items-center justify-center rounded-[0.65rem] text-[1.2rem] cursor-pointer focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 transition-all duration-200 ${mobileNavOpen ? 'left-[calc(min(18rem,86vw)-3.25rem)] bg-transparent! border-transparent! shadow-none! hover:bg-white/5' : 'left-3 bg-bg-secondary text-foreground border border-border shadow-[0_4px_14px_rgba(0,0,0,0.25)]'}`}
+                className={mobileNavToggleClass(mobileNavOpen)}
                 aria-label={mobileNavOpen ? t('common.close_menu') : t('common.open_menu')}
                 aria-expanded={mobileNavOpen}
                 aria-controls="primary-sidebar"
@@ -857,7 +864,7 @@ function App() {
               </button>
 
               <div
-                className={`hidden fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px] ${mobileNavOpen ? 'max-[980px]:block' : ''}`}
+                className={`${mobileNavScrimClass} ${mobileNavOpen ? mobileNavScrimVisibleClass : ''}`}
                 hidden={!mobileNavOpen}
                 onClick={() => setMobileNavOpen(false)}
                 aria-hidden="true"
@@ -865,7 +872,7 @@ function App() {
 
               <aside
                 id="primary-sidebar"
-                className={`sticky top-0 flex flex-col gap-[0.85rem] h-screen border-r border-border bg-bg-secondary py-6 px-4 min-w-0 max-[980px]:fixed max-[980px]:left-0 max-[980px]:z-50 max-[980px]:w-[min(18rem,86vw)] max-[980px]:border-b-0 max-[980px]:transition-transform max-[980px]:duration-200 motion-reduce:transition-none max-[980px]:shadow-[0_18px_60px_rgba(0,0,0,0.45)] ${mobileNavOpen ? 'max-[980px]:translate-x-0' : 'max-[980px]:translate-x-[-105%]'}`}
+                className={mobileNavSidebarClass(mobileNavOpen)}
                 aria-label={t('common.primary_nav')}
               >
                 <a

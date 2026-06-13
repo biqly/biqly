@@ -1,13 +1,27 @@
 import { cn } from './cn'
 
 export const resultsTableScrollClass =
-  'max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch] mt-4 [&_.results-table]:mt-0'
+  'max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch] mt-4 [&_table]:mt-0'
 
-export const resultsTableClass = 'w-full min-w-[42rem] mt-4 border-collapse text-[0.9rem]'
+export const resultsTableShellClass = 'w-full min-w-[42rem] mt-4 border-collapse text-[0.9rem]'
+
+export const resultsTableStripeClass = cn(
+  '[&_tbody_tr:nth-child(odd)_td]:bg-[var(--table-stripe-odd)]',
+  '[&_tbody_tr:nth-child(even)_td]:bg-[var(--table-stripe-even)]',
+  '[&_tbody_tr:hover_td]:bg-[var(--table-stripe-hover)]',
+  '[data-theme=light]:[&_tbody_tr:hover_td]:bg-[rgba(53,99,221,0.06)]',
+)
+
+export const resultsTableClass = cn(resultsTableShellClass, resultsTableStripeClass)
+
+export const datasourcesColRecordWidthClass = 'w-[40%]'
+export const datasourcesColDriverWidthClass = 'w-[16%]'
+export const datasourcesColSyncWidthClass = 'w-[18%]'
+export const datasourcesColActionsWidthClass = 'w-[26%]'
 
 export const resultsTableDatasourcesListClass = cn(
   resultsTableClass,
-  'results-table--datasources-list min-w-0 w-full table-fixed text-[0.875rem]',
+  'min-w-0 w-full table-fixed text-[0.875rem]',
   '[&_th]:px-4 [&_td]:px-4 [&_th]:py-3 [&_td]:py-[0.85rem]',
   '[&_thead_th]:bg-[var(--table-header-bg)] [&_thead_th]:text-[var(--table-header-fg)]',
   '[&_thead_th]:text-[0.68rem] [&_thead_th]:font-bold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.08em]',
@@ -31,7 +45,7 @@ export const datasourceConnectionHintClass = cn(
 )
 
 const resultsTableMetadataListBase = cn(
-  resultsTableClass,
+  resultsTableShellClass,
   'min-w-0 w-full mt-2 text-[0.8125rem] table-fixed',
   '[&_th]:p-[0.4rem_0.55rem] [&_td]:p-[0.4rem_0.55rem]',
   '[&_thead_th]:text-[0.86rem] [&_thead_th]:leading-[1.35] [&_thead_th]:pt-[0.6rem] [&_thead_th]:pb-[0.6rem]',

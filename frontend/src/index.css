@@ -113,6 +113,18 @@
   --z-modal: 1000;
   --z-select: 1100;
 
+  --mobile-nav-scrim: rgba(0, 0, 0, 0.68);
+  --mobile-nav-scrim-blur: 6px;
+  --mobile-nav-panel-bg: var(--bg-secondary);
+  --mobile-nav-panel-edge: rgba(255, 255, 255, 0.14);
+  --mobile-nav-panel-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06), 1px 0 0 rgba(255, 255, 255, 0.08),
+    12px 0 48px rgba(0, 0, 0, 0.45), 24px 0 80px rgba(0, 0, 0, 0.35);
+  --mobile-nav-toggle-open-bg: rgba(255, 255, 255, 0.08);
+  --mobile-nav-toggle-open-border: rgba(255, 255, 255, 0.14);
+  --mobile-nav-toggle-open-hover-bg: rgba(255, 255, 255, 0.12);
+  --mobile-nav-toggle-open-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
     monospace;
@@ -166,6 +178,18 @@
   --metadata-inline-hover-border: rgba(15, 23, 42, 0.12);
   --table-header-shadow-line: rgba(15, 23, 42, 0.05);
   --toggle-idle-hover-bg: rgba(0, 0, 0, 0.04);
+
+  --mobile-nav-scrim: rgba(15, 23, 42, 0.58);
+  --mobile-nav-scrim-blur: 8px;
+  --mobile-nav-panel-bg: #ffffff;
+  --mobile-nav-panel-edge: rgba(15, 23, 42, 0.16);
+  --mobile-nav-panel-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.06), 1px 0 0 rgba(15, 23, 42, 0.1),
+    12px 0 48px rgba(15, 23, 42, 0.16), 24px 0 80px rgba(15, 23, 42, 0.12);
+  --mobile-nav-toggle-open-bg: rgba(255, 255, 255, 0.96);
+  --mobile-nav-toggle-open-border: rgba(15, 23, 42, 0.14);
+  --mobile-nav-toggle-open-hover-bg: #f8fafc;
+  --mobile-nav-toggle-open-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
 }
 
 @layer base {
@@ -307,14 +331,6 @@
     cursor: not-allowed;
   }
 
-  .form-group > .ui-select {
-    margin-top: 0;
-  }
-
-  .form-group > .ui-multiselect--inline {
-    margin-top: 0.35rem;
-  }
-
   /* Select list — scrollbar (not expressible as utilities) */
   .ui-select-list {
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
@@ -341,27 +357,14 @@
     border-radius: 8px;
     background: var(--bg-card-raised, var(--input-bg));
   }
-
-  /* Plain results tables (not metadata-list): zebra + hover */
-  .results-table:not(.results-table--metadata-list) tbody tr:nth-child(odd) td {
-    background-color: var(--table-stripe-odd);
-  }
-
-  .results-table:not(.results-table--metadata-list) tbody tr:nth-child(even) td {
-    background-color: var(--table-stripe-even);
-  }
-
-  .results-table:not(.results-table--metadata-list) tbody tr:hover td {
-    background-color: var(--table-stripe-hover);
-  }
 }
 
 /*
  * Faz 15 — irreducible CSS (keep in this file; migrated BEM lives in frontend/src/lib/*Classes.ts):
  * - :root / [data-theme] CSS variables (runtime light/dark)
  * - @layer base — focus-visible, touch-action, #root
- * - @layer components — native select arrow, custom checkbox, ui-select scrollbar, results-table zebra
- * - Table col widths (metadata list/nested colgroup)
+ * - @layer components — native select arrow, custom checkbox, ui-select scrollbar
+ * - Table col widths (metadata list/nested colgroup — see tableClasses.ts)
  * - modeling-canvas-wrap grid + modeling-join-line SVG strokes (JS hooks)
  * - custom-scrollbar / custom-scrollbar-thin pseudo-elements
  * - .auth-page radial gradients
@@ -369,41 +372,6 @@
  * - .admin-range-slider pseudo-thumb
  * - @media (prefers-reduced-motion: reduce)
  */
-
-/* Table column widths (colgroup / col classes) */
-.results-table--datasources-list col.datasources-cw-record {
-  width: 40%;
-}
-
-.results-table--datasources-list col.datasources-cw-driver {
-  width: 16%;
-}
-
-.results-table--datasources-list col.datasources-cw-sync {
-  width: 18%;
-}
-
-.results-table--datasources-list col.datasources-cw-actions {
-  width: 26%;
-}
-
-/* Keep <td> as table-cell; line-clamp on inner avoids border / row baseline glitches */
-.results-table.results-table--dense .bulk-col-detail {
-  vertical-align: top;
-}
-
-.results-table.results-table--dense .bulk-col-detail-inner {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  line-height: 1.35;
-  font-size: 0.78rem;
-  max-width: 100%;
-}
 
 @keyframes loading-spin {
   to {
@@ -486,11 +454,6 @@ body.modeling-grabbing * {
 
 #modeling-arrow path {
   fill: color-mix(in srgb, var(--accent) 80%, var(--text-muted));
-}
-
-/* Light-mode polish: certain hardcoded surfaces from the dark palette */
-:root[data-theme='light'] .results-table tbody tr:hover td {
-  background: rgba(53, 99, 221, 0.06);
 }
 
 @keyframes lockedCardAppear {
