@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/biqly/biqly/internal/auth/rbac"
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/biqly/biqly/internal/platform/db/pgarray"
 	"github.com/biqly/biqly/internal/security"
@@ -15,6 +16,8 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 )
+
+const firstUserBootstrapLockKey = "biqly.auth.first_user_bootstrap"
 
 var (
 	ErrUserNotFound         = errors.New("user not found")
@@ -35,6 +38,11 @@ func NewUserRepository(db *sql.DB, enc *security.Encryption) *UserRepository {
 func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash, displayName string) (*User, error) {
 	var user User
 	err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		globalRoleName, err := firstUserGlobalRoleName(ctx, tx)
+		if err != nil {
+			return err
+		}
+
 		var exists bool
 		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email).Scan(&exists); err != nil {
 			return fmt.Errorf("check user existence: %w", err)
@@ -64,7 +72,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash, di
 		user.AvatarURL = platformdb.StringPtrFromNull(avatarURLNull)
 
 		// Automatically create a personal workspace for the user and assign roles.
-		return bootstrapUserWorkspace(ctx, tx, user.ID, displayName, email)
+		return bootstrapUserWorkspace(ctx, tx, user.ID, displayName, email, globalRoleName)
 	})
 	if err != nil {
 		return nil, err
@@ -80,6 +88,11 @@ func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash, di
 func (r *UserRepository) CreateDirectoryUser(ctx context.Context, email, displayName string) (*User, error) {
 	var user User
 	err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		globalRoleName, err := firstUserGlobalRoleName(ctx, tx)
+		if err != nil {
+			return err
+		}
+
 		var exists bool
 		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email).Scan(&exists); err != nil {
 			return fmt.Errorf("check user existence: %w", err)
@@ -101,7 +114,7 @@ func (r *UserRepository) CreateDirectoryUser(ctx context.Context, email, display
 		user.Username = platformdb.StringPtrFromNull(usernameNull)
 		user.DisplayName = platformdb.StringPtrFromNull(displayNameNull)
 		user.AvatarURL = platformdb.StringPtrFromNull(avatarURLNull)
-		return bootstrapUserWorkspace(ctx, tx, user.ID, displayName, email)
+		return bootstrapUserWorkspace(ctx, tx, user.ID, displayName, email, globalRoleName)
 	})
 	if err != nil {
 		return nil, err
@@ -109,10 +122,33 @@ func (r *UserRepository) CreateDirectoryUser(ctx context.Context, email, display
 	return &user, nil
 }
 
+func (r *UserRepository) FirstUserSetupRequired(ctx context.Context) (bool, error) {
+	var exists bool
+	if err := r.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users)").Scan(&exists); err != nil {
+		return false, fmt.Errorf("check user bootstrap state: %w", err)
+	}
+	return !exists, nil
+}
+
+func firstUserGlobalRoleName(ctx context.Context, tx *sql.Tx) (string, error) {
+	if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", firstUserBootstrapLockKey); err != nil {
+		return "", fmt.Errorf("lock first user bootstrap: %w", err)
+	}
+
+	var exists bool
+	if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users)").Scan(&exists); err != nil {
+		return "", fmt.Errorf("check first user bootstrap: %w", err)
+	}
+	if !exists {
+		return rbac.RoleSuperAdmin, nil
+	}
+	return "viewer", nil
+}
+
 // bootstrapUserWorkspace provisions a newly created user: it creates a personal
-// workspace, assigns the global viewer role, and adds the user as admin of their
-// personal workspace. It must run inside the same transaction as user creation.
-func bootstrapUserWorkspace(ctx context.Context, tx *sql.Tx, userID, displayName, email string) error {
+// workspace, assigns the global role, and adds the user as admin of their personal
+// workspace. It must run inside the same transaction as user creation.
+func bootstrapUserWorkspace(ctx context.Context, tx *sql.Tx, userID, displayName, email, globalRoleName string) error {
 	workspaceQuery := `
 		INSERT INTO workspaces (name, slug, is_personal, created_by)
 		VALUES ($1, $2, TRUE, $3)
@@ -129,10 +165,10 @@ func bootstrapUserWorkspace(ctx context.Context, tx *sql.Tx, userID, displayName
 		return fmt.Errorf("create personal workspace: %w", err)
 	}
 
-	// Get default viewer role ID and assign it as the global role.
+	// Get default global role ID and assign it.
 	var roleID string
-	if err := tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'viewer'").Scan(&roleID); err != nil {
-		return fmt.Errorf("get default role: %w", err)
+	if err := tx.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = $1", globalRoleName).Scan(&roleID); err != nil {
+		return fmt.Errorf("get default role %q: %w", globalRoleName, err)
 	}
 
 	userRoleQuery := `
@@ -444,6 +480,11 @@ func (r *UserRepository) LinkOAuthAccount(ctx context.Context, userID, provider,
 func (r *UserRepository) CreateUserWithOAuth(ctx context.Context, email, displayName, provider, providerUID string, token *oauth2.Token) (*User, error) {
 	var user User
 	err := platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		globalRoleName, err := firstUserGlobalRoleName(ctx, tx)
+		if err != nil {
+			return err
+		}
+
 		var exists bool
 		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", email).Scan(&exists); err != nil {
 			return fmt.Errorf("check user existence: %w", err)
@@ -475,7 +516,7 @@ func (r *UserRepository) CreateUserWithOAuth(ctx context.Context, email, display
 			}
 			userID = user.ID
 
-			if err := bootstrapUserWorkspace(ctx, tx, userID, displayName, email); err != nil {
+			if err := bootstrapUserWorkspace(ctx, tx, userID, displayName, email, globalRoleName); err != nil {
 				return err
 			}
 		}

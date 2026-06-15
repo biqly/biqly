@@ -17,8 +17,11 @@ import {
   adminListAvatarClass,
   adminMessageBoxClass,
   adminMfaStatusBadgeClass,
+  adminPasskeyBadgeClass,
+  adminRowRevealActionClass,
   adminSubtextClass,
   adminTableContainerClass,
+  adminTableRowHoverClass,
   adminUserSecurityClass,
   adminVerifiedBadgeClass,
 } from '../adminClasses'
@@ -164,7 +167,7 @@ export function ActiveUsersTab({
                 ? t('admin.users.mfa_pending')
                 : t('admin.users.mfa_off')}
           </span>
-          <span className={adminSubtextClass}>
+          <span className={adminPasskeyBadgeClass(u.passkeyCount ?? 0)}>
             {(u.passkeyCount ?? 0) > 0
               ? t('admin.users.passkeys_count', { count: u.passkeyCount ?? 0 })
               : t('admin.users.passkeys_none')}
@@ -183,8 +186,9 @@ export function ActiveUsersTab({
       align: 'right',
       cell: (u) => (
         <button
+          type="button"
           onClick={() => onSelectUser(u.id, u.displayName?.trim() ?? u.email)}
-          className={adminBtnPrimaryClass}
+          className={`${adminBtnPrimaryClass} ${adminRowRevealActionClass}`}
         >
           {t('admin.users.manage')}
         </button>
@@ -235,6 +239,7 @@ export function ActiveUsersTab({
             rowKey={(u) => u.id}
             loading={loading}
             emptyCell={t('admin.users.empty')}
+            rowClassName={adminTableRowHoverClass}
           />
         </DataState>
         <Pagination

@@ -2,6 +2,9 @@ package auth
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,18 +18,17 @@ import (
 func TestSelfSignupDisabledBlocksRegister(t *testing.T) {
 	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
+	testutil.ResetAuthIntegrationTables(ctx, t, dbPool)
 
-	_, _ = dbPool.ExecContext(ctx, "UPDATE platform_settings SET self_signup_enabled = false WHERE id = 1")
-
-	config := &Config{JWTAccessTTL: 5 * time.Minute, JWTRefreshTTL: 24 * time.Hour}
-	jwtMgr, err := NewJWTManager("", "", config.JWTAccessTTL)
+	service, userRepo, _ := newPlatformSettingsTestService(t, dbPool)
+	_, err := userRepo.CreateUser(ctx, "existing-user@example.com", "SecurePass123!", "Existing User")
 	require.NoError(t, err)
 
-	userRepo := NewUserRepository(dbPool, nil)
-	rbacRepo := rbac.NewRBACRepository(dbPool)
-	sessionMgr := NewSessionManager(dbPool)
-	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, nil)
-	service.SetPlatformSettingsRepository(NewPlatformSettingsRepository(dbPool))
+	_, err = dbPool.ExecContext(ctx, "UPDATE platform_settings SET self_signup_enabled = false WHERE id = 1")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = dbPool.ExecContext(ctx, "UPDATE platform_settings SET self_signup_enabled = true WHERE id = 1")
+	})
 
 	_, err = service.Register(ctx, RegisterRequest{
 		Email:       "newuser@example.com",
@@ -34,31 +36,94 @@ func TestSelfSignupDisabledBlocksRegister(t *testing.T) {
 		DisplayName: "New User",
 	}, nil, nil)
 	assert.ErrorIs(t, err, ErrSelfSignupDisabled)
+}
 
-	_, _ = dbPool.ExecContext(ctx, "UPDATE platform_settings SET self_signup_enabled = true WHERE id = 1")
+func TestFirstUserSetupAllowsRegisterWhenSelfSignupDisabled(t *testing.T) {
+	dbPool := testutil.OpenAuthDB(t)
+	ctx := context.Background()
+	testutil.ResetAuthIntegrationTables(ctx, t, dbPool)
+
+	_, err := dbPool.ExecContext(ctx, "UPDATE platform_settings SET self_signup_enabled = false WHERE id = 1")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = dbPool.ExecContext(ctx, "UPDATE platform_settings SET self_signup_enabled = true WHERE id = 1")
+	})
+
+	service, _, rbacRepo := newPlatformSettingsTestService(t, dbPool)
+
+	required, err := service.FirstUserSetupRequired(ctx)
+	require.NoError(t, err)
+	assert.True(t, required)
+
+	resp, err := service.Register(ctx, RegisterRequest{
+		Email:       "first-admin@example.com",
+		Password:    "SecurePass123!",
+		DisplayName: "First Admin",
+	}, nil, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, resp.UserID)
+
+	roles, err := rbacRepo.GetUserRoles(ctx, resp.UserID)
+	require.NoError(t, err)
+	assert.Contains(t, roles, rbac.RoleSuperAdmin)
+
+	required, err = service.FirstUserSetupRequired(ctx)
+	require.NoError(t, err)
+	assert.False(t, required)
+
+	_, err = service.Register(ctx, RegisterRequest{
+		Email:       "second-user@example.com",
+		Password:    "SecurePass123!",
+		DisplayName: "Second User",
+	}, nil, nil)
+	assert.ErrorIs(t, err, ErrSelfSignupDisabled)
+}
+
+func TestFirstUserSetupAssignsOnlyOneSuperAdminConcurrently(t *testing.T) {
+	dbPool := testutil.OpenAuthDB(t)
+	ctx := context.Background()
+	testutil.ResetAuthIntegrationTables(ctx, t, dbPool)
+
+	service, _, _ := newPlatformSettingsTestService(t, dbPool)
+
+	const attempts = 6
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(attempts)
+	for i := range attempts {
+		email := fmt.Sprintf("first-race-%d@example.com", i)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, _ = service.Register(ctx, RegisterRequest{
+				Email:       email,
+				Password:    "SecurePass123!",
+				DisplayName: "Race User",
+			}, nil, nil)
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	var superAdmins int
+	err := dbPool.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM user_roles ur
+		JOIN roles r ON r.id = ur.role_id
+		WHERE r.name = $1
+	`, rbac.RoleSuperAdmin).Scan(&superAdmins)
+	require.NoError(t, err)
+	assert.Equal(t, 1, superAdmins)
 }
 
 func TestSuperAdminUpdatesPlatformSettings(t *testing.T) {
 	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
+	testutil.ResetAuthIntegrationTables(ctx, t, dbPool)
 
-	config := &Config{JWTAccessTTL: 5 * time.Minute, JWTRefreshTTL: 24 * time.Hour}
-	jwtMgr, err := NewJWTManager("", "", config.JWTAccessTTL)
-	require.NoError(t, err)
-
-	userRepo := NewUserRepository(dbPool, nil)
-	rbacRepo := rbac.NewRBACRepository(dbPool)
-	sessionMgr := NewSessionManager(dbPool)
-	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, nil)
-	service.SetPlatformSettingsRepository(NewPlatformSettingsRepository(dbPool))
+	service, userRepo, _ := newPlatformSettingsTestService(t, dbPool)
 
 	superUser, err := userRepo.CreateUser(ctx, "platform-admin@example.com", "SecurePass123!", "Platform Admin")
-	require.NoError(t, err)
-
-	var superRoleID string
-	err = dbPool.QueryRowContext(ctx, `SELECT id FROM roles WHERE name = $1`, rbac.RoleSuperAdmin).Scan(&superRoleID)
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, `INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)`, superUser.ID, superRoleID)
 	require.NoError(t, err)
 
 	updated, err := service.UpdatePlatformSettings(ctx, superUser.ID, false)
@@ -68,4 +133,19 @@ func TestSuperAdminUpdatesPlatformSettings(t *testing.T) {
 	restored, err := service.UpdatePlatformSettings(ctx, superUser.ID, true)
 	require.NoError(t, err)
 	assert.True(t, restored.SelfSignupEnabled)
+}
+
+func newPlatformSettingsTestService(t testing.TB, dbPool *sql.DB) (*Service, *UserRepository, *rbac.RBACRepository) {
+	t.Helper()
+
+	config := &Config{JWTAccessTTL: 5 * time.Minute, JWTRefreshTTL: 24 * time.Hour}
+	jwtMgr, err := NewJWTManager("", "", config.JWTAccessTTL)
+	require.NoError(t, err)
+
+	userRepo := NewUserRepository(dbPool, nil)
+	rbacRepo := rbac.NewRBACRepository(dbPool)
+	sessionMgr := NewSessionManager(dbPool)
+	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, nil)
+	service.SetPlatformSettingsRepository(NewPlatformSettingsRepository(dbPool))
+	return service, userRepo, rbacRepo
 }

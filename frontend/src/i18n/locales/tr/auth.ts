@@ -16,6 +16,13 @@ export const auth: AuthDictionary = {
   forgot_password: 'Şifrenizi mi unuttunuz?',
   btn_signin: 'Giriş Yap',
   btn_signup: 'Kayıt Ol',
+  first_setup_title: 'İlk yöneticiyi oluşturun',
+  first_setup_body:
+    'Henüz kullanıcı yok. İlk hesabı oluşturarak başlayın; bu hesap platform super admin rolünü alacak.',
+  first_setup_cta: 'İlk admin hesabını oluştur',
+  first_setup_signup_body:
+    'Bu ilk hesap super admin yetkisi alacak ve kurulumdan sonra diğer kullanıcıları davet edip yönetebilecek.',
+  first_setup_submit: 'Super Admin Oluştur',
   btn_send_reset: 'Sıfırlama bağlantısı gönder',
   btn_reset: 'Şifreyi güncelle',
   btn_verify: 'E-postayı doğrula',

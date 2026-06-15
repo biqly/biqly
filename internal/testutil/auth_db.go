@@ -1,3 +1,5 @@
+// Package testutil provides shared PostgreSQL helpers for integration tests,
+// including opening auth and metadata databases and running test-only SQL setup.
 package testutil
 
 import (
@@ -23,6 +25,15 @@ func ExecAuthSQL(ctx context.Context, t testing.TB, db *sql.DB, statements ...st
 	}
 }
 
+func purgeAuthAuditLogForTests(ctx context.Context, t testing.TB, db *sql.DB) {
+	t.Helper()
+	ExecAuthSQL(ctx, t, db,
+		"ALTER TABLE audit_log DISABLE TRIGGER audit_log_no_delete",
+		"DELETE FROM audit_log",
+		"ALTER TABLE audit_log ENABLE TRIGGER audit_log_no_delete",
+	)
+}
+
 func ResetAuthUserTables(ctx context.Context, t testing.TB, db *sql.DB) {
 	t.Helper()
 	ExecAuthSQL(ctx, t, db,
@@ -30,8 +41,9 @@ func ResetAuthUserTables(ctx context.Context, t testing.TB, db *sql.DB) {
 		"DELETE FROM workspace_members",
 		"DELETE FROM workspaces",
 		"DELETE FROM user_roles",
-		"DELETE FROM users",
 	)
+	purgeAuthAuditLogForTests(ctx, t, db)
+	ExecAuthSQL(ctx, t, db, "DELETE FROM users")
 }
 
 func ResetAuthIntegrationTables(ctx context.Context, t testing.TB, db *sql.DB, extra ...string) {
@@ -43,7 +55,8 @@ func ResetAuthIntegrationTables(ctx context.Context, t testing.TB, db *sql.DB, e
 		"DELETE FROM workspace_members",
 		"DELETE FROM workspaces",
 		"DELETE FROM user_roles",
-		"DELETE FROM users",
 	)
 	ExecAuthSQL(ctx, t, db, stmts...)
+	purgeAuthAuditLogForTests(ctx, t, db)
+	ExecAuthSQL(ctx, t, db, "DELETE FROM users")
 }

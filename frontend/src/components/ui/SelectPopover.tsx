@@ -16,14 +16,9 @@ import {
 } from '../../lib/selectClasses'
 import type { SelectOption } from './Select'
 import { handleSelectTriggerKeyDown, type SelectKeyboardContext } from './selectKeyboard'
+import { type SelectPopoverCoords, selectPopoverFixedStyle } from './selectLayout'
 
-interface PopoverPos {
-  left: number
-  top: number
-  width: number
-  maxHeight: number
-  placement: 'down' | 'up'
-}
+type PopoverPos = SelectPopoverCoords
 
 export function SelectPopover<T extends string>({
   baseId,
@@ -65,12 +60,7 @@ export function SelectPopover<T extends string>({
   return createPortal(
     <div
       className={selectPopoverClass(popover.placement)}
-      style={{
-        position: 'fixed',
-        left: popover.left,
-        top: popover.top,
-        width: popover.width,
-      }}
+      style={selectPopoverFixedStyle(popover)}
       role="presentation"
     >
       {header && <div className={selectHeaderClass}>{header}</div>}

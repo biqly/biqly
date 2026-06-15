@@ -6,6 +6,7 @@ import {
   apiMFALogin,
   apiPasskeyLoginBegin,
   apiPasskeyLoginFinish,
+  firstUserSetupRequiredFromPolicy,
   selfSignupEnabledFromPolicy,
 } from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
@@ -44,6 +45,7 @@ export default function SignInPage() {
   const [mfaCode, setMfaCode] = useState('')
   const [mfaLoading, setMfaLoading] = useState(false)
   const [signupAllowed, setSignupAllowed] = useState(true)
+  const [firstUserSetupRequired, setFirstUserSetupRequired] = useState(false)
   const [ldapEnabled, setLdapEnabled] = useState(false)
   const mfaCodeRef = useAutofocus<HTMLInputElement>(mfaRequired)
 
@@ -55,6 +57,7 @@ export default function SignInPage() {
           return
         }
         setSignupAllowed(selfSignupEnabledFromPolicy(policy))
+        setFirstUserSetupRequired(firstUserSetupRequiredFromPolicy(policy))
         setLdapEnabled(policy.ldap_enabled === true)
       })
       .catch(() => {
@@ -218,7 +221,22 @@ export default function SignInPage() {
           <h1 className="text-[24px] font-bold text-foreground mb-1 tracking-tight">
             {t('auth.title_signin')}
           </h1>
-          {signupAllowed && (
+          {firstUserSetupRequired ? (
+            <div className="mt-2 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2 text-[13px] text-foreground-muted">
+              <p className="mb-1 font-semibold text-foreground">{t('auth.first_setup_title')}</p>
+              <p className="mb-2">{t('auth.first_setup_body')}</p>
+              <a
+                href="/auth/signup"
+                className="font-semibold text-accent no-underline hover:underline"
+                onClick={(e) => {
+                  e.preventDefault()
+                  void navigate('/auth/signup')
+                }}
+              >
+                {t('auth.first_setup_cta')}
+              </a>
+            </div>
+          ) : signupAllowed ? (
             <p className="text-[14px] text-foreground-muted">
               {t('auth.no_account')}{' '}
               <a
@@ -232,7 +250,7 @@ export default function SignInPage() {
                 {t('auth.btn_signup')}
               </a>
             </p>
-          )}
+          ) : null}
         </div>
 
         {sessionBanner && (

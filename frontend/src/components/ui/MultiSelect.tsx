@@ -22,7 +22,13 @@ import {
   selectValueClass,
 } from '../../lib/selectClasses'
 import type { SelectOption } from './Select'
-import { resolveSelectPopoverLayout } from './selectLayout'
+import {
+  resolveSelectPopoverCoords,
+  type SelectPopoverCoords,
+  selectPopoverFixedStyle,
+} from './selectLayout'
+
+type PopoverPos = SelectPopoverCoords
 
 interface MultiSelectProps {
   value: string[]
@@ -38,14 +44,6 @@ interface MultiSelectProps {
   /** popover = trigger + dropdown; inline = always-visible checklist */
   display?: 'popover' | 'inline'
   maxHeight?: number
-}
-
-interface PopoverPos {
-  left: number
-  top: number
-  width: number
-  maxHeight: number
-  placement: 'down' | 'up'
 }
 
 export function MultiSelect({
@@ -104,17 +102,7 @@ export function MultiSelect({
       return
     }
     const rect = triggerRef.current.getBoundingClientRect()
-    const viewportH = window.innerHeight
-    const spaceBelow = viewportH - rect.bottom - 12
-    const spaceAbove = rect.top - 12
-    const placement: 'down' | 'up' = spaceBelow < 220 && spaceAbove > spaceBelow ? 'up' : 'down'
-    const listMax = Math.max(
-      160,
-      Math.min(maxHeight, placement === 'down' ? spaceBelow : spaceAbove),
-    )
-    const top = placement === 'down' ? rect.bottom + 6 : Math.max(8, rect.top - 6 - listMax)
-    const { left, width } = resolveSelectPopoverLayout(rect, options, size === 'sm' ? 11.5 : 12.5)
-    setPopover({ left, top, width, maxHeight: listMax, placement })
+    setPopover(resolveSelectPopoverCoords(rect, options, size === 'sm' ? 11.5 : 12.5, maxHeight))
   }, [display, maxHeight, options, size])
 
   useLayoutEffect(() => {
@@ -283,12 +271,7 @@ export function MultiSelect({
         createPortal(
           <div
             className={selectPopoverClass(popover.placement)}
-            style={{
-              position: 'fixed',
-              left: popover.left,
-              top: popover.top,
-              width: popover.width,
-            }}
+            style={selectPopoverFixedStyle(popover)}
             role="presentation"
           >
             {header && <div className={selectHeaderClass}>{header}</div>}

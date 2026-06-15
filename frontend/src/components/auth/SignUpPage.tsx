@@ -1,7 +1,11 @@
-import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
+import { type MouseEvent, type SubmitEvent, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { apiGetPasswordPolicy, selfSignupEnabledFromPolicy } from '../../api/auth'
+import {
+  apiGetPasswordPolicy,
+  firstUserSetupRequiredFromPolicy,
+  selfSignupEnabledFromPolicy,
+} from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
 import { useLocale, useT } from '../../i18n'
 import {
@@ -30,6 +34,32 @@ import { PrivacyPolicyEN, PrivacyPolicyTR, TermsOfUseEN, TermsOfUseTR } from './
 
 function confirmPasswordMismatch(password: string, confirmPassword: string): boolean {
   return confirmPassword.length > 0 && password !== confirmPassword
+}
+
+interface SubmitDisabledState {
+  loading: boolean
+  displayName: string
+  email: string
+  showEmailInvalid: boolean
+  password: string
+  confirmPassword: string
+  agree: boolean
+  showPasswordMismatch: boolean
+  passwordValid: boolean
+}
+
+function isSubmitDisabled(state: SubmitDisabledState): boolean {
+  return (
+    state.loading ||
+    !state.displayName ||
+    !state.email ||
+    state.showEmailInvalid ||
+    !state.password ||
+    !state.confirmPassword ||
+    !state.agree ||
+    state.showPasswordMismatch ||
+    !state.passwordValid
+  )
 }
 
 interface EmailFieldProps {
@@ -115,6 +145,36 @@ function ConfirmPasswordField({
   )
 }
 
+interface SignUpHeaderProps {
+  firstUserSetupRequired: boolean
+  onSignInClick: (event: MouseEvent<HTMLAnchorElement>) => void
+}
+
+function SignUpHeader({ firstUserSetupRequired, onSignInClick }: SignUpHeaderProps) {
+  const t = useT()
+
+  return (
+    <div className="flex flex-col items-center text-center mb-6">
+      <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+        <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
+      </div>
+      <h1 className="text-[24px] font-bold text-foreground mb-1 tracking-tight">
+        {firstUserSetupRequired ? t('auth.first_setup_title') : t('auth.title_signup')}
+      </h1>
+      {firstUserSetupRequired ? (
+        <p className="text-[14px] text-foreground-muted">{t('auth.first_setup_signup_body')}</p>
+      ) : (
+        <p className="text-[14px] text-foreground-muted">
+          {t('auth.already_account')}{' '}
+          <a href="/auth/signin" className={authInlineLinkClass} onClick={onSignInClick}>
+            {t('auth.btn_signin')}
+          </a>
+        </p>
+      )}
+    </div>
+  )
+}
+
 export default function SignUpPage() {
   const navigate = useNavigate()
   const t = useT()
@@ -134,6 +194,7 @@ export default function SignUpPage() {
   const [privacyOpen, setPrivacyOpen] = useState(false)
   const [policyLoading, setPolicyLoading] = useState(true)
   const [signupAllowed, setSignupAllowed] = useState(true)
+  const [firstUserSetupRequired, setFirstUserSetupRequired] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -141,6 +202,7 @@ export default function SignUpPage() {
       .then((policy) => {
         if (!cancelled) {
           setSignupAllowed(selfSignupEnabledFromPolicy(policy))
+          setFirstUserSetupRequired(firstUserSetupRequiredFromPolicy(policy))
         }
       })
       .finally(() => {
@@ -167,6 +229,14 @@ export default function SignUpPage() {
   const clearEmailFormatError = useCallback(() => {
     setError((current) => (current === t('auth.invalid_email') ? null : current))
   }, [t])
+
+  const handleSignInClick = useCallback(
+    (e: MouseEvent<HTMLAnchorElement>) => {
+      e.preventDefault()
+      void navigate('/auth/signin')
+    },
+    [navigate],
+  )
 
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -265,27 +335,10 @@ export default function SignUpPage() {
   return (
     <div className={authPageClass}>
       <div className={authCardClass}>
-        <div className="flex flex-col items-center text-center mb-6">
-          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
-            <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
-          </div>
-          <h1 className="text-[24px] font-bold text-foreground mb-1 tracking-tight">
-            {t('auth.title_signup')}
-          </h1>
-          <p className="text-[14px] text-foreground-muted">
-            {t('auth.already_account')}{' '}
-            <a
-              href="/auth/signin"
-              className={authInlineLinkClass}
-              onClick={(e) => {
-                e.preventDefault()
-                void navigate('/auth/signin')
-              }}
-            >
-              {t('auth.btn_signin')}
-            </a>
-          </p>
-        </div>
+        <SignUpHeader
+          firstUserSetupRequired={firstUserSetupRequired}
+          onSignInClick={handleSignInClick}
+        />
 
         <form
           onSubmit={(e) => {
@@ -399,22 +452,22 @@ export default function SignUpPage() {
           <button
             type="submit"
             className={authSubmitBtnClass}
-            disabled={
-              loading ||
-              !displayName ||
-              !email ||
-              showEmailInvalid ||
-              !password ||
-              !confirmPassword ||
-              !agree ||
-              showPasswordMismatch ||
-              !passwordValid
-            }
+            disabled={isSubmitDisabled({
+              loading,
+              displayName,
+              email,
+              showEmailInvalid,
+              password,
+              confirmPassword,
+              agree,
+              showPasswordMismatch,
+              passwordValid,
+            })}
           >
             {loading && (
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
             )}
-            {t('auth.btn_signup')}
+            {firstUserSetupRequired ? t('auth.first_setup_submit') : t('auth.btn_signup')}
           </button>
         </form>
       </div>

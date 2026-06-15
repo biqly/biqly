@@ -1,3 +1,4 @@
+// Package auth implements authentication, sessions, workspaces, and user lifecycle.
 package auth
 
 import (
@@ -104,7 +105,7 @@ func NewAuthService(
 }
 
 func (s *Service) Register(ctx context.Context, req RegisterRequest, userAgent, ipAddress *string) (*TokenResponse, error) {
-	enabled, err := s.SelfSignupEnabled(ctx)
+	enabled, err := s.RegistrationAllowed(ctx)
 	if err != nil {
 		return nil, err
 	}
