@@ -452,7 +452,7 @@ func buildCalcExprDependencyAdj(model SemanticModel) map[string][]string {
 }
 
 func addCalcExprDeps(adj map[string][]string, nodeKey, exprStr string, ast pkgsemantic.ExprNode) {
-	expr := getOrParseExpr(exprStr, ast)
+	expr, _ := getOrParseExpr(exprStr, ast)
 	if expr == nil {
 		return
 	}
@@ -517,20 +517,22 @@ func formatCalcExprCycle(path []string, repeat string) string {
 	return "circular dependency detected: " + strings.Join(cycle, " -> ")
 }
 
-func getOrParseExpr(exprStr string, ast pkgsemantic.ExprNode) pkgsemantic.ExprNode {
+var errNoExpr = errors.New("no expression")
+
+func getOrParseExpr(exprStr string, ast pkgsemantic.ExprNode) (pkgsemantic.ExprNode, error) {
 	if ast != nil {
-		return ast
+		return ast, nil
 	}
 	exprStr = strings.TrimSpace(exprStr)
 	parser := CurrentExpressionParser()
 	if exprStr == "" || exprStr == "*" || parser == nil {
-		return nil
+		return nil, errNoExpr
 	}
 	parsed, err := parser(exprStr)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return parsed
+	return parsed, nil
 }
 
 func cleanNodeName(s string) string {
