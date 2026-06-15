@@ -122,6 +122,25 @@ func (r *Repository) MarkUsed(ctx context.Context, userID string) error {
 	return err
 }
 
+// ConsumeTOTPStep atomically records a TOTP time-step as consumed. Returns
+// true if the step was accepted (it is newer than the stored step), or false
+// if the step was already consumed or is older — callers should reject the
+// code and return ErrTOTPCodeAlreadyUsed.
+func (r *Repository) ConsumeTOTPStep(ctx context.Context, userID string, step uint64) (bool, error) {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE user_mfa SET last_totp_step = $2, last_used_at = NOW(), updated_at = NOW()
+		WHERE user_id = $1 AND last_totp_step < $2
+	`, userID, step)
+	if err != nil {
+		return false, err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return rows > 0, nil
+}
+
 // ConsumeRecoveryCode removes a single matched hash from the array.
 // Returns true if the code was found and removed.
 func (r *Repository) ConsumeRecoveryCode(ctx context.Context, userID, hash string) (bool, error) {

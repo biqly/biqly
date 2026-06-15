@@ -16,10 +16,9 @@ const (
 	oauthCallbackKeyPrefix     = "oauth_callback:"
 	oauthCallbackUsedKeyPrefix = "oauth_callback_used:"
 	oauthCallbackCodeTTL       = 90 * time.Second
-	// Allow a short replay window so that retries or simultaneous mounts
-	// (e.g. StrictMode, slow networks) get the same tokens back instead of a
-	// hard 400 that bounces the user to the sign-in page. The single-use
-	// guarantee still holds beyond this grace period.
+	// Short-lived backup key so a delayed retry that arrives after the primary
+	// GetDel still gets the payload — but only once. The grace key is itself
+	// consumed with GetDel, so the code is strictly single-use.
 	oauthCallbackGraceTTL = 5 * time.Second
 )
 
@@ -75,12 +74,15 @@ func (s *Service) loadOAuthCallbackPayload(ctx context.Context, key, usedKey str
 	if !errors.Is(err, redis.Nil) {
 		return nil, fmt.Errorf("redeem oauth callback code: %w", err)
 	}
-	raw, err = s.redisClient.Get(ctx, usedKey).Bytes()
+	// Grace path — a retry that arrived after the primary GetDel may still be
+	// within the 5-second grace TTL. Consume the grace key atomically so the
+	// code is still single-use total: only one reader succeeds.
+	raw, err = s.redisClient.GetDel(ctx, usedKey).Bytes()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return nil, ErrInvalidOAuthCallbackCode
 		}
-		return nil, fmt.Errorf("read oauth callback grace cache: %w", err)
+		return nil, fmt.Errorf("redeem oauth callback grace cache: %w", err)
 	}
 	return raw, nil
 }
