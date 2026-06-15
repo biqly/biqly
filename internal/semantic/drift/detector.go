@@ -1,3 +1,4 @@
+// Package drift detects semantic model schema drift against datasource metadata and notifies workspace owners.
 package drift
 
 import (

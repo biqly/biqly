@@ -675,6 +675,11 @@ func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
+	if err := h.rbacRepo.EnforcePrivilegedRoleAssignmentGuard(r.Context(), caller, req.RoleID); err != nil {
+		h.auditSoD(r, caller, "role.assign")
+		writeError(w, r, http.StatusForbidden, err)
+		return
+	}
 	if err := h.rbacRepo.AssignRole(r.Context(), userID, req.RoleID, req.ScopeType, req.ScopeID); err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
@@ -808,6 +813,11 @@ func (h *RBACHandler) handleAdminRemoveRole(w http.ResponseWriter, r *http.Reque
 	roleID := chi.URLParam(r, "roleId")
 	caller := bimw.UserID(r.Context())
 	if err := h.rbacRepo.EnforceSelfModificationGuard(r.Context(), caller, userID, "role.remove"); err != nil {
+		h.auditSoD(r, caller, "role.remove")
+		writeError(w, r, http.StatusForbidden, err)
+		return
+	}
+	if err := h.rbacRepo.EnforcePrivilegedRoleAssignmentGuard(r.Context(), caller, roleID); err != nil {
 		h.auditSoD(r, caller, "role.remove")
 		writeError(w, r, http.StatusForbidden, err)
 		return

@@ -1,3 +1,4 @@
+// Package dashboard implements custom dashboard storage and widget configuration.
 package dashboard
 
 import (

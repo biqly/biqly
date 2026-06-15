@@ -294,6 +294,31 @@ func (r *RBACRepository) GetUserRolesWithScope(ctx context.Context, userID strin
 	return roles, nil
 }
 
+func (r *RBACRepository) RoleGrantsAdminPermissions(ctx context.Context, roleID string) (bool, error) {
+	var privileged bool
+	err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM roles r
+			WHERE r.id = $1
+			  AND (
+			    r.name = $2
+			    OR EXISTS (
+			      SELECT 1
+			      FROM role_permissions rp
+			      JOIN permissions p ON p.id = rp.permission_id
+			      WHERE rp.role_id = r.id AND p.resource = 'admin'
+			    )
+			  )
+		)`,
+		roleID, RoleSuperAdmin,
+	).Scan(&privileged)
+	if err != nil {
+		return false, fmt.Errorf("check privileged role: %w", err)
+	}
+	return privileged, nil
+}
+
 func (r *RBACRepository) GetRolePermissionIDs(ctx context.Context, roleID string) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT permission_id FROM role_permissions WHERE role_id = $1 ORDER BY permission_id`,

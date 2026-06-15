@@ -1,3 +1,4 @@
+// Package queue provides AI job publish and consume abstractions with local and NATS backends.
 package queue
 
 import "context"

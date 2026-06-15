@@ -1,3 +1,4 @@
+// Package mail implements transactional email delivery via SMTP and an internal HTTP API.
 package mail
 
 import (

@@ -1,3 +1,5 @@
+// Package rbac implements role-based access control, scoped permission checks,
+// and workspace grants for datasources and AI models.
 package rbac
 
 import (

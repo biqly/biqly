@@ -1,3 +1,4 @@
+// Package mfa implements multi-factor authentication enrollment, TOTP, and WebAuthn flows.
 package mfa
 
 import (

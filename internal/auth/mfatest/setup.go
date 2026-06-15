@@ -1,3 +1,4 @@
+// Package mfatest provides shared MFA integration test setup and fixtures.
 package mfatest
 
 import (
