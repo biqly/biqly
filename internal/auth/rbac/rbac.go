@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 )
@@ -74,6 +75,28 @@ func NewRBACService(repo *RBACRepository) *Service {
 
 func checkCacheKey(check PermissionCheck) string {
 	return fmt.Sprintf("%s:%s:%s:%s", check.UserID, check.Permission, check.ScopeType, check.ScopeID)
+}
+
+// InvalidateUserCache clears all cached permission checks for the given user.
+// Call this after AssignRole or RemoveRole to prevent TOCTOU stale results.
+func (s *Service) InvalidateUserCache(userID string) {
+	s.checkMu.Lock()
+	defer s.checkMu.Unlock()
+	prefix := userID + ":"
+	for k := range s.checkCache {
+		if strings.HasPrefix(k, prefix) {
+			delete(s.checkCache, k)
+		}
+	}
+}
+
+// InvalidateAllCache clears the entire permission check cache.
+// Call this after SetRolePermissions since a single role change affects
+// every user who holds that role (directly or through inheritance).
+func (s *Service) InvalidateAllCache() {
+	s.checkMu.Lock()
+	s.checkCache = make(map[string]checkCacheEntry)
+	s.checkMu.Unlock()
 }
 
 func (s *Service) evictExpiredCheckLocked(now time.Time) {

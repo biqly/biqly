@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/biqly/biqly/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -268,4 +269,63 @@ func (r *rbacScopeRows) Next(dest []driver.Value) error {
 	dest[0] = r.values[r.pos]
 	r.pos++
 	return nil
+}
+
+func TestRBACServiceCacheInvalidation(t *testing.T) {
+	registerRBACScopeDriver.Do(func() {
+		sql.Register("rbac_scope_check", rbacScopeDriver{})
+	})
+
+	dbPool, err := sql.Open("rbac_scope_check", "")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := dbPool.Close(); err != nil {
+			t.Errorf("dbPool.Close() error = %v", err)
+		}
+	})
+
+	svc := NewRBACService(NewRBACRepository(dbPool))
+	// Override TTL so the cache entry lives far enough that expiry doesn't interfere.
+	svc.checkTTL = 10 * time.Minute
+
+	// Check — first call goes to DB (mock returns nothing for global), cache stores false.
+	allowed, err := svc.Check(context.Background(), PermissionCheck{
+		UserID:     "user-1",
+		Permission: "query:execute",
+	})
+	require.NoError(t, err)
+	require.False(t, allowed)
+
+	// Second call should hit cache (same result, no DB call).
+	svc.checkMu.RLock()
+	_, cached := svc.checkCache["user-1:query:execute::"]
+	svc.checkMu.RUnlock()
+	require.True(t, cached, "expected cache entry after first Check")
+
+	// Invalidate user cache.
+	svc.InvalidateUserCache("user-1")
+
+	svc.checkMu.RLock()
+	_, cached = svc.checkCache["user-1:query:execute::"]
+	svc.checkMu.RUnlock()
+	assert.False(t, cached, "expected cache entry to be removed after InvalidateUserCache")
+
+	// Check other user's cache is unaffected.
+	_, err = svc.Check(context.Background(), PermissionCheck{
+		UserID:     "user-2",
+		Permission: "query:execute",
+	})
+	require.NoError(t, err)
+
+	svc.checkMu.RLock()
+	_, cached = svc.checkCache["user-2:query:execute::"]
+	svc.checkMu.RUnlock()
+	require.True(t, cached, "expected user-2 cache entry to survive")
+
+	// InvalidateAll clears everything.
+	svc.InvalidateAllCache()
+	svc.checkMu.RLock()
+	remaining := len(svc.checkCache)
+	svc.checkMu.RUnlock()
+	assert.Zero(t, remaining, "expected empty cache after InvalidateAllCache")
 }

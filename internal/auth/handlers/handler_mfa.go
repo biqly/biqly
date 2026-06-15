@@ -29,14 +29,20 @@ func (h *AuthHandler) requireMFAUser(w http.ResponseWriter, r *http.Request) (st
 }
 
 func (h *AuthHandler) parseAndVerifyMFACode(w http.ResponseWriter, r *http.Request, userID string) bool {
+	if err := h.service.CheckMFALockout(r.Context(), userID); err != nil {
+		h.respondError(w, http.StatusTooManyRequests, err.Error())
+		return false
+	}
 	req, ok := decodeJSON[auth.MFAVerifyRequest](w, r)
 	if !ok {
 		return false
 	}
 	if err := h.mfa.VerifyCode(r.Context(), userID, req.Code); err != nil {
+		h.service.RecordMFAFailure(r.Context(), userID)
 		h.respondError(w, http.StatusUnauthorized, mfa.ErrMFACodeInvalid.Error())
 		return false
 	}
+	h.service.ClearMFAFailures(r.Context(), userID)
 	return true
 }
 
@@ -66,18 +72,26 @@ func (h *AuthHandler) handleMFAVerify(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+
+	if err := h.service.CheckMFALockout(r.Context(), userID); err != nil {
+		h.respondError(w, http.StatusTooManyRequests, err.Error())
+		return
+	}
+
 	req, ok := decodeJSON[auth.MFAVerifyRequest](w, r)
 	if !ok {
 		return
 	}
 	if err := h.mfa.Verify(r.Context(), userID, req.Code); err != nil {
 		if errors.Is(err, mfa.ErrMFACodeInvalid) || errors.Is(err, mfa.ErrMFANotEnrolled) {
+			h.service.RecordMFAFailure(r.Context(), userID)
 			h.respondError(w, http.StatusUnauthorized, mfa.ErrMFACodeInvalid.Error())
 			return
 		}
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	h.service.ClearMFAFailures(r.Context(), userID)
 	w.WriteHeader(http.StatusNoContent)
 }
 

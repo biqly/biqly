@@ -687,6 +687,7 @@ func (h *RBACHandler) handleAdminSetRolePermissions(w http.ResponseWriter, r *ht
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	h.rbac.InvalidateAllCache()
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -719,6 +720,7 @@ func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Reque
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	h.rbac.InvalidateUserCache(userID)
 	if h.audit != nil {
 		if err := h.audit.Log(r.Context(), &caller, auth.AuditRoleAssigned, new("user_role"), &userID,
 			map[string]any{"role_id": req.RoleID}, nil); err != nil {
@@ -861,6 +863,7 @@ func (h *RBACHandler) handleAdminRemoveRole(w http.ResponseWriter, r *http.Reque
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	h.rbac.InvalidateUserCache(userID)
 	if h.audit != nil {
 		if err := h.audit.Log(r.Context(), &caller, auth.AuditRoleRemoved, new("user_role"), &userID,
 			map[string]any{"role_id": roleID}, nil); err != nil {
