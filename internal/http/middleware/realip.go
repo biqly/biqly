@@ -3,20 +3,18 @@ package middleware
 import (
 	"net"
 	"net/http"
-	"strings"
 
 	"github.com/biqly/biqly/internal/security"
 )
 
 func getRealIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if ip := security.ClientIPFromXFF(xff); ip != "" {
+			return ip
+		}
+	}
 	if rip := r.Header.Get("X-Real-IP"); rip != "" {
 		return rip
-	}
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if before, _, ok := strings.Cut(xff, ","); ok {
-			return strings.TrimSpace(before)
-		}
-		return strings.TrimSpace(xff)
 	}
 	return ""
 }

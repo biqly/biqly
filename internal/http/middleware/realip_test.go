@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/biqly/biqly/internal/security"
 )
 
 // TestRealIPStripsPort verifies RealIP always exposes a bare IP downstream so
@@ -29,6 +31,91 @@ func TestRealIPStripsPort(t *testing.T) {
 			}))
 			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", http.NoBody)
 			req.RemoteAddr = tc.remoteAddr
+			h.ServeHTTP(httptest.NewRecorder(), req)
+			if got != tc.want {
+				t.Fatalf("RemoteAddr = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestRealIPFromTrustedProxy verifies that when the immediate peer is trusted,
+// the middleware walks X-Forwarded-For right-to-left skipping trusted proxies.
+func TestRealIPFromTrustedProxy(t *testing.T) {
+	// Reset trusted proxies to defaults for this test.
+	security.ResetTrustedProxies()
+
+	cases := []struct {
+		name       string
+		remoteAddr string
+		xff        string
+		xrip       string
+		want       string
+	}{
+		{
+			name:       "xff rightmost untrusted wins",
+			remoteAddr: "10.0.0.1:443",
+			xff:        "203.0.113.5, 10.0.0.1",
+			want:       "203.0.113.5",
+		},
+		{
+			name:       "xff client behind two trusted proxies",
+			remoteAddr: "192.168.1.1:443",
+			xff:        "203.0.113.5, 10.0.0.1, 192.168.1.1",
+			want:       "203.0.113.5",
+		},
+		{
+			name:       "xff all trusted returns leftmost",
+			remoteAddr: "10.0.0.1:443",
+			xff:        "192.168.1.1, 10.0.0.1",
+			want:       "192.168.1.1",
+		},
+		{
+			name:       "xff single entry",
+			remoteAddr: "10.0.0.1:443",
+			xff:        "203.0.113.5",
+			want:       "203.0.113.5",
+		},
+		{
+			name:       "xff empty string",
+			remoteAddr: "10.0.0.1:443",
+			xff:        "",
+			want:       "10.0.0.1",
+		},
+		{
+			name:       "xff spoof attempt ignored",
+			remoteAddr: "10.0.0.1:443",
+			xff:        "1.2.3.4, 203.0.113.5, 10.0.0.1",
+			want:       "203.0.113.5", // 1.2.3.4 is spoofed; 203.0.113.5 is the first untrusted
+		},
+		{
+			name:       "xff absent, x-real-ip falls back",
+			remoteAddr: "10.0.0.1:443",
+			xrip:       "203.0.113.5",
+			want:       "203.0.113.5",
+		},
+		{
+			name:       "xff takes priority over x-real-ip",
+			remoteAddr: "10.0.0.1:443",
+			xff:        "198.51.100.1, 10.0.0.1",
+			xrip:       "203.0.113.5", // should be ignored — xff wins
+			want:       "198.51.100.1",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got string
+			h := RealIP(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+				got = r.RemoteAddr
+			}))
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", http.NoBody)
+			req.RemoteAddr = tc.remoteAddr
+			if tc.xff != "" {
+				req.Header.Set("X-Forwarded-For", tc.xff)
+			}
+			if tc.xrip != "" {
+				req.Header.Set("X-Real-IP", tc.xrip)
+			}
 			h.ServeHTTP(httptest.NewRecorder(), req)
 			if got != tc.want {
 				t.Fatalf("RemoteAddr = %q, want %q", got, tc.want)
