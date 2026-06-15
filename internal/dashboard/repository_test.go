@@ -44,7 +44,7 @@ func TestDashboardRepository_CRUD(t *testing.T) {
 	assert.NotEmpty(t, d.ID)
 
 	// 2. Get
-	fetched, err := repo.Get(ctx, d.ID)
+	fetched, err := repo.Get(ctx, d.ID, workspaceID)
 	require.NoError(t, err)
 	assert.Equal(t, d.Name, fetched.Name)
 	assert.Equal(t, *d.Description, *fetched.Description)
@@ -67,18 +67,18 @@ func TestDashboardRepository_CRUD(t *testing.T) {
 	// 4. Update
 	d.Name = "Updated Sales Dashboard"
 	d.Widgets = json.RawMessage(`[]`)
-	err = repo.Update(ctx, d)
+	err = repo.Update(ctx, d, workspaceID)
 	require.NoError(t, err)
 
-	fetched2, err := repo.Get(ctx, d.ID)
+	fetched2, err := repo.Get(ctx, d.ID, workspaceID)
 	require.NoError(t, err)
 	assert.Equal(t, "Updated Sales Dashboard", fetched2.Name)
 	assert.JSONEq(t, `[]`, string(fetched2.Widgets))
 
 	// 5. Delete
-	err = repo.Delete(ctx, d.ID)
+	err = repo.Delete(ctx, d.ID, workspaceID)
 	require.NoError(t, err)
 
-	_, err = repo.Get(ctx, d.ID)
+	_, err = repo.Get(ctx, d.ID, workspaceID)
 	assert.Error(t, err)
 }
