@@ -379,10 +379,11 @@ func TestOAuthFlow(t *testing.T) {
 
 	// 1. Initial login/register via mock OAuth
 	userInfo := &OAuthUserInfo{
-		Sub:       "mock-github-12345",
-		Email:     "oauth_user@example.com",
-		Name:      "OAuth User",
-		AvatarURL: "https://mock.com/avatar.png",
+		Sub:           "mock-github-12345",
+		Email:         "oauth_user@example.com",
+		Name:          "OAuth User",
+		AvatarURL:     "https://mock.com/avatar.png",
+		EmailVerified: true,
 	}
 
 	token := &oauth2.Token{

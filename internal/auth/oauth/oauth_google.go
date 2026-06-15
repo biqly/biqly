@@ -67,10 +67,15 @@ func (p *GoogleProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 		return nil, errors.New("could not retrieve email address from google account")
 	}
 
+	if !rawProfile.EmailVerified {
+		return nil, errors.New("google account email is not verified")
+	}
+
 	return &auth.OAuthUserInfo{
-		Sub:       rawProfile.Sub,
-		Email:     rawProfile.Email,
-		Name:      rawProfile.Name,
-		AvatarURL: rawProfile.Picture,
+		Sub:           rawProfile.Sub,
+		Email:         rawProfile.Email,
+		Name:          rawProfile.Name,
+		AvatarURL:     rawProfile.Picture,
+		EmailVerified: true,
 	}, nil
 }

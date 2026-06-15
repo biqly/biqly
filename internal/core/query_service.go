@@ -1,3 +1,4 @@
+// Package core orchestrates semantic query compilation, execution, and permission enforcement.
 package core
 
 import (

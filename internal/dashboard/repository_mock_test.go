@@ -142,7 +142,7 @@ func TestRepositoryGet(t *testing.T) {
 		},
 	}
 	repo := NewRepository(openMockDB(t, conn))
-	d, err := repo.Get(context.Background(), "dash-1")
+	d, err := repo.Get(context.Background(), "dash-1", "ws-1")
 	require.NoError(t, err)
 	assert.Equal(t, "Sales", d.Name)
 	require.NotNil(t, d.WorkspaceID)
@@ -152,7 +152,7 @@ func TestRepositoryGet(t *testing.T) {
 
 	// Not found.
 	conn.getRows.rows = nil
-	_, err = repo.Get(context.Background(), "missing")
+	_, err = repo.Get(context.Background(), "missing", "")
 	assert.Error(t, err)
 }
 
@@ -191,25 +191,25 @@ func TestRepositoryUpdate(t *testing.T) {
 	conn := &mockDashboardConn{execRows: 1}
 	repo := NewRepository(openMockDB(t, conn))
 	d := &Dashboard{ID: "dash-1", Name: "New", Widgets: json.RawMessage(`[]`)}
-	require.NoError(t, repo.Update(context.Background(), d))
+	require.NoError(t, repo.Update(context.Background(), d, ""))
 
 	// No rows affected → ErrNoRows.
 	conn.execRows = 0
-	assert.ErrorIs(t, repo.Update(context.Background(), d), sql.ErrNoRows)
+	assert.ErrorIs(t, repo.Update(context.Background(), d, ""), sql.ErrNoRows)
 
 	// Exec error.
 	conn.execErr = errors.New("boom")
-	assert.Error(t, repo.Update(context.Background(), d))
+	assert.Error(t, repo.Update(context.Background(), d, ""))
 }
 
 func TestRepositoryDelete(t *testing.T) {
 	conn := &mockDashboardConn{execRows: 1}
 	repo := NewRepository(openMockDB(t, conn))
-	require.NoError(t, repo.Delete(context.Background(), "dash-1"))
+	require.NoError(t, repo.Delete(context.Background(), "dash-1", ""))
 
 	conn.execRows = 0
-	assert.ErrorIs(t, repo.Delete(context.Background(), "dash-1"), sql.ErrNoRows)
+	assert.ErrorIs(t, repo.Delete(context.Background(), "dash-1", ""), sql.ErrNoRows)
 
 	conn.execErr = errors.New("boom")
-	assert.Error(t, repo.Delete(context.Background(), "dash-1"))
+	assert.Error(t, repo.Delete(context.Background(), "dash-1", ""))
 }

@@ -1,3 +1,4 @@
+// Package dashboard implements custom dashboard storage and widget configuration.
 package dashboard
 
 import (
@@ -36,16 +37,22 @@ func (r *Repository) Create(ctx context.Context, d *Dashboard) error {
 	return nil
 }
 
-// Get retrieves a dashboard by ID.
-func (r *Repository) Get(ctx context.Context, id string) (*Dashboard, error) {
+// Get retrieves a dashboard by ID, scoped to workspaceID if non-empty.
+// When workspaceID is empty (e.g. super_admin), no workspace filter is applied.
+func (r *Repository) Get(ctx context.Context, id string, workspaceID string) (*Dashboard, error) {
 	query := `
 		SELECT id, workspace_id, name, description, widgets, created_at, updated_at
 		FROM dashboards
 		WHERE id = $1
 	`
+	args := []any{id}
+	if workspaceID != "" {
+		query += ` AND (workspace_id = $2 OR workspace_id IS NULL)`
+		args = append(args, workspaceID)
+	}
 	d := &Dashboard{}
 	var wsID, desc sql.NullString
-	err := r.db.QueryRowContext(ctx, query, id).Scan(&d.ID, &wsID, &d.Name, &desc, &d.Widgets, &d.CreatedAt, &d.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(&d.ID, &wsID, &d.Name, &desc, &d.Widgets, &d.CreatedAt, &d.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("dashboard not found: %w", err)
 	} else if err != nil {
@@ -115,13 +122,19 @@ func (r *Repository) List(ctx context.Context, workspaceID string) ([]Dashboard,
 }
 
 // Update updates name, description, and widgets configuration of a dashboard.
-func (r *Repository) Update(ctx context.Context, d *Dashboard) error {
+// If workspaceID is non-empty, only dashboards belonging to that workspace are considered.
+func (r *Repository) Update(ctx context.Context, d *Dashboard, workspaceID string) error {
 	query := `
 		UPDATE dashboards
 		SET name = $2, description = $3, widgets = $4::jsonb, updated_at = now()
 		WHERE id = $1
 	`
-	res, err := r.db.ExecContext(ctx, query, d.ID, d.Name, d.Description, d.Widgets)
+	args := []any{d.ID, d.Name, d.Description, d.Widgets}
+	if workspaceID != "" {
+		query += ` AND (workspace_id = $5 OR workspace_id IS NULL)`
+		args = append(args, workspaceID)
+	}
+	res, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("update dashboard: %w", err)
 	}
@@ -135,9 +148,16 @@ func (r *Repository) Update(ctx context.Context, d *Dashboard) error {
 	return nil
 }
 
-// Delete removes a dashboard by ID.
-func (r *Repository) Delete(ctx context.Context, id string) error {
-	res, err := r.db.ExecContext(ctx, "DELETE FROM dashboards WHERE id = $1", id)
+// Delete removes a dashboard by ID, scoped to workspaceID if non-empty.
+// When workspaceID is empty (e.g. super_admin), no workspace filter is applied.
+func (r *Repository) Delete(ctx context.Context, id string, workspaceID string) error {
+	query := `DELETE FROM dashboards WHERE id = $1`
+	args := []any{id}
+	if workspaceID != "" {
+		query += ` AND (workspace_id = $2 OR workspace_id IS NULL)`
+		args = append(args, workspaceID)
+	}
+	res, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("delete dashboard: %w", err)
 	}

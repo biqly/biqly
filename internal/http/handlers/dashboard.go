@@ -91,7 +91,8 @@ func (h *DashboardHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d, err := h.repo.Get(ctx, id)
+	wsID := bimw.WorkspaceID(ctx)
+	d, err := h.repo.Get(ctx, id, wsID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeEntityNotFound(w, "dashboard")
@@ -124,6 +125,8 @@ func (h *DashboardHandler) Update(w http.ResponseWriter, r *http.Request) {
 		widgets = json.RawMessage("[]")
 	}
 
+	wsID := bimw.WorkspaceID(ctx)
+
 	d := &dashboard.Dashboard{
 		ID:          id,
 		Name:        input.Name,
@@ -131,7 +134,7 @@ func (h *DashboardHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Widgets:     widgets,
 	}
 
-	if err := h.repo.Update(ctx, d); err != nil {
+	if err := h.repo.Update(ctx, d, wsID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeEntityNotFound(w, "dashboard")
 			return
@@ -151,7 +154,9 @@ func (h *DashboardHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.repo.Delete(ctx, id); err != nil {
+	wsID := bimw.WorkspaceID(ctx)
+
+	if err := h.repo.Delete(ctx, id, wsID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeEntityNotFound(w, "dashboard")
 			return

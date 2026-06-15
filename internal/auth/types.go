@@ -199,8 +199,9 @@ type PasskeyInfo struct {
 type UserRoleInfo = rbac.UserRoleInfo
 
 type OAuthUserInfo struct {
-	Sub       string
-	Email     string
-	Name      string
-	AvatarURL string
+	Sub           string
+	Email         string
+	Name          string
+	AvatarURL     string
+	EmailVerified bool
 }

@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/biqly/biqly/internal/security"
@@ -69,9 +68,10 @@ func getIP(r *http.Request) string {
 		host = r.RemoteAddr
 	}
 	if security.IsTrustedProxy(host) {
-		if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
-			parts := strings.Split(ip, ",")
-			return strings.TrimSpace(parts[0])
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			if ip := security.ClientIPFromXFF(xff); ip != "" {
+				return ip
+			}
 		}
 		if ip := r.Header.Get("X-Real-IP"); ip != "" {
 			return ip

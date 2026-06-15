@@ -32,6 +32,49 @@ func (s *Service) recordLoginFailure(ctx context.Context, email string, user *Us
 	}
 }
 
+// RecordMFAFailure increments the MFA verification fail counter for a user.
+// After 5 consecutive failures the user is locked out for 15 minutes.
+func (s *Service) RecordMFAFailure(ctx context.Context, userID string) {
+	if s.redisClient == nil {
+		return
+	}
+	lockKey := "mfa_failures:" + userID
+	_, err := s.redisClient.Incr(ctx, lockKey).Result()
+	if err != nil {
+		slog.WarnContext(ctx, "failed to record mfa failure", "key", lockKey, "err", err)
+		return
+	}
+	if err := s.redisClient.Expire(ctx, lockKey, 15*time.Minute).Err(); err != nil {
+		slog.ErrorContext(ctx, "failed to set expire on mfa failures", "key", lockKey, "err", err)
+	}
+}
+
+// CheckMFALockout returns ErrMFAVerificationLocked when the user has exceeded
+// the MFA verification failure threshold (5 failures in 15 minutes).
+func (s *Service) CheckMFALockout(ctx context.Context, userID string) error {
+	if s.redisClient == nil {
+		return nil
+	}
+	lockKey := "mfa_failures:" + userID
+	val, err := s.redisClient.Get(ctx, lockKey).Int()
+	if err == nil && val >= 5 {
+		return ErrMFAVerificationLocked
+	}
+	return nil
+}
+
+// ClearMFAFailures deletes the MFA fail counter for a user on successful
+// verification.
+func (s *Service) ClearMFAFailures(ctx context.Context, userID string) {
+	if s.redisClient == nil {
+		return
+	}
+	lockKey := "mfa_failures:" + userID
+	if err := s.redisClient.Del(ctx, lockKey).Err(); err != nil {
+		slog.WarnContext(ctx, "failed to clear mfa failures", "key", lockKey, "err", err)
+	}
+}
+
 func (s *Service) ForgotPassword(ctx context.Context, email string) error {
 	normalizedEmail, err := NormalizeEmail(email)
 	if err != nil {

@@ -1,3 +1,4 @@
+// Package workspace implements workspace lifecycle, membership, and ownership rules.
 package workspace
 
 import (

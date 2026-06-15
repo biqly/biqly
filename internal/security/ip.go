@@ -68,3 +68,33 @@ func IsTrustedProxy(ipStr string) bool {
 	}
 	return false
 }
+
+// ResetTrustedProxies clears the cached trusted proxy list so the next call
+// re-parses BI_TRUSTED_PROXIES (or defaults). Used in tests to isolate cases.
+func ResetTrustedProxies() {
+	parseOnce = sync.Once{}
+	trustedProxies = nil
+}
+
+// ClientIPFromXFF parses an X-Forwarded-For header value and returns the
+// first untrusted client IP by walking the chain from right to left.
+// Trusted proxy IPs at the end of the chain (closest to the server) are
+// skipped. If every IP in the chain is trusted, the leftmost (client-
+// originating) IP is returned as a best-effort fallback.
+func ClientIPFromXFF(xff string) string {
+	parts := strings.Split(xff, ",")
+	// Walk right-to-left: the rightmost entry is the most recent hop,
+	// which should be the immediate proxy we trust. Skip trusted proxies
+	// and return the first untrusted IP (the actual client).
+	for i := len(parts) - 1; i >= 0; i-- {
+		ip := strings.TrimSpace(parts[i])
+		if !IsTrustedProxy(ip) {
+			return ip
+		}
+	}
+	// All IPs are trusted proxies — return the leftmost (closest to client).
+	if len(parts) > 0 {
+		return strings.TrimSpace(parts[0])
+	}
+	return ""
+}

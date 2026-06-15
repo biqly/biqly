@@ -1,3 +1,4 @@
+// Package oauth implements third-party OAuth sign-in providers and redirect handling.
 package oauth
 
 import (

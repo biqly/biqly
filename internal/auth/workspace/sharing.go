@@ -34,13 +34,14 @@ type ShareRequest struct {
 
 type SharingService struct {
 	db *sql.DB
+	ws *Service
 }
 
-func NewSharingService(db *sql.DB) *SharingService {
-	return &SharingService{db: db}
+func NewSharingService(db *sql.DB, ws *Service) *SharingService {
+	return &SharingService{db: db, ws: ws}
 }
 
-func (s *SharingService) Share(ctx context.Context, ownerID string, req ShareRequest) (*ResourceShare, error) {
+func (s *SharingService) Share(ctx context.Context, callerID string, req ShareRequest) (*ResourceShare, error) {
 	if req.ResourceType == "" || req.ResourceID == "" {
 		return nil, errors.New("resource_type and resource_id are required")
 	}
@@ -49,6 +50,17 @@ func (s *SharingService) Share(ctx context.Context, ownerID string, req ShareReq
 	}
 	if !isValidPermission(req.Permission) {
 		return nil, fmt.Errorf("invalid permission: %s", req.Permission)
+	}
+
+	// IDOR guard: caller must be a member of the target workspace
+	if req.WorkspaceID != nil {
+		isMember, err := s.ws.IsMember(ctx, *req.WorkspaceID, callerID)
+		if err != nil {
+			return nil, fmt.Errorf("verify workspace membership: %w", err)
+		}
+		if !isMember {
+			return nil, errors.New("caller is not a member of the target workspace")
+		}
 	}
 
 	var sharedWith, workspaceID sql.NullString
@@ -81,7 +93,7 @@ func (s *SharingService) Share(ctx context.Context, ownerID string, req ShareReq
 	_ = sharedWithVal
 	_ = workspaceVal
 	err := s.db.QueryRowContext(ctx, query,
-		req.ResourceType, req.ResourceID, ownerID, sharedWith, workspaceID, req.Permission,
+		req.ResourceType, req.ResourceID, callerID, sharedWith, workspaceID, req.Permission,
 		"00000000-0000-0000-0000-000000000000",
 	).Scan(&share.ID, &share.ResourceType, &share.ResourceID, &share.OwnerID, &swNull, &wsNull, &share.Permission, &share.CreatedAt)
 	if err != nil {

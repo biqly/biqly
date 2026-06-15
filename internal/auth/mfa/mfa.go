@@ -1,3 +1,4 @@
+// Package mfa implements multi-factor authentication enrollment, TOTP, and WebAuthn flows.
 package mfa
 
 import (
@@ -14,8 +15,9 @@ import (
 )
 
 var (
-	ErrMFANotEnabled  = errors.New("mfa not enabled")
-	ErrMFACodeInvalid = errors.New("invalid mfa code")
+	ErrMFANotEnabled       = errors.New("mfa not enabled")
+	ErrMFACodeInvalid      = errors.New("invalid mfa code")
+	ErrTOTPCodeAlreadyUsed = errors.New("totp code already used")
 )
 
 const recoveryCodeCount = 10
@@ -70,7 +72,8 @@ func (s *Service) Verify(ctx context.Context, userID, code string) error {
 	if err != nil {
 		return err
 	}
-	if !VerifyTOTP(enrol.Secret, code, time.Now()) {
+	ok, step := VerifyTOTPStep(enrol.Secret, code, time.Now())
+	if !ok {
 		return ErrMFACodeInvalid
 	}
 	if !enrol.Enabled {
@@ -78,7 +81,14 @@ func (s *Service) Verify(ctx context.Context, userID, code string) error {
 			return err
 		}
 	}
-	return s.repo.MarkUsed(ctx, userID)
+	consumed, err := s.repo.ConsumeTOTPStep(ctx, userID, step)
+	if err != nil {
+		return err
+	}
+	if !consumed {
+		return ErrTOTPCodeAlreadyUsed
+	}
+	return nil
 }
 
 // VerifyCode validates either a TOTP code, a recovery code, or a bypass code on an enabled
@@ -92,8 +102,15 @@ func (s *Service) VerifyCode(ctx context.Context, userID, code string) error {
 		return ErrMFANotEnabled
 	}
 
-	if VerifyTOTP(enrol.Secret, code, time.Now()) {
-		return s.repo.MarkUsed(ctx, userID)
+	if ok, step := VerifyTOTPStep(enrol.Secret, code, time.Now()); ok {
+		consumed, err := s.repo.ConsumeTOTPStep(ctx, userID, step)
+		if err != nil {
+			return err
+		}
+		if !consumed {
+			return ErrTOTPCodeAlreadyUsed
+		}
+		return nil
 	}
 
 	for _, h := range enrol.RecoveryCodes {

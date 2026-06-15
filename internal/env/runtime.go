@@ -1,3 +1,4 @@
+// Package env provides runtime environment detection and production-oriented defaults.
 package env
 
 import (

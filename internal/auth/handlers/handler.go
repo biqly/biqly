@@ -1,3 +1,4 @@
+// Package handlers implements the HTTP handlers for the auth service.
 package handlers
 
 import (
@@ -6,12 +7,13 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
-	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/bytedance/sonic"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-webauthn/webauthn/webauthn"

@@ -90,26 +90,34 @@ func totpCounterWithSkew(counter uint64, skew int64) (uint64, bool) {
 
 // VerifyTOTP checks code against secret with a ±totpSkewSteps window around now.
 func VerifyTOTP(secret, code string, now time.Time) bool {
+	ok, _ := VerifyTOTPStep(secret, code, now)
+	return ok
+}
+
+// VerifyTOTPStep is like VerifyTOTP but also returns the matched time-step
+// counter on success. Callers can use the step to enforce single-use
+// semantics (replay protection). On failure ok is false and step is 0.
+func VerifyTOTPStep(secret, code string, now time.Time) (ok bool, step uint64) {
 	code = strings.TrimSpace(code)
 	if len(code) != totpDigits {
-		return false
+		return false, 0
 	}
 	counter, ok := totpCounter(now)
 	if !ok {
-		return false
+		return false, 0
 	}
 	for skew := -int64(totpSkewSteps); skew <= int64(totpSkewSteps); skew++ {
-		step, ok := totpCounterWithSkew(counter, skew)
+		s, ok := totpCounterWithSkew(counter, skew)
 		if !ok {
 			continue
 		}
-		generated, err := generateTOTPCode(secret, step)
+		generated, err := generateTOTPCode(secret, s)
 		if err != nil {
-			return false
+			return false, 0
 		}
 		if subtle.ConstantTimeCompare([]byte(generated), []byte(code)) == 1 {
-			return true
+			return true, s
 		}
 	}
-	return false
+	return false, 0
 }

@@ -1,3 +1,4 @@
+// Package semanticgen builds draft semantic models from introspected datasource metadata.
 package semanticgen
 
 import (

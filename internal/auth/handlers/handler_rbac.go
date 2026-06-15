@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/csv"
 	"errors"
 	"net/http"
@@ -576,13 +577,47 @@ func (h *RBACHandler) handleAdminGrantAccess(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *RBACHandler) handleAdminUpdateAccess(w http.ResponseWriter, r *http.Request) {
+	caller, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	req, ok := decodeJSON[struct {
 		AccessLevel string `json:"access_level"`
 	}](w, r)
 	if !ok {
 		return
 	}
-	if err := h.dsAccess.UpdateLevel(r.Context(), chi.URLParam(r, "id"), req.AccessLevel); err != nil {
+
+	accessID := chi.URLParam(r, "id")
+
+	// Look up the existing grant to verify caller has permission on its datasource.
+	access, err := h.dsAccess.GetByID(r.Context(), accessID)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeError(w, r, http.StatusNotFound, errors.New("access grant not found"))
+		return
+	}
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	ok, err = h.rbac.Check(r.Context(), rbac.PermissionCheck{
+		UserID:     caller,
+		Permission: "datasource:grant_access",
+		ScopeType:  rbac.ScopeDatasource,
+		ScopeID:    access.DatasourceID,
+	})
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	if !ok {
+		writeError(w, r, http.StatusForbidden, errors.New("insufficient permissions"))
+		return
+	}
+
+	if err := h.dsAccess.UpdateLevel(r.Context(), accessID, req.AccessLevel); err != nil {
 		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
@@ -652,6 +687,7 @@ func (h *RBACHandler) handleAdminSetRolePermissions(w http.ResponseWriter, r *ht
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	h.rbac.InvalidateAllCache()
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -675,10 +711,16 @@ func (h *RBACHandler) handleAdminAssignRole(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
+	if err := h.rbacRepo.EnforcePrivilegedRoleAssignmentGuard(r.Context(), caller, req.RoleID); err != nil {
+		h.auditSoD(r, caller, "role.assign")
+		writeError(w, r, http.StatusForbidden, err)
+		return
+	}
 	if err := h.rbacRepo.AssignRole(r.Context(), userID, req.RoleID, req.ScopeType, req.ScopeID); err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	h.rbac.InvalidateUserCache(userID)
 	if h.audit != nil {
 		if err := h.audit.Log(r.Context(), &caller, auth.AuditRoleAssigned, new("user_role"), &userID,
 			map[string]any{"role_id": req.RoleID}, nil); err != nil {
@@ -812,10 +854,16 @@ func (h *RBACHandler) handleAdminRemoveRole(w http.ResponseWriter, r *http.Reque
 		writeError(w, r, http.StatusForbidden, err)
 		return
 	}
+	if err := h.rbacRepo.EnforcePrivilegedRoleAssignmentGuard(r.Context(), caller, roleID); err != nil {
+		h.auditSoD(r, caller, "role.remove")
+		writeError(w, r, http.StatusForbidden, err)
+		return
+	}
 	if err := h.rbacRepo.RemoveRole(r.Context(), userID, roleID); err != nil {
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	h.rbac.InvalidateUserCache(userID)
 	if h.audit != nil {
 		if err := h.audit.Log(r.Context(), &caller, auth.AuditRoleRemoved, new("user_role"), &userID,
 			map[string]any{"role_id": roleID}, nil); err != nil {

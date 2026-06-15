@@ -1,5 +1,120 @@
 # Todo list
 
+## Backend Go Code Review — Bulgular & Yapılacaklar (2026-06-15)
+
+> Kapsam: full backend sweep (83 paket, ~75K LOC non-test). 7 paralel review
+> subagent + gograph (statik analiz) ile yapıldı. Sadece **bulgu + yapılacak**;
+> kod değiştirilmedi. Severity sırasıyla: P0 (kritik/güvenlik) → P3 (nit).
+> Her madde: `dosya:satır — sorun → düzeltme`. Doğrulanmış (subagent kaynağı koda
+> baktı); yine de fix yazmadan önce ilgili gograph_context + Read ile teyit et.
+>
+> **Not:** Birçok alan SAĞLAM bulundu — JWT doğrulama (RS256 pin, iss/aud), login
+> enumeration direnci, session rotation+theft detection, PII masking core (fail-closed),
+> dialect identifier quoting, parametreli SQL, public client'lar, config fail-closed.
+> Aşağıdakiler bu sağlam tabandaki gerçek açıklar/borçlar.
+
+### P0 — Kritik / Güvenlik (önce bunlar)
+
+- [x] **Privilege escalation (RBAC):** `internal/auth/handlers/handler_rbac.go:658` (`handleAdminAssignRole`) + `internal/auth/rbac/sod.go:13` — `admin:roles` yetkisi olan herkes herhangi birine `super_admin` verebilir; atanan rolün tier'ı kontrol edilmiyor (`EnforceSelfModificationGuard` sadece self≠other bakıyor). → `super_admin` / `admin:*` veren rol ataması yalnızca super_admin tarafından yapılabilsin. **Fix (2026-06-15):** `EnforcePrivilegedRoleAssignmentGuard` + `RoleGrantsAdminPermissions`; assign/remove'da 403; `sod_test.go`.
+- [x] **Cross-tenant IDOR (workspace sharing):** `internal/auth/workspace/sharing.go:43` (`Share`) — kaynak sahipliği veya hedef workspace üyeliği doğrulanmıyor; `ownerID` caller'dan aynen yazılıyor. Herhangi bir kullanıcı herhangi bir kaynağı herhangi bir workspace'e paylaşabilir/erişim verebilir. → insert öncesi caller'ın kaynak üzerinde share hakkı + hedef workspace üyeliği doğrula.
+- [x] **IDOR (datasource access grant):** `internal/auth/handlers/handler_rbac.go:578` (`handleAdminUpdateAccess`) — grant satırı URL `id`'siyle güncelleniyor, caller'ın o datasource'a yetkisi tekrar kontrol edilmiyor; `read`→`admin` yükseltilebilir. → satırın datasource'una karşı `datasource:grant_access` yeniden kontrol et / update'i scope'la.
+- [x] **Cross-tenant IDOR (dashboard):** `internal/http/handlers/dashboard.go:87/108/147` (`Get`/`Update`/`Delete`) + `internal/dashboard/repository.go:40/118/139` — `Create`/`List` workspace ile scope'lanmış ama Get/Update/Delete sadece `WHERE id=$1`; router'da da `RequirePermission` yok (`catalog_router.go:172`). Başka workspace'in dashboard'u okunup/silinebilir. → SQL predicate'lerine `workspace_id` ekle, mismatch'te 404; super_admin bypass.
+
+### P1 — High
+
+- [x] **OAuth account takeover (unverified email):** `internal/auth/oauth/oauth_github.go:130` & `oauth_google.go:55` + `internal/auth/service_oauth.go:24` — GitHub `rawEmails[0]` (doğrulanmamış olabilir), Google `email_verified` decode edilip kontrol edilmiyor; sonra email ile yerel hesap eşleniyor/oluşturuluyor. → yalnızca verified provider email kabul et; mevcut kullanıcıyla eşlemede doğrulama + açık linking politikası.
+- [x] **OAuth `code` replay:** `internal/auth/oauth_exchange.go:67` (`loadOAuthCallbackPayload`) — redeem edilen token bundle 5sn grace ile `oauth_callback_used:<code>` altında tekrar servis ediliyor; tek-kullanımlık değil. → grace path'te `Get` yerine `GetDel` kullanıldı, usedKey de tek okumayla tüketiliyor. Fix: `internal/auth/oauth_exchange.go` (comment + `Get`→`GetDel`).
+- [x] **TOTP replay:** `internal/auth/mfa/mfa.go:86` (`VerifyCode`) — `MarkUsed` sadece `last_used_at` yazıyor; tüketilen time-step kaydedilmiyor, aynı kod ~60-90sn tekrar kullanılabilir. → tüketilen step'i persist et, step ≤ stored ise reddet.
+- [ ] **MFA brute-force (rate-limit yok):** `internal/auth/handlers/handler_mfa.go:64,84` — sadece `/mfa/login` rate-limit'li; authenticated verify/disable/regenerate yolları korumasız (6-hane TOTP + her denemede bcrypt karşılaştırma = CPU-DoS). → Redis tabanlı per-user fail-counter + lockout (`recordLoginFailure` gibi).
+- [ ] **RBAC permission cache invalidate edilmiyor:** `internal/auth/rbac/rbac.go:97` — `Check` cache (~2dk TTL) `AssignRole`/`RemoveRole`/`SetRolePermissions`'da temizlenmiyor; rolü alınan admin TTL boyunca `allowed=true` kalır (TOCTOU). → invalidation metodu ekle, her rol/permission mutasyonunda çağır.
+- [ ] **X-Forwarded-For spoofing (cross-cutting):** `internal/http/middleware/realip.go:12/16` + `internal/auth/ratelimit.go:74` — XFF'in **en soldaki** (client kontrollü) girişi alınıyor; default trusted CIDR'lar tüm RFC1918+loopback olduğu için k8s'te peer hep "trusted" → XFF tamamen spoofable. Etki: sahte session-IP-binding, sahte audit IP, rate-limit bypass. → XFF'i sağdan sola yürü, trusted proxy'leri atla, ilk untrusted hop'u kullan; `X-Real-IP`'e körlemesine güvenme. (Son dönemde session IP binding'e dokunuldu — bu doğrudan ilgili.)
+- [ ] **Send on closed channel (panic) — mail:** `internal/mail/smtp.go:221` — `sendTemplate` `s.queue <-` yaparken `Close()` `close(s.queue)` yapıyor; recover yok. Race'te panic. → `closed atomic.Bool` guard veya `select{ case <-s.stop: ...}`.
+- [ ] **Send on closed channel (panic) — audit:** `internal/audit/db_writer.go:67→72` — `closed.Load()` ile `ch<-event` arası TOCTOU; Close tam çalışırsa kapalı kanala send → panic. → `close(w.ch)` yapma (worker zaten `done`'da çıkıyor) veya send'i recover/RWMutex ile koru.
+- [ ] **Routing weights race / `sync.Once` misuse:** `internal/ai/routing/routing_weights.go:74` (`InitRoutingWeights`) — paket global'leri kilitsiz yazıyor + kullanımdaki `sync.Once`'ı yeniden atıyor (`copylocks` ihlali, -race'te data race). Bugün startup'ta tek sefer çağrıldığı için latent. → kardeşi `InitRoutingLexicon` gibi `RWMutex`/`atomic.Pointer` ile koru, Once reset'i kaldır.
+- [ ] **DryRun read-only guard atlıyor:** `internal/datasource/core/query_service.go:219` (`DryRun`) — `Executor.Execute`'taki `checker.Check(SQL)` read-only gate'i DryRun'da yok; DB'ye giden tek korumasız yol. → EXPLAIN'den önce `checker.Check(compiled.SQL)` çağır.
+- [ ] **Publish validation deliği (silent parse fail):** `internal/semantic/publish.go:520` (`getOrParseExpr`) — parser hata verince `nil` dönüyor, `validateMetricExpressionAST`/`validateCalculatedDimension` erken `return` ile `ValidateExprStrict`'i atlıyor; `custom` metrikte sözdizimsel bozuk ifade publish olabiliyor. → "ifade yok" ile "parse hatası"nı ayır, parse hatasını validation error olarak yüzeye çıkar.
+- [ ] **Non-atomic upsert:** `internal/metadata/ai_confirmed_queries.go:75` (`UpsertConfirmedQuery`) — tx'siz UPDATE-sonra-INSERT, `ON CONFLICT` yok; eşzamanlı iki upsert duplicate satır / unique-violation üretir. → tek `INSERT … ON CONFLICT DO UPDATE` veya `RunInTx`+`FOR UPDATE` (`upsertEntityEmbedding` gibi).
+- [ ] **`RunInTx` panic'te rollback yapmıyor:** `internal/platform/db/tx.go:14` — `fn` panic ederse `tx` rollback edilmeden propagate; connection açık tx ile pool'a döner. Her repository write'ının tek tx primitive'i. → `defer func(){ if p:=recover(); p!=nil { _=tx.Rollback(); panic(p) } }()`.
+
+### P2 — Medium
+
+- [ ] **PII masking bypass (admin expr, physical ref):** `internal/query/compiler.go:496/499/626/628` (`resolveCustomToken`/`qualifyMetricExpression`) — bracket token dimension adıyla eşleşmeyip `.` içerirse `QualifyColumn`/`QuoteIdent`'e maskesiz düşüyor; `[public.customers.email]` ham kolon yayar. Admin-bounded ama PII politikasını sessizce deler. → physical ref'i de PII politikasından geçir / PII-sınıflı ham ref'i reddet.
+- [ ] **Date-grain raw interpolation:** `internal/query/expr_compiler.go:237` (`dateTruncSQL`) + `internal/query/compiler.go:445` (`dimensionSQL`) — `DATE_TRUNC` literal arg'ı ve `dim.TimeGrain` whitelist'lenmeden `d.DateTrunc(part,…)`→dialect `'%s'` interpolasyonuna gidiyor (`postgres.go:34` vb). Quote-kullanan payload executor'da inert oluyor ama defense-in-depth borcu. → `part`/`TimeGrain`'i `{day,week,month,quarter,year}` ile whitelist'le.
+- [ ] **PoolCache invalidate vs get race:** `internal/datasource/pool_cache.go:81` — `Invalidate` ile singleflight closure'ın pool store'u (`:63`) ayrı kilitlerde; pencere'de invalidate boş bulup closure stale pool insert edebilir (rotate edilmiş cred). → generation counter / lock içinde re-check.
+- [ ] **OAuth state plain `==`:** `internal/auth/service.go:608/617` (`VerifyOAuthState`) — CSRF state token'ı sabit-zamanlı değil. → `subtle.ConstantTimeCompare`.
+- [ ] **OAuth local state fallback:** `internal/auth/service.go:570` (`StoreOAuthState`) — paket-global map + her istekte `go sleep(300s);delete` goroutine; multi-replica'da Redis yoksa OAuth sessiz fail + goroutine leak/DoS. → Redis nil ise fail-closed veya tek janitor + TTL map.
+- [ ] **Refresh frozen/deleted bakmıyor:** `internal/auth/service.go:470` (`Refresh`) — sadece `IsActive`; `FreezeAccount` `frozen_at` yazıp `is_active`'i değiştirmiyor → kalan refresh token'la access token üretilebilir (session revoke ile hafifletilmiş). → `Refresh` içinde `validateLoginAccountState` çağır.
+- [ ] **Workspace rol yükseltme:** `internal/auth/workspace/workspace.go:252/273` (`AddMember`/`UpdateMemberRole`) — `roleID` aynen alınıyor; owner/admin `super_admin` atayabilir. → atanabilir rolleri allowlist + caller tavanı.
+- [ ] **CSRF cookie `HttpOnly` (double-submit kırık):** `internal/auth/csrf.go:63` — double-submit token `HttpOnly:true`, SPA okuyup `X-CSRF-Token`'a koyamıyor (muhtemel "CSRF 401" kökü). Compare doğru (`subtle`, `:40`). → double-submit token için `HttpOnly`'yi kaldır (veya header-only akışı dokümante et), `__Host-` prefix ekle.
+- [ ] **bcrypt 72-byte truncation:** `internal/auth/password_policy.go:60` — min rune, max byte kontrol; `MaxLength` 0/`>72` ise bcrypt sessizce 72 byte'ta kesiyor, ortak 72-prefix iki parola eşdeğer auth. → `HashPassword`'da >72 byte input'u kesin reddet.
+- [ ] **Invitation plaintext token fallback:** `internal/auth/invitation.go:121` — `WHERE token=$1 OR token=$2` ($2 ham token), token'lar hash'li saklanırken plaintext path hashing-at-rest'i deler. → yalnız `hashMagicLink(token)` ile ara; plaintext satırları migrate et.
+- [ ] **`LinkOAuthAccount` hatası yutuluyor:** `internal/auth/service_oauth.go:52` — log'lanıp login devam ediyor; `(provider,sub)` linki kalıcı olmaz, her seferinde signup tetikler. → hatayı dön/yüzeye çıkar.
+- [ ] **CheckAccess handler iç hata sızdırıyor:** `internal/auth/handlers/handler_rbac.go:449/883` — denial ve gerçek DB hatası için `err.Error()`'ı 200 + `reason` ile döndürüyor. → yalnız `ErrDatasourceAccessDenied` yüzeye; diğerleri detaysız 500.
+- [ ] **Lexicon snapshot lock-across-I/O:** `internal/ai/lexicon/store.go:130` (`dbStore.current`) — cache expiry'de `s.mu` tutulurken 3sn DB çağrısı; routing hot path'te tüm eşzamanlı istekler 1 round-trip arkasında serialize. → load-outside-lock + double-checked swap / singleflight.
+- [ ] **`encryptedArg` API key'i null'lıyor:** `internal/ai/provider_store.go:960` — `apiKey!=nil` ama `encrypt` hata verirse `nil` dönüp `UpdateProvider` saklı key'i NULL'a yazıyor, hata yutuluyor. → hatayı dön, update'i fail et.
+- [ ] **Drift checker hatada `continue` yok:** `internal/semantic/drift/scheduler.go:152` (`checkDatasourceDrift`) — `GetLatestByModel` non-sentinel hatasında log'layıp düşüyor; stale `latest` ile dedupe → geçici DB hatasında yanlış drift report+notify. → non-sentinel hatada `continue`.
+- [ ] **Audit event sessiz drop:** `internal/audit/db_writer.go:74` — 1000-deep kanal dolunca sadece Warn; güvenlik-ilgili event kaybı sinyalsiz. → dropped-event counter/metric ve/veya audit için blocking-with-timeout.
+- [ ] **Circuit breaker half-open yok:** `pkg/common/httpclient/circuit_breaker.go:77` — `openUntil` bitince tüm trafik aynı anda geçer (thundering herd), tek-probe gating yok. (Race yok.) → tek-probe half-open ekle (opsiyonel; basit breaker olarak kabul edilebilir).
+- [ ] **memlimit sessiz default:** `internal/config/memlimit.go:13` `init()` — `BI_GOMEMLIMIT`/`GOGC` parse hatası logsuz yutuluyor, sessizce default'a düşüyor. → bad input'ta `slog.Warn` (config.go `getEnvAsInt` gibi).
+- [ ] **mail block-list/rate-limit fail-open:** `internal/mail/smtp.go:185/239` — backend hatasında send'e izin (fail-open). → block-list için fail-closed semantiği değerlendir / açık karar+yorum.
+
+### P3 — Low / Nits (lint & küçük borç)
+
+- [ ] **gofmt/gci import drift (lint blocker):** `internal/audit/db_writer.go:7`, `internal/mail/server.go:6`, `db_writer_test.go:6` — `bytedance/sonic` stdlib import bloğu içinde. → `make lint-go`/`format:check` patlar; grupla.
+- [ ] **JWT PEM tipi yanlış:** `internal/auth/jwt.go:291` — `"RSA PUBLIC KEY"` (PKCS#1) bloğu içinde PKIX byte'ları. → `"PUBLIC KEY"`.
+- [ ] **Deadcode (workspace sharing):** `internal/auth/workspace/sharing.go:62` — `sharedWithVal`/`workspaceVal` hesaplanıp `_ =` ile atılıyor, sentinel UUID kullanılıyor. → eksik refactor; temizle (`deadcode` blocker).
+- [ ] **Tx'siz çoklu-statement:** `internal/auth/workspace/workspace.go:59` (`Create`) + `internal/auth/repository.go:151` (`bootstrapUserWorkspace`) — workspace+role+member tx'siz; kısmi hata sahipsiz workspace bırakır. → `RunInTx`.
+- [ ] **Hataların tek sentinel'e çökmesi:** `internal/auth/workspace/workspace.go:436` (`requireOwnerOrAdmin`) — transient DB dahil her hata `ErrNotWorkspaceOwner`. → `sql.ErrNoRows`'u `errors.Is` ile ayır.
+- [ ] **LDAP decrypt sessiz "":** `internal/auth/ldap_config.go:122` — decrypt hatası `""` dönüp anonymous bind'e yol açıyor. → hatayı propagate et.
+- [ ] **Reset token plaintext log + replay:** `internal/auth/service_password.go:105` — reset token plaintext log'lanıyor; `MarkPasswordResetTokenUsed` hatası log'lanıp dönülmüyor → token expiry'ye kadar replay. → token'ı hash/prefix logla, consume'u update ile atomik yap.
+- [ ] **Session revoke hatası yutuluyor:** `internal/auth/service_account_lifecycle.go:13/39` — freeze/delete'te `RevokeAllUserSessions` hatası yutuluyor (Refresh deliğiyle birleşince canlı session kalır). → hatayı yüzeye çıkar.
+- [ ] **WebAuthn clone-warning:** `internal/auth/mfa/webauthn.go:272/296` — sign-count regression/clone kontrolü görünmüyor; `go-webauthn` `CloneWarning`'ın işlendiğini teyit et.
+- [ ] **dummy bcrypt init fail-open:** `internal/auth/password.go:14` — `init` bcrypt hatasında `dummyBcryptHash` boş kalıp enumeration-timing mitigasyonu sessizce kapanır. → init hatasında panic.
+- [ ] **`CanUseModel` hata yutar:** `internal/auth/rbac/ai_model_access.go:178` — super-admin DB hatası yutuluyor (fail-safe ama). → log/return.
+- [ ] **High-arity token üretimi:** `internal/auth/jwt.go:178` (`GenerateTokenWithVerification`, 6 same-typed param) — arg-transpose riski yanlış scope token üretebilir. → `TokenParams` struct.
+- [ ] **JWT bypass prefix match:** `internal/http/middleware/jwt.go:127/178` — bypass `strings.HasPrefix`; `/health` → `/healthcheck-*` de muaf. Bugün exploit yok. → prefix davranışını dokümante et / exact-match düşün.
+- [ ] **permission cache eviction random:** `internal/http/middleware/permission.go:97` — over-capacity eviction map'i random sırada siliyor (LRU değil). → safety-valve olarak kabul edilebilir; isim/yorum düzelt.
+- [ ] **dynamicSemaphore tek-slot wakeup:** `internal/http/handlers/ai_job_service.go:369` (`Release`) — limit artınca park'taki Acquire'lar 1sn poll'a düşüyor (~1sn job pickup gecikme). → freed-slot kadar `ch`'e sinyalle.
+- [ ] **expr default-branch raw op:** `internal/query/expr_compiler.go:183/305` — `default`'ta `strings.ToUpper(string(op))` ham yayılıyor (publish validation backstop'lu). → bilinmeyen op'ta error dön.
+- [ ] **custom-expr passthrough:** `internal/query/compiler.go:464` (`resolveBracketExpressions`) + `metricExpressionRef` — custom SQL escape hatch; trust varsayımını yorumla.
+- [ ] **InSubquery ResultField:** `internal/query/compiler_nested.go:204` — `_ = f.Subquery.ResultField` yorum doğrulama iddia ediyor ama doğrulamıyor. → doğrula veya yorumu düzelt.
+- [ ] **GetFullModel early-cancel yok:** `internal/semantic/repository.go:469` — 3-goroutine WaitGroup, biri fail edince diğerleri iptal olmuyor. (Bug değil.) → `GetFullComposite` gibi `errgroup.WithContext`.
+- [ ] **base_provider hata gövdesi:** `internal/ai/provider/base_provider.go:80/147` — non-2xx'te tam (10MB-cap) gövde error string'e; upstream verbatim log'larsa prompt parçası sızabilir. → truncate (`remote_models.go:113` gibi 300 char).
+- [ ] **Anthropic FinishReason boş:** `internal/ai/provider/anthropic.go:111` — `stop_reason` set edilmiyor → truncation hint (`service.go:543`) Anthropic'te tetiklenmiyor, çok-blok text drop. → `FinishReason` doldur.
+- [ ] **response_cache SCAN pattern:** `internal/ai/response_cache.go:92` (`InvalidateModel`) — `modelID` glob meta (`*?[`) içerirse over/under-match. → segment escape.
+- [ ] **eval_judge nil model panic:** `internal/ai/eval/eval_judge.go:23` — nil `cr.Case.Model` deref. (eval-only.) → nil guard.
+- [ ] **NullStringArray.Scan nil deref:** `internal/platform/db/null.go:95` — nil `S` ile panic (latent). → `if n.S==nil { return nil }`.
+- [ ] **ParseStringArray naive split:** `internal/platform/db/null.go:112` — `,`/`"` içeren element'lerde bozulur. → `pgarray` kullan (gerekirse).
+- [ ] **migrate down filename heuristic:** `internal/dbmigrate/migrate.go:214` (`upToDownFilename`) — `"a_"`→`"b_"` ilk-occurrence replace; isimde `a_` varsa yanlış down adı. → manifest/sidecar veya katı convention check.
+
+### Test Gaps (kritik güvenlik/tx mantığı, sıfır test edge)
+
+- [ ] `internal/auth/repository.go:151` `bootstrapUserWorkspace` — tx-kritik signup yolu, atomicity testsiz.
+- [ ] `internal/auth/workspace/sharing.go` `Share`/`Revoke` — IDOR negatif-path testi yok.
+- [ ] `handleAdminAssignRole` + `EnforceSelfModificationGuard` — non-super-admin'in `super_admin` veremediğini iddia eden test yok.
+- [ ] `internal/auth/mfa` `VerifyCode` — TOTP replay testi yok.
+- [ ] `internal/http/middleware/realip_test.go` — trusted-proxy+XFF/X-Real-IP parse yolu (spoofing bug'ı) **tamamen testsiz**; multi-hop + spoofed-leftmost + X-Real-IP precedence ekle.
+- [ ] `internal/audit/db_writer.go` — concurrent Write-during-Close (panic race) + channel-full drop testi yok.
+- [ ] `internal/mail/smtp.go` — `smtp_test.go` yok: Close, queue-full fallback, retry/backoff, send/close race testsiz.
+- [ ] `internal/http/handlers/dashboard.go` — tüm CRUD testsiz (IDOR regresyon guard'ı yok).
+- [ ] `internal/http/handlers` per-record authz: `aiJobOwnedBy` (ai_jobs.go:32), `canViewAIHistoryDetails` (ai_history.go:25), `piiAccessForColumn` (metadata_rows.go:187) — testsiz.
+- [ ] `internal/query` validator: `validator_test.go` yok — `Validate`/`validateWindowSelect`/`validateOrderByClauses` vb. (user-query allowlist sınırı) doğrudan testsiz; reddetme/kabul table-test ekle + date-grain injection negatif case.
+- [ ] `internal/datasource/pool_cache.go` `Invalidate` — concurrent Get/Invalidate race testi yok.
+- [ ] `internal/datasource/core` `DryRun` — read-only guard fix'ini pin'leyecek test yok.
+- [ ] `internal/semantic` `PublishComposite`, `ValidateContext`, `getOrParseExpr`, `validateCustomMetricExpression`, `checkCircularDependencies`/`findCalcExprCycles` — publish/validation/cycle yolu testsiz.
+- [ ] `internal/metadata` `UpsertConfirmedQuery` — racy upsert testsiz.
+- [ ] `internal/ai/routing` `mergePositiveWeight`(17 caller)/`weightedTokenScore`(17) ve `prompt.withPooledBuffer`(14) — yüksek fan-in, testsiz.
+- [ ] `internal/platform/db` `otel.go` (`skipMigrationSpans`), `pkg/common/httpclient` `shouldRetry` + breaker state-transition — doğrudan unit testsiz.
+- [ ] `internal/config/memlimit.go` — cgroup-parse guard'ları (unlimited sentinel) tamamen testsiz.
+
+### Çapraz kesit / yapısal (acil değil)
+
+- [ ] **God objects (10):** `Metrics`(79 alan, observability/metrics.go:40 — yapısal, bug yok), `ldap.Settings`, `auth.Config`(35 alan), `Dependencies`(34), `pii.DefaultMaskingStrategy`, `aiRuntimeSettingsResponse`, `semanticCatalogAdapter`, `AIConfig`. Çoğu DTO/config; refactor opsiyonel.
+- [ ] **High-arity fonksiyonlar:** `recordMetricsAndState`(14) ai_telemetry.go:126, `NewRBACHandler`(10), birçok 7-9 param compiler/routing fonksiyonu — okunabilirlik borcu; param struct'a taşı (bug gizlemiyorlar).
+- [ ] **boundaries config yok:** `.gograph/boundaries.json` yok → mimari import sınırları statik enforce edilmiyor. → istenen katman kurallarını tanımla.
+
+---
+
 ## index.css → Pure Tailwind CSS Tam Migrasyon Planı (2026-06-13)
 
 > **Hedef:** `index.css` içindeki 4225 satırlık vanilla CSS'i tamamen Tailwind

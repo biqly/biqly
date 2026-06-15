@@ -160,7 +160,7 @@ func buildAuthHandlers(cfg *biqauth.Config, db *sql.DB, redisClient *redis.Clien
 	aiModelAccessSvc := rbac.NewAIModelAccessService(db, rbacSvc)
 	workspaceSvc := workspace.NewWorkspaceService(db, dsAccessSvc)
 	authSvc.SetWorkspaceService(workspaceSvc)
-	sharingSvc := workspace.NewSharingService(db)
+	sharingSvc := workspace.NewSharingService(db, workspaceSvc)
 	auditSvc := biqauth.NewAuditService(db)
 
 	mfaRepo := mfa.NewMFARepository(db, tokenEnc)
