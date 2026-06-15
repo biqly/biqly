@@ -20,6 +20,7 @@ import {
   apiRefresh,
   apiRegister,
   apiSetActiveWorkspace,
+  registerResponseHasSession,
 } from '../../api/auth'
 import type { AuthUser } from '../../types/auth'
 
@@ -57,7 +58,11 @@ interface AuthContextType {
     password: string,
   ) => Promise<{ mfaRequired?: boolean; mfaToken?: string } | void>
   loginWithTokens: (accessToken: string, roles?: string[]) => Promise<void>
-  register: (email: string, password: string, displayName: string) => Promise<void>
+  register: (
+    email: string,
+    password: string,
+    displayName: string,
+  ) => Promise<{ authenticated: boolean; verificationPending: boolean }>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
   setActiveWorkspace: (workspaceID: string) => Promise<void>
@@ -167,7 +172,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (email: string, password: string, displayName: string) => {
     const resp = await apiRegister(email, password, displayName)
+    if (!registerResponseHasSession(resp)) {
+      return { authenticated: false, verificationPending: resp.verification_pending === true }
+    }
     await handleAuthSuccess(resp.access_token, resp.roles)
+    return { authenticated: true, verificationPending: resp.verification_pending === true }
   }
 
   const logout = async () => {

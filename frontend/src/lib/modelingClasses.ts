@@ -31,17 +31,45 @@ export function modelingShellClass(opts: { paletteOpen: boolean; editorOpen: boo
     cols = 'grid-cols-[minmax(18.5rem,20rem)_minmax(0,1fr)_2rem]'
   }
   return cn(
-    'grid grid-rows-1 h-[calc(100vh-17rem)] min-h-[32rem] overflow-hidden',
+    'relative grid grid-rows-1 h-[calc(100vh-17rem)] min-h-[32rem] overflow-hidden',
     'border border-border rounded-lg bg-card shadow-[var(--shadow)]',
     'transition-[grid-template-columns] duration-180 ease',
     cols,
-    'max-[1180px]:grid-cols-1 max-[1180px]:overflow-visible',
+    'max-[1180px]:grid-cols-1 max-[1180px]:h-[min(72vh,40rem)] max-[1180px]:min-h-[20rem]',
   )
 }
 
+export const modelingMobileScrimClass = cn(
+  'pointer-events-none fixed inset-0 z-30 opacity-0 transition-opacity duration-200',
+  'max-[1180px]:pointer-events-auto max-[1180px]:bg-[var(--mobile-nav-scrim,rgba(15,23,42,0.58))]',
+  'max-[1180px]:backdrop-blur-[var(--mobile-nav-scrim-blur,8px)]',
+)
+
+export function modelingMobileScrimVisibleClass(visible: boolean): string {
+  return visible ? 'max-[1180px]:opacity-100' : ''
+}
+
+export function modelingMobileFabClass(side: 'left' | 'right', panelOpen: boolean): string {
+  return cn(
+    'hidden max-[1180px]:inline-flex fixed z-50 items-center justify-center gap-1.5',
+    'h-10 min-w-10 rounded-lg border border-border bg-card px-3 shadow-lg',
+    'text-foreground text-sm font-semibold cursor-pointer',
+    'hover:bg-card-raised active:scale-[0.98] transition-[transform,background] duration-150',
+    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+    side === 'left' ? 'bottom-4 left-4' : 'bottom-4 right-4',
+    panelOpen && 'max-[1180px]:!hidden',
+  )
+}
+
+const modelingSidePanelMobileBase = cn(
+  'max-[1180px]:fixed max-[1180px]:top-0 max-[1180px]:bottom-0 max-[1180px]:z-40',
+  'max-[1180px]:w-[min(20rem,88vw)] max-[1180px]:shadow-[var(--mobile-nav-panel-shadow)]',
+  'max-[1180px]:transition-transform max-[1180px]:duration-200 motion-reduce:max-[1180px]:transition-none',
+)
+
 const modelingSidePanelBase = cn(
   'relative z-2 flex flex-col gap-0 min-w-0 min-h-0 p-0 bg-card border-r border-border',
-  'max-[1180px]:border-x-0 max-[1180px]:border-b max-[1180px]:border-border',
+  modelingSidePanelMobileBase,
 )
 
 export const modelingSideCollapsedClass = 'cursor-pointer [&_.modeling-side-body]:hidden'
@@ -51,6 +79,10 @@ export function modelingPaletteClass(open?: boolean): string {
     modelingSidePanelBase,
     '[&_h2]:mb-[0.35rem] [&_h2]:text-[1.05rem] [&_h2]:leading-[1.25]',
     '[&_p]:text-foreground-muted [&_p]:text-[0.86rem]',
+    'max-[1180px]:left-0 max-[1180px]:border-r max-[1180px]:border-border',
+    open
+      ? 'max-[1180px]:translate-x-0'
+      : 'max-[1180px]:pointer-events-none max-[1180px]:-translate-x-full',
     !open && modelingSideCollapsedClass,
   )
 }
@@ -63,16 +95,28 @@ export function modelingEditorClass(open?: boolean): string {
     '[&_p]:text-foreground-muted [&_p]:text-[0.86rem]',
     '[&_select]:w-full [&_select]:border [&_select]:border-border [&_select]:rounded-lg',
     '[&_select]:bg-card-raised [&_select]:text-foreground [&_select]:min-h-[2.55rem] [&_select]:px-3',
+    'max-[1180px]:right-0 max-[1180px]:left-auto max-[1180px]:w-[min(22rem,92vw)]',
+    'max-[1180px]:border-l max-[1180px]:border-r-0',
+    open
+      ? 'max-[1180px]:translate-x-0'
+      : 'max-[1180px]:pointer-events-none max-[1180px]:translate-x-full',
     !open && modelingSideCollapsedClass,
   )
 }
 
 export const modelingSideBodyClass = 'flex flex-col gap-4 min-h-0 p-4 overflow-hidden'
 
-export const modelingPaletteSideBodyClass = cn(modelingSideBodyClass, 'flex-1')
+export const modelingSideBodyMarkerClass = 'modeling-side-body'
+
+export const modelingPaletteSideBodyClass = cn(
+  modelingSideBodyClass,
+  modelingSideBodyMarkerClass,
+  'flex-1 max-[1180px]:overflow-y-auto',
+)
 
 export const modelingEditorSideBodyClass = cn(
   modelingSideBodyClass,
+  modelingSideBodyMarkerClass,
   'gap-3 overflow-y-auto flex-1 [&_.form-group]:mb-0',
 )
 
@@ -82,7 +126,10 @@ export function modelingSideToggleClass(side: 'left' | 'right'): string {
     'text-foreground-muted text-[0.85rem] font-bold leading-none cursor-pointer z-5',
     'shadow-[0_2px_6px_rgba(0,0,0,0.12)] transition-[color,background] duration-120 ease',
     'hover:text-accent hover:bg-[color-mix(in_srgb,var(--accent)_12%,var(--bg-card-raised))]',
+    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
     side === 'left' ? 'right-[-0.75rem]' : 'left-[-0.75rem]',
+    'max-[1180px]:top-3',
+    side === 'left' ? 'max-[1180px]:right-3 max-[1180px]:left-auto' : 'max-[1180px]:left-3',
   )
 }
 

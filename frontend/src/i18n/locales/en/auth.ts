@@ -35,6 +35,8 @@ export const auth = {
   agree_suffix: '',
   terms_error: 'You must agree to the Terms of Use and Privacy Policy',
   passwords_dont_match: 'Passwords do not match',
+  passwords_match: 'Passwords match',
+  invalid_email: 'Enter a valid email address',
   password_requirements_failed: 'Password does not meet all security requirements',
   strength_weak: 'Weak',
   strength_medium: 'Medium',

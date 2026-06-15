@@ -1,0 +1,22 @@
+# air live-reload for the Go services (host-native dev). Driven by the Makefile:
+#   make watch              # api (default)
+#   make watch SVC=auth     # auth service (:8889)
+#   make watch SVC=mail     # mail service (:8890)
+#   make debug-watch SVC=…  # same, under Delve on :2345
+# The Makefile sources .env + .env.dev and passes -build.cmd / -build.full_bin,
+# so this file only carries the watch settings. Run `make dev-up` first for infra.
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  # Defaults target the api; overridden per-service via Makefile flags.
+  cmd = "go build -o ./tmp/api ./cmd/api"
+  full_bin = "./tmp/api"
+  include_ext = ["go"]
+  exclude_dir = ["frontend", "bin", "tmp", "vendor", "testdata", "deploy", "docs", ".git", ".gograph"]
+  exclude_regex = ["_test\\.go"]
+  stop_on_error = true
+  delay = 500
+
+[misc]
+  clean_on_exit = true

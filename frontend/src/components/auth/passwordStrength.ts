@@ -161,19 +161,22 @@ export function rulesFor(
   return rules
 }
 
-// Bucketed score → level (1..3) maps onto the existing 3-segment strength bar.
-export function scoreToLevel(score: number): { level: 0 | 1 | 2 | 3; cssClass: string } {
+// Bucketed score → level (1..3) maps onto the 3-segment strength bar.
+export function scoreToLevel(score: number): {
+  level: 0 | 1 | 2 | 3
+  tone: 'weak' | 'medium' | 'strong' | ''
+} {
   if (score === 0) {
-    return { level: 0, cssClass: '' }
+    return { level: 0, tone: '' }
   }
   if (score <= 1) {
-    return { level: 1, cssClass: 'strength-bar--weak' }
+    return { level: 1, tone: 'weak' }
   }
   if (score === 2) {
-    return { level: 2, cssClass: 'strength-bar--medium' }
+    return { level: 2, tone: 'medium' }
   }
   if (score === 3) {
-    return { level: 3, cssClass: 'strength-bar--medium' }
+    return { level: 3, tone: 'medium' }
   }
-  return { level: 3, cssClass: 'strength-bar--strong' }
+  return { level: 3, tone: 'strong' }
 }

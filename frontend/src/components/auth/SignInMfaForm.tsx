@@ -1,6 +1,13 @@
 import type { RefObject, SubmitEvent } from 'react'
 
 import type { TFunction } from '../../i18n'
+import {
+  authFieldClass,
+  authFormClass,
+  authInputClass,
+  authLabelClass,
+  authSubmitBtnClass,
+} from '../../lib/authClasses'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 export function SignInMfaForm({
   t,
@@ -26,7 +33,7 @@ export function SignInMfaForm({
       onSubmit={(e) => {
         void onSubmit(e)
       }}
-      className="flex flex-col gap-4"
+      className={authFormClass}
     >
       <h2 className="m-0 text-[1.25rem] font-bold text-foreground text-center mb-2">
         {t('mfa.login_title')}
@@ -47,8 +54,8 @@ export function SignInMfaForm({
         </div>
       )}
 
-      <div className="flex flex-col gap-1">
-        <label className="text-[13px] font-medium text-foreground-muted" htmlFor="mfa-login-code">
+      <div className={authFieldClass}>
+        <label className={authLabelClass} htmlFor="mfa-login-code">
           {t('mfa.label_code')}
         </label>
         <input
@@ -57,7 +64,7 @@ export function SignInMfaForm({
           pattern="[0-9]*"
           inputMode="numeric"
           maxLength={6}
-          className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-input,#ffffff)] text-foreground text-[14px] transition-all duration-250 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]`}
+          className={authInputClass}
           value={mfaCode}
           onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
           required
@@ -69,7 +76,7 @@ export function SignInMfaForm({
 
       <button
         type="submit"
-        className="flex items-center justify-center gap-2 w-full py-[11px] px-[16px] rounded-lg border-none bg-gradient-to-br from-accent to-[var(--accent-strong)] text-white text-[14px] font-semibold cursor-pointer transition-all duration-150 shadow-[0_4px_10px_rgba(99,102,241,0.2)] hover:opacity-95 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none mt-4"
+        className={authSubmitBtnClass}
         disabled={mfaLoading || mfaCode.length !== 6}
       >
         {mfaLoading && (

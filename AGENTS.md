@@ -174,6 +174,26 @@ commands:
 3. run frontend tests: `npm --prefix frontend run test` (runs vitest)
 4. lint frontend (react/typescript): `make lint-frontend` or `npm --prefix frontend run lint` (eslint)
 
+## local dev & debugging (live-reload)
+
+when running or debugging locally with hot-reload, use these targets — do not
+reinvent them. full guide: `docs/agents/local-dev.md`.
+
+- `make dev-up` — single Postgres (hosts `bi_metadata` + `bi_auth` + `bi_mail`,
+  user `bi_user`, `localhost:5432`, like k8s) + redis + nats in docker. no app builds.
+- `make watch` — runs ALL app services with live-reload in ONE command: api (`:8888`),
+  auth (`:8889`), mail (`:8890`); each rebuilds on `.go` save, Ctrl-C stops all. the
+  frontend proxies `/api` → `:8888` and `/auth` → `:8889`, so both must run (missing
+  auth = vite `ECONNREFUSED /auth/...`).
+- `make watch SVC="api auth"` — run only the listed services (space- or comma-separated).
+- `make debug-watch [SVC=auth]` — single service under Delve on `:2345` (default api);
+  run the rest via plain `watch`. IDE reconnects after each rebuild. attach to `localhost:2345`.
+- `make dev-frontend` — Vite dev server (React HMR).
+- host-native runs need `.env.dev` (`cp .env.dev.example .env.dev`): it overrides
+  DSN hosts to `localhost`. without it you get `no such host: postgres`.
+- `make verify-main` — local mirror of the gate `main` CI runs (incl. semgrep
+  security) before merging dev → main.
+
 ## pre-commit checks (required)
 
 before any `git commit`, run the linters AND tests for the code you changed, and **fix every reported issue before staging or committing**. lint failures are blockers — do not commit with open lint errors, defer fixes to a follow-up commit, or push hoping CI will catch them.

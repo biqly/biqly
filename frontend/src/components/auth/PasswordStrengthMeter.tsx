@@ -2,13 +2,12 @@ import { useEffect, useState } from 'react'
 
 import { apiGetPasswordPolicy } from '../../api/auth'
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import type { PasswordPolicy } from '../../types/auth'
 import { rulesFor, scorePassword, scoreToLevel } from './passwordStrength'
 
 interface Props {
   password: string
-  // Called whenever rules+score are recomputed so the parent form can gate the
-  // submit button on policy compliance without duplicating logic.
   onValidityChange?: (info: {
     valid: boolean
     score: number
@@ -16,8 +15,18 @@ interface Props {
   }) => void
 }
 
-// PasswordStrengthMeter fetches the live server policy on mount and renders a
-// rule checklist + 3-bar strength meter that mirrors the backend scorer.
+const toneTextClass = {
+  weak: 'text-error',
+  medium: 'text-warning',
+  strong: 'text-success',
+} as const
+
+const toneBarClass = {
+  weak: 'bg-error',
+  medium: 'bg-warning',
+  strong: 'bg-success',
+} as const
+
 export default function PasswordStrengthMeter({ password, onValidityChange }: Props) {
   const t = useT()
   const [policy, setPolicy] = useState<PasswordPolicy | null>(null)
@@ -48,7 +57,7 @@ export default function PasswordStrengthMeter({ password, onValidityChange }: Pr
   const allRulesOk = rules.length > 0 && rules.every((r) => r.ok)
   const score = scorePassword(password)
   const meetsScore = policy ? score >= policy.min_score : true
-  const { level, cssClass } = scoreToLevel(score)
+  const { level, tone } = scoreToLevel(score)
 
   const strengthLabel =
     password.length === 0
@@ -59,7 +68,6 @@ export default function PasswordStrengthMeter({ password, onValidityChange }: Pr
           ? t('auth.strength_medium')
           : t('auth.strength_strong')
 
-  // Notify the parent on every change so the submit gate stays in sync.
   useEffect(() => {
     onValidityChange?.({
       valid: allRulesOk && meetsScore,
@@ -73,21 +81,47 @@ export default function PasswordStrengthMeter({ password, onValidityChange }: Pr
   }
 
   return (
-    <div className="password-strength" aria-live="polite">
-      <div className="strength-label-row">
-        <span>{t('auth.strength_label')}</span>
-        <span>{strengthLabel}</span>
+    <div className="mt-2 rounded-lg border border-border bg-card-raised/60 p-3" aria-live="polite">
+      <div className="flex items-center justify-between gap-3 text-[12px]">
+        <span className="text-foreground-muted">{t('auth.strength_label')}</span>
+        <span className={cn('font-semibold', tone ? toneTextClass[tone] : 'text-foreground-muted')}>
+          {strengthLabel}
+        </span>
       </div>
-      <div className="strength-bars">
-        <div className={`strength-bar ${level >= 1 ? cssClass : ''}`} />
-        <div className={`strength-bar ${level >= 2 ? cssClass : ''}`} />
-        <div className={`strength-bar ${level >= 3 ? cssClass : ''}`} />
+
+      <div className="mt-2 flex gap-1" aria-hidden="true">
+        {[1, 2, 3].map((segment) => (
+          <div
+            key={segment}
+            className={cn(
+              'h-1 flex-1 rounded-full bg-border transition-colors duration-200',
+              segment <= level && tone ? toneBarClass[tone] : '',
+            )}
+          />
+        ))}
       </div>
-      <ul className="password-rules">
-        {rules.map((r) => (
-          <li key={r.key} className={`rule-item ${r.ok ? 'valid' : ''}`}>
-            <span className="rule-bullet" />
-            {r.label}
+
+      <ul className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+        {rules.map((rule) => (
+          <li
+            key={rule.key}
+            className={cn(
+              'flex min-w-0 items-center gap-2 text-[12px] leading-snug',
+              rule.ok ? 'text-success' : 'text-foreground-muted',
+            )}
+          >
+            <span
+              className={cn(
+                'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold',
+                rule.ok
+                  ? 'border-success/35 bg-success/10 text-success'
+                  : 'border-border bg-transparent text-transparent',
+              )}
+              aria-hidden="true"
+            >
+              ✓
+            </span>
+            <span>{rule.label}</span>
           </li>
         ))}
       </ul>

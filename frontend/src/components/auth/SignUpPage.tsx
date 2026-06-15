@@ -4,13 +4,117 @@ import { useNavigate } from 'react-router-dom'
 import { apiGetPasswordPolicy, selfSignupEnabledFromPolicy } from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
 import { useLocale, useT } from '../../i18n'
-import { authCardClass, authPageClass } from '../../lib/authClasses'
+import {
+  authCardClass,
+  authCheckboxRowClass,
+  authFieldClass,
+  authFieldHintErrorClass,
+  authFieldHintSuccessClass,
+  authFormClass,
+  authInlineLinkClass,
+  authInputClass,
+  authInputErrorClass,
+  authLabelClass,
+  authLinkBtnClass,
+  authPageClass,
+  authSubmitBtnClass,
+} from '../../lib/authClasses'
 import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+import { isValidEmailFormat } from '../../lib/emailValidation'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { Modal } from '../ui/Modal'
 import { useAuth } from './AuthProvider'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
 import { PrivacyPolicyEN, PrivacyPolicyTR, TermsOfUseEN, TermsOfUseTR } from './PolicyContent'
+
+function confirmPasswordMismatch(password: string, confirmPassword: string): boolean {
+  return confirmPassword.length > 0 && password !== confirmPassword
+}
+
+interface EmailFieldProps {
+  email: string
+  onEmailChange: (value: string) => void
+  disabled?: boolean
+}
+
+function EmailField({ email, onEmailChange, disabled }: EmailFieldProps) {
+  const t = useT()
+  const showInvalid = email.length > 0 && !isValidEmailFormat(email)
+
+  return (
+    <div className={authFieldClass}>
+      <label className={authLabelClass} htmlFor="email-input">
+        {t('auth.email')}
+      </label>
+      <input
+        id="email-input"
+        type="email"
+        className={cn(authInputClass, showInvalid && authInputErrorClass)}
+        value={email}
+        onChange={(e) => onEmailChange(e.target.value)}
+        required
+        disabled={disabled}
+        autoComplete="email"
+        spellCheck={false}
+        aria-invalid={showInvalid || undefined}
+        aria-describedby={showInvalid ? 'email-hint' : undefined}
+      />
+      {showInvalid && (
+        <p id="email-hint" className={authFieldHintErrorClass} role="alert">
+          {t('auth.invalid_email')}
+        </p>
+      )}
+    </div>
+  )
+}
+
+interface ConfirmPasswordFieldProps {
+  password: string
+  confirmPassword: string
+  onConfirmChange: (value: string) => void
+  disabled?: boolean
+}
+
+function ConfirmPasswordField({
+  password,
+  confirmPassword,
+  onConfirmChange,
+  disabled,
+}: ConfirmPasswordFieldProps) {
+  const t = useT()
+  const showMismatch = confirmPasswordMismatch(password, confirmPassword)
+
+  return (
+    <div className={authFieldClass}>
+      <label className={authLabelClass} htmlFor="confirm-password-input">
+        {t('auth.confirm_password')}
+      </label>
+      <input
+        id="confirm-password-input"
+        type="password"
+        className={cn(authInputClass, showMismatch && authInputErrorClass)}
+        value={confirmPassword}
+        onChange={(e) => onConfirmChange(e.target.value)}
+        required
+        disabled={disabled}
+        autoComplete="new-password"
+        aria-invalid={showMismatch || undefined}
+        aria-describedby={confirmPassword.length > 0 ? 'confirm-password-hint' : undefined}
+      />
+      {confirmPassword.length > 0 && (
+        <p
+          id="confirm-password-hint"
+          className={showMismatch ? authFieldHintErrorClass : authFieldHintSuccessClass}
+          role={showMismatch ? 'alert' : 'status'}
+        >
+          {showMismatch ? t('auth.passwords_dont_match') : t('auth.passwords_match')}
+        </p>
+      )}
+    </div>
+  )
+}
+
 export default function SignUpPage() {
   const navigate = useNavigate()
   const t = useT()
@@ -23,6 +127,7 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [agree, setAgree] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [passwordValid, setPasswordValid] = useState(false)
   const [termsOpen, setTermsOpen] = useState(false)
@@ -52,9 +157,25 @@ export default function SignUpPage() {
     setPasswordValid(info.valid)
   }, [])
 
+  const showPasswordMismatch = confirmPasswordMismatch(password, confirmPassword)
+  const showEmailInvalid = email.length > 0 && !isValidEmailFormat(email)
+
+  const clearPasswordMismatchError = useCallback(() => {
+    setError((current) => (current === t('auth.passwords_dont_match') ? null : current))
+  }, [t])
+
+  const clearEmailFormatError = useCallback(() => {
+    setError((current) => (current === t('auth.invalid_email') ? null : current))
+  }, [t])
+
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!displayName || !email || !password || !confirmPassword) {
+      return
+    }
+
+    if (!isValidEmailFormat(email)) {
+      setError(t('auth.invalid_email'))
       return
     }
 
@@ -75,11 +196,20 @@ export default function SignUpPage() {
 
     setLoading(true)
     setError(null)
+    setSuccess(null)
 
     try {
-      await register(email, password, displayName)
+      const result = await register(email, password, displayName)
+      if (!result.authenticated) {
+        setSuccess(t('auth.register_success'))
+        setPassword('')
+        setConfirmPassword('')
+        setAgree(false)
+        return
+      }
       void navigate('/datasources')
     } catch (err: unknown) {
+      setSuccess(null)
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
       setLoading(false)
@@ -118,7 +248,7 @@ export default function SignUpPage() {
           <p className="text-[14px] text-foreground-muted" style={{ textAlign: 'center' }}>
             <a
               href="/auth/signin"
-              className="text-[#6366f1] font-medium no-underline hover:underline"
+              className={authInlineLinkClass}
               onClick={(e) => {
                 e.preventDefault()
                 void navigate('/auth/signin')
@@ -146,7 +276,7 @@ export default function SignUpPage() {
             {t('auth.already_account')}{' '}
             <a
               href="/auth/signin"
-              className="text-[#6366f1] font-medium no-underline hover:underline"
+              className={authInlineLinkClass}
               onClick={(e) => {
                 e.preventDefault()
                 void navigate('/auth/signin')
@@ -161,12 +291,12 @@ export default function SignUpPage() {
           onSubmit={(e) => {
             void handleSubmit(e)
           }}
-          className="flex flex-col gap-4"
+          className={authFormClass}
         >
           {error && (
             <div
               className={legacyFeedbackClass(
-                'p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2',
+                'rounded border-l-[3px] border-error bg-error/8 p-[10px_12px] text-[13px] text-error',
               )}
               role="alert"
               aria-live="assertive"
@@ -174,15 +304,26 @@ export default function SignUpPage() {
               {error}
             </div>
           )}
+          {success && (
+            <div
+              className={legacyFeedbackClass(
+                'rounded border-l-[3px] border-success bg-success/8 p-[10px_12px] text-[13px] text-success',
+              )}
+              role="status"
+              aria-live="polite"
+            >
+              {success}
+            </div>
+          )}
 
-          <div className="flex flex-col gap-1">
-            <label className="text-[13px] font-medium text-foreground-muted" htmlFor="name-input">
+          <div className={authFieldClass}>
+            <label className={authLabelClass} htmlFor="name-input">
               {t('auth.display_name')}
             </label>
             <input
               id="name-input"
               type="text"
-              className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-input,#ffffff)] text-foreground text-[14px] transition-all duration-250 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]`}
+              className={authInputClass}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               required
@@ -191,123 +332,87 @@ export default function SignUpPage() {
             />
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-[13px] font-medium text-foreground-muted" htmlFor="email-input">
-              {t('auth.email')}
-            </label>
-            <input
-              id="email-input"
-              type="email"
-              className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-input,#ffffff)] text-foreground text-[14px] transition-all duration-250 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]`}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={loading}
-              autoComplete="email"
-            />
-          </div>
+          <EmailField
+            email={email}
+            onEmailChange={(value) => {
+              setEmail(value)
+              clearEmailFormatError()
+            }}
+            disabled={loading}
+          />
 
-          <div className="flex flex-col gap-1">
-            <label
-              className="text-[13px] font-medium text-foreground-muted"
-              htmlFor="password-input"
-            >
+          <div className={authFieldClass}>
+            <label className={authLabelClass} htmlFor="password-input">
               {t('auth.password')}
             </label>
             <input
               id="password-input"
               type="password"
-              className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-input,#ffffff)] text-foreground text-[14px] transition-all duration-250 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]`}
+              className={authInputClass}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                clearPasswordMismatchError()
+              }}
               required
               disabled={loading}
               autoComplete="new-password"
             />
-
             <PasswordStrengthMeter password={password} onValidityChange={handleValidity} />
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label
-              className="text-[13px] font-medium text-foreground-muted"
-              htmlFor="confirm-password-input"
-            >
-              {t('auth.confirm_password')}
-            </label>
-            <input
-              id="confirm-password-input"
-              type="password"
-              className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-input,#ffffff)] text-foreground text-[14px] transition-all duration-250 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]`}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              disabled={loading}
-              autoComplete="new-password"
-            />
-          </div>
+          <ConfirmPasswordField
+            password={password}
+            confirmPassword={confirmPassword}
+            onConfirmChange={(value) => {
+              setConfirmPassword(value)
+              clearPasswordMismatchError()
+            }}
+            disabled={loading}
+          />
 
-          <div className="flex items-center justify-between text-[13px]">
-            <label
-              className="flex items-center gap-1.5 cursor-pointer text-foreground-muted"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
-            >
-              <input
-                type="checkbox"
-                checked={agree}
-                onChange={(e) => setAgree(e.target.checked)}
-                disabled={loading}
-                style={{ cursor: 'pointer' }}
-              />
-              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                {t('auth.agree_to')}{' '}
-                <button
-                  type="button"
-                  onClick={() => setTermsOpen(true)}
-                  style={{
-                    background: 'transparent',
-                    border: 0,
-                    padding: 0,
-                    color: 'var(--accent)',
-                    textDecoration: 'underline',
-                    cursor: 'pointer',
-                    fontSize: 'inherit',
-                    fontFamily: 'inherit',
-                    display: 'inline',
-                  }}
-                >
-                  {t('auth.terms_of_use')}
-                </button>{' '}
-                {t('auth.and')}{' '}
-                <button
-                  type="button"
-                  onClick={() => setPrivacyOpen(true)}
-                  style={{
-                    background: 'transparent',
-                    border: 0,
-                    padding: 0,
-                    color: 'var(--accent)',
-                    textDecoration: 'underline',
-                    cursor: 'pointer',
-                    fontSize: 'inherit',
-                    fontFamily: 'inherit',
-                    display: 'inline',
-                  }}
-                >
-                  {t('auth.privacy_policy')}
-                </button>
-                {t('auth.agree_suffix') && ` ${t('auth.agree_suffix')}`}
-              </span>
-            </label>
-          </div>
+          <label className={authCheckboxRowClass}>
+            <input
+              type="checkbox"
+              className="mt-0.5 shrink-0 cursor-pointer accent-accent"
+              checked={agree}
+              onChange={(e) => setAgree(e.target.checked)}
+              disabled={loading}
+            />
+            <span>
+              {t('auth.agree_to')}{' '}
+              <button type="button" className={authLinkBtnClass} onClick={() => setTermsOpen(true)}>
+                {t('auth.terms_of_use')}
+              </button>{' '}
+              {t('auth.and')}{' '}
+              <button
+                type="button"
+                className={authLinkBtnClass}
+                onClick={() => setPrivacyOpen(true)}
+              >
+                {t('auth.privacy_policy')}
+              </button>
+              {t('auth.agree_suffix') && ` ${t('auth.agree_suffix')}`}
+            </span>
+          </label>
 
           <button
             type="submit"
-            className="flex items-center justify-center gap-2 w-full py-[11px] px-[16px] rounded-lg border-none bg-gradient-to-br from-accent to-[var(--accent-strong)] text-white text-[14px] font-semibold cursor-pointer transition-all duration-150 shadow-[0_4px_10px_rgba(99,102,241,0.2)] hover:opacity-95 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
-            disabled={loading || !displayName || !email || !password || !confirmPassword || !agree}
+            className={authSubmitBtnClass}
+            disabled={
+              loading ||
+              !displayName ||
+              !email ||
+              showEmailInvalid ||
+              !password ||
+              !confirmPassword ||
+              !agree ||
+              showPasswordMismatch ||
+              !passwordValid
+            }
           >
             {loading && (
-              <div className="w-4 h-4 border-2 border-white/30 rounded-full border-t-white animate-spin" />
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
             )}
             {t('auth.btn_signup')}
           </button>

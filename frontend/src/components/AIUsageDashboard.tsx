@@ -1,11 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bar } from 'recharts/es6/cartesian/Bar'
-import { CartesianGrid } from 'recharts/es6/cartesian/CartesianGrid'
-import { XAxis } from 'recharts/es6/cartesian/XAxis'
-import { YAxis } from 'recharts/es6/cartesian/YAxis'
-import { BarChart } from 'recharts/es6/chart/BarChart'
-import { ResponsiveContainer } from 'recharts/es6/component/ResponsiveContainer'
-import { Tooltip } from 'recharts/es6/component/Tooltip'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'

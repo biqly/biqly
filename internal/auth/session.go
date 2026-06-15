@@ -9,8 +9,24 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"time"
 )
+
+// normalizeIP strips a "host:port" wrapper so the value is a bare IP, valid for
+// the sessions.ip_address inet column. Direct (non-proxied) connections leave
+// r.RemoteAddr as "ip:port" (e.g. "[::1]:52253"), which is not valid inet input;
+// behind a trusted proxy RealIP already supplies a bare IP, which SplitHostPort
+// leaves untouched. nil / empty / already-bare values pass through unchanged.
+func normalizeIP(ip *string) *string {
+	if ip == nil || *ip == "" {
+		return ip
+	}
+	if host, _, err := net.SplitHostPort(*ip); err == nil {
+		return &host
+	}
+	return ip
+}
 
 func HashToken(token string) string {
 	h := sha256.New()
@@ -83,6 +99,10 @@ func (m *SessionManager) createSession(ctx context.Context, userID string, userA
 	if err != nil {
 		return "", fmt.Errorf("generate session token: %w", err)
 	}
+
+	// Guarantee a valid inet value regardless of how the caller obtained the IP
+	// (direct connections pass "ip:port"). Covers both create and rotate paths.
+	ipAddress = normalizeIP(ipAddress)
 
 	var fp *string
 	if fingerprint != "" {

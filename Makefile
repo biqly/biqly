@@ -3,12 +3,32 @@ ifndef .FEATURES
 $(error This Makefile requires GNU Make. On macOS: brew install make && gmake <target>)
 endif
 
-.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit semgrep-scan helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai watch debug-watch dev-frontend test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit semgrep-scan vet govulncheck verify-main helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down dev-up dev-down seed-adventureworks
+
+# air provides Go live-reload (rebuild + restart on .go save). Pinned via
+# `go run` so no global install is required (first run downloads it).
+AIR = go run github.com/air-verse/air@latest
+
+# Services `make watch` starts when SVC is unset (the host-native app services;
+# catalog/query/ai are embedded in cmd/api locally). Override with a space- or
+# comma-separated list: `make watch SVC="api auth"`.
+WATCH_SVCS ?= api auth mail
+SVC ?=
+COMMA := ,
+# debug-watch is single-service (one Delve :2345): default api, first token of SVC.
+DEBUG_SVC = $(firstword $(if $(SVC),$(subst $(COMMA), ,$(SVC)),api))
+
+# Infra services started by `dev-up`: databases + cache + messaging only.
+# The api/auth/mail/frontend apps are run on the host (make dev / run-* /
+# npm run dev) for hot-reload against these containers.
+DEV_INFRA=postgres redis nats
 
 BINARY_NAME=biqly
 GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
-# Host-native targets load .env when present (docker compose sets env internally).
-RUN_WITH_ENV = set -a && [ -f .env ] && . ./.env && set +a &&
+# Host-native targets load .env, then .env.dev when present (docker compose sets
+# env internally). .env.dev overrides DSN hosts to localhost for host-native
+# runs against `make dev-up` infra — see .env.dev.example.
+RUN_WITH_ENV = set -a; [ -f .env ] && . ./.env; [ -f .env.dev ] && . ./.env.dev; set +a;
 HELM_CHART=deploy/helm/biqly
 SEMGREP_SARIF?=semgrep.sarif
 SEMGREP_CONFIGS=\
@@ -120,6 +140,21 @@ semgrep-scan:
 	@semgrep scan $(foreach config,$(SEMGREP_CONFIGS),--config $(config)) --sarif --output $(SEMGREP_SARIF)
 	@python3 scripts/check-semgrep-sarif.py $(SEMGREP_SARIF)
 
+vet:
+	@go vet ./...
+
+# Dependency vulnerability scan, same as the CI govulncheck step.
+govulncheck:
+	@go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+# Local mirror of the gate `main`'s CI runs (ci.yml + test.yml + semgrep.yml).
+# Run this before merging dev -> main so you know main will stay green,
+# including the security scan. CodeQL is GitHub-hosted and cannot run here;
+# semgrep-scan + govulncheck cover local SAST + dependency vuln checks.
+# Ordered cheapest-first so it fails fast.
+verify-main: vet lint-go lint-locale-literals test-go coverage-gate eval-regression govulncheck check-frontend helm-lint helm-template semgrep-scan
+	@echo "verify-main: all main CI gates passed locally."
+
 helm-deps:
 	@helm repo add bitnami https://charts.bitnami.com/bitnami --force-update >/dev/null
 	@helm dependency build $(HELM_CHART)
@@ -159,6 +194,17 @@ docker-up: seed-adventureworks
 docker-down:
 	@docker compose down -v
 
+# Bring up ONLY the infra deps (Postgres x3 + redis + nats) for host-native
+# frontend/backend development. No app image builds, no AdventureWorks
+# download. Run the apps on the host afterwards: `make dev` (api) and
+# `npm --prefix frontend run dev` (frontend). For the full containerized
+# stack incl. test datasource, use `make docker-up` instead.
+dev-up:
+	@docker compose up -d $(DEV_INFRA)
+
+dev-down:
+	@docker compose down
+
 dev:
 	@$(RUN_WITH_ENV) go run ./cmd/api/
 
@@ -175,6 +221,36 @@ debug-query: build-query
 
 debug-ai: build-ai
 	@$(RUN_WITH_ENV) dlv exec ./bin/biqly-ai --headless --listen=:2345 --api-version=2 --accept-multiclient --continue
+
+# Live-reload dev loop. Run `make dev-up` first for infra.
+#   make dev-up               # Postgres + redis + nats in Docker
+#   make watch                # ALL app services (api :8888, auth :8889, mail :8890)
+#   make watch SVC="api auth" # only the listed services
+#   make dev-frontend         # Vite dev server (React HMR)
+# Each service runs its own air instance (own tmp/<svc> dir) and rebuilds on save.
+# Ctrl-C stops them all. RUN_WITH_ENV sources .env + .env.dev for localhost DSNs.
+watch:
+	@$(RUN_WITH_ENV) sh -c 'svcs=$$(echo "$(if $(SVC),$(SVC),$(WATCH_SVCS))" | tr "," " "); \
+		for s in $$svcs; do \
+			echo "[watch] $$s -> cmd/$$s"; \
+			$(AIR) -c .air.toml -tmp_dir "tmp/$$s" \
+				-build.cmd "go build -o ./tmp/$$s/app ./cmd/$$s" \
+				-build.full_bin "./tmp/$$s/app" & \
+		done; \
+		wait'
+
+# Single-service live-reload under Delve on :2345 (debug one service at a time;
+# run the rest via plain `watch`). The IDE reconnects after each rebuild.
+#   make debug-watch            # api
+#   make debug-watch SVC=auth   # auth service
+debug-watch:
+	@$(RUN_WITH_ENV) $(AIR) -c .air.toml -tmp_dir "tmp/$(DEBUG_SVC)" \
+		-build.cmd "go build -gcflags='all=-N -l' -o ./tmp/$(DEBUG_SVC)/app ./cmd/$(DEBUG_SVC)" \
+		-build.full_bin "dlv exec ./tmp/$(DEBUG_SVC)/app --headless --listen=:2345 --api-version=2 --accept-multiclient --continue"
+
+# Frontend dev server (Vite HMR — edits reflect instantly in the browser).
+dev-frontend:
+	@npm --prefix frontend run dev
 
 grafana-enable:
 	kubectl scale deployment/grafana -n monitoring --replicas=1

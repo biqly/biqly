@@ -4,6 +4,7 @@ import type {
   Invitation,
   PasskeyInfo,
   PasswordPolicy,
+  RegisterResponse,
   SetActiveWorkspaceResponse,
   TokenResponse,
 } from '../types/auth'
@@ -30,6 +31,7 @@ const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
 
 let cachedPolicy: PasswordPolicy | null = null
 let inflightPolicy: Promise<PasswordPolicy> | null = null
+let inflightCookieRefresh: Promise<TokenResponse> | null = null
 
 export async function apiGetPasswordPolicy(): Promise<PasswordPolicy> {
   if (cachedPolicy) {
@@ -87,12 +89,18 @@ export async function apiRegister(
   email: string,
   password: string,
   displayName: string,
-): Promise<TokenResponse> {
-  return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/register`, {
+): Promise<RegisterResponse> {
+  return apiFetch<RegisterResponse>('POST', `${AUTH_API_BASE}/register`, {
     email,
     password,
     display_name: displayName,
   })
+}
+
+export function registerResponseHasSession(
+  response: RegisterResponse,
+): response is RegisterResponse & { access_token: string } {
+  return typeof response.access_token === 'string' && response.access_token.length > 0
 }
 
 export async function apiLogin(email: string, password: string): Promise<TokenResponse> {
@@ -104,11 +112,22 @@ export async function apiOAuthExchange(code: string): Promise<TokenResponse> {
 }
 
 export async function apiRefresh(refreshToken?: string): Promise<TokenResponse> {
-  return apiFetch<TokenResponse>(
-    'POST',
-    `${AUTH_API_BASE}/refresh`,
-    refreshToken ? { refresh_token: refreshToken } : {},
+  if (refreshToken) {
+    return apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/refresh`, {
+      refresh_token: refreshToken,
+    })
+  }
+
+  if (inflightCookieRefresh) {
+    return inflightCookieRefresh
+  }
+
+  inflightCookieRefresh = apiFetch<TokenResponse>('POST', `${AUTH_API_BASE}/refresh`, {}).finally(
+    () => {
+      inflightCookieRefresh = null
+    },
   )
+  return inflightCookieRefresh
 }
 
 export async function apiLogout(): Promise<void> {

@@ -1,5 +1,11 @@
 import { semanticModelSetupStatusClass } from '../lib/feedbackClasses'
-import { modelingPageClass, modelingShellClass } from '../lib/modelingClasses'
+import {
+  modelingMobileFabClass,
+  modelingMobileScrimClass,
+  modelingMobileScrimVisibleClass,
+  modelingPageClass,
+  modelingShellClass,
+} from '../lib/modelingClasses'
 import { DriftPanel } from './admin/DriftPanel'
 import { JoinEditor } from './modeling/JoinEditor'
 import { ModelingCanvas } from './modeling/ModelingCanvas'
@@ -55,9 +61,35 @@ export default function Modeling() {
               editorOpen: s.editorOpen,
             })}
           >
+            <div
+              className={`${modelingMobileScrimClass} ${modelingMobileScrimVisibleClass(s.paletteOpen || s.editorOpen)}`}
+              hidden={!(s.paletteOpen || s.editorOpen)}
+              onClick={s.closeMobilePanels}
+              aria-hidden="true"
+            />
+
+            <button
+              type="button"
+              className={modelingMobileFabClass('left', s.paletteOpen)}
+              aria-label={s.t('modeling.open_semantic_panel')}
+              onClick={s.togglePalette}
+            >
+              <span aria-hidden="true">☰</span>
+              <span>{s.t('modeling.tab_short_tables')}</span>
+            </button>
+            <button
+              type="button"
+              className={modelingMobileFabClass('right', s.editorOpen)}
+              aria-label={s.t('modeling.open_join_panel')}
+              onClick={s.toggleEditor}
+            >
+              <span aria-hidden="true">⇄</span>
+              <span>{s.t('modeling.tab_short_rel')}</span>
+            </button>
+
             <ModelingPalette
               open={s.paletteOpen}
-              onToggle={() => s.setPaletteOpen((value) => !value)}
+              onToggle={s.togglePalette}
               model={s.model}
               usedTableCount={s.usedTableCount}
               joins={s.joins}
@@ -132,7 +164,7 @@ export default function Modeling() {
             />
             <JoinEditor
               open={s.editorOpen}
-              onToggle={() => s.setEditorOpen((value) => !value)}
+              onToggle={s.toggleEditor}
               joinForm={s.joinForm}
               onChange={s.updateJoinForm}
               tableOptions={s.tableOptions}

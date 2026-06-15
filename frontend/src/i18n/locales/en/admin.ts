@@ -547,7 +547,9 @@ export const admin = {
     col_status: 'Status',
     col_created: 'Created At',
     col_actions: 'Actions',
+    empty_title: 'No experiments yet',
     empty: 'No A/B experiments found.',
+    view_btn: 'View details',
     new_title: 'Create Experiment',
     edit_title: 'Edit Experiment',
     fields: {

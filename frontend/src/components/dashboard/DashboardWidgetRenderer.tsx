@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Bar } from 'recharts/es6/cartesian/Bar'
-import { CartesianGrid } from 'recharts/es6/cartesian/CartesianGrid'
-import { Line } from 'recharts/es6/cartesian/Line'
-import { XAxis } from 'recharts/es6/cartesian/XAxis'
-import { YAxis } from 'recharts/es6/cartesian/YAxis'
-import { BarChart } from 'recharts/es6/chart/BarChart'
-import { LineChart } from 'recharts/es6/chart/LineChart'
-import { PieChart } from 'recharts/es6/chart/PieChart'
-import { ResponsiveContainer } from 'recharts/es6/component/ResponsiveContainer'
-import { Tooltip } from 'recharts/es6/component/Tooltip'
-import { Pie } from 'recharts/es6/polar/Pie'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 
 import { useApi } from '../../hooks/useApi'
 import { legacyTableClass } from '../../lib/tableClasses'

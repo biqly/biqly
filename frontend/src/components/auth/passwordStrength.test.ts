@@ -70,10 +70,10 @@ describe('rulesFor', () => {
 })
 
 describe('scoreToLevel', () => {
-  it('maps scores to bar levels with weak/medium/strong classes', () => {
-    expect(scoreToLevel(0)).toEqual({ level: 0, cssClass: '' })
-    expect(scoreToLevel(1)).toEqual({ level: 1, cssClass: 'strength-bar--weak' })
-    expect(scoreToLevel(2).cssClass).toBe('strength-bar--medium')
-    expect(scoreToLevel(4).cssClass).toBe('strength-bar--strong')
+  it('maps scores to bar levels with weak/medium/strong tones', () => {
+    expect(scoreToLevel(0)).toEqual({ level: 0, tone: '' })
+    expect(scoreToLevel(1)).toEqual({ level: 1, tone: 'weak' })
+    expect(scoreToLevel(2).tone).toBe('medium')
+    expect(scoreToLevel(4).tone).toBe('strong')
   })
 })

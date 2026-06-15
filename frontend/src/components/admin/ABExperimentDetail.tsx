@@ -2,10 +2,21 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { useAdminApi } from '../../hooks/useApi'
 import { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
 import { abRecommendationBannerClass, abRecommendationTitleClass } from '../../lib/feedbackClasses'
+import { formHintClass } from '../../lib/formClasses'
+import { legacyLayoutClass } from '../../lib/layoutClasses'
+import { Button } from '../ui/Button'
+import { LoadingScreen } from '../ui/LoadingScreen'
 import type { Experiment } from './ABExperimentForm'
+import { abExperimentStatusBadgeClass, abExperimentStatusLabel } from './abExperimentStatusBadge'
+import {
+  adminBtnGhostClass,
+  adminCardClass,
+  adminErrBoxClass,
+  adminInputClass,
+  adminPanelHeaderClass,
+  adminThClass,
+} from './adminClasses'
 interface Variant {
   id?: string
   experiment_id: string
@@ -55,21 +66,6 @@ interface ABExperimentDetailProps {
   onEdit: () => void
 }
 
-function experimentStatusBadgeClass(status: Experiment['status']): string {
-  switch (status) {
-    case 'draft':
-      return 'bg-[#f3f4f6] text-[#374151] dark:bg-zinc-800 dark:text-zinc-300'
-    case 'running':
-      return 'bg-[#ecfdf5] text-[#065f46] dark:bg-emerald-950/30 dark:text-emerald-400'
-    case 'paused':
-      return 'bg-[#fffbeb] text-[#92400e] dark:bg-amber-950/30 dark:text-amber-400'
-    case 'completed':
-      return 'bg-[#eff6ff] text-[#1e40af] dark:bg-blue-950/30 dark:text-blue-400'
-    default:
-      return ''
-  }
-}
-
 function variantBarColor(v: Variant, index: number): string {
   if (v.is_control) {
     return 'bg-blue-500'
@@ -110,97 +106,87 @@ function ExperimentDetailHeader({
 
   return (
     <>
-      <button
-        type="button"
-        className="inline-flex items-center gap-2 bg-none border-none text-accent text-sm font-medium cursor-pointer p-0 mb-2 transition-colors duration-200 hover:text-accent-hover"
-        onClick={onBack}
-      >
-        {t('admin.workspaces.back')}
+      <button type="button" className={`${adminBtnGhostClass} mb-1`} onClick={onBack}>
+        ← {t('admin.workspaces.back')}
       </button>
 
-      <div className={`flex justify-between items-center gap-4 border-b border-border pb-4`}>
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold m-0">{exp.name}</h1>
-          <p className="text-sm text-foreground-muted m-0 max-w-[720px]">
-            {exp.description || t('metadata.no_description')}
-          </p>
-          <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+      <div className={adminPanelHeaderClass}>
+        <div>
+          <h2 style={{ margin: 0 }}>{exp.name}</h2>
+          <p className={formHintClass}>{exp.description || t('metadata.no_description')}</p>
+          <div className="mt-2 flex flex-wrap gap-4 text-sm text-foreground-muted">
             <span>
-              <strong>{t('admin.ab_experiments.col_template')}:</strong> {exp.template_name}
+              <strong className="text-foreground">{t('admin.ab_experiments.col_template')}:</strong>{' '}
+              {exp.template_name}
             </span>
             <span>
-              <strong>{t('admin.ab_experiments.col_locale')}:</strong> {exp.locale.toUpperCase()}
+              <strong className="text-foreground">{t('admin.ab_experiments.col_locale')}:</strong>{' '}
+              {exp.locale.toUpperCase()}
             </span>
-            <span>
-              <strong>{t('admin.ab_experiments.col_status')}:</strong>{' '}
-              <span
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium capitalize ${experimentStatusBadgeClass(exp.status)}`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                {exp.status}
+            <span className="inline-flex items-center gap-2">
+              <strong className="text-foreground">{t('admin.ab_experiments.col_status')}:</strong>
+              <span className={abExperimentStatusBadgeClass(exp.status)}>
+                <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+                {abExperimentStatusLabel(exp.status, t)}
               </span>
             </span>
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 mt-0" style={{ marginTop: 0 }}>
-          {isDraft && (
+        <div className="flex flex-wrap justify-end gap-2">
+          {isDraft ? (
             <>
-              <button
-                type="button"
-                className={legacyButtonClass('btn btn-secondary')}
-                onClick={onEdit}
-              >
+              <Button variant="secondary" autoWidth onClick={onEdit}>
                 {t('common.edit')}
-              </button>
-              <button
-                type="button"
-                className={legacyButtonClass('btn btn-primary')}
+              </Button>
+              <Button
+                variant="primary"
+                autoWidth
                 onClick={() => void onStatusTransition('running')}
                 disabled={totalTraffic !== 100 || controlCount !== 1}
               >
                 {t('admin.ab_experiments.start_btn')}
-              </button>
+              </Button>
             </>
-          )}
+          ) : null}
 
-          {isRunning && (
+          {isRunning ? (
             <>
-              <button
-                type="button"
-                className={legacyButtonClass('btn btn-secondary')}
+              <Button
+                variant="secondary"
+                autoWidth
                 onClick={() => void onStatusTransition('paused')}
               >
                 {t('admin.ab_experiments.pause_btn')}
-              </button>
-              <button
-                type="button"
-                className={legacyButtonClass('btn btn-danger')}
+              </Button>
+              <Button
+                variant="danger"
+                autoWidth
                 onClick={() => void onStatusTransition('completed')}
               >
                 {t('admin.ab_experiments.complete_btn')}
-              </button>
+              </Button>
             </>
-          )}
+          ) : null}
 
-          {isPaused && (
+          {isPaused ? (
             <>
-              <button
-                type="button"
-                className={legacyButtonClass('btn btn-primary')}
+              <Button
+                variant="primary"
+                autoWidth
                 onClick={() => void onStatusTransition('running')}
               >
                 {t('admin.ab_experiments.resume_btn')}
-              </button>
-              <button
-                type="button"
-                className={legacyButtonClass('btn btn-danger')}
+              </Button>
+              <Button
+                variant="danger"
+                autoWidth
                 onClick={() => void onStatusTransition('completed')}
               >
                 {t('admin.ab_experiments.complete_btn')}
-              </button>
+              </Button>
             </>
-          )}
+          ) : null}
         </div>
       </div>
     </>
@@ -305,7 +291,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
   }
 
   if (!exp) {
-    return <div style={{ padding: 24, textAlign: 'center' }}>{t('common.loading')}</div>
+    return <LoadingScreen minHeight="240px" />
   }
 
   const isDraft = exp.status === 'draft'
@@ -318,7 +304,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
     recommendation?.winner_variant_id === '' && recommendation.reason.includes('worse')
 
   return (
-    <div className="flex flex-col gap-6 p-6 text-foreground font-[var(--font-family,inherit)]">
+    <div className={legacyLayoutClass('page-stack')}>
       <ExperimentDetailHeader
         exp={exp}
         isDraft={isDraft}
@@ -335,17 +321,11 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
 
       {/* Visual traffic split bar */}
       {variants.length > 0 && (
-        <div
-          className={legacyCardClass('bg-card border border-border rounded-lg p-6 shadow-card-sm')}
-        >
+        <div className={adminCardClass}>
           <h2 className="text-base font-semibold m-0 p-0 border-none">
             {t('admin.ab_experiments.traffic_pct')} ({totalTraffic}%)
           </h2>
-          <div
-            className={legacyCardClass(
-              'flex h-3 w-full rounded-full overflow-hidden mt-3 mb-4 bg-card-raised',
-            )}
-          >
+          <div className="mb-4 mt-3 flex h-3 w-full overflow-hidden rounded-full bg-card-raised">
             {variants.map((v, i) => (
               <div
                 key={v.id ?? i}
@@ -383,53 +363,19 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
           )}
 
           {/* Variants list card */}
-          <div
-            className={legacyCardClass(
-              'bg-card border border-border rounded-lg p-6 shadow-card-sm',
-            )}
-          >
+          <div className={adminCardClass}>
             <h2 className={`text-lg font-semibold mt-0 mb-4 border-b border-border pb-3`}>
               {t('admin.ab_experiments.variants_title')}
             </h2>
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr>
-                  <th
-                    className={legacyCardClass(
-                      'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
-                    )}
-                  >
-                    {t('admin.ab_experiments.variant_name')}
-                  </th>
-                  <th
-                    className={legacyCardClass(
-                      'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
-                    )}
-                  >
-                    {t('admin.ab_experiments.template_version')}
-                  </th>
-                  <th
-                    className={legacyCardClass(
-                      'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
-                    )}
-                  >
-                    {t('admin.ab_experiments.traffic_pct')}
-                  </th>
-                  <th
-                    className={legacyCardClass(
-                      'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
-                    )}
-                  >
-                    {t('admin.ab_experiments.is_control')}
-                  </th>
+                  <th className={adminThClass}>{t('admin.ab_experiments.variant_name')}</th>
+                  <th className={adminThClass}>{t('admin.ab_experiments.template_version')}</th>
+                  <th className={adminThClass}>{t('admin.ab_experiments.traffic_pct')}</th>
+                  <th className={adminThClass}>{t('admin.ab_experiments.is_control')}</th>
                   {isDraft && (
-                    <th
-                      className={legacyCardClass(
-                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
-                      )}
-                    >
-                      {t('admin.ab_experiments.col_actions')}
-                    </th>
+                    <th className={adminThClass}>{t('admin.ab_experiments.col_actions')}</th>
                   )}
                 </tr>
               </thead>
@@ -448,10 +394,10 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                     </td>
                     {isDraft && (
                       <td className={`px-4 py-3 border-b border-border text-sm`}>
-                        <button
-                          type="button"
-                          className={legacyButtonClass('btn btn-secondary btn-sm')}
-                          style={{ color: '#ef4444' }}
+                        <Button
+                          variant="danger-outline"
+                          size="sm"
+                          autoWidth
                           onClick={() => {
                             if (v.id) {
                               void handleDeleteVariant(v.id)
@@ -459,7 +405,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                           }}
                         >
                           {t('common.delete')}
-                        </button>
+                        </Button>
                       </td>
                     )}
                   </tr>
@@ -470,19 +416,15 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
             {/* Add Variant Form (Draft only) */}
             {isDraft && (
               <form onSubmit={(e) => void handleAddVariant(e)} style={{ marginTop: 24 }}>
-                <div
-                  className={legacyCardClass(
-                    'border border-dashed border-border-strong rounded-lg p-4 bg-card-raised flex flex-col gap-3',
-                  )}
-                >
+                <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-card-raised p-4">
                   <h3 style={{ fontSize: 14, margin: '0 0 8px 0', fontWeight: 600 }}>
                     {t('admin.ab_experiments.add_variant')}
                   </h3>
-                  {varError && <div className="alert alert-danger">{varError}</div>}
+                  {varError ? <div className={adminErrBoxClass}>{varError}</div> : null}
                   <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-3 items-center">
                     <input
                       type="text"
-                      className={`px-3 py-2 border border-border rounded-md text-sm bg-[var(--input-bg)] text-inherit w-full focus:outline-none focus:border-accent focus:ring-2 focus:ring-[var(--control-focus-ring)]`}
+                      className={adminInputClass}
                       placeholder={t('admin.ab_experiments.variant_name')}
                       value={newVarName}
                       onChange={(e) => setNewVarName(e.target.value)}
@@ -490,7 +432,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                     />
                     <input
                       type="number"
-                      className={`px-3 py-2 border border-border rounded-md text-sm bg-[var(--input-bg)] text-inherit w-full focus:outline-none focus:border-accent focus:ring-2 focus:ring-[var(--control-focus-ring)]`}
+                      className={adminInputClass}
                       placeholder={t('admin.ab_experiments.template_version')}
                       value={newVarVersion}
                       onChange={(e) => setNewVarVersion(parseInt(e.target.value) || 1)}
@@ -499,7 +441,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                     />
                     <input
                       type="number"
-                      className={`px-3 py-2 border border-border rounded-md text-sm bg-[var(--input-bg)] text-inherit w-full focus:outline-none focus:border-accent focus:ring-2 focus:ring-[var(--control-focus-ring)]`}
+                      className={adminInputClass}
                       placeholder={t('admin.ab_experiments.traffic_pct')}
                       value={newVarTraffic}
                       onChange={(e) => setNewVarTraffic(parseInt(e.target.value) || 0)}
@@ -517,9 +459,9 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                     </label>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                    <button type="submit" className={legacyButtonClass('btn btn-primary btn-sm')}>
+                    <Button type="submit" variant="primary" size="sm" autoWidth>
                       {t('common.add')}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </form>
@@ -528,59 +470,21 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
 
           {/* Metrics Comparison Card */}
           {!isDraft && metrics.length > 0 && (
-            <div
-              className={legacyCardClass(
-                'bg-card border border-border rounded-lg p-6 shadow-card-sm',
-              )}
-            >
+            <div className={adminCardClass}>
               <h2 className={`text-lg font-semibold mt-0 mb-4 border-b border-border pb-3`}>
                 {t('admin.ab_experiments.metrics_title')}
               </h2>
               <table className="w-full border-collapse text-left">
                 <thead>
                   <tr>
-                    <th
-                      className={legacyCardClass(
-                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
-                      )}
-                    >
-                      Variant
-                    </th>
-                    <th
-                      className={legacyCardClass(
-                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
-                      )}
-                    >
-                      {t('admin.ab_experiments.metric_queries')}
-                    </th>
-                    <th
-                      className={legacyCardClass(
-                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
-                      )}
-                    >
+                    <th className={adminThClass}>Variant</th>
+                    <th className={adminThClass}>{t('admin.ab_experiments.metric_queries')}</th>
+                    <th className={adminThClass}>
                       {t('admin.ab_experiments.metric_success_rate')}
                     </th>
-                    <th
-                      className={legacyCardClass(
-                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
-                      )}
-                    >
-                      {t('admin.ab_experiments.metric_latency')}
-                    </th>
-                    <th
-                      className={legacyCardClass(
-                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
-                      )}
-                    >
-                      {t('admin.ab_experiments.metric_cost')}
-                    </th>
-                    <th
-                      className={legacyCardClass(
-                        'px-4 py-3 border-b border-border text-sm font-medium text-foreground-muted bg-card-raised',
-                      )}
-                    >
-                      {t('admin.ab_experiments.metric_tokens')}
-                    </th>
+                    <th className={adminThClass}>{t('admin.ab_experiments.metric_latency')}</th>
+                    <th className={adminThClass}>{t('admin.ab_experiments.metric_cost')}</th>
+                    <th className={adminThClass}>{t('admin.ab_experiments.metric_tokens')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -621,11 +525,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
         {/* Right column (Summary & timeseries timeline overview) */}
         <div>
           {!isDraft && timeseries.length > 0 && (
-            <div
-              className={legacyCardClass(
-                'bg-card border border-border rounded-lg p-6 shadow-card-sm',
-              )}
-            >
+            <div className={adminCardClass}>
               <h2 className={`text-lg font-semibold mt-0 mb-4 border-b border-border pb-3`}>
                 {t('admin.ab_experiments.timeseries_title')}
               </h2>

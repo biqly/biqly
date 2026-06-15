@@ -1059,6 +1059,8 @@ export const core: CoreDictionary = {
     metric_deleted: 'Metrik silindi.',
     collapse_panel: 'Paneli daralt',
     expand_panel: 'Paneli genişlet',
+    open_semantic_panel: 'Semantik paneli aç',
+    open_join_panel: 'İlişki düzenleyiciyi aç',
     model_summary_aria: 'Model özeti',
     semantic_layer: 'Semantik katman',
     no_model_selected: 'Model seçilmedi',

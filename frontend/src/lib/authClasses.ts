@@ -24,4 +24,47 @@ export const authTitleClass = cn(
 
 export const authErrorClass = errorAlertClass
 
+export const authFormClass = 'flex flex-col gap-5'
+
+export const authFieldClass = 'flex flex-col gap-1.5'
+
+export const authLabelClass = 'text-[13px] font-medium text-foreground-muted'
+
+export const authInputClass = cn(
+  'w-full rounded-lg border border-border bg-[var(--input-bg)] px-[14px] py-[10px]',
+  'text-[14px] text-foreground transition-[border-color,box-shadow] duration-200',
+  'placeholder:text-foreground-faint',
+  'focus:border-accent focus:shadow-[0_0_0_3px_var(--control-focus-ring)] focus:outline-none',
+  'disabled:cursor-not-allowed disabled:opacity-60',
+)
+
+export const authInputErrorClass = cn(
+  'border-error focus:border-error',
+  'focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--error)_22%,transparent)]',
+)
+
+export const authFieldHintClass = 'text-[12px] leading-snug'
+
+export const authFieldHintErrorClass = cn(authFieldHintClass, 'text-error')
+
+export const authFieldHintSuccessClass = cn(authFieldHintClass, 'text-success')
+
+export const authSubmitBtnClass = cn(
+  'flex w-full items-center justify-center gap-2 rounded-lg border-0',
+  'bg-gradient-to-br from-accent to-[var(--accent-strong)] px-4 py-[11px]',
+  'text-[14px] font-semibold text-white shadow-[0_4px_10px_rgba(99,102,241,0.2)]',
+  'cursor-pointer transition-all duration-150 hover:-translate-y-px hover:opacity-95 active:translate-y-0',
+  'disabled:cursor-not-allowed disabled:opacity-60 disabled:transform-none',
+)
+
+export const authCheckboxRowClass =
+  'flex items-start gap-2.5 text-[13px] leading-snug text-foreground-muted'
+
+export const authInlineLinkClass = 'font-medium text-accent no-underline hover:underline'
+
+export const authLinkBtnClass = cn(
+  'inline border-0 bg-transparent p-0 font-inherit text-accent underline',
+  'cursor-pointer hover:text-accent-strong',
+)
+
 export const authBtnClass = buttonClass('primary')

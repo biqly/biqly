@@ -37,6 +37,8 @@ export const auth: AuthDictionary = {
   agree_suffix: 'kabul ediyorum',
   terms_error: "Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmelisiniz",
   passwords_dont_match: 'Şifreler eşleşmiyor',
+  passwords_match: 'Şifreler eşleşiyor',
+  invalid_email: 'Geçerli bir e-posta adresi girin',
   password_requirements_failed: 'Şifre tüm güvenlik gereksinimlerini karşılamıyor',
   strength_weak: 'Zayıf',
   strength_medium: 'Orta',

@@ -1,5 +1,6 @@
 # Go
 bin/
+tmp/
 /api
 *.test
 *.out
@@ -19,6 +20,7 @@ semgrep.sarif
 # Env / secrets
 .env
 .env.local
+.env.dev
 *.pem
 
 # IDE

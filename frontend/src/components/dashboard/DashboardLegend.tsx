@@ -1,5 +1,4 @@
-// @ts-expect-error recharts/es6/component/Legend has no bundled types in this import path
-import { Legend } from 'recharts/es6/component/Legend'
+import { Legend } from 'recharts'
 
 export function DashboardLegend() {
   return <Legend />

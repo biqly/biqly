@@ -2,6 +2,14 @@ import type { SubmitEvent } from 'react'
 
 import { useAutofocus } from '../../hooks/useAutofocus'
 import type { TFunction } from '../../i18n'
+import {
+  authFieldClass,
+  authFormClass,
+  authInlineLinkClass,
+  authInputClass,
+  authLabelClass,
+  authSubmitBtnClass,
+} from '../../lib/authClasses'
 import { legacyCardClass } from '../../lib/cardClasses'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 export function SignInCredentialsForm({
@@ -43,7 +51,7 @@ export function SignInCredentialsForm({
         onSubmit={(e) => {
           void onSubmit(e)
         }}
-        className="flex flex-col gap-4"
+        className={authFormClass}
       >
         {ldapEnabled && (
           <div
@@ -77,31 +85,32 @@ export function SignInCredentialsForm({
           </div>
         )}
 
-        <div className="flex flex-col gap-1">
-          <label className="text-[13px] font-medium text-foreground-muted" htmlFor="email-input">
+        <div className={authFieldClass}>
+          <label className={authLabelClass} htmlFor="email-input">
             {t('auth.email')}
           </label>
           <input
             ref={emailRef}
             id="email-input"
             type="email"
-            className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-input,#ffffff)] text-foreground text-[14px] transition-all duration-250 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]`}
+            className={authInputClass}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             disabled={loading || passkeyLoading}
             autoComplete="username"
+            spellCheck={false}
           />
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-[13px] font-medium text-foreground-muted" htmlFor="password-input">
+        <div className={authFieldClass}>
+          <label className={authLabelClass} htmlFor="password-input">
             {t('auth.password')}
           </label>
           <input
             id="password-input"
             type="password"
-            className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-input,#ffffff)] text-foreground text-[14px] transition-all duration-250 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]`}
+            className={authInputClass}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -121,7 +130,7 @@ export function SignInCredentialsForm({
           </label>
           <a
             href="/auth/forgot-password"
-            className="text-accent no-underline font-medium hover:underline"
+            className={authInlineLinkClass}
             onClick={(e) => {
               e.preventDefault()
               onForgotPassword()
@@ -133,7 +142,7 @@ export function SignInCredentialsForm({
 
         <button
           type="submit"
-          className="flex items-center justify-center gap-2 w-full py-[11px] px-[16px] rounded-lg border-none bg-gradient-to-br from-accent to-[var(--accent-strong)] text-white text-[14px] font-semibold cursor-pointer transition-all duration-150 shadow-[0_4px_10px_rgba(99,102,241,0.2)] hover:opacity-95 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+          className={authSubmitBtnClass}
           disabled={loading || passkeyLoading || !email || !password || throttleMs > 0}
         >
           {loading && (

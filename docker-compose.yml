@@ -1,5 +1,10 @@
 services:
-  metadata-db:
+  # Single Postgres instance hosting all biqly system databases
+  # (bi_metadata + bi_auth + bi_mail), mirroring the Kubernetes layout where one
+  # biqly-postgresql cluster owns multiple databases under a single role. The
+  # extra databases are created on first init by scripts/init-create-databases.sh;
+  # bi_metadata is created by POSTGRES_DB and migrated by init-metadata-db.sh.
+  postgres:
     image: postgres:18-alpine
     environment:
       POSTGRES_DB: bi_metadata
@@ -8,9 +13,11 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - metadata_data:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql
       - ./migrations:/migrations:ro
+      - ./scripts/init-create-databases.sh:/docker-entrypoint-initdb.d/00-create-databases.sh:ro
       - ./scripts/init-metadata-db.sh:/docker-entrypoint-initdb.d/001-init-metadata-db.sh:ro
+      - ./scripts/init-service-dbs.sh:/docker-entrypoint-initdb.d/002-init-service-dbs.sh:ro
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U bi_user -d bi_metadata" ]
       interval: 5s
@@ -18,7 +25,9 @@ services:
       retries: 5
 
   redis:
-    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.38.1
+    # Same dragonfly image as prod, pulled from GHCR instead of
+    # docker.dragonflydb.io (some networks' TLS proxies intercept that registry).
+    image: ghcr.io/dragonflydb/dragonfly:v1.38.1
     ports:
       - "6379:6379"
     healthcheck:
@@ -39,9 +48,11 @@ services:
       timeout: 3s
       retries: 5
 
-  # Test PostgreSQL datasource for introspection testing.
-  # Seeds AdventureWorks on first init if testdata/adventureworks/ exists
-  # (run scripts/fetch-adventureworks.sh once to populate it).
+  # Test PostgreSQL datasource for introspection testing. This models an
+  # EXTERNAL customer database (not a biqly system DB), so it stays a separate
+  # instance — same as in Kubernetes, where user datasources live outside the
+  # biqly-postgresql cluster. Seeds AdventureWorks on first init if
+  # testdata/adventureworks/ exists (run scripts/fetch-adventureworks.sh once).
   test-datasource:
     image: postgres:18-alpine
     environment:
@@ -60,9 +71,9 @@ services:
       context: .
       dockerfile: Dockerfile.migrate
     environment:
-      BI_METADATA_DB_DSN: postgres://bi_user:bi_password@metadata-db:5432/bi_metadata?sslmode=disable
+      BI_METADATA_DB_DSN: postgres://bi_user:bi_password@postgres:5432/bi_metadata?sslmode=disable
     depends_on:
-      metadata-db:
+      postgres:
         condition: service_healthy
     restart: "no"
 
@@ -74,10 +85,14 @@ services:
     env_file:
       - path: .env
         required: false
+    # DB DSN is set inline so compose connectivity does not depend on .env
+    # hostnames (which may carry localhost overrides for host-native dev).
+    environment:
+      BI_METADATA_DB_DSN: postgres://bi_user:bi_password@postgres:5432/bi_metadata?sslmode=disable
     ports:
       - "8888:8888"
     depends_on:
-      metadata-db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -86,23 +101,6 @@ services:
       auth:
         condition: service_healthy
 
-  auth-db:
-    image: postgres:18-alpine
-    environment:
-      POSTGRES_DB: bi_auth
-      POSTGRES_USER: bi_auth_user
-      POSTGRES_PASSWORD: bi_auth_password
-    ports:
-      - "5434:5432"
-    volumes:
-      - auth_data:/var/lib/postgresql
-      - ./migrations/auth:/migrations:ro
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U bi_auth_user -d bi_auth" ]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
   auth-migrate:
     build:
       context: .
@@ -110,9 +108,9 @@ services:
     entrypoint: [ "/auth-migrate" ]
     command: [ "-dir", "/migrations/auth", "up" ]
     environment:
-      BI_AUTH_DB_DSN: postgres://bi_auth_user:bi_auth_password@auth-db:5432/bi_auth?sslmode=disable
+      BI_AUTH_DB_DSN: postgres://bi_user:bi_password@postgres:5432/bi_auth?sslmode=disable
     depends_on:
-      auth-db:
+      postgres:
         condition: service_healthy
     restart: "no"
 
@@ -123,10 +121,12 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      BI_AUTH_DB_DSN: postgres://bi_user:bi_password@postgres:5432/bi_auth?sslmode=disable
     ports:
       - "8889:8889"
     depends_on:
-      auth-db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -140,22 +140,6 @@ services:
       timeout: 3s
       retries: 5
 
-  mail-db:
-    image: postgres:18-alpine
-    environment:
-      POSTGRES_DB: bi_mail
-      POSTGRES_USER: bi_mail_user
-      POSTGRES_PASSWORD: bi_mail_password
-    ports:
-      - "5435:5432"
-    volumes:
-      - mail_data:/var/lib/postgresql
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U bi_mail_user -d bi_mail" ]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
   mail-migrate:
     build:
       context: .
@@ -163,9 +147,9 @@ services:
     entrypoint: [ "/mail-migrate" ]
     command: [ "-dir", "/migrations/mail", "up" ]
     environment:
-      BI_MAIL_DB_DSN: postgres://bi_mail_user:bi_mail_password@mail-db:5432/bi_mail?sslmode=disable
+      BI_MAIL_DB_DSN: postgres://bi_user:bi_password@postgres:5432/bi_mail?sslmode=disable
     depends_on:
-      mail-db:
+      postgres:
         condition: service_healthy
     restart: "no"
 
@@ -176,10 +160,12 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      BI_MAIL_DB_DSN: postgres://bi_user:bi_password@postgres:5432/bi_mail?sslmode=disable
     ports:
       - "8890:8890"
     depends_on:
-      mail-db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -199,7 +185,5 @@ services:
       - api
 
 volumes:
-  metadata_data:
+  postgres_data:
   test_data:
-  auth_data:
-  mail_data:

@@ -75,6 +75,16 @@ export interface TokenResponse {
   mfa_required?: boolean
   mfa_token?: string
   password_expired?: boolean
+  verification_pending?: boolean
+}
+
+export interface RegisterResponse {
+  access_token?: string
+  refresh_token?: string
+  user_id?: string
+  email?: string
+  roles?: string[]
+  verification_pending?: boolean
 }
 
 export interface PasskeyInfo {

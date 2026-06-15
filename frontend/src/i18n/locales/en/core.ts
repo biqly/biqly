@@ -1048,6 +1048,8 @@ export const core = {
     metric_deleted: 'Metric deleted.',
     collapse_panel: 'Collapse panel',
     expand_panel: 'Expand panel',
+    open_semantic_panel: 'Open semantic panel',
+    open_join_panel: 'Open relationship editor',
     model_summary_aria: 'Model summary',
     semantic_layer: 'Semantic layer',
     no_model_selected: 'No model selected',

@@ -550,7 +550,9 @@ export const admin: AdminDictionary = {
     col_status: 'Durum',
     col_created: 'Oluşturulma',
     col_actions: 'İşlemler',
+    empty_title: 'Henüz deney yok',
     empty: 'Prompt A/B deneyi bulunamadı.',
+    view_btn: 'Detayları gör',
     new_title: 'Deney Oluştur',
     edit_title: 'Deneyi Düzenle',
     fields: {

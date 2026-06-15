@@ -1040,6 +1040,99 @@ Notes:
 
 - gograph MCP tools were not connected in this session, so `gograph_capabilities`, `gograph_plan`, and `gograph_review --uncommitted` could not be run.
 
+## Signup Auth Session Bugfix Plan
+
+Success criteria:
+
+- Signup no longer shows a low-level `authorization header required` error after a successful registration.
+- Guest auth pages do not spam protected refresh/me endpoints without a valid session.
+- Auth/CSRF behavior stays secure; no bypass of bearer/session checks is introduced.
+- Local dev `.env.dev` includes the Kubernetes/Helm runtime settings needed for auth/mail/API parity, without changing Helm/prod values.
+- Focused regression coverage proves the successful signup behavior.
+- Verification includes the focused test gate plus Semgrep for the changed security surface.
+
+- [x] Reproduce the signup/register -> refresh/me failure with a deterministic local loop.
+- [x] Compare Kubernetes/Helm runtime env with `.env`/`.env.dev` and patch local-only gaps.
+- [x] Identify whether the fix belongs in frontend session handling, backend auth contract, or both.
+- [x] Implement the smallest fix that preserves CSRF/auth requirements.
+- [x] Run focused tests, lint/build as needed, gograph review for Go changes if any, and Semgrep.
+- [x] Document the outcome and verification commands in this tracker.
+
+## Signup Auth Session Bugfix Review
+
+Resolved:
+
+1. Root cause: auth registration can legitimately return only `verification_pending=true` on the duplicate/anti-enumeration path, but the frontend treated every successful register response as token-bearing and called `/me` with no bearer token.
+2. `apiRegister` now returns a `RegisterResponse`, and `registerResponseHasSession` gates the token-bearing branch.
+3. `AuthProvider.register` no longer calls `handleAuthSuccess` when the register response has no access token; `SignUpPage` shows the existing generic registration-success message instead.
+4. `.env.dev` now includes local-only Kubernetes parity values for auth/mail internal tokens plus a generated stable local JWT key. Helm/prod values were not changed.
+5. Semgrep initially failed on an inherited local skill doc command that downloaded the latest Hubble CLI release artifact. The doc now tells agents to use a trusted package manager or approved internal mirror instead.
+
+Verification:
+
+- `npm --prefix frontend run test -- src/api/auth.test.ts`
+- `npm --prefix frontend exec prettier -- --check frontend/src/types/auth.ts frontend/src/api/auth.ts frontend/src/api/auth.test.ts frontend/src/components/auth/AuthProvider.tsx frontend/src/components/auth/SignUpPage.tsx`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix frontend run test`
+- `git diff --check`
+- `make semgrep-scan`
+
+Notes:
+
+- No Go code was changed; backend auth handlers/service were inspected with gograph only to confirm the register response contract.
+- The local Vite server was not running when the first curl repro was attempted, so the direct browser flow was not re-clicked in this slice.
+
+## Duplicate Auth Refresh Single-Flight Plan
+
+Success criteria:
+
+- Local dev no longer sends concurrent `/api/auth/refresh` POSTs from initial auth boot.
+- Refresh token rotation/theft protection remains backend-enforced; no backend or Helm auth weakening.
+- Focused frontend coverage proves concurrent cookie-backed refresh calls share one request.
+- Verification includes frontend tests/lint/build, `git diff --check`, and Semgrep.
+
+- [x] Add a failing frontend test for concurrent cookie-backed `apiRefresh()` calls.
+- [x] Implement module-level single-flight refresh for cookie-backed refresh only.
+- [x] Confirm explicit legacy refresh-token calls keep their current behavior.
+- [x] Run frontend verification and Semgrep.
+- [x] Document the outcome and commands in this tracker.
+
+## Duplicate Auth Refresh Single-Flight Review
+
+Resolved:
+
+1. Root cause: local dev/React remounts can start two cookie-backed `/api/auth/refresh` calls at the same time. The auth backend correctly rotates refresh tokens on use, so one request can succeed while the second hits the rotated token and returns 401/400.
+2. `apiRefresh()` now uses a module-level single-flight promise for cookie-backed refresh calls, so concurrent callers share the same in-flight POST and response.
+3. Explicit legacy refresh-token calls remain uncoalesced, preserving their previous request semantics.
+4. No backend auth, refresh-token rotation, CSRF, Helm, or Kubernetes settings were weakened.
+
+Verification:
+
+- Red: `npm --prefix frontend run test -- src/api/auth.test.ts` failed because concurrent cookie-backed refresh calls made two `apiFetch` calls.
+- Green: `npm --prefix frontend run test -- src/api/auth.test.ts`
+- `npm --prefix frontend exec prettier -- --check frontend/src/api/auth.ts frontend/src/api/auth.test.ts frontend/src/components/auth/AuthProvider.tsx frontend/src/components/auth/SignUpPage.tsx frontend/src/types/auth.ts`
+- `npm --prefix frontend run lint`
+- `npm --prefix frontend run build`
+- `npm --prefix frontend run test`
+- `git diff --check`
+- `make semgrep-scan`
+
+## Local Zlitter Datasource Connection Plan
+
+Success criteria:
+
+- The local `Zlitter` datasource test uses the reachable target host/port.
+- Any change is local metadata/config only unless code proves necessary.
+- Stored datasource secrets are not printed or rewritten unnecessarily.
+- Verification proves the connection path succeeds from the same environment the app uses.
+
+- [ ] Inspect the local metadata datasource record without exposing secrets.
+- [ ] Compare the stored host/port with the reachable `192.168.50.228:15432` target.
+- [ ] Apply the smallest local fix if the stored target is wrong.
+- [ ] Verify the datasource connection through the app-facing path or equivalent driver path.
+- [ ] Document the outcome and commands in this tracker.
+
 ### MW-2 — JSON Decode + Error Response Boilerplate (Auth Handlers) [HIGH]
 
 Auth handler'lar (`internal/auth/handlers/handler.go`, `handler_rbac.go`, `handler_mfa.go`) ~45 yerde `sonic.Decode + respondError` kalıbını tekrarlıyor. Ana handler paketindeki `decodeJSON[T]` generic helper'ı kullanmıyor — ve `http.MaxBytesReader` koruması da eksik.

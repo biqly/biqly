@@ -21,8 +21,12 @@ func getRealIP(r *http.Request) string {
 	return ""
 }
 
-// RealIP is a middleware that sets r.RemoteAddr to the client's real IP
-// from X-Forwarded-For or X-Real-IP headers if request comes from a trusted proxy.
+// RealIP normalizes r.RemoteAddr to a bare client IP for all downstream
+// handlers. Behind a trusted proxy it uses the X-Forwarded-For / X-Real-IP
+// client IP; otherwise it strips the port from the peer address. Always emitting
+// a port-less IP matters because handlers persist r.RemoteAddr into Postgres
+// inet columns (sessions, audit_events, account_state), which reject "ip:port"
+// (e.g. a direct connection's "[::1]:52253").
 func RealIP(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -31,9 +35,10 @@ func RealIP(next http.Handler) http.Handler {
 		}
 		if security.IsTrustedProxy(host) {
 			if rip := getRealIP(r); rip != "" {
-				r.RemoteAddr = rip
+				host = rip
 			}
 		}
+		r.RemoteAddr = host
 		next.ServeHTTP(w, r)
 	})
 }
