@@ -91,6 +91,25 @@ func (s *DatasourceAccessService) Revoke(ctx context.Context, userID, datasource
 	return nil
 }
 
+func (s *DatasourceAccessService) GetByID(ctx context.Context, id string) (*DatasourceAccess, error) {
+	var access DatasourceAccess
+	var grantedBy sql.NullString
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, user_id, datasource_id, access_level, granted_by, granted_at
+		FROM datasource_access WHERE id = $1
+	`, id).Scan(&access.ID, &access.UserID, &access.DatasourceID, &access.AccessLevel, &grantedBy, &access.GrantedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get datasource access by id: %w", err)
+	}
+	if grantedBy.Valid {
+		access.GrantedBy = new(grantedBy.String)
+	}
+	return &access, nil
+}
+
 func (s *DatasourceAccessService) UpdateLevel(ctx context.Context, accessID, level string) error {
 	if !IsValidLevel(level) {
 		return fmt.Errorf("invalid access level: %s", level)

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/csv"
 	"errors"
 	"net/http"
@@ -576,13 +577,47 @@ func (h *RBACHandler) handleAdminGrantAccess(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *RBACHandler) handleAdminUpdateAccess(w http.ResponseWriter, r *http.Request) {
+	caller, ok := contextUserID(r)
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, errors.New("unauthorized"))
+		return
+	}
 	req, ok := decodeJSON[struct {
 		AccessLevel string `json:"access_level"`
 	}](w, r)
 	if !ok {
 		return
 	}
-	if err := h.dsAccess.UpdateLevel(r.Context(), chi.URLParam(r, "id"), req.AccessLevel); err != nil {
+
+	accessID := chi.URLParam(r, "id")
+
+	// Look up the existing grant to verify caller has permission on its datasource.
+	access, err := h.dsAccess.GetByID(r.Context(), accessID)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeError(w, r, http.StatusNotFound, errors.New("access grant not found"))
+		return
+	}
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	ok, err = h.rbac.Check(r.Context(), rbac.PermissionCheck{
+		UserID:     caller,
+		Permission: "datasource:grant_access",
+		ScopeType:  rbac.ScopeDatasource,
+		ScopeID:    access.DatasourceID,
+	})
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	if !ok {
+		writeError(w, r, http.StatusForbidden, errors.New("insufficient permissions"))
+		return
+	}
+
+	if err := h.dsAccess.UpdateLevel(r.Context(), accessID, req.AccessLevel); err != nil {
 		writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
