@@ -16,6 +16,13 @@ func RunInTx(ctx context.Context, db *sql.DB, fn func(*sql.Tx) error) error {
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
+	// Rollback on panic so the connection isn't left open in a broken state.
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p) //nolint:forbidigo // defer recover must re-panic after rollback
+		}
+	}()
 	if err := fn(tx); err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			return errors.Join(err, fmt.Errorf("rollback tx: %w", rollbackErr))

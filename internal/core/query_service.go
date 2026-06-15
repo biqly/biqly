@@ -217,6 +217,9 @@ func (s *QueryService) DryRun(ctx context.Context, db *sql.DB, lq *query.Logical
 	if se != nil {
 		return se
 	}
+	if err := security.NewReadOnlyChecker().Check(compiled.SQL); err != nil {
+		return ToServiceError(fmt.Errorf("read-only check: %w", err))
+	}
 	explain := driver.Dialect().ExplainSQL(compiled.SQL)
 	if explain == "" {
 		return nil

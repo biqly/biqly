@@ -62,7 +62,10 @@ func SemanticModelHash(modelID string, version int) string {
 	return fmt.Sprintf("%s@%d", modelID, version)
 }
 
-// UpsertConfirmedQuery stores or refreshes a confirmed NL→query pair.
+// UpsertConfirmedQuery stores or refreshes a confirmed NL→query pair atomically.
+// Uses INSERT … ON CONFLICT DO UPDATE so concurrent calls targeting the same
+// logical key (datasource_id, question_hash, semantic_model_hash, model_id)
+// never produce duplicate rows or a unique-violation.
 func (r *Repository) UpsertConfirmedQuery(ctx context.Context, in ConfirmedQueryUpsert) error {
 	embeddingJSON, err := encodeEmbedding(in.QuestionEmbedding)
 	if err != nil {
@@ -72,29 +75,6 @@ func (r *Repository) UpsertConfirmedQuery(ctx context.Context, in ConfirmedQuery
 	if in.ModelID == "" {
 		modelID = nil
 	}
-	res, err := r.db.ExecContext(ctx, `
-		UPDATE ai_confirmed_queries
-		SET nl_query = $5,
-		    sql_query = $6,
-		    question_embedding = $8::jsonb,
-		    user_id = NULLIF($3, ''),
-		    is_active = true,
-		    confirmed_at = NOW()
-		WHERE datasource_id = $1::uuid
-		  AND question_hash = $4
-		  AND semantic_model_hash = $7
-		  AND (($2::uuid IS NULL AND model_id IS NULL) OR model_id = $2::uuid)
-	`, in.DatasourceID, modelID, in.UserID, in.QuestionHash, in.NLQuery, in.SQLQuery, in.SemanticModelHash, embeddingJSON)
-	if err != nil {
-		return fmt.Errorf("update confirmed query: %w", err)
-	}
-	updated, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if updated > 0 {
-		return nil
-	}
 	_, err = r.db.ExecContext(ctx, `
 		INSERT INTO ai_confirmed_queries (
 			datasource_id, model_id, user_id, question_hash, nl_query, sql_query,
@@ -102,9 +82,20 @@ func (r *Repository) UpsertConfirmedQuery(ctx context.Context, in ConfirmedQuery
 		) VALUES (
 			$1::uuid, $2::uuid, NULLIF($3, ''), $4, $5, $6, $7, $8::jsonb, true, NOW()
 		)
+		ON CONFLICT (
+			datasource_id, question_hash, semantic_model_hash,
+			COALESCE(model_id, '00000000-0000-0000-0000-000000000000'::uuid)
+		)
+		DO UPDATE SET
+			nl_query            = EXCLUDED.nl_query,
+			sql_query           = EXCLUDED.sql_query,
+			question_embedding  = EXCLUDED.question_embedding,
+			user_id             = EXCLUDED.user_id,
+			is_active           = true,
+			confirmed_at        = NOW()
 	`, in.DatasourceID, modelID, in.UserID, in.QuestionHash, in.NLQuery, in.SQLQuery, in.SemanticModelHash, embeddingJSON)
 	if err != nil {
-		return fmt.Errorf("insert confirmed query: %w", err)
+		return fmt.Errorf("upsert confirmed query: %w", err)
 	}
 	return nil
 }

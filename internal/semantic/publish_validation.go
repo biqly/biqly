@@ -2,6 +2,7 @@ package semantic
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/biqly/biqly/internal/errmsg"
@@ -95,8 +96,12 @@ func validateCalculatedDimension(
 	if err := validateCalculatedExpression(dim.CalculatedExpression, columnSet, model.BaseSchema); err != nil {
 		addError("dimension %q calculated expression invalid: %s", dim.Name, err)
 	}
-	expr := getOrParseExpr(dim.CalculatedExpression, dim.CalculatedExpr)
-	if expr == nil {
+	expr, err := getOrParseExpr(dim.CalculatedExpression, dim.CalculatedExpr)
+	if errors.Is(err, errNoExpr) {
+		return
+	}
+	if err != nil {
+		addError("dimension %q calculated expression parse error: %s", dim.Name, err)
 		return
 	}
 	if err := pkgsemantic.ValidateExprStrict(expr, columnSet, allowedMets, allowedDims, false, 0); err != nil {
@@ -166,8 +171,12 @@ func validateMetricExpressionAST(
 	allowedDims, allowedMets map[string]bool,
 	addError func(string, ...any),
 ) {
-	expr := getOrParseExpr(metric.Expression, metric.Expr)
-	if expr == nil {
+	expr, err := getOrParseExpr(metric.Expression, metric.Expr)
+	if errors.Is(err, errNoExpr) {
+		return
+	}
+	if err != nil {
+		addError("metric %q expression parse error: %s", metric.Name, err)
 		return
 	}
 	allowMets := strings.ToLower(strings.TrimSpace(metric.Aggregation)) == "custom"

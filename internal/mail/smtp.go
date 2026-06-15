@@ -218,6 +218,8 @@ func (s *SMTPEmailSender) sendTemplate(ctx context.Context, to, name string, dat
 	job := emailJob{to: normalized, headers: headers, body: msg}
 	if s.queue != nil {
 		select {
+		case <-s.stop:
+			return errors.New("email sender closed")
 		case s.queue <- job:
 			return nil
 		default:
