@@ -14,6 +14,7 @@ import { useT } from '../../i18n'
 import { formHintClass } from '../../lib/formClasses'
 import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { PageQuery } from '../../types/pagination'
+import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import { Button } from '../ui/Button'
 import type { ColumnDef } from '../ui/DataTable'
 import { DataTable } from '../ui/DataTable'
@@ -61,6 +62,7 @@ export function ConfirmedQueriesPanel() {
     page: currentPage,
     setPage: setCurrentPage,
     pageSize,
+    setPageSize,
     totalPages,
     total: totalItems,
     reload,
@@ -230,6 +232,11 @@ export function ConfirmedQueriesPanel() {
             onPageChange={setCurrentPage}
             totalItems={totalItems}
             itemsPerPage={pageSize}
+            pageSizeOptions={DEFAULT_TABLE_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(size) => {
+              setPageSize(size)
+              setCurrentPage(1)
+            }}
             alwaysShow
           />
         </div>

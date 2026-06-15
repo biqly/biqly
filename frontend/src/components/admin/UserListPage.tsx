@@ -34,7 +34,6 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search.trim(), 300)
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
-  const pageSize = 10
 
   const { roles } = useAuth()
   const isSuperAdmin = roles.includes('super_admin')
@@ -77,11 +76,13 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     error,
     page: currentPage,
     setPage: setCurrentPage,
+    pageSize: usersPageSize,
+    setPageSize: setUsersPageSize,
     totalPages,
     total: totalItems,
   } = usePaginatedList<AuthUser>({
     fetcher: usersFetcher,
-    initialPageSize: pageSize,
+    initialPageSize: 10,
     enabled: subTab === 'active',
     fetchKey: token,
     resetPageKey: `${debouncedSearch}|${statusFilter}`,
@@ -105,12 +106,14 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     error: invitesError,
     page: inviteCurrentPage,
     setPage: setInviteCurrentPage,
+    pageSize: invitePageSize,
+    setPageSize: setInvitePageSize,
     totalPages: inviteTotalPages,
     total: inviteTotalItems,
     reload: reloadInvitations,
   } = usePaginatedList<Invitation>({
     fetcher: invitationsFetcher,
-    initialPageSize: pageSize,
+    initialPageSize: 10,
     enabled: subTab === 'invitations' && isSuperAdmin,
     fetchKey: token,
     resetPageKey: `${debouncedInviteSearch}|${inviteStatusFilter}`,
@@ -262,7 +265,11 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           totalPages={totalPages}
           setCurrentPage={setCurrentPage}
           totalItems={totalItems}
-          pageSize={pageSize}
+          pageSize={usersPageSize}
+          onPageSizeChange={(size) => {
+            setUsersPageSize(size)
+            setCurrentPage(1)
+          }}
           loading={loading}
         />
       ) : (
@@ -283,7 +290,11 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           setInviteCurrentPage={setInviteCurrentPage}
           inviteTotalPages={inviteTotalPages}
           inviteTotalItems={inviteTotalItems}
-          pageSize={pageSize}
+          pageSize={invitePageSize}
+          onPageSizeChange={(size) => {
+            setInvitePageSize(size)
+            setInviteCurrentPage(1)
+          }}
         />
       )}
 

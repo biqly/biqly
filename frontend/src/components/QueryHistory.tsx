@@ -15,6 +15,7 @@ import { legacyLayoutClass } from '../lib/layoutClasses'
 import type { AIHistoryEntry } from '../types/auth'
 import type { PageQuery } from '../types/pagination'
 import { pickValidId } from '../utils/effectiveSelection'
+import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../utils/paging'
 import {
   aiHistoryDetailBlockClass,
   aiHistoryDetailBtnClass,
@@ -86,6 +87,7 @@ export default function QueryHistory() {
     page: currentPage,
     setPage: setCurrentPage,
     pageSize,
+    setPageSize,
     totalPages,
     total: totalItems,
   } = usePaginatedList<AIHistoryEntry>({
@@ -480,6 +482,11 @@ export default function QueryHistory() {
               onPageChange={setCurrentPage}
               totalItems={totalItems}
               itemsPerPage={pageSize}
+              pageSizeOptions={DEFAULT_TABLE_PAGE_SIZE_OPTIONS}
+              onPageSizeChange={(size) => {
+                setPageSize(size)
+                setCurrentPage(1)
+              }}
             />
           </>
         </DataState>

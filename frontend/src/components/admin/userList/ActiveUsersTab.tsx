@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { localeLanguageTag, useLocale, useT } from '../../../i18n'
 import type { AuthUser } from '../../../types/auth'
 import { formatDateOnly } from '../../../utils/formatters'
+import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../../utils/paging'
 import { DataState } from '../../ui/DataState'
 import type { ColumnDef } from '../../ui/DataTable'
 import { DataTable } from '../../ui/DataTable'
@@ -38,6 +39,7 @@ interface ActiveUsersTabProps {
   setCurrentPage: (page: number) => void
   totalItems: number
   pageSize: number
+  onPageSizeChange: (size: number) => void
   loading?: boolean
 }
 
@@ -57,6 +59,7 @@ export function ActiveUsersTab({
   setCurrentPage,
   totalItems,
   pageSize,
+  onPageSizeChange,
   loading = false,
 }: ActiveUsersTabProps) {
   const t = useT()
@@ -240,6 +243,8 @@ export function ActiveUsersTab({
           onPageChange={setCurrentPage}
           totalItems={totalItems}
           itemsPerPage={pageSize}
+          pageSizeOptions={DEFAULT_TABLE_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={onPageSizeChange}
           alwaysShow
         />
       </div>

@@ -34,6 +34,7 @@ export const core = {
     pagination: {
       page_number: 'Page {{page}}',
       range_of_total: 'Rows {{start}}–{{end}} of {{total}}',
+      page_size: 'Rows per page',
     },
     model_badge_translate: 'Translation',
     model_badge_embedding: 'Embedding',

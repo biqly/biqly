@@ -36,6 +36,7 @@ export const core: CoreDictionary = {
     pagination: {
       page_number: 'Sayfa {{page}}',
       range_of_total: '{{total}} satırdan {{start}}–{{end}}',
+      page_size: 'Sayfa başına satır',
     },
     model_badge_translate: 'Çeviri',
     model_badge_embedding: 'Embedding',
