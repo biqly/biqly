@@ -21,6 +21,11 @@ func (s *Service) LoginOrRegisterOAuth(ctx context.Context, provider string, tok
 		return nil, err
 	}
 
+	if !userInfo.EmailVerified {
+		MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
+		return nil, errors.New("oauth provider email is not verified")
+	}
+
 	userID, err := s.userRepo.GetOAuthAccount(ctx, provider, userInfo.Sub)
 	var user *User
 

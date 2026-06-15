@@ -53,10 +53,11 @@ func (p *GitHubProvider) GetUserInfo(ctx context.Context, token *oauth2.Token) (
 	}
 
 	return &auth.OAuthUserInfo{
-		Sub:       strconv.FormatInt(profile.ID, 10),
-		Email:     email,
-		Name:      name,
-		AvatarURL: profile.AvatarURL,
+		Sub:           strconv.FormatInt(profile.ID, 10),
+		Email:         email,
+		Name:          name,
+		AvatarURL:     profile.AvatarURL,
+		EmailVerified: true,
 	}, nil
 }
 
@@ -131,9 +132,6 @@ func fetchGitHubPrimaryEmail(ctx context.Context, client *http.Client) (string, 
 		if e.Primary && e.Verified {
 			return e.Email, nil
 		}
-	}
-	if len(rawEmails) > 0 {
-		return rawEmails[0].Email, nil
 	}
 	return "", nil
 }

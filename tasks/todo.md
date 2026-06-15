@@ -22,7 +22,7 @@
 
 ### P1 — High
 
-- [ ] **OAuth account takeover (unverified email):** `internal/auth/oauth/oauth_github.go:130` & `oauth_google.go:55` + `internal/auth/service_oauth.go:24` — GitHub `rawEmails[0]` (doğrulanmamış olabilir), Google `email_verified` decode edilip kontrol edilmiyor; sonra email ile yerel hesap eşleniyor/oluşturuluyor. → yalnızca verified provider email kabul et; mevcut kullanıcıyla eşlemede doğrulama + açık linking politikası.
+- [x] **OAuth account takeover (unverified email):** `internal/auth/oauth/oauth_github.go:130` & `oauth_google.go:55` + `internal/auth/service_oauth.go:24` — GitHub `rawEmails[0]` (doğrulanmamış olabilir), Google `email_verified` decode edilip kontrol edilmiyor; sonra email ile yerel hesap eşleniyor/oluşturuluyor. → yalnızca verified provider email kabul et; mevcut kullanıcıyla eşlemede doğrulama + açık linking politikası.
 - [ ] **OAuth `code` replay:** `internal/auth/oauth_exchange.go:67` (`loadOAuthCallbackPayload`) — redeem edilen token bundle 5sn grace ile `oauth_callback_used:<code>` altında tekrar servis ediliyor; tek-kullanımlık değil. → grace re-read'i orijinal isteyene bağla (cookie/nonce) veya tek okumayla sınırla.
 - [ ] **TOTP replay:** `internal/auth/mfa/mfa.go:86` (`VerifyCode`) — `MarkUsed` sadece `last_used_at` yazıyor; tüketilen time-step kaydedilmiyor, aynı kod ~60-90sn tekrar kullanılabilir. → tüketilen step'i persist et, step ≤ stored ise reddet.
 - [ ] **MFA brute-force (rate-limit yok):** `internal/auth/handlers/handler_mfa.go:64,84` — sadece `/mfa/login` rate-limit'li; authenticated verify/disable/regenerate yolları korumasız (6-hane TOTP + her denemede bcrypt karşılaştırma = CPU-DoS). → Redis tabanlı per-user fail-counter + lockout (`recordLoginFailure` gibi).
