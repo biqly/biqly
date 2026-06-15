@@ -1,14 +1,29 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { TokenResponse } from '../types/auth'
+import type { PasswordPolicy, TokenResponse } from '../types/auth'
 import { apiFetch } from './apiClient'
-import { apiRefresh, registerResponseHasSession } from './auth'
+import {
+  apiRefresh,
+  firstUserSetupRequiredFromPolicy,
+  registerResponseHasSession,
+  selfSignupEnabledFromPolicy,
+} from './auth'
 
 vi.mock('./apiClient', () => ({
   apiFetch: vi.fn(),
 }))
 
 const apiFetchMock = vi.mocked(apiFetch)
+const basePolicy: PasswordPolicy = {
+  min_length: 8,
+  max_length: 128,
+  require_upper: true,
+  require_lower: true,
+  require_digit: true,
+  require_special: true,
+  min_score: 2,
+  self_signup_enabled: true,
+}
 
 afterEach(() => {
   vi.clearAllMocks()
@@ -21,6 +36,22 @@ describe('registerResponseHasSession', () => {
 
   it('accepts token-bearing register responses as authenticated sessions', () => {
     expect(registerResponseHasSession({ access_token: 'token', roles: [] })).toBe(true)
+  })
+})
+
+describe('password policy helpers', () => {
+  it('keeps signup available during first-user setup even when self signup is disabled', () => {
+    expect(
+      selfSignupEnabledFromPolicy({
+        ...basePolicy,
+        self_signup_enabled: false,
+        first_user_setup_required: true,
+      }),
+    ).toBe(true)
+  })
+
+  it('defaults first-user setup to false when the backend omits the field', () => {
+    expect(firstUserSetupRequiredFromPolicy(basePolicy)).toBe(false)
   })
 })
 

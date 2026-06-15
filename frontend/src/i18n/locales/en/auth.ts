@@ -14,6 +14,13 @@ export const auth = {
   forgot_password: 'Forgot password?',
   btn_signin: 'Sign In',
   btn_signup: 'Sign Up',
+  first_setup_title: 'Create the first administrator',
+  first_setup_body:
+    'No users exist yet. Start by creating the first account; it will become the platform super admin.',
+  first_setup_cta: 'Create first admin',
+  first_setup_signup_body:
+    'This first account will receive super admin access and can invite or manage other users after setup.',
+  first_setup_submit: 'Create Super Admin',
   btn_send_reset: 'Send reset link',
   btn_reset: 'Update password',
   btn_verify: 'Verify email',

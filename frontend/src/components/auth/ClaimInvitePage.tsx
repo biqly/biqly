@@ -4,7 +4,15 @@ import { useNavigate } from 'react-router-dom'
 import { apiClaimInvitation, apiGetInvitation } from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
 import { useT } from '../../i18n'
-import { authCardClass, authPageClass } from '../../lib/authClasses'
+import {
+  authCardClass,
+  authFieldClass,
+  authFormClass,
+  authInputClass,
+  authLabelClass,
+  authPageClass,
+  authSubmitBtnClass,
+} from '../../lib/authClasses'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { useAuth } from './AuthProvider'
 import PasswordStrengthMeter from './PasswordStrengthMeter'
@@ -136,7 +144,7 @@ export default function ClaimInvitePage() {
             </div>
             <button
               type="button"
-              className="flex items-center justify-center gap-2 w-full py-[11px] px-[16px] rounded-lg border-none bg-gradient-to-br from-accent to-[var(--accent-strong)] text-white text-[14px] font-semibold cursor-pointer transition-all duration-150 shadow-[0_4px_10px_rgba(99,102,241,0.2)] hover:opacity-95 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+              className={authSubmitBtnClass}
               onClick={() => {
                 void navigate('/auth/signin')
               }}
@@ -149,7 +157,7 @@ export default function ClaimInvitePage() {
             onSubmit={(e) => {
               void handleSubmit(e)
             }}
-            className="flex flex-col gap-4"
+            className={authFormClass}
           >
             {error && (
               <div
@@ -163,26 +171,19 @@ export default function ClaimInvitePage() {
               </div>
             )}
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[13px] font-medium text-foreground-muted">
-                {t('auth.email')}
-              </label>
-              <input
-                type="text"
-                className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-secondary)] text-foreground text-[14px] cursor-not-allowed`}
-                value={email}
-                disabled
-              />
+            <div className={authFieldClass}>
+              <label className={authLabelClass}>{t('auth.email')}</label>
+              <input type="text" className={authInputClass} value={email} disabled readOnly />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[13px] font-medium text-foreground-muted" htmlFor="name-input">
+            <div className={authFieldClass}>
+              <label className={authLabelClass} htmlFor="name-input">
                 {t('auth.display_name')}
               </label>
               <input
                 id="name-input"
                 type="text"
-                className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-input,#ffffff)] text-foreground text-[14px] transition-all duration-250 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]`}
+                className={authInputClass}
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder={email}
@@ -191,17 +192,14 @@ export default function ClaimInvitePage() {
               />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label
-                className="text-[13px] font-medium text-foreground-muted"
-                htmlFor="password-input"
-              >
+            <div className={authFieldClass}>
+              <label className={authLabelClass} htmlFor="password-input">
                 {t('auth.password')}
               </label>
               <input
                 id="password-input"
                 type="password"
-                className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-input,#ffffff)] text-foreground text-[14px] transition-all duration-250 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]`}
+                className={authInputClass}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -211,17 +209,14 @@ export default function ClaimInvitePage() {
               <PasswordStrengthMeter password={password} onValidityChange={handleValidity} />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label
-                className="text-[13px] font-medium text-foreground-muted"
-                htmlFor="confirm-password-input"
-              >
+            <div className={authFieldClass}>
+              <label className={authLabelClass} htmlFor="confirm-password-input">
                 {t('auth.confirm_password')}
               </label>
               <input
                 id="confirm-password-input"
                 type="password"
-                className={`w-full py-[10px] px-[14px] rounded-lg border border-border bg-[var(--bg-input,#ffffff)] text-foreground text-[14px] transition-all duration-250 focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]`}
+                className={authInputClass}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
@@ -232,7 +227,7 @@ export default function ClaimInvitePage() {
 
             <button
               type="submit"
-              className="flex items-center justify-center gap-2 w-full py-[11px] px-[16px] rounded-lg border-none bg-gradient-to-br from-accent to-[var(--accent-strong)] text-white text-[14px] font-semibold cursor-pointer transition-all duration-150 shadow-[0_4px_10px_rgba(99,102,241,0.2)] hover:opacity-95 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+              className={authSubmitBtnClass}
               disabled={loading || !password || !confirmPassword}
             >
               {loading && (

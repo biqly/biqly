@@ -47,17 +47,11 @@ func newInvitationTestEnv(t *testing.T) invitationTestEnv {
 	mockMailer := mail.NewMockEmailSender()
 	service := NewAuthService(userRepo, rbacRepo, sessionMgr, jwtMgr, config, nil, mockMailer)
 
-	normalUser, err := userRepo.CreateUser(ctx, "normal@example.com", "SecurePass123!", "Normal User")
-	require.NoError(t, err)
-
+	// First user in empty DB is bootstrapped as super_admin; create super before normal.
 	superUser, err := userRepo.CreateUser(ctx, "super@example.com", "SecurePass123!", "Super User")
 	require.NoError(t, err)
 
-	var superRoleID string
-	err = dbPool.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = 'super_admin'").Scan(&superRoleID)
-	require.NoError(t, err)
-
-	_, err = dbPool.ExecContext(ctx, "INSERT INTO user_roles (user_id, role_id, scope_type, scope_id) VALUES ($1, $2, 'global', '00000000-0000-0000-0000-000000000000')", superUser.ID, superRoleID)
+	normalUser, err := userRepo.CreateUser(ctx, "normal@example.com", "SecurePass123!", "Normal User")
 	require.NoError(t, err)
 
 	return invitationTestEnv{

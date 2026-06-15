@@ -26,6 +26,8 @@
   /* Lines — border-border / border-border-strong */
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  /* Inputs — bg-input (auth forms, follows runtime light/dark) */
+  --color-input: var(--input-bg);
   /* Elevation + type — shadow-card / shadow-card-sm / font-mono */
   --shadow-card: var(--shadow);
   --shadow-card-sm: var(--shadow-sm);

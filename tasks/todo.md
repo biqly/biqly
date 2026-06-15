@@ -1040,6 +1040,51 @@ Notes:
 
 - gograph MCP tools were not connected in this session, so `gograph_capabilities`, `gograph_plan`, and `gograph_review --uncommitted` could not be run.
 
+## First User Super Admin Bootstrap Plan
+
+Success criteria:
+
+- When the auth DB `users` table is empty, the first created user receives the global `super_admin` role.
+- First-user signup is allowed even when `platform_settings.self_signup_enabled = false`.
+- After the first user exists, disabled self-signup continues to block normal public registration.
+- Public password policy response tells the SPA when first-user setup is required.
+- Sign-in/sign-up UI shows first-admin setup guidance without adding a new auth route.
+
+- [x] Add backend first-user setup detection.
+- [x] Make registration gating allow only the empty-DB bootstrap exception.
+- [x] Assign `super_admin` atomically to exactly one first user using a transaction-scoped DB lock.
+- [x] Expose `first_user_setup_required` through `/api/auth/password-policy`.
+- [x] Update frontend auth policy types/helpers.
+- [x] Show first-admin setup instructions on sign-in and sign-up screens.
+- [x] Add backend and frontend regression coverage.
+- [x] Run focused and broad verification.
+
+## First User Super Admin Bootstrap Review
+
+Resolved:
+
+1. `UserRepository` now checks the empty-user bootstrap state inside user-creation transactions and serializes the first-user decision with `pg_advisory_xact_lock`.
+2. The first created user gets global `super_admin`; normal users keep the existing viewer global role and personal workspace admin membership.
+3. `Service.Register` now allows registration when self-signup is disabled only if first-user setup is still required.
+4. `/api/auth/password-policy` returns `first_user_setup_required`, and the React auth screens use it to keep first setup discoverable.
+
+Verification:
+
+- `GOCACHE=/private/tmp/biqly-gocache go test ./internal/auth ./internal/auth/handlers -run 'Test(SelfSignupDisabledBlocksRegister|FirstUserSetupAllowsRegisterWhenSelfSignupDisabled|FirstUserSetupAssignsOnlyOneSuperAdminConcurrently|SuperAdminUpdatesPlatformSettings|PasswordPolicyReportsFirstUserSetupState)' -count=1`
+- `GOCACHE=/private/tmp/biqly-gocache go test ./internal/auth ./internal/auth/handlers -count=1`
+- `make lint-go`
+- `npm --prefix frontend run test`
+- `npm --prefix frontend run build`
+- `npm --prefix frontend run format:check`
+- `npm --prefix frontend exec eslint -- src/api/auth.ts src/api/auth.test.ts src/types/auth.ts src/components/auth/SignInPage.tsx src/components/auth/SignUpPage.tsx src/i18n/locales/en/auth.ts src/i18n/locales/tr/auth.ts --max-warnings 0`
+- `git diff --check`
+- `gograph_review` for `(*UserRepository).CreateUser`, `(*Service).Register`, and `(*AuthHandler).handlePasswordPolicy`
+
+Notes:
+
+- Repo-wide `npm --prefix frontend run lint` still reports unrelated existing errors in `frontend/src/components/ui/MultiSelect.tsx`, `SelectPopover.tsx`, and `useSelectDropdown.ts`.
+- `gograph_review --uncommitted` failed with `git diff: exit status 129`, so symbol-scoped gograph reviews were run instead.
+
 ## Signup Auth Session Bugfix Plan
 
 Success criteria:

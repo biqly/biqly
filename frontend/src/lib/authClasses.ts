@@ -31,7 +31,7 @@ export const authFieldClass = 'flex flex-col gap-1.5'
 export const authLabelClass = 'text-[13px] font-medium text-foreground-muted'
 
 export const authInputClass = cn(
-  'w-full rounded-lg border border-border bg-[var(--input-bg)] px-[14px] py-[10px]',
+  'w-full rounded-lg border border-border bg-input px-[14px] py-[10px]',
   'text-[14px] text-foreground transition-[border-color,box-shadow] duration-200',
   'placeholder:text-foreground-faint',
   'focus:border-accent focus:shadow-[0_0_0_3px_var(--control-focus-ring)] focus:outline-none',

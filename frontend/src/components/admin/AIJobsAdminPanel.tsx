@@ -11,6 +11,7 @@ import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { AIJob } from '../../types/ai'
 import type { PageQuery } from '../../types/pagination'
 import { formatDurationMs } from '../../utils/formatters'
+import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import {
   aiHistoryStatusClass,
   type AiHistoryStatusVariant,
@@ -104,6 +105,7 @@ export function AIJobsAdminPanel() {
     page: currentPage,
     setPage: setCurrentPage,
     pageSize,
+    setPageSize,
     totalPages,
     total: totalItems,
     reload,
@@ -297,6 +299,11 @@ export function AIJobsAdminPanel() {
             onPageChange={setCurrentPage}
             totalItems={totalItems}
             itemsPerPage={pageSize}
+            pageSizeOptions={DEFAULT_TABLE_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(size) => {
+              setPageSize(size)
+              setCurrentPage(1)
+            }}
           />
         )}
       </div>

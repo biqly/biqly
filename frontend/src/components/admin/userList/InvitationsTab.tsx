@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { localeLanguageTag, useLocale, useT } from '../../../i18n'
 import type { Invitation } from '../../../types/auth'
 import { formatDateOnly } from '../../../utils/formatters'
+import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../../utils/paging'
 import { DataState } from '../../ui/DataState'
 import type { ColumnDef } from '../../ui/DataTable'
 import { DataTable } from '../../ui/DataTable'
@@ -35,6 +36,7 @@ interface InvitationsTabProps {
   inviteTotalPages: number
   inviteTotalItems: number
   pageSize: number
+  onPageSizeChange: (size: number) => void
 }
 
 export function InvitationsTab({
@@ -55,6 +57,7 @@ export function InvitationsTab({
   inviteTotalPages,
   inviteTotalItems,
   pageSize,
+  onPageSizeChange,
 }: InvitationsTabProps) {
   const t = useT()
   const [locale] = useLocale()
@@ -213,6 +216,8 @@ export function InvitationsTab({
           onPageChange={setInviteCurrentPage}
           totalItems={inviteTotalItems}
           itemsPerPage={pageSize}
+          pageSizeOptions={DEFAULT_TABLE_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={onPageSizeChange}
           alwaysShow
         />
       </div>

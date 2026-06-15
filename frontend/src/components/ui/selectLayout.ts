@@ -52,3 +52,76 @@ export function resolveSelectPopoverLayout(
   }
   return { left, width }
 }
+
+export type SelectPopoverPlacement = 'down' | 'up'
+
+export interface SelectPopoverCoords {
+  left: number
+  top?: number
+  bottom?: number
+  width: number
+  maxHeight: number
+  placement: SelectPopoverPlacement
+}
+
+const VIEWPORT_MARGIN_PX = 12
+const POPOVER_GAP_PX = 6
+const FLIP_THRESHOLD_PX = 220
+const DEFAULT_DESIRED_HEIGHT_PX = 288
+const MIN_POPOVER_HEIGHT_PX = 160
+
+export function resolveSelectPopoverCoords(
+  triggerRect: DOMRect,
+  options: SelectOption[],
+  fontSizePx: number,
+  desiredHeight: number = DEFAULT_DESIRED_HEIGHT_PX,
+  viewportHeight: number = typeof window !== 'undefined' ? window.innerHeight : 800,
+): SelectPopoverCoords {
+  const { left, width } = resolveSelectPopoverLayout(triggerRect, options, fontSizePx)
+  const spaceBelow = viewportHeight - triggerRect.bottom - VIEWPORT_MARGIN_PX
+  const spaceAbove = triggerRect.top - VIEWPORT_MARGIN_PX
+  const placement: SelectPopoverPlacement =
+    spaceBelow < FLIP_THRESHOLD_PX && spaceAbove > spaceBelow ? 'up' : 'down'
+  const maxHeight = Math.max(
+    MIN_POPOVER_HEIGHT_PX,
+    Math.min(desiredHeight, placement === 'down' ? spaceBelow : spaceAbove),
+  )
+
+  if (placement === 'down') {
+    return {
+      left,
+      width,
+      maxHeight,
+      placement,
+      top: triggerRect.bottom + POPOVER_GAP_PX,
+    }
+  }
+
+  return {
+    left,
+    width,
+    maxHeight,
+    placement,
+    bottom: viewportHeight - triggerRect.top + POPOVER_GAP_PX,
+  }
+}
+
+export function selectPopoverFixedStyle(
+  coords: Pick<SelectPopoverCoords, 'left' | 'top' | 'bottom' | 'width' | 'placement'>,
+): {
+  position: 'fixed'
+  left: number
+  width: number
+  top?: number
+  bottom?: number
+} {
+  const base = {
+    position: 'fixed' as const,
+    left: coords.left,
+    width: coords.width,
+  }
+  if (coords.placement === 'up' && coords.bottom != null) {
+    return { ...base, bottom: coords.bottom }
+  }
+  return { ...base, top: coords.top ?? 0 }
+}

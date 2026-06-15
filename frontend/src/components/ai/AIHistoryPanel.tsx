@@ -6,6 +6,7 @@ import { useQueryParam } from '../../hooks/useQueryParam'
 import { useT } from '../../i18n'
 import type { AIHistoryEntry } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
+import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import { useAuth } from '../auth/AuthProvider'
 import { ShareButton } from '../sharing/ShareButton'
 import { DataState } from '../ui/DataState'
@@ -75,6 +76,7 @@ export function AIHistoryPanel() {
     page: currentPage,
     setPage: setCurrentPage,
     pageSize,
+    setPageSize,
     totalPages,
     total: totalItems,
   } = usePaginatedList<AIHistoryEntry>({
@@ -287,6 +289,11 @@ export function AIHistoryPanel() {
               onPageChange={setCurrentPage}
               totalItems={totalItems}
               itemsPerPage={pageSize}
+              pageSizeOptions={DEFAULT_TABLE_PAGE_SIZE_OPTIONS}
+              onPageSizeChange={(size) => {
+                setPageSize(size)
+                setCurrentPage(1)
+              }}
             />
           </>
         </DataState>

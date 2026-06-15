@@ -428,3 +428,38 @@ Faz 6 (bağımsız)        Faz 7 (bağımsız, alt maddeleri de bağımsız)
 - [ ] Satır aksiyonları (ve varsa bulk seçim) çalışıyor; silmede ConfirmDialog.
 - [ ] TR ve EN locale'de metinler tam (anahtar kaçağı yok).
 - [ ] Network: istek URL/parametreleri eskiyle birebir aynı.
+
+---
+
+## 9. Footer sayfa boyutu seçici (dev, 2026-06-15)
+
+**Amaç:** Sayfa boyutu kontrolünü tablo footer'ındaki `Pagination` bileşenine taşımak; varsayılan seçenekler `[5, 10, 25, 50]`.
+
+### 9.1 Ortak API
+
+- [x] `DEFAULT_TABLE_PAGE_SIZE_OPTIONS` + `pageSizeSelectOptions()` → `frontend/src/utils/paging.ts`
+- [x] `Pagination`: opsiyonel `pageSizeOptions`, `onPageSizeChange`, `pageSizeLabel`; tek sayfalı listelerde de seçici görünür
+- [x] i18n: `common.pagination.page_size` (TR/EN)
+- [x] Unit test: `pageSizeSelectOptions` (`paging.test.ts`)
+
+### 9.2 Ekranlar
+
+| Ekran | Seçenekler | Not |
+| --- | --- | --- |
+| User List — Active | `[5,10,25,50]` | `usersPageSize`, tab değişince korunur |
+| User List — Invitations | `[5,10,25,50]` | `invitePageSize`, aktif tab'dan bağımsız |
+| Query History, AI History, Confirmed Queries, Datasource Access, Shared Resources, Workspaces, AI Jobs | `[5,10,25,50]` | AI Jobs default page size **25** |
+| Audit Log | `[10,25,50,100,250]` | Toolbar page-size kaldırıldı |
+| AI Usage (admin) | `[10,25,50,100]` | Toolbar page-size kaldırıldı |
+| Field Permissions | — | Sabit `fieldPageSize`; kapsam dışı |
+| Table Browser | — | Kendi page-size UI; kapsam dışı |
+
+### 9.3 Doğrulama
+
+- [x] `make lint-frontend`, `make test-frontend`, `npm --prefix frontend run build`
+- [ ] `make check-frontend` (knip: `immer` unused — önceden var, bu PR'dan bağımsız)
+- [ ] Tarayıcı smoke: User List iki tab + bir admin paneli
+
+### 9.4 Review
+
+`dev` branch'inde 17 dosya; backend/API parametreleri değişmedi (yalnızca client `pageSize` state + footer UI).

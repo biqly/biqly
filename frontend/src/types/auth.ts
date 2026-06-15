@@ -57,6 +57,7 @@ export interface PasswordPolicy {
   require_special: boolean
   min_score: number
   self_signup_enabled?: boolean
+  first_user_setup_required?: boolean
   ldap_enabled?: boolean
 }
 

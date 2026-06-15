@@ -15,6 +15,7 @@ import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { DatasourceAccess } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { formatDateTime } from '../../utils/formatters'
+import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import { useAuth } from '../auth/AuthProvider'
 import { DataState } from '../ui/DataState'
 import type { ColumnDef } from '../ui/DataTable'
@@ -68,6 +69,7 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
     page: currentPage,
     setPage: setCurrentPage,
     pageSize,
+    setPageSize,
     totalPages,
     total: totalItems,
     reload,
@@ -245,6 +247,11 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
           totalItems={totalItems}
           itemsPerPage={pageSize}
           alwaysShow
+          pageSizeOptions={DEFAULT_TABLE_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(size) => {
+            setPageSize(size)
+            setCurrentPage(1)
+          }}
         />
       </div>
     </div>

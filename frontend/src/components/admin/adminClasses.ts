@@ -121,6 +121,15 @@ export function adminMfaStatusBadgeClass(mfaEnabled?: boolean, mfaPending?: bool
   return adminBadgeInactiveClass
 }
 
+export const adminBadgeNeutralClass = `${adminBadgeBaseClass} bg-card-raised text-foreground-muted`
+
+export function adminPasskeyBadgeClass(count: number): string {
+  return count > 0 ? adminBadgeVerifiedClass : adminBadgeNeutralClass
+}
+
+export const adminRowRevealActionClass =
+  'opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100'
+
 export function adminInvitationBadgeClass(status: 'claimed' | 'expired' | 'pending'): string {
   if (status === 'claimed') {
     return adminBadgeClaimedClass
@@ -195,6 +204,8 @@ export const adminTheadRowClass =
 export const adminThClass = 'px-4 py-3 font-semibold text-[var(--table-header-fg,#4b5563)]'
 
 export const adminTrClass = 'border-b border-border'
+
+export const adminTableRowHoverClass = `${adminTrClass} group transition-colors duration-150 hover:bg-[var(--table-stripe-hover)]`
 
 export const adminTdClass = 'px-4 py-3 text-foreground'
 

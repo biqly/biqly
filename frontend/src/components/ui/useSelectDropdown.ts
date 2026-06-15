@@ -1,15 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import type { SelectOption } from './Select'
-import { resolveSelectPopoverLayout } from './selectLayout'
+import { resolveSelectPopoverCoords, type SelectPopoverCoords } from './selectLayout'
 
-interface PopoverPos {
-  left: number
-  top: number
-  width: number
-  maxHeight: number
-  placement: 'down' | 'up'
-}
+type PopoverPos = SelectPopoverCoords
 
 export function useSelectDropdown<T extends string>({
   value,
@@ -91,18 +85,7 @@ export function useSelectDropdown<T extends string>({
       return
     }
     const rect = triggerRef.current.getBoundingClientRect()
-    const viewportH = window.innerHeight
-    const spaceBelow = viewportH - rect.bottom - 12
-    const spaceAbove = rect.top - 12
-    const desired = 288
-    const placement: 'down' | 'up' = spaceBelow < 220 && spaceAbove > spaceBelow ? 'up' : 'down'
-    const maxHeight = Math.max(
-      160,
-      Math.min(desired, placement === 'down' ? spaceBelow : spaceAbove),
-    )
-    const top = placement === 'down' ? rect.bottom + 6 : Math.max(8, rect.top - 6 - maxHeight)
-    const { left, width } = resolveSelectPopoverLayout(rect, options, size === 'sm' ? 11.5 : 12.5)
-    setPopover({ left, top, width, maxHeight, placement })
+    setPopover(resolveSelectPopoverCoords(rect, options, size === 'sm' ? 11.5 : 12.5))
   }, [options, size])
 
   useLayoutEffect(() => {

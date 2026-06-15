@@ -27,6 +27,7 @@ const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
   require_special: true,
   min_score: 2,
   self_signup_enabled: true,
+  first_user_setup_required: false,
 }
 
 let cachedPolicy: PasswordPolicy | null = null
@@ -58,7 +59,16 @@ export async function apiGetPasswordPolicy(): Promise<PasswordPolicy> {
 }
 
 export function selfSignupEnabledFromPolicy(policy: PasswordPolicy | null | undefined): boolean {
-  return policy?.self_signup_enabled !== false
+  if (policy == null) {
+    return true
+  }
+  return policy.self_signup_enabled !== false || policy.first_user_setup_required === true
+}
+
+export function firstUserSetupRequiredFromPolicy(
+  policy: PasswordPolicy | null | undefined,
+): boolean {
+  return policy?.first_user_setup_required === true
 }
 
 export function clearPasswordPolicyCache(): void {

@@ -21,6 +21,21 @@ func (s *Service) SelfSignupEnabled(ctx context.Context) (bool, error) {
 	return settings.SelfSignupEnabled, nil
 }
 
+func (s *Service) FirstUserSetupRequired(ctx context.Context) (bool, error) {
+	return s.userRepo.FirstUserSetupRequired(ctx)
+}
+
+func (s *Service) RegistrationAllowed(ctx context.Context) (bool, error) {
+	enabled, err := s.SelfSignupEnabled(ctx)
+	if err != nil {
+		return false, err
+	}
+	if enabled {
+		return true, nil
+	}
+	return s.FirstUserSetupRequired(ctx)
+}
+
 func (s *Service) UpdatePlatformSettings(ctx context.Context, actorUserID string, selfSignupEnabled bool) (PlatformSettings, error) {
 	if err := s.requireSuperAdmin(ctx, actorUserID); err != nil {
 		return PlatformSettings{}, err

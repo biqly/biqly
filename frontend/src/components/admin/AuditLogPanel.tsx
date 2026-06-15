@@ -26,7 +26,7 @@ import {
   adminTdMetadataClass,
   adminTdMonoClass,
 } from './adminClasses'
-import { numberSelectOptions, stringSelectOptions, userSelectOptions } from './adminSelectOptions'
+import { stringSelectOptions, userSelectOptions } from './adminSelectOptions'
 
 const COMMON_ACTIONS = [
   'login.success',
@@ -124,7 +124,6 @@ export function AuditLogPanel({ token }: { token: string }) {
     () => stringSelectOptions(COMMON_ACTIONS, t('admin.filters.all')),
     [t],
   )
-  const pageSizeOptions = useMemo(() => numberSelectOptions(AUDIT_PAGE_SIZE_OPTIONS), [])
 
   const auditColumns: ColumnDef<AuditLogEntry>[] = [
     {
@@ -202,18 +201,6 @@ export function AuditLogPanel({ token }: { token: string }) {
           <span className={adminLabelTextClass}>{t('admin.audit.action')}</span>
           <Select value={action} options={actionFilterOptions} onChange={setAction} />
         </label>
-        <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 120 }}>
-          <span className={adminLabelTextClass}>{t('admin.audit.page_size')}</span>
-          <Select
-            value={String(pageSize)}
-            options={pageSizeOptions}
-            onChange={(v) => {
-              setPageSize(Number(v))
-              setCurrentPage(1)
-              reload()
-            }}
-          />
-        </label>
         <button type="submit" className={adminBtnPrimaryClass}>
           {t('admin.filters.apply')}
         </button>
@@ -257,6 +244,12 @@ export function AuditLogPanel({ token }: { token: string }) {
             onPageChange={setCurrentPage}
             totalItems={totalItems}
             itemsPerPage={pageSize}
+            pageSizeOptions={AUDIT_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(size) => {
+              setPageSize(size)
+              setCurrentPage(1)
+            }}
+            pageSizeLabel={t('admin.audit.page_size')}
           />
         )}
       </div>

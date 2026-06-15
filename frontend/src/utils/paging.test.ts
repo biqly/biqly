@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { clampPage, getTotalPages, pageRange } from './paging'
+import { clampPage, getTotalPages, pageRange, pageSizeSelectOptions } from './paging'
 
 describe('getTotalPages', () => {
   it('computes ceil(total / pageSize) for non-empty lists', () => {
@@ -47,5 +47,20 @@ describe('pageRange', () => {
 
   it('yields 0–0 for an empty list', () => {
     expect(pageRange(1, 10, 0)).toEqual({ start: 0, end: 0 })
+  })
+})
+
+describe('pageSizeSelectOptions', () => {
+  it('maps numeric options to string value/label pairs', () => {
+    expect(pageSizeSelectOptions([5, 10, 25, 50])).toEqual([
+      { value: '5', label: '5' },
+      { value: '10', label: '10' },
+      { value: '25', label: '25' },
+      { value: '50', label: '50' },
+    ])
+  })
+
+  it('returns an empty array for no options', () => {
+    expect(pageSizeSelectOptions([])).toEqual([])
   })
 })

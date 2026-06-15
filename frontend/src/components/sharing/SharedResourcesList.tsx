@@ -11,6 +11,7 @@ import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { ResourceShare } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { formatDateOnly } from '../../utils/formatters'
+import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import { useAuth } from '../auth/AuthProvider'
 import { DataState } from '../ui/DataState'
 import type { ColumnDef } from '../ui/DataTable'
@@ -47,6 +48,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     page: currentPage,
     setPage: setCurrentPage,
     pageSize,
+    setPageSize,
     totalPages,
     total: totalItems,
     reload,
@@ -193,6 +195,11 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
             onPageChange={setCurrentPage}
             totalItems={totalItems}
             itemsPerPage={pageSize}
+            pageSizeOptions={DEFAULT_TABLE_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(size) => {
+              setPageSize(size)
+              setCurrentPage(1)
+            }}
           />
         )}
       </div>

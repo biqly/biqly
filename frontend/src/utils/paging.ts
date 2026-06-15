@@ -34,3 +34,11 @@ export function pageRange(
     end: Math.min(page * pageSize, totalItems),
   }
 }
+
+export const DEFAULT_TABLE_PAGE_SIZE_OPTIONS = [5, 10, 25, 50] as const
+
+export function pageSizeSelectOptions(
+  values: readonly number[],
+): { value: string; label: string }[] {
+  return values.map((n) => ({ value: String(n), label: String(n) }))
+}

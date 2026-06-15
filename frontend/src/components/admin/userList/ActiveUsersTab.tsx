@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { localeLanguageTag, useLocale, useT } from '../../../i18n'
 import type { AuthUser } from '../../../types/auth'
 import { formatDateOnly } from '../../../utils/formatters'
+import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../../utils/paging'
 import { DataState } from '../../ui/DataState'
 import type { ColumnDef } from '../../ui/DataTable'
 import { DataTable } from '../../ui/DataTable'
@@ -16,8 +17,11 @@ import {
   adminListAvatarClass,
   adminMessageBoxClass,
   adminMfaStatusBadgeClass,
+  adminPasskeyBadgeClass,
+  adminRowRevealActionClass,
   adminSubtextClass,
   adminTableContainerClass,
+  adminTableRowHoverClass,
   adminUserSecurityClass,
   adminVerifiedBadgeClass,
 } from '../adminClasses'
@@ -38,6 +42,7 @@ interface ActiveUsersTabProps {
   setCurrentPage: (page: number) => void
   totalItems: number
   pageSize: number
+  onPageSizeChange: (size: number) => void
   loading?: boolean
 }
 
@@ -57,6 +62,7 @@ export function ActiveUsersTab({
   setCurrentPage,
   totalItems,
   pageSize,
+  onPageSizeChange,
   loading = false,
 }: ActiveUsersTabProps) {
   const t = useT()
@@ -161,7 +167,7 @@ export function ActiveUsersTab({
                 ? t('admin.users.mfa_pending')
                 : t('admin.users.mfa_off')}
           </span>
-          <span className={adminSubtextClass}>
+          <span className={adminPasskeyBadgeClass(u.passkeyCount ?? 0)}>
             {(u.passkeyCount ?? 0) > 0
               ? t('admin.users.passkeys_count', { count: u.passkeyCount ?? 0 })
               : t('admin.users.passkeys_none')}
@@ -180,8 +186,9 @@ export function ActiveUsersTab({
       align: 'right',
       cell: (u) => (
         <button
+          type="button"
           onClick={() => onSelectUser(u.id, u.displayName?.trim() ?? u.email)}
-          className={adminBtnPrimaryClass}
+          className={`${adminBtnPrimaryClass} ${adminRowRevealActionClass}`}
         >
           {t('admin.users.manage')}
         </button>
@@ -232,6 +239,7 @@ export function ActiveUsersTab({
             rowKey={(u) => u.id}
             loading={loading}
             emptyCell={t('admin.users.empty')}
+            rowClassName={adminTableRowHoverClass}
           />
         </DataState>
         <Pagination
@@ -240,6 +248,8 @@ export function ActiveUsersTab({
           onPageChange={setCurrentPage}
           totalItems={totalItems}
           itemsPerPage={pageSize}
+          pageSizeOptions={DEFAULT_TABLE_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={onPageSizeChange}
           alwaysShow
         />
       </div>

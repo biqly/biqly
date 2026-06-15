@@ -8,6 +8,7 @@ import { useQueryParam } from '../../hooks/useQueryParam'
 import { useT } from '../../i18n'
 import type { Workspace } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
+import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import { DataState } from '../ui/DataState'
 import { FormField } from '../ui/FormField'
 import { Pagination } from '../ui/Pagination'
@@ -38,6 +39,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
     page: currentPage,
     setPage: setCurrentPage,
     pageSize,
+    setPageSize,
     totalPages,
     total: totalItems,
     reload,
@@ -200,6 +202,11 @@ export function WorkspacesPanel({ token }: { token: string }) {
           totalItems={totalItems}
           itemsPerPage={pageSize}
           alwaysShow
+          pageSizeOptions={DEFAULT_TABLE_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(size) => {
+            setPageSize(size)
+            setCurrentPage(1)
+          }}
         />
       </div>
     </div>
