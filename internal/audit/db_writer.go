@@ -82,7 +82,6 @@ func (w *DBWriter) Close() error {
 		w.closed.Store(true)
 		close(w.done)
 		w.wg.Wait()
-		close(w.ch)
 	})
 	return err
 }

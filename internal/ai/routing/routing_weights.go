@@ -40,16 +40,20 @@ type Weights struct {
 }
 
 var (
-	routingWeights     *Weights
-	routingWeightsOnce sync.Once
-	errRoutingWeights  error
+	routingWeightsMu     sync.Mutex
+	routingWeights       *Weights
+	routingWeightsLoaded bool
+	errRoutingWeights    error
 )
 
 // ActiveRoutingWeights returns the active routing weights (embedded default or file override).
 func ActiveRoutingWeights() (*Weights, error) {
-	routingWeightsOnce.Do(func() {
+	routingWeightsMu.Lock()
+	if !routingWeightsLoaded {
 		routingWeights, errRoutingWeights = loadRoutingWeights("")
-	})
+		routingWeightsLoaded = true
+	}
+	routingWeightsMu.Unlock()
 	if errRoutingWeights != nil {
 		return nil, errRoutingWeights
 	}
@@ -71,15 +75,17 @@ func activeRoutingWeights() *Weights {
 }
 
 // InitRoutingWeights loads routing weights from an optional JSON file path.
+// Empty path keeps embedded defaults. Call once at process startup.
 func InitRoutingWeights(path string) error {
 	w, err := loadRoutingWeights(path)
 	if err != nil {
 		return err
 	}
+	routingWeightsMu.Lock()
 	routingWeights = w
 	errRoutingWeights = nil
-	routingWeightsOnce = sync.Once{}
-	routingWeightsOnce.Do(func() {})
+	routingWeightsLoaded = true
+	routingWeightsMu.Unlock()
 	return nil
 }
 
