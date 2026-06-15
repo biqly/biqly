@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -185,7 +186,10 @@ func unaryExprSQL(expr *pkgsemantic.UnaryExpr, d dialect.Dialect, resolver *Sche
 }
 
 func functionCallSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
-	if sql, ok := dateTruncSQL(expr, d, resolver, piiConfig); ok {
+	if sql, ok, err := dateTruncSQL(expr, d, resolver, piiConfig); ok || err != nil {
+		if err != nil {
+			return "", err
+		}
 		return sql, nil
 	}
 
@@ -201,19 +205,26 @@ func functionCallSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, reso
 	return name + "(" + strings.Join(funcArgs, ", ") + ")", nil
 }
 
-func dateTruncSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver, piiConfig *PIIMaskingConfig) (string, bool) {
-	if !strings.EqualFold(expr.Name, "DATE_TRUNC") || len(expr.Args) != 2 {
-		return "", false
+func dateTruncSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver, piiConfig *PIIMaskingConfig) (string, bool, error) {
+	if !strings.EqualFold(expr.Name, "DATE_TRUNC") {
+		return "", false, nil
+	}
+	if len(expr.Args) != 2 {
+		return "", true, errors.New("DATE_TRUNC requires grain and column arguments")
 	}
 
 	part, ok := literalString(expr.Args[0])
 	if !ok {
-		return "", false
+		return "", true, errors.New("DATE_TRUNC grain must be a string literal")
+	}
+	part, ok = normalizeDateGrain(part)
+	if !ok {
+		return "", true, fmt.Errorf("unsupported DATE_TRUNC grain: %s", part)
 	}
 
 	ref, ok := expr.Args[1].(*pkgsemantic.ColumnRefExpr)
 	if !ok {
-		return "", false
+		return "", true, errors.New("DATE_TRUNC column argument must be a column reference")
 	}
 
 	colPath := ref.Column
@@ -230,11 +241,21 @@ func dateTruncSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolve
 	if piiConfig != nil {
 		access, _, found := piiConfig.lookup(colPath, physicalPath)
 		if found && access != pii.AccessRaw && access != pii.AccessMasked {
-			return pii.HiddenLiteral, true
+			return pii.HiddenLiteral, true, nil
 		}
 	}
 
-	return d.DateTrunc(part, physicalPath), true
+	return d.DateTrunc(part, physicalPath), true, nil
+}
+
+func normalizeDateGrain(part string) (string, bool) {
+	part = strings.ToLower(strings.TrimSpace(part))
+	switch part {
+	case "day", "week", "month", "quarter", "year":
+		return part, true
+	default:
+		return part, false
+	}
 }
 
 func literalString(expr pkgsemantic.ExprNode) (string, bool) {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"github.com/bytedance/sonic"
+	promtest "github.com/prometheus/client_golang/prometheus/testutil"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -59,6 +61,20 @@ func TestToNullUUID(t *testing.T) {
 func TestNewDBWriter_NilDB(t *testing.T) {
 	w := NewDBWriter(context.Background(), nil, nil)
 	assert.Nil(t, w)
+}
+
+func TestDBWriterDropCounterIncrementsWhenChannelFull(t *testing.T) {
+	w := &DBWriter{
+		ch:     make(chan Event, 1),
+		logger: slog.Default(),
+	}
+	w.ch <- Event{EventType: "already_queued"}
+
+	before := promtest.ToFloat64(MetricAuditEventsDropped.WithLabelValues("channel_full"))
+	w.Write(Event{EventType: "dropped"})
+	after := promtest.ToFloat64(MetricAuditEventsDropped.WithLabelValues("channel_full"))
+
+	assert.Equal(t, before+1, after)
 }
 
 func TestDBWriter_Integration(t *testing.T) {

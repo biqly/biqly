@@ -151,6 +151,7 @@ func (s *Scheduler) checkDatasourceDrift(ctx context.Context, dsID string) {
 			latest = nil
 		} else if err != nil {
 			slog.ErrorContext(ctx, "scheduler failed to fetch latest drift report", "model_id", model.ID, "error", err)
+			continue
 		}
 
 		if latest != nil && !latest.Resolved && s.driftsMatch(latest.Drifts, report.Drifts) {

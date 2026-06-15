@@ -643,6 +643,10 @@ func (s *ProviderStore) UpdateProvider(ctx context.Context, id string, in *Updat
 	if baseURL == "" {
 		baseURL = DefaultBaseURLForType(in.ProviderType)
 	}
+	encryptedAPIKey, err := s.encryptedArg(in.APIKey)
+	if err != nil {
+		return fmt.Errorf("encrypt ai provider api key: %w", err)
+	}
 	// COALESCE-style partial update: build SET clause for optional fields.
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE ai_providers SET
@@ -657,7 +661,7 @@ func (s *ProviderStore) UpdateProvider(ctx context.Context, id string, in *Updat
 		 WHERE id = $9::uuid`,
 		strings.TrimSpace(in.Name), strings.ToLower(strings.TrimSpace(in.ProviderType)), baseURL,
 		boolPtrArg(in.IsActive), intPtrArg(in.HTTPTimeoutSeconds), intPtrArg(in.RateLimitPerMinute),
-		in.APIKey != nil, s.encryptedArg(in.APIKey), id,
+		in.APIKey != nil, encryptedAPIKey, id,
 	)
 	if err != nil {
 		return fmt.Errorf("update ai provider: %w", err)
@@ -957,15 +961,15 @@ func (s *ProviderStore) TestConnection(ctx context.Context, providerID, modelID 
 
 // ----- small arg helpers -----------------------------------------------------
 
-func (s *ProviderStore) encryptedArg(apiKey *string) any {
+func (s *ProviderStore) encryptedArg(apiKey *string) (sql.NullString, error) {
 	if apiKey == nil {
-		return nil
+		return sql.NullString{}, nil
 	}
 	enc, err := s.encrypt(*apiKey)
-	if err != nil || !enc.Valid {
-		return nil
+	if err != nil {
+		return sql.NullString{}, err
 	}
-	return enc.String
+	return enc, nil
 }
 
 func boolPtrArg(v *bool) any {

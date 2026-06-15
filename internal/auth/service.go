@@ -3,6 +3,7 @@ package auth
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -494,6 +495,10 @@ func (s *Service) Refresh(ctx context.Context, req RefreshRequest, userAgent, ip
 		MetricTokenRefreshes.WithLabelValues("failed").Inc()
 		return nil, ErrInactiveUser
 	}
+	if err := s.validateLoginAccountState(ctx, user); err != nil {
+		MetricTokenRefreshes.WithLabelValues("failed").Inc()
+		return nil, err
+	}
 
 	roles, err := s.rbacRepo.GetUserRoles(ctx, user.ID)
 	if err != nil {
@@ -569,27 +574,26 @@ func (s *Service) sendRegisterVerification(ctx context.Context, userID, email st
 }
 
 var (
-	localOAuthStateMap = make(map[string]string)
-	localOAuthStateMu  sync.RWMutex
+	localOAuthStateMap         = make(map[string]localOAuthStateEntry)
+	localOAuthStateMu          sync.RWMutex
+	localOAuthStateJanitorOnce sync.Once
 )
+
+const oauthStateTTL = 300 * time.Second
+
+type localOAuthStateEntry struct {
+	state     string
+	expiresAt time.Time
+}
 
 // StoreOAuthState stores the OAuth state in Redis bound to a bindToken and provider.
 func (s *Service) StoreOAuthState(ctx context.Context, provider, bindToken, state string) error {
 	key := fmt.Sprintf("oauth_state:%s:%s", bindToken, provider)
 	if s.redisClient == nil {
-		localOAuthStateMu.Lock()
-		localOAuthStateMap[key] = state
-		localOAuthStateMu.Unlock()
-		// Clean up after 300s
-		go func() {
-			time.Sleep(300 * time.Second)
-			localOAuthStateMu.Lock()
-			delete(localOAuthStateMap, key)
-			localOAuthStateMu.Unlock()
-		}()
+		storeLocalOAuthState(key, state, oauthStateTTL)
 		return nil
 	}
-	return s.redisClient.Set(ctx, key, state, 300*time.Second).Err()
+	return s.redisClient.Set(ctx, key, state, oauthStateTTL).Err()
 }
 
 // VerifyOAuthState verifies that the OAuth state stored in Redis matches the expected state.
@@ -597,16 +601,11 @@ func (s *Service) StoreOAuthState(ctx context.Context, provider, bindToken, stat
 func (s *Service) VerifyOAuthState(ctx context.Context, provider, bindToken, expectedState string) (bool, error) {
 	key := fmt.Sprintf("oauth_state:%s:%s", bindToken, provider)
 	if s.redisClient == nil {
-		localOAuthStateMu.Lock()
-		storedState, exists := localOAuthStateMap[key]
-		if exists {
-			delete(localOAuthStateMap, key)
-		}
-		localOAuthStateMu.Unlock()
+		storedState, exists := consumeLocalOAuthState(key, time.Now())
 		if !exists {
 			return false, nil
 		}
-		return storedState == expectedState, nil
+		return constantTimeEqualString(storedState, expectedState), nil
 	}
 	storedState, err := s.redisClient.Get(ctx, key).Result()
 	if errors.Is(err, redis.Nil) {
@@ -615,5 +614,52 @@ func (s *Service) VerifyOAuthState(ctx context.Context, provider, bindToken, exp
 		return false, err
 	}
 	s.redisClient.Del(ctx, key)
-	return storedState == expectedState, nil
+	return constantTimeEqualString(storedState, expectedState), nil
+}
+
+func constantTimeEqualString(a, b string) bool {
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
+}
+
+func storeLocalOAuthState(key, state string, ttl time.Duration) {
+	localOAuthStateJanitorOnce.Do(startLocalOAuthStateJanitor)
+	localOAuthStateMu.Lock()
+	localOAuthStateMap[key] = localOAuthStateEntry{
+		state:     state,
+		expiresAt: time.Now().Add(ttl),
+	}
+	localOAuthStateMu.Unlock()
+}
+
+func consumeLocalOAuthState(key string, now time.Time) (string, bool) {
+	localOAuthStateMu.Lock()
+	entry, exists := localOAuthStateMap[key]
+	if exists {
+		delete(localOAuthStateMap, key)
+	}
+	localOAuthStateMu.Unlock()
+	if !exists || !entry.expiresAt.After(now) {
+		return "", false
+	}
+	return entry.state, true
+}
+
+func startLocalOAuthStateJanitor() {
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for now := range ticker.C {
+			purgeExpiredLocalOAuthStates(now)
+		}
+	}()
+}
+
+func purgeExpiredLocalOAuthStates(now time.Time) {
+	localOAuthStateMu.Lock()
+	for key, entry := range localOAuthStateMap {
+		if !entry.expiresAt.After(now) {
+			delete(localOAuthStateMap, key)
+		}
+	}
+	localOAuthStateMu.Unlock()
 }

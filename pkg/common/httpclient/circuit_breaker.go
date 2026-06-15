@@ -32,6 +32,7 @@ type CircuitBreaker struct {
 	openDuration     time.Duration
 	failures         int
 	openUntil        time.Time
+	halfOpenInFlight bool
 }
 
 // NewCircuitBreaker creates a circuit breaker. Non-positive values use defaults.
@@ -56,7 +57,18 @@ func (b *CircuitBreaker) Allow() error {
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if time.Now().Before(b.openUntil) {
+	now := time.Now()
+	if now.Before(b.openUntil) {
+		return ErrCircuitOpen
+	}
+	if !b.openUntil.IsZero() {
+		if b.halfOpenInFlight {
+			return ErrCircuitOpen
+		}
+		b.halfOpenInFlight = true
+		return nil
+	}
+	if b.halfOpenInFlight {
 		return ErrCircuitOpen
 	}
 	return nil
@@ -77,6 +89,12 @@ func (b *CircuitBreaker) Record(resp *http.Response, err error) {
 func (b *CircuitBreaker) recordFailure() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.halfOpenInFlight {
+		b.halfOpenInFlight = false
+		b.failures = b.failureThreshold
+		b.openUntil = time.Now().Add(b.openDuration)
+		return
+	}
 	b.failures++
 	if b.failures >= b.failureThreshold {
 		b.openUntil = time.Now().Add(b.openDuration)
@@ -88,4 +106,5 @@ func (b *CircuitBreaker) recordSuccess() {
 	defer b.mu.Unlock()
 	b.failures = 0
 	b.openUntil = time.Time{}
+	b.halfOpenInFlight = false
 }

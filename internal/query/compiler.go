@@ -442,12 +442,17 @@ func (c *Compiler) dimensionSQL(dim *semantic.Dimension, resolver *SchemaResolve
 	if strings.TrimSpace(dim.TimeGrain) == "" {
 		return c.dialect.QuoteIdent(colRef), nil
 	}
-	part := strings.ToLower(strings.TrimSpace(dim.TimeGrain))
+	part, ok := normalizeDateGrain(dim.TimeGrain)
+	if !ok {
+		return "", fmt.Errorf("unsupported time grain: %s", dim.TimeGrain)
+	}
 	switch part {
 	case "year", "quarter", "month":
 		return c.dialect.CalendarPart(part, colRef), nil
-	default:
+	case "day", "week":
 		return c.dialect.DateTrunc(part, colRef), nil
+	default:
+		return "", fmt.Errorf("unsupported time grain: %s", dim.TimeGrain)
 	}
 }
 
@@ -462,16 +467,37 @@ func (c *Compiler) resolveBracketExpressions(
 		return expr
 	}
 	if !strings.Contains(expr, "[") {
-		if _, ok := resolver.ParseColumnRef(expr); ok {
-			return resolver.PhysicalColumnRef(expr)
-		}
-		return expr
+		return c.resolveBareCustomExpression(expr, resolver, model)
 	}
 
 	return reBracket.ReplaceAllStringFunc(expr, func(match string) string {
 		token := match[1 : len(match)-1]
 		return c.resolveCustomToken(token, resolver, dimMap, metricMap, model)
 	})
+}
+
+func (c *Compiler) resolveBareCustomExpression(
+	expr string,
+	resolver *SchemaResolver,
+	model *semantic.SemanticModel,
+) string {
+	if _, ok := resolver.ParseColumnRef(expr); ok {
+		if sql, masked := c.piiSQLForColumnRef(expr, resolver); masked {
+			return sql
+		}
+		return resolver.PhysicalColumnRef(expr)
+	}
+	if sql, masked := c.piiSQLForColumnRef(expr, resolver); masked {
+		return sql
+	}
+	if model == nil || model.BaseTable == "" {
+		return expr
+	}
+	ref := model.BaseTable + "." + expr
+	if sql, masked := c.piiSQLForColumnRef(ref, resolver); masked {
+		return sql
+	}
+	return expr
 }
 
 func (c *Compiler) resolveCustomToken(
@@ -492,11 +518,18 @@ func (c *Compiler) resolveCustomToken(
 			return c.metricAggregate(m, resolver, dimMap, metricMap, model)
 		}
 	}
+	if sql, ok := c.piiSQLForColumnRef(token, resolver); ok {
+		return sql
+	}
 	if strings.Contains(token, ".") {
 		return resolver.QualifyColumn(c.dialect, token)
 	}
 	if model != nil && model.BaseTable != "" {
-		return resolver.QualifyColumn(c.dialect, model.BaseTable+"."+token)
+		ref := model.BaseTable + "." + token
+		if sql, ok := c.piiSQLForColumnRef(ref, resolver); ok {
+			return sql
+		}
+		return resolver.QualifyColumn(c.dialect, ref)
 	}
 	return c.dialect.QuoteIdent(token)
 }
@@ -623,7 +656,19 @@ func (c *Compiler) qualifyMetricExpression(
 		return c.resolveBracketExpressions(expr, resolver, dimMap, metricMap, model)
 	}
 	if _, ok := resolver.ParseColumnRef(expr); ok {
+		if sql, masked := c.piiSQLForColumnRef(expr, resolver); masked {
+			return sql
+		}
 		return c.dialect.QuoteIdent(resolver.PhysicalColumnRef(expr))
+	}
+	if sql, masked := c.piiSQLForColumnRef(expr, resolver); masked {
+		return sql
+	}
+	if model != nil && model.BaseTable != "" {
+		ref := model.BaseTable + "." + expr
+		if sql, masked := c.piiSQLForColumnRef(ref, resolver); masked {
+			return sql
+		}
 	}
 	return c.dialect.QuoteIdent(expr)
 }
@@ -673,7 +718,11 @@ func (c *Compiler) buildSelectDimension(item SelectItem, dimMap map[string]*sema
 		}
 		return "", validationErrWithCode("select", errmsg.UnknownDimensionMsg(item.Name), errmsg.CodeUnknownDimension, item.Name, suggestAlternatives(item.Name, dimKeys))
 	}
-	return selectItemSQL(c.dimensionOutputSQL(dim, resolver), selectItemAlias(item.Alias, dim.Name), c.dialect), nil
+	dimSQL := c.dimensionOutputSQL(dim, resolver)
+	if c.err != nil {
+		return "", c.err
+	}
+	return selectItemSQL(dimSQL, selectItemAlias(item.Alias, dim.Name), c.dialect), nil
 }
 
 func (c *Compiler) buildSelectMetric(

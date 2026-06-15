@@ -1,6 +1,14 @@
 package auth
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"errors"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
+const maxBcryptPasswordBytes = 72
+
+var ErrPasswordTooLong = errors.New("password exceeds bcrypt 72-byte limit")
 
 // dummyBcryptHash is a precomputed bcrypt hash used to keep Login response
 // times constant when the requested user does not exist. Computed once at
@@ -22,6 +30,9 @@ func init() {
 }
 
 func HashPassword(password string) (string, error) {
+	if len(password) > maxBcryptPasswordBytes {
+		return "", ErrPasswordTooLong
+	}
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	return string(bytes), err
 }

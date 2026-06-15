@@ -2,11 +2,20 @@ package ai
 
 import (
 	"context"
+	crand "crypto/rand"
+	"io"
 	"testing"
 
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/config"
+	"github.com/biqly/biqly/internal/security"
 )
+
+type failingRandReader struct{}
+
+func (failingRandReader) Read([]byte) (int, error) {
+	return 0, io.ErrUnexpectedEOF
+}
 
 func TestValidPurpose(t *testing.T) {
 	for _, p := range AllPurposes {
@@ -163,6 +172,23 @@ func TestCacheVersionIncrements(t *testing.T) {
 	store.version.Add(1)
 	if store.CacheVersion() != v0+1 {
 		t.Error("cache version did not advance")
+	}
+}
+
+func TestEncryptedArgReturnsEncryptionError(t *testing.T) {
+	enc, err := security.NewEncryptionWithKey(make([]byte, 32))
+	if err != nil {
+		t.Fatalf("encryption setup: %v", err)
+	}
+	store := NewProviderStore(nil, enc, &config.AIConfig{})
+
+	oldReader := crand.Reader
+	crand.Reader = failingRandReader{}
+	defer func() { crand.Reader = oldReader }()
+
+	apiKey := "fixture-api-key"
+	if _, err := store.encryptedArg(&apiKey); err == nil {
+		t.Fatal("expected encryption error")
 	}
 }
 

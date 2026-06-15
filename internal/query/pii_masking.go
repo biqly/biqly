@@ -1,6 +1,8 @@
 package query
 
 import (
+	"strings"
+
 	"github.com/biqly/biqly/internal/security/pii"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -81,6 +83,30 @@ func (c *Compiler) piiAccessForDim(dim *semantic.Dimension, resolver *SchemaReso
 		return "", "", false
 	}
 	return c.pii.lookup(dim.ColumnRef, resolver.PhysicalColumnRef(dim.ColumnRef))
+}
+
+// piiSQLForColumnRef applies PII policy to a raw physical/semantic column ref.
+func (c *Compiler) piiSQLForColumnRef(ref string, resolver *SchemaResolver) (string, bool) {
+	if c.pii == nil {
+		return "", false
+	}
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", false
+	}
+	physicalRef := ref
+	if resolver != nil {
+		physicalRef = resolver.PhysicalColumnRef(ref)
+	}
+	access, piiType, found := c.pii.lookup(ref, physicalRef)
+	if !found || access == pii.AccessRaw {
+		return "", false
+	}
+	if access == pii.AccessMasked {
+		colRef := c.dialect.QuoteIdent(physicalRef)
+		return c.pii.strategy().MaskExpression(colRef, piiType, c.dialect), true
+	}
+	return pii.HiddenLiteral, true
 }
 
 // dimensionOutputSQL renders a dimension for SELECT/GROUP BY/ORDER BY with

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/metadata"
+	"golang.org/x/sync/singleflight"
 )
 
 // snapshot is an immutable, fully-merged view served to lookups.
@@ -118,6 +119,7 @@ type dbStore struct {
 	mu      sync.Mutex
 	snap    *snapshot
 	expires time.Time
+	loadSF  singleflight.Group
 }
 
 // NewDBStore returns a Store reading ai_nl_lexicon with the embedded defaults
@@ -129,13 +131,42 @@ func NewDBStore(repo lexiconRepo) Store {
 
 func (s *dbStore) current() *snapshot {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.snap != nil && time.Now().Before(s.expires) {
-		return s.snap
+		snap := s.snap
+		s.mu.Unlock()
+		return snap
 	}
-	s.snap = s.load()
-	s.expires = time.Now().Add(dbStoreTTL)
-	return s.snap
+	s.mu.Unlock()
+
+	loaded, err, _ := s.loadSF.Do("snapshot", func() (any, error) {
+		s.mu.Lock()
+		if s.snap != nil && time.Now().Before(s.expires) {
+			snap := s.snap
+			s.mu.Unlock()
+			return snap, nil
+		}
+		s.mu.Unlock()
+
+		snap := s.load()
+		expires := time.Now().Add(dbStoreTTL)
+
+		s.mu.Lock()
+		s.snap = snap
+		s.expires = expires
+		s.mu.Unlock()
+
+		return snap, nil
+	})
+	if err != nil {
+		slog.Warn("nl lexicon singleflight load failed, serving embedded defaults", "error", err)
+		return s.defaults
+	}
+	snap, ok := loaded.(*snapshot)
+	if !ok {
+		slog.Warn("nl lexicon singleflight returned unexpected snapshot type, serving embedded defaults")
+		return s.defaults
+	}
+	return snap
 }
 
 func (s *dbStore) load() *snapshot {

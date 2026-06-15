@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/bytedance/sonic"
@@ -60,14 +62,27 @@ func TestTermsReturnsCopy(t *testing.T) {
 }
 
 type fakeLexiconRepo struct {
+	mu    sync.Mutex
 	calls int
 	rows  []metadata.NLLexiconEntry
 	err   error
+	delay time.Duration
 }
 
 func (f *fakeLexiconRepo) ListActiveNLLexicon(context.Context) ([]metadata.NLLexiconEntry, error) {
+	if f.delay > 0 {
+		time.Sleep(f.delay)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.calls++
 	return f.rows, f.err
+}
+
+func (f *fakeLexiconRepo) callCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.calls
 }
 
 func mustRow(t *testing.T, locale, domain, key string, value any) metadata.NLLexiconEntry {
@@ -133,6 +148,36 @@ func TestDBStoreUnionAcrossLocalesAndInvalidate(t *testing.T) {
 	store.Terms(DomainIntentToken, "count")
 	if repo.calls != 2 {
 		t.Fatalf("repo calls = %d, want 2 after Invalidate", repo.calls)
+	}
+}
+
+func TestDBStoreConcurrentRefreshUsesSingleLoad(t *testing.T) {
+	repo := &fakeLexiconRepo{
+		rows: []metadata.NLLexiconEntry{
+			mustRow(t, "en", DomainIntentToken, "count", map[string]any{"terms": []string{"count"}}),
+		},
+		delay: 20 * time.Millisecond,
+	}
+	store := NewDBStore(repo)
+
+	if got := store.Terms(DomainIntentToken, "count"); !slices.Equal(got, []string{"count"}) {
+		t.Fatalf("expected initial DB terms, got %v", got)
+	}
+	store.Invalidate()
+
+	const callers = 8
+	var wg sync.WaitGroup
+	wg.Add(callers)
+	for range callers {
+		go func() {
+			defer wg.Done()
+			_ = store.Terms(DomainIntentToken, "count")
+		}()
+	}
+	wg.Wait()
+
+	if got := repo.callCount(); got != 2 {
+		t.Fatalf("repo calls = %d, want 2 (initial + one refresh)", got)
 	}
 }
 

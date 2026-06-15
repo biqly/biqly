@@ -80,6 +80,39 @@ func TestCompileWithPermissions_HiddenColumn(t *testing.T) {
 	}
 }
 
+func TestCompileWithPermissions_CustomMetricPhysicalRefsUsePIIMasking(t *testing.T) {
+	model := piiTestModel()
+	model.Metrics = append(model.Metrics,
+		semantic.Metric{Name: "email_masked", Expression: "[public.customers.email]", Aggregation: "custom"},
+		semantic.Metric{Name: "phone_hidden", Expression: "[public.customers.phone]", Aggregation: "custom"},
+		semantic.Metric{Name: "email_direct", Expression: "public.customers.email", Aggregation: "custom"},
+	)
+	lq := LogicalQuery{
+		ModelID: "customers",
+		Select: []SelectItem{
+			{Type: "metric", Name: "email_masked"},
+			{Type: "metric", Name: "phone_hidden"},
+			{Type: "metric", Name: "email_direct"},
+		},
+		Limit: 10,
+	}
+
+	compiler := NewCompiler(dialect.PostgresDialect{})
+	cq, err := compiler.CompileWithPermissions(context.Background(), &lq, model, nil, piiTestConfig())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := strings.Count(cq.SQL, "LEFT(CAST("); got != 2 {
+		t.Errorf("expected both email physical refs to use masking, got %d masks: %s", got, cq.SQL)
+	}
+	if !containsStr(cq.SQL, `'***' AS "phone_hidden"`) {
+		t.Errorf("expected hidden physical ref to become hidden literal: %s", cq.SQL)
+	}
+	if strings.Contains(cq.SQL, `"customers"."phone"`) {
+		t.Errorf("hidden physical ref must not expose raw column: %s", cq.SQL)
+	}
+}
+
 func TestCompileWithPermissions_RawAndUnlistedColumnsUntouched(t *testing.T) {
 	lq := LogicalQuery{
 		ModelID: "customers",

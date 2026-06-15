@@ -24,14 +24,18 @@ var poolKeySeed = maphash.MakeSeed()
 // Callers MUST NOT call Close() on pools returned by Get — the cache owns
 // the lifecycle and closes them in PoolCache.Close.
 type PoolCache struct {
-	mu    sync.RWMutex
-	pools map[string]*sql.DB
-	sf    singleflight.Group
+	mu          sync.RWMutex
+	pools       map[string]*sql.DB
+	generations map[string]uint64
+	sf          singleflight.Group
 }
 
 // NewPoolCache constructs an empty cache.
 func NewPoolCache() *PoolCache {
-	return &PoolCache{pools: make(map[string]*sql.DB)}
+	return &PoolCache{
+		pools:       make(map[string]*sql.DB),
+		generations: make(map[string]uint64),
+	}
 }
 
 // Get returns a pooled *sql.DB for the (datasourceID, dsn) pair, opening a
@@ -53,6 +57,7 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 		p.mu.RUnlock()
 		return db, nil
 	}
+	generation := p.generations[datasourceID]
 	p.mu.RUnlock()
 
 	result, err, _ := p.sf.Do(key, func() (any, error) {
@@ -61,6 +66,16 @@ func (p *PoolCache) Get(ctx context.Context, driver Driver, datasourceID, dsn st
 			return nil, err
 		}
 		p.mu.Lock()
+		if p.generations[datasourceID] != generation {
+			p.mu.Unlock()
+			if err := db.Close(); err != nil {
+				slog.Warn("pool cache: close invalidated pool failed", "datasource_id", datasourceID, "error", err)
+			}
+			return nil, errors.New("pool cache: datasource invalidated during open")
+		}
+		if p.pools == nil {
+			p.pools = make(map[string]*sql.DB)
+		}
 		p.pools[key] = db
 		p.mu.Unlock()
 		return db, nil
@@ -85,6 +100,10 @@ func (p *PoolCache) Invalidate(datasourceID string) {
 	prefix := datasourceID + "|"
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.generations == nil {
+		p.generations = make(map[string]uint64)
+	}
+	p.generations[datasourceID]++
 	for key, db := range p.pools {
 		if key == datasourceID || hasKeyPrefix(key, prefix) {
 			delete(p.pools, key)

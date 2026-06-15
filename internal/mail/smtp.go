@@ -185,7 +185,8 @@ func (s *SMTPEmailSender) sendTemplate(ctx context.Context, to, name string, dat
 	if s.blocks != nil {
 		blocked, err := s.blocks.IsBlocked(ctx, normalized)
 		if err != nil {
-			slog.Warn("email block-list check failed; allowing send", "err", err, "to", emailaddr.Mask(normalized))
+			slog.Error("email block-list check failed; blocking send", "err", err, "to", emailaddr.Mask(normalized))
+			return fmt.Errorf("email block-list check: %w", err)
 		} else if blocked {
 			slog.Info("email suppressed by block list", "to", emailaddr.Mask(normalized), "template", name)
 			return ErrEmailBlocked
@@ -238,6 +239,8 @@ func (s *SMTPEmailSender) checkRateLimit(ctx context.Context, email string) erro
 	key := "email_count:" + emailRateLimitKey(email) + ":" + day
 	count, err := s.redis.Incr(ctx, key).Result()
 	if err != nil {
+		// Rate limiting is an availability guard, not a hard suppression
+		// policy like the block list above, so Redis outages remain fail-open.
 		slog.Warn("email rate-limit redis call failed; allowing send", "err", err, "to", emailaddr.Mask(email))
 		return nil
 	}
