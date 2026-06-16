@@ -196,20 +196,24 @@ reinvent them. full guide: `docs/agents/local-dev.md`.
 
 ## pre-commit checks (required)
 
-**Recommended: enable the automatic git hook** — runs `make precommit` before
-every `git commit` and blocks the commit if anything fails. One-time setup:
+**Recommended: enable the automatic git hook** — one-time setup:
 
 ```sh
 make setup-githooks    # or: git config core.hooksPath .githooks
 ```
 
+The hook runs **format → stage → lint → test** before every `git commit`:
+auto-formats with Prettier, stages the formatting changes so they're included in
+the commit, then lints and tests. If anything fails, the commit is blocked. This
+is the intended workflow — no need to run `make precommit` manually.
+
 Details in `.githooks/README.md`. To skip the hook on a specific commit (WIP,
 partial fix): `git commit --no-verify`.
 
-If you prefer a manual flow, run the linters AND tests for the code you changed
-before every commit, and **fix every reported issue before staging or
-committing**. lint failures are blockers — do not commit with open lint errors,
-defer fixes to a follow-up commit, or push hoping CI will catch them.
+If you prefer a fully manual flow (no hook), run the checks below before every
+commit and **fix every reported issue before staging or committing**. lint
+failures are blockers — do not commit with open lint errors, defer fixes to a
+follow-up commit, or push hoping CI will catch them.
 
 1. **go**: `gofmt -w <touched .go files>` + `make lint-go` (golangci-lint) + `make test-go` (go test -race) + `deadcode -test $(go list ./... | grep -v '/frontend')`
 2. **react / frontend**: `make lint-frontend` (eslint) + `make test-frontend` (vitest)

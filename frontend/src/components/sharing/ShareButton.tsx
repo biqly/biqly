@@ -124,7 +124,7 @@ export function ShareButton({
       {showTrigger && (
         <button
           onClick={() => setOpen(true)}
-          className={`border-border text-foreground-muted hover:border-accent hover:text-accent inline-flex cursor-pointer items-center gap-[5px] rounded-[6px] border bg-transparent px-3 py-[5px] text-[12px] transition-all duration-150`}
+          className={`border-border text-foreground-muted hover:border-accent hover:text-accent inline-flex cursor-pointer items-center gap-1.25 rounded-md border bg-transparent px-3 py-1.25 text-[12px] transition-all duration-150`}
         >
           <svg
             width="14"
@@ -150,7 +150,7 @@ export function ShareButton({
         >
           <div
             className={legacyCardClass(
-              'bg-card border-border motion-safe:animate-slide-up w-full max-w-[420px] rounded-[12px] border shadow-(--shadow,0_20px_60px_rgba(0,0,0,0.2))',
+              'bg-card border-border motion-safe:animate-slide-up w-full max-w-105 rounded-xl border shadow-(--shadow,0_20px_60px_rgba(0,0,0,0.2))',
             )}
             onClick={(e) => e.stopPropagation()}
           >
@@ -169,9 +169,9 @@ export function ShareButton({
               onSubmit={(e) => {
                 void onSubmit(e)
               }}
-              className="flex flex-col gap-[14px] p-5"
+              className="flex flex-col gap-3.5 p-5"
             >
-              <div className={`border-border flex gap-0 overflow-hidden rounded-[6px] border`}>
+              <div className={`border-border flex gap-0 overflow-hidden rounded-md border`}>
                 <button
                   type="button"
                   className={clsx(
@@ -238,7 +238,7 @@ export function ShareButton({
               {error && (
                 <div
                   className={legacyFeedbackClass(
-                    'bg-error/10 text-error rounded-[4px] px-3 py-2 text-[12px]',
+                    'bg-error/10 text-error rounded-sm px-3 py-2 text-[12px]',
                   )}
                 >
                   {error}
@@ -249,14 +249,14 @@ export function ShareButton({
                 <button
                   type="button"
                   onClick={closeModal}
-                  className={`border-border text-foreground hover:border-accent hover:text-accent cursor-pointer rounded-[6px] border bg-transparent px-4 py-2 text-[13px] transition-colors`}
+                  className={`border-border text-foreground hover:border-accent hover:text-accent cursor-pointer rounded-md border bg-transparent px-4 py-2 text-[13px] transition-colors`}
                 >
                   {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={loading || !targetID.trim()}
-                  className="bg-accent cursor-pointer rounded-[6px] border-0 px-4 py-2 text-[13px] font-medium text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="bg-accent cursor-pointer rounded-md border-0 px-4 py-2 text-[13px] font-medium text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? t('common.saving') : t('admin.sharing.share')}
                 </button>

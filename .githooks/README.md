@@ -21,7 +21,10 @@ make setup-githooks
 
 | Hook | What it runs | When |
 |------|-------------|------|
-| `pre-commit` | `make precommit` (format + lint + all tests) | Before every `git commit` |
+| `pre-commit` | `make format-frontend` → `git add -u` → `make lint` → `make test` | Before every `git commit` |
+
+The hook automatically stages formatting changes so they're included in the
+commit — no leftover unstaged diffs.
 
 ## Skipping
 
