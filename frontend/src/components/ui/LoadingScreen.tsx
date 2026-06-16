@@ -44,7 +44,7 @@ export function LoadingScreen({
   if (variant === 'center') {
     return (
       <div
-        className="relative flex-1 w-full flex flex-col items-center justify-center gap-4"
+        className="relative flex w-full flex-1 flex-col items-center justify-center gap-4"
         style={{ minHeight }}
         role="status"
         aria-live="polite"
@@ -60,14 +60,14 @@ export function LoadingScreen({
   const isOwner = ownerId === id
   return (
     <div
-      className="relative flex-1 w-full"
+      className="relative w-full flex-1"
       style={{ minHeight }}
       {...(isOwner ? { role: 'status', 'aria-live': 'polite', 'aria-label': displayLabel } : {})}
     >
       {isOwner ? (
         <LoadingIndicator
           label={displayLabel}
-          className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-[120] opacity-0 translate-y-2 scale-[0.98] animate-[loading-pill-in_0.22s_ease-out_0.25s_forwards] motion-reduce:translate-y-0 motion-reduce:animate-[loading-pill-fade_0.22s_ease-out_0.25s_forwards]"
+          className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-[120] translate-y-2 scale-[0.98] animate-[loading-pill-in_0.22s_ease-out_0.25s_forwards] opacity-0 motion-reduce:translate-y-0 motion-reduce:animate-[loading-pill-fade_0.22s_ease-out_0.25s_forwards]"
           style={{ animationDelay: immediate ? '0s' : undefined }}
         />
       ) : null}

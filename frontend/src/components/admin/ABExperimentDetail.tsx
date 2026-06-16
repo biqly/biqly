@@ -114,7 +114,7 @@ function ExperimentDetailHeader({
         <div>
           <h2 style={{ margin: 0 }}>{exp.name}</h2>
           <p className={formHintClass}>{exp.description || t('metadata.no_description')}</p>
-          <div className="mt-2 flex flex-wrap gap-4 text-sm text-foreground-muted">
+          <div className="text-foreground-muted mt-2 flex flex-wrap gap-4 text-sm">
             <span>
               <strong className="text-foreground">{t('admin.ab_experiments.col_template')}:</strong>{' '}
               {exp.template_name}
@@ -325,7 +325,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
           <h2 className="m-0 border-none p-0 text-base font-semibold">
             {t('admin.ab_experiments.traffic_pct')} ({totalTraffic}%)
           </h2>
-          <div className="mt-3 mb-4 flex h-3 w-full overflow-hidden rounded-full bg-card-raised">
+          <div className="bg-card-raised mt-3 mb-4 flex h-3 w-full overflow-hidden rounded-full">
             {variants.map((v, i) => (
               <div
                 key={v.id ?? i}
@@ -358,13 +358,13 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                 <span>💡</span>
                 {t('admin.ab_experiments.recommendation_title')}
               </div>
-              <div className="text-sm leading-relaxed text-foreground">{recommendation.reason}</div>
+              <div className="text-foreground text-sm leading-relaxed">{recommendation.reason}</div>
             </div>
           )}
 
           {/* Variants list card */}
           <div className={adminCardClass}>
-            <h2 className={`text-lg font-semibold mt-0 mb-4 border-b border-border pb-3`}>
+            <h2 className={`border-border mt-0 mb-4 border-b pb-3 text-lg font-semibold`}>
               {t('admin.ab_experiments.variants_title')}
             </h2>
             <table className="w-full border-collapse text-left">
@@ -382,18 +382,18 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
               <tbody>
                 {variants.map((v) => (
                   <tr key={v.id} className="hover:bg-(--control-hover-bg)">
-                    <td className={`px-4 py-3 border-b border-border text-sm font-semibold`}>
+                    <td className={`border-border border-b px-4 py-3 text-sm font-semibold`}>
                       {v.name}
                     </td>
-                    <td className={`px-4 py-3 border-b border-border text-sm`}>
+                    <td className={`border-border border-b px-4 py-3 text-sm`}>
                       v{v.template_version}
                     </td>
-                    <td className={`px-4 py-3 border-b border-border text-sm`}>{v.traffic_pct}%</td>
-                    <td className={`px-4 py-3 border-b border-border text-sm`}>
+                    <td className={`border-border border-b px-4 py-3 text-sm`}>{v.traffic_pct}%</td>
+                    <td className={`border-border border-b px-4 py-3 text-sm`}>
                       {v.is_control ? '✅' : '—'}
                     </td>
                     {isDraft && (
-                      <td className={`px-4 py-3 border-b border-border text-sm`}>
+                      <td className={`border-border border-b px-4 py-3 text-sm`}>
                         <Button
                           variant="danger-outline"
                           size="sm"
@@ -416,7 +416,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
             {/* Add Variant Form (Draft only) */}
             {isDraft && (
               <form onSubmit={(e) => void handleAddVariant(e)} style={{ marginTop: 24 }}>
-                <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-card-raised p-4">
+                <div className="border-border bg-card-raised flex flex-col gap-3 rounded-lg border border-dashed p-4">
                   <h3 style={{ fontSize: 14, margin: '0 0 8px 0', fontWeight: 600 }}>
                     {t('admin.ab_experiments.add_variant')}
                   </h3>
@@ -471,7 +471,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
           {/* Metrics Comparison Card */}
           {!isDraft && metrics.length > 0 && (
             <div className={adminCardClass}>
-              <h2 className={`text-lg font-semibold mt-0 mb-4 border-b border-border pb-3`}>
+              <h2 className={`border-border mt-0 mb-4 border-b pb-3 text-lg font-semibold`}>
                 {t('admin.ab_experiments.metrics_title')}
               </h2>
               <table className="w-full border-collapse text-left">
@@ -492,25 +492,25 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                     const variant = variants.find((v) => v.id === m.variant_id)
                     return (
                       <tr key={m.variant_id} className="hover:bg-(--control-hover-bg)">
-                        <td className={`px-4 py-3 border-b border-border text-sm font-semibold`}>
+                        <td className={`border-border border-b px-4 py-3 text-sm font-semibold`}>
                           {variant?.name ?? 'Unknown'}{' '}
                           {variant?.is_control && (
                             <span style={{ fontSize: 11, color: '#6b7280' }}>(Control)</span>
                           )}
                         </td>
-                        <td className={`px-4 py-3 border-b border-border text-sm`}>
+                        <td className={`border-border border-b px-4 py-3 text-sm`}>
                           {m.total_queries}
                         </td>
-                        <td className={`px-4 py-3 border-b border-border text-sm`}>
+                        <td className={`border-border border-b px-4 py-3 text-sm`}>
                           {(m.success_rate * 100).toFixed(1)}%
                         </td>
-                        <td className={`px-4 py-3 border-b border-border text-sm`}>
+                        <td className={`border-border border-b px-4 py-3 text-sm`}>
                           {m.avg_latency_ms.toFixed(0)} ms
                         </td>
-                        <td className={`px-4 py-3 border-b border-border text-sm`}>
+                        <td className={`border-border border-b px-4 py-3 text-sm`}>
                           ${m.avg_cost_usd.toFixed(4)}
                         </td>
-                        <td className={`px-4 py-3 border-b border-border text-sm`}>
+                        <td className={`border-border border-b px-4 py-3 text-sm`}>
                           {m.total_tokens.toLocaleString()}
                         </td>
                       </tr>
@@ -526,7 +526,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
         <div>
           {!isDraft && timeseries.length > 0 && (
             <div className={adminCardClass}>
-              <h2 className={`text-lg font-semibold mt-0 mb-4 border-b border-border pb-3`}>
+              <h2 className={`border-border mt-0 mb-4 border-b pb-3 text-lg font-semibold`}>
                 {t('admin.ab_experiments.timeseries_title')}
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

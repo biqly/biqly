@@ -503,7 +503,7 @@ export default function AIQuery() {
             gap: '0.75rem',
           }}
         >
-          <h3 className={`${sidebarHeaderTitleClass} text-center! w-full!`}>
+          <h3 className={`${sidebarHeaderTitleClass} w-full! text-center!`}>
             {t('ai_query.conv_title')}
           </h3>
           <button

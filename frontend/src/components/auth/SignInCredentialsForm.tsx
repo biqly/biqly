@@ -55,7 +55,7 @@ export function SignInCredentialsForm({
       >
         {ldapEnabled && (
           <div
-            className="mb-2 rounded border-l-[3px] border-accent bg-accent/8 p-[10px_12px] text-[13px] text-foreground-muted"
+            className="border-accent bg-accent/8 text-foreground-muted mb-2 rounded border-l-[3px] p-[10px_12px] text-[13px]"
             role="status"
             aria-live="polite"
           >
@@ -65,7 +65,7 @@ export function SignInCredentialsForm({
         {error && (
           <div
             className={legacyFeedbackClass(
-              'p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2',
+              'bg-error/8 border-error text-error mb-2 rounded border-l-[3px] p-[10px_12px] text-[13px]',
             )}
             role="alert"
             aria-live="assertive"
@@ -76,7 +76,7 @@ export function SignInCredentialsForm({
         {throttleMs > 0 && (
           <div
             className={legacyFeedbackClass(
-              'p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2',
+              'bg-error/8 border-error text-error mb-2 rounded border-l-[3px] p-[10px_12px] text-[13px]',
             )}
             role="status"
             aria-live="polite"
@@ -120,7 +120,7 @@ export function SignInCredentialsForm({
         </div>
 
         <div className="flex items-center justify-between text-[13px]">
-          <label className="flex cursor-pointer items-center gap-1.5 text-foreground-muted">
+          <label className="text-foreground-muted flex cursor-pointer items-center gap-1.5">
             <input
               type="checkbox"
               disabled={loading || passkeyLoading}
@@ -152,7 +152,7 @@ export function SignInCredentialsForm({
         </button>
       </form>
 
-      <div className="my-4 flex items-center text-center text-[12px] text-foreground-muted before:mr-[0.5em] before:flex-1 before:border-b before:border-border before:content-[''] after:ml-[0.5em] after:flex-1 after:border-b after:border-border after:content-['']">
+      <div className="text-foreground-muted before:border-border after:border-border my-4 flex items-center text-center text-[12px] before:mr-[0.5em] before:flex-1 before:border-b before:content-[''] after:ml-[0.5em] after:flex-1 after:border-b after:content-['']">
         {t('auth.or')}
       </div>
 
@@ -160,7 +160,7 @@ export function SignInCredentialsForm({
         <button
           type="button"
           className={legacyCardClass(
-            'flex items-center justify-center gap-2.5 w-full py-2.5 px-4 rounded-lg border border-border bg-card text-foreground-muted text-[14px] font-medium cursor-pointer transition-colors duration-200 hover:bg-(--bg-hover,#f9fafb)] hover:border-foreground-muted dark:bg-white/3 dark:border-white/8 dark:text-[#e2e8f0] dark:hover:bg-white/8 dark:hover:border-white/20',
+            'border-border bg-card text-foreground-muted hover:bg-(--bg-hover,#f9fafb)] hover:border-foreground-muted flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-lg border px-4 py-2.5 text-[14px] font-medium transition-colors duration-200 dark:border-white/8 dark:bg-white/3 dark:text-[#e2e8f0] dark:hover:border-white/20 dark:hover:bg-white/8',
           )}
           onClick={() => onOAuth('github')}
           disabled={loading || passkeyLoading}
@@ -174,7 +174,7 @@ export function SignInCredentialsForm({
         <button
           type="button"
           className={legacyCardClass(
-            'flex items-center justify-center gap-2.5 w-full py-2.5 px-4 rounded-lg border border-border bg-card text-foreground-muted text-[14px] font-medium cursor-pointer transition-colors duration-200 hover:bg-(--bg-hover,#f9fafb) hover:border-foreground-muted dark:bg-white/3 dark:border-white/8 dark:text-[#e2e8f0] dark:hover:bg-white/8 dark:hover:border-white/20',
+            'border-border bg-card text-foreground-muted hover:border-foreground-muted flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-lg border px-4 py-2.5 text-[14px] font-medium transition-colors duration-200 hover:bg-(--bg-hover,#f9fafb) dark:border-white/8 dark:bg-white/3 dark:text-[#e2e8f0] dark:hover:border-white/20 dark:hover:bg-white/8',
           )}
           onClick={() => onOAuth('google')}
           disabled={loading || passkeyLoading}
@@ -202,7 +202,7 @@ export function SignInCredentialsForm({
 
         <button
           type="button"
-          className={`flex items-center justify-center gap-2.5 w-full py-2.5 px-4 rounded-lg border border-accent/30 bg-accent/3 text-foreground-muted text-[14px] font-medium cursor-pointer transition-colors duration-200 hover:bg-accent/8 hover:border-accent/50 dark:text-[#e2e8f0] ${passkeyLoading ? 'animate-pulse' : ''}`}
+          className={`border-accent/30 bg-accent/3 text-foreground-muted hover:bg-accent/8 hover:border-accent/50 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-lg border px-4 py-2.5 text-[14px] font-medium transition-colors duration-200 dark:text-[#e2e8f0] ${passkeyLoading ? 'animate-pulse' : ''}`}
           onClick={() => {
             void onPasskeyLogin()
           }}

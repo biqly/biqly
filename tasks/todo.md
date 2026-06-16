@@ -15,49 +15,60 @@
 ### P0 — Yüksek etki
 
 **Dark mode bozuk**
+
 - [x] `dark:` variant'ı `[data-theme]` toggle'ına bağlı değildi → `index.css:3`'e `@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));` eklenmiş. Fix zaten uygulanmış, aktif.
 
 **Erişilebilirlik — custom modal'lar `ui/Modal`'ı bypass ediyor**
+
 - [x] El yapımı modal'larda focus trap / Escape / dialog semantiği yoktu — tümü (`TimeGrainsEditModal`, `AvatarCropModal`, `Glossary`, `FewShotExamples`, `MetadataBulkDescribeModal`, `MetadataDescribeModal`) zaten `ui/Modal` kullanıyor. FewShotExamples & Glossary'deki stra `</div>` fix'lendi (build hatası).
 - [x] Backdrop kapatma sadece mouse (aynı modal'lar, klavye yolu yok). `ui/Modal` ile çözülür.
 - [x] Tıklanabilir `div`, button değil — `aiQuery/SidebarConversationItem.tsx:79` (select `onClick`, rename `onDoubleClick`, klavye yok). → `<button>` + klavye erişimli rename.
 
 **React doğruluk**
+
 - [x] Component içinde component (recursive remount) — `modeling/ExpressionBuilder.tsx:227`: `ExpressionNodeBuilder` parent gövdesinde, recursive render → her render'da yeni tip, tüm ağaç remount, her tuş vuruşunda focus kaybı. → module scope'a taşı, prop geç.
 - [x] Effect'te iptal edilmeyen fetch — `dashboard/DashboardWidgetRenderer.tsx:256-278`: `postData(...).then(setData)` abort guard yok → stale/sırasız setState. 259 ölü kod `setData(... ? null : null)`. → AbortController/request-id guard ekle, ternary'i düzelt.
 - [x] Türetilmiş state effect'te set ediliyor — `aiQuery/AssistantMessageCard.tsx:135-150`: `tableView`/`chartType` `useState` ile init sonra iki effect'te overwrite. → render sırasında türet; state'i sadece kullanıcı override'ı için tut.
 
 **i18n — tüm paneller hardcoded İngilizce**
+
 - [ ] Admin paneller hardcoded string — `admin/RowLevelSecurityPanel.tsx` (208,213,229,244,251,257,263,267,333), `admin/FieldPermissionPanel.tsx` (320,325,335,350,356,373-376,447), `admin/PIIDetectionPanel.tsx:152`. → `useT()`.
 
 **State — sessiz hatalar**
+
 - [ ] Sessiz catch blokları, kullanıcı geri bildirimi yok — `Glossary.tsx:116,329`, `FewShotExamples.tsx:130`, `SavedQuestions.tsx:250,282`, `QueryHistory.tsx:121`. Optimistic toggle'lar sessizce geri dönüyor. → `ErrorAlert`/toast.
 
 **Responsive**
+
 - [ ] UI fiilen masaüstü-only — tüm `src/components/`'te sadece 16 `sm:/md:/lg:/xl:`. → dashboard, table, query builder denetle; responsive stacking ekle.
 
 **Build**
+
 - [ ] `optimizeDeps.include`/`resolve.dedupe` direkt olmayan dep'ler — `vite.config.ts:8,11`: `es-toolkit`, `@reduxjs/toolkit`, `immer` (hepsi recharts üzerinden transitive). İleriki recharts major'u dev server'ı derleme sinyali olmadan kırar. → transitive'leri `include`'tan çıkar veya explicit `dependencies`'e al.
 
 ### P1 — Orta etki
 
 **TypeScript — API boundary doğrulama (en yüksek kaldıraç)**
+
 - [ ] Merkezi fetch wire'ı körü körüne cast ediyor — `api/apiClient.ts:146` `return { data: data as T }`. → opsiyonel validator `(u: unknown) => T` `RequestOptions`'a geçir. Aşağıdaki cast'leri açar.
 - [ ] `normalizeAIQueryResponse` nested objeleri assert ediyor — `utils/normalizeAIQueryResponse.ts:58,60,78,82,85,87,93-103`: primitive'ler guard'lı ama `logical_query`/`result`/`table_routing`/`clarification`/`prompt_stats`/`token_usage`/`candidates`/`generation_trace` `unknown`'dan direkt cast. → `isRecord` guard'ları ekle.
 - [ ] `clarification_options as string[]` — `normalizeAIQueryResponse.ts:45,47`: `Array.isArray` element tipini kanıtlamaz. → `.filter((x): x is string => typeof x === 'string')`.
 - [ ] `jobWaiter` dekoratif generic — `hooks/jobWaiter.ts:31-32`: `settleComplete` `unknown`→`TResult` cast, ilişki yok. → `parse` param al veya `unknown` döndür.
 
 **Tailwind — hardcoded renkler token'ları bypass ediyor**
+
 - [ ] Auth sayfalarında brand hex (7×) — `from-[#6366f1] to-[#8b5cf6]` (`SignInPage.tsx:218`, `SignUpPage.tsx:158,309`, `ResetPasswordPage.tsx:81`, `ForgotPasswordPage.tsx:49`, `ClaimInvitePage.tsx:108`, `VerifyEmailPage.tsx:45`); `text-[#6366f1]`, `text-[#e2e8f0]`. Bunlar `--accent` token → açık modda yanlış. → `from-accent to-accent-strong` / `text-accent` (`authClasses.ts` zaten merkezde).
 - [ ] `DriftPanel.tsx` ham `hsl(...)` literal'leri (~30×) — `admin/DriftPanel.tsx:76-92,214-257`. → `bg-card`/`border-border`/`text-foreground-*`.
 - [ ] Component'lerde 213 hardcoded hex — statik surface/status renkleri → token; sadece data-driven (chart serisi) inline kalsın. Brand glow `rgba(99,102,241,…)` 20× elle.
 
 **Tailwind — tutarlılık**
+
 - [ ] `cn()` bypass; 10+ dosyada ham `clsx` — `ui/KPICard.tsx`, `ui/Skeleton.tsx`, `ui/TagBadge.tsx`, `Modal.tsx`, `Toast.tsx`, `PaginationControls.tsx`, `sharing/ShareButton.tsx`. `twMerge` yok → çakışan util dedupe olmaz. → `cn` (`src/lib/cn.ts`).
 - [ ] Koşullu class template literal ile (33 dosya) — örn. `SignInCredentialsForm.tsx:205`. → `cn('...', c && 'x')`.
 - [ ] Font-size scale token yok; `text-[Npx]` (106×) — `[13px]` 48×, `[12px]` 21×, `[14px]` 18×, `[11px]` 15×. Px sabitlenmiş, kullanıcı fontuyla ölçeklenmez. → `@theme` `--text-*` scale (rem).
 
 **i18n / a11y label**
+
 - [ ] Remove button'larda hardcoded `aria-label` — `queryBuilder/FieldsStep.tsx:60`, `FilterStep.tsx:91`, `CteStep.tsx:43`, `SummarizeStep.tsx:88,117`, `WindowFuncStep.tsx:68`, `HavingStep.tsx:72`. → `t()`.
 - [ ] Hardcoded `title` tooltip, icon-only button — `DashboardBuilder.tsx:509,527,538,547,568`. → çevir + `aria-label`.
 - [ ] Talimat içeren placeholder hardcoded — `DashboardBuilder.tsx:643`, `queryBuilder/CteStep.tsx:36,51`, `WindowFuncStep.tsx:49,55,61`.
@@ -65,6 +76,7 @@
 - [ ] `EmptyState` `role="status"` kullanıyor — `ui/EmptyState.tsx:45`: statik placeholder live region → gereksiz SR duyurusu. → düz region.
 
 **State / UX**
+
 - [ ] Liste ekranları `DataState` yerine elle loading/error/empty — `DashboardList.tsx:109`, `SavedQuestions.tsx:443`, `Datasources.tsx:364`, `Glossary.tsx:626`, `FewShotExamples.tsx:421`, `PromptTemplates.tsx:389`, `admin/ABExperimentList.tsx:116`.
 - [ ] Empty state'lerde CTA yok — `SavedQuestions.tsx:535`, `Datasources.tsx:365`, `FewShotExamples.tsx:421`, `Glossary.tsx:626`, `QueryHistory.tsx:245`, `Composites.tsx:390` (bkz. iyi örnek `DashboardList.tsx:141`).
 - [ ] Async button'larda pending/disabled yok — `Datasources.tsx:464,473,482` (Test/Sync/Delete double-submit), `SavedQuestions.tsx:568,592`.
@@ -73,6 +85,7 @@
 - [ ] Tek-label olarak emoji — `SidebarConversationItem.tsx:110,118` (✏️/🗑️), `SignInCredentialsForm.tsx:211` (🔑). → gerçek icon + `aria-label`.
 
 **Build / config**
+
 - [ ] `manualChunks` yok — `chartConfig-*.js` 352 KB, `index-*.js` 299 KB, i18n 126 KB; split tesadüfi. → stabil vendor'ları (recharts, react-dom, i18n) izole et.
 - [ ] Explicit `build.target` yok — `vite.config.ts`: Vite 8 "Baseline" default'una güveniyor. → `build: { target: 'es2022' }`.
 - [ ] `immer` override (`11.1.8`) recharts/RTK çakışmasını örtüyor — `package.json:50-52`: transitive recharts'ta immer 10→11 major zorluyor. → açıklayıcı comment, `^11.1.8`, recharts bump'ından sonra chart'ı doğrula.
@@ -81,6 +94,7 @@
 - [ ] `DataTable` empty cell hardcoded `#9ca3af` — `ui/DataTable.tsx:108`. → `text-foreground-muted`.
 
 ### P2 — Düşük / temizlik
+
 - [ ] `useConversation.ts:44` — localStorage `Conversation[]` doğrulamasız; element başı `id` doğrula.
 - [ ] `useAIJobs.tsx:191` — `result_json as TResult` dekoratif generic; guard'a yönlendir.
 - [ ] `types/ai.ts:142` — `AIJobStatus | 'idle'` magic sentinel; optional / discriminated union tercih et.
@@ -97,6 +111,7 @@
 - [ ] `tsconfig.json:3-5` — `target`/`lib` ES2020, ekosistem ES2022; ES2022'ye çıkar.
 
 ### Zaten sağlam (aksiyon yok)
+
 - Bundle splitting: route'lar `lazyWithPreload` hover/intent preload; admin/eval alt-paneller `React.lazy`; recharts/qrcode lazy chunk'larda; barrel-import sorunu yok.
 - TypeScript: 382 dosyada sıfır `any`/`as any`/`@ts-ignore`/`Record<string,any>`/`: object` prop; strict + `noUncheckedIndexedAccess`; enum yerine literal union; temiz `AuthUserRaw→normalize→AuthUser` boundary.
 - Tailwind v4 setup doğru: `@import 'tailwindcss'`, `@theme inline`, JS config yok, `@apply` sadece `@layer base`.
@@ -104,6 +119,7 @@
 - Vite proxy sırası doğru (`/api/auth` önce `/api`), env-var sızıntısı yok (`src/`'de `import.meta.env` yok, `.env*` yok).
 
 ### Önerilen sıra
+
 1. `@custom-variant dark` tek satır (43 bozuk utility'i düzeltir).
 2. `apiClient`'a validator geçir (tüm boundary-cast fix'lerini açar).
 3. Custom modal'ları `ui/Modal`'a taşı (a11y High'ları topluca temizler).
@@ -760,6 +776,7 @@
 | **18** Final Doğrulama | `executing-plans` | Plan doğrulama checkpoint'leri, acceptance criteria |
 
 **Ortak kullanım notları:**
+
 - `tailwind` ve `tailwind-css-patterns` her fazda referans olarak yanında tut — utility class çeviriminde sürekli ihtiyaç var.
 - `frontend-design` görsel karar gerektiren fazlarda (2, 3, 12) load et; design intent kaybını önler.
 - `web-design-guidelines` a11y gerektiren fazlarda (4, 5, 6, 18) çalıştır — focus-visible, ARIA, keyboard nav.
@@ -834,7 +851,7 @@ Tailwind v4 (`@import 'tailwindcss';`) `index.css` başında zaten bağlı.
 **KORUNACAK / dokunulmayacak (base + token + tema):**
 
 - `index.css` **karma dosya**: KORU → `*` reset, `:root` + `:root[data-theme='dark']`
-  + `[data-theme='light']` token blokları (50 değişken, çift tema), `html`/`body` base,
+  - `[data-theme='light']` token blokları (50 değişken, çift tema), `html`/`body` base,
   `color-scheme`, 13× `::-webkit-scrollbar` özel scrollbar, 25× `@keyframes`.
   MİGRE EDİLEBİLİR (aynı dosya içindeki utility-benzeri ortak sınıflar) → `.btn`/`.btn-*`,
   `.card`, `.form-field`/`.form-label`/`.input`, `.error`, `.loading-overlay`, badge/KPI.
@@ -1050,9 +1067,11 @@ LLM'in önceki cevabın içeriğini bilmesi için her tura sonuç özeti eklenme
   - Hata varsa: `"error: ..."`
   - Boş sonuç: `"no results"`
 - [x] Önet üretici yardımcı: `frontend/src/utils/priorTurnSummary.ts` oluştur:
+
   ```typescript
   export function buildResultSummary(response: AIQueryResponse): string
   ```
+
   Kurallar:
   - `response.result` varsa ve satırlar varsa: kolon adları + değerlerle compact metin
     (max 200 karakter, fazla satır "ve N daha" ile kısaltılır)
@@ -1069,6 +1088,7 @@ LLM'in önceki cevabın içeriğini bilmesi için her tura sonuç özeti eklenme
   `prompt.ConversationTurn`'a geçir
 - [x] `internal/ai/prompt/prompt.go:140-144` — `ConversationTurn` struct'ına `ResultSummary string` ekle
 - [x] `internal/ai/prompt/prompt.go:383-402` — `writePriorTurns` fonksiyonunda sonuç özetini yazdır:
+
   ```
   Turn 1 — Question: "geçtiğimiz ay en çok hangi gün tweet atılmıştır?"
   Previous LogicalQuery: {...}
@@ -1132,12 +1152,14 @@ LLM'in önceki cevabın içeriğini bilmesi için her tura sonuç özeti eklenme
 - [x] `internal/ai/filter_session.go` — `FilterSessionState` struct'ına `LastResultSummary string` alanı ekle
 - [x] `FilterSessionFromPriorTurns` — son turun `ResultSummary`'sini state'e yaz
 - [x] `ActiveFilterInstructions` — sonuç özeti varsa prompt'a ekle:
+
   ```
   ## Previous Answer Context
   The previous question "geçtiğimiz ay en çok hangi gün tweet atılmıştır?" yielded:
   Result: May 20, 2026 tarihinde 2,932 tweet
   When the user says "o gün", "that day", "o şirket" etc., resolve to the relevant value from this result.
   ```
+
 - [x] `ClassifyFollowUpIntent` — sonuç özetindeki değerlere referans veren sorularda
   `IntentRefine` sınıflamasını güçlendir (şu anda yalnızca filtre benzerliğine bakıyor)
 - [x] Test: "o gün" sorusu + result_summary "May 20" → `IntentRefine` + doğru filtre taşıma
@@ -1636,7 +1658,6 @@ Verification:
 - Green: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/response/... ./internal/http/handlers/...`
 - `make lint-go`
 
-
 ### MW-10 — Integer Query Param Parsing Helper [MEDIUM]
 
 5 yerde `strconv.Atoi` ile inline limit/integer parse ediliyor. `pagination.go:84-93`'te `parsePositiveQueryInt` var ama unexported.
@@ -1659,7 +1680,6 @@ Verification:
 
 - Green: `GOCACHE=/private/tmp/biqly-gocache go test -race ./internal/http/response/... ./internal/http/handlers/... ./internal/http/middleware/...`
 - `make lint-go`
-
 
 ### MW-11 — Handler Datasource Access Check Birleştirme [MEDIUM]
 
@@ -1686,7 +1706,6 @@ Verification:
 
 - Green: `GOCACHE=/private/tmp/biqly-gocache go test -race ./internal/http/handlers/... ./internal/http/middleware/...`
 - `make lint-go`
-
 
 ### MW-12 — Auth Handler `requireUserID` → Shared Helper [MEDIUM]
 
@@ -1744,11 +1763,13 @@ Amaç: React bileşenlerindeki tekrarlanan kalıpları custom hook, yardımcı f
 İptal bayraklı (`let cancelled = false`) useEffect data loading kalıbı 19 bileşende tekrarlanıyor. Her biri `loading`, `error`, `setData` state yönetimini ayrı ayrı kuruyor.
 
 - [ ] `frontend/src/hooks/useFetch.ts` oluştur:
+
   ```typescript
   function useFetch<T>(fetcher: () => Promise<T>, deps: unknown[]): {
     data: T | null; loading: boolean; error: string | null; setData: Dispatch<SetStateAction<T | null>>
   }
   ```
+
   AbortController ile cleanup, hata durumunda `errorMessage()` kullanımı
 - [ ] 19 bileşeni `useFetch`'e geçir: `AIHistoryPanel`, `ShareButton`, `AIQuery`, `Composites`, `Metadata`, `SignUpPage`, `SignInPage`, `FieldPermissionPanel`, `QueryHistory`, `useMetadataBulkDescribeModalState`, `useTableBrowserPage`, `AIUsageAdminPanel`, `TableBrowserRowModal`, `RowLevelSecurityPanel`, `RolesPanel`, `WorkspaceSelector`
 - [ ] Her geçiş sonrası ilgili bileşenin vitest testi çalıştır
@@ -1791,11 +1812,13 @@ Hata gösterimi 5 farklı yöntemle yapılıyor: `<ErrorAlert>` bileşeni (5 kul
 `AUTH_API_BASE = '/api/auth'` 4 dosyada, `AI_API_BASE = '/api/ai'` 3 dosyada, `adminOpts = { useAdminKey: true as const }` 3 dosyada tekrarlanıyor.
 
 - [ ] `frontend/src/api/constants.ts` oluştur:
+
   ```typescript
   export const AUTH_API_BASE = '/api/auth'
   export const AI_API_BASE = '/api/ai'
   export const ADMIN_OPTS = { useAdminKey: true as const } as const
   ```
+
 - [ ] `api/auth.ts`, `api/admin.ts`, `api/aiModelAccess.ts`, `api/ldap.ts`, `api/aiProviders.ts`, `api/aiUserModels.ts`, `api/aiAdmin.ts`'teki yerel tanımları import ile değiştir
 - [ ] ESLint + build temiz
 
@@ -1808,9 +1831,11 @@ Hata gösterimi 5 farklı yöntemle yapılıyor: `<ErrorAlert>` bileşeni (5 kul
 `URLSearchParams` + optional parametre kalıbı 10+ API fonksiyonunda tekrarlanıyor. Her biri aynı `if (value) params.set(key, String(value))` + `suffix` kalıbını kuruyor.
 
 - [ ] `frontend/src/utils/query.ts` oluştur:
+
   ```typescript
   export function buildQueryString(params: Record<string, string | number | boolean | undefined | null>): string
   ```
+
 - [ ] `api/admin.ts` (9 instance), `api/aiProviders.ts` (1 instance) call site'lerini güncelle
 - [ ] Test: null/undefined/empty değerler query'den çıkıyor; geçerli değerler doğru encode ediliyor
 
@@ -1823,11 +1848,13 @@ Hata gösterimi 5 farklı yöntemle yapılıyor: `<ErrorAlert>` bileşeni (5 kul
 `useDatasources`, `useSemanticModels`, `useModelDetail` neredeyse aynı yapıda: URL'ye GET at, loading/error/data state yönet, reload fonksiyonu sun.
 
 - [ ] `frontend/src/hooks/useApiResource.ts` oluştur:
+
   ```typescript
   function useApiResource<T>(url: string | null, defaultValue: T): {
     data: T; loading: boolean; error: string | null; reload: () => void; setData: Dispatch<SetStateAction<T>>
   }
   ```
+
 - [ ] `useDatasources`, `useSemanticModels`, `useModelDetail`'i `useApiResource`'a geçir
 - [ ] Test: loading → data → error geçişleri doğru çalışıyor
 
@@ -1840,6 +1867,7 @@ Hata gösterimi 5 farklı yöntemle yapılıyor: `<ErrorAlert>` bileşeni (5 kul
 `[loading, setLoading] + [error, setError] + [saving, setSaving]` state üçlemesi 12+ bileşende bağımsız `useState` çağrılarıyla tekrarlanıyor.
 
 - [ ] `frontend/src/hooks/useAsyncState.ts` oluştur:
+
   ```typescript
   function useAsyncState(): {
     loading: boolean; error: string | null; saving: boolean;
@@ -1849,6 +1877,7 @@ Hata gösterimi 5 farklı yöntemle yapılıyor: `<ErrorAlert>` bileşeni (5 kul
     run: <T>(fn: () => Promise<T>) => Promise<T | null>;
   }
   ```
+
 - [ ] 12+ admin/ayar bileşenini güncelle
 - [ ] Test: `run` hatası setError + setSaving(false) yapıyor
 
@@ -1873,9 +1902,11 @@ Hata gösterimi 5 farklı yöntemle yapılıyor: `<ErrorAlert>` bileşeni (5 kul
 Tarih formatlama 7 yerde tutarsız yapılıyor: bazıları locale parametresiz `toLocaleDateString()`, bazıları `localeLanguageTag(locale)` ile.
 
 - [ ] `frontend/src/utils/formatters.ts` oluştur:
+
   ```typescript
   export function formatDate(iso: string, locale: Locale): string
   ```
+
 - [ ] 7 call site'i güncelle: `DashboardList`, `Settings`, `ActiveUsersTab`, `InvitationsTab`, `WorkspaceSettingsPage`, `SharedResourcesList`
 - [ ] Test: farklı locale'lerde doğru format
 
@@ -1905,11 +1936,13 @@ Tarih formatlama 7 yerde tutarsız yapılıyor: bazıları locale parametresiz `
 Modal açık/kapalı + düzenlenen öğe state yönetimi 5+ bileşende tekrarlanıyor (`useState(false)` + `useState(null)` + open/close fonksiyonları).
 
 - [ ] `frontend/src/hooks/useModal.ts` oluştur:
+
   ```typescript
   function useModal<T>(): {
     open: boolean; editing: T | null; openModal: (item?: T) => void; closeModal: () => void
   }
   ```
+
 - [ ] 5+ bileşeni güncelle: `AIProvidersPanel`, `ModelModal`, `DatasourceFormModal`, `SavedQuestionFormModal`, `MetadataDescribeModal`
 - [ ] Test: open/close/editing state doğru yönetiliyor
 
@@ -1922,9 +1955,11 @@ Modal açık/kapalı + düzenlenen öğe state yönetimi 5+ bileşende tekrarlan
 `confirm() → if (!ok) return → try { action } → catch { toast.error }` kalıbı 6+ handler'da tekrarlanıyor.
 
 - [ ] `frontend/src/utils/confirm.ts` oluştur:
+
   ```typescript
   async function confirmAction(fn: () => Promise<void>, opts: ConfirmOptions): Promise<boolean>
   ```
+
 - [ ] 6+ call site'i güncelle: `AIProvidersPanel`, `WorkspacesPanel`, `SharedResourcesList`, `UserDetailPage`
 - [ ] Test: iptal → false, onay+başarı → true, onay+hata → toast.error + false
 

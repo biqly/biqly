@@ -35,17 +35,17 @@ export function SignInMfaForm({
       }}
       className={authFormClass}
     >
-      <h2 className="m-0 mb-2 text-center text-[1.25rem] font-bold text-foreground">
+      <h2 className="text-foreground m-0 mb-2 text-center text-[1.25rem] font-bold">
         {t('mfa.login_title')}
       </h2>
-      <p className="mb-6 px-2 text-center text-[0.85rem] text-foreground-muted">
+      <p className="text-foreground-muted mb-6 px-2 text-center text-[0.85rem]">
         {t('mfa.login_desc')}
       </p>
 
       {error && (
         <div
           className={legacyFeedbackClass(
-            'p-[10px_12px] bg-error/8 border-l-[3px] border-error text-error text-[13px] rounded mb-2',
+            'bg-error/8 border-error text-error mb-2 rounded border-l-[3px] p-[10px_12px] text-[13px]',
           )}
           role="alert"
           aria-live="assertive"
@@ -87,7 +87,7 @@ export function SignInMfaForm({
 
       <button
         type="button"
-        className={`flex items-center justify-center gap-2 w-full py-2.75 px-4 rounded-lg cursor-pointer transition-all duration-150 mt-2 bg-transparent border border-border text-foreground-muted hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed`}
+        className={`border-border text-foreground-muted mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border bg-transparent px-4 py-2.75 transition-all duration-150 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60`}
         onClick={onCancel}
         disabled={mfaLoading}
       >

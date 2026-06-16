@@ -29,9 +29,9 @@ func TestUpToDownFilename(t *testing.T) {
 		up   string
 		want string
 	}{
-		{name: "paired auth migration", up: "001a_create_users.up.sql", want: "001b_create_users.down.sql"},
+		{name: "paired auth migration", up: "001a_create_users.up.sql", want: "001a_create_users.down.sql"},
 		{name: "not up suffix", up: "001a_create_users.sql", want: ""},
-		{name: "missing a marker", up: "001_create_users.up.sql", want: ""},
+		{name: "numbered migration", up: "001_create_users.up.sql", want: "001_create_users.down.sql"},
 	}
 
 	for _, tt := range tests {

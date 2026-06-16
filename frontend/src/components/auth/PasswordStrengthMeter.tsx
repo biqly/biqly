@@ -81,7 +81,7 @@ export default function PasswordStrengthMeter({ password, onValidityChange }: Pr
   }
 
   return (
-    <div className="mt-2 rounded-lg border border-border bg-card-raised/60 p-3" aria-live="polite">
+    <div className="border-border bg-card-raised/60 mt-2 rounded-lg border p-3" aria-live="polite">
       <div className="flex items-center justify-between gap-3 text-[12px]">
         <span className="text-foreground-muted">{t('auth.strength_label')}</span>
         <span className={cn('font-semibold', tone ? toneTextClass[tone] : 'text-foreground-muted')}>
@@ -94,7 +94,7 @@ export default function PasswordStrengthMeter({ password, onValidityChange }: Pr
           <div
             key={segment}
             className={cn(
-              'h-1 flex-1 rounded-full bg-border transition-colors duration-200',
+              'bg-border h-1 flex-1 rounded-full transition-colors duration-200',
               segment <= level && tone ? toneBarClass[tone] : '',
             )}
           />

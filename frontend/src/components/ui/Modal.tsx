@@ -107,7 +107,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-[var(--z-modal,1000)] grid [place-items:start_center] overflow-y-auto bg-black/55 backdrop-blur-[4px] p-[3rem_1rem] max-[680px]:p-4 animate-modal-fade"
+      className="animate-modal-fade fixed inset-0 z-[var(--z-modal,1000)] grid [place-items:start_center] overflow-y-auto bg-black/55 p-[3rem_1rem] backdrop-blur-[4px] max-[680px]:p-4"
       role="presentation"
       tabIndex={-1}
       onClick={(event) => {
@@ -129,7 +129,7 @@ export function Modal({
       <section
         ref={dialogRef}
         className={clsx(
-          'w-[min(100%,44rem)] max-[680px]:rounded-lg border border-border-strong rounded-xl bg-card shadow-[0_16px_48px_rgba(0,0,0,0.5)] text-foreground animate-modal-pop',
+          'border-border-strong bg-card text-foreground animate-modal-pop w-[min(100%,44rem)] rounded-xl border shadow-[0_16px_48px_rgba(0,0,0,0.5)] max-[680px]:rounded-lg',
           className,
         )}
         role="dialog"
@@ -138,21 +138,21 @@ export function Modal({
         tabIndex={-1}
       >
         <header
-          className={`flex items-center justify-between gap-4 border-b border-border p-[1rem_1.25rem] max-[680px]:p-[0.85rem_1rem]`}
+          className={`border-border flex items-center justify-between gap-4 border-b p-[1rem_1.25rem] max-[680px]:p-[0.85rem_1rem]`}
         >
-          <div className="flex flex-col min-w-0">
+          <div className="flex min-w-0 flex-col">
             <h3 id={labelledBy} className="m-0 text-[1.05rem] tracking-tight">
               {title}
             </h3>
             {subtitle && (
-              <p className="m-0 mt-[0.2rem] text-foreground-muted text-[0.86rem] leading-[1.45] [overflow-wrap:anywhere]">
+              <p className="text-foreground-muted m-0 mt-[0.2rem] text-[0.86rem] leading-[1.45] [overflow-wrap:anywhere]">
                 {subtitle}
               </p>
             )}
           </div>
           <button
             type="button"
-            className={`inline-grid w-[1.85rem] h-[1.85rem] place-items-center border border-border rounded-[0.4rem] bg-transparent text-foreground-muted cursor-pointer text-[1.05rem] leading-none transition-colors duration-150 hover:border-rose-400/40 hover:bg-rose-400/12 hover:text-rose-200`}
+            className={`border-border text-foreground-muted inline-grid h-[1.85rem] w-[1.85rem] cursor-pointer place-items-center rounded-[0.4rem] border bg-transparent text-[1.05rem] leading-none transition-colors duration-150 hover:border-rose-400/40 hover:bg-rose-400/12 hover:text-rose-200`}
             aria-label={t('common.modal_close_aria')}
             onClick={onClose}
           >
@@ -161,7 +161,7 @@ export function Modal({
         </header>
         <div
           className={clsx(
-            'modal-body grid gap-[0.85rem] max-[680px]:gap-3 p-[1.1rem_1.25rem_1.25rem] max-[680px]:p-[0.85rem_1rem_1rem]',
+            'modal-body grid gap-[0.85rem] p-[1.1rem_1.25rem_1.25rem] max-[680px]:gap-3 max-[680px]:p-[0.85rem_1rem_1rem]',
             bodyClassName,
           )}
         >

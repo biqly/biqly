@@ -97,17 +97,17 @@ export function AppUpdateGate() {
   return (
     <div
       className={legacyCardClass(
-        'fixed left-4 right-4 bottom-4 max-[520px]:left-3 max-[520px]:right-3 max-[520px]:bottom-3 z-2000 flex max-[520px]:flex-col items-center max-[520px]:items-start justify-between gap-3.5 p-[12px_14px] rounded-xl border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--bg-card)_92%,var(--accent)_8%)] shadow-[0_14px_42px_rgba(0,0,0,0.55)] backdrop-blur-[10px]',
+        'fixed right-4 bottom-4 left-4 z-2000 flex items-center justify-between gap-3.5 rounded-xl border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--bg-card)_92%,var(--accent)_8%)] p-[12px_14px] shadow-[0_14px_42px_rgba(0,0,0,0.55)] backdrop-blur-[10px] max-[520px]:right-3 max-[520px]:bottom-3 max-[520px]:left-3 max-[520px]:flex-col max-[520px]:items-start',
       )}
       role="status"
       aria-live="polite"
     >
       <div className="flex min-w-0 flex-col gap-0.5">
-        <div className="text-[0.9rem] font-bold text-foreground">{title}</div>
-        <div className="text-[0.82rem] leading-[1.35] text-foreground-muted">{body}</div>
+        <div className="text-foreground text-[0.9rem] font-bold">{title}</div>
+        <div className="text-foreground-muted text-[0.82rem] leading-[1.35]">{body}</div>
       </div>
       <div className="flex shrink-0 items-center gap-2.5 max-[520px]:w-full max-[520px]:justify-between">
-        <div className="text-[0.78rem] whitespace-nowrap text-foreground-muted">
+        <div className="text-foreground-muted text-[0.78rem] whitespace-nowrap">
           {t('app_update.reloading_in', { seconds: state.countdown })}
         </div>
         <button

@@ -103,12 +103,12 @@ export function DriftBadge({ severity, count }: { severity: string; count: numbe
   }
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.75rem] font-semibold leading-[1.4] whitespace-nowrap cursor-default ${badgeSeverityClasses[severity] ?? ''}`}
+      className={`inline-flex cursor-default items-center gap-1 rounded-full px-2 py-0.5 text-[0.75rem] leading-[1.4] font-semibold whitespace-nowrap ${badgeSeverityClasses[severity] ?? ''}`}
       title={t('modeling.drift_badge_title', { count })}
       aria-label={t('modeling.drift_badge_title', { count })}
     >
       <span
-        className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotSeverityClasses[severity] ?? ''}`}
+        className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotSeverityClasses[severity] ?? ''}`}
         aria-hidden="true"
       />
       {count}
@@ -140,7 +140,7 @@ export function DriftBanner({ reports, onExpand }: DriftBannerProps) {
 
   return (
     <div
-      className={`flex items-center gap-2.5 p-[8px_14px] rounded-lg text-[0.85rem] leading-normal animate-drift-banner-enter ${bannerSeverityClasses[severity] ?? ''}`}
+      className={`animate-drift-banner-enter flex items-center gap-2.5 rounded-lg p-[8px_14px] text-[0.85rem] leading-normal ${bannerSeverityClasses[severity] ?? ''}`}
       role="alert"
     >
       <span className="shrink-0 text-[1rem]" aria-hidden="true">
@@ -211,7 +211,7 @@ export function DriftPanel({ modelId, defaultOpen = false }: DriftPanelProps) {
 
   return (
     <div
-      className="mt-3 animate-drift-panel-enter overflow-hidden rounded-xl border border-[hsl(220_13%_86%)] bg-white dark:border-[hsl(220_10%_24%)] dark:bg-[hsl(220_10%_12%)]"
+      className="animate-drift-panel-enter mt-3 overflow-hidden rounded-xl border border-[hsl(220_13%_86%)] bg-white dark:border-[hsl(220_10%_24%)] dark:bg-[hsl(220_10%_12%)]"
       id="drift-panel"
     >
       <button
@@ -236,7 +236,7 @@ export function DriftPanel({ modelId, defaultOpen = false }: DriftPanelProps) {
         <div className="px-3.5 pt-0 pb-3.5" id="drift-panel-body">
           {reports.map((report) => (
             <div key={report.id}>
-              <div className="mx-0 mt-2.5 mb-0.5 flex items-center gap-2 text-[0.8rem] text-foreground-faint [&_time]:italic">
+              <div className="text-foreground-faint mx-0 mt-2.5 mb-0.5 flex items-center gap-2 text-[0.8rem] [&_time]:italic">
                 <span>{severityLabel(report.severity, t)}</span>
                 <time dateTime={report.detected_at}>
                   {new Date(report.detected_at).toLocaleString()}
@@ -248,19 +248,19 @@ export function DriftPanel({ modelId, defaultOpen = false }: DriftPanelProps) {
               >
                 <thead>
                   <tr>
-                    <th className="border-b border-[hsl(220_13%_86%)] p-[6px_10px] text-left text-[0.75rem] font-semibold tracking-wider text-foreground-faint uppercase dark:border-[hsl(220_10%_24%)]">
+                    <th className="text-foreground-faint border-b border-[hsl(220_13%_86%)] p-[6px_10px] text-left text-[0.75rem] font-semibold tracking-wider uppercase dark:border-[hsl(220_10%_24%)]">
                       {t('modeling.drift_col_type')}
                     </th>
-                    <th className="border-b border-[hsl(220_13%_86%)] p-[6px_10px] text-left text-[0.75rem] font-semibold tracking-wider text-foreground-faint uppercase dark:border-[hsl(220_10%_24%)]">
+                    <th className="text-foreground-faint border-b border-[hsl(220_13%_86%)] p-[6px_10px] text-left text-[0.75rem] font-semibold tracking-wider uppercase dark:border-[hsl(220_10%_24%)]">
                       {t('modeling.drift_col_field')}
                     </th>
-                    <th className="border-b border-[hsl(220_13%_86%)] p-[6px_10px] text-left text-[0.75rem] font-semibold tracking-wider text-foreground-faint uppercase dark:border-[hsl(220_10%_24%)]">
+                    <th className="text-foreground-faint border-b border-[hsl(220_13%_86%)] p-[6px_10px] text-left text-[0.75rem] font-semibold tracking-wider uppercase dark:border-[hsl(220_10%_24%)]">
                       {t('modeling.drift_col_ref')}
                     </th>
-                    <th className="border-b border-[hsl(220_13%_86%)] p-[6px_10px] text-left text-[0.75rem] font-semibold tracking-wider text-foreground-faint uppercase dark:border-[hsl(220_10%_24%)]">
+                    <th className="text-foreground-faint border-b border-[hsl(220_13%_86%)] p-[6px_10px] text-left text-[0.75rem] font-semibold tracking-wider uppercase dark:border-[hsl(220_10%_24%)]">
                       {t('modeling.drift_col_description')}
                     </th>
-                    <th className="border-b border-[hsl(220_13%_86%)] p-[6px_10px] text-left text-[0.75rem] font-semibold tracking-wider text-foreground-faint uppercase dark:border-[hsl(220_10%_24%)]">
+                    <th className="text-foreground-faint border-b border-[hsl(220_13%_86%)] p-[6px_10px] text-left text-[0.75rem] font-semibold tracking-wider uppercase dark:border-[hsl(220_10%_24%)]">
                       {t('modeling.drift_col_action')}
                     </th>
                   </tr>
@@ -271,7 +271,7 @@ export function DriftPanel({ modelId, defaultOpen = false }: DriftPanelProps) {
                       <td className="border-b border-[hsl(220_13%_92%)] p-[8px_10px] align-top group-last:border-b-0 dark:border-[hsl(220_10%_20%)]">
                         <span className="inline-flex items-center gap-1">
                           <span
-                            className={`w-2 h-2 rounded-full shrink-0 ${dotSeverityClasses[report.severity] ?? ''}`}
+                            className={`h-2 w-2 shrink-0 rounded-full ${dotSeverityClasses[report.severity] ?? ''}`}
                             aria-hidden="true"
                           />
                           {driftTypeLabel(item.type, t)}
@@ -283,7 +283,7 @@ export function DriftPanel({ modelId, defaultOpen = false }: DriftPanelProps) {
                       <td className="border-b border-[hsl(220_13%_92%)] p-[8px_10px] align-top font-mono text-[0.8rem] group-last:border-b-0 dark:border-[hsl(220_10%_20%)]">
                         {item.column_ref || '—'}
                       </td>
-                      <td className="max-w-[320px] border-b border-[hsl(220_13%_92%)] p-[8px_10px] align-top text-foreground-muted group-last:border-b-0 dark:border-[hsl(220_10%_20%)]">
+                      <td className="text-foreground-muted max-w-[320px] border-b border-[hsl(220_13%_92%)] p-[8px_10px] align-top group-last:border-b-0 dark:border-[hsl(220_10%_20%)]">
                         {item.description}
                       </td>
                       <td className="border-b border-[hsl(220_13%_92%)] p-[8px_10px] align-top group-last:border-b-0 dark:border-[hsl(220_10%_20%)]">

@@ -106,7 +106,7 @@ export function CommandPalette({ items }: CommandPaletteProps) {
 
   return (
     <div
-      className="fixed inset-0 z-(--z-cmdk,1200) grid animate-cmdk-fade [place-items:start_center] overflow-y-auto bg-black/50 p-[8vh_1rem_2rem] backdrop-blur-xs motion-reduce:animate-none"
+      className="animate-cmdk-fade fixed inset-0 z-(--z-cmdk,1200) grid [place-items:start_center] overflow-y-auto bg-black/50 p-[8vh_1rem_2rem] backdrop-blur-xs motion-reduce:animate-none"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
@@ -116,20 +116,20 @@ export function CommandPalette({ items }: CommandPaletteProps) {
     >
       <div
         className={legacyCardClass(
-          'w-full max-w-xl border border-border-strong rounded-xl bg-card shadow-[0_24px_64px_rgba(0,0,0,0.55)] text-foreground overflow-hidden animate-cmdk-pop motion-reduce:animate-none',
+          'border-border-strong bg-card text-foreground animate-cmdk-pop w-full max-w-xl overflow-hidden rounded-xl border shadow-[0_24px_64px_rgba(0,0,0,0.55)] motion-reduce:animate-none',
         )}
         role="dialog"
         aria-modal="true"
         aria-label={t('command_palette.title')}
       >
-        <div className={`flex items-center gap-[0.6rem] border-b border-border p-[0.85rem_1rem]`}>
-          <span className="text-[1.1rem] leading-none text-foreground-muted" aria-hidden="true">
+        <div className={`border-border flex items-center gap-[0.6rem] border-b p-[0.85rem_1rem]`}>
+          <span className="text-foreground-muted text-[1.1rem] leading-none" aria-hidden="true">
             ⌕
           </span>
           <input
             ref={inputRef}
             type="text"
-            className="flex-1 border-none bg-transparent text-[1rem] text-foreground outline-none placeholder:text-foreground-muted"
+            className="text-foreground placeholder:text-foreground-muted flex-1 border-none bg-transparent text-[1rem] outline-none"
             placeholder={t('command_palette.placeholder')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -141,7 +141,7 @@ export function CommandPalette({ items }: CommandPaletteProps) {
           />
           <kbd
             className={legacyCardClass(
-              'border border-border rounded-[0.35rem] bg-card-raised text-foreground-muted text-[0.7rem] p-[0.1rem_0.4rem]',
+              'border-border bg-card-raised text-foreground-muted rounded-[0.35rem] border p-[0.1rem_0.4rem] text-[0.7rem]',
             )}
           >
             Esc
@@ -149,7 +149,7 @@ export function CommandPalette({ items }: CommandPaletteProps) {
         </div>
 
         {filtered.length === 0 ? (
-          <div className="p-[1.5rem_1rem] text-center text-[0.9rem] text-foreground-muted">
+          <div className="text-foreground-muted p-[1.5rem_1rem] text-center text-[0.9rem]">
             {t('command_palette.empty')}
           </div>
         ) : (
@@ -165,13 +165,13 @@ export function CommandPalette({ items }: CommandPaletteProps) {
                 role="option"
                 aria-selected={index === activeIndex}
                 data-active={index === activeIndex}
-                className="flex cursor-pointer items-center gap-[0.7rem] rounded-lg p-[0.55rem_0.7rem] text-foreground aria-selected:bg-(--accent-glow)"
+                className="text-foreground flex cursor-pointer items-center gap-[0.7rem] rounded-lg p-[0.55rem_0.7rem] aria-selected:bg-(--accent-glow)"
                 onMouseMove={() => setActiveIndex(index)}
                 onClick={() => runItem(item)}
               >
                 {item.icon && (
                   <span
-                    className="inline-grid h-5 w-5 place-items-center text-foreground-muted [&>svg]:h-[1.1rem] [&>svg]:w-[1.1rem]"
+                    className="text-foreground-muted inline-grid h-5 w-5 place-items-center [&>svg]:h-[1.1rem] [&>svg]:w-[1.1rem]"
                     aria-hidden="true"
                   >
                     {item.icon}
@@ -179,7 +179,7 @@ export function CommandPalette({ items }: CommandPaletteProps) {
                 )}
                 <span className="flex-1 text-[0.9rem]">{item.label}</span>
                 {item.group && (
-                  <span className="text-[0.72rem] tracking-[0.04em] text-foreground-muted uppercase">
+                  <span className="text-foreground-muted text-[0.72rem] tracking-[0.04em] uppercase">
                     {item.group}
                   </span>
                 )}

@@ -218,16 +218,16 @@ export default function SignInPage() {
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
             <img src={abiLogo} alt="" className="h-8.5 w-8.5 object-contain" />
           </div>
-          <h1 className="mb-1 text-[24px] font-bold tracking-tight text-foreground">
+          <h1 className="text-foreground mb-1 text-[24px] font-bold tracking-tight">
             {t('auth.title_signin')}
           </h1>
           {firstUserSetupRequired ? (
-            <div className="mt-2 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2 text-[13px] text-foreground-muted">
-              <p className="mb-1 font-semibold text-foreground">{t('auth.first_setup_title')}</p>
+            <div className="border-accent/30 bg-accent/8 text-foreground-muted mt-2 rounded-lg border px-3 py-2 text-[13px]">
+              <p className="text-foreground mb-1 font-semibold">{t('auth.first_setup_title')}</p>
               <p className="mb-2">{t('auth.first_setup_body')}</p>
               <a
                 href="/auth/signup"
-                className="font-semibold text-accent no-underline hover:underline"
+                className="text-accent font-semibold no-underline hover:underline"
                 onClick={(e) => {
                   e.preventDefault()
                   void navigate('/auth/signup')
@@ -237,7 +237,7 @@ export default function SignInPage() {
               </a>
             </div>
           ) : signupAllowed ? (
-            <p className="text-[14px] text-foreground-muted">
+            <p className="text-foreground-muted text-[14px]">
               {t('auth.no_account')}{' '}
               <a
                 href="/auth/signup"
@@ -255,7 +255,7 @@ export default function SignInPage() {
 
         {sessionBanner && (
           <div
-            className="mb-2 rounded border-l-[3px] border-accent bg-accent/8 p-[10px_12px] text-[13px] text-foreground-muted"
+            className="border-accent bg-accent/8 text-foreground-muted mb-2 rounded border-l-[3px] p-[10px_12px] text-[13px]"
             role="status"
             aria-live="polite"
           >

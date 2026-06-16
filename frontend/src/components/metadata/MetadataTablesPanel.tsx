@@ -239,15 +239,15 @@ export function MetadataTablesPanel({
                         aria-label={
                           openTableId === tab.id
                             ? t('metadata.aria_table_collapse', {
-                              name: `${tab.schema_name}.${tab.table_name}`,
-                            })
+                                name: `${tab.schema_name}.${tab.table_name}`,
+                              })
                             : t('metadata.aria_table_expand', {
-                              name: `${tab.schema_name}.${tab.table_name}`,
-                            })
+                                name: `${tab.schema_name}.${tab.table_name}`,
+                              })
                         }
                         onClick={() => onToggleTable(tab)}
                       >
-                        <span className="inline-block w-[0.7rem] text-[0.7rem] text-foreground-muted">
+                        <span className="text-foreground-muted inline-block w-[0.7rem] text-[0.7rem]">
                           {openTableId === tab.id ? '▼' : '▶'}
                         </span>
                         {tab.schema_name}.{tab.table_name}

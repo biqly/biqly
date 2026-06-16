@@ -159,12 +159,12 @@ export default function SavedQuestions() {
     runState.loading
   const runError =
     runState.scopeKey === questionsScopeKey &&
-      runState.questionId === (selectedQuestion?.id ?? null)
+    runState.questionId === (selectedQuestion?.id ?? null)
       ? runState.error
       : null
   const runResult =
     runState.scopeKey === questionsScopeKey &&
-      runState.questionId === (selectedQuestion?.id ?? null)
+    runState.questionId === (selectedQuestion?.id ?? null)
       ? runState.result
       : null
 

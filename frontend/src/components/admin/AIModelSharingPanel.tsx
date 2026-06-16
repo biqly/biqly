@@ -312,7 +312,7 @@ export function AIModelSharingPanel() {
             </div>
           </div>
 
-          <p className="m-0 mb-3 text-[0.8125rem] text-foreground-muted">
+          <p className="text-foreground-muted m-0 mb-3 text-[0.8125rem]">
             {targetKind === 'workspace'
               ? t('admin.ai_model_access.workspaces_available', { count: workspaces.length })
               : t('admin.ai_model_access.roles_available', { count: roles.length })}
@@ -334,7 +334,7 @@ export function AIModelSharingPanel() {
                 <li
                   key={item.key}
                   className={legacyCardClass(
-                    'flex items-center justify-between gap-3 py-2.5 px-3 border border-border rounded-lg bg-card-raised',
+                    'border-border bg-card-raised flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5',
                   )}
                 >
                   <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -350,13 +350,13 @@ export function AIModelSharingPanel() {
                         {t(`admin.ai_model_access.${item.resourceBadge}`)}
                       </span>
                     </div>
-                    <div className="text-sm leading-[1.35] font-medium wrap-break-word text-foreground [&_span]:font-normal [&_span]:text-foreground-muted">
+                    <div className="text-foreground [&_span]:text-foreground-muted text-sm leading-[1.35] font-medium wrap-break-word [&_span]:font-normal">
                       {item.label}
                     </div>
                   </div>
                   <button
                     type="button"
-                    className={legacyButtonClass('btn btn-secondary btn-sm shrink-0 w-auto m-0')}
+                    className={legacyButtonClass('btn btn-secondary btn-sm m-0 w-auto shrink-0')}
                     onClick={() => {
                       void revoke(item.onRevoke)
                     }}

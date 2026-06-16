@@ -237,11 +237,11 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
       config:
         configType !== 'text'
           ? {
-            xAxisColumn: configType === 'chart' ? xAxisColumn : undefined,
-            yAxisColumns: configType === 'chart' ? yAxisColumns : undefined,
-            valueColumn: configType === 'kpi' ? valueColumn : undefined,
-            visibleColumns: configType === 'table' ? visibleColumns : undefined,
-          }
+              xAxisColumn: configType === 'chart' ? xAxisColumn : undefined,
+              yAxisColumns: configType === 'chart' ? yAxisColumns : undefined,
+              valueColumn: configType === 'kpi' ? valueColumn : undefined,
+              visibleColumns: configType === 'table' ? visibleColumns : undefined,
+            }
           : undefined,
     }
 

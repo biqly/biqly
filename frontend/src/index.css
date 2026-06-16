@@ -198,12 +198,12 @@
 
 @layer base {
   html {
-    @apply min-h-full bg-canvas;
+    @apply bg-canvas min-h-full;
     -webkit-tap-highlight-color: transparent;
   }
 
   body {
-    @apply min-h-screen overflow-x-hidden bg-canvas text-foreground font-sans leading-normal;
+    @apply bg-canvas text-foreground min-h-screen overflow-x-hidden font-sans leading-normal;
   }
 
   button,

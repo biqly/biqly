@@ -164,10 +164,10 @@ export function JoinEditor({
                   aria-checked={isActive}
                   className={cn(
                     legacyCardClass(
-                      'inline-flex flex-1 cursor-pointer items-center justify-center gap-[0.35rem] rounded-lg border bg-card-raised px-2 py-[0.45rem] text-[0.74rem] font-semibold transition-[border-color,color,background] duration-120 ease-in-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                      'bg-card-raised focus-visible:outline-accent inline-flex flex-1 cursor-pointer items-center justify-center gap-[0.35rem] rounded-lg border px-2 py-[0.45rem] text-[0.74rem] font-semibold transition-[border-color,color,background] duration-120 ease-in-out focus-visible:outline-2 focus-visible:outline-offset-2',
                     ),
                     isActive
-                      ? 'border-accent bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-accent'
+                      ? 'border-accent text-accent bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]'
                       : 'border-border text-foreground-muted hover:border-accent hover:text-foreground',
                   )}
                   title={hintKey ? t(hintKey) : undefined}
@@ -190,33 +190,33 @@ export function JoinEditor({
         </div>
         {joinForm.fromTable && joinForm.toTable && (
           <div
-            className="grid gap-[0.45rem] rounded-lg border border-dashed border-border-strong bg-[color-mix(in_srgb,var(--accent)_4%,transparent)] px-3 py-[0.65rem]"
+            className="border-border-strong grid gap-[0.45rem] rounded-lg border border-dashed bg-[color-mix(in_srgb,var(--accent)_4%,transparent)] px-3 py-[0.65rem]"
             aria-live="polite"
           >
             <div className="flex flex-wrap items-center justify-center gap-2">
               <span
                 className={legacyCardClass(
-                  'font-mono text-[0.76rem] text-foreground bg-card-raised border border-border rounded-[0.35rem] py-[0.2rem] px-2 max-w-36 overflow-hidden text-ellipsis whitespace-nowrap',
+                  'text-foreground bg-card-raised border-border max-w-36 overflow-hidden rounded-[0.35rem] border px-2 py-[0.2rem] font-mono text-[0.76rem] text-ellipsis whitespace-nowrap',
                 )}
               >
                 {shortTableName(joinForm.fromTable)}
               </span>
               <span
-                className="inline-flex text-accent"
+                className="text-accent inline-flex"
                 title={previewHintKey ? t(previewHintKey) : undefined}
               >
                 <JoinTypeIcon type={joinForm.joinType} size={22} />
               </span>
               <span
                 className={legacyCardClass(
-                  'font-mono text-[0.76rem] text-foreground bg-card-raised border border-border rounded-[0.35rem] py-[0.2rem] px-2 max-w-36 overflow-hidden text-ellipsis whitespace-nowrap',
+                  'text-foreground bg-card-raised border-border max-w-36 overflow-hidden rounded-[0.35rem] border px-2 py-[0.2rem] font-mono text-[0.76rem] text-ellipsis whitespace-nowrap',
                 )}
               >
                 {shortTableName(joinForm.toTable)}
               </span>
             </div>
             {fromColumnValue && toColumnValue && (
-              <code className="block text-center text-[0.7rem] wrap-anywhere text-foreground-muted">
+              <code className="text-foreground-muted block text-center text-[0.7rem] wrap-anywhere">
                 ON {shortTableName(joinForm.fromTable)}.{fromColumnValue} ={' '}
                 {shortTableName(joinForm.toTable)}.{toColumnValue}
               </code>

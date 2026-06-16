@@ -203,7 +203,7 @@ export function AIProvidersPanel() {
         </div>
         <div className={adminAiCardBodyClass}>
           {activeModels.length === 0 ? (
-            <p className="m-0 text-[0.8125rem] text-foreground-muted">
+            <p className="text-foreground-muted m-0 text-[0.8125rem]">
               {t('admin.ai_providers.active_models_empty')}
             </p>
           ) : (
@@ -216,19 +216,19 @@ export function AIProvidersPanel() {
                 return (
                   <div key={purpose} className={adminAiPurposeCardClass}>
                     <div className="flex items-start justify-between gap-2.5">
-                      <div className="min-w-0 text-[0.82rem] leading-tight font-bold text-foreground">
+                      <div className="text-foreground min-w-0 text-[0.82rem] leading-tight font-bold">
                         {t(`admin.ai_providers.purposes.${purpose}`)}
                       </div>
                       <div className="flex shrink-0 items-center justify-end gap-1.5">
                         {providerLabel ? (
                           <span
-                            className={`${adminAiPurposePillBase} bg-success/12 text-success border border-success/16`}
+                            className={`${adminAiPurposePillBase} bg-success/12 text-success border-success/16 border`}
                           >
                             {providerLabel}
                           </span>
                         ) : (
                           <span
-                            className={`${adminAiPurposePillBase} bg-foreground-muted/10 text-foreground-muted border border-border`}
+                            className={`${adminAiPurposePillBase} bg-foreground-muted/10 text-foreground-muted border-border border`}
                           >
                             —
                           </span>
@@ -239,15 +239,15 @@ export function AIProvidersPanel() {
                       {m ? (
                         <>
                           <div
-                            className="text-[0.92rem] leading-tight font-semibold wrap-break-word text-foreground"
+                            className="text-foreground text-[0.92rem] leading-tight font-semibold wrap-break-word"
                             title={modelHint ?? modelLabel}
                           >
                             {modelLabel ?? modelHint ?? '—'}
                           </div>
                           {modelHint && modelHint !== modelLabel && (
-                            <div className="text-xs text-foreground-muted">
+                            <div className="text-foreground-muted text-xs">
                               <code
-                                className={`text-[0.72rem] py-px px-1.5 rounded-lg border border-border bg-canvas-subtle`}
+                                className={`border-border bg-canvas-subtle rounded-lg border px-1.5 py-px text-[0.72rem]`}
                               >
                                 {modelHint}
                               </code>
@@ -255,7 +255,7 @@ export function AIProvidersPanel() {
                           )}
                         </>
                       ) : (
-                        <div className="text-[0.9rem] text-foreground-muted">
+                        <div className="text-foreground-muted text-[0.9rem]">
                           {t('common.em_dash')}
                         </div>
                       )}

@@ -229,10 +229,10 @@ export function ExpressionBuilder({
   return (
     <div
       className={legacyCardClass(
-        'flex flex-col gap-4 bg-card border border-border rounded-lg p-5 shadow-card-sm mt-3',
+        'bg-card border-border shadow-card-sm mt-3 flex flex-col gap-4 rounded-lg border p-5',
       )}
     >
-      <div className={`flex gap-2 border-b border-border pb-3`}>
+      <div className={`border-border flex gap-2 border-b pb-3`}>
         <button type="button" className={exprModeToggleClass(mode === 'text')} onClick={toggleMode}>
           {t('modeling.expr_mode_text')}
         </button>
@@ -262,14 +262,14 @@ export function ExpressionBuilder({
           <div className="relative w-full">
             <textarea
               id="raw-text-expression"
-              className={`relative z-2 w-full resize-y font-mono text-[0.85rem] leading-[1.4] p-2 border border-border rounded-md shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] transition-[border-color,box-shadow] duration-120 ease-in-out bg-canvas text-foreground caret-foreground focus-visible:border-(--control-focus-border) focus-visible:shadow-[0_0_0_1px_var(--bg-primary),0_0_0_3px_var(--control-focus-ring)] focus-visible:outline-none`}
+              className={`border-border bg-canvas text-foreground caret-foreground relative z-2 w-full resize-y rounded-md border p-2 font-mono text-[0.85rem] leading-[1.4] shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] transition-[border-color,box-shadow] duration-120 ease-in-out focus-visible:border-(--control-focus-border) focus-visible:shadow-[0_0_0_1px_var(--bg-primary),0_0_0_3px_var(--control-focus-ring)] focus-visible:outline-none`}
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="e.g. sum([orders.total_amount]) - sum([orders.discount])"
               rows={4}
               disabled={loading}
             />
-            <div className="mt-[0.35rem] text-[0.7rem] text-foreground-muted">
+            <div className="text-foreground-muted mt-[0.35rem] text-[0.7rem]">
               {t('modeling.metric_intellisense_hint')}
             </div>
           </div>
@@ -279,7 +279,7 @@ export function ExpressionBuilder({
       {errorMsg && (
         <div
           className={legacyFeedbackClass(
-            'bg-error/10 border border-error/30 text-error rounded-md py-[0.6rem] px-[0.8rem] text-[0.78rem] font-mono mt-2',
+            'bg-error/10 border-error/30 text-error mt-2 rounded-md border px-[0.8rem] py-[0.6rem] font-mono text-[0.78rem]',
           )}
         >
           {errorMsg}
@@ -287,14 +287,14 @@ export function ExpressionBuilder({
       )}
 
       <div className="mt-2 flex flex-col gap-2">
-        <h4 className="m-0 text-[0.75rem] font-bold tracking-wide text-foreground-muted uppercase">
+        <h4 className="text-foreground-muted m-0 text-[0.75rem] font-bold tracking-wide uppercase">
           {t('modeling.generated_sql')}
         </h4>
         {loading ? (
-          <div className="p-3 text-[0.8rem] text-foreground-muted">{t('modeling.running')}</div>
+          <div className="text-foreground-muted p-3 text-[0.8rem]">{t('modeling.running')}</div>
         ) : (
           <code
-            className={`block font-mono text-[0.85rem] bg-canvas-subtle text-success py-3 px-4 rounded-md border border-border overflow-x-auto whitespace-pre-wrap wrap-break-word`}
+            className={`bg-canvas-subtle text-success border-border block overflow-x-auto rounded-md border px-4 py-3 font-mono text-[0.85rem] wrap-break-word whitespace-pre-wrap`}
           >
             {compiledSQL || '-- Type an expression or build one visually to see SQL --'}
           </code>
@@ -568,7 +568,7 @@ function ExpressionNodeBinary({
     return null
   }
   return (
-    <div className="flex flex-col gap-3 border-l border-dashed border-border-strong pl-2">
+    <div className="border-border-strong flex flex-col gap-3 border-l border-dashed pl-2">
       <div className="w-full">
         <ExpressionNodeBuilder
           node={node.left}
@@ -727,14 +727,14 @@ function ExpressionNodeFunctionCall({
             </option>
           ))}
         </select>
-        <span className="text-[0.72rem] text-foreground-muted">
+        <span className="text-foreground-muted text-[0.72rem]">
           {ALLOWED_FUNCTIONS.find((f) => f.name.toUpperCase() === node.name.toUpperCase())?.desc}
         </span>
       </div>
-      <div className="flex flex-col gap-3 border-l border-dashed border-border-strong pl-3">
+      <div className="border-border-strong flex flex-col gap-3 border-l border-dashed pl-3">
         {(node.args ?? []).map((arg, idx) => (
           <div key={idx} className="flex items-center gap-2">
-            <span className="text-[0.75rem] font-semibold whitespace-nowrap text-foreground-muted">
+            <span className="text-foreground-muted text-[0.75rem] font-semibold whitespace-nowrap">
               Arg {idx + 1}:
             </span>
             <div className="w-full">
@@ -848,7 +848,7 @@ function ExpressionNodeCase({
         {(node.conditions ?? []).map((cond, idx) => (
           <div
             key={idx}
-            className={`relative flex flex-col gap-2 p-3 bg-white/1.5 border border-border rounded-md`}
+            className={`border-border relative flex flex-col gap-2 rounded-md border bg-white/1.5 p-3`}
           >
             <div className="flex items-center gap-3">
               <span className={exprAstCaseLabelClass}>WHEN</span>
@@ -910,7 +910,7 @@ function ExpressionNodeCase({
         </button>
       </div>
 
-      <div className={`flex items-center gap-3 border-t border-dashed border-border pt-3`}>
+      <div className={`border-border flex items-center gap-3 border-t border-dashed pt-3`}>
         <span className={exprAstCaseLabelClass}>ELSE</span>
         <ExpressionNodeBuilder
           node={node.else ?? { type: 'literal', value: '' }}

@@ -51,16 +51,16 @@ export function MetadataBulkDescribeSetup({
 }) {
   return (
     <>
-      <p className="m-0 text-[0.78rem] leading-[1.45] text-foreground-muted">
+      <p className="text-foreground-muted m-0 text-[0.78rem] leading-[1.45]">
         {t('metadata.bulk_lede')}
       </p>
       <div className="grid grid-cols-1 items-stretch gap-[0.65rem] sm:grid-cols-2">
         <fieldset
           className={legacyCardClass(
-            'm-0 min-w-0 p-[0.55rem_0.65rem_0.65rem] border border-border rounded-lg bg-card-raised',
+            'border-border bg-card-raised m-0 min-w-0 rounded-lg border p-[0.55rem_0.65rem_0.65rem]',
           )}
         >
-          <legend className="px-1 py-0 text-[0.62rem] font-extrabold tracking-[0.07em] text-foreground-faint uppercase">
+          <legend className="text-foreground-faint px-1 py-0 text-[0.62rem] font-extrabold tracking-[0.07em] uppercase">
             {t('metadata.bulk_legend_types')}
           </legend>
           <div
@@ -74,7 +74,7 @@ export function MetadataBulkDescribeSetup({
                 type="button"
                 className={cn(
                   legacyCardClass(
-                    'inline-flex cursor-pointer items-baseline gap-[0.35rem] rounded-full border bg-card p-[0.28rem_0.55rem] text-[0.75rem] leading-[1.2] text-foreground-muted transition-[background,border-color,color] duration-120 hover:border-border-strong hover:text-foreground',
+                    'bg-card text-foreground-muted hover:border-border-strong hover:text-foreground inline-flex cursor-pointer items-baseline gap-[0.35rem] rounded-full border p-[0.28rem_0.55rem] text-[0.75rem] leading-[1.2] transition-[background,border-color,color] duration-120',
                   ),
                   bulkTypeEnabled[ty] === true
                     ? 'border-border-strong bg-card-raised text-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]'
@@ -96,21 +96,21 @@ export function MetadataBulkDescribeSetup({
             ))}
           </div>
           {!bulkHasObjectType && (
-            <p className={legacyFeedbackClass('mt-[0.4rem] mx-0 mb-0 text-[0.74rem] text-error')}>
+            <p className={legacyFeedbackClass('text-error mx-0 mt-[0.4rem] mb-0 text-[0.74rem]')}>
               {t('metadata.bulk_warn_pick_type')}
             </p>
           )}
         </fieldset>
         <fieldset
           className={legacyCardClass(
-            'm-0 min-w-0 p-[0.55rem_0.65rem_0.65rem] border border-border rounded-lg bg-card-raised',
+            'border-border bg-card-raised m-0 min-w-0 rounded-lg border p-[0.55rem_0.65rem_0.65rem]',
           )}
         >
-          <legend className="px-1 py-0 text-[0.62rem] font-extrabold tracking-[0.07em] text-foreground-faint uppercase">
+          <legend className="text-foreground-faint px-1 py-0 text-[0.62rem] font-extrabold tracking-[0.07em] uppercase">
             {t('metadata.bulk_legend_schemas')}
           </legend>
           <div
-            className={`flex mt-[0.4rem] rounded-[7px] border border-border overflow-hidden w-fit max-w-full divide-x divide-border`}
+            className={`border-border divide-border mt-[0.4rem] flex w-fit max-w-full divide-x overflow-hidden rounded-[7px] border`}
             role="group"
             aria-label={t('metadata.bulk_aria_schema_scope')}
           >
@@ -118,8 +118,8 @@ export function MetadataBulkDescribeSetup({
               type="button"
               className={
                 !bulkSchemaRestrict
-                  ? 'm-0 border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] text-foreground cursor-pointer transition-[background,color] duration-120 font-semibold'
-                  : 'm-0 border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] text-foreground-muted cursor-pointer transition-[background,color] duration-120 hover:text-foreground hover:bg-card'
+                  ? 'text-foreground m-0 cursor-pointer border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] font-semibold transition-[background,color] duration-120'
+                  : 'text-foreground-muted hover:text-foreground hover:bg-card m-0 cursor-pointer border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] transition-[background,color] duration-120'
               }
               onClick={onSchemaRestrictAll}
             >
@@ -129,8 +129,8 @@ export function MetadataBulkDescribeSetup({
               type="button"
               className={
                 bulkSchemaRestrict
-                  ? 'm-0 border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] text-foreground cursor-pointer transition-[background,color] duration-120 font-semibold'
-                  : 'm-0 border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] text-foreground-muted cursor-pointer transition-[background,color] duration-120 hover:text-foreground hover:bg-card'
+                  ? 'text-foreground m-0 cursor-pointer border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] font-semibold transition-[background,color] duration-120'
+                  : 'text-foreground-muted hover:text-foreground hover:bg-card m-0 cursor-pointer border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] transition-[background,color] duration-120'
               }
               onClick={onSchemaRestrictPick}
             >
@@ -139,12 +139,12 @@ export function MetadataBulkDescribeSetup({
           </div>
           <div
             className={cn(
-              'mt-[0.45rem] min-h-18 rounded-md border bg-card-raised p-[0.45rem_0.5rem]',
-              bulkSchemaRestrict ? 'border-solid border-border' : 'border-dashed border-border',
+              'bg-card-raised mt-[0.45rem] min-h-18 rounded-md border p-[0.45rem_0.5rem]',
+              bulkSchemaRestrict ? 'border-border border-solid' : 'border-border border-dashed',
             )}
           >
             {!bulkSchemaRestrict ? (
-              <p className="m-0 p-[0.35rem_0.15rem] text-[0.72rem] leading-[1.4] text-foreground-faint">
+              <p className="text-foreground-faint m-0 p-[0.35rem_0.15rem] text-[0.72rem] leading-[1.4]">
                 {t('metadata.bulk_schema_all_hint')}
               </p>
             ) : (
@@ -174,7 +174,7 @@ export function MetadataBulkDescribeSetup({
                   >
                     {t('metadata.bulk_select_none')}
                   </button>
-                  <span className="text-[0.68rem] text-foreground-faint">
+                  <span className="text-foreground-faint text-[0.68rem]">
                     {t('metadata.bulk_multiselect_hint')}
                   </span>
                 </div>
@@ -186,7 +186,7 @@ export function MetadataBulkDescribeSetup({
       <div className="flex flex-wrap items-end gap-[0.75rem_1.25rem]">
         <div className={legacyFormClass('form-group mb-0 flex flex-col gap-[0.2rem]')}>
           <label
-            className="text-[0.68rem] font-bold tracking-wider text-foreground-faint uppercase"
+            className="text-foreground-faint text-[0.68rem] font-bold tracking-wider uppercase"
             htmlFor="bulk-sample-size"
           >
             {t('metadata.bulk_sample_rows')}
@@ -202,7 +202,7 @@ export function MetadataBulkDescribeSetup({
           />
         </div>
         <label
-          className="m-0 inline-flex cursor-pointer items-center gap-[0.45rem] pb-[0.15rem] text-[0.78rem] text-foreground-muted"
+          className="text-foreground-muted m-0 inline-flex cursor-pointer items-center gap-[0.45rem] pb-[0.15rem] text-[0.78rem]"
           htmlFor="bulk-skip-existing"
         >
           <input
@@ -215,10 +215,10 @@ export function MetadataBulkDescribeSetup({
           <span>{t('metadata.bulk_skip_existing')}</span>
         </label>
       </div>
-      <div className="border-t border-border px-0 pt-[0.35rem] pb-0">
-        <span className="text-[0.76rem] text-foreground-faint">
+      <div className="border-border border-t px-0 pt-[0.35rem] pb-0">
+        <span className="text-foreground-faint text-[0.76rem]">
           {t('metadata.bulk_scope_objects')}{' '}
-          <strong className="font-[650] text-foreground">{bulkTargetTables.length}</strong>{' '}
+          <strong className="text-foreground font-[650]">{bulkTargetTables.length}</strong>{' '}
           {t('metadata.bulk_scope_suffix')}
           {bulkTargetTables.length !== tablesCount && (
             <span className="opacity-90">
@@ -229,7 +229,7 @@ export function MetadataBulkDescribeSetup({
       </div>
       {bulkScopeConflict && (
         <p
-          className={legacyFeedbackClass('mt-[0.4rem] mx-0 mb-0 text-[0.74rem] text-error')}
+          className={legacyFeedbackClass('text-error mx-0 mt-[0.4rem] mb-0 text-[0.74rem]')}
           role="status"
         >
           {bulkScopeConflict.message}{' '}

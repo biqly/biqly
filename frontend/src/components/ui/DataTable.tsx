@@ -85,7 +85,7 @@ export function DataTable<T>({
               {col.sortable && onSortToggle ? (
                 <button
                   type="button"
-                  className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-inherit [font:inherit] hover:text-foreground"
+                  className="hover:text-foreground inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-inherit [font:inherit]"
                   onClick={() => onSortToggle(col.key)}
                 >
                   {col.header}

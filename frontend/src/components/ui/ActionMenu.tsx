@@ -71,14 +71,14 @@ export function ActionMenu({
       {open && (
         <div
           className={legacyCardClass(
-            'absolute top-[calc(100%+0.35rem)] right-0 z-30 min-w-52 p-[0.35rem] border border-border-strong rounded-[0.6rem] bg-card shadow-[0_12px_36px_rgba(0,0,0,0.35)] grid gap-[0.1rem] motion-safe:animate-[action-menu-in_120ms_ease]',
+            'border-border-strong bg-card absolute top-[calc(100%+0.35rem)] right-0 z-30 grid min-w-52 gap-[0.1rem] rounded-[0.6rem] border p-[0.35rem] shadow-[0_12px_36px_rgba(0,0,0,0.35)] motion-safe:animate-[action-menu-in_120ms_ease]',
           )}
           id={menuId}
           role="menu"
         >
           {header && (
             <div
-              className={`pt-[0.4rem] pb-2 px-[0.6rem] border-b border-border mb-[0.2rem] text-[0.78rem] text-foreground-muted`}
+              className={`border-border text-foreground-muted mb-[0.2rem] border-b px-[0.6rem] pt-[0.4rem] pb-2 text-[0.78rem]`}
             >
               {header}
             </div>
@@ -89,7 +89,7 @@ export function ActionMenu({
               type="button"
               role="menuitem"
               className={cn(
-                'flex w-full cursor-pointer items-center gap-2 rounded-[0.4rem] border-0 bg-transparent px-[0.6rem] py-[0.45rem] text-left text-[0.82rem] transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent enabled:hover:bg-(--control-hover-bg,rgba(127,127,127,0.12)) disabled:cursor-not-allowed disabled:text-foreground-faint',
+                'focus-visible:outline-accent disabled:text-foreground-faint flex w-full cursor-pointer items-center gap-2 rounded-[0.4rem] border-0 bg-transparent px-[0.6rem] py-[0.45rem] text-left text-[0.82rem] transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 enabled:hover:bg-(--control-hover-bg,rgba(127,127,127,0.12)) disabled:cursor-not-allowed',
                 item.danger ? 'text-error' : 'text-foreground',
               )}
               disabled={item.disabled}

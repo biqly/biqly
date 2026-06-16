@@ -489,7 +489,7 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
 
   return (
     <div
-      className={`flex flex-col items-stretch gap-[0.65rem] mt-auto pt-3 px-2 pb-0 border-t border-border text-foreground-muted text-[0.74rem]`}
+      className={`border-border text-foreground-muted mt-auto flex flex-col items-stretch gap-[0.65rem] border-t px-2 pt-3 pb-0 text-[0.74rem]`}
     >
       {user && (
         <Link
@@ -506,10 +506,10 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
             )}
           </div>
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="overflow-hidden text-[13px] font-semibold text-ellipsis whitespace-nowrap text-foreground">
+            <span className="text-foreground overflow-hidden text-[13px] font-semibold text-ellipsis whitespace-nowrap">
               {user.displayName?.trim() ? user.displayName : user.email}
             </span>
-            <span className="overflow-hidden text-[11px] text-ellipsis whitespace-nowrap text-foreground-muted">
+            <span className="text-foreground-muted overflow-hidden text-[11px] text-ellipsis whitespace-nowrap">
               {roleLabel}
             </span>
           </div>
@@ -545,7 +545,7 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
       <div className="inline-flex items-center gap-2">
         <span
           className={legacyFeedbackClass(
-            'w-2 h-2 rounded-full bg-success shadow-[0_0_8px_var(--success)]',
+            'bg-success h-2 w-2 rounded-full shadow-[0_0_8px_var(--success)]',
           )}
           aria-hidden="true"
         />
@@ -656,12 +656,12 @@ function App() {
       label: activeRoute.label,
       onClick: hasAdminOrEvalTab
         ? () => {
-          const next = new URLSearchParams()
-          next.set('tab', new URLSearchParams(effectiveSearch).get('tab') ?? 'users')
-          startTransition(() => {
-            void navigate(`${activeRoute.path}?${next.toString()}`)
-          })
-        }
+            const next = new URLSearchParams()
+            next.set('tab', new URLSearchParams(effectiveSearch).get('tab') ?? 'users')
+            startTransition(() => {
+              void navigate(`${activeRoute.path}?${next.toString()}`)
+            })
+          }
         : () => startTransition(() => navigate(activeRoute.path)),
     })
 
@@ -845,7 +845,7 @@ function App() {
         element={
           <AuthGuard>
             <div
-              className={`grid grid-cols-1 min-[981px]:grid-cols-[16rem_minmax(0,1fr)] min-h-screen`}
+              className={`grid min-h-screen grid-cols-1 min-[981px]:grid-cols-[16rem_minmax(0,1fr)]`}
             >
               <CommandPalette items={commandItems} />
               <a className={skipLinkClass} href="#main-content">
@@ -883,16 +883,16 @@ function App() {
                   onFocus={() => handleNavHover(Home)}
                 >
                   <span
-                    className="grid h-[2.2rem] w-[2.2rem] shrink-0 place-items-center rounded-[0.65rem] bg-linear-to-br from-accent to-accent-strong text-white shadow-[0_4px_12px_var(--accent-glow)]"
+                    className="from-accent to-accent-strong grid h-[2.2rem] w-[2.2rem] shrink-0 place-items-center rounded-[0.65rem] bg-linear-to-br text-white shadow-[0_4px_12px_var(--accent-glow)]"
                     aria-hidden="true"
                   >
                     <img src={abiLogo} alt="" className="h-[1.7rem] w-[1.7rem] object-contain" />
                   </span>
                   <span className="flex min-w-0 flex-col">
-                    <strong className="block text-[1.05rem] font-extrabold tracking-tight text-foreground">
+                    <strong className="text-foreground block text-[1.05rem] font-extrabold tracking-tight">
                       ABI
                     </strong>
-                    <small className="block text-[0.68rem] leading-tight tracking-wide text-foreground-muted">
+                    <small className="text-foreground-muted block text-[0.68rem] leading-tight tracking-wide">
                       {t('common.brand_subtitle')}
                     </small>
                   </span>
@@ -929,7 +929,7 @@ function App() {
                       aria-labelledby={`nav-heading-${section.sectionKey}`}
                     >
                       <div
-                        className="px-[0.6rem] py-[0.15rem] pb-2 font-['Plus_Jakarta_Sans',sans-serif] text-[0.64rem] font-bold tracking-wider text-foreground-muted uppercase"
+                        className="text-foreground-muted px-[0.6rem] py-[0.15rem] pb-2 font-['Plus_Jakarta_Sans',sans-serif] text-[0.64rem] font-bold tracking-wider uppercase"
                         id={`nav-heading-${section.sectionKey}`}
                       >
                         {section.heading}

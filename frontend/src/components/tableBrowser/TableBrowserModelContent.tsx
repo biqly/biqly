@@ -65,7 +65,7 @@ function ValidationErrorBanner({
   }
   return (
     <div
-      className={legacyFeedbackClass('error p-4 bg-red-500/12 rounded-lg border border-red-500/20')}
+      className={legacyFeedbackClass('error rounded-lg border border-red-500/20 bg-red-500/12 p-4')}
       role="alert"
     >
       <div className={validationErrorBannerRowClass}>

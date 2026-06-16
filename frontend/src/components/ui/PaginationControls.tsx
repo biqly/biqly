@@ -66,7 +66,7 @@ export function PaginationControls({
           return (
             <span
               key={`gap-${idx}`}
-              className="inline-flex items-center justify-center px-0.5 text-foreground-faint text-[0.8rem] select-none"
+              className="text-foreground-faint inline-flex items-center justify-center px-0.5 text-[0.8rem] select-none"
               aria-hidden="true"
             >
               …

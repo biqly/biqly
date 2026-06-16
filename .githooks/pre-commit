@@ -1,0 +1,17 @@
+#!/bin/sh
+# Pre-commit hook: run all linters and tests before allowing a commit.
+# Activated by: git config core.hooksPath .githooks
+# (or run: make setup-githooks)
+
+echo "=== pre-commit: running make precommit ==="
+make precommit
+status=$?
+
+if [ $status -ne 0 ]; then
+    echo ""
+    echo "!!! pre-commit FAILED — fix errors above before committing."
+    echo "    To skip (not recommended): git commit --no-verify"
+    exit 1
+fi
+
+echo "=== pre-commit: all checks passed ==="

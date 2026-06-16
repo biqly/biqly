@@ -156,16 +156,16 @@ export function ResultTable({
                 return (
                   <th
                     key={col.name}
-                    className={`border-b border-border p-[0.75rem_0.9rem] max-[720px]:p-[0.55rem_0.6rem] text-left align-middle transition-colors duration-150 sticky top-0 z-2 bg-(--table-header-bg) text-(--table-header-fg) font-['Plus_Jakarta_Sans',sans-serif] text-[0.7rem] font-bold tracking-wider uppercase shadow-[0_1px_0_var(--table-header-shadow-line)] pt-[0.85rem] pb-[0.85rem] hover:text-foreground`}
+                    className={`border-border hover:text-foreground sticky top-0 z-2 border-b bg-(--table-header-bg) p-[0.75rem_0.9rem] pt-[0.85rem] pb-[0.85rem] text-left align-middle font-['Plus_Jakarta_Sans',sans-serif] text-[0.7rem] font-bold tracking-wider text-(--table-header-fg) uppercase shadow-[0_1px_0_var(--table-header-shadow-line)] transition-colors duration-150 max-[720px]:p-[0.55rem_0.6rem]`}
                     aria-sort={ariaSort}
                     title={t('result_table.sort_hint', {
                       direction:
                         isActive && sortDir
                           ? t(
-                            sortDir === 'asc'
-                              ? 'result_table.sort_asc'
-                              : 'result_table.sort_desc',
-                          )
+                              sortDir === 'asc'
+                                ? 'result_table.sort_asc'
+                                : 'result_table.sort_desc',
+                            )
                           : '',
                     })}
                   >
@@ -188,7 +188,7 @@ export function ResultTable({
               return (
                 <tr
                   key={rowIdx}
-                  className={`border-b border-border last:border-b-0 odd:bg-(--table-stripe-odd) even:bg-(--table-stripe-even) hover:bg-(--table-stripe-hover) hover:text-foreground group`}
+                  className={`border-border hover:text-foreground group border-b last:border-b-0 odd:bg-(--table-stripe-odd) even:bg-(--table-stripe-even) hover:bg-(--table-stripe-hover)`}
                 >
                   {row.map((cell, colIdx) => {
                     const colName = columns[colIdx]?.name ?? ''
@@ -196,7 +196,7 @@ export function ResultTable({
                     return (
                       <td
                         key={colIdx}
-                        className={`border-b border-border p-[0.75rem_0.9rem] max-[720px]:p-[0.55rem_0.6rem] text-left align-middle transition-colors duration-150 text-foreground-muted text-[0.86rem] leading-[1.4] ${isAnomaly ? 'shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--warning)_4%,transparent)] font-semibold text-foreground!' : ''}`}
+                        className={`border-border text-foreground-muted border-b p-[0.75rem_0.9rem] text-left align-middle text-[0.86rem] leading-[1.4] transition-colors duration-150 max-[720px]:p-[0.55rem_0.6rem] ${isAnomaly ? 'text-foreground! bg-[color-mix(in_srgb,var(--warning)_4%,transparent)] font-semibold shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--warning)_40%,transparent)]' : ''}`}
                         title={isAnomaly ? anomalyTitle : undefined}
                         onContextMenu={(e) => handleContextMenu(e, colName, String(cell))}
                         onKeyDown={(e) => handleCellKeyDown(e, colName, String(cell))}
@@ -218,7 +218,7 @@ export function ResultTable({
         </table>
       </div>
 
-      <div className="flex items-center justify-between pt-[0.4rem] text-[0.75rem] text-foreground-muted max-[720px]:flex-wrap max-[720px]:gap-2">
+      <div className="text-foreground-muted flex items-center justify-between pt-[0.4rem] text-[0.75rem] max-[720px]:flex-wrap max-[720px]:gap-2">
         <span>
           {t('result_table.row_count', { count: rowCount })}
           {durationMs !== undefined ? ` · ${durationMs} ms` : ''}
@@ -235,7 +235,7 @@ export function ResultTable({
         <button
           type="button"
           className={legacyButtonClass(
-            'btn btn-secondary w-auto! m-[0_0_0_auto]! py-[0.3rem] px-3 text-[0.78rem]',
+            'btn btn-secondary m-[0_0_0_auto]! w-auto! px-3 py-[0.3rem] text-[0.78rem]',
           )}
           onClick={handleExport}
           disabled={rows.length === 0}

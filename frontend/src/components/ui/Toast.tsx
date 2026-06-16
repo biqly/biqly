@@ -45,7 +45,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
         <div
           key={toast.id}
           className={clsx(
-            'pointer-events-auto grid grid-cols-[auto_1fr_auto] items-start gap-[0.65rem] rounded-[0.6rem] border border-l-3 border-border-strong bg-card px-[0.85rem] py-3 text-foreground shadow-[0_10px_32px_rgba(0,0,0,0.4)] motion-safe:animate-[toast-in_180ms_ease]',
+            'border-border-strong bg-card text-foreground pointer-events-auto grid grid-cols-[auto_1fr_auto] items-start gap-[0.65rem] rounded-[0.6rem] border border-l-3 px-[0.85rem] py-3 shadow-[0_10px_32px_rgba(0,0,0,0.4)] motion-safe:animate-[toast-in_180ms_ease]',
             VARIANT_BORDER[toast.variant],
           )}
           role={toast.variant === 'error' ? 'alert' : 'status'}
@@ -65,7 +65,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
               <p className="m-0 text-[0.9rem] font-semibold tracking-[-0.01em]">{toast.title}</p>
             )}
             {toast.message && (
-              <p className="mx-0 mt-[0.15rem] mb-0 text-[0.85rem] leading-[1.45] wrap-anywhere text-foreground-muted">
+              <p className="text-foreground-muted mx-0 mt-[0.15rem] mb-0 text-[0.85rem] leading-[1.45] wrap-anywhere">
                 {toast.message}
               </p>
             )}
@@ -73,7 +73,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
           <button
             type="button"
             className={legacyCardClass(
-              'inline-grid w-6 h-6 place-items-center border-0 rounded-[0.35rem] bg-transparent text-foreground-muted cursor-pointer text-[0.85rem] leading-none hover:bg-card-raised hover:text-foreground',
+              'text-foreground-muted hover:bg-card-raised hover:text-foreground inline-grid h-6 w-6 cursor-pointer place-items-center rounded-[0.35rem] border-0 bg-transparent text-[0.85rem] leading-none',
             )}
             onClick={() => onDismiss(toast.id)}
             aria-label={t('common.close')}

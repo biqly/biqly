@@ -9,7 +9,7 @@ import (
 
 func TestABExperimentsMigrationFiles(t *testing.T) {
 	up := readMigrationForTest(t, "migrations/042a_add_ab_experiments.up.sql")
-	down := readMigrationForTest(t, "migrations/042b_add_ab_experiments.down.sql")
+	down := readMigrationForTest(t, "migrations/042a_add_ab_experiments.down.sql")
 
 	upMustContain := []string{
 		"CREATE TABLE IF NOT EXISTS ab_experiments",

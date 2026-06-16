@@ -219,11 +219,11 @@ export function AIModelPreferencesSection() {
           <h2 id="ai-models-prefs-heading" className="m-0">
             {t('settings.ai_models.section')}
           </h2>
-          <p className="mt-[0.35rem] mr-0 mb-0 ml-0 max-w-2xl flex-[1_1_100%] text-[0.875rem] leading-[1.45] text-foreground-muted">
+          <p className="text-foreground-muted mt-[0.35rem] mr-0 mb-0 ml-0 max-w-2xl flex-[1_1_100%] text-[0.875rem] leading-[1.45]">
             {t('settings.ai_models.hint')}
           </p>
           {restricted && (
-            <p className="m-0 mt-[0.35rem] max-w-2xl text-[0.8125rem] leading-[1.45] text-foreground-muted">
+            <p className="text-foreground-muted m-0 mt-[0.35rem] max-w-2xl text-[0.8125rem] leading-[1.45]">
               {t('settings.ai_models.restricted_hint')}
             </p>
           )}
@@ -240,23 +240,23 @@ export function AIModelPreferencesSection() {
                 <div
                   key={purpose}
                   className={legacyCardClass(
-                    'flex flex-col gap-2 py-3 px-3.5 border border-border rounded-[10px] bg-card-raised min-h-[118px]',
+                    'border-border bg-card-raised flex min-h-[118px] flex-col gap-2 rounded-[10px] border px-3.5 py-3',
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="m-0 inline-flex items-center gap-2 text-[0.8125rem] leading-[1.3] font-semibold text-foreground">
+                      <p className="text-foreground m-0 inline-flex items-center gap-2 text-[0.8125rem] leading-[1.3] font-semibold">
                         {PURPOSE_ICONS[purpose]}
                         {t(`admin.ai_providers.purposes.${purpose}`)}
                       </p>
-                      <p className="mt-1 mb-0 text-[0.72rem] leading-[1.35] text-foreground-faint">
+                      <p className="text-foreground-faint mt-1 mb-0 text-[0.72rem] leading-[1.35]">
                         {t(`settings.ai_models.purpose_hints.${purpose}`)}
                       </p>
                     </div>
                     {value ? (
                       <button
                         type="button"
-                        className="shrink-0 cursor-pointer rounded-md border-0 bg-transparent px-2 py-0.5 text-[0.72rem] font-semibold text-foreground-muted hover:enabled:bg-white/5 hover:enabled:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
+                        className="text-foreground-muted hover:enabled:text-foreground shrink-0 cursor-pointer rounded-md border-0 bg-transparent px-2 py-0.5 text-[0.72rem] font-semibold hover:enabled:bg-white/5 disabled:cursor-not-allowed disabled:opacity-45"
                         disabled={saving}
                         onClick={() => {
                           void handleClear(purpose)
@@ -281,7 +281,7 @@ export function AIModelPreferencesSection() {
                     />
                   </div>
                   {options.length === 0 && (
-                    <p className="m-0 text-[0.72rem] text-warning">
+                    <p className="text-warning m-0 text-[0.72rem]">
                       {t('settings.ai_models.no_models_for_purpose')}
                     </p>
                   )}
@@ -289,10 +289,10 @@ export function AIModelPreferencesSection() {
               )
             })}
           </div>
-          <p className="mt-1 mb-0 text-[0.72rem] leading-[1.35] text-foreground-faint">
+          <p className="text-foreground-faint mt-1 mb-0 text-[0.72rem] leading-[1.35]">
             {t('settings.ai_models.admin_managed_note')}
           </p>
-          <div className={`flex justify-end pt-5 mt-5 border-t border-border`}>
+          <div className={`border-border mt-5 flex justify-end border-t pt-5`}>
             <button
               type="button"
               className={cn(legacyButtonClass('btn btn-primary btn-sm'), adminBtnAutoWidthClass)}
