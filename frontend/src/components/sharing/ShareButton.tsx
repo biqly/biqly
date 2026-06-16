@@ -145,12 +145,12 @@ export function ShareButton({
 
       {open && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] motion-safe:animate-[fadeIn_200ms_ease-out]"
+          className="fixed inset-0 z-1000 flex items-center justify-center bg-black/40 motion-safe:animate-fade-in"
           onClick={closeModal}
         >
           <div
             className={legacyCardClass(
-              'bg-card border border-border rounded-[12px] w-full max-w-[420px] shadow-[var(--shadow,0_20px_60px_rgba(0,0,0,0.2))] motion-safe:animate-[slideUp_200ms_ease-out]',
+              'bg-card border border-border rounded-[12px] w-full max-w-[420px] shadow-(--shadow,0_20px_60px_rgba(0,0,0,0.2)) motion-safe:animate-slide-up',
             )}
             onClick={(e) => e.stopPropagation()}
           >
@@ -158,7 +158,7 @@ export function ShareButton({
               <h3 className="m-0 text-[16px] font-semibold">{t('admin.sharing.share_resource')}</h3>
               <button
                 onClick={closeModal}
-                className="bg-transparent border-0 text-[20px] cursor-pointer text-foreground-muted p-1 leading-none hover:text-foreground"
+                className="cursor-pointer border-0 bg-transparent p-1 text-[20px] leading-none text-foreground-muted hover:text-foreground"
                 aria-label={t('common.close')}
               >
                 ×
@@ -169,13 +169,13 @@ export function ShareButton({
               onSubmit={(e) => {
                 void onSubmit(e)
               }}
-              className="p-5 flex flex-col gap-[14px]"
+              className="flex flex-col gap-[14px] p-5"
             >
               <div className={`flex gap-0 border border-border rounded-[6px] overflow-hidden`}>
                 <button
                   type="button"
                   className={clsx(
-                    'flex-1 py-2 px-4 bg-transparent border-0 cursor-pointer text-[12px] transition-all duration-150',
+                    'flex-1 cursor-pointer border-0 bg-transparent px-4 py-2 text-[12px] transition-all duration-150',
                     mode === 'user'
                       ? 'bg-accent text-white'
                       : 'text-foreground-muted hover:text-foreground',
@@ -190,7 +190,7 @@ export function ShareButton({
                 <button
                   type="button"
                   className={clsx(
-                    'flex-1 py-2 px-4 bg-transparent border-0 cursor-pointer text-[12px] transition-all duration-150',
+                    'flex-1 cursor-pointer border-0 bg-transparent px-4 py-2 text-[12px] transition-all duration-150',
                     mode === 'workspace'
                       ? 'bg-accent text-white'
                       : 'text-foreground-muted hover:text-foreground',
@@ -245,7 +245,7 @@ export function ShareButton({
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 mt-1">
+              <div className="mt-1 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={closeModal}
@@ -256,7 +256,7 @@ export function ShareButton({
                 <button
                   type="submit"
                   disabled={loading || !targetID.trim()}
-                  className="py-2 px-4 bg-accent text-white border-0 rounded-[6px] cursor-pointer text-[13px] font-medium transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="cursor-pointer rounded-[6px] border-0 bg-accent px-4 py-2 text-[13px] font-medium text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? t('common.saving') : t('admin.sharing.share')}
                 </button>

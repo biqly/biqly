@@ -35,10 +35,10 @@ export function SignInMfaForm({
       }}
       className={authFormClass}
     >
-      <h2 className="m-0 text-[1.25rem] font-bold text-foreground text-center mb-2">
+      <h2 className="m-0 mb-2 text-center text-[1.25rem] font-bold text-foreground">
         {t('mfa.login_title')}
       </h2>
-      <p className="text-[0.85rem] text-foreground-muted text-center mb-6 px-2">
+      <p className="mb-6 px-2 text-center text-[0.85rem] text-foreground-muted">
         {t('mfa.login_desc')}
       </p>
 
@@ -80,14 +80,14 @@ export function SignInMfaForm({
         disabled={mfaLoading || mfaCode.length !== 6}
       >
         {mfaLoading && (
-          <div className="w-4 h-4 border-2 border-white/30 rounded-full border-t-white animate-spin" />
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
         )}
         {t('mfa.login_submit')}
       </button>
 
       <button
         type="button"
-        className={`flex items-center justify-center gap-2 w-full py-[11px] px-[16px] rounded-lg cursor-pointer transition-all duration-150 mt-2 bg-transparent border border-border text-foreground-muted hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed`}
+        className={`flex items-center justify-center gap-2 w-full py-2.75 px-4 rounded-lg cursor-pointer transition-all duration-150 mt-2 bg-transparent border border-border text-foreground-muted hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed`}
         onClick={onCancel}
         disabled={mfaLoading}
       >

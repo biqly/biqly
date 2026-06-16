@@ -459,7 +459,7 @@ func (h *RBACHandler) handleCheckMyDatasource(w http.ResponseWriter, r *http.Req
 	}
 	err := h.dsAccess.CheckAccess(r.Context(), userID, dsID, level)
 	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"allowed": false, "reason": err.Error()})
+		writeDatasourceAccessCheckError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"allowed": true})
@@ -938,7 +938,7 @@ func (h *RBACHandler) handleInternalCheckDSAccess(w http.ResponseWriter, r *http
 	}
 	err := h.dsAccess.CheckAccess(r.Context(), req.UserID, req.DatasourceID, req.Level)
 	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"allowed": false, "reason": err.Error()})
+		writeDatasourceAccessCheckError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"allowed": true})
@@ -1012,6 +1012,17 @@ func (h *RBACHandler) handleInternalPublicKey(w http.ResponseWriter, r *http.Req
 
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	response.WriteJSON(w, status, data)
+}
+
+func writeDatasourceAccessCheckError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, rbac.ErrDatasourceAccessDenied) {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"allowed": false,
+			"reason":  rbac.ErrDatasourceAccessDenied.Error(),
+		})
+		return
+	}
+	writeError(w, r, http.StatusInternalServerError, errors.New("datasource access check failed"))
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, status int, err error) {

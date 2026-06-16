@@ -297,12 +297,12 @@ export function TableBrowserModelContent({
             <div
               className={clsx(
                 tableBrowserTableWrapClass,
-                fetching && !showInitialPlaceholder && 'blur-[2px] opacity-55 pointer-events-none',
+                fetching && !showInitialPlaceholder && 'pointer-events-none opacity-55 blur-[2px]',
               )}
             >
               <table
                 className={legacyTableClass(
-                  'results-table !mt-0 w-full border-collapse text-left text-sm max-[899px]:min-w-[36rem] max-[680px]:min-w-[32rem]',
+                  'results-table mt-0! w-full border-collapse text-left text-sm max-[899px]:min-w-xl max-[680px]:min-w-lg',
                 )}
               >
                 <thead>

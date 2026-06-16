@@ -1,14 +1,16 @@
+// Package prompt implements the prompt builder service.
 package prompt
 
 import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/bytedance/sonic"
 	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"github.com/bytedance/sonic"
 
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/semantic"

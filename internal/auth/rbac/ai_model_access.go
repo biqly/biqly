@@ -178,7 +178,10 @@ func (s *AIModelAccessService) listGrantedIDs(ctx context.Context, userID string
 func (s *AIModelAccessService) CanUseModel(ctx context.Context, userID, modelID string) (bool, error) {
 	if s.rbac != nil {
 		ok, err := s.rbac.IsSuperAdmin(ctx, userID)
-		if err == nil && ok {
+		if err != nil {
+			return false, err
+		}
+		if ok {
 			return true, nil
 		}
 	}

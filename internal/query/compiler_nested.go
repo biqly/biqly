@@ -201,7 +201,13 @@ func (c *Compiler) buildInSubqueryFilter(lhsSQL string, f Filter, model *semanti
 	if err != nil {
 		return "", nil, err
 	}
-	_ = f.Subquery.ResultField // validated at compile time via select list in body
+	if len(f.Subquery.Body.Select) != 1 {
+		return "", nil, errors.New("subquery filter body must select exactly one field")
+	}
+	sel := f.Subquery.Body.Select[0]
+	if sel.Name != f.Subquery.ResultField && sel.Alias != f.Subquery.ResultField {
+		return "", nil, fmt.Errorf("subquery filter body does not select the required result_field %q", f.Subquery.ResultField)
+	}
 	op := "IN"
 	if !positive {
 		op = "NOT IN"

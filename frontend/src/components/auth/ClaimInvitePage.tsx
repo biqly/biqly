@@ -104,11 +104,11 @@ export default function ClaimInvitePage() {
   return (
     <div className={authPageClass}>
       <div className={authCardClass}>
-        <div className="flex flex-col items-center text-center mb-6">
-          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
-            <img src={abiLogo} alt="ABI" className="w-[34px] h-[34px] object-contain" />
+        <div className="mb-6 flex flex-col items-center text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+            <img src={abiLogo} alt="ABI" className="h-8.5 w-8.5 object-contain" />
           </div>
-          <h1 className="text-[24px] font-bold text-foreground mb-1 tracking-tight">
+          <h1 className="mb-1 text-[24px] font-bold tracking-tight text-foreground">
             {t('auth.title_invite')}
           </h1>
           {email && !success && (
@@ -120,7 +120,7 @@ export default function ClaimInvitePage() {
 
         {verifying ? (
           <div className="flex flex-col items-center gap-4 p-4">
-            <div className="w-8 h-8 border-2 border-white/30 rounded-full border-t-accent animate-spin"></div>
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-accent"></div>
             <span className="text-[14px] text-foreground-muted">Validating your invitation…</span>
           </div>
         ) : success ? (
@@ -231,7 +231,7 @@ export default function ClaimInvitePage() {
               disabled={loading || !password || !confirmPassword}
             >
               {loading && (
-                <div className="w-4 h-4 border-2 border-white/30 rounded-full border-t-white animate-spin" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
               )}
               {t('auth.btn_setup_account')}
             </button>

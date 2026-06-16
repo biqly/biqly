@@ -494,22 +494,22 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
       {user && (
         <Link
           to="/settings"
-          className="flex items-center gap-3 p-[10px_12px] mb-0 rounded-lg cursor-pointer transition-colors duration-200 relative no-underline color-inherit hover:bg-(--bg-hover,#f3f4f6) dark:hover:bg-white/5"
+          className="color-inherit relative mb-0 flex cursor-pointer items-center gap-3 rounded-lg p-[10px_12px] no-underline transition-colors duration-200 hover:bg-(--bg-hover,#f3f4f6) dark:hover:bg-white/5"
           onMouseEnter={() => handleNavHover(Settings)}
           onFocus={() => handleNavHover(Settings)}
         >
-          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white font-semibold text-[14px] overflow-hidden">
+          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-[14px] font-semibold text-white">
             {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+              <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
               getInitials(user.displayName, user.email)
             )}
           </div>
-          <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-[13px] font-semibold text-foreground whitespace-nowrap overflow-hidden text-ellipsis">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="overflow-hidden text-[13px] font-semibold text-ellipsis whitespace-nowrap text-foreground">
               {user.displayName?.trim() ? user.displayName : user.email}
             </span>
-            <span className="text-[11px] text-foreground-muted whitespace-nowrap overflow-hidden text-ellipsis">
+            <span className="overflow-hidden text-[11px] text-ellipsis whitespace-nowrap text-foreground-muted">
               {roleLabel}
             </span>
           </div>
@@ -656,12 +656,12 @@ function App() {
       label: activeRoute.label,
       onClick: hasAdminOrEvalTab
         ? () => {
-            const next = new URLSearchParams()
-            next.set('tab', new URLSearchParams(effectiveSearch).get('tab') ?? 'users')
-            startTransition(() => {
-              void navigate(`${activeRoute.path}?${next.toString()}`)
-            })
-          }
+          const next = new URLSearchParams()
+          next.set('tab', new URLSearchParams(effectiveSearch).get('tab') ?? 'users')
+          startTransition(() => {
+            void navigate(`${activeRoute.path}?${next.toString()}`)
+          })
+        }
         : () => startTransition(() => navigate(activeRoute.path)),
     })
 
@@ -876,30 +876,30 @@ function App() {
                 aria-label={t('common.primary_nav')}
               >
                 <a
-                  className="flex items-center gap-3 min-w-0 rounded-lg pt-1 px-[0.4rem] pb-3 mb-2 font-['Plus_Jakarta_Sans',sans-serif]"
+                  className="mb-2 flex min-w-0 items-center gap-3 rounded-lg px-[0.4rem] pt-1 pb-3 font-['Plus_Jakarta_Sans',sans-serif]"
                   href={DEFAULT_PATH}
                   onClick={(event) => handleNavClick(event, DEFAULT_PATH)}
                   onMouseEnter={() => handleNavHover(Home)}
                   onFocus={() => handleNavHover(Home)}
                 >
                   <span
-                    className="grid shrink-0 w-[2.2rem] h-[2.2rem] place-items-center rounded-[0.65rem] bg-linear-to-br from-accent to-accent-strong text-white shadow-[0_4px_12px_var(--accent-glow)]"
+                    className="grid h-[2.2rem] w-[2.2rem] shrink-0 place-items-center rounded-[0.65rem] bg-linear-to-br from-accent to-accent-strong text-white shadow-[0_4px_12px_var(--accent-glow)]"
                     aria-hidden="true"
                   >
-                    <img src={abiLogo} alt="" className="w-[1.7rem] h-[1.7rem] object-contain" />
+                    <img src={abiLogo} alt="" className="h-[1.7rem] w-[1.7rem] object-contain" />
                   </span>
-                  <span className="flex flex-col min-w-0">
+                  <span className="flex min-w-0 flex-col">
                     <strong className="block text-[1.05rem] font-extrabold tracking-tight text-foreground">
                       ABI
                     </strong>
-                    <small className="block text-foreground-muted text-[0.68rem] leading-tight tracking-wide">
+                    <small className="block text-[0.68rem] leading-tight tracking-wide text-foreground-muted">
                       {t('common.brand_subtitle')}
                     </small>
                   </span>
                 </a>
 
                 <div
-                  className="flex-1 min-h-0 overflow-y-auto overscroll-contain pr-[0.2rem] mr-[-0.1rem] custom-scrollbar-thin"
+                  className="custom-scrollbar-thin mr-[-0.1rem] min-h-0 flex-1 overflow-y-auto overscroll-contain pr-[0.2rem]"
                   role="presentation"
                 >
                   {accessToken && <WorkspaceSelector token={accessToken} />}
@@ -929,7 +929,7 @@ function App() {
                       aria-labelledby={`nav-heading-${section.sectionKey}`}
                     >
                       <div
-                        className="font-['Plus_Jakarta_Sans',sans-serif] text-[0.64rem] font-bold tracking-wider uppercase text-foreground-muted py-[0.15rem] px-[0.6rem] pb-2"
+                        className="px-[0.6rem] py-[0.15rem] pb-2 font-['Plus_Jakarta_Sans',sans-serif] text-[0.64rem] font-bold tracking-wider text-foreground-muted uppercase"
                         id={`nav-heading-${section.sectionKey}`}
                       >
                         {section.heading}

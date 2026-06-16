@@ -124,6 +124,7 @@ lint-locale-literals-strict:
 
 lint-frontend:
 	@npm --prefix frontend run lint
+	@npm --prefix frontend run lint:tailwind
 
 format-frontend:
 	@npm --prefix frontend run format

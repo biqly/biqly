@@ -54,17 +54,17 @@ export function MetadataBulkDescribeSetup({
       <p className="m-0 text-[0.78rem] leading-[1.45] text-foreground-muted">
         {t('metadata.bulk_lede')}
       </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-[0.65rem] items-stretch">
+      <div className="grid grid-cols-1 items-stretch gap-[0.65rem] sm:grid-cols-2">
         <fieldset
           className={legacyCardClass(
             'm-0 min-w-0 p-[0.55rem_0.65rem_0.65rem] border border-border rounded-lg bg-card-raised',
           )}
         >
-          <legend className="px-[0.25rem] py-0 text-[0.62rem] font-[800] tracking-[0.07em] uppercase text-foreground-faint">
+          <legend className="px-1 py-0 text-[0.62rem] font-extrabold tracking-[0.07em] text-foreground-faint uppercase">
             {t('metadata.bulk_legend_types')}
           </legend>
           <div
-            className="flex flex-wrap gap-[0.35rem] mt-[0.4rem]"
+            className="mt-[0.4rem] flex flex-wrap gap-[0.35rem]"
             role="group"
             aria-label={t('metadata.bulk_aria_types')}
           >
@@ -74,10 +74,10 @@ export function MetadataBulkDescribeSetup({
                 type="button"
                 className={cn(
                   legacyCardClass(
-                    'inline-flex items-baseline gap-[0.35rem] border bg-card text-foreground-muted p-[0.28rem_0.55rem] rounded-full text-[0.75rem] leading-[1.2] cursor-pointer transition-[background,border-color,color] duration-120 hover:border-border-strong hover:text-foreground',
+                    'inline-flex cursor-pointer items-baseline gap-[0.35rem] rounded-full border bg-card p-[0.28rem_0.55rem] text-[0.75rem] leading-[1.2] text-foreground-muted transition-[background,border-color,color] duration-120 hover:border-border-strong hover:text-foreground',
                   ),
                   bulkTypeEnabled[ty] === true
-                    ? 'bg-card-raised border-border-strong text-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]'
+                    ? 'border-border-strong bg-card-raised text-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]'
                     : 'border-border',
                 )}
                 aria-pressed={bulkTypeEnabled[ty] === true}
@@ -86,7 +86,7 @@ export function MetadataBulkDescribeSetup({
                 <span className="font-semibold whitespace-nowrap">{objectTypeLabel(ty, t)}</span>
                 <span
                   className={cn(
-                    'text-[0.65rem] font-medium uppercase tracking-[0.04em]',
+                    'text-[0.65rem] font-medium tracking-[0.04em] uppercase',
                     bulkTypeEnabled[ty] === true ? 'text-accent' : 'text-foreground-faint',
                   )}
                 >
@@ -106,7 +106,7 @@ export function MetadataBulkDescribeSetup({
             'm-0 min-w-0 p-[0.55rem_0.65rem_0.65rem] border border-border rounded-lg bg-card-raised',
           )}
         >
-          <legend className="px-[0.25rem] py-0 text-[0.62rem] font-[800] tracking-[0.07em] uppercase text-foreground-faint">
+          <legend className="px-1 py-0 text-[0.62rem] font-extrabold tracking-[0.07em] text-foreground-faint uppercase">
             {t('metadata.bulk_legend_schemas')}
           </legend>
           <div
@@ -118,7 +118,7 @@ export function MetadataBulkDescribeSetup({
               type="button"
               className={
                 !bulkSchemaRestrict
-                  ? 'm-0 border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] text-foreground cursor-pointer transition-[background,color] duration-120 bg-card font-semibold'
+                  ? 'm-0 border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] text-foreground cursor-pointer transition-[background,color] duration-120 font-semibold'
                   : 'm-0 border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] text-foreground-muted cursor-pointer transition-[background,color] duration-120 hover:text-foreground hover:bg-card'
               }
               onClick={onSchemaRestrictAll}
@@ -129,7 +129,7 @@ export function MetadataBulkDescribeSetup({
               type="button"
               className={
                 bulkSchemaRestrict
-                  ? 'm-0 border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] text-foreground cursor-pointer transition-[background,color] duration-120 bg-card font-semibold'
+                  ? 'm-0 border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] text-foreground cursor-pointer transition-[background,color] duration-120 font-semibold'
                   : 'm-0 border-0 bg-transparent p-[0.32rem_0.75rem] text-[0.74rem] text-foreground-muted cursor-pointer transition-[background,color] duration-120 hover:text-foreground hover:bg-card'
               }
               onClick={onSchemaRestrictPick}
@@ -139,12 +139,12 @@ export function MetadataBulkDescribeSetup({
           </div>
           <div
             className={cn(
-              'mt-[0.45rem] min-h-[4.5rem] rounded-md p-[0.45rem_0.5rem] bg-card-raised border',
+              'mt-[0.45rem] min-h-18 rounded-md border bg-card-raised p-[0.45rem_0.5rem]',
               bulkSchemaRestrict ? 'border-solid border-border' : 'border-dashed border-border',
             )}
           >
             {!bulkSchemaRestrict ? (
-              <p className="m-0 text-[0.72rem] leading-[1.4] text-foreground-faint p-[0.35rem_0.15rem]">
+              <p className="m-0 p-[0.35rem_0.15rem] text-[0.72rem] leading-[1.4] text-foreground-faint">
                 {t('metadata.bulk_schema_all_hint')}
               </p>
             ) : (
@@ -159,7 +159,7 @@ export function MetadataBulkDescribeSetup({
                   maxHeight={Math.min(288, Math.max(144, schemaOptions.length * 36))}
                   options={schemaOptions.map((s) => ({ value: s, label: s }))}
                 />
-                <div className="flex flex-wrap items-center gap-[0.3rem_0.5rem] mt-[0.35rem]">
+                <div className="mt-[0.35rem] flex flex-wrap items-center gap-[0.3rem_0.5rem]">
                   <button
                     type="button"
                     className={legacyButtonClass('btn btn-ghost btn-sm')}
@@ -186,7 +186,7 @@ export function MetadataBulkDescribeSetup({
       <div className="flex flex-wrap items-end gap-[0.75rem_1.25rem]">
         <div className={legacyFormClass('form-group mb-0 flex flex-col gap-[0.2rem]')}>
           <label
-            className="text-[0.68rem] font-bold tracking-wider uppercase text-foreground-faint"
+            className="text-[0.68rem] font-bold tracking-wider text-foreground-faint uppercase"
             htmlFor="bulk-sample-size"
           >
             {t('metadata.bulk_sample_rows')}
@@ -196,13 +196,13 @@ export function MetadataBulkDescribeSetup({
             type="number"
             min={1}
             max={100}
-            className="w-[4.25rem] text-[0.8rem] p-[0.3rem_0.45rem]"
+            className="w-17 p-[0.3rem_0.45rem] text-[0.8rem]"
             value={bulkConfig.sample_size}
             onChange={(e) => onConfigChange({ sample_size: Number(e.target.value) })}
           />
         </div>
         <label
-          className="inline-flex items-center gap-[0.45rem] m-0 text-[0.78rem] text-foreground-muted cursor-pointer pb-[0.15rem]"
+          className="m-0 inline-flex cursor-pointer items-center gap-[0.45rem] pb-[0.15rem] text-[0.78rem] text-foreground-muted"
           htmlFor="bulk-skip-existing"
         >
           <input
@@ -215,10 +215,10 @@ export function MetadataBulkDescribeSetup({
           <span>{t('metadata.bulk_skip_existing')}</span>
         </label>
       </div>
-      <div className="pt-[0.35rem] px-0 pb-0 border-t border-border">
+      <div className="border-t border-border px-0 pt-[0.35rem] pb-0">
         <span className="text-[0.76rem] text-foreground-faint">
           {t('metadata.bulk_scope_objects')}{' '}
-          <strong className="text-foreground font-[650]">{bulkTargetTables.length}</strong>{' '}
+          <strong className="font-[650] text-foreground">{bulkTargetTables.length}</strong>{' '}
           {t('metadata.bulk_scope_suffix')}
           {bulkTargetTables.length !== tablesCount && (
             <span className="opacity-90">

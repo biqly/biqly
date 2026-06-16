@@ -107,14 +107,14 @@ export default function Home() {
               key={action.path}
               type="button"
               className={legacyCardClass(
-                'flex flex-col items-start gap-[0.65rem] border border-border rounded-[0.7rem] bg-card p-4 cursor-pointer text-foreground text-left transition-all duration-140 ease-out hover:border-accent hover:bg-[var(--accent-glow)] hover:-translate-y-0.5',
+                'flex flex-col items-start gap-[0.65rem] border border-border rounded-[0.7rem] bg-card p-4 cursor-pointer text-foreground text-left transition-all duration-140 ease-out hover:border-accent hover:bg-(--accent-glow) hover:-translate-y-0.5',
               )}
               onClick={() => {
                 void navigate(action.path)
               }}
             >
               <span
-                className="inline-grid place-items-center w-[2.2rem] h-[2.2rem] rounded-[0.55rem] bg-[var(--accent-glow)] text-accent"
+                className="inline-grid h-[2.2rem] w-[2.2rem] place-items-center rounded-[0.55rem] bg-(--accent-glow) text-accent"
                 aria-hidden="true"
               >
                 {action.icon}
@@ -125,7 +125,7 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5 items-start">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] items-start gap-5">
         <RecentQueries />
         <Favorites />
       </div>
@@ -135,11 +135,11 @@ export default function Home() {
 
 function ListSkeleton() {
   return (
-    <div className="flex flex-col gap-[0.3rem] m-0 p-0 list-none">
+    <div className="m-0 flex list-none flex-col gap-[0.3rem] p-0">
       {Array.from({ length: 4 }, (_, i) => (
         <div
           key={i}
-          className="flex flex-col gap-[0.4rem] w-full rounded-[0.5rem] py-[0.6rem] px-[0.65rem]"
+          className="flex w-full flex-col gap-[0.4rem] rounded-lg px-[0.65rem] py-[0.6rem]"
         >
           <Skeleton height="0.85rem" width={`${70 - i * 8}%`} />
           <Skeleton height="0.7rem" width="40%" />
@@ -180,21 +180,21 @@ function RecentQueries() {
           }}
         />
       ) : (
-        <ul className="flex flex-col gap-[0.3rem] m-0 p-0 list-none">
+        <ul className="m-0 flex list-none flex-col gap-[0.3rem] p-0">
           {items.map((item) => (
             <li key={item.id}>
               <button
                 type="button"
                 className={legacyCardClass(
-                  'flex flex-col gap-[0.2rem] w-full rounded-[0.5rem] py-[0.6rem] px-[0.65rem] border-0 bg-transparent cursor-pointer text-left text-foreground font-inherit hover:bg-card-raised',
+                  'flex flex-col gap-[0.2rem] w-full rounded-lg py-[0.6rem] px-[0.65rem] border-0 bg-transparent cursor-pointer text-left text-foreground font-inherit hover:bg-card-raised',
                 )}
                 onClick={() => {
                   void navigate('/ai-query', { state: { question: item.question } })
                 }}
                 aria-label={`${t('home.open_aria')}: ${item.question}`}
               >
-                <span className="text-[0.88rem] font-medium truncate">{item.question}</span>
-                <span className="text-[0.76rem] text-foreground-muted truncate">
+                <span className="truncate text-[0.88rem] font-medium">{item.question}</span>
+                <span className="truncate text-[0.76rem] text-foreground-muted">
                   {formatDate(item.created_at)}
                 </span>
               </button>
@@ -259,22 +259,22 @@ function Favorites() {
           }}
         />
       ) : (
-        <ul className="flex flex-col gap-[0.3rem] m-0 p-0 list-none">
+        <ul className="m-0 flex list-none flex-col gap-[0.3rem] p-0">
           {items.map((item) => (
             <li key={item.id} className="flex items-center gap-[0.35rem]">
               <button
                 type="button"
                 className={legacyCardClass(
-                  'flex flex-col gap-[0.2rem] w-full rounded-[0.5rem] py-[0.6rem] px-[0.65rem] border-0 bg-transparent cursor-pointer text-left text-foreground font-inherit hover:bg-card-raised min-w-0 flex-1',
+                  'flex flex-col gap-[0.2rem] w-full rounded-lg py-[0.6rem] px-[0.65rem] border-0 bg-transparent cursor-pointer text-left text-foreground font-inherit hover:bg-card-raised min-w-0 flex-1',
                 )}
                 onClick={() => {
                   void navigate('/saved')
                 }}
                 aria-label={`${t('home.open_aria')}: ${item.name}`}
               >
-                <span className="text-[0.88rem] font-medium truncate">{item.name}</span>
+                <span className="truncate text-[0.88rem] font-medium">{item.name}</span>
                 {item.description && (
-                  <span className="text-[0.76rem] text-foreground-muted truncate">
+                  <span className="truncate text-[0.76rem] text-foreground-muted">
                     {item.description}
                   </span>
                 )}

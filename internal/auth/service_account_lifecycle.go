@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 )
@@ -11,7 +12,7 @@ func (s *Service) FreezeAccount(ctx context.Context, userID string) error {
 		return err
 	}
 	if err := s.sessionMgr.RevokeAllUserSessions(ctx, userID); err != nil {
-		slog.ErrorContext(ctx, "failed to revoke user sessions on freeze", "userID", userID, "err", err)
+		return fmt.Errorf("revoke user sessions on freeze: %w", err)
 	}
 	return nil
 }
@@ -37,7 +38,7 @@ func (s *Service) DeleteAccount(ctx context.Context, userID, password string) (t
 		return time.Time{}, err
 	}
 	if err := s.sessionMgr.RevokeAllUserSessions(ctx, userID); err != nil {
-		slog.ErrorContext(ctx, "failed to revoke user sessions on delete", "userID", userID, "err", err)
+		return time.Time{}, fmt.Errorf("revoke user sessions on delete: %w", err)
 	}
 	if s.emailSender != nil {
 		if err := s.emailSender.SendAccountDeletionScheduled(ctx, user.Email, purgeAt); err != nil {

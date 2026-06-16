@@ -2,10 +2,12 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // NullUUIDPtr returns nil when the string pointer is nil, empty, or not a valid
@@ -93,31 +95,25 @@ type NullStringArray struct {
 
 // Scan implements the sql.Scanner interface for NullStringArray.
 func (n *NullStringArray) Scan(src any) error {
+	if n.S == nil {
+		return errors.New("NullStringArray: destination pointer is nil")
+	}
 	if src == nil {
 		*n.S = []string{}
 		return nil
 	}
-	switch v := src.(type) {
-	case string:
-		*n.S = ParseStringArray(v)
-	case []byte:
-		*n.S = ParseStringArray(string(v))
-	default:
-		*n.S = []string{}
-	}
-	return nil
+	return (*pq.StringArray)(n.S).Scan(src)
 }
 
 // ParseStringArray parses PostgreSQL string arrays: {"a","b","c"}
 func ParseStringArray(s string) []string {
-	s = strings.TrimPrefix(s, "{")
-	s = strings.TrimSuffix(s, "}")
 	if s == "" {
 		return []string{}
 	}
-	parts := strings.Split(s, ",")
-	for i, p := range parts {
-		parts[i] = strings.Trim(p, "\"")
+	var arr []string
+	_ = (*pq.StringArray)(&arr).Scan(s)
+	if arr == nil {
+		return []string{}
 	}
-	return parts
+	return arr
 }

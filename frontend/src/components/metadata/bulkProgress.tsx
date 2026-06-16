@@ -119,7 +119,7 @@ export function BulkProgressHeader({
       </div>
       <div
         className={legacyCardClass(
-          'h-[6px] bg-card rounded-[4px] overflow-hidden border border-border',
+          'h-1.5 bg-card rounded-sm overflow-hidden border border-border',
         )}
       >
         <div

@@ -616,9 +616,9 @@ export default function AIJobTracker() {
             onCancel={
               isActive(job)
                 ? () => {
-                    setCancellingId(job.id)
-                    void cancelJob(job.id).finally(() => setCancellingId(null))
-                  }
+                  setCancellingId(job.id)
+                  void cancelJob(job.id).finally(() => setCancellingId(null))
+                }
                 : undefined
             }
             cancelling={cancellingId === job.id}

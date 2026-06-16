@@ -33,6 +33,11 @@ func TestPasswordHashing(t *testing.T) {
 
 	assert.True(t, VerifyPassword(password, hash))
 	assert.False(t, VerifyPassword("WrongPass", hash))
+
+	_, err = HashPassword(strings.Repeat("a", maxBcryptPasswordBytes))
+	require.NoError(t, err)
+	_, err = HashPassword(strings.Repeat("a", maxBcryptPasswordBytes+1))
+	assert.ErrorIs(t, err, ErrPasswordTooLong)
 }
 
 func TestJWTManager(t *testing.T) {
@@ -60,7 +65,8 @@ func TestJWTManager(t *testing.T) {
 	// Validate public key export
 	pubPEM, err := mgr.PublicKeyPEM()
 	require.NoError(t, err)
-	assert.Contains(t, pubPEM, "RSA PUBLIC KEY")
+	assert.Contains(t, pubPEM, "PUBLIC KEY")
+	assert.NotContains(t, pubPEM, "RSA PUBLIC KEY")
 }
 
 func TestJWTManagerSetsIssuerAudienceJTI(t *testing.T) {
@@ -355,6 +361,19 @@ func TestIntegrationAuthFlow(t *testing.T) {
 		RefreshToken: newLogin.RefreshToken,
 	}, &ua, &ip)
 	assert.ErrorIs(t, err, ErrSessionRevoked)
+
+	// 7. Frozen accounts must not mint a fresh access token from an existing
+	// refresh token, even if the session row itself is still present.
+	frozenLogin, err := service.Login(ctx, LoginRequest{
+		Email:    email,
+		Password: "SecurePass123!",
+	}, &ua, &ip)
+	require.NoError(t, err)
+	require.NoError(t, userRepo.FreezeAccount(ctx, regResp.UserID))
+	_, err = service.Refresh(ctx, RefreshRequest{
+		RefreshToken: frozenLogin.RefreshToken,
+	}, &ua, &ip)
+	assert.ErrorIs(t, err, ErrAccountFrozen)
 }
 
 func TestOAuthFlow(t *testing.T) {
@@ -534,14 +553,14 @@ func TestCSRF(t *testing.T) {
 	cookies := rrGET.Result().Cookies()
 	var csrfCookie *http.Cookie
 	for _, c := range cookies {
-		if c.Name == "csrf_token" {
+		if c.Name == csrfLegacyCookieName {
 			csrfCookie = c
 			break
 		}
 	}
 	require.NotNil(t, csrfCookie)
 	assert.NotEmpty(t, csrfCookie.Value)
-	assert.True(t, csrfCookie.HttpOnly)
+	assert.False(t, csrfCookie.HttpOnly)
 	assert.False(t, csrfCookie.Secure)
 
 	headerToken := rrGET.Header().Get("X-CSRF-Token")

@@ -1,3 +1,4 @@
+// Package ambiguity implements the ambiguity resolution service.
 package ambiguity
 
 import (

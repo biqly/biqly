@@ -118,12 +118,12 @@ func (s *Service) GetInvitation(ctx context.Context, token string) (*Invitation,
 		SELECT ui.id, ui.email, ui.role_id, r.name as role_name, ui.invited_by, ui.created_at, ui.expires_at, ui.claimed_at
 		FROM user_invitations ui
 		JOIN roles r ON ui.role_id = r.id
-		WHERE ui.token = $1 OR ui.token = $2
+		WHERE ui.token = $1
 	`
 	var invite Invitation
 	var claimedAtNull sql.NullTime
 
-	err := s.userRepo.db.QueryRowContext(ctx, query, tokenHash, token).Scan(
+	err := s.userRepo.db.QueryRowContext(ctx, query, tokenHash).Scan(
 		&invite.ID, &invite.Email, &invite.RoleID, &invite.RoleName,
 		&invite.InvitedBy, &invite.CreatedAt, &invite.ExpiresAt, &claimedAtNull,
 	)

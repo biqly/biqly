@@ -69,7 +69,11 @@ func (r *LDAPConfigRepository) Get(ctx context.Context) (LDAPConfig, error) {
 	encPw = strings.TrimSpace(encPw)
 	c.HasBindPassword = encPw != ""
 	if c.HasBindPassword {
-		c.BindPassword = r.decrypt(encPw)
+		plain, err := r.decrypt(encPw)
+		if err != nil {
+			return LDAPConfig{}, fmt.Errorf("decrypt ldap bind password: %w", err)
+		}
+		c.BindPassword = plain
 	}
 	if updatedBy.Valid {
 		c.UpdatedBy = new(updatedBy.String)
@@ -119,16 +123,16 @@ func (r *LDAPConfigRepository) encrypt(plain string) (string, error) {
 	return r.enc.Encrypt(plain)
 }
 
-func (r *LDAPConfigRepository) decrypt(enc string) string {
+func (r *LDAPConfigRepository) decrypt(enc string) (string, error) {
 	if enc == "" || r.enc == nil {
-		return enc
+		return enc, nil
 	}
 	plain, err := r.enc.Decrypt(enc)
 	if err != nil {
 		if r.enc.IsEncrypted(enc) {
-			return ""
+			return "", fmt.Errorf("decrypt bind password: %w", err)
 		}
-		return enc
+		return enc, nil
 	}
-	return plain
+	return plain, nil
 }

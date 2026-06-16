@@ -9,29 +9,24 @@ import { useT } from '../i18n'
 import { legacyButtonClass, rowActionsClass } from '../lib/buttonClasses'
 import { legacyCardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
-import { fieldBadgeBtnClass, fieldBadgeBtnTypeClass } from '../lib/fewShotLayoutClasses'
 import {
   fewShotMainFormClass,
   fewShotModalCardClass,
   fewShotSidebarClass,
   fewShotSidebarHeaderClass,
   fewShotSidebarListClass,
-  modalBodyTwoColClass,
+  fieldBadgeBtnClass,
+  fieldBadgeBtnTypeClass,
 } from '../lib/fewShotLayoutClasses'
 import { formControlClass, formRowClass, legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
-import {
-  modalActionsClass,
-  modalBackdropClass,
-  modalCloseClass,
-  modalFormRowClass,
-  modalHeaderClass,
-} from '../lib/modalClasses'
+import { modalActionsClass, modalFormRowClass } from '../lib/modalClasses'
 import { legacyTableClass } from '../lib/tableClasses'
 import { parseJsonRecord } from '../utils/record'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
+import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
 interface FewShotExample {
   id: string
@@ -502,188 +497,184 @@ export default function FewShotExamples() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className={modalBackdropClass()} onClick={resetForm}>
-          <div className={fewShotModalCardClass()} onClick={(e) => e.stopPropagation()}>
-            <div className={modalHeaderClass()}>
-              <h2>{editId ? t('few_shot.form_edit_title') : t('few_shot.form_add_title')}</h2>
-              <button className={modalCloseClass()} onClick={resetForm}>
-                ×
-              </button>
-            </div>
-            <div className={modalBodyTwoColClass()}>
-              <div className={fewShotMainFormClass()}>
-                <div className={modalFormRowClass()}>
-                  <div className={legacyFormClass('form-group')}>
-                    <label htmlFor="fs-datasource">{t('few_shot.label_datasource')}</label>
-                    <Select
-                      id="fs-datasource"
-                      value={formDatasourceId}
-                      onChange={(val) => {
-                        setFormDatasourceId(val)
-                        setFormModelId('')
-                      }}
-                      options={datasources.map((d) => ({ value: d.id, label: d.name }))}
-                    />
-                  </div>
-                  <div className={legacyFormClass('form-group')}>
-                    <label htmlFor="fs-model">{t('few_shot.label_model')}</label>
-                    <Select
-                      id="fs-model"
-                      value={formModelId}
-                      onChange={setFormModelId}
-                      options={[
-                        { value: '', label: t('few_shot.option_raw_tables') },
-                        ...formModels.map((m) => ({ value: m.id, label: m.label ?? m.name })),
-                      ]}
-                    />
-                  </div>
-                </div>
-
-                <div className={legacyFormClass('form-group')}>
-                  <label htmlFor="fs-question">{t('few_shot.label_nl_question')}</label>
-                  <textarea
-                    ref={questionRef}
-                    id="fs-question"
-                    value={formQuestion}
-                    onChange={(e) => setFormQuestion(e.target.value)}
-                    onFocus={() => setLastFocusedInput('question')}
-                    placeholder={t('few_shot.placeholder_nl_question')}
-                    rows={3}
-                  />
-                </div>
-
-                <div
-                  className={legacyFormClass('form-group')}
-                  style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
-                >
-                  <label htmlFor="fs-lq">{t('few_shot.label_lq_json')}</label>
-                  <textarea
-                    ref={lqRef}
-                    id="fs-lq"
-                    value={formLq}
-                    onChange={(e) => setFormLq(e.target.value)}
-                    onFocus={() => setLastFocusedInput('lq')}
-                    placeholder='{"select": [{"type": "metric", "name": "revenue"}]}'
-                    style={{
-                      fontFamily: 'monospace',
-                      fontSize: '0.8rem',
-                      flex: 1,
-                      minHeight: '120px',
-                    }}
-                  />
-                </div>
-
-                <div className={modalFormRowClass()}>
-                  <div className={legacyFormClass('form-group')}>
-                    <label htmlFor="fs-tags">{t('few_shot.label_tags')}</label>
-                    <input
-                      id="fs-tags"
-                      value={formTags}
-                      onChange={(e) => setFormTags(e.target.value)}
-                      placeholder={t('few_shot.placeholder_tags')}
-                    />
-                  </div>
-                  <div className={legacyFormClass('form-group')}>
-                    <label htmlFor="fs-dialect">{t('few_shot.label_dialect')}</label>
-                    <Select
-                      id="fs-dialect"
-                      value={formDialect}
-                      onChange={setFormDialect}
-                      options={DIALECTS.map((d) => ({ value: d, label: d }))}
-                    />
-                  </div>
-                </div>
-
-                <ErrorAlert error={formError} />
+        <Modal
+          open
+          title={editId ? t('few_shot.form_edit_title') : t('few_shot.form_add_title')}
+          onClose={resetForm}
+          className={fewShotModalCardClass()}
+          bodyClassName="gap-4"
+        >
+          <div className={fewShotMainFormClass()}>
+            <div className={modalFormRowClass()}>
+              <div className={legacyFormClass('form-group')}>
+                <label htmlFor="fs-datasource">{t('few_shot.label_datasource')}</label>
+                <Select
+                  id="fs-datasource"
+                  value={formDatasourceId}
+                  onChange={(val) => {
+                    setFormDatasourceId(val)
+                    setFormModelId('')
+                  }}
+                  options={datasources.map((d) => ({ value: d.id, label: d.name }))}
+                />
               </div>
-
-              <div className={fewShotSidebarClass()}>
-                <div className={fewShotSidebarHeaderClass()}>
-                  {t('few_shot.available_fields_title')}
-                </div>
-                {activeModelDetail ? (
-                  <>
-                    <input
-                      type="text"
-                      className={cn(formControlClass, 'mb-1')}
-                      placeholder={t('few_shot.search_fields_placeholder')}
-                      value={sidebarSearch}
-                      onChange={(e) => setSidebarSearch(e.target.value)}
-                    />
-                    <div className={fewShotSidebarListClass()}>
-                      {filteredDimensions.map((d) => (
-                        <button
-                          key={d.id}
-                          type="button"
-                          className={fieldBadgeBtnClass}
-                          onClick={() => handleInsertField(d.name)}
-                          title={d.description ?? d.label ?? d.name}
-                        >
-                          <span>{d.name}</span>
-                          <span className={fieldBadgeBtnTypeClass}>dim</span>
-                        </button>
-                      ))}
-                      {filteredMetrics.map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          className={fieldBadgeBtnClass}
-                          onClick={() => handleInsertField(m.name)}
-                          title={m.description ?? m.label ?? m.name}
-                        >
-                          <span>{m.name}</span>
-                          <span className={fieldBadgeBtnTypeClass}>met</span>
-                        </button>
-                      ))}
-                      {filteredDimensions.length === 0 && filteredMetrics.length === 0 && (
-                        <span
-                          style={{
-                            fontSize: '0.75rem',
-                            color: 'var(--text-secondary)',
-                            textAlign: 'center',
-                            marginTop: '1rem',
-                          }}
-                        >
-                          No fields found
-                        </span>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div
-                    style={{
-                      fontSize: '0.75rem',
-                      color: 'var(--text-secondary)',
-                      lineHeight: '1.4',
-                      marginTop: '0.5rem',
-                    }}
-                  >
-                    {t('few_shot.helper_select_model')}
-                  </div>
-                )}
+              <div className={legacyFormClass('form-group')}>
+                <label htmlFor="fs-model">{t('few_shot.label_model')}</label>
+                <Select
+                  id="fs-model"
+                  value={formModelId}
+                  onChange={setFormModelId}
+                  options={[
+                    { value: '', label: t('few_shot.option_raw_tables') },
+                    ...formModels.map((m) => ({ value: m.id, label: m.label ?? m.name })),
+                  ]}
+                />
               </div>
             </div>
-            <div className={modalActionsClass()}>
-              <button
-                type="button"
-                className={legacyButtonClass('btn btn-ghost')}
-                onClick={resetForm}
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                className={legacyButtonClass('btn btn-primary')}
-                onClick={() => {
-                  void handleSave()
+
+            <div className={legacyFormClass('form-group')}>
+              <label htmlFor="fs-question">{t('few_shot.label_nl_question')}</label>
+              <textarea
+                ref={questionRef}
+                id="fs-question"
+                value={formQuestion}
+                onChange={(e) => setFormQuestion(e.target.value)}
+                onFocus={() => setLastFocusedInput('question')}
+                placeholder={t('few_shot.placeholder_nl_question')}
+                rows={3}
+              />
+            </div>
+
+            <div
+              className={legacyFormClass('form-group')}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+            >
+              <label htmlFor="fs-lq">{t('few_shot.label_lq_json')}</label>
+              <textarea
+                ref={lqRef}
+                id="fs-lq"
+                value={formLq}
+                onChange={(e) => setFormLq(e.target.value)}
+                onFocus={() => setLastFocusedInput('lq')}
+                placeholder='{"select": [{"type": "metric", "name": "revenue"}]}'
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: '0.8rem',
+                  flex: 1,
+                  minHeight: '120px',
                 }}
-                disabled={loading}
-              >
-                {loading ? t('common.saving') : t('common.save')}
-              </button>
+              />
             </div>
+
+            <div className={modalFormRowClass()}>
+              <div className={legacyFormClass('form-group')}>
+                <label htmlFor="fs-tags">{t('few_shot.label_tags')}</label>
+                <input
+                  id="fs-tags"
+                  value={formTags}
+                  onChange={(e) => setFormTags(e.target.value)}
+                  placeholder={t('few_shot.placeholder_tags')}
+                />
+              </div>
+              <div className={legacyFormClass('form-group')}>
+                <label htmlFor="fs-dialect">{t('few_shot.label_dialect')}</label>
+                <Select
+                  id="fs-dialect"
+                  value={formDialect}
+                  onChange={setFormDialect}
+                  options={DIALECTS.map((d) => ({ value: d, label: d }))}
+                />
+              </div>
+            </div>
+
+            <ErrorAlert error={formError} />
           </div>
-        </div>
+
+          <div className={fewShotSidebarClass()}>
+            <div className={fewShotSidebarHeaderClass()}>
+              {t('few_shot.available_fields_title')}
+            </div>
+            {activeModelDetail ? (
+              <>
+                <input
+                  type="text"
+                  className={cn(formControlClass, 'mb-1')}
+                  placeholder={t('few_shot.search_fields_placeholder')}
+                  value={sidebarSearch}
+                  onChange={(e) => setSidebarSearch(e.target.value)}
+                />
+                <div className={fewShotSidebarListClass()}>
+                  {filteredDimensions.map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      className={fieldBadgeBtnClass}
+                      onClick={() => handleInsertField(d.name)}
+                      title={d.description ?? d.label ?? d.name}
+                    >
+                      <span>{d.name}</span>
+                      <span className={fieldBadgeBtnTypeClass}>dim</span>
+                    </button>
+                  ))}
+                  {filteredMetrics.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={fieldBadgeBtnClass}
+                      onClick={() => handleInsertField(m.name)}
+                      title={m.description ?? m.label ?? m.name}
+                    >
+                      <span>{m.name}</span>
+                      <span className={fieldBadgeBtnTypeClass}>met</span>
+                    </button>
+                  ))}
+                  {filteredDimensions.length === 0 && filteredMetrics.length === 0 && (
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        color: 'var(--text-secondary)',
+                        textAlign: 'center',
+                        marginTop: '1rem',
+                      }}
+                    >
+                      No fields found
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--text-secondary)',
+                  lineHeight: '1.4',
+                  marginTop: '0.5rem',
+                }}
+              >
+                {t('few_shot.helper_select_model')}
+              </div>
+            )}
+          </div>
+          <div className={modalActionsClass()}>
+            <button
+              type="button"
+              className={legacyButtonClass('btn btn-ghost')}
+              onClick={resetForm}
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              className={legacyButtonClass('btn btn-primary')}
+              onClick={() => {
+                void handleSave()
+              }}
+              disabled={loading}
+            >
+              {loading ? t('common.saving') : t('common.save')}
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   )

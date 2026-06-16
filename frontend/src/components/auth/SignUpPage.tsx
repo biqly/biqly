@@ -154,11 +154,11 @@ function SignUpHeader({ firstUserSetupRequired, onSignInClick }: SignUpHeaderPro
   const t = useT()
 
   return (
-    <div className="flex flex-col items-center text-center mb-6">
-      <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
-        <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
+    <div className="mb-6 flex flex-col items-center text-center">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+        <img src={abiLogo} alt="" className="h-8.5 w-8.5 object-contain" />
       </div>
-      <h1 className="text-[24px] font-bold text-foreground mb-1 tracking-tight">
+      <h1 className="mb-1 text-[24px] font-bold tracking-tight text-foreground">
         {firstUserSetupRequired ? t('auth.first_setup_title') : t('auth.title_signup')}
       </h1>
       {firstUserSetupRequired ? (
@@ -305,11 +305,11 @@ export default function SignUpPage() {
     return (
       <div className={authPageClass}>
         <div className={authCardClass}>
-          <div className="flex flex-col items-center text-center mb-6">
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
-              <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
+          <div className="mb-6 flex flex-col items-center text-center">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+              <img src={abiLogo} alt="" className="h-8.5 w-8.5 object-contain" />
             </div>
-            <h1 className="text-[24px] font-bold text-foreground mb-1 tracking-tight">
+            <h1 className="mb-1 text-[24px] font-bold tracking-tight text-foreground">
               {t('auth.signup_closed_title')}
             </h1>
             <p className="text-[14px] text-foreground-muted">{t('auth.signup_closed_body')}</p>

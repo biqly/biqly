@@ -1,3 +1,4 @@
+// Package eval implements the text-to-SQL evaluation service.
 package eval
 
 import (

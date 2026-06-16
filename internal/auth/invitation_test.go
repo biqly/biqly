@@ -221,6 +221,19 @@ func TestInvitationRouteTokenDecoding(t *testing.T) {
 	assert.Equal(t, "iY7nsYpBr9xdk5_Pn5xSwiVbo-iGTcM53WtyK8A1iHY=", token)
 }
 
+func TestGetInvitationRejectsPlaintextStoredToken(t *testing.T) {
+	env := newInvitationTestEnv(t)
+	token := env.inviteAndExtractToken(t, "plaintext-token@example.com")
+
+	_, err := env.dbPool.ExecContext(env.ctx,
+		"UPDATE user_invitations SET token = $1 WHERE email = $2",
+		token, "plaintext-token@example.com")
+	require.NoError(t, err)
+
+	_, err = env.service.GetInvitation(env.ctx, token)
+	assert.ErrorIs(t, err, ErrInvitationNotFound)
+}
+
 // inviteAndExtractToken invites email as the super admin and returns the raw
 // invitation token captured from the mock mailer.
 func (env *invitationTestEnv) inviteAndExtractToken(t *testing.T, email string) string {

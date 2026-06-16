@@ -45,17 +45,17 @@ export default function ForgotPasswordPage() {
   return (
     <div className={authPageClass}>
       <div className={authCardClass}>
-        <div className="flex flex-col items-center text-center mb-6">
-          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
-            <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
+        <div className="mb-6 flex flex-col items-center text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+            <img src={abiLogo} alt="" className="h-8.5 w-8.5 object-contain" />
           </div>
-          <h1 className="text-[24px] font-bold text-foreground mb-1 tracking-tight">
+          <h1 className="mb-1 text-[24px] font-bold tracking-tight text-foreground">
             {t('auth.title_forgot')}
           </h1>
           <p className="text-[14px] text-foreground-muted">
             <a
               href="/auth/signin"
-              className="text-[#6366f1] font-medium no-underline hover:underline"
+              className="font-medium text-[#6366f1] no-underline hover:underline"
               onClick={(e) => {
                 e.preventDefault()
                 void navigate('/auth/signin')
@@ -109,7 +109,7 @@ export default function ForgotPasswordPage() {
 
             <button type="submit" className={authSubmitBtnClass} disabled={loading || !email}>
               {loading && (
-                <div className="w-4 h-4 border-2 border-white/30 rounded-full border-t-white animate-spin" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
               )}
               {t('auth.btn_send_reset')}
             </button>

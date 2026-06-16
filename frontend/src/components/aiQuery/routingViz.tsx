@@ -541,27 +541,27 @@ export function ClarificationCard({
       <div className={clarificationOptionsClass}>
         {useStructured
           ? structured.map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                className={btnClarificationClass}
-                title={opt.hint}
-                onClick={() => onSelect(opt.key || opt.label)}
-              >
-                {opt.label}
-                {opt.hint ? <span className={clarificationOptionHintClass}>{opt.hint}</span> : null}
-              </button>
-            ))
+            <button
+              key={opt.key}
+              type="button"
+              className={btnClarificationClass}
+              title={opt.hint}
+              onClick={() => onSelect(opt.key || opt.label)}
+            >
+              {opt.label}
+              {opt.hint ? <span className={clarificationOptionHintClass}>{opt.hint}</span> : null}
+            </button>
+          ))
           : options.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                className={btnClarificationClass}
-                onClick={() => onSelect(opt)}
-              >
-                {opt}
-              </button>
-            ))}
+            <button
+              key={opt}
+              type="button"
+              className={btnClarificationClass}
+              onClick={() => onSelect(opt)}
+            >
+              {opt}
+            </button>
+          ))}
       </div>
       <button type="button" className={btnSkipClass} onClick={onSkip}>
         {t('ai_query.clarification_skip')}
@@ -645,10 +645,10 @@ export function CostBadge({
   }
   const tokenTitle = tokenUsage
     ? t('ai_query.cost_token_title', {
-        prompt: tokenUsage.prompt.toLocaleString(localeTag),
-        completion: tokenUsage.completion.toLocaleString(localeTag),
-        total: tokenUsage.total.toLocaleString(localeTag),
-      })
+      prompt: tokenUsage.prompt.toLocaleString(localeTag),
+      completion: tokenUsage.completion.toLocaleString(localeTag),
+      total: tokenUsage.total.toLocaleString(localeTag),
+    })
     : undefined
   return (
     <div className={costBadgeClass} title={tokenTitle}>

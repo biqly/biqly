@@ -141,7 +141,7 @@ export function MetadataTablesPanel({
                 type="button"
                 className={cn(
                   legacyButtonClass('btn btn-sm btn-secondary'),
-                  'metadata-toolbar-action-btn shrink-0 text-[0.75rem] px-2.5 py-1 whitespace-nowrap',
+                  'metadata-toolbar-action-btn shrink-0 px-2.5 py-1 text-[0.75rem] whitespace-nowrap',
                 )}
                 onClick={onBulkOpen}
                 disabled={bulkRunning || !!activeDescribeBatchJob}
@@ -233,21 +233,21 @@ export function MetadataTablesPanel({
                         type="button"
                         className={cn(
                           legacyButtonClass('icon-btn'),
-                          'text-[0.8125rem] gap-[0.35rem]',
+                          'gap-[0.35rem] text-[0.8125rem]',
                         )}
                         aria-expanded={openTableId === tab.id}
                         aria-label={
                           openTableId === tab.id
                             ? t('metadata.aria_table_collapse', {
-                                name: `${tab.schema_name}.${tab.table_name}`,
-                              })
+                              name: `${tab.schema_name}.${tab.table_name}`,
+                            })
                             : t('metadata.aria_table_expand', {
-                                name: `${tab.schema_name}.${tab.table_name}`,
-                              })
+                              name: `${tab.schema_name}.${tab.table_name}`,
+                            })
                         }
                         onClick={() => onToggleTable(tab)}
                       >
-                        <span className="inline-block w-[0.7rem] text-foreground-muted text-[0.7rem]">
+                        <span className="inline-block w-[0.7rem] text-[0.7rem] text-foreground-muted">
                           {openTableId === tab.id ? '▼' : '▶'}
                         </span>
                         {tab.schema_name}.{tab.table_name}

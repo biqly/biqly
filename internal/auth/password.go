@@ -1,6 +1,15 @@
 package auth
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"errors"
+	"log"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
+const maxBcryptPasswordBytes = 72
+
+var ErrPasswordTooLong = errors.New("password exceeds bcrypt 72-byte limit")
 
 // dummyBcryptHash is a precomputed bcrypt hash used to keep Login response
 // times constant when the requested user does not exist. Computed once at
@@ -16,12 +25,16 @@ func init() {
 	// init so the cost matches HashPassword exactly.
 	const seed = "biqly-timing-attack-mitigation-seed-do-not-use-as-password"
 	h, err := bcrypt.GenerateFromPassword([]byte(seed), 12)
-	if err == nil {
-		dummyBcryptHash = string(h)
+	if err != nil {
+		log.Fatalf("auth: init dummy bcrypt hash: %v", err)
 	}
+	dummyBcryptHash = string(h)
 }
 
 func HashPassword(password string) (string, error) {
+	if len(password) > maxBcryptPasswordBytes {
+		return "", ErrPasswordTooLong
+	}
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	return string(bytes), err
 }

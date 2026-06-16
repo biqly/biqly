@@ -4,12 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/bytedance/sonic"
 	"log/slog"
 	"regexp"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/bytedance/sonic"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 const (
@@ -19,6 +23,14 @@ const (
 )
 
 var uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+var MetricAuditEventsDropped = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "biqly_audit_events_dropped_total",
+		Help: "Total audit events dropped before persistence.",
+	},
+	[]string{"reason"},
+)
 
 func toNullUUID(s string) sql.NullString {
 	if uuidRegex.MatchString(s) {
@@ -65,12 +77,14 @@ func NewDBWriter(ctx context.Context, db *sql.DB, logger *slog.Logger) *DBWriter
 // Write queues an event for writing to the database. It is thread-safe and non-blocking.
 func (w *DBWriter) Write(event Event) {
 	if w.closed.Load() {
+		MetricAuditEventsDropped.WithLabelValues("closed").Inc()
 		w.logger.Warn("audit event written to closed DBWriter", "event_type", event.EventType)
 		return
 	}
 	select {
 	case w.ch <- event:
 	default:
+		MetricAuditEventsDropped.WithLabelValues("channel_full").Inc()
 		w.logger.Warn("audit event channel is full, dropping event", "event_type", event.EventType)
 	}
 }

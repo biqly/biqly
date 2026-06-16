@@ -145,8 +145,8 @@ export function ResultTable({
         </>
       )}
 
-      <div className="max-w-full overflow-x-auto mt-4 overscroll-x-contain custom-scrollbar-thin">
-        <table className="w-full mt-4 border-collapse text-[0.9rem] max-[720px]:text-[0.82rem] min-w-[42rem]">
+      <div className="custom-scrollbar-thin mt-4 max-w-full overflow-x-auto overscroll-x-contain">
+        <table className="mt-4 w-full min-w-2xl border-collapse text-[0.9rem] max-[720px]:text-[0.82rem]">
           <thead>
             <tr>
               {columns.map((col, colIdx) => {
@@ -156,22 +156,22 @@ export function ResultTable({
                 return (
                   <th
                     key={col.name}
-                    className={`border-b border-border p-[0.75rem_0.9rem] max-[720px]:p-[0.55rem_0.6rem] text-left align-middle transition-colors duration-150 sticky top-0 z-[2] bg-[var(--table-header-bg)] text-[var(--table-header-fg)] font-['Plus_Jakarta_Sans',sans-serif] text-[0.7rem] font-bold tracking-wider uppercase border-b-2 border-[var(--border-strong)] shadow-[0_1px_0_var(--table-header-shadow-line)] pt-[0.85rem] pb-[0.85rem] hover:text-foreground`}
+                    className={`border-b border-border p-[0.75rem_0.9rem] max-[720px]:p-[0.55rem_0.6rem] text-left align-middle transition-colors duration-150 sticky top-0 z-2 bg-(--table-header-bg) text-(--table-header-fg) font-['Plus_Jakarta_Sans',sans-serif] text-[0.7rem] font-bold tracking-wider uppercase shadow-[0_1px_0_var(--table-header-shadow-line)] pt-[0.85rem] pb-[0.85rem] hover:text-foreground`}
                     aria-sort={ariaSort}
                     title={t('result_table.sort_hint', {
                       direction:
                         isActive && sortDir
                           ? t(
-                              sortDir === 'asc'
-                                ? 'result_table.sort_asc'
-                                : 'result_table.sort_desc',
-                            )
+                            sortDir === 'asc'
+                              ? 'result_table.sort_asc'
+                              : 'result_table.sort_desc',
+                          )
                           : '',
                     })}
                   >
                     <button
                       type="button"
-                      className="inline-flex items-center gap-[0.35rem] w-full border-0 bg-transparent text-inherit cursor-pointer font-inherit p-0"
+                      className="font-inherit inline-flex w-full cursor-pointer items-center gap-[0.35rem] border-0 bg-transparent p-0 text-inherit"
                       onClick={() => handleSort(colIdx)}
                     >
                       <span>{col.name}</span>
@@ -188,7 +188,7 @@ export function ResultTable({
               return (
                 <tr
                   key={rowIdx}
-                  className={`border-b border-border last:border-b-0 odd:bg-[var(--table-stripe-odd)] even:bg-[var(--table-stripe-even)] hover:bg-[var(--table-stripe-hover)] hover:text-foreground group`}
+                  className={`border-b border-border last:border-b-0 odd:bg-(--table-stripe-odd) even:bg-(--table-stripe-even) hover:bg-(--table-stripe-hover) hover:text-foreground group`}
                 >
                   {row.map((cell, colIdx) => {
                     const colName = columns[colIdx]?.name ?? ''
@@ -196,7 +196,7 @@ export function ResultTable({
                     return (
                       <td
                         key={colIdx}
-                        className={`border-b border-border p-[0.75rem_0.9rem] max-[720px]:p-[0.55rem_0.6rem] text-left align-middle transition-colors duration-150 text-foreground-muted text-[0.86rem] leading-[1.4] ${isAnomaly ? 'shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--warning)_4%,transparent)] font-semibold !text-foreground' : ''}`}
+                        className={`border-b border-border p-[0.75rem_0.9rem] max-[720px]:p-[0.55rem_0.6rem] text-left align-middle transition-colors duration-150 text-foreground-muted text-[0.86rem] leading-[1.4] ${isAnomaly ? 'shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--warning)_4%,transparent)] font-semibold text-foreground!' : ''}`}
                         title={isAnomaly ? anomalyTitle : undefined}
                         onContextMenu={(e) => handleContextMenu(e, colName, String(cell))}
                         onKeyDown={(e) => handleCellKeyDown(e, colName, String(cell))}
@@ -218,7 +218,7 @@ export function ResultTable({
         </table>
       </div>
 
-      <div className="flex justify-between items-center text-[0.75rem] text-foreground-muted pt-[0.4rem] max-[720px]:flex-wrap max-[720px]:gap-2">
+      <div className="flex items-center justify-between pt-[0.4rem] text-[0.75rem] text-foreground-muted max-[720px]:flex-wrap max-[720px]:gap-2">
         <span>
           {t('result_table.row_count', { count: rowCount })}
           {durationMs !== undefined ? ` · ${durationMs} ms` : ''}
@@ -235,7 +235,7 @@ export function ResultTable({
         <button
           type="button"
           className={legacyButtonClass(
-            'btn btn-secondary !w-auto !m-[0_0_0_auto] py-[0.3rem] px-[0.75rem] text-[0.78rem]',
+            'btn btn-secondary w-auto! m-[0_0_0_auto]! py-[0.3rem] px-3 text-[0.78rem]',
           )}
           onClick={handleExport}
           disabled={rows.length === 0}

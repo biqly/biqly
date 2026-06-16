@@ -216,10 +216,7 @@ func upToDownFilename(up string) string {
 		return ""
 	}
 	base := strings.TrimSuffix(up, ".up.sql")
-	if !strings.Contains(base, "a_") {
-		return ""
-	}
-	return strings.Replace(base, "a_", "b_", 1) + ".down.sql"
+	return base + ".down.sql"
 }
 
 func loadAppliedSet(ctx context.Context, db *sql.DB) (out map[string]bool, err error) {

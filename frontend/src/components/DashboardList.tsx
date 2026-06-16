@@ -157,7 +157,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
               <div
                 key={d.id}
                 className={legacyCardClass(
-                  'card card--elevated flex flex-col justify-between min-h-[10rem] cursor-pointer transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg',
+                  'card card--elevated flex flex-col justify-between min-h-40 cursor-pointer transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg',
                 )}
                 role="button"
                 tabIndex={0}
@@ -170,11 +170,11 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
                 }}
               >
                 <div>
-                  <div className="flex justify-between items-start gap-2">
+                  <div className="flex items-start justify-between gap-2">
                     <h3 className="m-0 text-[1.2rem] font-semibold">{d.name}</h3>
                     <button
                       type="button"
-                      className="shrink-0 px-[0.2rem] py-0 border-0 bg-transparent text-foreground-faint text-[1.1rem] leading-none cursor-pointer hover:text-foreground"
+                      className="shrink-0 cursor-pointer border-0 bg-transparent px-[0.2rem] py-0 text-[1.1rem] leading-none text-foreground-faint hover:text-foreground"
                       onClick={(e) => {
                         void handleDelete(e, d.id, d.name)
                       }}
@@ -185,12 +185,12 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
                     </button>
                   </div>
                   {d.description && (
-                    <p className="mt-2 mb-0 mx-0 text-foreground-faint text-[0.9rem] leading-[1.4]">
+                    <p className="mx-0 mt-2 mb-0 text-[0.9rem] leading-[1.4] text-foreground-faint">
                       {d.description}
                     </p>
                   )}
                 </div>
-                <div className="flex justify-between gap-3 mt-4 text-foreground-faint text-[0.8rem]">
+                <div className="mt-4 flex justify-between gap-3 text-[0.8rem] text-foreground-faint">
                   <span>{t('customDashboards.widgets_count', { count: d.widgets.length })}</span>
                   <span>
                     {new Date(d.created_at).toLocaleDateString(undefined, {

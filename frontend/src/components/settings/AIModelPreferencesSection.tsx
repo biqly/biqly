@@ -214,16 +214,16 @@ export function AIModelPreferencesSection() {
       className={legacyCardClass('card card--elevated mb-0')}
       aria-labelledby="ai-models-prefs-heading"
     >
-      <div className="flex flex-wrap items-start justify-between gap-y-3 gap-x-4 mb-4">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div>
           <h2 id="ai-models-prefs-heading" className="m-0">
             {t('settings.ai_models.section')}
           </h2>
-          <p className="mt-[0.35rem] mr-0 mb-0 ml-0 flex-[1_1_100%] max-w-[42rem] text-foreground-muted text-[0.875rem] leading-[1.45]">
+          <p className="mt-[0.35rem] mr-0 mb-0 ml-0 max-w-2xl flex-[1_1_100%] text-[0.875rem] leading-[1.45] text-foreground-muted">
             {t('settings.ai_models.hint')}
           </p>
           {restricted && (
-            <p className="m-0 mt-[0.35rem] text-[0.8125rem] leading-[1.45] text-foreground-muted max-w-[42rem]">
+            <p className="m-0 mt-[0.35rem] max-w-2xl text-[0.8125rem] leading-[1.45] text-foreground-muted">
               {t('settings.ai_models.restricted_hint')}
             </p>
           )}
@@ -232,7 +232,7 @@ export function AIModelPreferencesSection() {
 
       <LoadingOverlay loading={loading}>
         <div className="p-0">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 min-[1100px]:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 min-[1100px]:grid-cols-3 sm:grid-cols-2">
             {PURPOSES.map((purpose) => {
               const options = modelsByPurpose[purpose] ?? []
               const value = choices[purpose] ?? ''
@@ -245,7 +245,7 @@ export function AIModelPreferencesSection() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="m-0 text-[0.8125rem] font-semibold text-foreground leading-[1.3] inline-flex items-center gap-2">
+                      <p className="m-0 inline-flex items-center gap-2 text-[0.8125rem] leading-[1.3] font-semibold text-foreground">
                         {PURPOSE_ICONS[purpose]}
                         {t(`admin.ai_providers.purposes.${purpose}`)}
                       </p>
@@ -256,7 +256,7 @@ export function AIModelPreferencesSection() {
                     {value ? (
                       <button
                         type="button"
-                        className="shrink-0 py-0.5 px-2 border-0 rounded-md bg-transparent text-foreground-muted text-[0.72rem] font-semibold cursor-pointer hover:enabled:text-foreground hover:enabled:bg-white/5 disabled:opacity-45 disabled:cursor-not-allowed"
+                        className="shrink-0 cursor-pointer rounded-md border-0 bg-transparent px-2 py-0.5 text-[0.72rem] font-semibold text-foreground-muted hover:enabled:bg-white/5 hover:enabled:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
                         disabled={saving}
                         onClick={() => {
                           void handleClear(purpose)

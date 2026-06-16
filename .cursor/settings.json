@@ -2,9 +2,6 @@
   "plugins": {
     "golang-skills/golang-skills": {
       "enabled": true
-    },
-    "context-mode/context-mode": {
-      "enabled": true
     }
   }
 }

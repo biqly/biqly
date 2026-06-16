@@ -1,15 +1,12 @@
 import { useT } from '../../i18n'
-import { cn } from '../../lib/cn'
 import {
-  modalBackdropClass,
   modalBodyCompactClass,
   modalBodyScrollClass,
   modalBulkCardClass,
-  modalBulkHeaderClass,
-  modalCloseClass,
 } from '../../lib/modalClasses'
 import type { AIRuntimeSettings } from '../../types/ai'
 import type { TableRow } from '../../types/semantic'
+import { Modal } from '../ui/Modal'
 import { ModelBadgeRow } from '../ui/ModelBadgeRow'
 import { type BulkEntry } from './bulkProgress'
 import { MetadataBulkDescribeProgress } from './MetadataBulkDescribeProgress'
@@ -91,96 +88,79 @@ export function MetadataBulkDescribeModal({
   })
 
   return (
-    <div
-      className={modalBackdropClass()}
-      role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose()
-        }
-      }}
-    >
-      <section
-        className={modalBulkCardClass()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="bulk-metadata-title"
-      >
-        <header className={modalBulkHeaderClass()}>
-          <div>
-            <h2
-              id="bulk-metadata-title"
-              className="m-0 text-[0.95rem] font-[650] tracking-[-0.02em] leading-tight"
-            >
-              {t('metadata.bulk_modal_title')}
-            </h2>
-            <p className="mt-[0.2rem] mx-0 mb-0 text-[0.72rem] text-foreground-faint leading-[1.35] max-w-lg">
-              {t('metadata.bulk_modal_subtitle')}
-            </p>
-            <ModelBadgeRow
-              primaryLabel={t('metadata.describe_badge_label')}
-              primaryModel={describeModel ?? aiRuntime?.llm_model}
-              primaryNote={dbManaged ? activeDescribe?.provider_name : undefined}
-              translationModel={
-                aiRuntime?.translation_enabled ? aiRuntime.translation_model : undefined
-              }
-              translationNote={dbManaged ? activeTranslation?.provider_name : undefined}
-            />
-          </div>
-          <button
-            type="button"
-            className={cn(modalCloseClass(), 'mt-[0.05rem] shrink-0')}
-            aria-label={t('metadata.bulk_close_aria')}
-            onClick={onClose}
+    <Modal
+      open={open}
+      title={
+        <div>
+          <h2
+            id="bulk-metadata-title"
+            className="m-0 text-[0.95rem] font-[650] tracking-[-0.02em] leading-tight"
           >
-            ×
-          </button>
-        </header>
-        <div className={bulkEntries.length > 0 ? modalBodyScrollClass() : modalBodyCompactClass()}>
-          {bulkEntries.length === 0 && !bulkRunning && (
-            <MetadataBulkDescribeSetup
-              t={t}
-              typeOptions={typeOptions}
-              bulkTypeEnabled={bulkTypeEnabled}
-              onToggleType={(ty) => setBulkTypeEnabled((prev) => ({ ...prev, [ty]: !prev[ty] }))}
-              bulkHasObjectType={bulkHasObjectType}
-              bulkSchemaRestrict={bulkSchemaRestrict}
-              onSchemaRestrictAll={() => {
-                setBulkSchemaRestrict(false)
-                setBulkSchemasSelected([])
-              }}
-              onSchemaRestrictPick={() => {
-                setBulkSchemaRestrict(true)
-                setBulkSchemasSelected((prev) => (prev.length > 0 ? prev : [...schemaOptions]))
-              }}
-              schemaOptions={schemaOptions}
-              bulkSchemasSelected={bulkSchemasSelected}
-              onSchemasSelectedChange={setBulkSchemasSelected}
-              bulkConfig={bulkConfig}
-              onConfigChange={(patch) => setBulkConfig({ ...bulkConfig, ...patch })}
-              bulkTargetTables={bulkTargetTables}
-              tablesCount={tables.length}
-              bulkScopeConflict={bulkScopeConflict}
-              bulkCanStart={bulkCanStart}
-              onClose={onClose}
-              onStart={runBulkDescribe}
-            />
-          )}
-
-          {bulkEntries.length > 0 && (
-            <MetadataBulkDescribeProgress
-              t={t}
-              bulkEntries={bulkEntries}
-              bulkEntriesDisplay={bulkEntriesDisplay}
-              bulkRunning={bulkRunning}
-              bulkSummary={bulkSummary}
-              activeDescribeBatchJob={activeDescribeBatchJob}
-              onClose={onClose}
-              onCancelBulk={onCancelBulk}
-            />
-          )}
+            {t('metadata.bulk_modal_title')}
+          </h2>
+          <p className="mt-[0.2rem] mx-0 mb-0 text-[0.72rem] text-foreground-faint leading-[1.35] max-w-lg">
+            {t('metadata.bulk_modal_subtitle')}
+          </p>
         </div>
-      </section>
-    </div>
+      }
+      subtitle={
+        <ModelBadgeRow
+          primaryLabel={t('metadata.describe_badge_label')}
+          primaryModel={describeModel ?? aiRuntime?.llm_model}
+          primaryNote={dbManaged ? activeDescribe?.provider_name : undefined}
+          translationModel={
+            aiRuntime?.translation_enabled ? aiRuntime.translation_model : undefined
+          }
+          translationNote={dbManaged ? activeTranslation?.provider_name : undefined}
+        />
+      }
+      onClose={onClose}
+      labelledBy="bulk-metadata-title"
+      className={modalBulkCardClass()}
+      bodyClassName={bulkEntries.length > 0 ? modalBodyScrollClass() : modalBodyCompactClass()}
+    >
+      {bulkEntries.length === 0 && !bulkRunning && (
+        <MetadataBulkDescribeSetup
+          t={t}
+          typeOptions={typeOptions}
+          bulkTypeEnabled={bulkTypeEnabled}
+          onToggleType={(ty) => setBulkTypeEnabled((prev) => ({ ...prev, [ty]: !prev[ty] }))}
+          bulkHasObjectType={bulkHasObjectType}
+          bulkSchemaRestrict={bulkSchemaRestrict}
+          onSchemaRestrictAll={() => {
+            setBulkSchemaRestrict(false)
+            setBulkSchemasSelected([])
+          }}
+          onSchemaRestrictPick={() => {
+            setBulkSchemaRestrict(true)
+            setBulkSchemasSelected((prev) => (prev.length > 0 ? prev : [...schemaOptions]))
+          }}
+          schemaOptions={schemaOptions}
+          bulkSchemasSelected={bulkSchemasSelected}
+          onSchemasSelectedChange={setBulkSchemasSelected}
+          bulkConfig={bulkConfig}
+          onConfigChange={(patch) => setBulkConfig({ ...bulkConfig, ...patch })}
+          bulkTargetTables={bulkTargetTables}
+          tablesCount={tables.length}
+          bulkScopeConflict={bulkScopeConflict}
+          bulkCanStart={bulkCanStart}
+          onClose={onClose}
+          onStart={runBulkDescribe}
+        />
+      )}
+
+      {bulkEntries.length > 0 && (
+        <MetadataBulkDescribeProgress
+          t={t}
+          bulkEntries={bulkEntries}
+          bulkEntriesDisplay={bulkEntriesDisplay}
+          bulkRunning={bulkRunning}
+          bulkSummary={bulkSummary}
+          activeDescribeBatchJob={activeDescribeBatchJob}
+          onClose={onClose}
+          onCancelBulk={onCancelBulk}
+        />
+      )}
+    </Modal>
   )
 }

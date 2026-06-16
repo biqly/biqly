@@ -7,6 +7,7 @@ import (
 	"errors"
 	"github.com/bytedance/sonic"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 )
+
+var errPasskeyCloneDetected = errors.New("passkey clone detected")
 
 type WebAuthnUser struct {
 	User        *auth.User
@@ -265,6 +268,9 @@ func (s *WebAuthnService) finishDiscoverablePasskeyLogin(ctx context.Context, se
 	if err != nil {
 		return nil, err
 	}
+	if err := rejectPasskeyCloneWarning(cred); err != nil {
+		return nil, err
+	}
 	user, ok := waUser.(*WebAuthnUser)
 	if !ok {
 		return nil, errors.New("invalid passkey user")
@@ -291,6 +297,9 @@ func (s *WebAuthnService) finishKnownUserPasskeyLogin(ctx context.Context, uid *
 	waUser := &WebAuthnUser{User: user, Credentials: creds}
 	cred, err := s.webAuthn.FinishLogin(waUser, *session, request)
 	if err != nil {
+		return nil, err
+	}
+	if err := rejectPasskeyCloneWarning(cred); err != nil {
 		return nil, err
 	}
 	if err := s.repo.UpdatePasskeySignCount(ctx, cred.ID, cred.Authenticator.SignCount); err != nil {
@@ -343,6 +352,17 @@ func authenticatorDataFromAssertion(bodyBytes []byte) ([]byte, bool) {
 		return nil, false
 	}
 	return authData, true
+}
+
+func rejectPasskeyCloneWarning(cred *webauthn.Credential) error {
+	if cred == nil || !cred.Authenticator.CloneWarning {
+		return nil
+	}
+	slog.Warn("webauthn clone warning detected",
+		"sign_count", cred.Authenticator.SignCount,
+		"attachment", cred.Authenticator.Attachment,
+	)
+	return errPasskeyCloneDetected
 }
 
 func (s *WebAuthnService) GetUserPasskeys(ctx context.Context, userID string) ([]auth.PasskeyInfo, error) {

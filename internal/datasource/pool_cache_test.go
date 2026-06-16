@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -39,6 +40,31 @@ func (*stubDriver) Introspect(_ context.Context, _ *sql.DB) (*IntrospectionResul
 }
 func (s *stubDriver) Open(_ context.Context, _ string) (*sql.DB, error) {
 	s.opens.Add(1)
+	return sql.OpenDB(fakeConnector{}), nil
+}
+
+type blockingDriver struct {
+	stubDriver
+	entered chan struct{}
+	release chan struct{}
+	blocked atomic.Bool
+}
+
+func newBlockingDriver() *blockingDriver {
+	d := &blockingDriver{
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	d.blocked.Store(true)
+	return d
+}
+
+func (d *blockingDriver) Open(_ context.Context, _ string) (*sql.DB, error) {
+	d.opens.Add(1)
+	if d.blocked.CompareAndSwap(true, false) {
+		close(d.entered)
+		<-d.release
+	}
 	return sql.OpenDB(fakeConnector{}), nil
 }
 
@@ -107,6 +133,39 @@ func TestPoolCache_InvalidateClosesPool(t *testing.T) {
 	}
 	if got := d.opens.Load(); got != 2 {
 		t.Fatalf("expected 2 opens after invalidate, got %d", got)
+	}
+}
+
+func TestPoolCache_InvalidateDuringOpenDoesNotCacheStalePool(t *testing.T) {
+	cache := NewPoolCache()
+	defer func() {
+		if err := cache.Close(); err != nil {
+			t.Fatalf("close cache: %v", err)
+		}
+	}()
+	d := newBlockingDriver()
+	errCh := make(chan error, 1)
+
+	go func() {
+		_, err := cache.Get(context.Background(), d, "ds-1", "dsn-1")
+		errCh <- err
+	}()
+	<-d.entered
+	cache.Invalidate("ds-1")
+	close(d.release)
+
+	err := <-errCh
+	if err == nil {
+		t.Fatal("expected in-flight open to fail after invalidate")
+	}
+	if !strings.Contains(err.Error(), "invalidated during open") {
+		t.Fatalf("expected invalidated error, got %v", err)
+	}
+	if _, err := cache.Get(context.Background(), d, "ds-1", "dsn-1"); err != nil {
+		t.Fatalf("re-open after invalidate: %v", err)
+	}
+	if got := d.opens.Load(); got != 2 {
+		t.Fatalf("expected stale in-flight pool not to be cached, got %d opens", got)
 	}
 }
 

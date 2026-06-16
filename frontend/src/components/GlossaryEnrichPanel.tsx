@@ -46,13 +46,13 @@ export function GlossaryEnrichPanel({
   return (
     <div
       className={legacyCardClass(
-        'card mb-5 p-4 bg-[var(--surface-elevated,rgba(255,255,255,0.02))] border border-border rounded-lg',
+        'card mb-5 p-4 bg-(--surface-elevated,rgba(255,255,255,0.02)) border border-border rounded-lg',
       )}
     >
-      <div className="flex justify-between items-start gap-4 flex-wrap mb-3">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h3 className="m-0 text-base">{t('glossary.enrich_context')}</h3>
-          <p className="mt-[0.35rem] mr-0 mb-0 ml-0 text-foreground-muted text-[0.85rem]">
+          <p className="mt-[0.35rem] mr-0 mb-0 ml-0 text-[0.85rem] text-foreground-muted">
             {result.gaps.length > 0
               ? t('glossary.enrich_context_gaps_found', { count: result.gaps.length })
               : t('glossary.enrich_context_no_gaps')}
@@ -62,7 +62,7 @@ export function GlossaryEnrichPanel({
               : ''}
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap items-center">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             className={legacyButtonClass('btn btn-sm btn-ghost')}
@@ -93,11 +93,10 @@ export function GlossaryEnrichPanel({
 
       {applyResult && (
         <div
-          className={`mb-3 px-3 py-[0.6rem] rounded-lg border bg-[var(--surface-elevated,rgba(255,255,255,0.02))] text-[0.85rem] ${
-            applyResult.errors && applyResult.errors.length > 0
-              ? 'border-[var(--danger,#d9534f)]'
-              : 'border-border'
-          }`}
+          className={`mb-3 px-3 py-[0.6rem] rounded-lg border bg-(--surface-elevated,rgba(255,255,255,0.02)) text-[0.85rem] ${applyResult.errors && applyResult.errors.length > 0
+            ? 'border-(--danger,#d9534f)'
+            : 'border-border'
+            }`}
           role="status"
         >
           <div className="font-semibold">
@@ -111,7 +110,7 @@ export function GlossaryEnrichPanel({
               <div>
                 {t('glossary.enrich_context_apply_failed', { count: applyResult.errors.length })}
               </div>
-              <ul className="mt-[0.4rem] mr-0 mb-0 ml-0 pl-[1.1rem] text-[var(--danger,#d9534f)]">
+              <ul className="mt-[0.4rem] mr-0 mb-0 ml-0 pl-[1.1rem] text-(--danger,#d9534f)">
                 {applyResult.errors.map((err, idx) => (
                   <li key={idx}>{err}</li>
                 ))}
@@ -122,7 +121,7 @@ export function GlossaryEnrichPanel({
       )}
 
       {applyableGaps.length > 0 && (
-        <div className="flex gap-2 items-center mb-3">
+        <div className="mb-3 flex items-center gap-2">
           <button
             type="button"
             className={legacyButtonClass('btn btn-sm btn-ghost')}
@@ -217,7 +216,7 @@ export function GlossaryEnrichPanel({
                                 {canRestore && (
                                   <button
                                     type="button"
-                                    className="p-0 border-none bg-none text-accent text-[0.72rem] cursor-pointer focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+                                    className="cursor-pointer border-none bg-none p-0 text-[0.72rem] text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                                     onClick={() => {
                                       onSelectionChange(gap.id, { value: suggestion })
                                     }}

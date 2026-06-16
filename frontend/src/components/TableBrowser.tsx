@@ -161,8 +161,8 @@ export default function TableBrowser() {
         fallbackTitle={
           page.detailRow
             ? t('table_browser.row_detail_title', {
-                n: page.formatInt(page.detailRow.displayIndex),
-              })
+              n: page.formatInt(page.detailRow.displayIndex),
+            })
             : t('table_browser.row_detail')
         }
         postData={page.postData}

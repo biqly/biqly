@@ -88,6 +88,9 @@ func SharedAuthClient(baseURL, internalToken string) *AuthClient {
 	return c
 }
 
+// evictExpiredPermLocked removes expired permission cache entries.
+// If the cache exceeds capacity, it randomly evicts half of the entries.
+// This pseudo-random map iteration is an intentional safety-valve rather than a strict LRU.
 func (c *AuthClient) evictExpiredPermLocked(now time.Time) {
 	for k, e := range c.permCache {
 		if now.Sub(e.at) >= c.cacheTTL {
@@ -104,6 +107,8 @@ func (c *AuthClient) evictExpiredPermLocked(now time.Time) {
 	}
 }
 
+// evictExpiredDSLocked removes expired datasource access cache entries.
+// Similar to permissions, over-capacity triggers a random safety-valve eviction.
 func (c *AuthClient) evictExpiredDSLocked(now time.Time) {
 	for k, e := range c.dsCache {
 		if now.Sub(e.at) >= c.cacheTTL {
@@ -120,6 +125,8 @@ func (c *AuthClient) evictExpiredDSLocked(now time.Time) {
 	}
 }
 
+// evictExpiredWSDSLocked removes expired workspace datasource cache entries.
+// Similar to permissions, over-capacity triggers a random safety-valve eviction.
 func (c *AuthClient) evictExpiredWSDSLocked(now time.Time) {
 	for k, e := range c.wsDSCache {
 		if now.Sub(e.at) >= c.cacheTTL {

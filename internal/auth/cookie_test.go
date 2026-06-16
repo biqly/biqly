@@ -110,15 +110,21 @@ func TestCSRFCookieSecureInProduction(t *testing.T) {
 
 	var csrfCookie *http.Cookie
 	for _, c := range rr.Result().Cookies() {
-		if c.Name == "csrf_token" {
+		if c.Name == csrfSecureCookieName {
 			csrfCookie = c
 			break
 		}
 	}
 	if csrfCookie == nil {
-		t.Fatal("expected csrf_token cookie")
+		t.Fatal("expected __Host-csrf_token cookie")
 	}
 	if !csrfCookie.Secure {
 		t.Fatal("expected Secure CSRF cookie outside local dev port")
+	}
+	if csrfCookie.HttpOnly {
+		t.Fatal("double-submit CSRF cookie must be readable by the SPA")
+	}
+	if csrfCookie.Path != "/" {
+		t.Fatalf("expected CSRF cookie path /, got %q", csrfCookie.Path)
 	}
 }

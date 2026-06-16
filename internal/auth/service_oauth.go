@@ -55,7 +55,8 @@ func (s *Service) LoginOrRegisterOAuth(ctx context.Context, provider string, tok
 			return nil, err
 		}
 		if err := s.userRepo.LinkOAuthAccount(ctx, userID, provider, userInfo.Sub, token); err != nil {
-			slog.ErrorContext(ctx, "failed to link oauth account on login", "userID", userID, "provider", provider, "err", err)
+			MetricLoginAttempts.WithLabelValues(provider, "failed").Inc()
+			return nil, fmt.Errorf("link oauth account: %w", err)
 		}
 	}
 

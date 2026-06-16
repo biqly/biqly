@@ -216,10 +216,10 @@ export function AIProvidersPanel() {
                 return (
                   <div key={purpose} className={adminAiPurposeCardClass}>
                     <div className="flex items-start justify-between gap-2.5">
-                      <div className="text-[0.82rem] font-bold text-foreground leading-tight min-w-0">
+                      <div className="min-w-0 text-[0.82rem] leading-tight font-bold text-foreground">
                         {t(`admin.ai_providers.purposes.${purpose}`)}
                       </div>
-                      <div className="flex items-center justify-end shrink-0 gap-1.5">
+                      <div className="flex shrink-0 items-center justify-end gap-1.5">
                         {providerLabel ? (
                           <span
                             className={`${adminAiPurposePillBase} bg-success/12 text-success border border-success/16`}
@@ -235,11 +235,11 @@ export function AIProvidersPanel() {
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-col gap-1.5 min-w-0">
+                    <div className="flex min-w-0 flex-col gap-1.5">
                       {m ? (
                         <>
                           <div
-                            className="text-[0.92rem] font-semibold text-foreground leading-tight wrap-break-word"
+                            className="text-[0.92rem] leading-tight font-semibold wrap-break-word text-foreground"
                             title={modelHint ?? modelLabel}
                           >
                             {modelLabel ?? modelHint ?? '—'}

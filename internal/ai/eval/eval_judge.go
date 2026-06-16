@@ -24,6 +24,9 @@ func JudgeLogicalQuery(ctx context.Context, provider providerpkg.Provider, quest
 	if provider == nil {
 		return false, "", errors.New("judge provider is nil")
 	}
+	if model == nil {
+		return false, "", errors.New("semantic model is nil")
+	}
 	if expected == nil || got == nil {
 		return false, "missing logical query", nil
 	}

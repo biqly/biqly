@@ -906,9 +906,42 @@ func (r *UserRepository) UpdateUserPassword(ctx context.Context, userID, newPass
 }
 
 func (r *UserRepository) MarkPasswordResetTokenUsed(ctx context.Context, token string) error {
-	query := `UPDATE password_reset_tokens SET used_at = NOW() WHERE token = $1`
-	_, err := r.db.ExecContext(ctx, query, token)
-	return err
+	query := `UPDATE password_reset_tokens SET used_at = NOW() WHERE token = $1 AND used_at IS NULL`
+	result, err := r.db.ExecContext(ctx, query, token)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return errors.New("password reset token already used")
+	}
+	return nil
+}
+
+func (r *UserRepository) ConsumePasswordResetAndUpdatePassword(ctx context.Context, token, newPasswordHash string) error {
+	return platformdb.RunInTx(ctx, r.db, func(tx *sql.Tx) error {
+		var userID string
+		err := tx.QueryRowContext(ctx, `
+			UPDATE password_reset_tokens
+			SET used_at = NOW()
+			WHERE token = $1 AND used_at IS NULL AND expires_at > NOW()
+			RETURNING user_id`, token).Scan(&userID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("invalid or expired password reset token")
+		}
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE users SET password_hash = $1, password_changed_at = NOW(), updated_at = NOW() WHERE id = $2`,
+			newPasswordHash, userID); err != nil {
+			return err
+		}
+		return insertPasswordHistory(ctx, tx, userID, newPasswordHash)
+	})
 }
 
 func (r *UserRepository) CreateEmailChangeRequest(

@@ -328,15 +328,16 @@ func consumerContextForAIJob(ctx context.Context, job *metadata.AIJob) context.C
 }
 
 type dynamicSemaphore struct {
-	mu     sync.Mutex
-	active int
-	ch     chan struct{}
-	limit  func() int
+	mu      sync.Mutex
+	active  int
+	waiting int
+	ch      chan struct{}
+	limit   func() int
 }
 
 func newDynamicSemaphore(limitFn func() int) *dynamicSemaphore {
 	return &dynamicSemaphore{
-		ch:    make(chan struct{}, 1),
+		ch:    make(chan struct{}, 1024),
 		limit: limitFn,
 	}
 }
@@ -353,26 +354,43 @@ func (s *dynamicSemaphore) Acquire(ctx context.Context) error {
 			s.mu.Unlock()
 			return nil
 		}
+		s.waiting++
 		s.mu.Unlock()
 
 		select {
 		case <-ctx.Done():
+			s.mu.Lock()
+			s.waiting--
+			s.mu.Unlock()
 			return ctx.Err()
 		case <-s.ch:
-			// check again
+			s.mu.Lock()
+			s.waiting--
+			s.mu.Unlock()
 		case <-time.After(1 * time.Second):
-			// check periodically in case the limit has increased
 		}
 	}
 }
 
 func (s *dynamicSemaphore) Release() {
 	s.mu.Lock()
-	s.active--
+	if s.active > 0 {
+		s.active--
+	}
+	lim := s.limit()
+	if lim <= 0 {
+		lim = 1
+	}
+	toWake := 0
+	if s.waiting > 0 && s.active < lim {
+		toWake = min(lim-s.active, s.waiting)
+	}
 	s.mu.Unlock()
-	select {
-	case s.ch <- struct{}{}:
-	default:
+	for range toWake {
+		select {
+		case s.ch <- struct{}{}:
+		default:
+		}
 	}
 }
 

@@ -712,7 +712,7 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
       {!canEdit && <ReadOnlyNote />}
 
       {runtimeError && (
-        <p className={cn(formHintClass, 'm-0 text-[var(--danger,#c0392b)]')} role="alert">
+        <p className={cn(formHintClass, 'm-0 text-(--danger,#c0392b)')} role="alert">
           {runtimeError}
         </p>
       )}

@@ -64,7 +64,7 @@ export function Modal({
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && closeOnBackdrop) {
         event.preventDefault()
         onClose()
         return
@@ -99,7 +99,7 @@ export function Modal({
       document.removeEventListener('keydown', handleKeyDown)
       previousFocus?.focus()
     }
-  }, [onClose, open])
+  }, [onClose, open, closeOnBackdrop])
 
   if (!open) {
     return null
@@ -109,8 +109,19 @@ export function Modal({
     <div
       className="fixed inset-0 z-[var(--z-modal,1000)] grid [place-items:start_center] overflow-y-auto bg-black/55 backdrop-blur-[4px] p-[3rem_1rem] max-[680px]:p-4 animate-modal-fade"
       role="presentation"
+      tabIndex={-1}
       onClick={(event) => {
         if (closeOnBackdrop && event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+      onKeyDown={(event) => {
+        if (
+          closeOnBackdrop &&
+          event.target === event.currentTarget &&
+          (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar')
+        ) {
+          event.preventDefault()
           onClose()
         }
       }}

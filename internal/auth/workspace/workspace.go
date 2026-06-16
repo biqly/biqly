@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/auth/rbac"
+	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
 
 var (
-	ErrWorkspaceNotFound = errors.New("workspace not found")
-	ErrNotWorkspaceOwner = errors.New("not workspace owner")
+	ErrWorkspaceNotFound      = errors.New("workspace not found")
+	ErrNotWorkspaceOwner      = errors.New("not workspace owner")
+	ErrWorkspaceRoleForbidden = errors.New("role is not assignable to workspace")
 )
 
 type Workspace struct {
@@ -69,32 +71,36 @@ func (s *Service) Create(ctx context.Context, name, description, createdBy strin
 		desc = sql.NullString{String: description, Valid: true}
 	}
 
-	err := s.db.QueryRowContext(ctx, `
-		INSERT INTO workspaces (name, slug, description, is_personal, created_by)
-		VALUES ($1, $2, $3, FALSE, $4)
-		RETURNING id, name, slug, description, is_personal, mfa_required, created_by, created_at, updated_at
-	`, name, slug, desc, createdBy).Scan(
-		&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired,
-		&ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt,
-	)
+	err := platformdb.RunInTx(ctx, s.db, func(tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+			INSERT INTO workspaces (name, slug, description, is_personal, created_by)
+			VALUES ($1, $2, $3, FALSE, $4)
+			RETURNING id, name, slug, description, is_personal, mfa_required, created_by, created_at, updated_at
+		`, name, slug, desc, createdBy).Scan(
+			&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired,
+			&ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt,
+		); err != nil {
+			return fmt.Errorf("insert workspace: %w", err)
+		}
+
+		var adminRoleID string
+		if err := tx.QueryRowContext(ctx, `SELECT id FROM roles WHERE name = 'admin'`).Scan(&adminRoleID); err != nil {
+			return fmt.Errorf("get admin role: %w", err)
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO workspace_members (workspace_id, user_id, role_id)
+			VALUES ($1, $2, $3)
+		`, ws.ID, createdBy, adminRoleID); err != nil {
+			return fmt.Errorf("add owner as admin: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("insert workspace: %w", err)
+		return nil, err
 	}
 	if desc.Valid {
 		ws.Description = new(desc.String)
-	}
-
-	var adminRoleID string
-	if err := s.db.QueryRowContext(ctx, `SELECT id FROM roles WHERE name = 'admin'`).Scan(&adminRoleID); err != nil {
-		return nil, fmt.Errorf("get admin role: %w", err)
-	}
-
-	_, err = s.db.ExecContext(ctx, `
-		INSERT INTO workspace_members (workspace_id, user_id, role_id)
-		VALUES ($1, $2, $3)
-	`, ws.ID, createdBy, adminRoleID)
-	if err != nil {
-		return nil, fmt.Errorf("add owner as admin: %w", err)
 	}
 
 	return &ws, nil
@@ -254,6 +260,9 @@ func (s *Service) AddMember(ctx context.Context, workspaceID, userID, roleID, in
 	if err := s.requireOwnerOrAdmin(ctx, workspaceID, invitedBy); err != nil {
 		return err
 	}
+	if err := s.requireWorkspaceAssignableRole(ctx, roleID); err != nil {
+		return err
+	}
 
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO workspace_members (workspace_id, user_id, role_id, invited_by)
@@ -275,11 +284,29 @@ func (s *Service) UpdateMemberRole(ctx context.Context, workspaceID, userID, rol
 	if err := s.requireOwnerOrAdmin(ctx, workspaceID, callerID); err != nil {
 		return err
 	}
+	if err := s.requireWorkspaceAssignableRole(ctx, roleID); err != nil {
+		return err
+	}
 
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE workspace_members SET role_id = $1 WHERE workspace_id = $2 AND user_id = $3
 	`, roleID, workspaceID, userID)
 	return err
+}
+
+func (s *Service) requireWorkspaceAssignableRole(ctx context.Context, roleID string) error {
+	var roleName string
+	if err := s.db.QueryRowContext(ctx, `SELECT name FROM roles WHERE id = $1`, roleID).Scan(&roleName); err != nil {
+		return fmt.Errorf("check workspace role assignment: %w", err)
+	}
+	switch roleName {
+	case "admin", "developer", "analyst", "viewer":
+		return nil
+	case rbac.RoleSuperAdmin:
+		return rbac.ErrPrivilegedRoleEscalation
+	default:
+		return ErrWorkspaceRoleForbidden
+	}
 }
 
 func (s *Service) RemoveMember(ctx context.Context, workspaceID, userID, callerID string) error {
@@ -450,7 +477,10 @@ func (s *Service) requireOwnerOrAdmin(ctx context.Context, workspaceID, userID s
 		WHERE wm.workspace_id = $1 AND wm.user_id = $2
 	`, workspaceID, userID).Scan(&roleName)
 	if err != nil {
-		return ErrNotWorkspaceOwner
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotWorkspaceOwner
+		}
+		return err
 	}
 	if roleName.Valid && (roleName.String == "admin" || roleName.String == "super_admin") {
 		return nil

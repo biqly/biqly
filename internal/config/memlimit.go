@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"os"
 	"runtime/debug"
 	"strconv"
@@ -17,29 +18,47 @@ func init() {
 
 func configureMemoryLimit() {
 	if envMem := os.Getenv("BI_GOMEMLIMIT"); envMem != "" {
-		if v, err := strconv.ParseInt(envMem, 10, 64); err == nil {
+		v, err := strconv.ParseInt(envMem, 10, 64)
+		if err == nil {
 			debug.SetMemoryLimit(v)
+			return
 		}
-	} else if envGoMem := os.Getenv("GOMEMLIMIT"); envGoMem != "" {
+		slog.Warn("ignoring invalid memory limit env var; using default",
+			"key", "BI_GOMEMLIMIT",
+			"value", envMem,
+			"error", err,
+		)
+		return
+	}
+	if envGoMem := os.Getenv("GOMEMLIMIT"); envGoMem != "" {
 		// If GOMEMLIMIT is already set by runtime environment, Go 1.19+ handles it natively
-	} else {
-		// Fallback to cgroup-aware memory limit
-		if limit := readCgroupMemoryLimit(); limit > 0 {
-			debug.SetMemoryLimit(int64(float64(limit) * 0.9))
-		}
+		return
+	}
+	// Fallback to cgroup-aware memory limit
+	if limit := readCgroupMemoryLimit(); limit > 0 {
+		debug.SetMemoryLimit(int64(float64(limit) * 0.9))
 	}
 }
 
 func configureGCPercent() {
 	if envGogc := os.Getenv("BI_GOGC"); envGogc != "" {
-		if v, err := strconv.Atoi(envGogc); err == nil {
+		v, err := strconv.Atoi(envGogc)
+		if err == nil {
 			debug.SetGCPercent(v)
+			return
 		}
-	} else if envGoGC := os.Getenv("GOGC"); envGoGC != "" {
-		// If GOGC is already set, Go runtime handles it
-	} else {
-		debug.SetGCPercent(100)
+		slog.Warn("ignoring invalid GC percent env var; using default",
+			"key", "BI_GOGC",
+			"value", envGogc,
+			"error", err,
+		)
+		return
 	}
+	if envGoGC := os.Getenv("GOGC"); envGoGC != "" {
+		// If GOGC is already set, Go runtime handles it
+		return
+	}
+	debug.SetGCPercent(100)
 }
 
 func readCgroupMemoryLimit() int64 {

@@ -1,3 +1,4 @@
+// Package abtest defines types and functions for A/B testing of prompt templates.
 package abtest
 
 import (

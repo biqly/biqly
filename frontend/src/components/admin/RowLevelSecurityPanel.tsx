@@ -205,12 +205,12 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
 
       <div style={gridSelectStyle}>
         <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>Role</span>
+          <span style={labelTextStyle}>{t('admin.rls.role')}</span>
           <Select value={selectedRole} options={securityRoleOptions()} onChange={setSelectedRole} />
         </div>
 
         <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>Datasource</span>
+          <span style={labelTextStyle}>{t('admin.rls.datasource')}</span>
           <Select
             value={effectiveSelectedDS}
             options={dsOptions}
@@ -226,7 +226,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
         </div>
 
         <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>Semantic Model</span>
+          <span style={labelTextStyle}>{t('admin.rls.semantic_model')}</span>
           <Select
             value={effectiveSelectedModel}
             options={modelOptions}
@@ -241,32 +241,27 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
           {t('common.error')}: {error}
         </div>
       )}
-      {saveSuccess && <div style={successStyle}>Access policy saved successfully!</div>}
+      {saveSuccess && <div style={successStyle}>{t('admin.rls.saved')}</div>}
 
       <div style={contentGridStyle}>
         <div style={leftPanelStyle}>
           <LoadingOverlay loading={loadingPolicy || loadingModelDetail}>
             <div style={innerPanelStyle}>
               <div style={builderHeaderStyle}>
-                <h3 style={sectionTitleStyle}>Filter Rules</h3>
+                <h3 style={sectionTitleStyle}>{t('admin.rls.filter_rules')}</h3>
                 <button
                   onClick={handleAddFilter}
                   disabled={fields.length === 0 || !canEdit}
                   style={fields.length === 0 || !canEdit ? btnSecondaryDisabled : btnAddStyle}
                 >
-                  + Add Filter Row
+                  {t('admin.rls.add_filter')}
                 </button>
               </div>
 
               {fields.length === 0 ? (
-                <div style={noFieldsStyle}>
-                  Select a semantic model with configured fields to build filters.
-                </div>
+                <div style={noFieldsStyle}>{t('admin.rls.no_fields')}</div>
               ) : filters.length === 0 ? (
-                <div style={noFiltersStyle}>
-                  No row filters defined for this role and datasource yet. Click "Add Filter Row" to
-                  restrict access.
-                </div>
+                <div style={noFiltersStyle}>{t('admin.rls.no_filters')}</div>
               ) : (
                 <div style={filtersListStyle}>
                   {filters.map((f, i) => {
@@ -303,8 +298,8 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
                           onChange={(e) => handleFilterChange(i, 'value', e.target.value)}
                           placeholder={
                             f.operator === 'in' || f.operator === 'not_in'
-                              ? 'val1, val2, val3'
-                              : 'Value'
+                              ? t('admin.rls.list_placeholder')
+                              : t('admin.rls.value_placeholder')
                           }
                           style={isValDisabled ? inputStyleDisabled : filterInputStyle}
                         />
@@ -330,7 +325,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
                   disabled={isSavingDisabled || !canEdit}
                   style={isSavingDisabled || !canEdit ? btnPrimaryDisabled : btnPrimary}
                 >
-                  Save Access Rules
+                  {t('admin.rls.save_rules')}
                 </button>
               </div>
             </div>
@@ -338,7 +333,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
         </div>
 
         <div style={rightPanelStyle}>
-          <h3 style={sectionTitleStyle}>JSON Policy Output</h3>
+          <h3 style={sectionTitleStyle}>{t('admin.rls.json_policy_output')}</h3>
           <pre style={jsonPreviewStyle}>{JSON.stringify(filters, null, 2)}</pre>
         </div>
       </div>

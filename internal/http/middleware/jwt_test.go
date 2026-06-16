@@ -91,13 +91,28 @@ func TestJWTAuth_BypassPaths(t *testing.T) {
 	provider := NewPublicKeyProvider(srv.URL, "tok")
 	mw := JWTAuth(provider, "/health", "/ready")
 
-	for _, p := range []string{"/health", "/ready", "/health/sub"} {
+	for _, p := range []string{"/health", "/ready"} {
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, p, nil)
 		w := httptest.NewRecorder()
 		mw(okHandler()).ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
 			t.Fatalf("path %s expected 200, got %d", p, w.Code)
 		}
+	}
+
+	// Prefix match must not bypass — only exact paths are exempt.
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/health/sub", nil)
+	w := httptest.NewRecorder()
+	mw(okHandler()).ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("/health/sub expected 401 without token, got %d", w.Code)
+	}
+
+	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/healthcheck", nil)
+	w = httptest.NewRecorder()
+	mw(okHandler()).ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("/healthcheck expected 401 without token, got %d", w.Code)
 	}
 }
 

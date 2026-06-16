@@ -71,15 +71,6 @@ func (s *SharingService) Share(ctx context.Context, callerID string, req ShareRe
 		workspaceID = sql.NullString{String: *req.WorkspaceID, Valid: true}
 	}
 
-	sharedWithVal := "00000000-0000-0000-0000-000000000000"
-	if sharedWith.Valid {
-		sharedWithVal = sharedWith.String
-	}
-	workspaceVal := "00000000-0000-0000-0000-000000000000"
-	if workspaceID.Valid {
-		workspaceVal = workspaceID.String
-	}
-
 	query := `
 		INSERT INTO resource_shares (resource_type, resource_id, owner_id, shared_with, workspace_id, permission)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -90,8 +81,6 @@ func (s *SharingService) Share(ctx context.Context, callerID string, req ShareRe
 
 	var share ResourceShare
 	var swNull, wsNull sql.NullString
-	_ = sharedWithVal
-	_ = workspaceVal
 	err := s.db.QueryRowContext(ctx, query,
 		req.ResourceType, req.ResourceID, callerID, sharedWith, workspaceID, req.Permission,
 		"00000000-0000-0000-0000-000000000000",

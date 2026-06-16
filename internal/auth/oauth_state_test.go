@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,4 +51,13 @@ func TestOAuthStateCSRF(t *testing.T) {
 	ok, err = svc.VerifyOAuthState(ctx, "google", "bind-3", "state-3")
 	require.NoError(t, err)
 	assert.False(t, ok, "state must be bound to the provider")
+}
+
+func TestOAuthStateLocalFallbackExpires(t *testing.T) {
+	key := "oauth_state:expired-bind:github"
+	storeLocalOAuthState(key, "expired-state", -time.Second)
+
+	stored, ok := consumeLocalOAuthState(key, time.Now())
+	assert.False(t, ok, "expired local OAuth state must not verify")
+	assert.Empty(t, stored)
 }

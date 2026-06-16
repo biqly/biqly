@@ -75,6 +75,7 @@ type anthropicResponse struct {
 		Type string `json:"type"`
 		Text string `json:"text"`
 	} `json:"content"`
+	StopReason string `json:"stop_reason,omitempty"`
 	Usage *struct {
 		InputTokens  int `json:"input_tokens"`
 		OutputTokens int `json:"output_tokens"`
@@ -127,6 +128,13 @@ func parseAnthropicResponse(respBody []byte) (GenerationResult, error) {
 		return GenerationResult{}, errors.New("no text content in Anthropic response")
 	}
 	gen := GenerationResult{Content: text}
+	if ar.StopReason != "" {
+		if ar.StopReason == "max_tokens" {
+			gen.FinishReason = "length"
+		} else {
+			gen.FinishReason = "stop"
+		}
+	}
 	if ar.Usage != nil {
 		gen.Usage = newTokenUsage(ar.Usage.InputTokens, ar.Usage.OutputTokens, 0)
 	}

@@ -123,3 +123,58 @@ func TestRealIPFromTrustedProxy(t *testing.T) {
 		})
 	}
 }
+
+// TestRealIPIgnoresForwardedHeadersFromUntrustedPeer verifies clients cannot
+// spoof their IP by sending X-Forwarded-For or X-Real-IP when the immediate peer
+// is not a trusted proxy.
+func TestRealIPIgnoresForwardedHeadersFromUntrustedPeer(t *testing.T) {
+	security.ResetTrustedProxies()
+
+	cases := []struct {
+		name       string
+		remoteAddr string
+		xff        string
+		xrip       string
+		want       string
+	}{
+		{
+			name:       "xff ignored from public peer",
+			remoteAddr: "203.0.113.9:443",
+			xff:        "198.51.100.1, 10.0.0.1",
+			want:       "203.0.113.9",
+		},
+		{
+			name:       "x-real-ip ignored from public peer",
+			remoteAddr: "203.0.113.9:443",
+			xrip:       "198.51.100.1",
+			want:       "203.0.113.9",
+		},
+		{
+			name:       "both headers ignored from public peer",
+			remoteAddr: "198.51.100.2:52253",
+			xff:        "1.2.3.4",
+			xrip:       "5.6.7.8",
+			want:       "198.51.100.2",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got string
+			h := RealIP(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+				got = r.RemoteAddr
+			}))
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", http.NoBody)
+			req.RemoteAddr = tc.remoteAddr
+			if tc.xff != "" {
+				req.Header.Set("X-Forwarded-For", tc.xff)
+			}
+			if tc.xrip != "" {
+				req.Header.Set("X-Real-IP", tc.xrip)
+			}
+			h.ServeHTTP(httptest.NewRecorder(), req)
+			if got != tc.want {
+				t.Fatalf("RemoteAddr = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

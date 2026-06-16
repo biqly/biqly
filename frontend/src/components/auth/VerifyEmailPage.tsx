@@ -41,18 +41,18 @@ export default function VerifyEmailPage() {
   return (
     <div className={authPageClass}>
       <div className={authCardClass}>
-        <div className="flex flex-col items-center text-center mb-6">
-          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
-            <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
+        <div className="mb-6 flex flex-col items-center text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+            <img src={abiLogo} alt="" className="h-8.5 w-8.5 object-contain" />
           </div>
-          <h1 className="text-[24px] font-bold text-foreground mb-1 tracking-tight">
+          <h1 className="mb-1 text-[24px] font-bold tracking-tight text-foreground">
             {t('auth.title_verify')}
           </h1>
         </div>
 
         {status === 'verifying' && (
           <div className="flex flex-col items-center gap-4 p-4">
-            <div className="w-8 h-8 border-2 border-white/30 rounded-full border-t-accent animate-spin"></div>
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-accent"></div>
             <span className="text-[14px] text-foreground-muted">Verifying your email address…</span>
           </div>
         )}
@@ -78,7 +78,7 @@ export default function VerifyEmailPage() {
             </div>
             <button
               type="button"
-              className="flex items-center justify-center gap-2 w-full py-[11px] px-[16px] rounded-lg border-none bg-gradient-to-br from-accent to-[var(--accent-strong)] text-white text-[14px] font-semibold cursor-pointer transition-all duration-150 shadow-[0_4px_10px_rgba(99,102,241,0.2)] hover:opacity-95 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-none bg-linear-to-br from-accent to-accent-strong px-4 py-2.75 text-[14px] font-semibold text-white shadow-[0_4px_10px_rgba(99,102,241,0.2)] transition-all duration-150 hover:-translate-y-px hover:opacity-95 active:translate-y-0 disabled:transform-none disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => {
                 void navigate('/auth/signin')
               }}

@@ -37,7 +37,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
   }
   return (
     <div
-      className="fixed bottom-5 right-5 z-[1100] flex flex-col gap-[0.6rem] w-[min(100%,22rem)] max-w-[calc(100vw-2rem)] pointer-events-none max-[520px]:left-4 max-[520px]:right-4 max-[520px]:bottom-4 max-[520px]:w-auto"
+      className="pointer-events-none fixed right-5 bottom-5 z-1100 flex w-[min(100%,22rem)] max-w-[calc(100vw-2rem)] flex-col gap-[0.6rem] max-[520px]:right-4 max-[520px]:bottom-4 max-[520px]:left-4 max-[520px]:w-auto"
       role="region"
       aria-label={t('common.notifications')}
     >
@@ -45,7 +45,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
         <div
           key={toast.id}
           className={clsx(
-            'grid grid-cols-[auto_1fr_auto] items-start gap-[0.65rem] border border-border-strong border-l-3 rounded-[0.6rem] bg-card shadow-[0_10px_32px_rgba(0,0,0,0.4)] text-foreground py-3 px-[0.85rem] pointer-events-auto motion-safe:animate-[toast-in_180ms_ease]',
+            'pointer-events-auto grid grid-cols-[auto_1fr_auto] items-start gap-[0.65rem] rounded-[0.6rem] border border-l-3 border-border-strong bg-card px-[0.85rem] py-3 text-foreground shadow-[0_10px_32px_rgba(0,0,0,0.4)] motion-safe:animate-[toast-in_180ms_ease]',
             VARIANT_BORDER[toast.variant],
           )}
           role={toast.variant === 'error' ? 'alert' : 'status'}
@@ -53,7 +53,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
         >
           <span
             className={clsx(
-              'inline-grid w-[1.4rem] h-[1.4rem] place-items-center rounded-full text-[0.8rem] font-bold leading-none text-white',
+              'inline-grid h-[1.4rem] w-[1.4rem] place-items-center rounded-full text-[0.8rem] leading-none font-bold text-white',
               VARIANT_BG[toast.variant],
             )}
             aria-hidden="true"
@@ -65,7 +65,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
               <p className="m-0 text-[0.9rem] font-semibold tracking-[-0.01em]">{toast.title}</p>
             )}
             {toast.message && (
-              <p className="mt-[0.15rem] mb-0 mx-0 text-[0.85rem] leading-[1.45] text-foreground-muted [overflow-wrap:anywhere]">
+              <p className="mx-0 mt-[0.15rem] mb-0 text-[0.85rem] leading-[1.45] wrap-anywhere text-foreground-muted">
                 {toast.message}
               </p>
             )}

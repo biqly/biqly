@@ -85,11 +85,26 @@ func (r *RedisResponseCache) Put(ctx context.Context, fingerprint string, resp *
 	return r.client.Set(ctx, fingerprint, data, ttl).Err()
 }
 
+func escapeRedisGlob(s string) string {
+	var sb strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch c {
+		case '*', '?', '[', ']', '\\':
+			sb.WriteByte('\\')
+			sb.WriteByte(c)
+		default:
+			sb.WriteByte(c)
+		}
+	}
+	return sb.String()
+}
+
 func (r *RedisResponseCache) InvalidateModel(ctx context.Context, modelID string) error {
 	if r.client == nil {
 		return nil
 	}
-	pattern := fmt.Sprintf("bi:ai:cache:%s:*", modelID)
+	pattern := fmt.Sprintf("bi:ai:cache:%s:*", escapeRedisGlob(modelID))
 	var cursor uint64
 	for {
 		keys, nextCursor, err := r.client.Scan(ctx, cursor, pattern, 100).Result()

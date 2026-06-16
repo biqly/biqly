@@ -188,12 +188,12 @@ function RelatedLinkCard({
   const title =
     state.firstRow != null
       ? rowTitleFor(
-          state.firstRow,
-          state.columns,
-          displayExpressionByTable.get(relatedKey),
-          relatedKey,
-          relatedKey,
-        )
+        state.firstRow,
+        state.columns,
+        displayExpressionByTable.get(relatedKey),
+        relatedKey,
+        relatedKey,
+      )
       : null
 
   return (
@@ -353,7 +353,7 @@ function RelatedListView({
       <div className={rowModalListScrollClass}>
         <table
           className={legacyTableClass(
-            'results-table w-full border-collapse text-left text-sm max-[899px]:min-w-[36rem] max-[680px]:min-w-[32rem]',
+            'results-table w-full border-collapse text-left text-sm max-[899px]:min-w-xl max-[680px]:min-w-lg',
           )}
         >
           <thead>
@@ -369,7 +369,7 @@ function RelatedListView({
             {rows.map((row, i) => (
               <tr
                 key={i}
-                className="table-browser-data-row cursor-pointer h-[2.15rem] hover:[&>td]:bg-canvas-subtle"
+                className="table-browser-data-row h-[2.15rem] cursor-pointer hover:[&>td]:bg-canvas-subtle"
                 onClick={() =>
                   onOpenRow({
                     kind: 'row',
@@ -385,7 +385,7 @@ function RelatedListView({
                   return (
                     <td
                       key={c}
-                      className="px-3 py-[0.3rem] leading-snug whitespace-nowrap overflow-visible max-w-[12rem] align-middle"
+                      className="max-w-48 overflow-visible px-3 py-[0.3rem] align-middle leading-snug whitespace-nowrap"
                     >
                       <TableBrowserCellValue value={display} />
                     </td>
@@ -400,10 +400,10 @@ function RelatedListView({
         <span className="text-[0.8rem] text-foreground-muted">
           {total != null
             ? t('table_browser.range_of_total', {
-                start: formatInt(rows.length > 0 ? 1 : 0),
-                end: formatInt(rows.length),
-                total: formatInt(total),
-              })
+              start: formatInt(rows.length > 0 ? 1 : 0),
+              end: formatInt(rows.length),
+              total: formatInt(total),
+            })
             : ''}
         </span>
         {loadingMore && (
@@ -478,12 +478,12 @@ export function TableBrowserRowModal({
   const title =
     frame.kind === 'row'
       ? rowTitleFor(
-          frame.row,
-          frame.columns,
-          displayExpressionByTable.get(frameTableKey),
-          fallbackTitle,
-          frameTableKey,
-        )
+        frame.row,
+        frame.columns,
+        displayExpressionByTable.get(frameTableKey),
+        fallbackTitle,
+        frameTableKey,
+      )
       : `${frameTableKey} · ${frame.filterColumn} = ${frame.filterValue}`
 
   const colIndex =

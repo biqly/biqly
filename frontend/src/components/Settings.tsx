@@ -297,7 +297,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="w-full max-w-none mx-0 flex flex-col gap-5">
+    <div className="mx-0 flex w-full max-w-none flex-col gap-5">
       {(error ?? successMessage) && (
         <div className="flex flex-col gap-3">
           {error && (
@@ -320,29 +320,29 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(300px,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(340px,24rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(380px,28rem)_minmax(0,1fr)] gap-y-6 gap-x-8 lg:gap-y-7 lg:gap-x-10 items-start w-full">
+      <div className="grid w-full grid-cols-1 items-start gap-x-8 gap-y-6 lg:grid-cols-[minmax(300px,22rem)_minmax(0,1fr)] lg:gap-x-10 lg:gap-y-7 xl:grid-cols-[minmax(340px,24rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(380px,28rem)_minmax(0,1fr)]">
         <aside
-          className="flex flex-col gap-4 min-w-0 lg:sticky lg:top-4 lg:self-start"
+          className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:self-start"
           aria-labelledby="settings-profile-group-heading"
         >
           <h2
             id="settings-profile-group-heading"
-            className="m-0 text-foreground-muted font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-[0.1em] uppercase"
+            className="m-0 font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-widest text-foreground-muted uppercase"
           >
             {t('settings.profile_group')}
           </h2>
           <AccountProfileSection />
         </aside>
 
-        <div className="flex flex-col gap-8 min-w-0">
+        <div className="flex min-w-0 flex-col gap-8">
           <section className="flex flex-col gap-4" aria-labelledby="settings-security-heading">
             <h2
               id="settings-security-heading"
-              className="m-0 text-foreground-muted font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-[0.1em] uppercase"
+              className="m-0 font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-widest text-foreground-muted uppercase"
             >
               {t('settings.security_group')}
             </h2>
-            <div className="grid grid-cols-1 min-[900px]:grid-cols-2 min-[1400px]:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)] gap-4 items-stretch">
+            <div className="grid grid-cols-1 items-stretch gap-4 min-[900px]:grid-cols-2 min-[1400px]:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)]">
               <MFASection
                 className="mb-0"
                 status={mfaStatus}
@@ -358,10 +358,10 @@ export default function Settings() {
                 className={cn(legacyCardClass('card card--elevated mb-0'), settingsPrefsCardClass)}
                 aria-labelledby="passkeys-heading"
               >
-                <div className="flex flex-wrap items-start justify-between gap-y-3 gap-x-4 mb-4">
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                   <div>
                     <h2 id="passkeys-heading">{t('passkeys.title')}</h2>
-                    <p className="mt-[0.35rem] mr-0 mb-0 ml-0 flex-[1_1_100%] max-w-[42rem] text-foreground-muted text-[0.875rem] leading-[1.45]">
+                    <p className="mt-[0.35rem] mr-0 mb-0 ml-0 max-w-2xl flex-[1_1_100%] text-[0.875rem] leading-[1.45] text-foreground-muted">
                       {t('passkeys.subtitle')}
                     </p>
                   </div>
@@ -397,7 +397,7 @@ export default function Settings() {
                   </button>
                 </div>
 
-                <div className="max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                <div className="custom-scrollbar max-h-40 overflow-y-auto pr-1">
                   <PasskeyTable
                     passkeys={passkeys}
                     loading={loading}
@@ -416,12 +416,12 @@ export default function Settings() {
           <section className="flex flex-col gap-4" aria-labelledby="settings-config-heading">
             <h2
               id="settings-config-heading"
-              className="m-0 text-foreground-muted font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-[0.1em] uppercase"
+              className="m-0 font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-widest text-foreground-muted uppercase"
             >
               {t('settings.configuration_group')}
             </h2>
             <AIModelPreferencesSection />
-            <div className="grid grid-cols-1 sm:grid-cols-2 min-[1500px]:grid-cols-3 gap-[0.85rem]">
+            <div className="grid grid-cols-1 gap-[0.85rem] min-[1500px]:grid-cols-3 sm:grid-cols-2">
               <SettingsLinkCard
                 title={t('settings.prompt_templates_section')}
                 description={t('settings.prompt_templates_hint')}

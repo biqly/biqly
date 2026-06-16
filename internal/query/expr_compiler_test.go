@@ -1,6 +1,7 @@
 package query
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -170,6 +171,53 @@ func TestCompileExprAcrossDialects(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestCompileExprRejectsUnsupportedDateTruncGrain(t *testing.T) {
+	expr := &pkgsemantic.FunctionCallExpr{
+		Name: "DATE_TRUNC",
+		Args: []pkgsemantic.ExprNode{
+			&pkgsemantic.LiteralExpr{Value: "month'); DROP TABLE orders; --"},
+			&pkgsemantic.ColumnRefExpr{Column: "created_at"},
+		},
+	}
+
+	_, err := CompileExpr(expr, dialect.PostgresDialect{}, nil, nil, nil)
+	if err == nil {
+		t.Fatal("expected unsupported DATE_TRUNC grain error")
+	}
+	if !strings.Contains(err.Error(), "unsupported DATE_TRUNC grain") {
+		t.Fatalf("expected unsupported grain error, got %v", err)
+	}
+}
+
+func TestCompileDimensionRejectsUnsupportedTimeGrain(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "orders",
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Dimensions: []semantic.Dimension{
+			{
+				Name:      "created_at",
+				ColumnRef: "orders.created_at",
+				TimeGrain: "month'); DROP TABLE orders; --",
+				Type:      "time",
+			},
+		},
+	}
+	lq := LogicalQuery{
+		ModelID: "orders",
+		Select:  []SelectItem{{Type: "dimension", Name: "created_at"}},
+		Limit:   10,
+	}
+
+	_, err := NewCompiler(dialect.PostgresDialect{}).CompileWithPermissions(context.Background(), &lq, model, nil, nil)
+	if err == nil {
+		t.Fatal("expected unsupported time grain error")
+	}
+	if !strings.Contains(err.Error(), "unsupported time grain") {
+		t.Fatalf("expected unsupported time grain error, got %v", err)
 	}
 }
 

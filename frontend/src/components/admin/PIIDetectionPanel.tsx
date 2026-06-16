@@ -149,7 +149,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
 
       <div style={toolbarStyle}>
         <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>Datasource</span>
+          <span style={labelTextStyle}>{t('admin.pii.datasource')}</span>
           <Select
             value={selectedDS}
             options={dsOptions}

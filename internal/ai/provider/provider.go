@@ -1,3 +1,4 @@
+// Package provider implements the LLM provider abstraction.
 package provider
 
 import (

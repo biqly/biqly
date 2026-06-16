@@ -237,11 +237,11 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
       config:
         configType !== 'text'
           ? {
-              xAxisColumn: configType === 'chart' ? xAxisColumn : undefined,
-              yAxisColumns: configType === 'chart' ? yAxisColumns : undefined,
-              valueColumn: configType === 'kpi' ? valueColumn : undefined,
-              visibleColumns: configType === 'table' ? visibleColumns : undefined,
-            }
+            xAxisColumn: configType === 'chart' ? xAxisColumn : undefined,
+            yAxisColumns: configType === 'chart' ? yAxisColumns : undefined,
+            valueColumn: configType === 'kpi' ? valueColumn : undefined,
+            visibleColumns: configType === 'table' ? visibleColumns : undefined,
+          }
           : undefined,
     }
 
@@ -566,7 +566,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
           open={isConfigModalOpen}
           onClose={() => setIsConfigModalOpen(false)}
           title="Configure Widget"
-          className="w-[90%] max-w-[37.5rem]"
+          className="w-[90%] max-w-150"
           bodyClassName="flex max-h-[70vh] flex-col gap-5 overflow-y-auto"
         >
           <div className={legacyFormClass('form-field')}>

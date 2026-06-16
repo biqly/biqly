@@ -251,10 +251,10 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
 
         {/* ── Info / Edit Form ── */}
         <section className={legacyCardClass('p-4 border border-border rounded-[8px] bg-card')}>
-          <div className="flex items-center gap-2.5 mb-3">
+          <div className="mb-3 flex items-center gap-2.5">
             <span
               className={clsx(
-                'inline-block py-[2px] px-2.5 rounded-[12px] text-[11px] font-semibold uppercase tracking-[0.5px]',
+                'inline-block rounded-[12px] px-2.5 py-[2px] text-[11px] font-semibold tracking-[0.5px] uppercase',
                 isPersonal ? 'bg-accent/10 text-accent' : 'bg-success/10 text-success',
               )}
             >
@@ -264,7 +264,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
           </div>
 
           {isPersonal ? (
-            <p className="text-foreground-muted text-[13px] italic m-0">
+            <p className="m-0 text-[13px] text-foreground-muted italic">
               {t('admin.workspaces.personal_readonly')}
             </p>
           ) : (
@@ -272,12 +272,12 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               onSubmit={(e) => {
                 void onSave(e)
               }}
-              className="flex gap-2.5 items-end flex-wrap"
+              className="flex flex-wrap items-end gap-2.5"
             >
               <label className="flex flex-col gap-1 text-[12px] text-foreground-muted">
                 <span>{t('admin.workspaces.name')}</span>
                 <input
-                  className="py-[7px] px-2.5 min-w-[200px]"
+                  className="min-w-[200px] px-2.5 py-[7px]"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   required
@@ -286,15 +286,15 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               <label className="flex flex-col gap-1 text-[12px] text-foreground-muted">
                 <span>{t('admin.workspaces.description')}</span>
                 <input
-                  className="py-[7px] px-2.5 min-w-[200px]"
+                  className="min-w-[200px] px-2.5 py-[7px]"
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
                 />
               </label>
-              <label className="inline-flex items-center gap-2 min-h-[32px] text-[13px] text-foreground whitespace-nowrap">
+              <label className="inline-flex min-h-[32px] items-center gap-2 text-[13px] whitespace-nowrap text-foreground">
                 <input
                   type="checkbox"
-                  className="w-4 h-4 m-0"
+                  className="m-0 h-4 w-4"
                   checked={editMFARequired}
                   onChange={(e) => setEditMFARequired(e.target.checked)}
                 />
@@ -314,12 +314,12 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
         <section className={legacyCardClass('p-4 border border-border rounded-[8px] bg-card')}>
           <h3 className="m-0 mb-3 text-[15px] font-semibold">{t('admin.workspaces.members')}</h3>
           {members.length === 0 ? (
-            <p className="text-foreground-muted text-[13px] my-2 mx-0">
+            <p className="mx-0 my-2 text-[13px] text-foreground-muted">
               {t('admin.workspaces.members_empty')}
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-[13px] mb-3 [&_th]:py-2.5 [&_th]:px-3 [&_th]:text-left [&_th]:align-middle [&_th]:border-b [&_th]:border-border [&_td]:py-2.5 [&_td]:px-3 [&_td]:text-left [&_td]:align-middle [&_td]:border-b [&_td]:border-border [&_th]:font-semibold [&_th]:text-[11px] [&_th]:uppercase [&_th]:tracking-[0.4px] [&_th]:text-foreground-muted [&_th]:whitespace-nowrap">
+              <table className="mb-3 w-full border-collapse text-[13px] [&_td]:border-b [&_td]:border-border [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-left [&_td]:align-middle [&_th]:border-b [&_th]:border-border [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:align-middle [&_th]:text-[11px] [&_th]:font-semibold [&_th]:tracking-[0.4px] [&_th]:whitespace-nowrap [&_th]:text-foreground-muted [&_th]:uppercase">
                 <thead>
                   <tr>
                     <th>{t('admin.fields.user')}</th>
@@ -337,7 +337,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                           display_name: m.display_name,
                         })}
                       </td>
-                      <td className="min-w-[240px] w-[28%]">
+                      <td className="w-[28%] min-w-[240px]">
                         <Select
                           size="sm"
                           value={m.role_id}
@@ -346,10 +346,10 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                           disabled={!canManageMembers}
                         />
                       </td>
-                      <td className="text-foreground-muted whitespace-nowrap">
+                      <td className="whitespace-nowrap text-foreground-muted">
                         {formatDateOnly(m.joined_at, localeLanguageTag(locale))}
                       </td>
-                      <td className="w-[1%] whitespace-nowrap text-right">
+                      <td className="w-[1%] text-right whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => {
@@ -402,7 +402,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               <button
                 type="submit"
                 className={cn(
-                  legacyButtonClass('btn btn-primary self-end min-h-[2.1rem] mb-0'),
+                  legacyButtonClass('btn btn-primary mb-0 min-h-[2.1rem] self-end'),
                   adminBtnAutoWidthClass,
                 )}
               >
@@ -410,7 +410,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               </button>
             </form>
           ) : (
-            <p className="text-foreground-muted text-[13px] italic m-0">{restrictedNote}</p>
+            <p className="m-0 text-[13px] text-foreground-muted italic">{restrictedNote}</p>
           )}
         </section>
 
@@ -420,12 +420,12 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
             {t('admin.workspaces.datasources')}
           </h3>
           {datasources.length === 0 ? (
-            <p className="text-foreground-muted text-[13px] my-2 mx-0">
+            <p className="mx-0 my-2 text-[13px] text-foreground-muted">
               {t('admin.workspaces.datasources_empty')}
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-[13px] mb-3 [&_th]:py-2.5 [&_th]:px-3 [&_th]:text-left [&_th]:align-middle [&_th]:border-b [&_th]:border-border [&_td]:py-2.5 [&_td]:px-3 [&_td]:text-left [&_td]:align-middle [&_td]:border-b [&_td]:border-border [&_th]:font-semibold [&_th]:text-[11px] [&_th]:uppercase [&_th]:tracking-[0.4px] [&_th]:text-foreground-muted [&_th]:whitespace-nowrap">
+              <table className="mb-3 w-full border-collapse text-[13px] [&_td]:border-b [&_td]:border-border [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-left [&_td]:align-middle [&_th]:border-b [&_th]:border-border [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:align-middle [&_th]:text-[11px] [&_th]:font-semibold [&_th]:tracking-[0.4px] [&_th]:whitespace-nowrap [&_th]:text-foreground-muted [&_th]:uppercase">
                 <thead>
                   <tr>
                     <th>{t('admin.workspaces.datasource_name')}</th>
@@ -439,12 +439,12 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                       <td>
                         {datasourceDisplayLabel(d.datasource_id, allDatasources, d.datasource_name)}
                       </td>
-                      <td className="text-foreground-muted whitespace-nowrap">
-                        <span className="inline-block py-[2px] px-2 rounded-[10px] text-[11px] font-medium bg-accent/10 text-accent">
+                      <td className="whitespace-nowrap text-foreground-muted">
+                        <span className="inline-block rounded-[10px] bg-accent/10 px-2 py-[2px] text-[11px] font-medium text-accent">
                           {d.access_level}
                         </span>
                       </td>
-                      <td className="w-[1%] whitespace-nowrap text-right">
+                      <td className="w-[1%] text-right whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => {
@@ -486,7 +486,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               <button
                 type="submit"
                 className={cn(
-                  legacyButtonClass('btn btn-primary self-end min-h-[2.1rem] mb-0'),
+                  legacyButtonClass('btn btn-primary mb-0 min-h-[2.1rem] self-end'),
                   adminBtnAutoWidthClass,
                 )}
               >
@@ -494,7 +494,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               </button>
             </form>
           ) : (
-            <p className="text-foreground-muted text-[13px] italic m-0">{restrictedNote}</p>
+            <p className="m-0 text-[13px] text-foreground-muted italic">{restrictedNote}</p>
           )}
         </section>
       </LoadingOverlay>

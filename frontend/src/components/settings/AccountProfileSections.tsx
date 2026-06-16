@@ -47,20 +47,20 @@ export function AccountProfileHero({
       className={legacyCardClass('card card--elevated flex flex-col gap-6')}
       aria-labelledby="settings-profile-heading"
     >
-      <div className="flex gap-4 items-center flex-wrap">
-        <div className="relative w-[3.25rem] h-[3.25rem]">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="relative h-13 w-13">
           <button
             type="button"
-            className="relative w-full h-full rounded-full grid place-items-center border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] text-accent cursor-pointer overflow-hidden p-0 transition-all duration-200 hover:border-accent hover:shadow-[0_0_12px_rgba(99,102,241,0.25)] group"
+            className="group relative grid h-full w-full cursor-pointer place-items-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] p-0 text-accent transition-all duration-200 hover:border-accent hover:shadow-[0_0_12px_rgba(99,102,241,0.25)]"
             onClick={onAvatarClick}
             title={t('settings.profile_picture_change')}
           >
             {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt="" className="w-full h-full object-cover block" />
+              <img src={user.avatarUrl} alt="" className="block h-full w-full object-cover" />
             ) : (
-              <span className="font-bold text-[0.95rem] tracking-wider">{initials}</span>
+              <span className="text-[0.95rem] font-bold tracking-wider">{initials}</span>
             )}
-            <div className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 transition-opacity duration-180 group-hover:opacity-100 group-focus-visible:opacity-100">
+            <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-white opacity-0 transition-opacity duration-180 group-hover:opacity-100 group-focus-visible:opacity-100">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="16"
@@ -119,7 +119,7 @@ export function AccountProfileHero({
           <h2 id="settings-profile-heading" className="m-0 text-[1.15rem]">
             {t('settings.profile_section')}
           </h2>
-          <p className="mt-[0.35rem] mr-0 mb-0 ml-0 text-foreground-muted text-[0.875rem] leading-[1.45]">
+          <p className="mt-[0.35rem] mr-0 mb-0 ml-0 text-[0.875rem] leading-[1.45] text-foreground-muted">
             {t('settings.profile_hint')}
           </p>
         </div>
@@ -150,7 +150,7 @@ export function AccountProfileHero({
             value={user.email}
             readOnly
             disabled
-            className="disabled:opacity-85 disabled:cursor-not-allowed"
+            className="disabled:cursor-not-allowed disabled:opacity-85"
           />
         </div>
         {profileMessage && (
@@ -204,7 +204,7 @@ export function AccountEmailChangeSection({
         <h3 id="settings-email-change-heading" className="m-0 text-[0.95rem] font-semibold">
           {t('settings.profile_email_change_title')}
         </h3>
-        <p className="m-0 text-foreground-muted text-[0.85rem] leading-[1.45]">
+        <p className="m-0 text-[0.85rem] leading-[1.45] text-foreground-muted">
           {t('settings.profile_email_change_hint')}
         </p>
         <div className={legacyFormClass('form-group')}>
@@ -284,7 +284,7 @@ export function AccountPasswordSection({
           {t('settings.profile_password_title')}
         </h3>
         {!hasPassword ? (
-          <p className="m-0 text-foreground-muted text-[0.85rem] leading-[1.45]">
+          <p className="m-0 text-[0.85rem] leading-[1.45] text-foreground-muted">
             {t('settings.profile_no_password')}
           </p>
         ) : (
@@ -335,7 +335,7 @@ export function AccountPasswordSection({
                 {passwordMessage.text}
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-y-3 gap-x-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
               <button
                 type="submit"
                 className={cn(legacyButtonClass('btn btn-primary btn-sm'), adminBtnAutoWidthClass)}
@@ -385,7 +385,7 @@ export function AccountMfaBypassSection({
         <h3 id="settings-support-heading" className="m-0 text-[0.95rem] font-semibold">
           {t('settings.profile_mfa_bypass_title')}
         </h3>
-        <p className="m-0 text-foreground-muted text-[0.85rem] leading-[1.45]">
+        <p className="m-0 text-[0.85rem] leading-[1.45] text-foreground-muted">
           {t('settings.profile_mfa_bypass_hint')}
         </p>
         <button
@@ -401,9 +401,9 @@ export function AccountMfaBypassSection({
           <p className={legacyFeedbackClass('m-0 text-[0.875rem] text-error')}>{bypassError}</p>
         )}
         {bypassCode && (
-          <div className="flex flex-wrap items-center gap-2 mt-1">
+          <div className="mt-1 flex flex-wrap items-center gap-2">
             <code
-              className={`font-mono text-[1rem] tracking-wider py-2 px-3 rounded-[0.35rem] border border-dashed border-border bg-white/[0.03]`}
+              className={`font-mono text-[1rem] tracking-wider py-2 px-3 rounded-[0.35rem] border border-dashed border-border bg-white/3`}
             >
               {bypassCode}
             </code>
