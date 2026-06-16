@@ -387,7 +387,17 @@ export default function Composites() {
 
         <section className={compositesDetailClass}>
           {!selectedId ? (
-            <EmptyState description={t('composites.empty_detail')} />
+            <EmptyState
+              description={t('composites.empty_detail')}
+              action={
+                datasourceId
+                  ? {
+                      label: t('composites.empty_detail_cta'),
+                      onClick: () => setShowCreate(true),
+                    }
+                  : undefined
+              }
+            />
           ) : initLoading || !detail ? (
             <LoadingScreen />
           ) : (

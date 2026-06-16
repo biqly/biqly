@@ -200,11 +200,10 @@ reinvent them. full guide: `docs/agents/local-dev.md`.
 before any `git commit`, run the linters AND tests for the code you changed, and **fix every reported issue before staging or committing**. lint failures are blockers — do not commit with open lint errors, defer fixes to a follow-up commit, or push hoping CI will catch them.
 
 1. **go**: `gofmt -w <touched .go files>` + `make lint-go` (golangci-lint) + `make test-go` (go test -race) + `deadcode -test $(go list ./... | grep -v '/frontend')`
-2. **react / frontend**: `make lint-frontend` (eslint) + `make test-frontend` (vitest)
-3. **frontend full gate** (same as CI): `make check-frontend` (lint + format:check + knip + test + build)
-4. **AI eval** (when touching `internal/ai/eval/`, golden cases, eval handlers, or `cmd/eval-live/`): `make eval-regression` — stub provider, no API key; same gate as `.github/workflows/test.yml`. Do **not** run `make eval-live` before commit (real LLM; nightly workflow only).
+2. **react / frontend**: `make check-frontend` (= `npm run check`, the **exact** CI gate: eslint + tailwind + format:check + knip + test + `build`, where `build` runs `tsc --noEmit`). This is what catches type errors locally — a plain `make lint-frontend` does **not** type-check. For a fast type-only signal mid-edit use `make typecheck-frontend`.
+3. **AI eval** (when touching `internal/ai/eval/`, golden cases, eval handlers, or `cmd/eval-live/`): `make eval-regression` — stub provider, no API key; same gate as `.github/workflows/test.yml`. Do **not** run `make eval-live` before commit (real LLM; nightly workflow only).
 
-or run everything in one command: `make precommit` (= `make format-frontend` + `make lint` + `make test`). `make precommit` does **not** include `make eval-regression`; run that separately when AI eval code changes.
+or run everything in one command: `make precommit` (= `make format-frontend` + `make lint-go` + `make test-go` + `make check-frontend`). This mirrors the CI gate, so frontend type/knip/build failures fail locally instead of in CI. `make precommit` does **not** include `make eval-regression`; run that separately when AI eval code changes. The `.githooks/pre-commit` hook runs this same gate automatically on every commit.
 
 `make lint-go` / `golangci-lint run` scans the whole repo, not only files you edited. if you add or enable linters (e.g. `.golangci.yml`), fix all new findings across the codebase in the same change before commit.
 

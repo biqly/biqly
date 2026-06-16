@@ -1,10 +1,16 @@
 #!/bin/sh
-# Pre-commit hook: format → stage → lint → test.
+# Pre-commit hook: format → stage → Go gate → frontend CI gate.
 #
-# 1. Formats all files (Prettier for frontend, gofmt for Go via lint)
-# 2. Stages formatting changes so they're included in the commit
-# 3. Runs linters and tests on the staged content
-# 4. Blocks the commit if anything fails
+# Mirrors the gates CI enforces, so CI failures surface locally first:
+#   1. Format all files (Prettier for frontend, gofmt for Go via lint) and stage them
+#   2. Go:       lint-go + test-go
+#   3. Frontend: check-frontend = the exact `npm run check` CI runs
+#                (lint + tailwind + format:check + knip + test + build/tsc --noEmit)
+#   4. Block the commit if anything fails
+#
+# The frontend build step runs `tsc --noEmit`, which catches the type errors that
+# previously only failed in CI. Frontend lint/test live inside check-frontend, so
+# we run lint-go/test-go here (not the combined lint/test) to avoid a double run.
 #
 # Activated by: git config core.hooksPath .githooks
 # (or run: make setup-githooks)
@@ -15,10 +21,11 @@ echo "=== pre-commit: formatting ==="
 make format-frontend
 git add -u
 
-echo "=== pre-commit: linting ==="
-make lint
+echo "=== pre-commit: Go lint + tests ==="
+make lint-go
+make test-go
 
-echo "=== pre-commit: running tests ==="
-make test
+echo "=== pre-commit: frontend CI gate (lint, tailwind, format:check, knip, test, build/tsc) ==="
+make check-frontend
 
 echo "=== pre-commit: all checks passed ==="

@@ -183,8 +183,9 @@ reinvent them. full guide: `docs/agents/local-dev.md`.
   user `bi_user`, `localhost:5432`, like k8s) + redis + nats in docker. no app builds.
 - `make watch` — runs ALL app services with live-reload in ONE command: api (`:8888`),
   auth (`:8889`), mail (`:8890`); each rebuilds on `.go` save, Ctrl-C stops all. the
-  frontend proxies `/api` → `:8888` and `/auth` → `:8889`, so both must run (missing
-  auth = vite `ECONNREFUSED /auth/...`).
+  frontend proxies `/api/auth/*` → `:8889` (auth) and all other `/api/*` → `:8888`
+  (api); `/auth/*` is a client-side SPA route (not proxied). Both services must run
+  (missing auth = vite `ECONNREFUSED /api/auth/...`).
 - `make watch SVC="api auth"` — run only the listed services (space- or comma-separated).
 - `make debug-watch [SVC=auth]` — single service under Delve on `:2345` (default api);
   run the rest via plain `watch`. IDE reconnects after each rebuild. attach to `localhost:2345`.
@@ -196,31 +197,13 @@ reinvent them. full guide: `docs/agents/local-dev.md`.
 
 ## pre-commit checks (required)
 
-**Recommended: enable the automatic git hook** — one-time setup:
-
-```sh
-make setup-githooks    # or: git config core.hooksPath .githooks
-```
-
-The hook runs **format → stage → lint → test** before every `git commit`:
-auto-formats with Prettier, stages the formatting changes so they're included in
-the commit, then lints and tests. If anything fails, the commit is blocked. This
-is the intended workflow — no need to run `make precommit` manually.
-
-Details in `.githooks/README.md`. To skip the hook on a specific commit (WIP,
-partial fix): `git commit --no-verify`.
-
-If you prefer a fully manual flow (no hook), run the checks below before every
-commit and **fix every reported issue before staging or committing**. lint
-failures are blockers — do not commit with open lint errors, defer fixes to a
-follow-up commit, or push hoping CI will catch them.
+before any `git commit`, run the linters AND tests for the code you changed, and **fix every reported issue before staging or committing**. lint failures are blockers — do not commit with open lint errors, defer fixes to a follow-up commit, or push hoping CI will catch them.
 
 1. **go**: `gofmt -w <touched .go files>` + `make lint-go` (golangci-lint) + `make test-go` (go test -race) + `deadcode -test $(go list ./... | grep -v '/frontend')`
-2. **react / frontend**: `make lint-frontend` (eslint) + `make test-frontend` (vitest)
-3. **frontend full gate** (same as CI): `make check-frontend` (lint + format:check + knip + test + build)
-4. **AI eval** (when touching `internal/ai/eval/`, golden cases, eval handlers, or `cmd/eval-live/`): `make eval-regression` — stub provider, no API key; same gate as `.github/workflows/test.yml`. Do **not** run `make eval-live` before commit (real LLM; nightly workflow only).
+2. **react / frontend**: `make check-frontend` (= `npm run check`, the **exact** CI gate: eslint + tailwind + format:check + knip + test + `build`, where `build` runs `tsc --noEmit`). This is what catches type errors locally — a plain `make lint-frontend` does **not** type-check. For a fast type-only signal mid-edit use `make typecheck-frontend`.
+3. **AI eval** (when touching `internal/ai/eval/`, golden cases, eval handlers, or `cmd/eval-live/`): `make eval-regression` — stub provider, no API key; same gate as `.github/workflows/test.yml`. Do **not** run `make eval-live` before commit (real LLM; nightly workflow only).
 
-or run everything in one command: `make precommit` (= `make format-frontend` + `make lint` + `make test`). `make precommit` does **not** include `make eval-regression`; run that separately when AI eval code changes.
+or run everything in one command: `make precommit` (= `make format-frontend` + `make lint-go` + `make test-go` + `make check-frontend`). This mirrors the CI gate, so frontend type/knip/build failures fail locally instead of in CI. `make precommit` does **not** include `make eval-regression`; run that separately when AI eval code changes. The `.githooks/pre-commit` hook runs this same gate automatically on every commit.
 
 `make lint-go` / `golangci-lint run` scans the whole repo, not only files you edited. if you add or enable linters (e.g. `.golangci.yml`), fix all new findings across the codebase in the same change before commit.
 
@@ -302,6 +285,8 @@ styling & coding conventions:
 - **minimal impact**: touch only what is necessary. avoid introducing bugs.
 
 ## deployment & infrastructure
+
+See [Configuration Parameters](docs/configuration.md) for a comprehensive list of environment variables and dynamic database overrides.
 
 the app runs in the **`biqly` kubernetes namespace** in the default kubeconfig cluster.
 

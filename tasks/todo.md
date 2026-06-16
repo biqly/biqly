@@ -78,10 +78,10 @@
 **State / UX**
 
 - [ ] Liste ekranları `DataState` yerine elle loading/error/empty — ERTELENDİ: ekranlar zaten EmptyState/LoadingOverlay kullanıyor; tam migrasyon her ekranın özel layout'unda regresyon riski → ayrı odaklı PR. (QueryHistory zaten DataState'te; ABExperimentList LoadingScreen+EmptyState+CTA ile uyumlu.)
-- [x] Empty state'lerde CTA yok — `action` eklendi: SavedQuestions, Datasources, FewShotExamples, Glossary (i18n `*.empty_cta` zaten mevcuttu). QueryHistory read-only, DashboardList/ABExperimentList zaten CTA'lıydı.
+- [x] Empty state'lerde CTA yok — `action` eklendi: SavedQuestions, Datasources, FewShotExamples, Glossary, Composites detail (`empty_detail_cta`). QueryHistory read-only, DashboardList/ABExperimentList zaten CTA'lıydı.
 - [x] Async button'larda pending/disabled yok — Datasources Test/Sync/Delete `busy` map ile guard'lı; SavedQuestions kaydet butonu `saving` prop → disabled + "Saving…".
 - [x] Ham `err.message` kullanıcıya gösteriliyor — Glossary 4 nokta artık `t('glossary.save_failed')` / `t('glossary.enrich_failed')`.
-- [x] Ünlemli/sistem-sesli başarı metni — `admin.rls.saved`, `admin.field_permissions.saved`, `admin.pii_detection.policy_saved` sade cümleye çevrildi ("… saved."). Inline yeşil-metin pattern korundu (toast'a taşımak ayrı iş).
+- [x] Ünlemli/sistem-sesli başarı metni — `admin.rls.saved`, `admin.field_permissions.saved` sade cümle; RLS + FieldPermissionPanel inline banner kaldırıldı → `toast.success`. `admin.pii_detection.policy_saved` metin sadeleştirildi.
 - [x] Tek-label olarak emoji — SignInCredentialsForm passkey (🔑) + DashboardList delete (🗑️) inline `<svg>`. SidebarConversationItem zaten svg+aria-label'dı. (DashboardBuilder/ModelingToolbar emojileri metinle eşli/menü ikonu → bırakıldı.)
 
 **Build / config**

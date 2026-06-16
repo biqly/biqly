@@ -34,6 +34,39 @@ import { LoadingOverlay } from './ui/LoadingOverlay'
 import { LoadingScreen } from './ui/LoadingScreen'
 import { Select } from './ui/Select'
 
+function SavedQuestionsEmptyCard({
+  apiLoading,
+  search,
+  onAdd,
+}: {
+  apiLoading: boolean
+  search: string
+  onAdd: () => void
+}) {
+  const t = useT()
+  const trimmedSearch = search.trim()
+  return (
+    <div
+      className={legacyCardClass('card')}
+      style={{
+        position: 'relative',
+        minHeight: '300px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <LoadingOverlay loading={apiLoading} />
+      <EmptyState
+        description={trimmedSearch ? t('saved_questions.no_matches') : t('saved_questions.empty')}
+        action={
+          trimmedSearch ? undefined : { label: t('saved_questions.empty_cta'), onClick: onAdd }
+        }
+      />
+    </div>
+  )
+}
+
 export default function SavedQuestions() {
   const t = useT()
   const toast = useToast()
@@ -525,24 +558,7 @@ export default function SavedQuestions() {
       {apiError && <ErrorAlert error={apiError} />}
 
       {filtered.length === 0 ? (
-        <div
-          className={legacyCardClass('card')}
-          style={{
-            position: 'relative',
-            minHeight: '300px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <LoadingOverlay loading={apiLoading} />
-          <EmptyState
-            description={
-              search.trim() ? t('saved_questions.no_matches') : t('saved_questions.empty')
-            }
-            action={{ label: t('saved_questions.empty_cta'), onClick: openAdd }}
-          />
-        </div>
+        <SavedQuestionsEmptyCard apiLoading={apiLoading} search={search} onAdd={openAdd} />
       ) : (
         <div className={savedQuestionListClass()}>
           {/* Left Column: Questions List */}
