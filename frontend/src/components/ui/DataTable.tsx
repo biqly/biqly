@@ -73,59 +73,61 @@ export function DataTable<T>({
   onSortToggle,
 }: DataTableProps<T>) {
   return (
-    <table className={tableClassName} style={tableStyle}>
-      <thead>
-        <tr className={headRowClassName}>
-          {columns.map((col) => (
-            <th
-              key={col.key}
-              className={headerCellClassName}
-              aria-sort={col.sortable && onSortToggle ? ariaSortFor(sort, col.key) : undefined}
-            >
-              {col.sortable && onSortToggle ? (
-                <button
-                  type="button"
-                  className="hover:text-foreground inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-inherit [font:inherit]"
-                  onClick={() => onSortToggle(col.key)}
-                >
-                  {col.header}
-                  <span className="text-[0.85em] leading-none" aria-hidden="true">
-                    {sortArrowFor(sort, col.key)}
-                  </span>
-                </button>
-              ) : (
-                col.header
-              )}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.length === 0 ? (
-          <tr className={rowClassName}>
-            <td
-              colSpan={columns.length}
-              style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}
-            >
-              {loading ? '' : emptyCell}
-            </td>
+    <div className="max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
+      <table className={tableClassName} style={tableStyle}>
+        <thead>
+          <tr className={headRowClassName}>
+            {columns.map((col) => (
+              <th
+                key={col.key}
+                className={headerCellClassName}
+                aria-sort={col.sortable && onSortToggle ? ariaSortFor(sort, col.key) : undefined}
+              >
+                {col.sortable && onSortToggle ? (
+                  <button
+                    type="button"
+                    className="hover:text-foreground inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-inherit [font:inherit]"
+                    onClick={() => onSortToggle(col.key)}
+                  >
+                    {col.header}
+                    <span className="text-[0.85em] leading-none" aria-hidden="true">
+                      {sortArrowFor(sort, col.key)}
+                    </span>
+                  </button>
+                ) : (
+                  col.header
+                )}
+              </th>
+            ))}
           </tr>
-        ) : (
-          rows.map((row) => (
-            <tr key={rowKey(row)} className={rowClassName}>
-              {columns.map((col) => (
-                <td
-                  key={col.key}
-                  className={col.className ?? cellClassName}
-                  style={col.align && col.align !== 'left' ? { textAlign: col.align } : undefined}
-                >
-                  {col.cell(row)}
-                </td>
-              ))}
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr className={rowClassName}>
+              <td
+                colSpan={columns.length}
+                style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}
+              >
+                {loading ? '' : emptyCell}
+              </td>
             </tr>
-          ))
-        )}
-      </tbody>
-    </table>
+          ) : (
+            rows.map((row) => (
+              <tr key={rowKey(row)} className={rowClassName}>
+                {columns.map((col) => (
+                  <td
+                    key={col.key}
+                    className={col.className ?? cellClassName}
+                    style={col.align && col.align !== 'left' ? { textAlign: col.align } : undefined}
+                  >
+                    {col.cell(row)}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
   )
 }

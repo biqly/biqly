@@ -6,6 +6,7 @@ import { useConfirm } from '../hooks/useConfirm'
 import { useDatasources } from '../hooks/useDatasources'
 import { useModelDetail } from '../hooks/useModelDetail'
 import { useSemanticModels } from '../hooks/useSemanticModels'
+import { useToast } from '../hooks/useToast'
 import { useT } from '../i18n'
 import { legacyButtonClass, rowActionsClass } from '../lib/buttonClasses'
 import { legacyCardClass } from '../lib/cardClasses'
@@ -33,6 +34,7 @@ import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
 export default function Glossary() {
   const t = useT()
+  const toast = useToast()
   const confirm = useConfirm()
   const { get, postData, putData, deleteData, loading } = useApi()
   const { postData: adminPost, loading: enrichLoading, configured: adminConfigured } = useAdminApi()
@@ -108,11 +110,11 @@ export default function Glossary() {
         setTerms(res)
       }
     } catch {
-      // ignore
+      toast.error(t('glossary.load_error'))
     } finally {
       setInitLoading(false)
     }
-  }, [get, selectedDatasourceId, selectedModelId])
+  }, [get, selectedDatasourceId, selectedModelId, t, toast])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -321,7 +323,7 @@ export default function Glossary() {
       await deleteData(`/api/ai/glossary/${id}`)
       setTerms(terms.filter((t) => t.id !== id))
     } catch {
-      // ignore
+      toast.error(t('glossary.delete_error'))
     }
   }
 

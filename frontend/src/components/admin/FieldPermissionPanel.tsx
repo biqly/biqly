@@ -442,7 +442,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                       <tr style={theadRow}>
                         <th style={thStyle}>{t('admin.pii.col_column')}</th>
                         <th style={thStyle}>{t('admin.pii.col_type')}</th>
-                        <th style={{ ...thStyle, width: 200 }}>Access</th>
+                        <th style={{ ...thStyle, width: 200 }}>{t('admin.pii.col_access')}</th>
                       </tr>
                     </thead>
                     <tbody>

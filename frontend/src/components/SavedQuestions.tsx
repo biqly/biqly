@@ -4,6 +4,7 @@ import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
+import { useToast } from '../hooks/useToast'
 import { useT } from '../i18n'
 import { savedQuestionTagsClass, tagPillClass } from '../lib/badgeClasses'
 import { legacyButtonClass } from '../lib/buttonClasses'
@@ -35,6 +36,7 @@ import { Select } from './ui/Select'
 
 export default function SavedQuestions() {
   const t = useT()
+  const toast = useToast()
   const { get, postData, putData, deleteData, loading: apiLoading, error: apiError } = useApi()
   const confirm = useConfirm()
 
@@ -255,6 +257,7 @@ export default function SavedQuestions() {
       if (selectedQuestion?.id === q.id) {
         setSelectedQuestion((prev) => (prev ? { ...prev, is_few_shot: q.is_few_shot } : null))
       }
+      toast.error(t('saved_questions.toggle_fewshot_error'))
     }
   }
 
@@ -286,6 +289,7 @@ export default function SavedQuestions() {
       if (selectedQuestion?.id === q.id) {
         setSelectedQuestion((prev) => (prev ? { ...prev, is_favorite: q.is_favorite } : null))
       }
+      toast.error(t('saved_questions.favorite_toggle_error'))
     }
   }
 

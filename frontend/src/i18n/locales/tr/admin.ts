@@ -57,6 +57,7 @@ export const admin: AdminDictionary = {
     scan_summary: '{{scanned}} kolon tarandı, {{detected}} PII tespiti.',
     col_column: 'Kolon',
     col_type: 'PII Tipi',
+    col_access: 'Erişim',
     col_confidence: 'Güven',
     col_strategy: 'Maskeleme Stratejisi',
     strategy_partial: 'Kısmi Maske',
