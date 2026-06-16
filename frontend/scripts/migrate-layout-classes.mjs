@@ -69,7 +69,7 @@ for (const file of files) {
   )
 
   content = content.replace(/className="([^"]*\bpage-stack\b[^"]*)"/g, (_, cls) => {
-    const escaped = cls.trim().replace(/'/g, "\\'")
+    const escaped = cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     return `className={legacyLayoutClass('${escaped}')}`
   })
 
@@ -77,7 +77,7 @@ for (const file of files) {
     /className=\{`([^`$]*\bpage-stack\b[^`$]*)\$\{([^}]+)\}([^`]*)`\}/g,
     (_, before, expr, after) => {
       const layout = `${before.trim()}${after ? ` ${after.trim()}` : ''}`.trim()
-      const escaped = layout.replace(/'/g, "\\'")
+      const escaped = layout.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
       const extra = expr.trim()
       if (extra) {
         return `className={cn(legacyLayoutClass('${escaped}'), ${extra})}`
@@ -87,7 +87,7 @@ for (const file of files) {
   )
 
   content = content.replace(/className=\{`([^`]*\bpage-stack\b[^`]*)`\}/g, (_, cls) => {
-    const escaped = cls.trim().replace(/'/g, "\\'")
+    const escaped = cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     return `className={legacyLayoutClass('${escaped}')}`
   })
 

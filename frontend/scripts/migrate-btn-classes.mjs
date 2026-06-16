@@ -66,7 +66,7 @@ for (const file of files) {
     /className=\{`([^`$]*\bbtn[^`$]*)\$\{([^}]+)\}([^`]*)`\}/g,
     (_, btnPart, expr, tail) => {
       const btn = `${btnPart.trim()}${tail ? ` ${tail.trim()}` : ''}`.trim()
-      const escaped = btn.replace(/'/g, "\\'")
+      const escaped = btn.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
       const extra = expr.trim()
       if (extra) {
         return `className={cn(legacyButtonClass('${escaped}'), ${extra})}`
@@ -76,12 +76,12 @@ for (const file of files) {
   )
 
   content = content.replace(/className=\{`([^`]*\bbtn[^`]*)`\}/g, (_, btn) => {
-    const escaped = btn.trim().replace(/'/g, "\\'")
+    const escaped = btn.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     return `className={legacyButtonClass('${escaped}')}`
   })
 
   content = content.replace(/className="([^"]*\bbtn[^"]*)"/g, (_, cls) => {
-    const escaped = cls.trim().replace(/'/g, "\\'")
+    const escaped = cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     return `className={legacyButtonClass('${escaped}')}`
   })
 

@@ -51,7 +51,7 @@ func setSecureResponseCookie(w http.ResponseWriter, src *http.Cookie, httpOnly b
 	if sameSite == 0 {
 		sameSite = http.SameSiteLaxMode
 	}
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-httponly.cookie-missing-httponly
 		Name:       c.Name,
 		Value:      c.Value,
 		Path:       c.Path,
@@ -75,7 +75,7 @@ func writePlainHTTPDevCookie(w http.ResponseWriter, src *http.Cookie, httpOnly b
 	// Plain HTTP on local auth dev port 8889 requires Secure=false so browsers accept the cookie.
 	// codeql[go/cookie-secure-not-set]
 	// lgtm[go/cookie-secure-not-set]
-	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
+	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure, go.lang.security.audit.net.cookie-missing-httponly.cookie-missing-httponly
 		Name:       c.Name,
 		Value:      c.Value,
 		Path:       c.Path,

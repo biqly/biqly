@@ -56,7 +56,7 @@ function ensureImports(content, file) {
 }
 
 function toLegacyCall(cls) {
-  const escaped = cls.trim().replace(/'/g, "\\'")
+  const escaped = cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
   return `legacyModelingClass('${escaped}')`
 }
 

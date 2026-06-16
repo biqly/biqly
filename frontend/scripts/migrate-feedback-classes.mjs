@@ -41,7 +41,9 @@ const legacyTokens = [
   'ui-empty-state--inline',
 ]
 
-const tokenRe = new RegExp(`\\b(?:${legacyTokens.map((t) => t.replace(/-/g, '\\-')).join('|')})\\b`)
+const tokenRe = new RegExp(
+  `\\b(?:${legacyTokens.map((t) => t.replace(/\\/g, '\\\\').replace(/-/g, '\\-')).join('|')})\\b`,
+)
 
 function libImportPath(file) {
   const depth = file.split('/').length - 2
@@ -78,7 +80,7 @@ for (const file of files) {
   const orig = content
 
   for (const token of legacyTokens) {
-    const escaped = token.replace(/-/g, '\\-')
+    const escaped = token.replace(/\\/g, '\\\\').replace(/-/g, '\\-')
     content = content.replace(
       new RegExp(`className="${escaped}"`, 'g'),
       `className={legacyFeedbackClass('${token}')}`,
@@ -92,7 +94,7 @@ for (const file of files) {
   content = content.replace(
     /className="([^"]*\b(?:error|success|sql-preview|chart-container)\b[^"]*)"/g,
     (_, cls) => {
-      const escaped = cls.trim().replace(/'/g, "\\'")
+      const escaped = cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
       return `className={legacyFeedbackClass('${escaped}')}`
     },
   )
@@ -101,7 +103,7 @@ for (const file of files) {
     /className=\{`([^`$]*\b(?:error|success|sql-preview|chart-container|loading-overlay)\b[^`$]*)\$\{([^}]+)\}([^`]*)`\}/g,
     (_, before, expr, after) => {
       const layout = `${before.trim()}${after ? ` ${after.trim()}` : ''}`.trim()
-      const escaped = layout.replace(/'/g, "\\'")
+      const escaped = layout.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
       return `className={\`\${legacyFeedbackClass('${escaped}')} \${${expr}}${after ? ` ${after.trim()}` : ''}\`}`
     },
   )
@@ -109,7 +111,7 @@ for (const file of files) {
   content = content.replace(
     /className=\{`([^`]*\b(?:error|sql-preview|chart-container)\b[^`]*)`\}/g,
     (_, cls) => {
-      const escaped = cls.trim().replace(/'/g, "\\'")
+      const escaped = cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
       return `className={legacyFeedbackClass('${escaped}')}`
     },
   )

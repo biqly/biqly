@@ -73,7 +73,7 @@ function formGroupReplacement(file, cls) {
   if (modelingFiles.has(file) && cls.trim() === 'form-group') {
     return 'className={modelingFormGroupClass}'
   }
-  const escaped = cls.trim().replace(/'/g, "\\'")
+  const escaped = cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
   return `className={legacyFormClass('${escaped}')}`
 }
 
@@ -96,7 +96,7 @@ for (const file of files) {
     if (cls.trim() === 'form-group') {
       return formGroupReplacement(file, cls)
     }
-    const escaped = cls.trim().replace(/'/g, "\\'")
+    const escaped = cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     return `className={legacyFormClass('${escaped}')}`
   })
 
@@ -106,14 +106,14 @@ for (const file of files) {
     if (cls.trim() === 'form-field') {
       return `className={legacyFormClass('form-field')}`
     }
-    const escaped = cls.trim().replace(/'/g, "\\'")
+    const escaped = cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     return `className={legacyFormClass('${escaped}')}`
   })
 
   content = content.replace(/className="form-label"/g, `className={legacyFormClass('form-label')}`)
 
   content = content.replace(/className="([^"]*\bform-label\b[^"]*)"/g, (_, cls) => {
-    const escaped = cls.trim().replace(/'/g, "\\'")
+    const escaped = cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     return `className={legacyFormClass('${escaped}')}`
   })
 

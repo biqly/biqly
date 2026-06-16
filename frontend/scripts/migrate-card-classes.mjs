@@ -65,7 +65,7 @@ for (const file of files) {
   content = content.replace(
     /className=\{\['([^']*\bcard[^']*)',\s*className\]\.filter\(Boolean\)\.join\(' '\)\}/g,
     (_, cardPart) => {
-      const escaped = cardPart.trim().replace(/'/g, "\\'")
+      const escaped = cardPart.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
       return `className={cn(legacyCardClass('${escaped}'), className)}`
     },
   )
@@ -74,7 +74,7 @@ for (const file of files) {
     /className=\{`([^`$]*\bcard[^`$]*)\$\{([^}]+)\}([^`]*)`\}/g,
     (_, cardPart, expr, tail) => {
       const card = `${cardPart.trim()}${tail ? ` ${tail.trim()}` : ''}`.trim()
-      const escaped = card.replace(/'/g, "\\'")
+      const escaped = card.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
       const extra = expr.trim()
       if (extra) {
         return `className={cn(legacyCardClass('${escaped}'), ${extra})}`
@@ -84,7 +84,7 @@ for (const file of files) {
   )
 
   content = content.replace(/className=\{`([^`]*\bcard[^`]*)`\}/g, (_, card) => {
-    const escaped = card.trim().replace(/'/g, "\\'")
+    const escaped = card.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     return `className={legacyCardClass('${escaped}')}`
   })
 
@@ -95,7 +95,7 @@ for (const file of files) {
     if (cls.includes('modeling-table-card')) {
       return `className="${cls}"`
     }
-    const escaped = cls.trim().replace(/'/g, "\\'")
+    const escaped = cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     return `className={legacyCardClass('${escaped}')}`
   })
 

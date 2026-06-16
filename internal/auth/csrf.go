@@ -58,7 +58,7 @@ func setCSRFCookie(w http.ResponseWriter, r *http.Request, listenPort int) strin
 	token := base64.URLEncoding.EncodeToString(tokenBytes)
 
 	// #nosec G124 -- CSRF double-submit token must be readable by the SPA; Secure/SameSite are enforced by the cookie writer.
-	WriteReadableResponseCookie(w, r, listenPort, &http.Cookie{
+	WriteReadableResponseCookie(w, r, listenPort, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-httponly.cookie-missing-httponly
 		Name:     csrfCookieName(r, listenPort),
 		Value:    token,
 		Path:     "/",
