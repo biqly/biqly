@@ -86,7 +86,7 @@ export function ModelingToolbar({
       </div>
       <div className={modelingToolbarActionsClass}>
         <button
-          className={legacyButtonClass('btn btn-primary')}
+          className={legacyButtonClass('btn btn-primary mt-0! w-auto!')}
           type="button"
           onClick={onCreateModel}
           disabled={!datasourceId || creatingModel}

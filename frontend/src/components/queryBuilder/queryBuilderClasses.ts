@@ -1,12 +1,12 @@
 const qbStepLabelTheme: Record<string, string> = {
-  data: 'text-indigo-400',
-  join: 'text-sky-400',
-  filter: 'text-purple-400',
-  fields: 'text-pink-400',
-  summarize: 'text-emerald-400',
-  sort: 'text-rose-400',
-  limit: 'text-slate-400',
-  advanced: 'text-amber-400',
+  data: 'text-indigo-600 dark:text-indigo-400',
+  join: 'text-sky-600 dark:text-sky-400',
+  filter: 'text-purple-600 dark:text-purple-400',
+  fields: 'text-pink-600 dark:text-pink-400',
+  summarize: 'text-emerald-600 dark:text-emerald-400',
+  sort: 'text-rose-600 dark:text-rose-400',
+  limit: 'text-slate-600 dark:text-slate-400',
+  advanced: 'text-amber-600 dark:text-amber-400',
 }
 
 const qbStepCardTheme: Record<string, string> = {
@@ -66,11 +66,14 @@ export const qbStepCloseClass =
 export const qbTagBase =
   'inline-flex select-none items-center gap-[0.4rem] rounded-[0.4rem] px-[0.6rem] py-1 text-[0.78rem] font-semibold leading-snug [&_.ui-select]:min-w-[8.5rem] [&_.ui-select]:max-w-64 [&_.ui-select]:flex-[1_1_auto]'
 
-export const qbTagBlueClass = 'border border-indigo-500/22 bg-indigo-500/8 text-indigo-300'
+export const qbTagBlueClass =
+  'border border-indigo-500/22 bg-indigo-500/8 text-indigo-600 dark:text-indigo-300'
 
-export const qbTagGreenClass = 'border border-emerald-500/22 bg-emerald-500/8 text-emerald-300'
+export const qbTagGreenClass =
+  'border border-emerald-500/22 bg-emerald-500/8 text-emerald-600 dark:text-emerald-300'
 
-export const qbTagPurpleClass = 'border border-purple-500/22 bg-purple-500/8 text-purple-300'
+export const qbTagPurpleClass =
+  'border border-purple-500/22 bg-purple-500/8 text-purple-600 dark:text-purple-300'
 
 export const qbTagTableClass =
   '!rounded-[0.35rem] !border-border-strong !bg-white/[0.04] !px-2 !py-[0.2rem] !font-mono !text-[0.76rem] !text-foreground'
@@ -142,7 +145,7 @@ export const qbJoinFlowClass =
   'flex w-full flex-wrap items-center gap-3 border-b border-white/[0.03] py-[0.4rem] last:border-b-0 last:pb-0 first:pt-0'
 
 export const qbJoinTypeClass =
-  'inline-flex items-center gap-[0.3rem] rounded border border-sky-400/30 bg-sky-400/15 px-[0.45rem] py-[0.15rem] font-sans text-[0.68rem] font-bold tracking-wide text-sky-400 uppercase'
+  'inline-flex items-center gap-[0.3rem] rounded border border-sky-400/30 bg-sky-400/15 px-[0.45rem] py-[0.15rem] font-sans text-[0.68rem] font-bold tracking-wide text-sky-600 dark:text-sky-400 uppercase'
 
 export const qbJoinConnectorClass =
   'inline-flex select-none items-center gap-[0.3rem] text-foreground-faint'
@@ -158,8 +161,8 @@ export const qbJoinOnClauseClass =
 export const qbJoinOnLabelClass = 'text-[0.68rem] font-bold tracking-wide text-foreground-faint'
 
 export const qbJoinExpressionClass =
-  'rounded-[0.35rem] border border-border bg-black/25 px-2 py-[0.2rem] font-mono text-[0.74rem] text-foreground-muted'
+  'rounded-[0.35rem] border border-border bg-black/5 dark:bg-black/25 px-2 py-[0.2rem] font-mono text-[0.74rem] text-foreground-muted'
 
-export const qbJoinTablePrefixClass = 'text-indigo-300'
+export const qbJoinTablePrefixClass = 'text-indigo-600 dark:text-indigo-300'
 
 export const qbJoinTypeIconClass = 'inline-block shrink-0 align-middle'

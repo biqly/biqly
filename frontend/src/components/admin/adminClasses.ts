@@ -22,14 +22,13 @@ export const adminNavGroupClass =
 export const adminNavGroupTitleClass =
   'm-0 mb-[0.2rem] px-[0.65rem] font-[family-name:var(--font-display,"Plus_Jakarta_Sans",sans-serif)] text-[0.62rem] font-bold tracking-[0.11em] text-foreground-muted uppercase select-none'
 
-export const adminNavListClass =
-  'm-0 flex list-none flex-col gap-[0.1rem] border-l-2 border-border py-0 pl-[0.35rem]'
+export const adminNavListClass = 'm-0 flex list-none flex-col gap-[0.1rem] py-0 pl-0'
 
 export const adminNavLinkBaseClass =
-  'block w-full cursor-pointer rounded-[0.45rem] border border-transparent bg-transparent px-[0.7rem] py-[0.52rem] text-left text-[0.875rem] font-medium leading-[1.35] text-foreground-muted transition-[background,color,border-color] duration-150 hover:bg-card-raised hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+  'block w-full cursor-pointer rounded-lg border-l-2 border-transparent bg-transparent px-[0.7rem] py-[0.52rem] text-left text-[0.875rem] font-medium leading-[1.35] text-foreground-muted transition-[background,color,border-color] duration-150 hover:bg-card-raised hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
 export const adminNavLinkActiveClass =
-  'border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] font-semibold text-foreground shadow-none'
+  'border-l-accent bg-(--nav-link-active-bg) font-semibold text-foreground shadow-none'
 
 export function adminNavLinkClass(active: boolean): string {
   return active ? `${adminNavLinkBaseClass} ${adminNavLinkActiveClass}` : adminNavLinkBaseClass

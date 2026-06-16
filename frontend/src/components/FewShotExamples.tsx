@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
@@ -145,7 +145,7 @@ export default function FewShotExamples() {
     }
   }
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setFormQuestion('')
     setFormLq('')
     setFormTags('')
@@ -157,7 +157,7 @@ export default function FewShotExamples() {
     setShowForm(false)
     setActiveModelDetail(null)
     setSidebarSearch('')
-  }
+  }, [setActiveModelDetail])
 
   const openAdd = () => {
     setFormQuestion('')
