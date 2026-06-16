@@ -77,7 +77,7 @@ export const aiJobCardActionsClass = 'flex shrink-0 items-center gap-1'
 
 export const aiJobCardCancelClass = 'text-danger'
 
-export const aiJobCardCancelledClass = 'm-0 text-[0.8125rem] text-foreground-muted'
+export const aiJobCardCancelledClass = 'm-0 text-caption text-foreground-muted'
 
 export const aiJobCardHintClass = 'mt-[0.35rem] mb-0 text-[0.75rem] text-foreground-muted'
 
@@ -144,19 +144,19 @@ export const aiHistoryHeaderClass = 'flex items-center justify-between gap-4'
 export const aiHistoryHeaderTitleClass = '[&_h2]:m-0'
 
 export const aiHistoryToggleClass =
-  'flex cursor-pointer items-center gap-1.5 text-[13px] text-foreground-muted [&_input]:cursor-pointer'
+  'flex cursor-pointer items-center gap-1.5 text-caption text-foreground-muted [&_input]:cursor-pointer'
 
 export const aiHistoryErrorClass =
-  'rounded-md border border-red-500/25 bg-red-500/8 px-3.5 py-2.5 text-[13px] text-red-600'
+  'rounded-md border border-red-500/25 bg-red-500/8 px-3.5 py-2.5 text-caption text-red-600'
 
-export const aiHistoryLoadingClass = 'text-[13px] text-foreground-muted'
+export const aiHistoryLoadingClass = 'text-caption text-foreground-muted'
 
-export const aiHistoryEmptyClass = 'text-[13px] text-foreground-muted'
+export const aiHistoryEmptyClass = 'text-caption text-foreground-muted'
 
 export const aiHistoryTableWrapClass = 'max-w-full overflow-x-auto'
 
 export const aiHistoryTableClass =
-  'w-full table-fixed border-collapse text-[13px] [&_td]:border-b [&_td]:border-border [&_td]:px-2.5 [&_td]:py-2 [&_td]:text-left [&_th]:border-b [&_th]:border-border [&_th]:px-2.5 [&_th]:py-2 [&_th]:text-left [&_th]:text-[11px] [&_th]:font-semibold [&_th]:tracking-wide [&_th]:text-foreground-muted [&_th]:uppercase [&_th]:whitespace-nowrap'
+  'w-full table-fixed border-collapse text-caption [&_td]:border-b [&_td]:border-border [&_td]:px-2.5 [&_td]:py-2 [&_td]:text-left [&_th]:border-b [&_th]:border-border [&_th]:px-2.5 [&_th]:py-2 [&_th]:text-left [&_th]:text-2xs [&_th]:font-semibold [&_th]:tracking-wide [&_th]:text-foreground-muted [&_th]:uppercase [&_th]:whitespace-nowrap'
 
 export const aiHistoryQuestionClass =
   'max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap'
@@ -164,7 +164,7 @@ export const aiHistoryQuestionClass =
 export type AiHistoryStatusVariant = 'success' | 'error' | 'clarification' | 'active'
 
 export const aiHistoryStatusBaseClass =
-  'inline-block rounded-[10px] px-2 py-0.5 text-[11px] font-semibold'
+  'inline-block rounded-[10px] px-2 py-0.5 text-2xs font-semibold'
 
 export function aiHistoryStatusClass(variant: AiHistoryStatusVariant): string {
   const variantClass =
@@ -181,7 +181,7 @@ export function aiHistoryStatusClass(variant: AiHistoryStatusVariant): string {
 export const aiHistoryMonoClass = 'font-mono text-xs'
 
 export const aiHistoryDetailBtnClass =
-  'cursor-pointer rounded border border-border px-2 py-0.5 text-[11px] text-foreground-muted hover:bg-indigo-500/6'
+  'cursor-pointer rounded border border-border px-2 py-0.5 text-2xs text-foreground-muted hover:bg-indigo-500/6'
 
 export const aiHistoryActionsClass =
   'inline-flex items-center gap-1.5 [&_.share-btn]:px-2 [&_.share-btn]:py-0.5'
@@ -198,13 +198,13 @@ export const aiHistoryDetailHeaderClass =
   'sticky top-0 z-[1] -mx-4 -mt-3 mb-1 flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-2'
 
 export const aiHistoryDetailCloseBtnClass =
-  'shrink-0 cursor-pointer rounded border border-border px-2.5 py-1 text-[11px] font-medium text-foreground-muted hover:bg-indigo-500/6 hover:text-foreground'
+  'shrink-0 cursor-pointer rounded border border-border px-2.5 py-1 text-2xs font-medium text-foreground-muted hover:bg-indigo-500/6 hover:text-foreground'
 
 export const aiHistoryDetailBlockClass =
-  'min-w-0 max-w-full [&_h4]:m-0 [&_h4]:mb-1.5 [&_h4]:text-[12px] [&_h4]:font-semibold [&_h4]:tracking-wide [&_h4]:text-foreground-muted [&_h4]:uppercase [&_pre]:m-0 [&_pre]:max-h-[200px] [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:overflow-y-auto [&_pre]:rounded-md [&_pre]:bg-canvas-subtle [&_pre]:p-2.5 [&_pre]:text-[12px] [&_pre]:break-all [&_pre]:whitespace-pre-wrap [&_pre]:text-foreground [[data-theme=dark]_&_pre]:bg-white/5'
+  'min-w-0 max-w-full [&_h4]:m-0 [&_h4]:mb-1.5 [&_h4]:text-xs [&_h4]:font-semibold [&_h4]:tracking-wide [&_h4]:text-foreground-muted [&_h4]:uppercase [&_pre]:m-0 [&_pre]:max-h-[200px] [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:overflow-y-auto [&_pre]:rounded-md [&_pre]:bg-canvas-subtle [&_pre]:p-2.5 [&_pre]:text-xs [&_pre]:break-all [&_pre]:whitespace-pre-wrap [&_pre]:text-foreground [[data-theme=dark]_&_pre]:bg-white/5'
 
 export const aiHistoryLoadMoreClass =
-  'cursor-pointer self-center rounded-md border border-accent px-5 py-2 text-[13px] text-accent hover:bg-indigo-500/6'
+  'cursor-pointer self-center rounded-md border border-accent px-5 py-2 text-caption text-accent hover:bg-indigo-500/6'
 
 export const aiJobsTableRowClass =
   'cursor-pointer transition-[background-color] duration-150 hover:bg-[var(--bg-hover,rgba(255,255,255,0.04))]'
@@ -222,7 +222,7 @@ export const jobDetailLabelClass =
 
 export const jobDetailValueClass = 'break-all text-[0.875rem] text-foreground'
 
-export const jobDetailValueMonoClass = 'font-mono text-[0.8125rem]'
+export const jobDetailValueMonoClass = 'font-mono text-caption'
 
 export const jobProgressBarClass = 'mt-1 h-2 overflow-hidden rounded bg-border'
 

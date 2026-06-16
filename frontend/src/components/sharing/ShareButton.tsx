@@ -1,9 +1,9 @@
-import clsx from 'clsx'
 import { useEffect, useMemo, useState } from 'react'
 
 import { createShare, listUsers, listWorkspaces } from '../../api/admin'
 import { useT } from '../../i18n'
 import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { AuthUser, Workspace } from '../../types/auth'
 import { shareUserSelectOptions, workspaceSelectOptions } from '../admin/adminSelectOptions'
@@ -124,7 +124,7 @@ export function ShareButton({
       {showTrigger && (
         <button
           onClick={() => setOpen(true)}
-          className={`border-border text-foreground-muted hover:border-accent hover:text-accent inline-flex cursor-pointer items-center gap-1.25 rounded-md border bg-transparent px-3 py-1.25 text-[12px] transition-all duration-150`}
+          className={`border-border text-foreground-muted hover:border-accent hover:text-accent inline-flex cursor-pointer items-center gap-1.25 rounded-md border bg-transparent px-3 py-1.25 text-xs transition-all duration-150`}
         >
           <svg
             width="14"
@@ -155,10 +155,10 @@ export function ShareButton({
             onClick={(e) => e.stopPropagation()}
           >
             <div className={`border-border flex items-center justify-between border-b px-5 py-4`}>
-              <h3 className="m-0 text-[16px] font-semibold">{t('admin.sharing.share_resource')}</h3>
+              <h3 className="m-0 text-base font-semibold">{t('admin.sharing.share_resource')}</h3>
               <button
                 onClick={closeModal}
-                className="text-foreground-muted hover:text-foreground cursor-pointer border-0 bg-transparent p-1 text-[20px] leading-none"
+                className="text-foreground-muted hover:text-foreground cursor-pointer border-0 bg-transparent p-1 text-xl leading-none"
                 aria-label={t('common.close')}
               >
                 ×
@@ -174,8 +174,8 @@ export function ShareButton({
               <div className={`border-border flex gap-0 overflow-hidden rounded-md border`}>
                 <button
                   type="button"
-                  className={clsx(
-                    'flex-1 cursor-pointer border-0 bg-transparent px-4 py-2 text-[12px] transition-all duration-150',
+                  className={cn(
+                    'flex-1 cursor-pointer border-0 bg-transparent px-4 py-2 text-xs transition-all duration-150',
                     mode === 'user'
                       ? 'bg-accent text-white'
                       : 'text-foreground-muted hover:text-foreground',
@@ -189,8 +189,8 @@ export function ShareButton({
                 </button>
                 <button
                   type="button"
-                  className={clsx(
-                    'flex-1 cursor-pointer border-0 bg-transparent px-4 py-2 text-[12px] transition-all duration-150',
+                  className={cn(
+                    'flex-1 cursor-pointer border-0 bg-transparent px-4 py-2 text-xs transition-all duration-150',
                     mode === 'workspace'
                       ? 'bg-accent text-white'
                       : 'text-foreground-muted hover:text-foreground',
@@ -204,7 +204,7 @@ export function ShareButton({
                 </button>
               </div>
 
-              <div className="text-foreground-muted flex flex-col gap-1 text-[12px]">
+              <div className="text-foreground-muted flex flex-col gap-1 text-xs">
                 <span>
                   {mode === 'user' ? t('admin.sharing.user_id') : t('admin.sharing.workspace')}
                 </span>
@@ -222,7 +222,7 @@ export function ShareButton({
                 />
               </div>
 
-              <label className="text-foreground-muted flex flex-col gap-1 text-[12px]">
+              <label className="text-foreground-muted flex flex-col gap-1 text-xs">
                 <span>{t('admin.sharing.permission')}</span>
                 <Select
                   value={permission}
@@ -238,7 +238,7 @@ export function ShareButton({
               {error && (
                 <div
                   className={legacyFeedbackClass(
-                    'bg-error/10 text-error rounded-sm px-3 py-2 text-[12px]',
+                    'bg-error/10 text-error rounded-sm px-3 py-2 text-xs',
                   )}
                 >
                   {error}
@@ -249,14 +249,14 @@ export function ShareButton({
                 <button
                   type="button"
                   onClick={closeModal}
-                  className={`border-border text-foreground hover:border-accent hover:text-accent cursor-pointer rounded-md border bg-transparent px-4 py-2 text-[13px] transition-colors`}
+                  className={`border-border text-foreground hover:border-accent hover:text-accent text-caption cursor-pointer rounded-md border bg-transparent px-4 py-2 transition-colors`}
                 >
                   {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={loading || !targetID.trim()}
-                  className="bg-accent cursor-pointer rounded-md border-0 px-4 py-2 text-[13px] font-medium text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="bg-accent text-caption cursor-pointer rounded-md border-0 px-4 py-2 font-medium text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? t('common.saving') : t('admin.sharing.share')}
                 </button>

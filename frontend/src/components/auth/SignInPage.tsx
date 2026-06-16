@@ -12,7 +12,12 @@ import {
 import abiLogo from '../../assets/abi-logo.png'
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
-import { authCardClass, authPageClass } from '../../lib/authClasses'
+import {
+  authCardClass,
+  authIconBoxClass,
+  authInlineLinkClass,
+  authPageClass,
+} from '../../lib/authClasses'
 import {
   base64urlToBuffer,
   bufferToBase64url,
@@ -215,14 +220,14 @@ export default function SignInPage() {
     <div className={authPageClass}>
       <div className={authCardClass}>
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+          <div className={authIconBoxClass}>
             <img src={abiLogo} alt="" className="h-8.5 w-8.5 object-contain" />
           </div>
-          <h1 className="text-foreground mb-1 text-[24px] font-bold tracking-tight">
+          <h1 className="text-foreground mb-1 text-2xl font-bold tracking-tight">
             {t('auth.title_signin')}
           </h1>
           {firstUserSetupRequired ? (
-            <div className="border-accent/30 bg-accent/8 text-foreground-muted mt-2 rounded-lg border px-3 py-2 text-[13px]">
+            <div className="border-accent/30 bg-accent/8 text-foreground-muted text-caption mt-2 rounded-lg border px-3 py-2">
               <p className="text-foreground mb-1 font-semibold">{t('auth.first_setup_title')}</p>
               <p className="mb-2">{t('auth.first_setup_body')}</p>
               <a
@@ -237,11 +242,11 @@ export default function SignInPage() {
               </a>
             </div>
           ) : signupAllowed ? (
-            <p className="text-foreground-muted text-[14px]">
+            <p className="text-foreground-muted text-sm">
               {t('auth.no_account')}{' '}
               <a
                 href="/auth/signup"
-                className="font-medium text-[#6366f1] no-underline hover:underline"
+                className={authInlineLinkClass}
                 onClick={(e) => {
                   e.preventDefault()
                   void navigate('/auth/signup')
@@ -255,7 +260,7 @@ export default function SignInPage() {
 
         {sessionBanner && (
           <div
-            className="border-accent bg-accent/8 text-foreground-muted mb-2 rounded border-l-[3px] p-[10px_12px] text-[13px]"
+            className="border-accent bg-accent/8 text-foreground-muted text-caption mb-2 rounded border-l-[3px] p-[10px_12px]"
             role="status"
             aria-live="polite"
           >

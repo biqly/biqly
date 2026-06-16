@@ -1,5 +1,6 @@
-import clsx from 'clsx'
 import type { ReactNode } from 'react'
+
+import { cn } from '../../lib/cn'
 
 interface KPICardProps {
   label: string
@@ -11,13 +12,13 @@ interface KPICardProps {
 export function KPICard({ label, value, color = 'var(--accent)', className }: KPICardProps) {
   return (
     <div
-      className={clsx('kpi-card', className)}
+      className={cn('bg-card flex flex-col gap-1 rounded-lg border p-4', className)}
       style={{ borderColor: color }}
       role="group"
       aria-label={label}
     >
-      <div className="kpi-label">{label}</div>
-      <div className="kpi-value" style={{ color }}>
+      <div className="text-foreground-muted text-sm">{label}</div>
+      <div className="text-2xl font-semibold" style={{ color }}>
         {value}
       </div>
     </div>

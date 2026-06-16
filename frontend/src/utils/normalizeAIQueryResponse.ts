@@ -4,6 +4,14 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return v != null && typeof v === 'object' && !Array.isArray(v)
 }
 
+function toStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+  const strings = value.filter((x): x is string => typeof x === 'string')
+  return strings.length > 0 ? strings : undefined
+}
+
 function isNestedAIResult(inner: Record<string, unknown>): boolean {
   return (
     'sql' in inner ||
@@ -33,6 +41,7 @@ function pickClarification(
       : typeof raw.clarification_round === 'number'
         ? raw.clarification_round
         : undefined
+  const clarificationValue = clar.clarification ?? raw.clarification
   return {
     needs_clarification: Boolean(clar.needs_clarification ?? raw.needs_clarification),
     clarification_question:
@@ -41,11 +50,8 @@ function pickClarification(
         : typeof raw.clarification_question === 'string'
           ? raw.clarification_question
           : undefined,
-    clarification_options: Array.isArray(clar.clarification_options)
-      ? (clar.clarification_options as string[])
-      : Array.isArray(raw.clarification_options)
-        ? (raw.clarification_options as string[])
-        : undefined,
+    clarification_options:
+      toStringArray(clar.clarification_options) ?? toStringArray(raw.clarification_options),
     clarification_round: clarificationRound,
     resolved_question:
       typeof clar.resolved_question === 'string'
@@ -53,12 +59,64 @@ function pickClarification(
         : typeof raw.resolved_question === 'string'
           ? raw.resolved_question
           : undefined,
-    clarification:
-      clar.clarification != null
-        ? (clar.clarification as AIQueryResponse['clarification'])
-        : raw.clarification != null
-          ? (raw.clarification as AIQueryResponse['clarification'])
-          : undefined,
+    clarification: isRecord(clarificationValue)
+      ? (clarificationValue as AIQueryResponse['clarification'])
+      : undefined,
+  }
+}
+
+function assignQueryFields(flat: AIQueryResponse, source: Record<string, unknown>): void {
+  if (isRecord(source.logical_query)) {
+    flat.logical_query = source.logical_query as AIQueryResponse['logical_query']
+  }
+  if (typeof source.sql === 'string') {
+    flat.sql = source.sql
+  }
+  flat.warnings = toStringArray(source.warnings)
+  if (isRecord(source.result)) {
+    flat.result = source.result as AIQueryResponse['result']
+  }
+  if (typeof source.confidence === 'number') {
+    flat.confidence = source.confidence
+  }
+  if (isRecord(source.visualization_hint)) {
+    flat.visualization_hint = source.visualization_hint as AIQueryResponse['visualization_hint']
+  }
+}
+
+function assignMetadataFields(flat: AIQueryResponse, metadata: Record<string, unknown>): void {
+  if (typeof metadata.model_used === 'string') {
+    flat.model_used = metadata.model_used
+  }
+  if (isRecord(metadata.prompt_stats)) {
+    flat.prompt_stats = metadata.prompt_stats
+  }
+  if (isRecord(metadata.token_usage)) {
+    flat.token_usage = metadata.token_usage as AIQueryResponse['token_usage']
+  }
+  if (typeof metadata.cost_usd === 'number') {
+    flat.cost_usd = metadata.cost_usd
+  }
+  if (typeof metadata.latency_ms === 'number') {
+    flat.latency_ms = metadata.latency_ms
+  }
+  if (typeof metadata.retry_count === 'number') {
+    flat.retry_count = metadata.retry_count
+  }
+  if (isRecord(metadata.table_routing)) {
+    flat.table_routing = metadata.table_routing as AIQueryResponse['table_routing']
+  }
+  if (isRecord(metadata.validation_result)) {
+    flat.validation_result = metadata.validation_result as AIQueryResponse['validation_result']
+  }
+  if (Array.isArray(metadata.candidates)) {
+    flat.candidates = metadata.candidates as AIQueryResponse['candidates']
+  }
+  if (typeof metadata.candidates_count === 'number') {
+    flat.candidates_count = metadata.candidates_count
+  }
+  if (isRecord(metadata.generation_trace)) {
+    flat.generation_trace = metadata.generation_trace
   }
 }
 
@@ -75,32 +133,15 @@ export function normalizeAIQueryResponse(raw: unknown): AIQueryResponse | null {
   const shouldUnwrap =
     isRecord(inner) && isNestedAIResult(inner) && !('sql' in raw) && !('logical_query' in raw)
   if (!shouldUnwrap) {
-    return { ...(raw as AIQueryResponse), ...pickClarification(raw, nestedClar) }
+    const flat: AIQueryResponse = { ...pickClarification(raw, nestedClar) }
+    assignQueryFields(flat, raw)
+    return flat
   }
 
-  const flat: AIQueryResponse = {
-    logical_query: inner.logical_query as AIQueryResponse['logical_query'],
-    sql: typeof inner.sql === 'string' ? inner.sql : undefined,
-    warnings: Array.isArray(inner.warnings) ? (inner.warnings as string[]) : undefined,
-    result: inner.result as AIQueryResponse['result'],
-    confidence: typeof inner.confidence === 'number' ? inner.confidence : undefined,
-    visualization_hint: inner.visualization_hint as AIQueryResponse['visualization_hint'],
-    ...pickClarification(raw, nestedClar),
-  }
-
+  const flat: AIQueryResponse = { ...pickClarification(raw, nestedClar) }
+  assignQueryFields(flat, inner)
   if (metadata) {
-    flat.model_used = typeof metadata.model_used === 'string' ? metadata.model_used : undefined
-    flat.prompt_stats = metadata.prompt_stats as AIQueryResponse['prompt_stats']
-    flat.token_usage = metadata.token_usage as AIQueryResponse['token_usage']
-    flat.cost_usd = typeof metadata.cost_usd === 'number' ? metadata.cost_usd : undefined
-    flat.latency_ms = typeof metadata.latency_ms === 'number' ? metadata.latency_ms : undefined
-    flat.retry_count = typeof metadata.retry_count === 'number' ? metadata.retry_count : undefined
-    flat.table_routing = metadata.table_routing as AIQueryResponse['table_routing']
-    flat.validation_result = metadata.validation_result as AIQueryResponse['validation_result']
-    flat.candidates = metadata.candidates as AIQueryResponse['candidates']
-    flat.candidates_count =
-      typeof metadata.candidates_count === 'number' ? metadata.candidates_count : undefined
-    flat.generation_trace = metadata.generation_trace as AIQueryResponse['generation_trace']
+    assignMetadataFields(flat, metadata)
   }
 
   return flat

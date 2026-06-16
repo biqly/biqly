@@ -8,9 +8,10 @@ import {
   authInlineLinkClass,
   authInputClass,
   authLabelClass,
+  authOAuthBtnClass,
   authSubmitBtnClass,
 } from '../../lib/authClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 export function SignInCredentialsForm({
   t,
@@ -55,7 +56,7 @@ export function SignInCredentialsForm({
       >
         {ldapEnabled && (
           <div
-            className="border-accent bg-accent/8 text-foreground-muted mb-2 rounded border-l-[3px] p-[10px_12px] text-[13px]"
+            className="border-accent bg-accent/8 text-foreground-muted text-caption mb-2 rounded border-l-[3px] p-[10px_12px]"
             role="status"
             aria-live="polite"
           >
@@ -65,7 +66,7 @@ export function SignInCredentialsForm({
         {error && (
           <div
             className={legacyFeedbackClass(
-              'bg-error/8 border-error text-error mb-2 rounded border-l-[3px] p-[10px_12px] text-[13px]',
+              'bg-error/8 border-error text-error text-caption mb-2 rounded border-l-[3px] p-[10px_12px]',
             )}
             role="alert"
             aria-live="assertive"
@@ -76,7 +77,7 @@ export function SignInCredentialsForm({
         {throttleMs > 0 && (
           <div
             className={legacyFeedbackClass(
-              'bg-error/8 border-error text-error mb-2 rounded border-l-[3px] p-[10px_12px] text-[13px]',
+              'bg-error/8 border-error text-error text-caption mb-2 rounded border-l-[3px] p-[10px_12px]',
             )}
             role="status"
             aria-live="polite"
@@ -119,7 +120,7 @@ export function SignInCredentialsForm({
           />
         </div>
 
-        <div className="flex items-center justify-between text-[13px]">
+        <div className="text-caption flex items-center justify-between">
           <label className="text-foreground-muted flex cursor-pointer items-center gap-1.5">
             <input
               type="checkbox"
@@ -152,16 +153,14 @@ export function SignInCredentialsForm({
         </button>
       </form>
 
-      <div className="text-foreground-muted before:border-border after:border-border my-4 flex items-center text-center text-[12px] before:mr-[0.5em] before:flex-1 before:border-b before:content-[''] after:ml-[0.5em] after:flex-1 after:border-b after:content-['']">
+      <div className="text-foreground-muted before:border-border after:border-border my-4 flex items-center text-center text-xs before:mr-[0.5em] before:flex-1 before:border-b before:content-[''] after:ml-[0.5em] after:flex-1 after:border-b after:content-['']">
         {t('auth.or')}
       </div>
 
       <div className="flex flex-col gap-2.5">
         <button
           type="button"
-          className={legacyCardClass(
-            'border-border bg-card text-foreground-muted hover:bg-(--bg-hover,#f9fafb)] hover:border-foreground-muted flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-lg border px-4 py-2.5 text-[14px] font-medium transition-colors duration-200 dark:border-white/8 dark:bg-white/3 dark:text-[#e2e8f0] dark:hover:border-white/20 dark:hover:bg-white/8',
-          )}
+          className={authOAuthBtnClass}
           onClick={() => onOAuth('github')}
           disabled={loading || passkeyLoading}
         >
@@ -173,9 +172,7 @@ export function SignInCredentialsForm({
 
         <button
           type="button"
-          className={legacyCardClass(
-            'border-border bg-card text-foreground-muted hover:border-foreground-muted flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-lg border px-4 py-2.5 text-[14px] font-medium transition-colors duration-200 hover:bg-(--bg-hover,#f9fafb) dark:border-white/8 dark:bg-white/3 dark:text-[#e2e8f0] dark:hover:border-white/20 dark:hover:bg-white/8',
-          )}
+          className={authOAuthBtnClass}
           onClick={() => onOAuth('google')}
           disabled={loading || passkeyLoading}
         >
@@ -202,13 +199,30 @@ export function SignInCredentialsForm({
 
         <button
           type="button"
-          className={`border-accent/30 bg-accent/3 text-foreground-muted hover:bg-accent/8 hover:border-accent/50 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-lg border px-4 py-2.5 text-[14px] font-medium transition-colors duration-200 dark:text-[#e2e8f0] ${passkeyLoading ? 'animate-pulse' : ''}`}
+          className={cn(
+            authOAuthBtnClass,
+            'border-accent/30 bg-accent/3 hover:bg-accent/8 hover:border-accent/50',
+            passkeyLoading && 'animate-pulse',
+          )}
           onClick={() => {
             void onPasskeyLogin()
           }}
           disabled={loading || passkeyLoading}
         >
-          🔑 {t('auth.passkey_continue')}
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"
+            className="shrink-0"
+          >
+            <path
+              fill="currentColor"
+              d="M14 2a6 6 0 0 0-5.83 7.42L2 15.59V20a2 2 0 0 0 2 2h3v-2h2v-2h2l1.58-1.58A6 6 0 1 0 14 2Zm2.5 5.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"
+            />
+          </svg>
+          {t('auth.passkey_continue')}
         </button>
       </div>
     </>

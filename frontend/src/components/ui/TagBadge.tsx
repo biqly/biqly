@@ -1,5 +1,6 @@
-import clsx from 'clsx'
 import type { ReactNode } from 'react'
+
+import { cn } from '../../lib/cn'
 
 interface TagBadgeProps {
   children: ReactNode
@@ -11,7 +12,7 @@ interface TagBadgeProps {
 export function TagBadge({ children, tone = 'default', className, ariaLabel }: TagBadgeProps) {
   return (
     <span
-      className={clsx('status-badge', tone !== 'default' && tone, className)}
+      className={cn('status-badge', tone !== 'default' && tone, className)}
       aria-label={ariaLabel}
     >
       {children}

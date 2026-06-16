@@ -1,8 +1,8 @@
-import clsx from 'clsx'
 import type { DragEvent } from 'react'
 
 import type { useT } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { legacyTableClass } from '../../lib/tableClasses'
 import { formatResultCell } from '../../utils/resultCellFormat'
@@ -295,7 +295,7 @@ export function TableBrowserModelContent({
             className={tableBrowserTableOverlayClass}
           >
             <div
-              className={clsx(
+              className={cn(
                 tableBrowserTableWrapClass,
                 fetching && !showInitialPlaceholder && 'pointer-events-none opacity-55 blur-[2px]',
               )}
@@ -318,7 +318,7 @@ export function TableBrowserModelContent({
                           aria-sort={
                             sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : undefined
                           }
-                          className={clsx(
+                          className={cn(
                             tableBrowserThClass,
                             dragColumn === colName && 'opacity-45',
                             dropTargetColumn === colName && 'shadow-[inset_0_-2px_0_var(--accent)]',
@@ -384,7 +384,7 @@ export function TableBrowserModelContent({
                   {(result?.rows ?? []).map((row, i) => (
                     <tr
                       key={i}
-                      className={clsx(tableBrowserDataRowClass, fetching && 'pointer-events-none')}
+                      className={cn(tableBrowserDataRowClass, fetching && 'pointer-events-none')}
                       onClick={() => {
                         if (!fetching) {
                           onRowClick(i, row)
@@ -412,7 +412,7 @@ export function TableBrowserModelContent({
           </LoadingOverlay>
 
           <div
-            className={clsx(
+            className={cn(
               tableBrowserPaginationClass,
               (fetching || showInitialPlaceholder) && 'opacity-72',
             )}

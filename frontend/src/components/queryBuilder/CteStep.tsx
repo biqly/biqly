@@ -33,14 +33,14 @@ export function CteStep({ ctes, updateCTE, removeCTE, addCTE, onClear }: CteStep
             <input
               value={c.name}
               onChange={(e) => updateCTE(i, 'name', e.target.value)}
-              placeholder="CTE Name"
+              placeholder={t('query_builder.cte_name_placeholder')}
               style={{ width: '8rem' }}
             />
             <button
               type="button"
               className={qbTagCloseClass}
               onClick={() => removeCTE(i)}
-              aria-label="Remove CTE"
+              aria-label={t('query_builder.remove_cte_aria', { n: i + 1 })}
             >
               ×
             </button>
@@ -48,7 +48,7 @@ export function CteStep({ ctes, updateCTE, removeCTE, addCTE, onClear }: CteStep
           <textarea
             value={c.query}
             onChange={(e) => updateCTE(i, 'query', e.target.value)}
-            placeholder="CTE query JSON"
+            placeholder={t('query_builder.cte_json_placeholder')}
             rows={2}
             className="border-border-strong bg-canvas text-foreground w-48 rounded border p-1 text-[0.74rem]"
           />

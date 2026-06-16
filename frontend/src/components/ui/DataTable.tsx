@@ -104,10 +104,7 @@ export function DataTable<T>({
         <tbody>
           {rows.length === 0 ? (
             <tr className={rowClassName}>
-              <td
-                colSpan={columns.length}
-                style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}
-              >
+              <td colSpan={columns.length} className="text-foreground-muted p-6 text-center">
                 {loading ? '' : emptyCell}
               </td>
             </tr>

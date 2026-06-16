@@ -181,7 +181,18 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
                       title={t('customDashboards.delete_tooltip')}
                       aria-label={t('customDashboards.delete_tooltip')}
                     >
-                      🗑️
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <path
+                          fill="currentColor"
+                          d="M9 3a1 1 0 0 0-1 1v1H5.5a1 1 0 0 0 0 2H6v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7h.5a1 1 0 1 0 0-2H16V4a1 1 0 0 0-1-1H9Zm2 4a1 1 0 0 0-1 1v9a1 1 0 1 0 2 0V8a1 1 0 0 0-1-1Zm4 0a1 1 0 0 0-1 1v9a1 1 0 1 0 2 0V8a1 1 0 0 0-1-1ZM10 5h4V4h-4v1Z"
+                        />
+                      </svg>
                     </button>
                   </div>
                   {d.description && (

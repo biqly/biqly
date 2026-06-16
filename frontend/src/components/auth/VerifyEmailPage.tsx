@@ -4,7 +4,12 @@ import { useNavigate } from 'react-router-dom'
 import { apiVerifyEmail } from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
 import { useT } from '../../i18n'
-import { authCardClass, authPageClass } from '../../lib/authClasses'
+import {
+  authCardClass,
+  authIconBoxClass,
+  authPageClass,
+  authSubmitBtnClass,
+} from '../../lib/authClasses'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 export default function VerifyEmailPage() {
   const navigate = useNavigate()
@@ -42,10 +47,10 @@ export default function VerifyEmailPage() {
     <div className={authPageClass}>
       <div className={authCardClass}>
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+          <div className={authIconBoxClass}>
             <img src={abiLogo} alt="" className="h-8.5 w-8.5 object-contain" />
           </div>
-          <h1 className="text-foreground mb-1 text-[24px] font-bold tracking-tight">
+          <h1 className="text-foreground mb-1 text-2xl font-bold tracking-tight">
             {t('auth.title_verify')}
           </h1>
         </div>
@@ -53,14 +58,14 @@ export default function VerifyEmailPage() {
         {status === 'verifying' && (
           <div className="flex flex-col items-center gap-4 p-4">
             <div className="border-t-accent h-8 w-8 animate-spin rounded-full border-2 border-white/30"></div>
-            <span className="text-foreground-muted text-[14px]">Verifying your email address…</span>
+            <span className="text-foreground-muted text-sm">Verifying your email address…</span>
           </div>
         )}
 
         {status === 'success' && (
           <div
             className={legacyFeedbackClass(
-              'border-success text-success mb-4 rounded border-l-[3px] bg-emerald-500/8 p-[10px_12px] text-center text-[13px]',
+              'border-success text-success text-caption mb-4 rounded border-l-[3px] bg-emerald-500/8 p-[10px_12px] text-center',
             )}
           >
             {t('auth.verify_success')}
@@ -71,14 +76,14 @@ export default function VerifyEmailPage() {
           <div className="flex flex-col gap-4">
             <div
               className={legacyFeedbackClass(
-                'bg-error/8 border-error text-error mb-2 rounded border-l-[3px] p-[10px_12px] text-[13px]',
+                'bg-error/8 border-error text-error text-caption mb-2 rounded border-l-[3px] p-[10px_12px]',
               )}
             >
               {error}
             </div>
             <button
               type="button"
-              className="from-accent to-accent-strong flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-none bg-linear-to-br px-4 py-2.75 text-[14px] font-semibold text-white shadow-[0_4px_10px_rgba(99,102,241,0.2)] transition-all duration-150 hover:-translate-y-px hover:opacity-95 active:translate-y-0 disabled:transform-none disabled:cursor-not-allowed disabled:opacity-60"
+              className={authSubmitBtnClass}
               onClick={() => {
                 void navigate('/auth/signin')
               }}

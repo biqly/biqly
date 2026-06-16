@@ -26,7 +26,7 @@ const adminAiCardClass = 'border border-border rounded-[10px] bg-card overflow-h
 const adminAiCardHeaderClass = 'py-3.5 px-[18px] border-b border-border'
 const adminAiCardTitleClass = 'block m-0 text-[0.95rem] font-semibold text-foreground'
 const adminAiCardDescClass =
-  'mt-1.5 mb-0 text-[0.8125rem] leading-[1.45] text-foreground-muted max-w-[52rem]'
+  'mt-1.5 mb-0 text-caption leading-[1.45] text-foreground-muted max-w-[52rem]'
 const adminAiCardBodyClass = 'py-4 px-[18px] pb-[18px]'
 const adminAiPurposeGridClass = 'grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3'
 const adminAiPurposeCardClass =
@@ -203,7 +203,7 @@ export function AIProvidersPanel() {
         </div>
         <div className={adminAiCardBodyClass}>
           {activeModels.length === 0 ? (
-            <p className="text-foreground-muted m-0 text-[0.8125rem]">
+            <p className="text-foreground-muted text-caption m-0">
               {t('admin.ai_providers.active_models_empty')}
             </p>
           ) : (
@@ -472,7 +472,7 @@ function ProviderCard({
     <div
       style={{
         ...providerCardStyle,
-        borderColor: selected ? 'var(--accent, #6366f1)' : 'var(--border, rgba(255,255,255,0.06))',
+        borderColor: selected ? 'var(--accent)' : 'var(--border, rgba(255,255,255,0.06))',
       }}
       onClick={onSelect}
     >
@@ -559,7 +559,7 @@ const trRow: React.CSSProperties = {
 const tdStyle: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-primary, #f4f4f5)' }
 const primaryBtn: React.CSSProperties = {
   padding: '8px 14px',
-  background: 'var(--accent, #6366f1)',
+  background: 'var(--accent)',
   color: '#fff',
   border: 'none',
   borderRadius: 6,
@@ -580,7 +580,7 @@ const linkBtn: React.CSSProperties = {
   padding: '4px 8px',
   background: 'transparent',
   border: 'none',
-  color: 'var(--accent, #6366f1)',
+  color: 'var(--accent)',
   fontSize: 12,
   cursor: 'pointer',
 }

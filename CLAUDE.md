@@ -183,8 +183,9 @@ reinvent them. full guide: `docs/agents/local-dev.md`.
   user `bi_user`, `localhost:5432`, like k8s) + redis + nats in docker. no app builds.
 - `make watch` — runs ALL app services with live-reload in ONE command: api (`:8888`),
   auth (`:8889`), mail (`:8890`); each rebuilds on `.go` save, Ctrl-C stops all. the
-  frontend proxies `/api` → `:8888` and `/auth` → `:8889`, so both must run (missing
-  auth = vite `ECONNREFUSED /auth/...`).
+  frontend proxies `/api/auth/*` → `:8889` (auth) and all other `/api/*` → `:8888`
+  (api); `/auth/*` is a client-side SPA route (not proxied). Both services must run
+  (missing auth = vite `ECONNREFUSED /api/auth/...`).
 - `make watch SVC="api auth"` — run only the listed services (space- or comma-separated).
 - `make debug-watch [SVC=auth]` — single service under Delve on `:2345` (default api);
   run the rest via plain `watch`. IDE reconnects after each rebuild. attach to `localhost:2345`.

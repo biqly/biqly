@@ -42,7 +42,7 @@ export function EmptyState({ title, description, icon, action, children, classNa
   )
 
   return (
-    <div className={rootCls} role="status">
+    <div className={rootCls}>
       {icon ? (
         <div className={uiEmptyStateIconClass} aria-hidden="true">
           {icon}

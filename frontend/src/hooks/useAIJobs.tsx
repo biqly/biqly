@@ -23,6 +23,8 @@ import type {
 } from '../types/ai'
 import type { DescribeBatchResult } from '../types/metadata'
 import { getAIClientSessionId } from '../utils/aiSession'
+import { normalizeAIQueryResponse } from '../utils/normalizeAIQueryResponse'
+import { parseDescribeBatchResult } from '../utils/parseJobResults'
 import {
   applyBatchResultToQueue,
   buildInitialBulkQueue,
@@ -183,14 +185,21 @@ export function trackedJobFromAIJob(job: AIJob): TrackedAIJob {
   return { ...job, questionPreview }
 }
 
-function parseResult<TResult>(job: AIJob): TResult | null {
-  if (!job.result_json) {
-    return null
+function defaultParseJobResult<TResult>(kind: AIJobKind, u: unknown): TResult {
+  if (kind === 'run' || kind === 'preview' || kind === 'query') {
+    const flat = normalizeAIQueryResponse(u)
+    if (!flat) {
+      throw new Error('Invalid query result')
+    }
+    return flat as TResult
   }
-  if (typeof job.result_json === 'object') {
-    return job.result_json as TResult
+  if (kind === 'describe_batch') {
+    return parseDescribeBatchResult(u) as TResult
   }
-  return null
+  if (u == null || typeof u !== 'object' || Array.isArray(u)) {
+    throw new Error('Invalid job result')
+  }
+  return u as TResult
 }
 
 export function AIJobsProvider({ children }: { children: ReactNode }) {
@@ -307,11 +316,10 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       }
       callbacksRef.current.delete(job.id)
       if (job.status === 'succeeded') {
-        const result = parseResult<unknown>(job)
-        if (result != null) {
-          waiter.settleComplete(result)
-        } else {
+        if (job.result_json == null) {
           waiter.settleError('Job succeeded without result')
+        } else {
+          waiter.settleComplete(job.result_json)
         }
       } else if (job.status === 'failed') {
         waiter.settleError(job.error_message ?? 'Job failed')
@@ -440,22 +448,25 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       setBulkEntries(entries)
       setBulkSummary(null)
       setBulkRunning(true)
-      const waiter = createJobWaiter<DescribeBatchResult>((batch) => {
-        bulkBatchJobIdRef.current = null
-        if (batch) {
-          const translate = tRef.current
-          const queueCopy = [...bulkEntriesRef.current]
-          const summary = applyBatchResultToQueue(queueCopy, batch, {
-            skipExistingMessage: translate('metadata.bulk_skip_has_desc'),
-            networkErrorMessage: translate('metadata.bulk_network_error'),
-            okColumnsMessage: (cols) => translate('metadata.bulk_ok_columns', { cols }),
-          })
-          bulkEntriesRef.current = queueCopy
-          setBulkEntries(queueCopy)
-          setBulkSummary(summary)
-        }
-        setBulkRunning(false)
-      })
+      const waiter = createJobWaiter<DescribeBatchResult>(
+        (batch) => {
+          bulkBatchJobIdRef.current = null
+          if (batch) {
+            const translate = tRef.current
+            const queueCopy = [...bulkEntriesRef.current]
+            const summary = applyBatchResultToQueue(queueCopy, batch, {
+              skipExistingMessage: translate('metadata.bulk_skip_has_desc'),
+              networkErrorMessage: translate('metadata.bulk_network_error'),
+              okColumnsMessage: (cols) => translate('metadata.bulk_ok_columns', { cols }),
+            })
+            bulkEntriesRef.current = queueCopy
+            setBulkEntries(queueCopy)
+            setBulkSummary(summary)
+          }
+          setBulkRunning(false)
+        },
+        { parseResult: parseDescribeBatchResult },
+      )
       callbacksRef.current.set(job.id, waiter)
     },
     [applyBulkProgressFromJob],
@@ -518,10 +529,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     })
   }, [accessToken, resumeActiveJobs])
 
-  const hasQueuedJob = useMemo(
-    () => jobs.some((job) => jobIsActive(job) && job.phase === 'queued'),
-    [jobs],
-  )
+  const hasQueuedJob = jobs.some((job) => jobIsActive(job) && job.phase === 'queued')
 
   useEffect(() => {
     if (!hasQueuedJob) {
@@ -584,7 +592,10 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       callbacks?.onEnqueued?.(data)
       startPolling(data.id)
       return new Promise<TResult | null>((resolve) => {
-        const waiter = createJobWaiter<TResult>(resolve, callbacks)
+        const waiter = createJobWaiter<TResult>(resolve, {
+          ...callbacks,
+          parseResult: callbacks?.parseResult ?? ((u) => defaultParseJobResult(kind, u)),
+        })
         callbacksRef.current.set(data.id, waiter)
       })
     },

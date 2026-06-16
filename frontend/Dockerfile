@@ -20,4 +20,5 @@ FROM ghcr.io/nginx/nginx-unprivileged:1.31.1-alpine
 COPY --from=builder /src/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 3333
+# nginx-unprivileged listens on 8080 (see nginx.conf); the old 3333 was the Vite dev port.
+EXPOSE 8080

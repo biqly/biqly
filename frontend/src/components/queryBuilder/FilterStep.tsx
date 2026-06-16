@@ -88,7 +88,7 @@ export function FilterStep({
               type="button"
               className={qbTagCloseClass}
               onClick={() => removeFilter(i)}
-              aria-label="Remove Filter"
+              aria-label={t('query_builder.remove_filter_aria', { n: i + 1 })}
             >
               ×
             </button>

@@ -6,6 +6,21 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
   timeout?: number
   token?: string
   useAdminKey?: boolean
+  validate?: (data: unknown) => unknown
+}
+
+function stripRequestOptions(init?: RequestInit & RequestOptions): RequestInit {
+  if (!init) {
+    return {}
+  }
+  const {
+    timeout: _timeout,
+    token: _token,
+    useAdminKey: _useAdminKey,
+    validate: _validate,
+    ...rest
+  } = init
+  return rest
 }
 
 // Module-level access token kept in sync by AuthProvider. With JWT enforcement
@@ -125,7 +140,7 @@ export async function fetchJSON<T>(
     const headers = buildFetchHeaders(init, body)
 
     const res = await csrfFetch(url, {
-      ...init,
+      ...stripRequestOptions(init),
       method,
       headers,
       body,
@@ -143,7 +158,8 @@ export async function fetchJSON<T>(
       return { data: null, status: res.status, error: `Expected JSON response from ${url}` }
     }
 
-    return { data: data as T, status: res.status, error: null }
+    const parsed = init?.validate ? (init.validate(data) as T) : (data as T)
+    return { data: parsed, status: res.status, error: null }
   } catch (err) {
     return {
       data: null,

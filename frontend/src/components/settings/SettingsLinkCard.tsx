@@ -28,9 +28,7 @@ export function SettingsLinkCard({ title, description, action, icon }: SettingsL
         )}
         <h2 className="m-0 text-[1rem] font-semibold">{title}</h2>
       </div>
-      <p className="text-foreground-muted m-0 flex-1 text-[0.8125rem] leading-[1.45]">
-        {description}
-      </p>
+      <p className="text-foreground-muted text-caption m-0 flex-1 leading-[1.45]">{description}</p>
       {action}
     </article>
   )

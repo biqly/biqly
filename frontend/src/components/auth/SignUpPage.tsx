@@ -15,6 +15,7 @@ import {
   authFieldHintErrorClass,
   authFieldHintSuccessClass,
   authFormClass,
+  authIconBoxClass,
   authInlineLinkClass,
   authInputClass,
   authInputErrorClass,
@@ -155,16 +156,16 @@ function SignUpHeader({ firstUserSetupRequired, onSignInClick }: SignUpHeaderPro
 
   return (
     <div className="mb-6 flex flex-col items-center text-center">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+      <div className={authIconBoxClass}>
         <img src={abiLogo} alt="" className="h-8.5 w-8.5 object-contain" />
       </div>
-      <h1 className="text-foreground mb-1 text-[24px] font-bold tracking-tight">
+      <h1 className="text-foreground mb-1 text-2xl font-bold tracking-tight">
         {firstUserSetupRequired ? t('auth.first_setup_title') : t('auth.title_signup')}
       </h1>
       {firstUserSetupRequired ? (
-        <p className="text-foreground-muted text-[14px]">{t('auth.first_setup_signup_body')}</p>
+        <p className="text-foreground-muted text-sm">{t('auth.first_setup_signup_body')}</p>
       ) : (
-        <p className="text-foreground-muted text-[14px]">
+        <p className="text-foreground-muted text-sm">
           {t('auth.already_account')}{' '}
           <a href="/auth/signin" className={authInlineLinkClass} onClick={onSignInClick}>
             {t('auth.btn_signin')}
@@ -290,10 +291,7 @@ export default function SignUpPage() {
     return (
       <div className={authPageClass}>
         <div className={authCardClass}>
-          <p
-            className="text-foreground-muted text-[14px]"
-            style={{ textAlign: 'center', margin: 0 }}
-          >
+          <p className="text-foreground-muted text-sm" style={{ textAlign: 'center', margin: 0 }}>
             {t('common.loading')}
           </p>
         </div>
@@ -306,16 +304,16 @@ export default function SignUpPage() {
       <div className={authPageClass}>
         <div className={authCardClass}>
           <div className="mb-6 flex flex-col items-center text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+            <div className={authIconBoxClass}>
               <img src={abiLogo} alt="" className="h-8.5 w-8.5 object-contain" />
             </div>
-            <h1 className="text-foreground mb-1 text-[24px] font-bold tracking-tight">
+            <h1 className="text-foreground mb-1 text-2xl font-bold tracking-tight">
               {t('auth.signup_closed_title')}
             </h1>
-            <p className="text-foreground-muted text-[14px]">{t('auth.signup_closed_body')}</p>
-            <p className="text-foreground-muted text-[14px]">{t('auth.signup_closed_contact')}</p>
+            <p className="text-foreground-muted text-sm">{t('auth.signup_closed_body')}</p>
+            <p className="text-foreground-muted text-sm">{t('auth.signup_closed_contact')}</p>
           </div>
-          <p className="text-foreground-muted text-[14px]" style={{ textAlign: 'center' }}>
+          <p className="text-foreground-muted text-sm" style={{ textAlign: 'center' }}>
             <a
               href="/auth/signin"
               className={authInlineLinkClass}
@@ -349,7 +347,7 @@ export default function SignUpPage() {
           {error && (
             <div
               className={legacyFeedbackClass(
-                'border-error bg-error/8 text-error rounded border-l-[3px] p-[10px_12px] text-[13px]',
+                'border-error bg-error/8 text-error text-caption rounded border-l-[3px] p-[10px_12px]',
               )}
               role="alert"
               aria-live="assertive"
@@ -360,7 +358,7 @@ export default function SignUpPage() {
           {success && (
             <div
               className={legacyFeedbackClass(
-                'border-success bg-success/8 text-success rounded border-l-[3px] p-[10px_12px] text-[13px]',
+                'border-success bg-success/8 text-success text-caption rounded border-l-[3px] p-[10px_12px]',
               )}
               role="status"
               aria-live="polite"

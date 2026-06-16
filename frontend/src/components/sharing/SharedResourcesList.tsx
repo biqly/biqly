@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { useCallback } from 'react'
 
 import { deleteShare, listShares } from '../../api/admin'
@@ -7,6 +6,7 @@ import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { errorMessage } from '../../hooks/usePaginatedListLogic'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { ResourceShare } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
@@ -98,8 +98,8 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     }
     return (
       <span
-        className={clsx(
-          'inline-block rounded-[10px] px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap',
+        className={cn(
+          'text-2xs inline-block rounded-[10px] px-2 py-0.5 font-semibold whitespace-nowrap',
           styleClass,
         )}
       >
@@ -113,7 +113,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
       key: 'type',
       header: t('admin.sharing.resource_type'),
       cell: (share) => (
-        <span className="text-accent inline-block rounded-[10px] bg-(--accent-glow) px-2 py-0.5 text-[11px] font-medium">
+        <span className="text-accent text-2xs inline-block rounded-[10px] bg-(--accent-glow) px-2 py-0.5 font-medium">
           {share.resource_type}
         </span>
       ),
@@ -121,7 +121,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     {
       key: 'resource_id',
       header: t('admin.sharing.resource_id'),
-      className: 'font-mono text-[12px]',
+      className: 'font-mono text-xs',
       cell: (share) => `${share.resource_id.slice(0, 8)}…`,
     },
     {
@@ -129,9 +129,9 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
       header: t('admin.sharing.shared_with'),
       cell: (share) =>
         share.shared_with ? (
-          <span className="font-mono text-[12px]">{share.shared_with.slice(0, 8)}…</span>
+          <span className="font-mono text-xs">{share.shared_with.slice(0, 8)}…</span>
         ) : share.workspace_id ? (
-          <span className="text-accent text-[12px]">WS: {share.workspace_id.slice(0, 8)}…</span>
+          <span className="text-accent text-xs">WS: {share.workspace_id.slice(0, 8)}…</span>
         ) : (
           '—'
         ),
@@ -155,7 +155,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
             void onRevoke(share.id)
           }}
           className={legacyFeedbackClass(
-            'text-error hover:bg-error/6 cursor-pointer rounded-sm border border-[rgba(239,68,68,0.3)] bg-transparent px-2.5 py-0.75 text-[12px] transition-colors',
+            'text-error hover:bg-error/6 cursor-pointer rounded-sm border border-[rgba(239,68,68,0.3)] bg-transparent px-2.5 py-0.75 text-xs transition-colors',
           )}
         >
           {t('common.delete')}
@@ -181,9 +181,9 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
             columns={shareColumns}
             rows={displayedItems}
             rowKey={(share) => share.id}
-            tableClassName="w-full border-collapse text-[13px]"
+            tableClassName="w-full border-collapse text-caption"
             headRowClassName=""
-            headerCellClassName="py-2 px-2.5 text-left border-b border-border font-semibold text-[11px] uppercase tracking-[0.4px] text-foreground-muted"
+            headerCellClassName="py-2 px-2.5 text-left border-b border-border font-semibold text-2xs uppercase tracking-[0.4px] text-foreground-muted"
             rowClassName=""
             cellClassName="py-2 px-2.5 text-left border-b border-border"
           />

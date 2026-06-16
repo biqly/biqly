@@ -241,7 +241,7 @@ function ValidationPlanSection({ result, t }: { result: AIQueryResponse; t: Assi
           {result.validation_result.explain_output}
         </pre>
       )}
-      <p className={`plan-status ${planOk ? 'plan-ok' : 'plan-warn'}`}>
+      <p className={cn('plan-status', planOk ? 'plan-ok' : 'plan-warn')}>
         {planOk ? t('ai_query.plan_ok_body') : t('ai_query.plan_warn_body')}
       </p>
     </Collapsible>

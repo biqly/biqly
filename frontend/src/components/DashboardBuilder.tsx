@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
+import { useT } from '../i18n'
 import { legacyButtonClass } from '../lib/buttonClasses'
 import { legacyCardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
@@ -57,6 +58,7 @@ interface SavedQuestion {
 }
 
 export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuilderProps) {
+  const t = useT()
   const { get, putData, loading, error } = useApi()
   const [dashboard, setDashboard] = useState<Dashboard | null>(null)
   const [widgets, setWidgets] = useState<Widget[]>([])
@@ -364,7 +366,6 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
             <div
               style={{
                 display: 'flex',
-                flexWrap: 'wrap',
                 gap: '0.75rem',
                 marginTop: '1.5rem',
                 padding: '1rem 0 0 0',
@@ -451,7 +452,13 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
             )}
           </div>
         ) : (
-          <div className="grid gap-6 max-lg:gap-4 max-md:grid-cols-1 md:grid-cols-12">
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(12, 1fr)',
+              gap: '1.5rem',
+            }}
+          >
             {widgets.map((widget, idx) => (
               <div
                 key={widget.id}
@@ -501,7 +508,8 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                           )
                           setIsDirty(true)
                         }}
-                        title="Shrink Width"
+                        title={t('customDashboards.builder_shrink_width_aria')}
+                        aria-label={t('customDashboards.builder_shrink_width_aria')}
                       >
                         ◀
                       </button>
@@ -519,7 +527,8 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                           )
                           setIsDirty(true)
                         }}
-                        title="Expand Width"
+                        title={t('customDashboards.builder_expand_width_aria')}
+                        aria-label={t('customDashboards.builder_expand_width_aria')}
                       >
                         ▶
                       </button>
@@ -530,7 +539,8 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                         className={legacyButtonClass('btn btn-secondary btn-sm')}
                         style={{ padding: '0.1rem 0.3rem' }}
                         onClick={() => handleOpenConfig(widget)}
-                        title="Configure Widget"
+                        title={t('customDashboards.builder_configure_widget_aria')}
+                        aria-label={t('customDashboards.builder_configure_widget_aria')}
                       >
                         ⚙️
                       </button>
@@ -539,7 +549,8 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                         className={legacyButtonClass('btn btn-danger btn-sm')}
                         style={{ padding: '0.1rem 0.3rem' }}
                         onClick={() => handleDeleteWidget(widget.id)}
-                        title="Delete Widget"
+                        title={t('customDashboards.builder_delete_widget_aria')}
+                        aria-label={t('customDashboards.builder_delete_widget_aria')}
                       >
                         ✕
                       </button>
@@ -548,7 +559,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                 </div>
 
                 {/* Mapped visual display */}
-                <div style={{ flexGrow: 1, minWidth: 0, overflow: 'auto' }}>
+                <div style={{ flexGrow: 1, overflow: 'hidden' }}>
                   <DashboardWidgetRenderer widget={widget} />
                 </div>
               </div>
@@ -560,7 +571,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
         <Modal
           open={isConfigModalOpen}
           onClose={() => setIsConfigModalOpen(false)}
-          title="Configure Widget"
+          title={t('customDashboards.builder_configure_widget_title')}
           className="w-[90%] max-w-150"
           bodyClassName="flex max-h-[70vh] flex-col gap-5 overflow-y-auto"
         >
@@ -635,7 +646,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                 id="w-content"
                 value={configContent}
                 onChange={(e) => setConfigContent(e.target.value)}
-                placeholder="Write text/markdown here..."
+                placeholder={t('customDashboards.builder_text_content_placeholder')}
                 rows={6}
               />
             </div>

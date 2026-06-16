@@ -1,7 +1,7 @@
-import clsx from 'clsx'
 import { type ReactNode, useEffect, useRef } from 'react'
 
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 
 interface ModalProps {
   open: boolean
@@ -128,7 +128,7 @@ export function Modal({
     >
       <section
         ref={dialogRef}
-        className={clsx(
+        className={cn(
           'border-border-strong bg-card text-foreground animate-modal-pop w-[min(100%,44rem)] rounded-xl border shadow-[0_16px_48px_rgba(0,0,0,0.5)] max-[680px]:rounded-lg',
           className,
         )}
@@ -160,7 +160,7 @@ export function Modal({
           </button>
         </header>
         <div
-          className={clsx(
+          className={cn(
             'modal-body grid gap-[0.85rem] p-[1.1rem_1.25rem_1.25rem] max-[680px]:gap-3 max-[680px]:p-[0.85rem_1rem_1rem]',
             bodyClassName,
           )}

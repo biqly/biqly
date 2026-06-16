@@ -1,5 +1,6 @@
-import clsx from 'clsx'
 import type { CSSProperties } from 'react'
+
+import { cn } from '../../lib/cn'
 
 interface SkeletonProps {
   width?: number | string
@@ -14,7 +15,7 @@ interface SkeletonProps {
 export function Skeleton({ width, height, radius, circle, className, style }: SkeletonProps) {
   return (
     <span
-      className={clsx(
+      className={cn(
         "relative block h-4 w-full overflow-hidden rounded-[0.4rem] bg-(--bg-card-raised,rgba(148,163,184,0.12)) after:absolute after:inset-0 after:-translate-x-full after:animate-[skeleton-shimmer_1.3s_ease-in-out_infinite] after:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)] after:content-[''] motion-reduce:after:animate-none",
         circle && 'rounded-full!',
         className,
@@ -38,7 +39,7 @@ interface SkeletonTextProps {
 /** A stack of text-line placeholders; the last line is shortened. */
 export function SkeletonText({ lines = 3, className }: SkeletonTextProps) {
   return (
-    <span className={clsx('grid gap-2', className)} aria-hidden="true">
+    <span className={cn('grid gap-2', className)} aria-hidden="true">
       {Array.from({ length: lines }, (_, i) => (
         <Skeleton key={i} height="0.8em" width={i === lines - 1 ? '60%' : '100%'} />
       ))}
@@ -56,7 +57,7 @@ interface SkeletonTableProps {
 export function SkeletonTable({ rows = 5, columns = 4, className }: SkeletonTableProps) {
   return (
     <div
-      className={clsx('grid gap-[0.6rem]', className)}
+      className={cn('grid gap-[0.6rem]', className)}
       style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
       aria-hidden="true"
     >

@@ -326,7 +326,7 @@ function resourceBadge(res: string) {
       style = {
         ...style,
         background: 'var(--accent-glow, rgba(99, 102, 241, 0.15))',
-        color: 'var(--accent, #6366f1)',
+        color: 'var(--accent)',
       }
       break
     case 'model':

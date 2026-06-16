@@ -21,7 +21,7 @@ export function LoadingIndicator({ label, size = 'md', className, style }: Loadi
       )}
     >
       <div
-        className={`relative shrink-0 ${size === 'sm' ? 'h-7 w-7' : 'h-9 w-9'}`}
+        className={cn('relative shrink-0', size === 'sm' ? 'h-7 w-7' : 'h-9 w-9')}
         aria-hidden="true"
       >
         <img
@@ -33,7 +33,7 @@ export function LoadingIndicator({ label, size = 'md', className, style }: Loadi
         <span className="border-t-accent absolute inset-[-3px] animate-[loading-spin_0.85s_linear_infinite] rounded-full border-2 border-transparent opacity-[0.85] motion-reduce:animate-none" />
       </div>
       {label ? (
-        <span className="text-foreground-muted overflow-hidden pr-[0.15rem] text-[0.8125rem] leading-[1.2] font-medium text-ellipsis whitespace-nowrap">
+        <span className="text-foreground-muted text-caption overflow-hidden pr-[0.15rem] leading-[1.2] font-medium text-ellipsis whitespace-nowrap">
           {label}
         </span>
       ) : null}

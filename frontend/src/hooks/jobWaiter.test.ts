@@ -40,4 +40,38 @@ describe('createJobWaiter', () => {
     expect(onComplete).not.toHaveBeenCalled()
     expect(onError).not.toHaveBeenCalled()
   })
+
+  it('parses result via parseResult before resolving', async () => {
+    const onComplete = vi.fn()
+    const promise = new Promise<{ id: number } | null>((resolve) => {
+      const waiter = createJobWaiter(resolve, {
+        onComplete,
+        parseResult: (u) => {
+          if (typeof u !== 'object' || u == null || !('id' in u)) {
+            throw new Error('bad shape')
+          }
+          const id = (u as Record<string, unknown>).id
+          return { id: Number(id) }
+        },
+      })
+      waiter.settleComplete({ id: 42 })
+    })
+    await expect(promise).resolves.toEqual({ id: 42 })
+    expect(onComplete).toHaveBeenCalledWith({ id: 42 })
+  })
+
+  it('resolves null and calls onError when parseResult throws', async () => {
+    const onError = vi.fn()
+    const promise = new Promise<unknown>((resolve) => {
+      const waiter = createJobWaiter(resolve, {
+        onError,
+        parseResult: () => {
+          throw new Error('parse failed')
+        },
+      })
+      waiter.settleComplete({ raw: true })
+    })
+    await expect(promise).resolves.toBeNull()
+    expect(onError).toHaveBeenCalledWith('parse failed')
+  })
 })

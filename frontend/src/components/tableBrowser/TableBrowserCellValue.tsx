@@ -1,7 +1,7 @@
-import clsx from 'clsx'
 import { type FocusEvent, type MouseEvent, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { cn } from '../../lib/cn'
 import {
   tableBrowserCellPopoverClass,
   tableBrowserCellValueClass,
@@ -62,7 +62,7 @@ export function TableBrowserCellValue({
   return (
     <>
       <span
-        className={clsx(
+        className={cn(
           tableBrowserCellValueClass,
           multiline && tableBrowserCellValueMultilineClass,
           className,

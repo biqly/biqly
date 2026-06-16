@@ -1,3 +1,4 @@
+import { cn } from '../lib/cn'
 import { semanticModelSetupStatusClass } from '../lib/feedbackClasses'
 import {
   modelingMobileFabClass,
@@ -62,7 +63,10 @@ export default function Modeling() {
             })}
           >
             <div
-              className={`${modelingMobileScrimClass} ${modelingMobileScrimVisibleClass(s.paletteOpen || s.editorOpen)}`}
+              className={cn(
+                modelingMobileScrimClass,
+                modelingMobileScrimVisibleClass(s.paletteOpen || s.editorOpen),
+              )}
               hidden={!(s.paletteOpen || s.editorOpen)}
               onClick={s.closeMobilePanels}
               aria-hidden="true"

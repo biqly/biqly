@@ -445,7 +445,7 @@ const codeStyle: React.CSSProperties = {
 const typeBadge: React.CSSProperties = {
   padding: '2px 8px',
   background: 'rgba(99, 102, 241, 0.15)',
-  color: 'var(--accent, #6366f1)',
+  color: 'var(--accent)',
   borderRadius: 4,
   fontSize: 11,
   fontWeight: 600,
@@ -481,7 +481,7 @@ const strategyHintStyle: React.CSSProperties = {
 
 const btnPrimary: React.CSSProperties = {
   padding: '8px 16px',
-  background: 'var(--accent, #6366f1)',
+  background: 'var(--accent)',
   color: 'white',
   border: 0,
   borderRadius: 6,
@@ -502,8 +502,8 @@ const btnSmall: React.CSSProperties = {
   padding: '4px 10px',
   marginLeft: 8,
   background: 'transparent',
-  color: 'var(--accent, #6366f1)',
-  border: '1px solid var(--accent, #6366f1)',
+  color: 'var(--accent)',
+  border: '1px solid var(--accent)',
   borderRadius: 4,
   cursor: 'pointer',
   fontSize: 12,

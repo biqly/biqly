@@ -61,7 +61,7 @@ export function Pagination({
     <div
       className={`border-border flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3`}
     >
-      <div className="text-foreground-muted flex flex-wrap items-center gap-3 text-[13px]">
+      <div className="text-foreground-muted text-caption flex flex-wrap items-center gap-3">
         <span>
           {totalItems !== undefined && itemsPerPage !== undefined
             ? t('common.pagination.range_of_total', { start, end, total: totalItems })

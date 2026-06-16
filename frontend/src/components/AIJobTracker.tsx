@@ -486,7 +486,7 @@ export default function AIJobTracker() {
     return (
       <button
         type="button"
-        className={`${aiJobFabClass}${failedCount > 0 ? ` ${aiJobFabAlertClass}` : ''}`}
+        className={cn(aiJobFabClass, failedCount > 0 && aiJobFabAlertClass)}
         onClick={() => setMinimized(false)}
         aria-expanded="false"
         aria-label={t('ai_jobs.fab_aria', { count: activeCount })}

@@ -46,26 +46,26 @@ export function WindowFuncStep({
           <input
             value={w.field}
             onChange={(e) => updateWindowFunc(i, 'field', e.target.value)}
-            placeholder="field"
+            placeholder={t('query_builder.window_field_placeholder')}
             style={{ width: '6rem' }}
           />
           <input
             value={w.partition_by}
             onChange={(e) => updateWindowFunc(i, 'partition_by', e.target.value)}
-            placeholder="partition"
+            placeholder={t('query_builder.window_partition_placeholder')}
             style={{ width: '6rem' }}
           />
           <input
             value={w.order_by}
             onChange={(e) => updateWindowFunc(i, 'order_by', e.target.value)}
-            placeholder="order"
+            placeholder={t('query_builder.window_order_placeholder')}
             style={{ width: '6rem' }}
           />
           <button
             type="button"
             className={qbTagCloseClass}
             onClick={() => removeWindowFunc(i)}
-            aria-label="Remove Window Function"
+            aria-label={t('query_builder.remove_window_aria', { n: i + 1 })}
           >
             ×
           </button>

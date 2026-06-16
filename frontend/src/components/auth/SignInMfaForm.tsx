@@ -45,7 +45,7 @@ export function SignInMfaForm({
       {error && (
         <div
           className={legacyFeedbackClass(
-            'bg-error/8 border-error text-error mb-2 rounded border-l-[3px] p-[10px_12px] text-[13px]',
+            'bg-error/8 border-error text-error text-caption mb-2 rounded border-l-[3px] p-[10px_12px]',
           )}
           role="alert"
           aria-live="assertive"

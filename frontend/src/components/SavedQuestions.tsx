@@ -540,6 +540,7 @@ export default function SavedQuestions() {
             description={
               search.trim() ? t('saved_questions.no_matches') : t('saved_questions.empty')
             }
+            action={{ label: t('saved_questions.empty_cta'), onClick: openAdd }}
           />
         </div>
       ) : (
@@ -648,6 +649,7 @@ export default function SavedQuestions() {
         onSave={() => {
           void handleSave(false)
         }}
+        saving={apiLoading}
         t={t}
       />
 
@@ -664,6 +666,7 @@ export default function SavedQuestions() {
         onSave={() => {
           void handleSave(true)
         }}
+        saving={apiLoading}
         t={t}
       />
     </div>

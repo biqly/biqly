@@ -11,8 +11,10 @@ import {
   authHeaderClass,
   authLogoClass,
   authPageClass,
+  authSpinnerClass,
   authTitleClass,
 } from '../../lib/authClasses'
+import { cn } from '../../lib/cn'
 import { useAuth } from './AuthProvider'
 export default function OAuthCallback() {
   const navigate = useNavigate()
@@ -99,10 +101,7 @@ export default function OAuthCallback() {
               padding: '16px',
             }}
           >
-            <div
-              className="spinner"
-              style={{ width: '32px', height: '32px', borderTopColor: '#6366f1' }}
-            ></div>
+            <div className={cn(authSpinnerClass, 'h-8 w-8')} />
             <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
               Completing sign in…
             </span>

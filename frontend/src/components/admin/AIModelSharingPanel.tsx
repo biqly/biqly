@@ -38,7 +38,7 @@ const adminAiCardClass = 'border border-border rounded-[10px] bg-card overflow-h
 const adminAiCardHeaderClass = 'py-3.5 px-[18px] border-b border-border'
 const adminAiCardTitleClass = 'block m-0 text-[0.95rem] font-semibold text-foreground'
 const adminAiCardDescClass =
-  'mt-1.5 mb-0 text-[0.8125rem] leading-[1.45] text-foreground-muted max-w-[52rem]'
+  'mt-1.5 mb-0 text-caption leading-[1.45] text-foreground-muted max-w-[52rem]'
 const adminAiCardBodyClass = 'py-4 px-[18px] pb-[18px]'
 
 const adminAiBadgeBase =
@@ -312,7 +312,7 @@ export function AIModelSharingPanel() {
             </div>
           </div>
 
-          <p className="text-foreground-muted m-0 mb-3 text-[0.8125rem]">
+          <p className="text-foreground-muted text-caption m-0 mb-3">
             {targetKind === 'workspace'
               ? t('admin.ai_model_access.workspaces_available', { count: workspaces.length })
               : t('admin.ai_model_access.roles_available', { count: roles.length })}
