@@ -124,7 +124,7 @@ export function ShareButton({
       {showTrigger && (
         <button
           onClick={() => setOpen(true)}
-          className={`inline-flex items-center gap-[5px] py-[5px] px-3 bg-transparent border border-border rounded-[6px] cursor-pointer text-[12px] text-foreground-muted transition-all duration-150 hover:border-accent hover:text-accent`}
+          className={`border-border text-foreground-muted hover:border-accent hover:text-accent inline-flex cursor-pointer items-center gap-[5px] rounded-[6px] border bg-transparent px-3 py-[5px] text-[12px] transition-all duration-150`}
         >
           <svg
             width="14"
@@ -145,20 +145,20 @@ export function ShareButton({
 
       {open && (
         <div
-          className="fixed inset-0 z-1000 flex items-center justify-center bg-black/40 motion-safe:animate-fade-in"
+          className="motion-safe:animate-fade-in fixed inset-0 z-1000 flex items-center justify-center bg-black/40"
           onClick={closeModal}
         >
           <div
             className={legacyCardClass(
-              'bg-card border border-border rounded-[12px] w-full max-w-[420px] shadow-(--shadow,0_20px_60px_rgba(0,0,0,0.2)) motion-safe:animate-slide-up',
+              'bg-card border-border motion-safe:animate-slide-up w-full max-w-[420px] rounded-[12px] border shadow-(--shadow,0_20px_60px_rgba(0,0,0,0.2))',
             )}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={`flex items-center justify-between py-4 px-5 border-b border-border`}>
+            <div className={`border-border flex items-center justify-between border-b px-5 py-4`}>
               <h3 className="m-0 text-[16px] font-semibold">{t('admin.sharing.share_resource')}</h3>
               <button
                 onClick={closeModal}
-                className="cursor-pointer border-0 bg-transparent p-1 text-[20px] leading-none text-foreground-muted hover:text-foreground"
+                className="text-foreground-muted hover:text-foreground cursor-pointer border-0 bg-transparent p-1 text-[20px] leading-none"
                 aria-label={t('common.close')}
               >
                 ×
@@ -171,7 +171,7 @@ export function ShareButton({
               }}
               className="flex flex-col gap-[14px] p-5"
             >
-              <div className={`flex gap-0 border border-border rounded-[6px] overflow-hidden`}>
+              <div className={`border-border flex gap-0 overflow-hidden rounded-[6px] border`}>
                 <button
                   type="button"
                   className={clsx(
@@ -204,7 +204,7 @@ export function ShareButton({
                 </button>
               </div>
 
-              <div className="flex flex-col gap-1 text-[12px] text-foreground-muted">
+              <div className="text-foreground-muted flex flex-col gap-1 text-[12px]">
                 <span>
                   {mode === 'user' ? t('admin.sharing.user_id') : t('admin.sharing.workspace')}
                 </span>
@@ -222,7 +222,7 @@ export function ShareButton({
                 />
               </div>
 
-              <label className="flex flex-col gap-1 text-[12px] text-foreground-muted">
+              <label className="text-foreground-muted flex flex-col gap-1 text-[12px]">
                 <span>{t('admin.sharing.permission')}</span>
                 <Select
                   value={permission}
@@ -238,7 +238,7 @@ export function ShareButton({
               {error && (
                 <div
                   className={legacyFeedbackClass(
-                    'py-2 px-3 bg-error/10 rounded-[4px] text-error text-[12px]',
+                    'bg-error/10 text-error rounded-[4px] px-3 py-2 text-[12px]',
                   )}
                 >
                   {error}
@@ -249,14 +249,14 @@ export function ShareButton({
                 <button
                   type="button"
                   onClick={closeModal}
-                  className={`py-2 px-4 bg-transparent border border-border rounded-[6px] cursor-pointer text-[13px] text-foreground hover:border-accent hover:text-accent transition-colors`}
+                  className={`border-border text-foreground hover:border-accent hover:text-accent cursor-pointer rounded-[6px] border bg-transparent px-4 py-2 text-[13px] transition-colors`}
                 >
                   {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={loading || !targetID.trim()}
-                  className="cursor-pointer rounded-[6px] border-0 bg-accent px-4 py-2 text-[13px] font-medium text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="bg-accent cursor-pointer rounded-[6px] border-0 px-4 py-2 text-[13px] font-medium text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? t('common.saving') : t('admin.sharing.share')}
                 </button>

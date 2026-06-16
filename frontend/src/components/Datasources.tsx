@@ -321,8 +321,8 @@ export default function Datasources() {
     (connMode === 'raw'
       ? editingId !== null || form.dsn.trim() !== ''
       : structured.host.trim() !== '' &&
-      (structured.port.trim() === '' ||
-        (!Number.isNaN(parseInt(structured.port, 10)) && parseInt(structured.port, 10) > 0)))
+        (structured.port.trim() === '' ||
+          (!Number.isNaN(parseInt(structured.port, 10)) && parseInt(structured.port, 10) > 0)))
   const datasourceRows = buildDatasourceAccessView(items, accessibleDatasourceIDs)
 
   if (initLoading && items.length === 0) {
@@ -398,7 +398,7 @@ export default function Datasources() {
                         <td className="datasources-col-record">
                           <div className="flex min-w-0 flex-col gap-1.5">
                             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-                              <span className="text-[0.9375rem] font-semibold text-foreground">
+                              <span className="text-foreground text-[0.9375rem] font-semibold">
                                 {ds.name}
                               </span>
                               {showAccessBadge && access === 'allowed' && (

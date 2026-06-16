@@ -325,7 +325,7 @@ function RoutingDebugPanel({
     <div className={routingDebugClass}>
       {debug.relation_expansion && debug.relation_expansion.length > 0 && (
         <div>
-          <span className="text-[0.72rem] text-foreground-faint">
+          <span className="text-foreground-faint text-[0.72rem]">
             {t('ai_query.routing_debug_relation')}
           </span>
           <code className={routingDebugCodeClass}>{debug.relation_expansion.join(' | ')}</code>
@@ -333,7 +333,7 @@ function RoutingDebugPanel({
       )}
       {debug.bridge_tables && debug.bridge_tables.length > 0 && (
         <div>
-          <span className="text-[0.72rem] text-foreground-faint">
+          <span className="text-foreground-faint text-[0.72rem]">
             {t('ai_query.routing_debug_bridge')}
           </span>
           <RoutingDebugList items={debug.bridge_tables} />
@@ -341,7 +341,7 @@ function RoutingDebugPanel({
       )}
       {debug.schema_partitions && debug.schema_partitions.length > 0 && (
         <div>
-          <span className="text-[0.72rem] text-foreground-faint">
+          <span className="text-foreground-faint text-[0.72rem]">
             {t('ai_query.routing_debug_schema_parts')}
           </span>
           <RoutingDebugList items={debug.schema_partitions} />
@@ -349,7 +349,7 @@ function RoutingDebugPanel({
       )}
       {debug.eliminated_candidates && debug.eliminated_candidates.length > 0 && (
         <div>
-          <span className="text-[0.72rem] text-foreground-faint">
+          <span className="text-foreground-faint text-[0.72rem]">
             {t('ai_query.routing_debug_eliminated')}
           </span>
           <RoutingDebugList items={debug.eliminated_candidates} />
@@ -541,27 +541,27 @@ export function ClarificationCard({
       <div className={clarificationOptionsClass}>
         {useStructured
           ? structured.map((opt) => (
-            <button
-              key={opt.key}
-              type="button"
-              className={btnClarificationClass}
-              title={opt.hint}
-              onClick={() => onSelect(opt.key || opt.label)}
-            >
-              {opt.label}
-              {opt.hint ? <span className={clarificationOptionHintClass}>{opt.hint}</span> : null}
-            </button>
-          ))
+              <button
+                key={opt.key}
+                type="button"
+                className={btnClarificationClass}
+                title={opt.hint}
+                onClick={() => onSelect(opt.key || opt.label)}
+              >
+                {opt.label}
+                {opt.hint ? <span className={clarificationOptionHintClass}>{opt.hint}</span> : null}
+              </button>
+            ))
           : options.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              className={btnClarificationClass}
-              onClick={() => onSelect(opt)}
-            >
-              {opt}
-            </button>
-          ))}
+              <button
+                key={opt}
+                type="button"
+                className={btnClarificationClass}
+                onClick={() => onSelect(opt)}
+              >
+                {opt}
+              </button>
+            ))}
       </div>
       <button type="button" className={btnSkipClass} onClick={onSkip}>
         {t('ai_query.clarification_skip')}
@@ -645,16 +645,16 @@ export function CostBadge({
   }
   const tokenTitle = tokenUsage
     ? t('ai_query.cost_token_title', {
-      prompt: tokenUsage.prompt.toLocaleString(localeTag),
-      completion: tokenUsage.completion.toLocaleString(localeTag),
-      total: tokenUsage.total.toLocaleString(localeTag),
-    })
+        prompt: tokenUsage.prompt.toLocaleString(localeTag),
+        completion: tokenUsage.completion.toLocaleString(localeTag),
+        total: tokenUsage.total.toLocaleString(localeTag),
+      })
     : undefined
   return (
     <div className={costBadgeClass} title={tokenTitle}>
       {parts.join(' · ')}
       {tokenUsage && (
-        <span className="font-normal text-foreground-faint">
+        <span className="text-foreground-faint font-normal">
           {' '}
           ({tokenUsage.prompt.toLocaleString(localeTag)} +{' '}
           {tokenUsage.completion.toLocaleString(localeTag)})
@@ -770,7 +770,7 @@ export function Collapsible({
     <details open={defaultOpen} className={`${collapsibleSectionClass} group`}>
       <summary className={collapsibleSectionSummaryClass}>
         {title}
-        <span className="text-[0.65rem] text-foreground-faint transition-transform duration-180 group-open:rotate-180">
+        <span className="text-foreground-faint text-[0.65rem] transition-transform duration-180 group-open:rotate-180">
           ▼
         </span>
       </summary>

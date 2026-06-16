@@ -158,13 +158,13 @@ function SignUpHeader({ firstUserSetupRequired, onSignInClick }: SignUpHeaderPro
       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
         <img src={abiLogo} alt="" className="h-8.5 w-8.5 object-contain" />
       </div>
-      <h1 className="mb-1 text-[24px] font-bold tracking-tight text-foreground">
+      <h1 className="text-foreground mb-1 text-[24px] font-bold tracking-tight">
         {firstUserSetupRequired ? t('auth.first_setup_title') : t('auth.title_signup')}
       </h1>
       {firstUserSetupRequired ? (
-        <p className="text-[14px] text-foreground-muted">{t('auth.first_setup_signup_body')}</p>
+        <p className="text-foreground-muted text-[14px]">{t('auth.first_setup_signup_body')}</p>
       ) : (
-        <p className="text-[14px] text-foreground-muted">
+        <p className="text-foreground-muted text-[14px]">
           {t('auth.already_account')}{' '}
           <a href="/auth/signin" className={authInlineLinkClass} onClick={onSignInClick}>
             {t('auth.btn_signin')}
@@ -291,7 +291,7 @@ export default function SignUpPage() {
       <div className={authPageClass}>
         <div className={authCardClass}>
           <p
-            className="text-[14px] text-foreground-muted"
+            className="text-foreground-muted text-[14px]"
             style={{ textAlign: 'center', margin: 0 }}
           >
             {t('common.loading')}
@@ -309,13 +309,13 @@ export default function SignUpPage() {
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
               <img src={abiLogo} alt="" className="h-8.5 w-8.5 object-contain" />
             </div>
-            <h1 className="mb-1 text-[24px] font-bold tracking-tight text-foreground">
+            <h1 className="text-foreground mb-1 text-[24px] font-bold tracking-tight">
               {t('auth.signup_closed_title')}
             </h1>
-            <p className="text-[14px] text-foreground-muted">{t('auth.signup_closed_body')}</p>
-            <p className="text-[14px] text-foreground-muted">{t('auth.signup_closed_contact')}</p>
+            <p className="text-foreground-muted text-[14px]">{t('auth.signup_closed_body')}</p>
+            <p className="text-foreground-muted text-[14px]">{t('auth.signup_closed_contact')}</p>
           </div>
-          <p className="text-[14px] text-foreground-muted" style={{ textAlign: 'center' }}>
+          <p className="text-foreground-muted text-[14px]" style={{ textAlign: 'center' }}>
             <a
               href="/auth/signin"
               className={authInlineLinkClass}
@@ -349,7 +349,7 @@ export default function SignUpPage() {
           {error && (
             <div
               className={legacyFeedbackClass(
-                'rounded border-l-[3px] border-error bg-error/8 p-[10px_12px] text-[13px] text-error',
+                'border-error bg-error/8 text-error rounded border-l-[3px] p-[10px_12px] text-[13px]',
               )}
               role="alert"
               aria-live="assertive"
@@ -360,7 +360,7 @@ export default function SignUpPage() {
           {success && (
             <div
               className={legacyFeedbackClass(
-                'rounded border-l-[3px] border-success bg-success/8 p-[10px_12px] text-[13px] text-success',
+                'border-success bg-success/8 text-success rounded border-l-[3px] p-[10px_12px] text-[13px]',
               )}
               role="status"
               aria-live="polite"
@@ -427,7 +427,7 @@ export default function SignUpPage() {
           <label className={authCheckboxRowClass}>
             <input
               type="checkbox"
-              className="mt-0.5 shrink-0 cursor-pointer accent-accent"
+              className="accent-accent mt-0.5 shrink-0 cursor-pointer"
               checked={agree}
               onChange={(e) => setAgree(e.target.checked)}
               disabled={loading}

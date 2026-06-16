@@ -98,11 +98,16 @@ func (n *NullStringArray) Scan(src any) error {
 	if n.S == nil {
 		return errors.New("NullStringArray: destination pointer is nil")
 	}
+	*n.S = []string{}
 	if src == nil {
-		*n.S = []string{}
 		return nil
 	}
-	return (*pq.StringArray)(n.S).Scan(src)
+	switch src.(type) {
+	case string, []byte:
+		return (*pq.StringArray)(n.S).Scan(src)
+	default:
+		return nil
+	}
 }
 
 // ParseStringArray parses PostgreSQL string arrays: {"a","b","c"}

@@ -87,7 +87,7 @@ export function WorkspaceSelector({ token }: { token: string }) {
 
   return (
     <label className="mb-4 flex min-w-0 flex-col gap-[0.35rem]">
-      <span className="text-[0.68rem] font-extrabold tracking-normal text-foreground-faint uppercase">
+      <span className="text-foreground-faint text-[0.68rem] font-extrabold tracking-normal uppercase">
         {t('admin.workspaces.selector_label')}
       </span>
       <Select

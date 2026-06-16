@@ -136,7 +136,7 @@ export function MetadataDescribeModal({
     >
       {!result ? (
         <>
-          <p className="mt-0 mb-3 text-[0.78rem] leading-[1.45] text-foreground-muted">
+          <p className="text-foreground-muted mt-0 mb-3 text-[0.78rem] leading-[1.45]">
             {t('metadata.describe_intro')}
           </p>
           <MetadataDescribeForm

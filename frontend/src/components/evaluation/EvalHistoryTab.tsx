@@ -28,7 +28,7 @@ export function EvalHistoryTab({
       <div className={legacyCardClass('card')}>
         <h3>{t('evaluation.history_title')}</h3>
         {runHistory.length === 0 ? (
-          <p className="py-8 text-center text-[0.85rem] text-foreground-faint">
+          <p className="text-foreground-faint py-8 text-center text-[0.85rem]">
             {t('evaluation.history_empty')}
           </p>
         ) : (

@@ -113,7 +113,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
       key: 'type',
       header: t('admin.sharing.resource_type'),
       cell: (share) => (
-        <span className="inline-block rounded-[10px] bg-(--accent-glow) px-2 py-[2px] text-[11px] font-medium text-accent">
+        <span className="text-accent inline-block rounded-[10px] bg-(--accent-glow) px-2 py-[2px] text-[11px] font-medium">
           {share.resource_type}
         </span>
       ),
@@ -131,7 +131,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
         share.shared_with ? (
           <span className="font-mono text-[12px]">{share.shared_with.slice(0, 8)}…</span>
         ) : share.workspace_id ? (
-          <span className="text-[12px] text-accent">WS: {share.workspace_id.slice(0, 8)}…</span>
+          <span className="text-accent text-[12px]">WS: {share.workspace_id.slice(0, 8)}…</span>
         ) : (
           '—'
         ),
@@ -155,7 +155,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
             void onRevoke(share.id)
           }}
           className={legacyFeedbackClass(
-            'py-[3px] px-2.5 bg-transparent border border-[rgba(239,68,68,0.3)] text-error rounded-[4px] cursor-pointer text-[12px] hover:bg-error/6 transition-colors',
+            'text-error hover:bg-error/6 cursor-pointer rounded-[4px] border border-[rgba(239,68,68,0.3)] bg-transparent px-2.5 py-[3px] text-[12px] transition-colors',
           )}
         >
           {t('common.delete')}
@@ -168,7 +168,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     <div className="overflow-x-auto">
       <div
         className={legacyCardClass(
-          'bg-card border border-border rounded-[8px] overflow-hidden shadow-card-sm',
+          'bg-card border-border shadow-card-sm overflow-hidden rounded-[8px] border',
         )}
       >
         <DataState

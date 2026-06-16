@@ -327,7 +327,7 @@ export default function Settings() {
         >
           <h2
             id="settings-profile-group-heading"
-            className="m-0 font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-widest text-foreground-muted uppercase"
+            className="text-foreground-muted m-0 font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-widest uppercase"
           >
             {t('settings.profile_group')}
           </h2>
@@ -338,7 +338,7 @@ export default function Settings() {
           <section className="flex flex-col gap-4" aria-labelledby="settings-security-heading">
             <h2
               id="settings-security-heading"
-              className="m-0 font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-widest text-foreground-muted uppercase"
+              className="text-foreground-muted m-0 font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-widest uppercase"
             >
               {t('settings.security_group')}
             </h2>
@@ -361,7 +361,7 @@ export default function Settings() {
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                   <div>
                     <h2 id="passkeys-heading">{t('passkeys.title')}</h2>
-                    <p className="mt-[0.35rem] mr-0 mb-0 ml-0 max-w-2xl flex-[1_1_100%] text-[0.875rem] leading-[1.45] text-foreground-muted">
+                    <p className="text-foreground-muted mt-[0.35rem] mr-0 mb-0 ml-0 max-w-2xl flex-[1_1_100%] text-[0.875rem] leading-[1.45]">
                       {t('passkeys.subtitle')}
                     </p>
                   </div>
@@ -416,7 +416,7 @@ export default function Settings() {
           <section className="flex flex-col gap-4" aria-labelledby="settings-config-heading">
             <h2
               id="settings-config-heading"
-              className="m-0 font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-widest text-foreground-muted uppercase"
+              className="text-foreground-muted m-0 font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-widest uppercase"
             >
               {t('settings.configuration_group')}
             </h2>

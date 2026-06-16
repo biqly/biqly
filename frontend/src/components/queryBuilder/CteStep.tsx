@@ -50,7 +50,7 @@ export function CteStep({ ctes, updateCTE, removeCTE, addCTE, onClear }: CteStep
             onChange={(e) => updateCTE(i, 'query', e.target.value)}
             placeholder="CTE query JSON"
             rows={2}
-            className="w-48 rounded border border-border-strong bg-canvas p-1 text-[0.74rem] text-foreground"
+            className="border-border-strong bg-canvas text-foreground w-48 rounded border p-1 text-[0.74rem]"
           />
         </div>
       ))}

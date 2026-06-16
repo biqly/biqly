@@ -49,7 +49,7 @@ export function MetadataDescribeResults({
       </div>
 
       {result.translation_error && (
-        <p className="m-0 text-[0.78rem] text-error" role="alert">
+        <p className="text-error m-0 text-[0.78rem]" role="alert">
           {t('metadata.describe_translation_failed')} {result.translation_error}
         </p>
       )}

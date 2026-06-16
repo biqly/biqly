@@ -3,7 +3,7 @@ ifndef .FEATURES
 $(error This Makefile requires GNU Make. On macOS: brew install make && gmake <target>)
 endif
 
-.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai watch debug-watch dev-frontend test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit semgrep-scan vet govulncheck verify-main helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down dev-up dev-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai watch debug-watch dev-frontend test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit setup-githooks semgrep-scan vet govulncheck verify-main helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down dev-up dev-down seed-adventureworks
 
 # air provides Go live-reload (rebuild + restart on .go save). Pinned via
 # `go run` so no global install is required (first run downloads it).
@@ -135,7 +135,13 @@ check-frontend:
 	@npm --prefix frontend run check
 
 # Run before every commit: all linters and all tests for both stacks.
-precommit: lint test
+precommit: format-frontend lint test
+
+# Enable the .githooks/ pre-commit hook so tests run automatically
+# before every `git commit`. Run once per clone.
+setup-githooks:
+	@git config core.hooksPath .githooks
+	@echo "githooks enabled: pre-commit will run 'make precommit' before every commit"
 
 semgrep-scan:
 	@semgrep scan $(foreach config,$(SEMGREP_CONFIGS),--config $(config)) --sarif --output $(SEMGREP_SARIF)

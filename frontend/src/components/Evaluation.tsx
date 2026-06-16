@@ -213,7 +213,7 @@ export default function Evaluation() {
     <div className="grid gap-4">
       {/* Tabs */}
       <div
-        className={`inline-flex items-center bg-[rgba(255,255,255,0.02)] border border-border rounded-lg p-1 gap-1 w-fit mb-2`}
+        className={`border-border mb-2 inline-flex w-fit items-center gap-1 rounded-lg border bg-[rgba(255,255,255,0.02)] p-1`}
         role="tablist"
         aria-label={t('evaluation.tabs_aria')}
       >
@@ -232,10 +232,11 @@ export default function Evaluation() {
               type="button"
               role="tab"
               aria-selected={isActive}
-              className={`w-auto mt-0 px-4 py-1.5 rounded-[0.35rem] text-[0.78rem] font-semibold transition-all duration-180 ease-out shadow-none border ${isActive
+              className={`mt-0 w-auto rounded-[0.35rem] border px-4 py-1.5 text-[0.78rem] font-semibold shadow-none transition-all duration-180 ease-out ${
+                isActive
                   ? 'bg-card-raised border-border-strong text-foreground shadow-[0_2px_8px_rgba(0,0,0,0.15)]'
-                  : 'bg-transparent border-transparent text-foreground-muted hover:text-foreground hover:bg-[rgba(255,255,255,0.04)] hover:border-transparent'
-                }`}
+                  : 'text-foreground-muted hover:text-foreground border-transparent bg-transparent hover:border-transparent hover:bg-[rgba(255,255,255,0.04)]'
+              }`}
               onClick={() => {
                 startTransition(() => {
                   setActiveTab(tab.key)

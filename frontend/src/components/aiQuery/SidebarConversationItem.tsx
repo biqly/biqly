@@ -79,7 +79,7 @@ export function SidebarConversationItem({
   return (
     <div className={conversationItemClass(isActive)}>
       {isEditing ? (
-        <div className="p-[0.65rem_0.8rem] w-full">
+        <div className="w-full p-[0.65rem_0.8rem]">
           <input
             ref={inputRef}
             value={editTitle}
@@ -97,7 +97,7 @@ export function SidebarConversationItem({
           type="button"
           className={cn(
             convItemContentClass,
-            'w-full text-left p-[0.65rem_0.8rem] pr-16 bg-transparent border-0 cursor-pointer text-foreground rounded-[0.6rem] outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1',
+            'text-foreground focus-visible:ring-accent w-full cursor-pointer rounded-[0.6rem] border-0 bg-transparent p-[0.65rem_0.8rem] pr-16 text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
           )}
           onClick={(e) => {
             e.stopPropagation()

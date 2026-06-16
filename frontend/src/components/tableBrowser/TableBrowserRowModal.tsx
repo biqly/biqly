@@ -188,12 +188,12 @@ function RelatedLinkCard({
   const title =
     state.firstRow != null
       ? rowTitleFor(
-        state.firstRow,
-        state.columns,
-        displayExpressionByTable.get(relatedKey),
-        relatedKey,
-        relatedKey,
-      )
+          state.firstRow,
+          state.columns,
+          displayExpressionByTable.get(relatedKey),
+          relatedKey,
+          relatedKey,
+        )
       : null
 
   return (
@@ -369,7 +369,7 @@ function RelatedListView({
             {rows.map((row, i) => (
               <tr
                 key={i}
-                className="table-browser-data-row h-[2.15rem] cursor-pointer hover:[&>td]:bg-canvas-subtle"
+                className="table-browser-data-row hover:[&>td]:bg-canvas-subtle h-[2.15rem] cursor-pointer"
                 onClick={() =>
                   onOpenRow({
                     kind: 'row',
@@ -397,17 +397,17 @@ function RelatedListView({
         </table>
       </div>
       <div className={rowModalListFooterClass}>
-        <span className="text-[0.8rem] text-foreground-muted">
+        <span className="text-foreground-muted text-[0.8rem]">
           {total != null
             ? t('table_browser.range_of_total', {
-              start: formatInt(rows.length > 0 ? 1 : 0),
-              end: formatInt(rows.length),
-              total: formatInt(total),
-            })
+                start: formatInt(rows.length > 0 ? 1 : 0),
+                end: formatInt(rows.length),
+                total: formatInt(total),
+              })
             : ''}
         </span>
         {loadingMore && (
-          <span className="text-[0.8rem] text-foreground-muted">{t('table_browser.loading')}</span>
+          <span className="text-foreground-muted text-[0.8rem]">{t('table_browser.loading')}</span>
         )}
       </div>
       <div ref={loadMoreRef} className={rowModalListSentinelClass} aria-hidden="true" />
@@ -478,12 +478,12 @@ export function TableBrowserRowModal({
   const title =
     frame.kind === 'row'
       ? rowTitleFor(
-        frame.row,
-        frame.columns,
-        displayExpressionByTable.get(frameTableKey),
-        fallbackTitle,
-        frameTableKey,
-      )
+          frame.row,
+          frame.columns,
+          displayExpressionByTable.get(frameTableKey),
+          fallbackTitle,
+          frameTableKey,
+        )
       : `${frameTableKey} · ${frame.filterColumn} = ${frame.filterValue}`
 
   const colIndex =

@@ -112,14 +112,14 @@ function ModelUsedBadge({
   }
   const configuredQuery =
     aiRuntime?.query_model_override &&
-      aiRuntime.query_model &&
-      result.model_used !== aiRuntime.query_model
+    aiRuntime.query_model &&
+    result.model_used !== aiRuntime.query_model
       ? aiRuntime.query_model
       : null
   const configuredLlm =
     !aiRuntime?.query_model_override &&
-      aiRuntime?.llm_model &&
-      result.model_used !== aiRuntime.llm_model
+    aiRuntime?.llm_model &&
+    result.model_used !== aiRuntime.llm_model
       ? aiRuntime.llm_model
       : null
   return (

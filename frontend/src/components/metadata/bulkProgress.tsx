@@ -99,7 +99,7 @@ export function BulkProgressHeader({
 
   return (
     <div className="mb-2 shrink-0">
-      <div className="flex justify-between text-[0.8rem] text-foreground-muted mb-1 gap-2">
+      <div className="text-foreground-muted mb-1 flex justify-between gap-2 text-[0.8rem]">
         <span>
           {running ? (
             <>{t('metadata.bulk_progress_processing', { done, total, current: currentDisplay })}</>
@@ -118,9 +118,7 @@ export function BulkProgressHeader({
         <span>{pct}%</span>
       </div>
       <div
-        className={legacyCardClass(
-          'h-1.5 bg-card rounded-sm overflow-hidden border border-border',
-        )}
+        className={legacyCardClass('bg-card border-border h-1.5 overflow-hidden rounded-sm border')}
       >
         <div
           className="h-full transition-[width] duration-200 ease-in-out"
@@ -130,7 +128,7 @@ export function BulkProgressHeader({
           }}
         />
       </div>
-      <div className="flex gap-3 mt-[0.3rem] text-[0.75rem] text-foreground-muted">
+      <div className="text-foreground-muted mt-[0.3rem] flex gap-3 text-[0.75rem]">
         <span className="text-emerald-400">{t('metadata.bulk_counts_ok', { ok })}</span>
         <span className="text-red-400">{t('metadata.bulk_counts_err', { err })}</span>
         <span>{t('metadata.bulk_counts_skip', { skipped })}</span>
@@ -183,11 +181,11 @@ export function BulkQueuePreview({
 
   return (
     <div className="mb-3 shrink-0">
-      <div className="text-[0.75rem] font-semibold text-foreground-muted mb-[0.35rem]">
+      <div className="text-foreground-muted mb-[0.35rem] text-[0.75rem] font-semibold">
         {t('metadata.bulk_queue_heading')}
       </div>
       {current && (
-        <p className="m-[0_0_0.35rem] text-[0.8rem] text-foreground">
+        <p className="text-foreground m-[0_0_0.35rem] text-[0.8rem]">
           {t('metadata.bulk_progress_processing', {
             done: completedSet.size,
             total: entries.length,
@@ -196,7 +194,7 @@ export function BulkQueuePreview({
         </p>
       )}
       {shown.length > 0 && (
-        <p className="m-0 text-[0.78rem] text-foreground-muted">
+        <p className="text-foreground-muted m-0 text-[0.78rem]">
           {t('metadata.bulk_queue_next', { items: shown.join(', ') })}
           {more > 0 ? ` ${t('metadata.bulk_queue_more', { count: more })}` : ''}
         </p>

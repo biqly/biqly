@@ -81,16 +81,14 @@ function SampleCell({ value, columnName }: { value: unknown; columnName: string 
 
   if (!text) {
     return (
-      <span className="block leading-[1.45] wrap-break-word text-foreground opacity-55">
-        —
-      </span>
+      <span className="text-foreground block leading-[1.45] wrap-break-word opacity-55">—</span>
     )
   }
 
   if (kind === 'handle') {
     const handle = text.startsWith('@') ? text : `@${text}`
     return (
-      <span className="inline-flex max-w-full items-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_6%,transparent)] px-[0.45rem] py-[0.15rem] font-mono text-[0.78rem] font-semibold text-ellipsis whitespace-nowrap text-accent">
+      <span className="text-accent inline-flex max-w-full items-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_6%,transparent)] px-[0.45rem] py-[0.15rem] font-mono text-[0.78rem] font-semibold text-ellipsis whitespace-nowrap">
         {handle}
       </span>
     )
@@ -98,7 +96,7 @@ function SampleCell({ value, columnName }: { value: unknown; columnName: string 
 
   if (kind === 'id') {
     return (
-      <span className="font-mono text-[0.78rem] break-all text-foreground-muted [font-variant-numeric:tabular-nums]">
+      <span className="text-foreground-muted font-mono text-[0.78rem] break-all [font-variant-numeric:tabular-nums]">
         {text}
       </span>
     )
@@ -107,7 +105,7 @@ function SampleCell({ value, columnName }: { value: unknown; columnName: string 
   if (kind === 'text') {
     return (
       <span
-        className="line-clamp-4 overflow-hidden text-[0.84rem] text-foreground-muted group-hover/row:text-foreground"
+        className="text-foreground-muted group-hover/row:text-foreground line-clamp-4 overflow-hidden text-[0.84rem]"
         title={text}
       >
         {text}
@@ -115,7 +113,7 @@ function SampleCell({ value, columnName }: { value: unknown; columnName: string 
     )
   }
 
-  return <span className="block leading-[1.45] wrap-break-word text-foreground">{text}</span>
+  return <span className="text-foreground block leading-[1.45] wrap-break-word">{text}</span>
 }
 
 export function SampleDataModal({
@@ -162,11 +160,11 @@ export function SampleDataModal({
       title={t('ai_query.sample_modal_heading')}
       subtitle={
         <span className="mt-[0.35rem] inline-flex flex-wrap items-baseline gap-0 font-mono text-[0.82rem] leading-[1.35]">
-          <span className="font-semibold text-accent">{tableRef.schema}</span>
+          <span className="text-accent font-semibold">{tableRef.schema}</span>
           <span className="text-foreground-muted opacity-70" aria-hidden="true">
             .
           </span>
-          <span className="font-medium text-foreground-muted">{tableRef.table}</span>
+          <span className="text-foreground-muted font-medium">{tableRef.table}</span>
         </span>
       }
       onClose={onClose}
@@ -180,7 +178,7 @@ export function SampleDataModal({
           <div className="flex items-center justify-between gap-3" aria-live="polite">
             <span
               className={legacyCardClass(
-                'inline-flex items-center px-[0.65rem] py-[0.28rem] rounded-full border border-[color-mix(in_srgb,var(--accent)_28%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--bg-card-raised))] text-foreground-muted text-[0.76rem] font-semibold tracking-wide',
+                'text-foreground-muted inline-flex items-center rounded-full border border-[color-mix(in_srgb,var(--accent)_28%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--bg-card-raised))] px-[0.65rem] py-[0.28rem] text-[0.76rem] font-semibold tracking-wide',
               )}
             >
               {t('ai_query.sample_modal_meta', { rows: rowCount, cols: colCount })}
@@ -188,7 +186,7 @@ export function SampleDataModal({
           </div>
           <div
             className={legacyCardClass(
-              'flex-1 min-h-0 max-h-[min(62vh,40rem)] max-[720px]:max-h-[58vh] overflow-auto border border-border rounded-[0.65rem] bg-card-raised shadow-[inset_0_1px_0_color-mix(in_srgb,var(--text-primary)_4%,transparent)] overscroll-contain custom-scrollbar-thin',
+              'border-border bg-card-raised custom-scrollbar-thin max-h-[min(62vh,40rem)] min-h-0 flex-1 overflow-auto overscroll-contain rounded-[0.65rem] border shadow-[inset_0_1px_0_color-mix(in_srgb,var(--text-primary)_4%,transparent)] max-[720px]:max-h-[58vh]',
             )}
           >
             <table className="m-0 w-max min-w-full border-collapse">
@@ -201,7 +199,7 @@ export function SampleDataModal({
                         key={c.name}
                         className={cn(
                           legacyCardClass(
-                            "sticky top-0 z-2 border-b-2 border-border-strong bg-[color-mix(in_srgb,var(--table-header-bg)_92%,var(--bg-card))] p-[0.7rem_0.85rem] text-left align-top font-['Plus_Jakarta_Sans',sans-serif] text-[0.68rem] font-bold tracking-wider uppercase shadow-[0_1px_0_var(--table-header-shadow-line)] backdrop-blur-[6px]",
+                            "border-border-strong sticky top-0 z-2 border-b-2 bg-[color-mix(in_srgb,var(--table-header-bg)_92%,var(--bg-card))] p-[0.7rem_0.85rem] text-left align-top font-['Plus_Jakarta_Sans',sans-serif] text-[0.68rem] font-bold tracking-wider uppercase shadow-[0_1px_0_var(--table-header-shadow-line)] backdrop-blur-[6px]",
                           ),
                           columnClass(kind),
                         )}
@@ -216,7 +214,7 @@ export function SampleDataModal({
                 {sample.rows.map((row, i) => (
                   <tr
                     key={i}
-                    className={`group/row border-b border-border last:border-b-0 odd:bg-(--table-stripe-odd) even:bg-(--table-stripe-even) hover:bg-(--table-stripe-hover)`}
+                    className={`group/row border-border border-b last:border-b-0 odd:bg-(--table-stripe-odd) even:bg-(--table-stripe-even) hover:bg-(--table-stripe-hover)`}
                   >
                     {row.map((cell, j) => {
                       const colName = sample.columns[j]?.name ?? ''
@@ -240,7 +238,7 @@ export function SampleDataModal({
       {!loading && sample && rowCount === 0 && (
         <p
           className={legacyCardClass(
-            'mt-2 p-[1.25rem_1rem] border border-dashed border-border rounded-[0.55rem] bg-card-raised text-foreground-muted text-[0.88rem] text-center',
+            'border-border bg-card-raised text-foreground-muted mt-2 rounded-[0.55rem] border border-dashed p-[1.25rem_1rem] text-center text-[0.88rem]',
           )}
         >
           {t('ai_query.sample_modal_empty')}

@@ -116,11 +116,11 @@ export function MFASection({
       ) : (
         <>
           <ul
-            className={`flex flex-col gap-0 m-0 p-0 list-none border border-border rounded-lg overflow-hidden bg-bg-secondary`}
+            className={`border-border bg-bg-secondary m-0 flex list-none flex-col gap-0 overflow-hidden rounded-lg border p-0`}
             role="list"
           >
             <li
-              className={`py-[0.9rem] px-4 border-b border-border transition-colors duration-150 hover:bg-white/1.5 last:border-b-0`}
+              className={`border-border border-b px-4 py-[0.9rem] transition-colors duration-150 last:border-b-0 hover:bg-white/1.5`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-wrap items-center gap-x-[0.55rem] gap-y-[0.4rem]">
@@ -191,7 +191,7 @@ export function MFASection({
                   </button>
                 </div>
               </div>
-              <p className="mt-[0.45rem] mr-0 mb-0 ml-0 text-[0.78rem] leading-[1.45] text-foreground-muted">
+              <p className="text-foreground-muted mt-[0.45rem] mr-0 mb-0 ml-0 text-[0.78rem] leading-[1.45]">
                 {t('mfa.col_enabled_at')}:{' '}
                 {status.verified_at
                   ? formatDateTime(status.verified_at, localeLanguageTag(locale))

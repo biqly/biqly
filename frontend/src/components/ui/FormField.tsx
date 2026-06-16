@@ -56,7 +56,7 @@ export function FormField({
       />
       {error ? (
         <p
-          className={legacyFeedbackClass('mt-1 text-[0.8rem] text-error')}
+          className={legacyFeedbackClass('text-error mt-1 text-[0.8rem]')}
           id={errorId}
           role="alert"
         >

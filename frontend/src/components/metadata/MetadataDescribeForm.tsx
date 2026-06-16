@@ -34,7 +34,7 @@ export function MetadataDescribeForm({
 }) {
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
+      <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2">
         <fieldset className={modalDescribeFieldsetClass}>
           <legend className={modalDescribeLegendClass}>{t('metadata.describe_sample_size')}</legend>
           <div className="mt-2">

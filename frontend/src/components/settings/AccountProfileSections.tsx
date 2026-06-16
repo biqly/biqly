@@ -51,7 +51,7 @@ export function AccountProfileHero({
         <div className="relative h-13 w-13">
           <button
             type="button"
-            className="group relative grid h-full w-full cursor-pointer place-items-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] p-0 text-accent transition-all duration-200 hover:border-accent hover:shadow-[0_0_12px_rgba(99,102,241,0.25)]"
+            className="group text-accent hover:border-accent relative grid h-full w-full cursor-pointer place-items-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] p-0 transition-all duration-200 hover:shadow-[0_0_12px_rgba(99,102,241,0.25)]"
             onClick={onAvatarClick}
             title={t('settings.profile_picture_change')}
           >
@@ -82,7 +82,7 @@ export function AccountProfileHero({
             <button
               type="button"
               className={legacyCardClass(
-                'absolute -bottom-1 -right-1 w-[1.35rem] h-[1.35rem] rounded-full bg-card border border-border text-foreground-faint flex items-center justify-center cursor-pointer shadow-[0_2px_6px_rgba(0,0,0,0.4)] transition-all duration-180 hover:text-error hover:border-error hover:bg-[color-mix(in_srgb,var(--error)_10%,var(--bg-card))] hover:scale-105',
+                'bg-card border-border text-foreground-faint hover:text-error hover:border-error absolute -right-1 -bottom-1 flex h-[1.35rem] w-[1.35rem] cursor-pointer items-center justify-center rounded-full border shadow-[0_2px_6px_rgba(0,0,0,0.4)] transition-all duration-180 hover:scale-105 hover:bg-[color-mix(in_srgb,var(--error)_10%,var(--bg-card))]',
               )}
               onClick={onAvatarRemove}
               title={t('settings.profile_picture_remove')}
@@ -119,7 +119,7 @@ export function AccountProfileHero({
           <h2 id="settings-profile-heading" className="m-0 text-[1.15rem]">
             {t('settings.profile_section')}
           </h2>
-          <p className="mt-[0.35rem] mr-0 mb-0 ml-0 text-[0.875rem] leading-[1.45] text-foreground-muted">
+          <p className="text-foreground-muted mt-[0.35rem] mr-0 mb-0 ml-0 text-[0.875rem] leading-[1.45]">
             {t('settings.profile_hint')}
           </p>
         </div>
@@ -157,8 +157,8 @@ export function AccountProfileHero({
           <p
             className={
               profileMessage.type === 'success'
-                ? 'm-0 text-[0.875rem] text-success'
-                : 'm-0 text-[0.875rem] text-error'
+                ? 'text-success m-0 text-[0.875rem]'
+                : 'text-error m-0 text-[0.875rem]'
             }
           >
             {profileMessage.text}
@@ -204,7 +204,7 @@ export function AccountEmailChangeSection({
         <h3 id="settings-email-change-heading" className="m-0 text-[0.95rem] font-semibold">
           {t('settings.profile_email_change_title')}
         </h3>
-        <p className="m-0 text-[0.85rem] leading-[1.45] text-foreground-muted">
+        <p className="text-foreground-muted m-0 text-[0.85rem] leading-[1.45]">
           {t('settings.profile_email_change_hint')}
         </p>
         <div className={legacyFormClass('form-group')}>
@@ -222,8 +222,8 @@ export function AccountEmailChangeSection({
           <p
             className={
               emailMessage.type === 'success'
-                ? 'm-0 text-[0.875rem] text-success'
-                : 'm-0 text-[0.875rem] text-error'
+                ? 'text-success m-0 text-[0.875rem]'
+                : 'text-error m-0 text-[0.875rem]'
             }
           >
             {emailMessage.text}
@@ -284,7 +284,7 @@ export function AccountPasswordSection({
           {t('settings.profile_password_title')}
         </h3>
         {!hasPassword ? (
-          <p className="m-0 text-[0.85rem] leading-[1.45] text-foreground-muted">
+          <p className="text-foreground-muted m-0 text-[0.85rem] leading-[1.45]">
             {t('settings.profile_no_password')}
           </p>
         ) : (
@@ -328,8 +328,8 @@ export function AccountPasswordSection({
               <p
                 className={
                   passwordMessage.type === 'success'
-                    ? 'm-0 text-[0.875rem] text-success'
-                    : 'm-0 text-[0.875rem] text-error'
+                    ? 'text-success m-0 text-[0.875rem]'
+                    : 'text-error m-0 text-[0.875rem]'
                 }
               >
                 {passwordMessage.text}
@@ -345,7 +345,7 @@ export function AccountPasswordSection({
               </button>
               <Link
                 to="/auth/forgot-password"
-                className="text-[0.875rem] text-accent no-underline hover:underline"
+                className="text-accent text-[0.875rem] no-underline hover:underline"
                 onClick={onForgotPassword}
               >
                 {t('settings.profile_forgot_password')}
@@ -385,7 +385,7 @@ export function AccountMfaBypassSection({
         <h3 id="settings-support-heading" className="m-0 text-[0.95rem] font-semibold">
           {t('settings.profile_mfa_bypass_title')}
         </h3>
-        <p className="m-0 text-[0.85rem] leading-[1.45] text-foreground-muted">
+        <p className="text-foreground-muted m-0 text-[0.85rem] leading-[1.45]">
           {t('settings.profile_mfa_bypass_hint')}
         </p>
         <button
@@ -398,12 +398,12 @@ export function AccountMfaBypassSection({
           {t('settings.profile_mfa_bypass_btn')}
         </button>
         {bypassError && (
-          <p className={legacyFeedbackClass('m-0 text-[0.875rem] text-error')}>{bypassError}</p>
+          <p className={legacyFeedbackClass('text-error m-0 text-[0.875rem]')}>{bypassError}</p>
         )}
         {bypassCode && (
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <code
-              className={`font-mono text-[1rem] tracking-wider py-2 px-3 rounded-[0.35rem] border border-dashed border-border bg-white/3`}
+              className={`border-border rounded-[0.35rem] border border-dashed bg-white/3 px-3 py-2 font-mono text-[1rem] tracking-wider`}
             >
               {bypassCode}
             </code>

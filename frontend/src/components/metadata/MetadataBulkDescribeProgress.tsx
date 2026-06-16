@@ -36,23 +36,23 @@ export function MetadataBulkDescribeProgress({
           progress={activeDescribeBatchJob?.progress_json ?? null}
         />
       )}
-      <div className={`flex-1 min-h-0 overflow-auto border border-border rounded-md`}>
+      <div className={`border-border min-h-0 flex-1 overflow-auto rounded-md border`}>
         <table
-          className="min-w-0 w-full table-fixed mt-0 text-[0.8125rem] border-collapse"
+          className="mt-0 w-full min-w-0 table-fixed border-collapse text-[0.8125rem]"
           style={{ margin: 0 }}
         >
           <thead>
             <tr>
-              <th className="sticky top-0 z-3 p-[0.5rem_0.45rem] bg-(--table-header-bg) text-(--table-header-fg) font-['Plus_Jakarta_Sans',sans-serif] text-[0.7rem] font-bold tracking-wider uppercase border-b border-border-strong shadow-[0_1px_0_var(--table-header-shadow-line)] w-9 text-right [font-variant-numeric:tabular-nums]">
+              <th className="border-border-strong sticky top-0 z-3 w-9 border-b bg-(--table-header-bg) p-[0.5rem_0.45rem] text-right font-['Plus_Jakarta_Sans',sans-serif] text-[0.7rem] font-bold tracking-wider text-(--table-header-fg) uppercase [font-variant-numeric:tabular-nums] shadow-[0_1px_0_var(--table-header-shadow-line)]">
                 {t('metadata.bulk_table_idx')}
               </th>
-              <th className="sticky top-0 z-3 p-[0.5rem_0.45rem] text-left align-top bg-(--table-header-bg) text-(--table-header-fg) font-['Plus_Jakarta_Sans',sans-serif] text-[0.7rem] font-bold tracking-wider uppercase border-b border-border-strong shadow-[0_1px_0_var(--table-header-shadow-line)]">
+              <th className="border-border-strong sticky top-0 z-3 border-b bg-(--table-header-bg) p-[0.5rem_0.45rem] text-left align-top font-['Plus_Jakarta_Sans',sans-serif] text-[0.7rem] font-bold tracking-wider text-(--table-header-fg) uppercase shadow-[0_1px_0_var(--table-header-shadow-line)]">
                 {t('metadata.bulk_table_name')}
               </th>
-              <th className="sticky top-0 z-3 p-[0.5rem_0.45rem] text-left align-top bg-(--table-header-bg) text-(--table-header-fg) font-['Plus_Jakarta_Sans',sans-serif] text-[0.7rem] font-bold tracking-wider uppercase border-b border-border-strong shadow-[0_1px_0_var(--table-header-shadow-line)] w-26">
+              <th className="border-border-strong sticky top-0 z-3 w-26 border-b bg-(--table-header-bg) p-[0.5rem_0.45rem] text-left align-top font-['Plus_Jakarta_Sans',sans-serif] text-[0.7rem] font-bold tracking-wider text-(--table-header-fg) uppercase shadow-[0_1px_0_var(--table-header-shadow-line)]">
                 {t('metadata.bulk_table_status')}
               </th>
-              <th className="sticky top-0 z-3 p-[0.5rem_0.45rem] text-left align-top bg-(--table-header-bg) text-(--table-header-fg) font-['Plus_Jakarta_Sans',sans-serif] text-[0.7rem] font-bold tracking-wider uppercase border-b border-border-strong shadow-[0_1px_0_var(--table-header-shadow-line)]">
+              <th className="border-border-strong sticky top-0 z-3 border-b bg-(--table-header-bg) p-[0.5rem_0.45rem] text-left align-top font-['Plus_Jakarta_Sans',sans-serif] text-[0.7rem] font-bold tracking-wider text-(--table-header-fg) uppercase shadow-[0_1px_0_var(--table-header-shadow-line)]">
                 {t('metadata.bulk_table_detail')}
               </th>
             </tr>
@@ -61,25 +61,25 @@ export function MetadataBulkDescribeProgress({
             {bulkEntriesDisplay.map((e, idx) => (
               <tr
                 key={`${e.schema}.${e.table}`}
-                className={`border-b border-border last:border-0 odd:bg-(--table-stripe-odd) even:bg-(--table-stripe-even)`}
+                className={`border-border border-b last:border-0 odd:bg-(--table-stripe-odd) even:bg-(--table-stripe-even)`}
               >
-                <td className="p-[0.3rem_0.45rem] align-top text-right text-foreground-faint [font-variant-numeric:tabular-nums] w-9">
+                <td className="text-foreground-faint w-9 p-[0.3rem_0.45rem] text-right align-top [font-variant-numeric:tabular-nums]">
                   {idx + 1}
                 </td>
-                <td className="p-[0.3rem_0.45rem] align-top text-foreground-muted">
-                  <code className="block whitespace-normal wrap-anywhere text-[0.78rem] leading-[1.35]">
+                <td className="text-foreground-muted p-[0.3rem_0.45rem] align-top">
+                  <code className="block text-[0.78rem] leading-[1.35] wrap-anywhere whitespace-normal">
                     {e.schema}.{e.table}
                   </code>
                 </td>
-                <td className="p-[0.3rem_0.45rem] align-top w-26">
+                <td className="w-26 p-[0.3rem_0.45rem] align-top">
                   <BulkStatusBadge status={e.status} />
                 </td>
                 <td
-                  className="p-[0.3rem_0.45rem] align-top text-foreground-muted"
+                  className="text-foreground-muted p-[0.3rem_0.45rem] align-top"
                   style={{ color: 'var(--text-secondary)' }}
                 >
                   <span
-                    className="line-clamp-2 overflow-hidden wrap-anywhere leading-[1.35] text-[0.78rem] max-w-full"
+                    className="line-clamp-2 max-w-full overflow-hidden text-[0.78rem] leading-[1.35] wrap-anywhere"
                     title={e.message}
                   >
                     {e.message ?? (e.status === 'pending' ? t('common.em_dash') : '')}

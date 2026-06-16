@@ -203,13 +203,13 @@ before any `git commit`, run the linters AND tests for the code you changed, and
 3. **frontend full gate** (same as CI): `make check-frontend` (lint + format:check + knip + test + build)
 4. **AI eval** (when touching `internal/ai/eval/`, golden cases, eval handlers, or `cmd/eval-live/`): `make eval-regression` — stub provider, no API key; same gate as `.github/workflows/test.yml`. Do **not** run `make eval-live` before commit (real LLM; nightly workflow only).
 
-or run everything in one command: `make precommit` (= `make lint` + `make test`). `make precommit` does **not** include `make eval-regression`; run that separately when AI eval code changes.
+or run everything in one command: `make precommit` (= `make format-frontend` + `make lint` + `make test`). `make precommit` does **not** include `make eval-regression`; run that separately when AI eval code changes.
 
 `make lint-go` / `golangci-lint run` scans the whole repo, not only files you edited. if you add or enable linters (e.g. `.golangci.yml`), fix all new findings across the codebase in the same change before commit.
 
 Run `gofmt -w` on every touched `.go` file before linting. Formatting drift is a blocker, even when the code compiles.
 
-Run `npx prettier --check` (or `npm --prefix frontend run format:check`) on every touched frontend file alongside `eslint` and `tsc`. ESLint and tsc passing does NOT catch Prettier drift, and CI runs `format:check` as a separate gate that will fail the build. Editing a file (e.g. adding an import) can leave neighboring code in a non-Prettier-compliant shape, so always re-run Prettier on touched frontend files before commit.
+Frontend Prettier formatting is auto-fixed by `make precommit` (runs `npm --prefix frontend run format` before lint). You can also run it standalone: `npm --prefix frontend run format`. CI runs `format:check` separately — if you used `make precommit` before commit, it will already be clean.
 
 `deadcode -test` must be scoped through `go list` and exclude `/frontend` because `frontend/node_modules` can contain third-party Go packages. Treat findings as blockers to triage before commit, but do not blindly delete: exported APIs, alternate build tags, reflection/linkname paths, and future integration seams may need an explicit keep decision.
 

@@ -94,11 +94,11 @@ export function MetadataBulkDescribeModal({
         <div>
           <h2
             id="bulk-metadata-title"
-            className="m-0 text-[0.95rem] font-[650] tracking-[-0.02em] leading-tight"
+            className="m-0 text-[0.95rem] leading-tight font-[650] tracking-[-0.02em]"
           >
             {t('metadata.bulk_modal_title')}
           </h2>
-          <p className="mt-[0.2rem] mx-0 mb-0 text-[0.72rem] text-foreground-faint leading-[1.35] max-w-lg">
+          <p className="text-foreground-faint mx-0 mt-[0.2rem] mb-0 max-w-lg text-[0.72rem] leading-[1.35]">
             {t('metadata.bulk_modal_subtitle')}
           </p>
         </div>

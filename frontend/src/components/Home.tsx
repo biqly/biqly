@@ -107,14 +107,14 @@ export default function Home() {
               key={action.path}
               type="button"
               className={legacyCardClass(
-                'flex flex-col items-start gap-[0.65rem] border border-border rounded-[0.7rem] bg-card p-4 cursor-pointer text-foreground text-left transition-all duration-140 ease-out hover:border-accent hover:bg-(--accent-glow) hover:-translate-y-0.5',
+                'border-border bg-card text-foreground hover:border-accent flex cursor-pointer flex-col items-start gap-[0.65rem] rounded-[0.7rem] border p-4 text-left transition-all duration-140 ease-out hover:-translate-y-0.5 hover:bg-(--accent-glow)',
               )}
               onClick={() => {
                 void navigate(action.path)
               }}
             >
               <span
-                className="inline-grid h-[2.2rem] w-[2.2rem] place-items-center rounded-[0.55rem] bg-(--accent-glow) text-accent"
+                className="text-accent inline-grid h-[2.2rem] w-[2.2rem] place-items-center rounded-[0.55rem] bg-(--accent-glow)"
                 aria-hidden="true"
               >
                 {action.icon}
@@ -186,7 +186,7 @@ function RecentQueries() {
               <button
                 type="button"
                 className={legacyCardClass(
-                  'flex flex-col gap-[0.2rem] w-full rounded-lg py-[0.6rem] px-[0.65rem] border-0 bg-transparent cursor-pointer text-left text-foreground font-inherit hover:bg-card-raised',
+                  'text-foreground font-inherit hover:bg-card-raised flex w-full cursor-pointer flex-col gap-[0.2rem] rounded-lg border-0 bg-transparent px-[0.65rem] py-[0.6rem] text-left',
                 )}
                 onClick={() => {
                   void navigate('/ai-query', { state: { question: item.question } })
@@ -194,7 +194,7 @@ function RecentQueries() {
                 aria-label={`${t('home.open_aria')}: ${item.question}`}
               >
                 <span className="truncate text-[0.88rem] font-medium">{item.question}</span>
-                <span className="truncate text-[0.76rem] text-foreground-muted">
+                <span className="text-foreground-muted truncate text-[0.76rem]">
                   {formatDate(item.created_at)}
                 </span>
               </button>
@@ -265,7 +265,7 @@ function Favorites() {
               <button
                 type="button"
                 className={legacyCardClass(
-                  'flex flex-col gap-[0.2rem] w-full rounded-lg py-[0.6rem] px-[0.65rem] border-0 bg-transparent cursor-pointer text-left text-foreground font-inherit hover:bg-card-raised min-w-0 flex-1',
+                  'text-foreground font-inherit hover:bg-card-raised flex w-full min-w-0 flex-1 cursor-pointer flex-col gap-[0.2rem] rounded-lg border-0 bg-transparent px-[0.65rem] py-[0.6rem] text-left',
                 )}
                 onClick={() => {
                   void navigate('/saved')
@@ -274,7 +274,7 @@ function Favorites() {
               >
                 <span className="truncate text-[0.88rem] font-medium">{item.name}</span>
                 {item.description && (
-                  <span className="truncate text-[0.76rem] text-foreground-muted">
+                  <span className="text-foreground-muted truncate text-[0.76rem]">
                     {item.description}
                   </span>
                 )}
@@ -282,7 +282,7 @@ function Favorites() {
               <button
                 type="button"
                 className={legacyCardClass(
-                  'shrink-0 border-0 bg-transparent text-warning cursor-pointer text-[1.1rem] leading-none p-[0.3rem] rounded-[0.4rem] hover:bg-card-raised',
+                  'text-warning hover:bg-card-raised shrink-0 cursor-pointer rounded-[0.4rem] border-0 bg-transparent p-[0.3rem] text-[1.1rem] leading-none',
                 )}
                 onClick={() => {
                   void unfavorite(item)

@@ -36,7 +36,7 @@ export function RecoveryCodesDisplay({
           </p>
         </div>
         <div
-          className={`${recoveryCodesGridClass} border border-border`}
+          className={`${recoveryCodesGridClass} border-border border`}
           style={{ padding: '1rem' }}
         >
           {codes.map((code, index) => (
@@ -65,7 +65,7 @@ export function RecoveryCodesDisplay({
 
   return (
     <div
-      className={`overflow-hidden border border-border ${cardLeadMarginClass}`}
+      className={`border-border overflow-hidden border ${cardLeadMarginClass}`}
       style={{ padding: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}
     >
       <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text)' }}>
