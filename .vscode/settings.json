@@ -1,0 +1,32 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "mv": true
+    },
+    "go.useLanguageServer": true,
+    "gopls": {
+        "ui.diagnostic.staticcheck": true,
+        "analyses": {
+            "nilness": true,
+            "unusedwrite": true,
+            "unusedparams": true,
+            "shadow": true
+        }
+    },
+    "go.lintTool": "golangci-lint",
+    "go.lintOnSave": "workspace",
+    "go.lintFlags": [
+        "--config=${workspaceFolder}/.golangci.yml"
+    ],
+    "go.alternateTools": {
+        "golangci-lint": "/opt/homebrew/bin/golangci-lint",
+        "goimports": "/opt/homebrew/bin/goimports"
+    },
+    "go.formatTool": "goimports",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+    },
+    "css.lint.unknownAtRules": "ignore",
+    "tailwindCSS.validate": true,
+    "tailwindCSS.lint.suggestCanonicalClasses": "error"
+}
