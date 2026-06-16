@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { legacyButtonClass } from '../../lib/buttonClasses'
@@ -79,6 +79,95 @@ function AssistantPlainNote({ content }: { content: string }) {
   return <ErrorAlert error={content} />
 }
 
+function AssistantMessageFeedbackRow({
+  userQuestion,
+  datasourceId,
+  hasLogicalQuery,
+  submitFeedback,
+  handleSaveToLibrary,
+  t,
+}: {
+  userQuestion: string
+  datasourceId: string
+  hasLogicalQuery: boolean
+  submitFeedback: (
+    body: Record<string, unknown>,
+  ) => Promise<{ status: string; learned?: boolean } | null>
+  handleSaveToLibrary: () => void
+  t: AssistantMessageCardProps['t']
+}) {
+  return (
+    <div className="feedback-row-wrapper">
+      <FeedbackSection
+        onSubmitPositive={async () => {
+          const res = await submitFeedback({
+            question: userQuestion,
+            datasource_id: datasourceId,
+            rating: 'positive',
+          })
+          return res?.learned === true
+        }}
+        onSubmitNegative={(categories: FeedbackCatKey[], text: string) => {
+          void submitFeedback({
+            question: userQuestion,
+            datasource_id: datasourceId,
+            rating: 'negative',
+            categories: categories.map((k) => t(k)),
+            text,
+          })
+        }}
+      />
+      {hasLogicalQuery && (
+        <button
+          type="button"
+          className={legacyButtonClass('btn btn-sm btn-ghost')}
+          style={{
+            marginLeft: 'auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.25rem',
+          }}
+          onClick={handleSaveToLibrary}
+          title={t('saved_questions.new')}
+        >
+          💾 {t('saved_questions.new')}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function AssistantMessageDetailsSection({
+  showDetails,
+  result,
+  aiRuntime,
+  onSampleData,
+  t,
+  localeTag,
+}: {
+  showDetails: boolean
+  result: NonNullable<ReturnType<typeof normalizeAIQueryResponse>>
+  aiRuntime: AssistantMessageCardProps['aiRuntime']
+  onSampleData: (tableName: string) => void
+  t: AssistantMessageCardProps['t']
+  localeTag: string
+}) {
+  if (!showDetails) {
+    return null
+  }
+  return (
+    <>
+      <AssistantMessageHeader result={result} aiRuntime={aiRuntime} t={t} />
+      <AssistantMessageQueryDetails
+        result={result}
+        onSampleData={onSampleData}
+        t={t}
+        localeTag={localeTag}
+      />
+    </>
+  )
+}
+
 function mapChartSuggestion(raw: string | undefined): 'bar' | 'line' | 'pie' | 'table' | null {
   if (!raw) {
     return null
@@ -88,6 +177,19 @@ function mapChartSuggestion(raw: string | undefined): 'bar' | 'line' | 'pie' | '
     return mapped
   }
   return null
+}
+
+function useResetStateOnDepsChange<T>(initialValue: T, deps: unknown[]) {
+  const [state, setState] = useState<T>(initialValue)
+  const [prevDeps, setPrevDeps] = useState(deps)
+
+  const changed = deps.some((d, i) => d !== prevDeps[i])
+  if (changed) {
+    setPrevDeps(deps)
+    setState(initialValue)
+  }
+
+  return [state, setState] as const
 }
 
 export function AssistantMessageCard({
@@ -110,8 +212,12 @@ export function AssistantMessageCard({
   const navigate = useNavigate()
   const result = normalizeAIQueryResponse(message.ai_response)
 
-  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'table'>('table')
-  const [tableView, setTableView] = useState<'flat' | 'pivot'>('flat')
+  const [chartTypeOverride, setChartTypeOverride] = useResetStateOnDepsChange<
+    'bar' | 'line' | 'pie' | 'table' | null
+  >(null, [message.ai_response, conversationId])
+  const [tableViewOverride, setTableViewOverride] = useResetStateOnDepsChange<
+    'flat' | 'pivot' | null
+  >(null, [message.ai_response, conversationId])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sampleModalOpen, setSampleModalOpen] = useState(false)
@@ -132,22 +238,15 @@ export function AssistantMessageCard({
     return buildPivotTable(cols, rows, hint)
   }, [result?.result?.pivot_hint, result?.result?.columns, result?.result?.rows])
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTableView(pivotTable ? 'pivot' : 'flat')
-  }, [pivotTable, result?.logical_query?.model_id])
-
-  useEffect(() => {
-    const mapped = mapChartSuggestion(
-      result?.visualization_hint?.chart_type ?? result?.result?.chart_suggestions?.[0],
-    )
-    if (mapped && mapped !== 'table') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setChartType(mapped)
-    } else if (mapped === 'table') {
-      setChartType('table')
-    }
-  }, [result?.visualization_hint?.chart_type, result?.result?.chart_suggestions])
+  const suggestedChartType = useMemo(
+    () =>
+      mapChartSuggestion(
+        result?.visualization_hint?.chart_type ?? result?.result?.chart_suggestions?.[0],
+      ),
+    [result?.visualization_hint?.chart_type, result?.result?.chart_suggestions],
+  )
+  const chartType = chartTypeOverride ?? suggestedChartType ?? 'table'
+  const tableView = tableViewOverride ?? (pivotTable ? 'pivot' : 'flat')
 
   if (!result) {
     return <AssistantPlainNote content={message.content} />
@@ -181,7 +280,7 @@ export function AssistantMessageCard({
       }
       const mapped = mapChartSuggestion(res.chart_suggestions?.[0])
       if (mapped) {
-        setChartType(mapped)
+        setChartTypeOverride(mapped)
       }
       updateMessageResponse(conversationId, messageIndex, { ...result, result: res })
     } catch (err: unknown) {
@@ -225,7 +324,17 @@ export function AssistantMessageCard({
         onToggle={() => setShowDetails((v) => !v)}
         t={t}
       />
-      {showDetails && <AssistantMessageHeader result={result} aiRuntime={aiRuntime} t={t} />}
+      <AssistantMessageDetailsSection
+        showDetails={showDetails}
+        result={result}
+        aiRuntime={aiRuntime}
+        onSampleData={(tableName) => {
+          setSampleModalTable(tableName)
+          setSampleModalOpen(true)
+        }}
+        t={t}
+        localeTag={localeTag}
+      />
       <AssistantMessageClarificationSections
         result={result}
         userQuestion={result.resolved_question ?? userQuestion}
@@ -234,17 +343,6 @@ export function AssistantMessageCard({
         onUseCandidate={handleUseCandidate}
         t={t}
       />
-      {showDetails && (
-        <AssistantMessageQueryDetails
-          result={result}
-          onSampleData={(tableName) => {
-            setSampleModalTable(tableName)
-            setSampleModalOpen(true)
-          }}
-          t={t}
-          localeTag={localeTag}
-        />
-      )}
       <AssistantRunPrompt
         result={result}
         loading={loading}
@@ -258,9 +356,9 @@ export function AssistantMessageCard({
         <AssistantMessageResults
           result={resultWithPayload}
           chartType={chartType}
-          setChartType={setChartType}
+          setChartType={(value) => setChartTypeOverride(value)}
           tableView={tableView}
-          setTableView={setTableView}
+          setTableView={(value) => setTableViewOverride(value)}
           pivotTable={pivotTable}
           userQuestion={userQuestion}
           onFilterByValue={onFilterByValue}
@@ -268,43 +366,14 @@ export function AssistantMessageCard({
           t={t}
         />
       )}
-      <div className="feedback-row-wrapper">
-        <FeedbackSection
-          onSubmitPositive={async () => {
-            const res = await submitFeedback({
-              question: userQuestion,
-              datasource_id: datasourceId,
-              rating: 'positive',
-            })
-            return res?.learned === true
-          }}
-          onSubmitNegative={(categories: FeedbackCatKey[], text: string) => {
-            void submitFeedback({
-              question: userQuestion,
-              datasource_id: datasourceId,
-              rating: 'negative',
-              categories: categories.map((k) => t(k)),
-              text,
-            })
-          }}
-        />
-        {result.logical_query && (
-          <button
-            type="button"
-            className={legacyButtonClass('btn btn-sm btn-ghost')}
-            style={{
-              marginLeft: 'auto',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-            }}
-            onClick={handleSaveToLibrary}
-            title={t('saved_questions.new')}
-          >
-            💾 {t('saved_questions.new')}
-          </button>
-        )}
-      </div>
+      <AssistantMessageFeedbackRow
+        userQuestion={userQuestion}
+        datasourceId={datasourceId}
+        hasLogicalQuery={!!result.logical_query}
+        submitFeedback={submitFeedback}
+        handleSaveToLibrary={handleSaveToLibrary}
+        t={t}
+      />
       <SampleDataModal
         open={sampleModalOpen}
         onClose={() => setSampleModalOpen(false)}

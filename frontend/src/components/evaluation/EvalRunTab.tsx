@@ -65,22 +65,22 @@ function DiffView({
   return (
     <div
       className={legacyCardClass(
-        'grid grid-cols-2 gap-3 p-3 bg-card-raised border border-border rounded-lg mt-2',
+        'bg-card-raised border-border mt-2 grid grid-cols-2 gap-3 rounded-lg border p-3',
       )}
     >
       <div className="diff-col">
-        <div className="text-[0.72rem] font-bold uppercase tracking-wider text-foreground-faint mb-1.5">
+        <div className="text-foreground-faint mb-1.5 text-[0.72rem] font-bold tracking-wider uppercase">
           Expected
         </div>
-        <pre className="m-0 font-mono text-[0.7rem] leading-relaxed text-foreground-muted max-h-[250px] overflow-auto whitespace-pre break-all">
+        <pre className="text-foreground-muted m-0 max-h-62.5 overflow-auto font-mono text-[0.7rem] leading-relaxed break-all whitespace-pre">
           {expectedStr}
         </pre>
       </div>
       <div className="diff-col">
-        <div className="text-[0.72rem] font-bold uppercase tracking-wider text-foreground-faint mb-1.5">
+        <div className="text-foreground-faint mb-1.5 text-[0.72rem] font-bold tracking-wider uppercase">
           Actual
         </div>
-        <pre className="m-0 font-mono text-[0.7rem] leading-relaxed text-foreground-muted max-h-[250px] overflow-auto whitespace-pre break-all">
+        <pre className="text-foreground-muted m-0 max-h-62.5 overflow-auto font-mono text-[0.7rem] leading-relaxed break-all whitespace-pre">
           {gotStr}
         </pre>
       </div>
@@ -95,7 +95,7 @@ function TestCaseRow({ tc, t }: { tc: EvalTestCase; t: TFunction }) {
   return (
     <>
       <tr>
-        <td className="font-mono text-[0.8rem] text-foreground-muted whitespace-nowrap">{tc.id}</td>
+        <td className="text-foreground-muted font-mono text-[0.8rem] whitespace-nowrap">{tc.id}</td>
         <td className="max-w-[320px] overflow-hidden text-ellipsis whitespace-nowrap">
           {tc.question}
         </td>
@@ -111,7 +111,7 @@ function TestCaseRow({ tc, t }: { tc: EvalTestCase; t: TFunction }) {
         </td>
         <td>
           {isFail && tc.error_message && (
-            <span className="block text-[0.72rem] text-warning mb-1 max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap">
+            <span className="text-warning mb-1 block max-w-70 overflow-hidden text-[0.72rem] text-ellipsis whitespace-nowrap">
               {tc.error_message}
             </span>
           )}
@@ -161,7 +161,7 @@ export function EvalRunTab({
         </div>
 
         {showDemo && (
-          <div className="bg-[rgba(251,191,36,0.08)] border border-[rgba(251,191,36,0.25)] rounded-lg px-[0.85rem] py-[0.6rem] text-[0.82rem] text-warning mb-4">
+          <div className="text-warning mb-4 rounded-lg border border-[rgba(251,191,36,0.25)] bg-[rgba(251,191,36,0.08)] px-[0.85rem] py-[0.6rem] text-[0.82rem]">
             {t('evaluation.demo_banner')}
           </div>
         )}
@@ -196,7 +196,7 @@ export function EvalRunTab({
           </div>
 
           {/* Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className={legacyCardClass('card')}>
               <h3>{t('evaluation.chart_pass_distribution')}</h3>
               <div className={chartContainerClass} style={{ height: 240 }}>
@@ -244,7 +244,7 @@ export function EvalRunTab({
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <p className="text-foreground-faint text-[0.85rem] text-center py-8">
+                <p className="text-foreground-faint py-8 text-center text-[0.85rem]">
                   {t('evaluation.no_trend_data')}
                 </p>
               )}

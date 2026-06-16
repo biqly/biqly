@@ -322,10 +322,10 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
       {/* Visual traffic split bar */}
       {variants.length > 0 && (
         <div className={adminCardClass}>
-          <h2 className="text-base font-semibold m-0 p-0 border-none">
+          <h2 className="m-0 border-none p-0 text-base font-semibold">
             {t('admin.ab_experiments.traffic_pct')} ({totalTraffic}%)
           </h2>
-          <div className="mb-4 mt-3 flex h-3 w-full overflow-hidden rounded-full bg-card-raised">
+          <div className="mt-3 mb-4 flex h-3 w-full overflow-hidden rounded-full bg-card-raised">
             {variants.map((v, i) => (
               <div
                 key={v.id ?? i}
@@ -348,7 +348,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
       )}
 
       {/* Main Grid content */}
-      <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         {/* Left column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {/* Recommendation Banner */}
@@ -358,7 +358,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                 <span>💡</span>
                 {t('admin.ab_experiments.recommendation_title')}
               </div>
-              <div className="text-sm text-foreground leading-relaxed">{recommendation.reason}</div>
+              <div className="text-sm leading-relaxed text-foreground">{recommendation.reason}</div>
             </div>
           )}
 
@@ -381,7 +381,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
               </thead>
               <tbody>
                 {variants.map((v) => (
-                  <tr key={v.id} className="hover:bg-[var(--control-hover-bg)]">
+                  <tr key={v.id} className="hover:bg-(--control-hover-bg)">
                     <td className={`px-4 py-3 border-b border-border text-sm font-semibold`}>
                       {v.name}
                     </td>
@@ -421,7 +421,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                     {t('admin.ab_experiments.add_variant')}
                   </h3>
                   {varError ? <div className={adminErrBoxClass}>{varError}</div> : null}
-                  <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-3 items-center">
+                  <div className="grid grid-cols-[2fr_1fr_1fr_auto] items-center gap-3">
                     <input
                       type="text"
                       className={adminInputClass}
@@ -491,7 +491,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                   {metrics.map((m) => {
                     const variant = variants.find((v) => v.id === m.variant_id)
                     return (
-                      <tr key={m.variant_id} className="hover:bg-[var(--control-hover-bg)]">
+                      <tr key={m.variant_id} className="hover:bg-(--control-hover-bg)">
                         <td className={`px-4 py-3 border-b border-border text-sm font-semibold`}>
                           {variant?.name ?? 'Unknown'}{' '}
                           {variant?.is_control && (

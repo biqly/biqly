@@ -167,7 +167,11 @@ func binaryExprSQL(expr *pkgsemantic.BinaryExpr, d dialect.Dialect, resolver *Sc
 			return "(" + left + " || " + right + ")", nil
 		}
 	}
-	return "(" + left + " " + binaryOpSQL(expr.Op) + " " + right + ")", nil
+	opSQL, err := binaryOpSQL(expr.Op)
+	if err != nil {
+		return "", err
+	}
+	return "(" + left + " " + opSQL + " " + right + ")", nil
 }
 
 func unaryExprSQL(expr *pkgsemantic.UnaryExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
@@ -292,38 +296,38 @@ func caseExprSQL(expr *pkgsemantic.CaseExpr, d dialect.Dialect, resolver *Schema
 	return strings.Join(chunks, ""), nil
 }
 
-func binaryOpSQL(op pkgsemantic.BinaryOp) string {
+func binaryOpSQL(op pkgsemantic.BinaryOp) (string, error) {
 	switch op {
 	case pkgsemantic.OpAdd:
-		return "+"
+		return "+", nil
 	case pkgsemantic.OpSubtract:
-		return "-"
+		return "-", nil
 	case pkgsemantic.OpMultiply:
-		return "*"
+		return "*", nil
 	case pkgsemantic.OpDivide:
-		return "/"
+		return "/", nil
 	case pkgsemantic.OpModulo:
-		return "%"
+		return "%", nil
 	case pkgsemantic.OpEq:
-		return "="
+		return "=", nil
 	case pkgsemantic.OpNeq:
-		return "<>"
+		return "<>", nil
 	case pkgsemantic.OpLt:
-		return "<"
+		return "<", nil
 	case pkgsemantic.OpLte:
-		return "<="
+		return "<=", nil
 	case pkgsemantic.OpGt:
-		return ">"
+		return ">", nil
 	case pkgsemantic.OpGte:
-		return ">="
+		return ">=", nil
 	case pkgsemantic.OpAnd:
-		return "AND"
+		return "AND", nil
 	case pkgsemantic.OpOr:
-		return "OR"
+		return "OR", nil
 	case pkgsemantic.OpConcat:
-		return "||"
+		return "||", nil
 	default:
-		return strings.ToUpper(string(op))
+		return "", fmt.Errorf("unsupported binary operator %q", op)
 	}
 }
 

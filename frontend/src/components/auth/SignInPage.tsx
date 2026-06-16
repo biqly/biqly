@@ -214,11 +214,11 @@ export default function SignInPage() {
   return (
     <div className={authPageClass}>
       <div className={authCardClass}>
-        <div className="flex flex-col items-center text-center mb-6">
-          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
-            <img src={abiLogo} alt="" className="w-[34px] h-[34px] object-contain" />
+        <div className="mb-6 flex flex-col items-center text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]">
+            <img src={abiLogo} alt="" className="h-8.5 w-8.5 object-contain" />
           </div>
-          <h1 className="text-[24px] font-bold text-foreground mb-1 tracking-tight">
+          <h1 className="mb-1 text-[24px] font-bold tracking-tight text-foreground">
             {t('auth.title_signin')}
           </h1>
           {firstUserSetupRequired ? (
@@ -241,7 +241,7 @@ export default function SignInPage() {
               {t('auth.no_account')}{' '}
               <a
                 href="/auth/signup"
-                className="text-[#6366f1] font-medium no-underline hover:underline"
+                className="font-medium text-[#6366f1] no-underline hover:underline"
                 onClick={(e) => {
                   e.preventDefault()
                   void navigate('/auth/signup')
@@ -255,7 +255,7 @@ export default function SignInPage() {
 
         {sessionBanner && (
           <div
-            className="p-[10px_12px] bg-accent/8 border-l-[3px] border-accent text-[13px] rounded text-foreground-muted mb-2"
+            className="mb-2 rounded border-l-[3px] border-accent bg-accent/8 p-[10px_12px] text-[13px] text-foreground-muted"
             role="status"
             aria-live="polite"
           >

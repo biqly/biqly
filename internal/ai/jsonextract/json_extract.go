@@ -1,3 +1,4 @@
+// Package jsonextract implements JSON extraction and cleaning utilities.
 package jsonextract
 
 import "strings"

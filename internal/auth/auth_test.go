@@ -65,7 +65,8 @@ func TestJWTManager(t *testing.T) {
 	// Validate public key export
 	pubPEM, err := mgr.PublicKeyPEM()
 	require.NoError(t, err)
-	assert.Contains(t, pubPEM, "RSA PUBLIC KEY")
+	assert.Contains(t, pubPEM, "PUBLIC KEY")
+	assert.NotContains(t, pubPEM, "RSA PUBLIC KEY")
 }
 
 func TestJWTManagerSetsIssuerAudienceJTI(t *testing.T) {

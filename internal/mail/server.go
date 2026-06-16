@@ -4,9 +4,10 @@ package mail
 import (
 	"crypto/subtle"
 	"errors"
-	"github.com/bytedance/sonic"
 	"log/slog"
 	"net/http"
+
+	"github.com/bytedance/sonic"
 
 	"github.com/go-chi/chi/v5"
 

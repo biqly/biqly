@@ -100,9 +100,16 @@ func (h *AIJobsHandler) DescribeBatchConflict(w http.ResponseWriter, r *http.Req
 
 func (h *AIJobsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	job, err := h.svc.repo.GetAIJob(r.Context(), id)
+	ctx := r.Context()
+	job, err := h.svc.repo.GetAIJob(ctx, id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "job not found")
+		return
+	}
+	isAdmin := aiJobsAdminRole(ctx)
+	owned := aiJobOwnedBy(job, bimw.UserID(ctx), r.URL.Query().Get("client_session_id"))
+	if !isAdmin && !owned {
+		writeError(w, http.StatusForbidden, "not allowed to view this job")
 		return
 	}
 	writeJSON(w, http.StatusOK, job)

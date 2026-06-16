@@ -13,7 +13,7 @@ export const sidebarHeaderTitleClass =
 export const conversationsListClass = 'flex-1 overflow-y-auto flex flex-col gap-2 pr-1'
 
 export const conversationItemBaseClass =
-  'group relative flex items-center justify-between w-full shrink-0 text-left bg-card-raised border border-border rounded-[0.6rem] p-[0.65rem_0.8rem] cursor-pointer text-foreground transition-all duration-200 overflow-hidden hover:bg-[var(--control-hover-bg)] hover:border-[var(--control-hover-border)]'
+  'group relative flex items-center justify-between w-full shrink-0 text-left bg-card-raised border border-border rounded-[0.6rem] text-foreground transition-all duration-200 overflow-hidden hover:bg-[var(--control-hover-bg)] hover:border-[var(--control-hover-border)]'
 
 export const conversationItemActiveClass =
   'border-accent! bg-[#5b8eff]/8! shadow-[inset_3px_0_0_var(--accent)]'

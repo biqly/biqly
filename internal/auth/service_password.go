@@ -140,13 +140,8 @@ func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) 
 		return err
 	}
 
-	err = s.userRepo.UpdateUserPassword(ctx, userID, hash)
-	if err != nil {
+	if err := s.userRepo.ConsumePasswordResetAndUpdatePassword(ctx, token, hash); err != nil {
 		return err
-	}
-
-	if err := s.userRepo.MarkPasswordResetTokenUsed(ctx, token); err != nil {
-		slog.ErrorContext(ctx, "failed to mark password reset token as used", "token", token, "err", err)
 	}
 	s.auditEvent(ctx, userID, AuditPasswordReset, nil)
 	return nil

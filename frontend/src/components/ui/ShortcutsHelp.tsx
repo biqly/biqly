@@ -56,7 +56,7 @@ export function ShortcutsHelp({ open, shortcuts, onClose }: ShortcutsHelpProps) 
       <div className="grid gap-[1.1rem]">
         {groups.map(([group, defs]) => (
           <section key={group} className="grid gap-[0.4rem]">
-            <h3 className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.05em] text-foreground-muted">
+            <h3 className="m-0 text-[0.72rem] font-semibold tracking-wider text-foreground-muted uppercase">
               {group}
             </h3>
             <ul className="m-0 grid list-none gap-[0.15rem] p-0">
@@ -73,7 +73,7 @@ export function ShortcutsHelp({ open, shortcuts, onClose }: ShortcutsHelpProps) 
                       <kbd
                         key={i}
                         className={legacyCardClass(
-                          'inline-grid h-6 min-w-6 place-items-center rounded-[0.35rem] border-x border-t border-b-2 border-border-strong bg-card-raised px-[0.4rem] text-[0.78rem] leading-none text-foreground [font-family:inherit]',
+                          'inline-grid h-6 min-w-6 place-items-center rounded-[0.35rem] border-x border-t border-b-2 border-border-strong bg-card-raised px-[0.4rem] text-[0.78rem] leading-none text-foreground font-[inherit]',
                         )}
                       >
                         {part}

@@ -317,12 +317,12 @@ export function FieldPermissionPanel({ token }: { token: string }) {
 
       <div style={gridSelectStyle}>
         <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>Role</span>
+          <span style={labelTextStyle}>{t('admin.field_permissions.role')}</span>
           <Select value={selectedRole} options={securityRoleOptions()} onChange={setSelectedRole} />
         </div>
 
         <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>Datasource</span>
+          <span style={labelTextStyle}>{t('admin.field_permissions.datasource')}</span>
           <Select
             value={selectedDS}
             options={dsOptions}
@@ -332,7 +332,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
         </div>
 
         <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>Semantic Model</span>
+          <span style={labelTextStyle}>{t('admin.field_permissions.semantic_model')}</span>
           <Select
             value={selectedModel}
             options={modelOptions}
@@ -347,33 +347,31 @@ export function FieldPermissionPanel({ token }: { token: string }) {
           {t('common.error')}: {error}
         </div>
       )}
-      {saveSuccess && <div style={successStyle}>Field permissions saved successfully!</div>}
+      {saveSuccess && <div style={successStyle}>{t('admin.field_permissions.saved')}</div>}
 
       <div style={contentLayout}>
         <LoadingOverlay loading={loadingPolicy || loadingFields}>
           <div style={innerPanelStyle}>
             <div style={panelHeaderStyle}>
-              <h3 style={sectionTitleStyle}>Dimension & Metric Access Matrix</h3>
+              <h3 style={sectionTitleStyle}>{t('admin.field_permissions.access_matrix')}</h3>
               {modelName && <span style={badgeStyle}>{modelName}</span>}
             </div>
 
             {!selectedModel ? (
-              <div style={noModelStyle}>
-                Select a semantic model to configure field access controls.
-              </div>
+              <div style={noModelStyle}>{t('admin.field_permissions.select_model')}</div>
             ) : !hasFields && !loadingFields ? (
-              <div style={noFieldsStyle}>
-                This semantic model has no dimensions or metrics configured.
-              </div>
+              <div style={noFieldsStyle}>{t('admin.field_permissions.no_fields')}</div>
             ) : (
               <div style={fieldsTableContainer}>
                 <table style={tableStyle}>
                   <thead>
                     <tr style={theadRow}>
-                      <th style={thStyle}>Field Name</th>
-                      <th style={thStyle}>Type</th>
-                      <th style={thStyle}>Expression / Column Ref</th>
-                      <th style={{ ...thStyle, textAlign: 'center', width: 120 }}>Denied</th>
+                      <th style={thStyle}>{t('admin.field_permissions.col_field')}</th>
+                      <th style={thStyle}>{t('admin.field_permissions.col_type')}</th>
+                      <th style={thStyle}>{t('admin.field_permissions.col_expression')}</th>
+                      <th style={{ ...thStyle, textAlign: 'center', width: 120 }}>
+                        {t('admin.field_permissions.col_denied')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -464,7 +462,9 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                               onChange={(e) => handlePIIAccessChange(col, e.target.value)}
                               disabled={!canEdit}
                               style={piiSelectStyle}
-                              aria-label={`${col.column} access`}
+                              aria-label={t('admin.field_permissions.access', {
+                                column: col.column,
+                              })}
                             >
                               <option value="">
                                 {t('admin.pii.policy_default')} ({roleDefaultAccess(col.pii_type)})
@@ -499,7 +499,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                 disabled={isSavingDisabled || !canEdit}
                 style={isSavingDisabled || !canEdit ? btnPrimaryDisabled : btnPrimary}
               >
-                Save Field Permissions
+                {t('admin.field_permissions.save')}
               </button>
             </div>
           </div>

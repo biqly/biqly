@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"log"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -24,9 +25,10 @@ func init() {
 	// init so the cost matches HashPassword exactly.
 	const seed = "biqly-timing-attack-mitigation-seed-do-not-use-as-password"
 	h, err := bcrypt.GenerateFromPassword([]byte(seed), 12)
-	if err == nil {
-		dummyBcryptHash = string(h)
+	if err != nil {
+		log.Fatalf("auth: init dummy bcrypt hash: %v", err)
 	}
+	dummyBcryptHash = string(h)
 }
 
 func HashPassword(password string) (string, error) {

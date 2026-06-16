@@ -47,10 +47,10 @@ export function PasskeyTable({ passkeys, loading, locale, onRename, onDelete }: 
         return (
           <li
             key={passkey.id}
-            className={`py-[0.9rem] px-4 border-b border-border transition-colors duration-150 hover:bg-white/[0.015] last:border-b-0`}
+            className={`py-[0.9rem] px-4 border-b border-border transition-colors duration-150 hover:bg-white/1.5 last:border-b-0`}
           >
             <div className="flex items-start justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-y-[0.4rem] gap-x-[0.55rem] min-w-0">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-[0.55rem] gap-y-[0.4rem]">
                 <span
                   className="shrink-0 text-[1rem] leading-[1.2]"
                   aria-hidden
@@ -73,7 +73,7 @@ export function PasskeyTable({ passkeys, loading, locale, onRename, onDelete }: 
                     <circle cx="17" cy="7" r="1" />
                   </svg>
                 </span>
-                <span className="text-[0.9rem] font-semibold leading-[1.35] break-words">
+                <span className="text-[0.9rem] leading-[1.35] font-semibold wrap-break-word">
                   {passkey.name}
                 </span>
               </div>
@@ -135,7 +135,7 @@ export function PasskeyTable({ passkeys, loading, locale, onRename, onDelete }: 
                 </button>
               </div>
             </div>
-            <p className="mt-[0.45rem] mr-0 mb-0 ml-0 text-foreground-muted text-[0.78rem] leading-[1.45]">
+            <p className="mt-[0.45rem] mr-0 mb-0 ml-0 text-[0.78rem] leading-[1.45] text-foreground-muted">
               <span>
                 {t('passkeys.col_created')}: {created}
               </span>

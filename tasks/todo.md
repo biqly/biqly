@@ -1,5 +1,119 @@
 # Todo list
 
+## Frontend Code Review — Bulgular & Yapılacaklar (2026-06-16)
+
+> Kapsam: `frontend/` — React 19 + Vite 8 + TS 6 + Tailwind v4 SPA (~382 dosya).
+> 5 paralel review subagent (skill başına: vercel-react-best-practices,
+> typescript-advanced-types, tailwind + tailwind-css-patterns,
+> web-design-guidelines + frontend-design, vite) ile yapıldı. Sadece bulgu; kod değişmedi.
+>
+> **Genel:** sağlam taban. Route'lar hover-preload ile lazy, `any`/`@ts-ignore` yok,
+> strict tsconfig, paylaşılan UI primitive'leri (Modal/DataState/DataTable/Toast) erişilebilir
+> ve iyi yazılmış. Sorunların çoğu bu iyi primitive'leri **bypass eden** ekranlar,
+> bağlanmamış dark-mode variant'ı ve eksik API-boundary doğrulama katmanı.
+
+### P0 — Yüksek etki
+
+**Dark mode bozuk**
+- [x] `dark:` variant'ı `[data-theme]` toggle'ına bağlı değildi → `index.css:3`'e `@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));` eklenmiş. Fix zaten uygulanmış, aktif.
+
+**Erişilebilirlik — custom modal'lar `ui/Modal`'ı bypass ediyor**
+- [x] El yapımı modal'larda focus trap / Escape / dialog semantiği yoktu — tümü (`TimeGrainsEditModal`, `AvatarCropModal`, `Glossary`, `FewShotExamples`, `MetadataBulkDescribeModal`, `MetadataDescribeModal`) zaten `ui/Modal` kullanıyor. FewShotExamples & Glossary'deki stra `</div>` fix'lendi (build hatası).
+- [x] Backdrop kapatma sadece mouse (aynı modal'lar, klavye yolu yok). `ui/Modal` ile çözülür.
+- [x] Tıklanabilir `div`, button değil — `aiQuery/SidebarConversationItem.tsx:79` (select `onClick`, rename `onDoubleClick`, klavye yok). → `<button>` + klavye erişimli rename.
+
+**React doğruluk**
+- [x] Component içinde component (recursive remount) — `modeling/ExpressionBuilder.tsx:227`: `ExpressionNodeBuilder` parent gövdesinde, recursive render → her render'da yeni tip, tüm ağaç remount, her tuş vuruşunda focus kaybı. → module scope'a taşı, prop geç.
+- [x] Effect'te iptal edilmeyen fetch — `dashboard/DashboardWidgetRenderer.tsx:256-278`: `postData(...).then(setData)` abort guard yok → stale/sırasız setState. 259 ölü kod `setData(... ? null : null)`. → AbortController/request-id guard ekle, ternary'i düzelt.
+- [x] Türetilmiş state effect'te set ediliyor — `aiQuery/AssistantMessageCard.tsx:135-150`: `tableView`/`chartType` `useState` ile init sonra iki effect'te overwrite. → render sırasında türet; state'i sadece kullanıcı override'ı için tut.
+
+**i18n — tüm paneller hardcoded İngilizce**
+- [ ] Admin paneller hardcoded string — `admin/RowLevelSecurityPanel.tsx` (208,213,229,244,251,257,263,267,333), `admin/FieldPermissionPanel.tsx` (320,325,335,350,356,373-376,447), `admin/PIIDetectionPanel.tsx:152`. → `useT()`.
+
+**State — sessiz hatalar**
+- [ ] Sessiz catch blokları, kullanıcı geri bildirimi yok — `Glossary.tsx:116,329`, `FewShotExamples.tsx:130`, `SavedQuestions.tsx:250,282`, `QueryHistory.tsx:121`. Optimistic toggle'lar sessizce geri dönüyor. → `ErrorAlert`/toast.
+
+**Responsive**
+- [ ] UI fiilen masaüstü-only — tüm `src/components/`'te sadece 16 `sm:/md:/lg:/xl:`. → dashboard, table, query builder denetle; responsive stacking ekle.
+
+**Build**
+- [ ] `optimizeDeps.include`/`resolve.dedupe` direkt olmayan dep'ler — `vite.config.ts:8,11`: `es-toolkit`, `@reduxjs/toolkit`, `immer` (hepsi recharts üzerinden transitive). İleriki recharts major'u dev server'ı derleme sinyali olmadan kırar. → transitive'leri `include`'tan çıkar veya explicit `dependencies`'e al.
+
+### P1 — Orta etki
+
+**TypeScript — API boundary doğrulama (en yüksek kaldıraç)**
+- [ ] Merkezi fetch wire'ı körü körüne cast ediyor — `api/apiClient.ts:146` `return { data: data as T }`. → opsiyonel validator `(u: unknown) => T` `RequestOptions`'a geçir. Aşağıdaki cast'leri açar.
+- [ ] `normalizeAIQueryResponse` nested objeleri assert ediyor — `utils/normalizeAIQueryResponse.ts:58,60,78,82,85,87,93-103`: primitive'ler guard'lı ama `logical_query`/`result`/`table_routing`/`clarification`/`prompt_stats`/`token_usage`/`candidates`/`generation_trace` `unknown`'dan direkt cast. → `isRecord` guard'ları ekle.
+- [ ] `clarification_options as string[]` — `normalizeAIQueryResponse.ts:45,47`: `Array.isArray` element tipini kanıtlamaz. → `.filter((x): x is string => typeof x === 'string')`.
+- [ ] `jobWaiter` dekoratif generic — `hooks/jobWaiter.ts:31-32`: `settleComplete` `unknown`→`TResult` cast, ilişki yok. → `parse` param al veya `unknown` döndür.
+
+**Tailwind — hardcoded renkler token'ları bypass ediyor**
+- [ ] Auth sayfalarında brand hex (7×) — `from-[#6366f1] to-[#8b5cf6]` (`SignInPage.tsx:218`, `SignUpPage.tsx:158,309`, `ResetPasswordPage.tsx:81`, `ForgotPasswordPage.tsx:49`, `ClaimInvitePage.tsx:108`, `VerifyEmailPage.tsx:45`); `text-[#6366f1]`, `text-[#e2e8f0]`. Bunlar `--accent` token → açık modda yanlış. → `from-accent to-accent-strong` / `text-accent` (`authClasses.ts` zaten merkezde).
+- [ ] `DriftPanel.tsx` ham `hsl(...)` literal'leri (~30×) — `admin/DriftPanel.tsx:76-92,214-257`. → `bg-card`/`border-border`/`text-foreground-*`.
+- [ ] Component'lerde 213 hardcoded hex — statik surface/status renkleri → token; sadece data-driven (chart serisi) inline kalsın. Brand glow `rgba(99,102,241,…)` 20× elle.
+
+**Tailwind — tutarlılık**
+- [ ] `cn()` bypass; 10+ dosyada ham `clsx` — `ui/KPICard.tsx`, `ui/Skeleton.tsx`, `ui/TagBadge.tsx`, `Modal.tsx`, `Toast.tsx`, `PaginationControls.tsx`, `sharing/ShareButton.tsx`. `twMerge` yok → çakışan util dedupe olmaz. → `cn` (`src/lib/cn.ts`).
+- [ ] Koşullu class template literal ile (33 dosya) — örn. `SignInCredentialsForm.tsx:205`. → `cn('...', c && 'x')`.
+- [ ] Font-size scale token yok; `text-[Npx]` (106×) — `[13px]` 48×, `[12px]` 21×, `[14px]` 18×, `[11px]` 15×. Px sabitlenmiş, kullanıcı fontuyla ölçeklenmez. → `@theme` `--text-*` scale (rem).
+
+**i18n / a11y label**
+- [ ] Remove button'larda hardcoded `aria-label` — `queryBuilder/FieldsStep.tsx:60`, `FilterStep.tsx:91`, `CteStep.tsx:43`, `SummarizeStep.tsx:88,117`, `WindowFuncStep.tsx:68`, `HavingStep.tsx:72`. → `t()`.
+- [ ] Hardcoded `title` tooltip, icon-only button — `DashboardBuilder.tsx:509,527,538,547,568`. → çevir + `aria-label`.
+- [ ] Talimat içeren placeholder hardcoded — `DashboardBuilder.tsx:643`, `queryBuilder/CteStep.tsx:36,51`, `WindowFuncStep.tsx:49,55,61`.
+- [ ] AvatarCropModal a11y — `settings/AvatarCropModal.tsx:223,253`: çıplak `<canvas>` mouse-only crop, range input label yok. → `aria-label` + klavye pan.
+- [ ] `EmptyState` `role="status"` kullanıyor — `ui/EmptyState.tsx:45`: statik placeholder live region → gereksiz SR duyurusu. → düz region.
+
+**State / UX**
+- [ ] Liste ekranları `DataState` yerine elle loading/error/empty — `DashboardList.tsx:109`, `SavedQuestions.tsx:443`, `Datasources.tsx:364`, `Glossary.tsx:626`, `FewShotExamples.tsx:421`, `PromptTemplates.tsx:389`, `admin/ABExperimentList.tsx:116`.
+- [ ] Empty state'lerde CTA yok — `SavedQuestions.tsx:535`, `Datasources.tsx:365`, `FewShotExamples.tsx:421`, `Glossary.tsx:626`, `QueryHistory.tsx:245`, `Composites.tsx:390` (bkz. iyi örnek `DashboardList.tsx:141`).
+- [ ] Async button'larda pending/disabled yok — `Datasources.tsx:464,473,482` (Test/Sync/Delete double-submit), `SavedQuestions.tsx:568,592`.
+- [ ] Ham `err.message` kullanıcıya gösteriliyor — `Glossary.tsx:466,493`.
+- [ ] Ünlemli/sistem-sesli başarı metni — `RowLevelSecurityPanel.tsx:244`, `FieldPermissionPanel.tsx:350`. → sessiz toast, cümle düzeni.
+- [ ] Tek-label olarak emoji — `SidebarConversationItem.tsx:110,118` (✏️/🗑️), `SignInCredentialsForm.tsx:211` (🔑). → gerçek icon + `aria-label`.
+
+**Build / config**
+- [ ] `manualChunks` yok — `chartConfig-*.js` 352 KB, `index-*.js` 299 KB, i18n 126 KB; split tesadüfi. → stabil vendor'ları (recharts, react-dom, i18n) izole et.
+- [ ] Explicit `build.target` yok — `vite.config.ts`: Vite 8 "Baseline" default'una güveniyor. → `build: { target: 'es2022' }`.
+- [ ] `immer` override (`11.1.8`) recharts/RTK çakışmasını örtüyor — `package.json:50-52`: transitive recharts'ta immer 10→11 major zorluyor. → açıklayıcı comment, `^11.1.8`, recharts bump'ından sonra chart'ı doğrula.
+- [ ] `tsc -b` ama project reference yok — düz non-composite `tsconfig.json`; `tsc -b` az iş yapıyor. → `tsc --noEmit && vite build` veya composite referans projeler.
+- [ ] Mobile: sabit `w-[Npx]` overflow — `sharing/ShareButton.tsx:153` `w-[420px]`; `DriftPanel.tsx:286`, `WorkspaceSettingsPage.tsx:381,392,476`, `EvalRunTab.tsx:99` `w-[320px]`. → `w-full max-w-[…]`.
+- [ ] `DataTable` empty cell hardcoded `#9ca3af` — `ui/DataTable.tsx:108`. → `text-foreground-muted`.
+
+### P2 — Düşük / temizlik
+- [ ] `useConversation.ts:44` — localStorage `Conversation[]` doğrulamasız; element başı `id` doğrula.
+- [ ] `useAIJobs.tsx:191` — `result_json as TResult` dekoratif generic; guard'a yönlendir.
+- [ ] `types/ai.ts:142` — `AIJobStatus | 'idle'` magic sentinel; optional / discriminated union tercih et.
+- [ ] `types/ai.ts:155-161` — deprecated `relevance_score` + `score` ikisi de optional; ingest'te normalize et.
+- [ ] `i18n/index.tsx` vs `i18n/locale.ts` — neredeyse aynı locale mantığı; biri ölü mü teyit et.
+- [ ] `e.target.value as <union>` cast'lerinde `isAdminTab` tarzı guard kullan — `AdminNav.tsx:34`, `DatasourceAccessPanel.tsx:158,225`, `userList/ActiveUsersTab.tsx:214`, `InvitationsTab.tsx:178`.
+- [ ] `ui/KPICard.tsx:14,19,20` — ölü BEM class (`kpi-card`/`kpi-label`/`kpi-value`), CSS yok. Sil.
+- [ ] `SelectPopover.tsx` — inline per-option handler; uzun listeler için `data-index` ile delege et.
+- [ ] `useAIJobs.tsx:521-524` — trivial `.some()` üzerinde `useMemo`; inline hesapla.
+- [ ] Magic px spacing (242 `[Npx]`) — 4px scale'e oturt.
+- [ ] `Dockerfile:23` — `EXPOSE 3333` (Vite dev) ama nginx-unprivileged `:8080` dinliyor. Yanıltıcı.
+- [ ] `vite.config.ts` — `server.strictPort: true`, `build.sourcemap: 'hidden'` değerlendir.
+- [ ] CLAUDE.md proxy açıklaması biraz eski — kod doğru: `/api`→8888 + `/api/auth`→8889, `/auth` client route. Doc güncelle.
+- [ ] `tsconfig.json:3-5` — `target`/`lib` ES2020, ekosistem ES2022; ES2022'ye çıkar.
+
+### Zaten sağlam (aksiyon yok)
+- Bundle splitting: route'lar `lazyWithPreload` hover/intent preload; admin/eval alt-paneller `React.lazy`; recharts/qrcode lazy chunk'larda; barrel-import sorunu yok.
+- TypeScript: 382 dosyada sıfır `any`/`as any`/`@ts-ignore`/`Record<string,any>`/`: object` prop; strict + `noUncheckedIndexedAccess`; enum yerine literal union; temiz `AuthUserRaw→normalize→AuthUser` boundary.
+- Tailwind v4 setup doğru: `@import 'tailwindcss'`, `@theme inline`, JS config yok, `@apply` sadece `@layer base`.
+- UI primitive'leri (Modal, DataState, LoadingOverlay, Toast, Select, DataTable, FormField, ConfirmDialog) erişilebilir & iyi — gerisini buraya taşı.
+- Vite proxy sırası doğru (`/api/auth` önce `/api`), env-var sızıntısı yok (`src/`'de `import.meta.env` yok, `.env*` yok).
+
+### Önerilen sıra
+1. `@custom-variant dark` tek satır (43 bozuk utility'i düzeltir).
+2. `apiClient`'a validator geçir (tüm boundary-cast fix'lerini açar).
+3. Custom modal'ları `ui/Modal`'a taşı (a11y High'ları topluca temizler).
+4. Admin panel + query-builder label'larını `useT()`'e al.
+5. Sessiz catch bloklarını toast ile yüzeye çıkar.
+6. `manualChunks` + explicit `build.target`; transitive `optimizeDeps`'i çıkar.
+7. Ana layout'ların responsive denetimi.
+
+---
+
 ## Backend Go Code Review — Bulgular & Yapılacaklar (2026-06-15)
 
 > Kapsam: full backend sweep (83 paket, ~75K LOC non-test). 7 paralel review
@@ -73,32 +187,32 @@
 
 ### P3 — Low / Nits (lint & küçük borç)
 
-- [ ] **gofmt/gci import drift (lint blocker):** `internal/audit/db_writer.go:7`, `internal/mail/server.go:6`, `db_writer_test.go:6` — `bytedance/sonic` stdlib import bloğu içinde. → `make lint-go`/`format:check` patlar; grupla.
-- [ ] **JWT PEM tipi yanlış:** `internal/auth/jwt.go:291` — `"RSA PUBLIC KEY"` (PKCS#1) bloğu içinde PKIX byte'ları. → `"PUBLIC KEY"`.
-- [ ] **Deadcode (workspace sharing):** `internal/auth/workspace/sharing.go:62` — `sharedWithVal`/`workspaceVal` hesaplanıp `_ =` ile atılıyor, sentinel UUID kullanılıyor. → eksik refactor; temizle (`deadcode` blocker).
-- [ ] **Tx'siz çoklu-statement:** `internal/auth/workspace/workspace.go:59` (`Create`) + `internal/auth/repository.go:151` (`bootstrapUserWorkspace`) — workspace+role+member tx'siz; kısmi hata sahipsiz workspace bırakır. → `RunInTx`.
-- [ ] **Hataların tek sentinel'e çökmesi:** `internal/auth/workspace/workspace.go:436` (`requireOwnerOrAdmin`) — transient DB dahil her hata `ErrNotWorkspaceOwner`. → `sql.ErrNoRows`'u `errors.Is` ile ayır.
-- [ ] **LDAP decrypt sessiz "":** `internal/auth/ldap_config.go:122` — decrypt hatası `""` dönüp anonymous bind'e yol açıyor. → hatayı propagate et.
-- [ ] **Reset token plaintext log + replay:** `internal/auth/service_password.go:105` — reset token plaintext log'lanıyor; `MarkPasswordResetTokenUsed` hatası log'lanıp dönülmüyor → token expiry'ye kadar replay. → token'ı hash/prefix logla, consume'u update ile atomik yap.
-- [ ] **Session revoke hatası yutuluyor:** `internal/auth/service_account_lifecycle.go:13/39` — freeze/delete'te `RevokeAllUserSessions` hatası yutuluyor (Refresh deliğiyle birleşince canlı session kalır). → hatayı yüzeye çıkar.
-- [ ] **WebAuthn clone-warning:** `internal/auth/mfa/webauthn.go:272/296` — sign-count regression/clone kontrolü görünmüyor; `go-webauthn` `CloneWarning`'ın işlendiğini teyit et.
-- [ ] **dummy bcrypt init fail-open:** `internal/auth/password.go:14` — `init` bcrypt hatasında `dummyBcryptHash` boş kalıp enumeration-timing mitigasyonu sessizce kapanır. → init hatasında panic.
-- [ ] **`CanUseModel` hata yutar:** `internal/auth/rbac/ai_model_access.go:178` — super-admin DB hatası yutuluyor (fail-safe ama). → log/return.
-- [ ] **High-arity token üretimi:** `internal/auth/jwt.go:178` (`GenerateTokenWithVerification`, 6 same-typed param) — arg-transpose riski yanlış scope token üretebilir. → `TokenParams` struct.
-- [ ] **JWT bypass prefix match:** `internal/http/middleware/jwt.go:127/178` — bypass `strings.HasPrefix`; `/health` → `/healthcheck-*` de muaf. Bugün exploit yok. → prefix davranışını dokümante et / exact-match düşün.
-- [ ] **permission cache eviction random:** `internal/http/middleware/permission.go:97` — over-capacity eviction map'i random sırada siliyor (LRU değil). → safety-valve olarak kabul edilebilir; isim/yorum düzelt.
-- [ ] **dynamicSemaphore tek-slot wakeup:** `internal/http/handlers/ai_job_service.go:369` (`Release`) — limit artınca park'taki Acquire'lar 1sn poll'a düşüyor (~1sn job pickup gecikme). → freed-slot kadar `ch`'e sinyalle.
-- [ ] **expr default-branch raw op:** `internal/query/expr_compiler.go:183/305` — `default`'ta `strings.ToUpper(string(op))` ham yayılıyor (publish validation backstop'lu). → bilinmeyen op'ta error dön.
-- [ ] **custom-expr passthrough:** `internal/query/compiler.go:464` (`resolveBracketExpressions`) + `metricExpressionRef` — custom SQL escape hatch; trust varsayımını yorumla.
-- [ ] **InSubquery ResultField:** `internal/query/compiler_nested.go:204` — `_ = f.Subquery.ResultField` yorum doğrulama iddia ediyor ama doğrulamıyor. → doğrula veya yorumu düzelt.
-- [ ] **GetFullModel early-cancel yok:** `internal/semantic/repository.go:469` — 3-goroutine WaitGroup, biri fail edince diğerleri iptal olmuyor. (Bug değil.) → `GetFullComposite` gibi `errgroup.WithContext`.
-- [ ] **base_provider hata gövdesi:** `internal/ai/provider/base_provider.go:80/147` — non-2xx'te tam (10MB-cap) gövde error string'e; upstream verbatim log'larsa prompt parçası sızabilir. → truncate (`remote_models.go:113` gibi 300 char).
-- [ ] **Anthropic FinishReason boş:** `internal/ai/provider/anthropic.go:111` — `stop_reason` set edilmiyor → truncation hint (`service.go:543`) Anthropic'te tetiklenmiyor, çok-blok text drop. → `FinishReason` doldur.
-- [ ] **response_cache SCAN pattern:** `internal/ai/response_cache.go:92` (`InvalidateModel`) — `modelID` glob meta (`*?[`) içerirse over/under-match. → segment escape.
-- [ ] **eval_judge nil model panic:** `internal/ai/eval/eval_judge.go:23` — nil `cr.Case.Model` deref. (eval-only.) → nil guard.
-- [ ] **NullStringArray.Scan nil deref:** `internal/platform/db/null.go:95` — nil `S` ile panic (latent). → `if n.S==nil { return nil }`.
-- [ ] **ParseStringArray naive split:** `internal/platform/db/null.go:112` — `,`/`"` içeren element'lerde bozulur. → `pgarray` kullan (gerekirse).
-- [ ] **migrate down filename heuristic:** `internal/dbmigrate/migrate.go:214` (`upToDownFilename`) — `"a_"`→`"b_"` ilk-occurrence replace; isimde `a_` varsa yanlış down adı. → manifest/sidecar veya katı convention check.
+- [x] **gofmt/gci import drift (lint blocker):** `internal/audit/db_writer.go:7`, `internal/mail/server.go:6`, `db_writer_test.go:6` — `bytedance/sonic` stdlib import bloğu içinde. → `goimports -w` ile düzeltildi (2026-06-15).
+- [x] **JWT PEM tipi yanlış:** `internal/auth/jwt.go:291` — `"RSA PUBLIC KEY"` (PKCS#1) bloğu içinde PKIX byte'ları. → `"PUBLIC KEY"`. Fix: `PublicKeyPEM` zaten `"PUBLIC KEY"` kullanıyor.
+- [x] **Deadcode (workspace sharing):** `internal/auth/workspace/sharing.go:62` — `sharedWithVal`/`workspaceVal` hesaplanıp `_ =` ile atılıyor, sentinel UUID kullanılıyor. → eksik refactor; temizle (`deadcode` blocker).
+- [x] **Tx'siz çoklu-statement:** `internal/auth/workspace/workspace.go:59` (`Create`) + `internal/auth/repository.go:151` (`bootstrapUserWorkspace`) — workspace+role+member tx'siz; kısmi hata sahipsiz workspace bırakır. → `RunInTx`.
+- [x] **Hataların tek sentinel'e çökmesi:** `internal/auth/workspace/workspace.go:436` (`requireOwnerOrAdmin`) — transient DB dahil her hata `ErrNotWorkspaceOwner`. → `sql.ErrNoRows`'u `errors.Is` ile ayır.
+- [x] **LDAP decrypt sessiz "":** `internal/auth/ldap_config.go:122` — decrypt hatası `""` dönüp anonymous bind'e yol açıyor. → hatayı propagate et.
+- [x] **Reset token plaintext log + replay:** `internal/auth/service_password.go:105` — reset token plaintext log'lanıyor; `MarkPasswordResetTokenUsed` hatası log'lanıp dönülmüyor → token expiry'ye kadar replay. → token'ı hash/prefix logla, consume'u update ile atomik yap.
+- [x] **Session revoke hatası yutuluyor:** `internal/auth/service_account_lifecycle.go:13/39` — freeze/delete'te `RevokeAllUserSessions` hatası yutuluyor (Refresh deliğiyle birleşince canlı session kalır). → hatayı yüzeye çıkar.
+- [x] **WebAuthn clone-warning:** `internal/auth/mfa/webauthn.go:272/296` — sign-count regression/clone kontrolü görünmüyor; `go-webauthn` `CloneWarning`'ın işlendiğini teyit et.
+- [x] **dummy bcrypt init fail-open:** `internal/auth/password.go:14` — `init` bcrypt hatasında `dummyBcryptHash` boş kalıp enumeration-timing mitigasyonu sessizce kapanır. → init hatasında panic.
+- [x] **`CanUseModel` hata yutar:** `internal/auth/rbac/ai_model_access.go:178` — super-admin DB hatası yutuluyor (fail-safe ama). → log/return.
+- [x] **High-arity token üretimi:** `internal/auth/jwt.go:178` (`GenerateTokenWithVerification`, 6 same-typed param) — arg-transpose riski yanlış scope token üretebilir. → `TokenParams` struct.
+- [x] **JWT bypass prefix match:** `internal/http/middleware/jwt.go:127/178` — bypass `strings.HasPrefix`; `/health` → `/healthcheck-*` de muaf. Bugün exploit yok. → prefix davranışını dokümante et / exact-match düşün.
+- [x] **permission cache eviction random:** `internal/http/middleware/permission.go:97` — over-capacity eviction map'i random sırada siliyor (LRU değil). → safety-valve olarak kabul edilebilir; isim/yorum düzelt.
+- [x] **dynamicSemaphore tek-slot wakeup:** `internal/http/handlers/ai_job_service.go:369` (`Release`) — limit artınca park'taki Acquire'lar 1sn poll'a düşüyor (~1sn job pickup gecikme). → freed-slot kadar `ch`'e sinyalle.
+- [x] **expr default-branch raw op:** `internal/query/expr_compiler.go:183/305` — `default`'ta `strings.ToUpper(string(op))` ham yayılıyor (publish validation backstop'lu). → bilinmeyen op'ta error dön.
+- [x] **custom-expr passthrough:** `internal/query/compiler.go:464` (`resolveBracketExpressions`) + `metricExpressionRef` — custom SQL escape hatch; trust varsayımını yorumla.
+- [x] **InSubquery ResultField:** `internal/query/compiler_nested.go:204` — `_ = f.Subquery.ResultField` yorum doğrulama iddia ediyor ama doğrulamıyor. → doğrula veya yorumu düzelt.
+- [x] **GetFullModel early-cancel yok:** `internal/semantic/repository.go:469` — 3-goroutine WaitGroup, biri fail edince diğerleri iptal olmuyor. (Bug değil.) → `GetFullComposite` gibi `errgroup.WithContext`.
+- [x] **base_provider hata gövdesi:** `internal/ai/provider/base_provider.go:80/147` — non-2xx'te tam (10MB-cap) gövde error string'e; upstream verbatim log'larsa prompt parçası sızabilir. → truncate (`remote_models.go:113` gibi 300 char).
+- [x] **Anthropic FinishReason boş:** `internal/ai/provider/anthropic.go:111` — `stop_reason` set edilmiyor → truncation hint (`service.go:543`) Anthropic'te tetiklenmiyor, çok-blok text drop. → `FinishReason` doldur.
+- [x] **response_cache SCAN pattern:** `internal/ai/response_cache.go:92` (`InvalidateModel`) — `modelID` glob meta (`*?[`) içerirse over/under-match. → segment escape.
+- [x] **eval_judge nil model panic:** `internal/ai/eval/eval_judge.go:23` — nil `cr.Case.Model` deref. (eval-only.) → nil guard.
+- [x] **NullStringArray.Scan nil deref:** `internal/platform/db/null.go:95` — nil `S` ile panic (latent). → `if n.S==nil { return nil }`.
+- [x] **ParseStringArray naive split:** `internal/platform/db/null.go:112` — `,`/`"` içeren element'lerde bozulur. → `pgarray` kullan (gerekirse).
+- [x] **migrate down filename heuristic:** `internal/dbmigrate/migrate.go:214` (`upToDownFilename`) — `"a_"`→`"b_"` ilk-occurrence replace; isimde `a_` varsa yanlış down adı. → manifest/sidecar veya katı convention check.
 
 ### Test Gaps (kritik güvenlik/tx mantığı, sıfır test edge)
 

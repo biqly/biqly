@@ -77,7 +77,11 @@ func (p *baseProvider) generateAt(ctx context.Context, prompt string, temperatur
 			}
 			return gen, nil, false
 		}
-		apiErr := fmt.Errorf("API error %d: %s", status, string(respBody))
+		bodyStr := string(respBody)
+		if len(bodyStr) > 300 {
+			bodyStr = bodyStr[:300] + "..."
+		}
+		apiErr := fmt.Errorf("API error %d: %s", status, bodyStr)
 		return GenerationResult{}, apiErr, isRetriableHTTPStatus(status)
 	}, onRetry)
 	if err != nil {
@@ -144,7 +148,11 @@ func (e *baseEmbedder) embed(ctx context.Context, texts []string) (out [][]float
 		if status == http.StatusOK {
 			return respBody, nil, false
 		}
-		apiErr := fmt.Errorf("embedding API error %d: %s", status, string(respBody))
+		bodyStr := string(respBody)
+		if len(bodyStr) > 300 {
+			bodyStr = bodyStr[:300] + "..."
+		}
+		apiErr := fmt.Errorf("embedding API error %d: %s", status, bodyStr)
 		return nil, apiErr, isRetriableHTTPStatus(status)
 	}, func() { recordLLMRetry("openai") })
 	if err != nil && lastStatus > 0 {

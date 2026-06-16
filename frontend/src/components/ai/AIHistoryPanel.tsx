@@ -235,13 +235,13 @@ export function AIHistoryPanel() {
                           <tr className={aiHistoryDetailRowClass}>
                             <td colSpan={8} className={aiHistoryDetailCellClass}>
                               {detailLoading ? (
-                                <div className="relative flex min-h-[5.5rem] items-center justify-center">
+                                <div className="relative flex min-h-22 items-center justify-center">
                                   <LoadingOverlay loading={true} />
                                 </div>
                               ) : detail ? (
                                 <div className={aiHistoryDetailContentClass}>
                                   <div className={aiHistoryDetailHeaderClass}>
-                                    <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground-muted">
+                                    <span className="text-[11px] font-semibold tracking-wide text-foreground-muted uppercase">
                                       {t('admin.ai_history.detail')}
                                     </span>
                                     <button

@@ -1,3 +1,4 @@
+// Package enrichcontext implements the enrich-context service.
 package enrichcontext
 
 import (

@@ -1,3 +1,4 @@
+// Package routing implements the table routing service.
 package routing
 
 import (

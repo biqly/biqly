@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 /*
  * Tailwind v4 token bridge. `inline` makes utilities emit `var(--token)` (NOT the
  * resolved value), so `bg-card`, `text-secondary`, `shadow-card`, etc. follow the

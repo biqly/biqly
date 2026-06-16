@@ -6,13 +6,11 @@ import { cn } from '../../lib/cn'
 import {
   modalActionsClass,
   modalAvatarCardClass,
-  modalBackdropClass,
   modalBodyClass,
-  modalCloseClass,
-  modalHeaderClass,
   modalSubtitleClass,
-  modalTitleClass,
 } from '../../lib/modalClasses'
+import { ErrorAlert } from '../ui/ErrorAlert'
+import { Modal } from '../ui/Modal'
 
 interface AvatarCropModalProps {
   imageSrc: string
@@ -166,6 +164,36 @@ export function AvatarCropModal({ imageSrc, onClose, onSave }: AvatarCropModalPr
     setPan((prev) => clampPan(prev.x, prev.y, nextZoom))
   }
 
+  const handleCanvasKeyDown = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    if (!imgElement) {
+      return
+    }
+    const step = e.shiftKey ? 20 : 8
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      setPan((prev) => clampPan(prev.x - step, prev.y, zoom))
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      setPan((prev) => clampPan(prev.x + step, prev.y, zoom))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setPan((prev) => clampPan(prev.x, prev.y - step, zoom))
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setPan((prev) => clampPan(prev.x, prev.y + step, zoom))
+    } else if (e.key === '+' || e.key === '=') {
+      e.preventDefault()
+      const nextZoom = Math.min(maxZoom, zoom + 0.1)
+      setZoom(nextZoom)
+      setPan((prev) => clampPan(prev.x, prev.y, nextZoom))
+    } else if (e.key === '-' || e.key === '_') {
+      e.preventDefault()
+      const nextZoom = Math.max(minZoom, zoom - 0.1)
+      setZoom(nextZoom)
+      setPan((prev) => clampPan(prev.x, prev.y, nextZoom))
+    }
+  }
+
   const handleSave = async () => {
     if (!imgElement) {
       return
@@ -196,99 +224,104 @@ export function AvatarCropModal({ imageSrc, onClose, onSave }: AvatarCropModalPr
   }
 
   return (
-    <div className={modalBackdropClass()} onClick={onClose}>
-      <div className={modalAvatarCardClass()} onClick={(e) => e.stopPropagation()}>
-        <div className={modalHeaderClass()}>
-          <h2 className={modalTitleClass()}>{t('settings.profile_picture_crop_title')}</h2>
-          <button type="button" className={modalCloseClass()} onClick={onClose}>
-            ×
-          </button>
-        </div>
-        <div className={cn(modalBodyClass(), 'items-center justify-items-center gap-5')}>
-          <p className={cn(modalSubtitleClass(), 'w-full text-center')}>
-            {t('settings.profile_picture_crop_desc')}
-          </p>
-          <div
-            style={{
-              position: 'relative',
-              width: '320px',
-              height: '320px',
-              background: '#09090b',
-              borderRadius: '0.5rem',
-              overflow: 'hidden',
-              cursor: isDragging ? 'grabbing' : 'grab',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <canvas
-              ref={canvasRef}
-              width={320}
-              height={320}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUpOrLeave}
-              onMouseLeave={handleMouseUpOrLeave}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              style={{
-                display: 'block',
-                width: '300%',
-                height: '100%',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-              }}
-            />
-            {/* Direct style correction for exact canvas viewport centering */}
-            <style>{`
-              canvas {
-                left: 0 !important;
-                width: 100% !important;
-              }
-            `}</style>
-          </div>
-
-          <div style={{ width: '100%', padding: '0 0.5rem' }}>
-            <input
-              type="range"
-              min={minZoom}
-              max={maxZoom}
-              step={0.001}
-              value={zoom}
-              onChange={handleZoomChange}
-              style={{
-                width: '100%',
-                height: '5px',
-                borderRadius: '999px',
-                background: 'var(--border)',
-                accentColor: 'var(--accent, #6366f1)',
-                cursor: 'pointer',
-              }}
-            />
-          </div>
-        </div>
-        <div className={modalActionsClass()}>
-          <button
-            type="button"
-            className={legacyButtonClass('btn btn-secondary btn-sm')}
-            onClick={onClose}
-            disabled={saving}
-          >
-            {t('common.cancel')}
-          </button>
-          <button
-            type="button"
-            className={legacyButtonClass('btn btn-primary btn-sm')}
-            onClick={() => {
-              void handleSave()
-            }}
-            disabled={saving || !imgElement}
-          >
-            {saving ? '…' : t('common.save')}
-          </button>
-        </div>
+    <Modal
+      open
+      title={t('settings.profile_picture_crop_title')}
+      onClose={onClose}
+      className={modalAvatarCardClass()}
+      bodyClassName={cn(modalBodyClass(), 'items-center justify-items-center gap-5')}
+    >
+      <p className={cn(modalSubtitleClass(), 'w-full text-center')}>
+        {t('settings.profile_picture_crop_desc')}
+      </p>
+      <div
+        style={{
+          position: 'relative',
+          width: '320px',
+          height: '320px',
+          background: 'var(--bg-card)',
+          borderRadius: '0.5rem',
+          overflow: 'hidden',
+          cursor: isDragging ? 'grabbing' : 'grab',
+          border: '1px solid var(--border)',
+        }}
+      >
+        <canvas
+          ref={canvasRef}
+          width={320}
+          height={320}
+          aria-label={t('settings.profile_picture_crop_canvas_aria')}
+          tabIndex={0}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUpOrLeave}
+          onMouseLeave={handleMouseUpOrLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onKeyDown={handleCanvasKeyDown}
+          style={{
+            display: 'block',
+            width: '300%',
+            height: '100%',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+          }}
+        />
+        {/* Direct style correction for exact canvas viewport centering */}
+        <style>{`
+          canvas {
+            left: 0 !important;
+            width: 100% !important;
+          }
+        `}</style>
       </div>
-    </div>
+
+      <div style={{ width: '100%', padding: '0 0.5rem' }}>
+        <label htmlFor="avatar-crop-zoom" className="sr-only">
+          {t('settings.profile_picture_crop_zoom_label')}
+        </label>
+        <input
+          id="avatar-crop-zoom"
+          type="range"
+          min={minZoom}
+          max={maxZoom}
+          step={0.001}
+          value={zoom}
+          onChange={handleZoomChange}
+          aria-label={t('settings.profile_picture_crop_zoom_label')}
+          style={{
+            width: '100%',
+            height: '5px',
+            borderRadius: '999px',
+            background: 'var(--border)',
+            accentColor: 'var(--accent, #6366f1)',
+            cursor: 'pointer',
+          }}
+        />
+      </div>
+      <ErrorAlert error={null} />
+      <div className={modalActionsClass()}>
+        <button
+          type="button"
+          className={legacyButtonClass('btn btn-secondary btn-sm')}
+          onClick={onClose}
+          disabled={saving}
+        >
+          {t('common.cancel')}
+        </button>
+        <button
+          type="button"
+          className={legacyButtonClass('btn btn-primary btn-sm')}
+          onClick={() => {
+            void handleSave()
+          }}
+          disabled={saving || !imgElement}
+        >
+          {saving ? '…' : t('common.save')}
+        </button>
+      </div>
+    </Modal>
   )
 }

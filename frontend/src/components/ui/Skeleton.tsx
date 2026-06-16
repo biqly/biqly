@@ -15,8 +15,8 @@ export function Skeleton({ width, height, radius, circle, className, style }: Sk
   return (
     <span
       className={clsx(
-        "relative block overflow-hidden w-full h-4 rounded-[0.4rem] bg-[var(--bg-card-raised,rgba(148,163,184,0.12))] after:content-[''] after:absolute after:inset-0 after:-translate-x-full after:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)] after:animate-[skeleton-shimmer_1.3s_ease-in-out_infinite] motion-reduce:after:animate-none",
-        circle && '!rounded-full',
+        "relative block h-4 w-full overflow-hidden rounded-[0.4rem] bg-(--bg-card-raised,rgba(148,163,184,0.12)) after:absolute after:inset-0 after:-translate-x-full after:animate-[skeleton-shimmer_1.3s_ease-in-out_infinite] after:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)] after:content-[''] motion-reduce:after:animate-none",
+        circle && 'rounded-full!',
         className,
       )}
       aria-hidden="true"

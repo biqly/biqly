@@ -99,7 +99,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
     return (
       <span
         className={clsx(
-          'inline-block py-[2px] px-2 rounded-[10px] text-[11px] font-semibold whitespace-nowrap',
+          'inline-block rounded-[10px] px-2 py-[2px] text-[11px] font-semibold whitespace-nowrap',
           styleClass,
         )}
       >
@@ -113,7 +113,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
       key: 'type',
       header: t('admin.sharing.resource_type'),
       cell: (share) => (
-        <span className="inline-block py-[2px] px-2 rounded-[10px] text-[11px] font-medium bg-[var(--accent-glow)] text-accent">
+        <span className="inline-block rounded-[10px] bg-(--accent-glow) px-2 py-[2px] text-[11px] font-medium text-accent">
           {share.resource_type}
         </span>
       ),

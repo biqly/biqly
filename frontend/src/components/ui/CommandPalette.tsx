@@ -106,7 +106,7 @@ export function CommandPalette({ items }: CommandPaletteProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[var(--z-cmdk,1200)] grid [place-items:start_center] p-[8vh_1rem_2rem] overflow-y-auto bg-black/50 backdrop-blur-[4px] animate-cmdk-fade motion-reduce:animate-none"
+      className="fixed inset-0 z-(--z-cmdk,1200) grid animate-cmdk-fade [place-items:start_center] overflow-y-auto bg-black/50 p-[8vh_1rem_2rem] backdrop-blur-xs motion-reduce:animate-none"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
@@ -116,20 +116,20 @@ export function CommandPalette({ items }: CommandPaletteProps) {
     >
       <div
         className={legacyCardClass(
-          'w-full max-w-[36rem] border border-border-strong rounded-xl bg-card shadow-[0_24px_64px_rgba(0,0,0,0.55)] text-foreground overflow-hidden animate-cmdk-pop motion-reduce:animate-none',
+          'w-full max-w-xl border border-border-strong rounded-xl bg-card shadow-[0_24px_64px_rgba(0,0,0,0.55)] text-foreground overflow-hidden animate-cmdk-pop motion-reduce:animate-none',
         )}
         role="dialog"
         aria-modal="true"
         aria-label={t('command_palette.title')}
       >
         <div className={`flex items-center gap-[0.6rem] border-b border-border p-[0.85rem_1rem]`}>
-          <span className="text-foreground-muted text-[1.1rem] leading-none" aria-hidden="true">
+          <span className="text-[1.1rem] leading-none text-foreground-muted" aria-hidden="true">
             ⌕
           </span>
           <input
             ref={inputRef}
             type="text"
-            className="flex-1 border-none bg-transparent text-foreground text-[1rem] outline-none placeholder:text-foreground-muted"
+            className="flex-1 border-none bg-transparent text-[1rem] text-foreground outline-none placeholder:text-foreground-muted"
             placeholder={t('command_palette.placeholder')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -149,12 +149,12 @@ export function CommandPalette({ items }: CommandPaletteProps) {
         </div>
 
         {filtered.length === 0 ? (
-          <div className="p-[1.5rem_1rem] text-center text-foreground-muted text-[0.9rem]">
+          <div className="p-[1.5rem_1rem] text-center text-[0.9rem] text-foreground-muted">
             {t('command_palette.empty')}
           </div>
         ) : (
           <ul
-            className="list-none m-0 p-[0.4rem] max-h-[22rem] overflow-y-auto"
+            className="m-0 max-h-88 list-none overflow-y-auto p-[0.4rem]"
             id="cmdk-list"
             ref={listRef}
             role="listbox"
@@ -165,13 +165,13 @@ export function CommandPalette({ items }: CommandPaletteProps) {
                 role="option"
                 aria-selected={index === activeIndex}
                 data-active={index === activeIndex}
-                className="flex items-center gap-[0.7rem] rounded-lg p-[0.55rem_0.7rem] cursor-pointer text-foreground aria-selected:bg-[var(--accent-glow)]"
+                className="flex cursor-pointer items-center gap-[0.7rem] rounded-lg p-[0.55rem_0.7rem] text-foreground aria-selected:bg-(--accent-glow)"
                 onMouseMove={() => setActiveIndex(index)}
                 onClick={() => runItem(item)}
               >
                 {item.icon && (
                   <span
-                    className="inline-grid place-items-center w-5 h-5 text-foreground-muted [&>svg]:w-[1.1rem] [&>svg]:h-[1.1rem]"
+                    className="inline-grid h-5 w-5 place-items-center text-foreground-muted [&>svg]:h-[1.1rem] [&>svg]:w-[1.1rem]"
                     aria-hidden="true"
                   >
                     {item.icon}
@@ -179,7 +179,7 @@ export function CommandPalette({ items }: CommandPaletteProps) {
                 )}
                 <span className="flex-1 text-[0.9rem]">{item.label}</span>
                 {item.group && (
-                  <span className="text-[0.72rem] uppercase tracking-[0.04em] text-foreground-muted">
+                  <span className="text-[0.72rem] tracking-[0.04em] text-foreground-muted uppercase">
                     {item.group}
                   </span>
                 )}

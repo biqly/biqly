@@ -1,3 +1,4 @@
+// Package memory implements the embedding cache service.
 package memory
 
 import (

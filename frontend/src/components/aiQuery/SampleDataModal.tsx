@@ -81,7 +81,7 @@ function SampleCell({ value, columnName }: { value: unknown; columnName: string 
 
   if (!text) {
     return (
-      <span className="block text-foreground leading-[1.45] break-words text-foreground-faint opacity-55">
+      <span className="block leading-[1.45] wrap-break-word text-foreground opacity-55">
         —
       </span>
     )
@@ -90,7 +90,7 @@ function SampleCell({ value, columnName }: { value: unknown; columnName: string 
   if (kind === 'handle') {
     const handle = text.startsWith('@') ? text : `@${text}`
     return (
-      <span className="inline-flex items-center max-w-full px-[0.45rem] py-[0.15rem] rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_6%,transparent)] text-accent font-mono text-[0.78rem] font-semibold whitespace-nowrap overflow-hidden text-ellipsis">
+      <span className="inline-flex max-w-full items-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_6%,transparent)] px-[0.45rem] py-[0.15rem] font-mono text-[0.78rem] font-semibold text-ellipsis whitespace-nowrap text-accent">
         {handle}
       </span>
     )
@@ -98,7 +98,7 @@ function SampleCell({ value, columnName }: { value: unknown; columnName: string 
 
   if (kind === 'id') {
     return (
-      <span className="font-mono text-[0.78rem] [font-variant-numeric:tabular-nums] text-foreground-muted break-all">
+      <span className="font-mono text-[0.78rem] break-all text-foreground-muted [font-variant-numeric:tabular-nums]">
         {text}
       </span>
     )
@@ -115,7 +115,7 @@ function SampleCell({ value, columnName }: { value: unknown; columnName: string 
     )
   }
 
-  return <span className="block text-foreground leading-[1.45] break-words">{text}</span>
+  return <span className="block leading-[1.45] wrap-break-word text-foreground">{text}</span>
 }
 
 export function SampleDataModal({
@@ -161,17 +161,17 @@ export function SampleDataModal({
       open={open}
       title={t('ai_query.sample_modal_heading')}
       subtitle={
-        <span className="inline-flex items-baseline flex-wrap gap-0 mt-[0.35rem] font-mono text-[0.82rem] leading-[1.35]">
-          <span className="text-accent font-semibold">{tableRef.schema}</span>
+        <span className="mt-[0.35rem] inline-flex flex-wrap items-baseline gap-0 font-mono text-[0.82rem] leading-[1.35]">
+          <span className="font-semibold text-accent">{tableRef.schema}</span>
           <span className="text-foreground-muted opacity-70" aria-hidden="true">
             .
           </span>
-          <span className="text-foreground-muted font-medium">{tableRef.table}</span>
+          <span className="font-medium text-foreground-muted">{tableRef.table}</span>
         </span>
       }
       onClose={onClose}
       labelledBy="sample-data-title"
-      className="!w-[min(96vw,72rem)] max-[720px]:!w-[min(100%,100vw-1rem)] !max-h-[min(88vh,52rem)] max-[720px]:!max-h-[92vh] flex flex-col"
+      className="flex max-h-[min(88vh,52rem)]! w-[min(96vw,72rem)]! flex-col max-[720px]:max-h-[92vh]! max-[720px]:w-[min(100%,100vw-1rem)]!"
       bodyClassName="!flex !flex-col gap-3 p-[0.85rem_1.1rem_1.1rem] max-[720px]:p-[0.75rem_0.85rem_0.9rem] min-h-0 flex-1"
     >
       <LoadingOverlay loading={loading} />
@@ -191,7 +191,7 @@ export function SampleDataModal({
               'flex-1 min-h-0 max-h-[min(62vh,40rem)] max-[720px]:max-h-[58vh] overflow-auto border border-border rounded-[0.65rem] bg-card-raised shadow-[inset_0_1px_0_color-mix(in_srgb,var(--text-primary)_4%,transparent)] overscroll-contain custom-scrollbar-thin',
             )}
           >
-            <table className="m-0 min-w-full w-max border-collapse">
+            <table className="m-0 w-max min-w-full border-collapse">
               <thead>
                 <tr>
                   {sample.columns.map((c) => {
@@ -201,7 +201,7 @@ export function SampleDataModal({
                         key={c.name}
                         className={cn(
                           legacyCardClass(
-                            "sticky top-0 z-[2] p-[0.7rem_0.85rem] text-[0.68rem] text-left align-top bg-[color-mix(in_srgb,var(--table-header-bg)_92%,var(--bg-card))] backdrop-blur-[6px] font-['Plus_Jakarta_Sans',sans-serif] font-bold tracking-wider uppercase border-b-2 border-[var(--border-strong)] shadow-[0_1px_0_var(--table-header-shadow-line)]",
+                            "sticky top-0 z-2 border-b-2 border-border-strong bg-[color-mix(in_srgb,var(--table-header-bg)_92%,var(--bg-card))] p-[0.7rem_0.85rem] text-left align-top font-['Plus_Jakarta_Sans',sans-serif] text-[0.68rem] font-bold tracking-wider uppercase shadow-[0_1px_0_var(--table-header-shadow-line)] backdrop-blur-[6px]",
                           ),
                           columnClass(kind),
                         )}
@@ -216,7 +216,7 @@ export function SampleDataModal({
                 {sample.rows.map((row, i) => (
                   <tr
                     key={i}
-                    className={`group/row border-b border-border last:border-b-0 odd:bg-[var(--table-stripe-odd)] even:bg-[var(--table-stripe-even)] hover:bg-[var(--table-stripe-hover)]`}
+                    className={`group/row border-b border-border last:border-b-0 odd:bg-(--table-stripe-odd) even:bg-(--table-stripe-even) hover:bg-(--table-stripe-hover)`}
                   >
                     {row.map((cell, j) => {
                       const colName = sample.columns[j]?.name ?? ''

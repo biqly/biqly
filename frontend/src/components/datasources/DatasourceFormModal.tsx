@@ -82,7 +82,7 @@ export function DatasourceFormModal({
     >
       <div className={formStackClass}>
         <div className={legacyFormClass('form-group')}>
-          <span className="block mb-[0.35rem] font-semibold text-[0.875rem]">
+          <span className="mb-[0.35rem] block text-[0.875rem] font-semibold">
             {t('datasources.connection_mode')}
           </span>
           <div
@@ -94,15 +94,14 @@ export function DatasourceFormModal({
           >
             <button
               type="button"
-              className={`flex flex-col items-start gap-[0.15rem] m-0 px-[0.65rem] py-[0.55rem] border rounded-[0.4rem] bg-transparent text-[0.8125rem] font-medium leading-tight text-left cursor-pointer transition-all duration-150 ease-out ${
-                connMode === 'structured'
+              className={`flex flex-col items-start gap-[0.15rem] m-0 px-[0.65rem] py-[0.55rem] border rounded-[0.4rem] bg-transparent text-[0.8125rem] font-medium leading-tight text-left cursor-pointer transition-all duration-150 ease-out ${connMode === 'structured'
                   ? 'border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] bg-card text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.12)]'
                   : 'border-transparent text-foreground-muted hover:text-foreground hover:bg-[color-mix(in_srgb,var(--bg-card)_70%,transparent)]'
-              }`}
+                }`}
               aria-pressed={connMode === 'structured'}
               onClick={() => onConnModeChange('structured')}
             >
-              <span className="font-semibold text-[0.8125rem]">
+              <span className="text-[0.8125rem] font-semibold">
                 {t('datasources.mode_structured')}
               </span>
               <span
@@ -113,15 +112,14 @@ export function DatasourceFormModal({
             </button>
             <button
               type="button"
-              className={`flex flex-col items-start gap-[0.15rem] m-0 px-[0.65rem] py-[0.55rem] border rounded-[0.4rem] bg-transparent text-[0.8125rem] font-medium leading-tight text-left cursor-pointer transition-all duration-150 ease-out ${
-                connMode === 'raw'
+              className={`flex flex-col items-start gap-[0.15rem] m-0 px-[0.65rem] py-[0.55rem] border rounded-[0.4rem] bg-transparent text-[0.8125rem] font-medium leading-tight text-left cursor-pointer transition-all duration-150 ease-out ${connMode === 'raw'
                   ? 'border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] bg-card text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.12)]'
                   : 'border-transparent text-foreground-muted hover:text-foreground hover:bg-[color-mix(in_srgb,var(--bg-card)_70%,transparent)]'
-              }`}
+                }`}
               aria-pressed={connMode === 'raw'}
               onClick={() => onConnModeChange('raw')}
             >
-              <span className="font-semibold text-[0.8125rem]">{t('datasources.mode_raw')}</span>
+              <span className="text-[0.8125rem] font-semibold">{t('datasources.mode_raw')}</span>
               <span
                 className={`text-[0.7rem] font-normal leading-[1.3] ${connMode === 'raw' ? 'text-foreground-muted' : 'text-foreground-faint'}`}
               >
@@ -145,7 +143,7 @@ export function DatasourceFormModal({
         </div>
 
         <div className={legacyFormClass('form-group')}>
-          <span className="block mb-[0.35rem] font-semibold text-[0.875rem]">
+          <span className="mb-[0.35rem] block text-[0.875rem] font-semibold">
             {t('datasources.type')}
           </span>
           <DriverTileGrid
@@ -170,7 +168,7 @@ export function DatasourceFormModal({
               autoComplete="off"
               spellCheck={false}
             />
-            <small className="block mt-1 text-foreground-muted text-[0.75rem] leading-[1.35]">
+            <small className="mt-1 block text-[0.75rem] leading-[1.35] text-foreground-muted">
               {editingId ? t('datasources.dsn_keep_hint') : t('datasources.dsn_hint')}
             </small>
           </div>
@@ -197,7 +195,7 @@ export function DatasourceFormModal({
                   inputMode="numeric"
                   autoComplete="off"
                 />
-                <small className="block mt-1 text-foreground-muted text-[0.75rem] leading-[1.35]">
+                <small className="mt-1 block text-[0.75rem] leading-[1.35] text-foreground-muted">
                   {t('common.optional')}
                 </small>
               </div>
@@ -233,7 +231,7 @@ export function DatasourceFormModal({
                 onChange={(e) => onStructuredChange({ ...structured, password: e.target.value })}
                 autoComplete="off"
               />
-              <small className="block mt-1 text-foreground-muted text-[0.75rem] leading-[1.35]">
+              <small className="mt-1 block text-[0.75rem] leading-[1.35] text-foreground-muted">
                 {editingId ? t('datasources.password_keep_hint') : t('datasources.dsn_hint')}
               </small>
             </div>
@@ -246,11 +244,11 @@ export function DatasourceFormModal({
                 placeholder={driverConnHints.ssl_mode || 'disable'}
                 autoComplete="off"
               />
-              <small className="block mt-1 text-foreground-muted text-[0.75rem] leading-[1.35]">
+              <small className="mt-1 block text-[0.75rem] leading-[1.35] text-foreground-muted">
                 {t('common.optional')}
               </small>
               {isInsecureSslMode(structured.ssl_mode) && (
-                <small className="block mt-1 text-warning text-[0.75rem] leading-[1.35]">
+                <small className="mt-1 block text-[0.75rem] leading-[1.35] text-warning">
                   ⚠ {t('datasources.ssl_insecure_warning')}
                 </small>
               )}
@@ -260,11 +258,10 @@ export function DatasourceFormModal({
 
         {draftTestResult && (
           <p
-            className={`m-0 px-[0.65rem] py-[0.55rem] border rounded-[0.45rem] text-[0.8rem] leading-[1.4] ${
-              draftTestResult.includes('successful') || draftTestResult.includes('başarılı')
+            className={`m-0 px-[0.65rem] py-[0.55rem] border rounded-[0.45rem] text-[0.8rem] leading-[1.4] ${draftTestResult.includes('successful') || draftTestResult.includes('başarılı')
                 ? 'border-[color-mix(in_srgb,var(--success)_30%,var(--border))] bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-success'
                 : 'border-border bg-card-raised text-foreground-muted'
-            }`}
+              }`}
             role="status"
           >
             {draftTestResult}

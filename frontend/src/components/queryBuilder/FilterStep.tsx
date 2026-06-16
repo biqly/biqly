@@ -65,12 +65,12 @@ export function FilterStep({
                 { value: 'is_not_null', label: t('query_builder.op_is_not_null') || 'is not null' },
                 ...(isTextField
                   ? [
-                      { value: 'is_empty', label: t('query_builder.op_is_empty') || 'is empty' },
-                      {
-                        value: 'is_not_empty',
-                        label: t('query_builder.op_is_not_empty') || 'is not empty',
-                      },
-                    ]
+                    { value: 'is_empty', label: t('query_builder.op_is_empty') || 'is empty' },
+                    {
+                      value: 'is_not_empty',
+                      label: t('query_builder.op_is_not_empty') || 'is not empty',
+                    },
+                  ]
                   : []),
               ]}
               size="sm"

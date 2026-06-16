@@ -3,11 +3,12 @@ package audit
 import (
 	"context"
 	"database/sql"
-	"github.com/bytedance/sonic"
-	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"log/slog"
 	"testing"
 	"time"
+
+	"github.com/bytedance/sonic"
+	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/biqly/biqly/internal/testutil"
 	"github.com/stretchr/testify/assert"

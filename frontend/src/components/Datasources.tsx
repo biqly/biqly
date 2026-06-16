@@ -321,8 +321,8 @@ export default function Datasources() {
     (connMode === 'raw'
       ? editingId !== null || form.dsn.trim() !== ''
       : structured.host.trim() !== '' &&
-        (structured.port.trim() === '' ||
-          (!Number.isNaN(parseInt(structured.port, 10)) && parseInt(structured.port, 10) > 0)))
+      (structured.port.trim() === '' ||
+        (!Number.isNaN(parseInt(structured.port, 10)) && parseInt(structured.port, 10) > 0)))
   const datasourceRows = buildDatasourceAccessView(items, accessibleDatasourceIDs)
 
   if (initLoading && items.length === 0) {

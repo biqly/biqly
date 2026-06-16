@@ -21,14 +21,7 @@ import {
 } from '../lib/fewShotLayoutClasses'
 import { formControlClass, formRowClass, legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
-import {
-  modalActionsClass,
-  modalBackdropClass,
-  modalCloseClass,
-  modalFormRowClass,
-  modalHeaderClass,
-  modalTitleClass,
-} from '../lib/modalClasses'
+import { modalActionsClass, modalFormRowClass } from '../lib/modalClasses'
 import { legacyTableClass } from '../lib/tableClasses'
 import type { EnrichAnalyzeResult, EnrichApplyResult } from '../types/enrichContext'
 import type { BusinessGlossaryTerm, GlossaryAIContext } from '../types/glossary'
@@ -36,6 +29,7 @@ import { GlossaryEnrichPanel } from './GlossaryEnrichPanel'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
+import { Modal } from './ui/Modal'
 import { Select } from './ui/Select'
 export default function Glossary() {
   const t = useT()
@@ -740,456 +734,445 @@ export default function Glossary() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className={modalBackdropClass()} onClick={resetForm}>
-          <div className={fewShotModalCardClass()} onClick={(e) => e.stopPropagation()}>
-            <div className={modalHeaderClass()}>
-              <h2 className={modalTitleClass()}>
-                {editId ? t('glossary.form_edit_title') : t('glossary.form_add_title')}
-              </h2>
-              <button type="button" className={modalCloseClass()} onClick={resetForm}>
-                ×
-              </button>
-            </div>
-            <div className={modalBodyTwoColClass()}>
-              <div className={fewShotMainFormClass()}>
-                <div className={modalFormRowClass()}>
-                  <div className={legacyFormClass('form-group')}>
-                    <label>{t('glossary.label_datasource')}</label>
-                    <Select
-                      value={formDatasourceId}
-                      onChange={(val) => {
-                        setFormDatasourceId(val)
-                        setFormModelId('')
-                        setFormMapsToName('')
-                      }}
-                      options={datasources.map((d) => ({ value: d.id, label: d.name }))}
-                      disabled={!!editId}
-                    />
-                  </div>
-                  <div className={legacyFormClass('form-group')}>
-                    <label>{t('glossary.label_model')}</label>
-                    <Select
-                      value={formModelId}
-                      onChange={(val) => {
-                        setFormModelId(val)
-                        setFormMapsToName('')
-                      }}
-                      options={[
-                        { value: '', label: t('glossary.option_all_models') },
-                        ...formModels.map((m) => ({ value: m.id, label: m.label ?? m.name })),
-                      ]}
-                      disabled={!!editId}
-                    />
-                  </div>
-                </div>
-
-                <div className={legacyFormClass('form-group')}>
-                  <label htmlFor="gl-term">{t('glossary.label_term')}</label>
-                  <input
-                    id="gl-term"
-                    type="text"
-                    value={formTerm}
-                    onChange={(e) => setFormTerm(e.target.value)}
-                    placeholder={t('glossary.placeholder_term')}
-                  />
-                </div>
-
-                <div className={legacyFormClass('form-group')}>
-                  <label htmlFor="gl-definition">{t('glossary.label_definition')}</label>
-                  <textarea
-                    id="gl-definition"
-                    value={formDefinition}
-                    onChange={(e) => setFormDefinition(e.target.value)}
-                    placeholder={t('glossary.placeholder_definition')}
-                    rows={2}
-                  />
-                </div>
-
-                <div className={modalFormRowClass()}>
-                  <div className={legacyFormClass('form-group')}>
-                    <label>{t('glossary.label_maps_to_type')}</label>
-                    <Select
-                      value={formMapsToType}
-                      onChange={(val) => {
-                        setFormMapsToType(val)
-                        setFormMapsToName('')
-                      }}
-                      options={[
-                        { value: 'dimension', label: t('glossary.type_dimension') },
-                        { value: 'metric', label: t('glossary.type_metric') },
-                        { value: 'model', label: t('glossary.type_model') },
-                      ]}
-                    />
-                  </div>
-                  <div className={legacyFormClass('form-group')}>
-                    <label htmlFor="gl-maps-to-name">{t('glossary.label_maps_to_name')}</label>
-                    {formModelId && activeModelDetail ? (
-                      <Select
-                        id="gl-maps-to-name"
-                        value={formMapsToName}
-                        onChange={setFormMapsToName}
-                        options={[
-                          { value: '', label: '— pick mapped target —' },
-                          ...mapsToNameOptions,
-                        ]}
-                      />
-                    ) : (
-                      <input
-                        id="gl-maps-to-name"
-                        type="text"
-                        value={formMapsToName}
-                        onChange={(e) => setFormMapsToName(e.target.value)}
-                        placeholder="e.g. total_amount, order_date"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className={legacyFormClass('form-group')}>
-                  <label htmlFor="gl-aliases">{t('glossary.label_aliases')}</label>
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: '0.4rem',
-                      padding: '0.4rem',
-                      border: '1px solid var(--border)',
-                      borderRadius: '8px',
-                      background: 'var(--bg-primary)',
-                      alignItems: 'center',
-                    }}
-                  >
-                    {formAliases.map((alias) => (
-                      <span
-                        key={alias}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.25rem',
-                          padding: '0.15rem 0.5rem',
-                          background: 'rgba(96,165,250,0.1)',
-                          border: '1px solid rgba(96,165,250,0.2)',
-                          borderRadius: '0.25rem',
-                          fontSize: '0.75rem',
-                          color: 'var(--accent)',
-                        }}
-                      >
-                        {alias}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAlias(alias)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--accent)',
-                            cursor: 'pointer',
-                            fontSize: '0.8rem',
-                            fontWeight: 'bold',
-                            padding: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      id="gl-aliases"
-                      type="text"
-                      value={aliasInput}
-                      onChange={(e) => setAliasInput(e.target.value)}
-                      onKeyDown={handleAliasKeyDown}
-                      onBlur={handleAddAlias}
-                      placeholder={t('glossary.placeholder_aliases')}
-                      style={{
-                        border: 'none',
-                        background: 'transparent',
-                        outline: 'none',
-                        flex: '1',
-                        minWidth: '120px',
-                        fontSize: '0.8rem',
-                        padding: '0.1rem',
-                        color: 'var(--text-primary)',
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className={legacyFormClass('form-group')}>
-                  <label>{t('glossary.section_ai_context')}</label>
-                  <div className={legacyFormClass('form-group')}>
-                    <label htmlFor="gl-context-synonyms">
-                      {t('glossary.label_context_synonyms')}
-                    </label>
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '0.4rem',
-                        padding: '0.4rem',
-                        border: '1px solid var(--border)',
-                        borderRadius: '8px',
-                        background: 'var(--bg-primary)',
-                        alignItems: 'center',
-                      }}
-                    >
-                      {formContextSynonyms.map((synonym) => (
-                        <span
-                          key={synonym}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                            padding: '0.15rem 0.5rem',
-                            background: 'rgba(167,139,250,0.1)',
-                            border: '1px solid rgba(167,139,250,0.2)',
-                            borderRadius: '0.25rem',
-                            fontSize: '0.75rem',
-                            color: '#a78bfa',
-                          }}
-                        >
-                          {synonym}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveContextSynonym(synonym)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#a78bfa',
-                              cursor: 'pointer',
-                              fontSize: '0.8rem',
-                              fontWeight: 'bold',
-                              padding: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                      <input
-                        id="gl-context-synonyms"
-                        type="text"
-                        value={contextSynonymInput}
-                        onChange={(e) => setContextSynonymInput(e.target.value)}
-                        onKeyDown={handleContextSynonymKeyDown}
-                        onBlur={handleAddContextSynonym}
-                        placeholder={t('glossary.placeholder_context_synonyms')}
-                        style={{
-                          border: 'none',
-                          background: 'transparent',
-                          outline: 'none',
-                          flex: '1',
-                          minWidth: '120px',
-                          fontSize: '0.8rem',
-                          padding: '0.1rem',
-                          color: 'var(--text-primary)',
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className={modalFormRowClass()}>
-                    <div className={legacyFormClass('form-group')}>
-                      <label htmlFor="gl-unit">{t('glossary.label_unit')}</label>
-                      <input
-                        id="gl-unit"
-                        type="text"
-                        value={formUnit}
-                        onChange={(e) => setFormUnit(e.target.value)}
-                        placeholder={t('glossary.placeholder_unit')}
-                      />
-                    </div>
-                    <div className={legacyFormClass('form-group')}>
-                      <label htmlFor="gl-null-meaning">{t('glossary.label_null_meaning')}</label>
-                      <input
-                        id="gl-null-meaning"
-                        type="text"
-                        value={formNullMeaning}
-                        onChange={(e) => setFormNullMeaning(e.target.value)}
-                        placeholder={t('glossary.placeholder_null_meaning')}
-                      />
-                    </div>
-                  </div>
-                  <div className={legacyFormClass('form-group')}>
-                    <label htmlFor="gl-business-rules">{t('glossary.label_business_rules')}</label>
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '0.4rem',
-                        padding: '0.4rem',
-                        border: '1px solid var(--border)',
-                        borderRadius: '8px',
-                        background: 'var(--bg-primary)',
-                        alignItems: 'center',
-                      }}
-                    >
-                      {formBusinessRules.map((rule) => (
-                        <span
-                          key={rule}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                            padding: '0.15rem 0.5rem',
-                            background: 'rgba(245,158,11,0.1)',
-                            border: '1px solid rgba(245,158,11,0.2)',
-                            borderRadius: '0.25rem',
-                            fontSize: '0.75rem',
-                            color: '#f59e0b',
-                          }}
-                        >
-                          {rule}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveBusinessRule(rule)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#f59e0b',
-                              cursor: 'pointer',
-                              fontSize: '0.8rem',
-                              fontWeight: 'bold',
-                              padding: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                      <input
-                        id="gl-business-rules"
-                        type="text"
-                        value={businessRuleInput}
-                        onChange={(e) => setBusinessRuleInput(e.target.value)}
-                        onKeyDown={handleBusinessRuleKeyDown}
-                        onBlur={handleAddBusinessRule}
-                        placeholder={t('glossary.placeholder_business_rules')}
-                        style={{
-                          border: 'none',
-                          background: 'transparent',
-                          outline: 'none',
-                          flex: '1',
-                          minWidth: '120px',
-                          fontSize: '0.8rem',
-                          padding: '0.1rem',
-                          color: 'var(--text-primary)',
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <ErrorAlert error={formError} />
+        <Modal
+          open
+          title={editId ? t('glossary.form_edit_title') : t('glossary.form_add_title')}
+          onClose={resetForm}
+          className={fewShotModalCardClass()}
+          bodyClassName={modalBodyTwoColClass()}
+        >
+          <div className={fewShotMainFormClass()}>
+            <div className={modalFormRowClass()}>
+              <div className={legacyFormClass('form-group')}>
+                <label>{t('glossary.label_datasource')}</label>
+                <Select
+                  value={formDatasourceId}
+                  onChange={(val) => {
+                    setFormDatasourceId(val)
+                    setFormModelId('')
+                    setFormMapsToName('')
+                  }}
+                  options={datasources.map((d) => ({ value: d.id, label: d.name }))}
+                  disabled={!!editId}
+                />
               </div>
+              <div className={legacyFormClass('form-group')}>
+                <label>{t('glossary.label_model')}</label>
+                <Select
+                  value={formModelId}
+                  onChange={(val) => {
+                    setFormModelId(val)
+                    setFormMapsToName('')
+                  }}
+                  options={[
+                    { value: '', label: t('glossary.option_all_models') },
+                    ...formModels.map((m) => ({ value: m.id, label: m.label ?? m.name })),
+                  ]}
+                  disabled={!!editId}
+                />
+              </div>
+            </div>
 
-              <div className={fewShotSidebarClass()}>
-                <div className={fewShotSidebarHeaderClass()}>
-                  {t('few_shot.available_fields_title')}
-                </div>
-                {activeModelDetail ? (
-                  <>
-                    <input
-                      type="text"
-                      className={cn(formControlClass, 'mb-1')}
-                      placeholder={t('few_shot.search_fields_placeholder')}
-                      value={sidebarSearch}
-                      onChange={(e) => setSidebarSearch(e.target.value)}
-                    />
-                    <div className={fewShotSidebarListClass()}>
-                      {/* Model itself */}
-                      <button
-                        type="button"
-                        className={fieldBadgeBtnClass}
-                        onClick={() => handleInsertField(activeModelDetail.name, 'model')}
-                        title={
-                          activeModelDetail.description ??
-                          activeModelDetail.label ??
-                          activeModelDetail.name
-                        }
-                      >
-                        <span>{activeModelDetail.name}</span>
-                        <span className={fieldBadgeBtnTypeClass}>model</span>
-                      </button>
-                      {/* Dimensions */}
-                      {filteredDimensions.map((d) => (
-                        <button
-                          key={d.id}
-                          type="button"
-                          className={fieldBadgeBtnClass}
-                          onClick={() => handleInsertField(d.name, 'dimension')}
-                          title={d.description ?? d.label ?? d.name}
-                        >
-                          <span>{d.name}</span>
-                          <span className={fieldBadgeBtnTypeClass}>dim</span>
-                        </button>
-                      ))}
-                      {/* Metrics */}
-                      {filteredMetrics.map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          className={fieldBadgeBtnClass}
-                          onClick={() => handleInsertField(m.name, 'metric')}
-                          title={m.description ?? m.label ?? m.name}
-                        >
-                          <span>{m.name}</span>
-                          <span className={fieldBadgeBtnTypeClass}>met</span>
-                        </button>
-                      ))}
-                      {filteredDimensions.length === 0 && filteredMetrics.length === 0 && (
-                        <span
-                          style={{
-                            fontSize: '0.75rem',
-                            color: 'var(--text-secondary)',
-                            textAlign: 'center',
-                            marginTop: '1rem',
-                          }}
-                        >
-                          No fields found
-                        </span>
-                      )}
-                    </div>
-                  </>
+            <div className={legacyFormClass('form-group')}>
+              <label htmlFor="gl-term">{t('glossary.label_term')}</label>
+              <input
+                id="gl-term"
+                type="text"
+                value={formTerm}
+                onChange={(e) => setFormTerm(e.target.value)}
+                placeholder={t('glossary.placeholder_term')}
+              />
+            </div>
+
+            <div className={legacyFormClass('form-group')}>
+              <label htmlFor="gl-definition">{t('glossary.label_definition')}</label>
+              <textarea
+                id="gl-definition"
+                value={formDefinition}
+                onChange={(e) => setFormDefinition(e.target.value)}
+                placeholder={t('glossary.placeholder_definition')}
+                rows={2}
+              />
+            </div>
+
+            <div className={modalFormRowClass()}>
+              <div className={legacyFormClass('form-group')}>
+                <label>{t('glossary.label_maps_to_type')}</label>
+                <Select
+                  value={formMapsToType}
+                  onChange={(val) => {
+                    setFormMapsToType(val)
+                    setFormMapsToName('')
+                  }}
+                  options={[
+                    { value: 'dimension', label: t('glossary.type_dimension') },
+                    { value: 'metric', label: t('glossary.type_metric') },
+                    { value: 'model', label: t('glossary.type_model') },
+                  ]}
+                />
+              </div>
+              <div className={legacyFormClass('form-group')}>
+                <label htmlFor="gl-maps-to-name">{t('glossary.label_maps_to_name')}</label>
+                {formModelId && activeModelDetail ? (
+                  <Select
+                    id="gl-maps-to-name"
+                    value={formMapsToName}
+                    onChange={setFormMapsToName}
+                    options={[{ value: '', label: '— pick mapped target —' }, ...mapsToNameOptions]}
+                  />
                 ) : (
-                  <div
-                    style={{
-                      fontSize: '0.75rem',
-                      color: 'var(--text-secondary)',
-                      lineHeight: '1.4',
-                      marginTop: '0.5rem',
-                    }}
-                  >
-                    {t('few_shot.helper_select_model')}
-                  </div>
+                  <input
+                    id="gl-maps-to-name"
+                    type="text"
+                    value={formMapsToName}
+                    onChange={(e) => setFormMapsToName(e.target.value)}
+                    placeholder="e.g. total_amount, order_date"
+                  />
                 )}
               </div>
             </div>
-            <div className={modalActionsClass()}>
-              <button
-                type="button"
-                className={legacyButtonClass('btn btn-ghost')}
-                onClick={resetForm}
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                className={legacyButtonClass('btn btn-primary')}
-                onClick={() => {
-                  void handleSave()
+
+            <div className={legacyFormClass('form-group')}>
+              <label htmlFor="gl-aliases">{t('glossary.label_aliases')}</label>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.4rem',
+                  padding: '0.4rem',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  background: 'var(--bg-primary)',
+                  alignItems: 'center',
                 }}
-                disabled={loading}
               >
-                {loading ? t('common.saving') : t('common.save')}
-              </button>
+                {formAliases.map((alias) => (
+                  <span
+                    key={alias}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      padding: '0.15rem 0.5rem',
+                      background: 'rgba(96,165,250,0.1)',
+                      border: '1px solid rgba(96,165,250,0.2)',
+                      borderRadius: '0.25rem',
+                      fontSize: '0.75rem',
+                      color: 'var(--accent)',
+                    }}
+                  >
+                    {alias}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAlias(alias)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--accent)',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 'bold',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <input
+                  id="gl-aliases"
+                  type="text"
+                  value={aliasInput}
+                  onChange={(e) => setAliasInput(e.target.value)}
+                  onKeyDown={handleAliasKeyDown}
+                  onBlur={handleAddAlias}
+                  placeholder={t('glossary.placeholder_aliases')}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    outline: 'none',
+                    flex: '1',
+                    minWidth: '120px',
+                    fontSize: '0.8rem',
+                    padding: '0.1rem',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
             </div>
+
+            <div className={legacyFormClass('form-group')}>
+              <label>{t('glossary.section_ai_context')}</label>
+              <div className={legacyFormClass('form-group')}>
+                <label htmlFor="gl-context-synonyms">{t('glossary.label_context_synonyms')}</label>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '0.4rem',
+                    padding: '0.4rem',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    background: 'var(--bg-primary)',
+                    alignItems: 'center',
+                  }}
+                >
+                  {formContextSynonyms.map((synonym) => (
+                    <span
+                      key={synonym}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        padding: '0.15rem 0.5rem',
+                        background: 'rgba(167,139,250,0.1)',
+                        border: '1px solid rgba(167,139,250,0.2)',
+                        borderRadius: '0.25rem',
+                        fontSize: '0.75rem',
+                        color: '#a78bfa',
+                      }}
+                    >
+                      {synonym}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveContextSynonym(synonym)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#a78bfa',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    id="gl-context-synonyms"
+                    type="text"
+                    value={contextSynonymInput}
+                    onChange={(e) => setContextSynonymInput(e.target.value)}
+                    onKeyDown={handleContextSynonymKeyDown}
+                    onBlur={handleAddContextSynonym}
+                    placeholder={t('glossary.placeholder_context_synonyms')}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      outline: 'none',
+                      flex: '1',
+                      minWidth: '120px',
+                      fontSize: '0.8rem',
+                      padding: '0.1rem',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                </div>
+              </div>
+              <div className={modalFormRowClass()}>
+                <div className={legacyFormClass('form-group')}>
+                  <label htmlFor="gl-unit">{t('glossary.label_unit')}</label>
+                  <input
+                    id="gl-unit"
+                    type="text"
+                    value={formUnit}
+                    onChange={(e) => setFormUnit(e.target.value)}
+                    placeholder={t('glossary.placeholder_unit')}
+                  />
+                </div>
+                <div className={legacyFormClass('form-group')}>
+                  <label htmlFor="gl-null-meaning">{t('glossary.label_null_meaning')}</label>
+                  <input
+                    id="gl-null-meaning"
+                    type="text"
+                    value={formNullMeaning}
+                    onChange={(e) => setFormNullMeaning(e.target.value)}
+                    placeholder={t('glossary.placeholder_null_meaning')}
+                  />
+                </div>
+              </div>
+              <div className={legacyFormClass('form-group')}>
+                <label htmlFor="gl-business-rules">{t('glossary.label_business_rules')}</label>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '0.4rem',
+                    padding: '0.4rem',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    background: 'var(--bg-primary)',
+                    alignItems: 'center',
+                  }}
+                >
+                  {formBusinessRules.map((rule) => (
+                    <span
+                      key={rule}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        padding: '0.15rem 0.5rem',
+                        background: 'rgba(245,158,11,0.1)',
+                        border: '1px solid rgba(245,158,11,0.2)',
+                        borderRadius: '0.25rem',
+                        fontSize: '0.75rem',
+                        color: '#f59e0b',
+                      }}
+                    >
+                      {rule}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveBusinessRule(rule)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#f59e0b',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    id="gl-business-rules"
+                    type="text"
+                    value={businessRuleInput}
+                    onChange={(e) => setBusinessRuleInput(e.target.value)}
+                    onKeyDown={handleBusinessRuleKeyDown}
+                    onBlur={handleAddBusinessRule}
+                    placeholder={t('glossary.placeholder_business_rules')}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      outline: 'none',
+                      flex: '1',
+                      minWidth: '120px',
+                      fontSize: '0.8rem',
+                      padding: '0.1rem',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <ErrorAlert error={formError} />
           </div>
-        </div>
+
+          <div className={fewShotSidebarClass()}>
+            <div className={fewShotSidebarHeaderClass()}>
+              {t('few_shot.available_fields_title')}
+            </div>
+            {activeModelDetail ? (
+              <>
+                <input
+                  type="text"
+                  className={cn(formControlClass, 'mb-1')}
+                  placeholder={t('few_shot.search_fields_placeholder')}
+                  value={sidebarSearch}
+                  onChange={(e) => setSidebarSearch(e.target.value)}
+                />
+                <div className={fewShotSidebarListClass()}>
+                  {/* Model itself */}
+                  <button
+                    type="button"
+                    className={fieldBadgeBtnClass}
+                    onClick={() => handleInsertField(activeModelDetail.name, 'model')}
+                    title={
+                      activeModelDetail.description ??
+                      activeModelDetail.label ??
+                      activeModelDetail.name
+                    }
+                  >
+                    <span>{activeModelDetail.name}</span>
+                    <span className={fieldBadgeBtnTypeClass}>model</span>
+                  </button>
+                  {/* Dimensions */}
+                  {filteredDimensions.map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      className={fieldBadgeBtnClass}
+                      onClick={() => handleInsertField(d.name, 'dimension')}
+                      title={d.description ?? d.label ?? d.name}
+                    >
+                      <span>{d.name}</span>
+                      <span className={fieldBadgeBtnTypeClass}>dim</span>
+                    </button>
+                  ))}
+                  {/* Metrics */}
+                  {filteredMetrics.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={fieldBadgeBtnClass}
+                      onClick={() => handleInsertField(m.name, 'metric')}
+                      title={m.description ?? m.label ?? m.name}
+                    >
+                      <span>{m.name}</span>
+                      <span className={fieldBadgeBtnTypeClass}>met</span>
+                    </button>
+                  ))}
+                  {filteredDimensions.length === 0 && filteredMetrics.length === 0 && (
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        color: 'var(--text-secondary)',
+                        textAlign: 'center',
+                        marginTop: '1rem',
+                      }}
+                    >
+                      No fields found
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--text-secondary)',
+                  lineHeight: '1.4',
+                  marginTop: '0.5rem',
+                }}
+              >
+                {t('few_shot.helper_select_model')}
+              </div>
+            )}
+          </div>
+          <div className={modalActionsClass()}>
+            <button
+              type="button"
+              className={legacyButtonClass('btn btn-ghost')}
+              onClick={resetForm}
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              className={legacyButtonClass('btn btn-primary')}
+              onClick={() => {
+                void handleSave()
+              }}
+              disabled={loading}
+            >
+              {loading ? t('common.saving') : t('common.save')}
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   )

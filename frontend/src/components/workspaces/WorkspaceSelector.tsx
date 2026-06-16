@@ -86,12 +86,12 @@ export function WorkspaceSelector({ token }: { token: string }) {
   }
 
   return (
-    <label className="flex flex-col gap-[0.35rem] mb-4 min-w-0">
-      <span className="text-foreground-faint text-[0.68rem] font-extrabold tracking-normal uppercase">
+    <label className="mb-4 flex min-w-0 flex-col gap-[0.35rem]">
+      <span className="text-[0.68rem] font-extrabold tracking-normal text-foreground-faint uppercase">
         {t('admin.workspaces.selector_label')}
       </span>
       <Select
-        className="[&_.ui-select-trigger--stacked]:items-start [&_.ui-select-trigger--stacked]:min-h-[2.65rem] [&_.ui-select-trigger--stacked]:pt-[0.42rem] [&_.ui-select-trigger--stacked]:pb-[0.42rem] [&_.ui-select-trigger--stacked_.ui-select-chevron]:mt-[0.2rem]"
+        className="[&_.ui-select-trigger--stacked]:min-h-[2.65rem] [&_.ui-select-trigger--stacked]:items-start [&_.ui-select-trigger--stacked]:pt-[0.42rem] [&_.ui-select-trigger--stacked]:pb-[0.42rem] [&_.ui-select-trigger--stacked_.ui-select-chevron]:mt-[0.2rem]"
         value={active?.id ?? ''}
         options={workspaceOptions}
         onChange={(v) => void handleChange(v)}

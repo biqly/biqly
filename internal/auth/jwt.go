@@ -24,6 +24,16 @@ const (
 	mfaChallengeTTL      = 5 * time.Minute
 )
 
+// TokenParams groups JWT access-token inputs to avoid same-typed parameter swaps.
+type TokenParams struct {
+	UserID                string
+	Email                 string
+	EmailVerified         bool
+	Roles                 []string
+	WorkspaceID           string
+	AccessibleDatasources []string
+}
+
 type JWTClaims struct {
 	Email                 string   `json:"email"`
 	Roles                 []string `json:"roles"`
@@ -168,28 +178,45 @@ func parseRSAPrivateKeyFromConfig(value string) (*rsa.PrivateKey, error) {
 }
 
 func (m *JWTManager) GenerateToken(userID, email string, roles []string, workspaceID string, datasources []string) (string, error) {
-	return m.GenerateTokenWithVerification(userID, email, false, roles, workspaceID, datasources)
+	return m.GenerateTokenWithParams(TokenParams{
+		UserID:                userID,
+		Email:                 email,
+		Roles:                 roles,
+		WorkspaceID:           workspaceID,
+		AccessibleDatasources: datasources,
+	})
 }
 
 // GenerateTokenWithVerification mints an access token while preserving the
 // users.email_verified flag in a dedicated claim. Callers with access to the
-// User record should prefer this entry point so write-gating middleware can
+// User record should prefer GenerateTokenWithParams so write-gating middleware can
 // trust the JWT instead of re-querying the auth DB on every request.
 func (m *JWTManager) GenerateTokenWithVerification(userID, email string, emailVerified bool, roles []string, workspaceID string, datasources []string) (string, error) {
+	return m.GenerateTokenWithParams(TokenParams{
+		UserID:                userID,
+		Email:                 email,
+		EmailVerified:         emailVerified,
+		Roles:                 roles,
+		WorkspaceID:           workspaceID,
+		AccessibleDatasources: datasources,
+	})
+}
+
+func (m *JWTManager) GenerateTokenWithParams(p TokenParams) (string, error) {
 	now := time.Now()
 	jti, err := generateJTI()
 	if err != nil {
 		return "", fmt.Errorf("generate jti: %w", err)
 	}
 	claims := JWTClaims{
-		Email:                 email,
-		Roles:                 roles,
-		WorkspaceID:           workspaceID,
-		AccessibleDatasources: datasources,
-		EmailVerified:         emailVerified,
+		Email:                 p.Email,
+		Roles:                 p.Roles,
+		WorkspaceID:           p.WorkspaceID,
+		AccessibleDatasources: p.AccessibleDatasources,
+		EmailVerified:         p.EmailVerified,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        jti,
-			Subject:   userID,
+			Subject:   p.UserID,
 			Issuer:    m.issuer,
 			Audience:  jwt.ClaimStrings{m.audience},
 			ExpiresAt: jwt.NewNumericDate(now.Add(m.accessTTL)),
@@ -288,7 +315,7 @@ func (m *JWTManager) PublicKeyPEM() (string, error) {
 		return "", err
 	}
 	pubBytes := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PUBLIC KEY",
+		Type:  "PUBLIC KEY",
 		Bytes: pubASN1,
 	})
 	return string(pubBytes), nil

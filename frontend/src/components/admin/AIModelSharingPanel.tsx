@@ -237,7 +237,7 @@ export function AIModelSharingPanel() {
 
       <LoadingOverlay loading={loading}>
         <div className={adminAiCardBodyClass}>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3 items-end mb-4">
+          <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] items-end gap-3">
             <label className={adminFormLabelClass} style={{ gap: 4, margin: 0 }}>
               <span className={adminLabelTextClass}>{t('admin.ai_model_access.target_kind')}</span>
               <Select
@@ -327,7 +327,7 @@ export function AIModelSharingPanel() {
             </p>
           ) : (
             <ul
-              className="list-none m-0 p-0 flex flex-col gap-2 max-h-60 overflow-y-auto pr-1.5 custom-scrollbar-thin"
+              className="custom-scrollbar-thin m-0 flex max-h-60 list-none flex-col gap-2 overflow-y-auto p-0 pr-1.5"
               aria-label={t('admin.ai_model_access.grants_list')}
             >
               {grantItems.map((item) => (
@@ -337,7 +337,7 @@ export function AIModelSharingPanel() {
                     'flex items-center justify-between gap-3 py-2.5 px-3 border border-border rounded-lg bg-card-raised',
                   )}
                 >
-                  <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                     <div className="flex flex-wrap gap-1.5">
                       <span
                         className={`${adminAiBadgeBase} ${adminAiBadgeTargetClass[item.targetBadge]}`}
@@ -350,7 +350,7 @@ export function AIModelSharingPanel() {
                         {t(`admin.ai_model_access.${item.resourceBadge}`)}
                       </span>
                     </div>
-                    <div className="text-sm font-medium text-foreground leading-[1.35] break-words [&_span]:text-foreground-muted [&_span]:font-normal">
+                    <div className="text-sm leading-[1.35] font-medium wrap-break-word text-foreground [&_span]:font-normal [&_span]:text-foreground-muted">
                       {item.label}
                     </div>
                   </div>

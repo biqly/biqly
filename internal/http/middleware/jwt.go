@@ -123,15 +123,13 @@ func (p *PublicKeyProvider) getConfig(ctx context.Context) (*jwtConfig, error) {
 }
 
 // JWTAuth verifies the Bearer JWT against the auth service's public key.
-// Bypass paths are exempted (e.g. /health, /ready).
+// Bypass paths are exempted by exact path match (e.g. /health, /ready).
 func JWTAuth(provider *PublicKeyProvider, bypassPaths ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			for _, p := range bypassPaths {
-				if p != "" && strings.HasPrefix(r.URL.Path, p) {
-					next.ServeHTTP(w, r)
-					return
-				}
+			if pathMatchesBypass(r.URL.Path, bypassPaths) {
+				next.ServeHTTP(w, r)
+				return
 			}
 
 			tokenStr := extractBearer(r)
@@ -184,11 +182,9 @@ func JWTAuthWithAdminBypass(provider *PublicKeyProvider, adminKeys []string, byp
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			for _, p := range bypassPaths {
-				if p != "" && strings.HasPrefix(r.URL.Path, p) {
-					next.ServeHTTP(w, r)
-					return
-				}
+			if pathMatchesBypass(r.URL.Path, bypassPaths) {
+				next.ServeHTTP(w, r)
+				return
 			}
 
 			// Check if the request presents one of the accepted API keys.
@@ -289,6 +285,17 @@ func applyJWTClaims(ctx context.Context, claims *JWTClaims) context.Context {
 	ctx = context.WithValue(ctx, AccessibleDSKey, claims.AccessibleDatasources)
 	ctx = context.WithValue(ctx, EmailVerifiedKey, claims.EmailVerified)
 	return ctx
+}
+
+// pathMatchesBypass reports whether path is exempt from JWT verification.
+// Bypass entries use exact path match only (no prefix matching).
+func pathMatchesBypass(path string, bypassPaths []string) bool {
+	for _, bp := range bypassPaths {
+		if path == bp {
+			return true
+		}
+	}
+	return false
 }
 
 func extractBearer(r *http.Request) string {

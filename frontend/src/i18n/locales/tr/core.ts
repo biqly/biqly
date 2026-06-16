@@ -1274,6 +1274,9 @@ export const core: CoreDictionary = {
     profile_picture_remove: 'Profil Fotoğrafını Kaldır',
     profile_picture_crop_title: 'Profil Fotoğrafını Kırp',
     profile_picture_crop_desc: 'Sürükleyerek hizalayın, kaydırıcıyla yakınlaştırın',
+    profile_picture_crop_canvas_aria:
+      'Kırpma önizlemesi. Fare veya dokunmayla sürükleyebilir ya da yön tuşlarıyla taşıyabilirsiniz. Yakınlaştırmak için artı ve eksi tuşlarını kullanın.',
+    profile_picture_crop_zoom_label: 'Kırpma önizlemesini yakınlaştır',
     profile_email_change_title: 'E-posta değiştir',
     profile_email_change_hint: 'Mevcut ve yeni adresinize onay bağlantıları gönderilir.',
     profile_new_email: 'Yeni e-posta',

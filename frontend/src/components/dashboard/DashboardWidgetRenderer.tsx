@@ -248,53 +248,26 @@ function WidgetTableView({
   )
 }
 
-export function DashboardWidgetRenderer({ widget }: { widget: DashboardWidget }) {
-  const { postData, loading, error } = useApi()
-  const [data, setData] = useState<ChartRow[] | null>(null)
-  const [columns, setColumns] = useState<QueryResultPayload['columns']>([])
+function useResetStateOnDepsChange<T>(initialValue: T, deps: unknown[]) {
+  const [state, setState] = useState<T>(initialValue)
+  const [prevDeps, setPrevDeps] = useState(deps)
 
-  useEffect(() => {
-    if (widget.type === 'text' || !widget.logical_query) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setData(widget.logical_query ? null : null)
-      return
-    }
-
-    void postData<QueryResultPayload>('/api/query/run', widget.logical_query).then((res) => {
-      if (!res) {
-        setData([])
-        return
-      }
-      setColumns(res.columns)
-      const mapped = res.rows.map((row) => {
-        const obj: ChartRow = {}
-        res.columns.forEach((col, idx) => {
-          obj[col.name] = row[idx]
-        })
-        return obj
-      })
-      setData(mapped)
-    })
-  }, [widget.logical_query, widget.type, postData])
-
-  if (widget.type === 'text') {
-    return (
-      <div
-        style={{
-          padding: '0.5rem',
-          whiteSpace: 'pre-wrap',
-          overflow: 'auto',
-          height: '100%',
-          fontSize: '0.95rem',
-          lineHeight: '1.5',
-        }}
-      >
-        {widget.content ?? <span style={{ color: 'var(--text-muted)' }}>Empty text widget.</span>}
-      </div>
-    )
+  const changed = deps.some((d, i) => d !== prevDeps[i])
+  if (changed) {
+    setPrevDeps(deps)
+    setState(initialValue)
   }
 
-  if (!widget.saved_query_id) {
+  return [state, setState] as const
+}
+
+function getWidgetDataStateElement(
+  loading: boolean,
+  error: string | null,
+  data: unknown[] | null,
+  savedQueryId?: string,
+) {
+  if (!savedQueryId) {
     return (
       <WidgetCenterMessage>⚠️ Not configured yet. Edit settings to link data.</WidgetCenterMessage>
     )
@@ -338,6 +311,73 @@ export function DashboardWidgetRenderer({ widget }: { widget: DashboardWidget })
 
   if (!data || data.length === 0) {
     return <WidgetCenterMessage>No data returned.</WidgetCenterMessage>
+  }
+
+  return null
+}
+
+export function DashboardWidgetRenderer({ widget }: { widget: DashboardWidget }) {
+  const { postData, loading, error, abort } = useApi()
+  const [data, setData] = useResetStateOnDepsChange<ChartRow[] | null>(null, [
+    widget.logical_query,
+    widget.type,
+  ])
+  const [columns, setColumns] = useState<QueryResultPayload['columns']>([])
+
+  useEffect(() => {
+    if (widget.type === 'text' || !widget.logical_query) {
+      return
+    }
+
+    let active = true
+    void postData<QueryResultPayload>('/api/query/run', widget.logical_query).then((res) => {
+      if (!active) {
+        return
+      }
+      if (!res) {
+        setData([])
+        return
+      }
+      setColumns(res.columns)
+      const mapped = res.rows.map((row) => {
+        const obj: ChartRow = {}
+        res.columns.forEach((col, idx) => {
+          obj[col.name] = row[idx]
+        })
+        return obj
+      })
+      setData(mapped)
+    })
+    return () => {
+      active = false
+      abort()
+      setData(null)
+    }
+  }, [widget.logical_query, widget.type, postData, abort, setData])
+
+  if (widget.type === 'text') {
+    return (
+      <div
+        style={{
+          padding: '0.5rem',
+          whiteSpace: 'pre-wrap',
+          overflow: 'auto',
+          height: '100%',
+          fontSize: '0.95rem',
+          lineHeight: '1.5',
+        }}
+      >
+        {widget.content ?? <span style={{ color: 'var(--text-muted)' }}>Empty text widget.</span>}
+      </div>
+    )
+  }
+
+  const stateElement = getWidgetDataStateElement(loading, error, data, widget.saved_query_id)
+  if (stateElement) {
+    return stateElement
+  }
+  if (!data) {
+    return null
   }
 
   if (widget.type === 'kpi') {

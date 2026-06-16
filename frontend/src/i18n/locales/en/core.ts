@@ -1263,6 +1263,9 @@ export const core = {
     profile_picture_remove: 'Remove Profile Picture',
     profile_picture_crop_title: 'Crop Profile Picture',
     profile_picture_crop_desc: 'Drag to pan, slider to zoom',
+    profile_picture_crop_canvas_aria:
+      'Crop image preview. Drag with a mouse or touch, or use arrow keys to pan. Use plus and minus keys to zoom.',
+    profile_picture_crop_zoom_label: 'Zoom crop preview',
     profile_email_change_title: 'Change email',
     profile_email_change_hint: 'We will send confirmation links to your current and new addresses.',
     profile_new_email: 'New email',

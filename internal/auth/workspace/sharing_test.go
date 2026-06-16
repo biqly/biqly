@@ -30,7 +30,7 @@ func setupSharingIDORTest(t *testing.T) *sharingIDORFixture {
 	dbPool := testutil.OpenAuthDB(t)
 	ctx := context.Background()
 
-	testutil.ResetAuthUserTables(ctx, t, dbPool)
+	testutil.ResetAuthIntegrationTables(ctx, t, dbPool, "DELETE FROM resource_shares")
 
 	cfg := &auth.Config{JWTAccessTTL: 5 * time.Minute, JWTRefreshTTL: 24 * time.Hour}
 	jwtMgr, err := auth.NewJWTManager("", "", cfg.JWTAccessTTL)
@@ -194,4 +194,53 @@ func TestShare_IDOR_Guards(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "either shared_with or workspace_id must be provided")
 	})
+}
+
+func TestRevoke_OwnerCanRevoke(t *testing.T) {
+	f := setupSharingIDORTest(t)
+	f.cleanupShares(t)
+
+	share, err := f.sharingSvc.Share(f.ctx, f.aliceID, ShareRequest{
+		ResourceType: "dashboard",
+		ResourceID:   "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		WorkspaceID:  &f.alicePersonal,
+		Permission:   "view",
+	})
+	require.NoError(t, err)
+
+	err = f.sharingSvc.Revoke(f.ctx, share.ID, f.aliceID)
+	require.NoError(t, err)
+
+	var count int
+	err = f.dbPool.QueryRowContext(f.ctx, `SELECT COUNT(*) FROM resource_shares WHERE id = $1`, share.ID).Scan(&count)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count)
+}
+
+func TestRevoke_NonOwnerIDOR(t *testing.T) {
+	f := setupSharingIDORTest(t)
+	f.cleanupShares(t)
+
+	share, err := f.sharingSvc.Share(f.ctx, f.aliceID, ShareRequest{
+		ResourceType: "dashboard",
+		ResourceID:   "b1c2d3e4-f5a6-7890-abcd-ef1234567890",
+		WorkspaceID:  &f.alicePersonal,
+		Permission:   "view",
+	})
+	require.NoError(t, err)
+
+	err = f.sharingSvc.Revoke(f.ctx, share.ID, f.bobID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "only owner can revoke share")
+
+	var count int
+	err = f.dbPool.QueryRowContext(f.ctx, `SELECT COUNT(*) FROM resource_shares WHERE id = $1`, share.ID).Scan(&count)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+}
+
+func TestRevoke_MissingShareNotFound(t *testing.T) {
+	f := setupSharingIDORTest(t)
+	err := f.sharingSvc.Revoke(f.ctx, "00000000-0000-0000-0000-000000000099", f.aliceID)
+	require.ErrorIs(t, err, ErrShareNotFound)
 }
