@@ -11,13 +11,14 @@ import { useT } from '../i18n'
 import { legacyButtonClass, rowActionsClass } from '../lib/buttonClasses'
 import { legacyCardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
-import { fieldBadgeBtnClass, fieldBadgeBtnTypeClass } from '../lib/fewShotLayoutClasses'
 import {
   fewShotMainFormClass,
   fewShotModalCardClass,
   fewShotSidebarClass,
   fewShotSidebarHeaderClass,
   fewShotSidebarListClass,
+  fieldBadgeBtnClass,
+  fieldBadgeBtnTypeClass,
   modalBodyTwoColClass,
 } from '../lib/fewShotLayoutClasses'
 import { formControlClass, formRowClass, legacyFormClass } from '../lib/formClasses'
@@ -121,14 +122,14 @@ export default function Glossary() {
     void loadTerms()
   }, [loadTerms])
 
-  const resetAIContextForm = () => {
+  const resetAIContextForm = useCallback(() => {
     setFormContextSynonyms([])
     setContextSynonymInput('')
     setFormUnit('')
     setFormNullMeaning('')
     setFormBusinessRules([])
     setBusinessRuleInput('')
-  }
+  }, [])
 
   const applyAIContextToForm = (ctx?: GlossaryAIContext) => {
     setFormContextSynonyms(ctx?.synonyms ?? [])
@@ -158,7 +159,7 @@ export default function Glossary() {
     }
   }
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setFormTerm('')
     setFormDefinition('')
     setFormMapsToType('dimension')
@@ -173,7 +174,7 @@ export default function Glossary() {
     setShowForm(false)
     setActiveModelDetail(null)
     setSidebarSearch('')
-  }
+  }, [resetAIContextForm, setActiveModelDetail])
 
   const openAdd = () => {
     setFormTerm('')
@@ -897,14 +898,11 @@ export default function Glossary() {
                   onKeyDown={handleAliasKeyDown}
                   onBlur={handleAddAlias}
                   placeholder={t('glossary.placeholder_aliases')}
+                  className="w-auto! border-0! bg-transparent! px-1.5! py-1! shadow-none! focus-visible:shadow-none! focus-visible:ring-0!"
                   style={{
-                    border: 'none',
-                    background: 'transparent',
-                    outline: 'none',
                     flex: '1',
                     minWidth: '120px',
                     fontSize: '0.8rem',
-                    padding: '0.1rem',
                     color: 'var(--text-primary)',
                   }}
                 />
@@ -970,14 +968,11 @@ export default function Glossary() {
                     onKeyDown={handleContextSynonymKeyDown}
                     onBlur={handleAddContextSynonym}
                     placeholder={t('glossary.placeholder_context_synonyms')}
+                    className="w-auto! border-0! bg-transparent! px-1.5! py-1! shadow-none! focus-visible:shadow-none! focus-visible:ring-0!"
                     style={{
-                      border: 'none',
-                      background: 'transparent',
-                      outline: 'none',
                       flex: '1',
                       minWidth: '120px',
                       fontSize: '0.8rem',
-                      padding: '0.1rem',
                       color: 'var(--text-primary)',
                     }}
                   />
@@ -1062,14 +1057,11 @@ export default function Glossary() {
                     onKeyDown={handleBusinessRuleKeyDown}
                     onBlur={handleAddBusinessRule}
                     placeholder={t('glossary.placeholder_business_rules')}
+                    className="w-auto! border-0! bg-transparent! px-1.5! py-1! shadow-none! focus-visible:shadow-none! focus-visible:ring-0!"
                     style={{
-                      border: 'none',
-                      background: 'transparent',
-                      outline: 'none',
                       flex: '1',
                       minWidth: '120px',
                       fontSize: '0.8rem',
-                      padding: '0.1rem',
                       color: 'var(--text-primary)',
                     }}
                   />

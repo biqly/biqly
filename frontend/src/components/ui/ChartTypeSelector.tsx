@@ -28,7 +28,7 @@ export function ChartTypeSelector<T extends ChartTypeOption>({
   onChange,
   options,
   className,
-  variant = 'toggle',
+  variant = 'group',
   ariaLabel = 'Chart type',
   labels,
 }: ChartTypeSelectorProps<T>) {

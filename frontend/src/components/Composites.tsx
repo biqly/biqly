@@ -364,81 +364,89 @@ export default function Composites() {
             ariaLabel={t('composites.datasource_placeholder')}
           />
         </div>
-        <button
-          type="button"
-          className={compositesBtnPrimaryClass}
-          onClick={() => setShowCreate(true)}
-          disabled={!datasourceId}
-        >
-          {t('composites.new')}
-        </button>
+        {composites.length > 0 && (
+          <button
+            type="button"
+            className={compositesBtnPrimaryClass}
+            onClick={() => setShowCreate(true)}
+            disabled={!datasourceId}
+          >
+            {t('composites.new')}
+          </button>
+        )}
       </div>
 
       {error && <ErrorAlert error={error} />}
 
-      <div className={compositesLayoutClass}>
-        <CompositesSidebar
-          t={t}
-          composites={composites}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onDelete={(id) => void handleDelete(id)}
-        />
+      {composites.length === 0 ? (
+        <div className="border-border bg-card flex min-h-112 flex-1 items-center justify-center rounded-xl border border-dashed p-8 text-center shadow-(--shadow)">
+          <EmptyState
+            description={t('composites.empty_list')}
+            action={
+              datasourceId
+                ? {
+                    label: t('composites.empty_detail_cta'),
+                    onClick: () => setShowCreate(true),
+                  }
+                : undefined
+            }
+          />
+        </div>
+      ) : (
+        <div className={compositesLayoutClass}>
+          <CompositesSidebar
+            t={t}
+            composites={composites}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onDelete={(id) => void handleDelete(id)}
+          />
 
-        <section className={compositesDetailClass}>
-          {!selectedId ? (
-            <EmptyState
-              description={t('composites.empty_detail')}
-              action={
-                datasourceId
-                  ? {
-                      label: t('composites.empty_detail_cta'),
-                      onClick: () => setShowCreate(true),
-                    }
-                  : undefined
-              }
-            />
-          ) : initLoading || !detail ? (
-            <LoadingScreen />
-          ) : (
-            <CompositeDetailPanel
-              t={t}
-              detail={detail}
-              loading={loading}
-              validation={validation}
-              modelNames={modelNames}
-              dimensionsByAlias={dimensionsByAlias}
-              suggestions={suggestions}
-              addModelId={addModelId}
-              addAlias={addAlias}
-              addRole={addRole}
-              availableModels={availableModels}
-              usedAliases={usedAliases}
-              onValidate={() => void handleValidate()}
-              onPublish={() => void handlePublish()}
-              onRollback={() => void handleRollback()}
-              onAddModelIdChange={setAddModelId}
-              onAddAliasChange={setAddAlias}
-              onAddRoleChange={setAddRole}
-              onAddComponent={() => void handleAddComponent()}
-              onRemoveComponent={(modelId) => void handleRemoveComponent(modelId)}
-              onLoadSuggestions={() => void loadSuggestions()}
-              onAddJoin={() => {
-                setEditingJoin(null)
-                setShowCrossJoin(true)
-              }}
-              onEditJoin={(join) => {
-                setEditingJoin(join)
-                setShowCrossJoin(true)
-              }}
-              onRemoveCrossJoin={(joinId) => void handleRemoveCrossJoin(joinId)}
-              onApplySuggestion={(s) => void applySuggestion(s)}
-              onSetCanonicalDate={(alias, dim) => void handleSetCanonicalDate(alias, dim)}
-              onResolutionChange={(res) => void handleResolutionChange(res)}
-            />
-          )}
-        </section>
-      </div>
+          <section className={compositesDetailClass}>
+            {!selectedId ? (
+              <EmptyState description={t('composites.empty_detail')} />
+            ) : initLoading || !detail ? (
+              <LoadingScreen />
+            ) : (
+              <CompositeDetailPanel
+                t={t}
+                detail={detail}
+                loading={loading}
+                validation={validation}
+                modelNames={modelNames}
+                dimensionsByAlias={dimensionsByAlias}
+                suggestions={suggestions}
+                addModelId={addModelId}
+                addAlias={addAlias}
+                addRole={addRole}
+                availableModels={availableModels}
+                usedAliases={usedAliases}
+                onValidate={() => void handleValidate()}
+                onPublish={() => void handlePublish()}
+                onRollback={() => void handleRollback()}
+                onAddModelIdChange={setAddModelId}
+                onAddAliasChange={setAddAlias}
+                onAddRoleChange={setAddRole}
+                onAddComponent={() => void handleAddComponent()}
+                onRemoveComponent={(modelId) => void handleRemoveComponent(modelId)}
+                onLoadSuggestions={() => void loadSuggestions()}
+                onAddJoin={() => {
+                  setEditingJoin(null)
+                  setShowCrossJoin(true)
+                }}
+                onEditJoin={(join) => {
+                  setEditingJoin(join)
+                  setShowCrossJoin(true)
+                }}
+                onRemoveCrossJoin={(joinId) => void handleRemoveCrossJoin(joinId)}
+                onApplySuggestion={(s) => void applySuggestion(s)}
+                onSetCanonicalDate={(alias, dim) => void handleSetCanonicalDate(alias, dim)}
+                onResolutionChange={(res) => void handleResolutionChange(res)}
+              />
+            )}
+          </section>
+        </div>
+      )}
 
       <Modal
         open={showCreate}
