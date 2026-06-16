@@ -76,7 +76,7 @@ export function Pagination({
               options={sizeSelectOptions}
               onChange={(v) => onPageSizeChange(Number(v))}
               size="sm"
-              className="w-[4.5rem]"
+              className="w-18"
               ariaLabel={resolvedPageSizeLabel}
             />
           </label>

@@ -25,7 +25,7 @@ export function Breadcrumbs({ items, ariaLabel = 'Breadcrumb' }: BreadcrumbsProp
                 {item.onClick && !isLast ? (
                   <button
                     type="button"
-                    className="text-foreground hover:text-accent cursor-pointer border-0 bg-transparent p-0 [font-family:inherit] [font-size:inherit] [line-height:inherit] font-medium hover:underline"
+                    className="text-foreground hover:text-accent cursor-pointer border-0 bg-transparent p-0 font-[inherit] [font-size:inherit] leading-[inherit] font-medium hover:underline"
                     onClick={item.onClick}
                   >
                     {item.label}

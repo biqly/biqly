@@ -25,7 +25,6 @@ semgrep.sarif
 
 # IDE
 .idea/
-.vscode/
 .cursor/mcp.json
 
 # OS

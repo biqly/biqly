@@ -67,7 +67,7 @@ export function LoadingScreen({
       {isOwner ? (
         <LoadingIndicator
           label={displayLabel}
-          className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-[120] translate-y-2 scale-[0.98] animate-[loading-pill-in_0.22s_ease-out_0.25s_forwards] opacity-0 motion-reduce:translate-y-0 motion-reduce:animate-[loading-pill-fade_0.22s_ease-out_0.25s_forwards]"
+          className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] z-120 translate-y-2 scale-[0.98] animate-[loading-pill-in_0.22s_ease-out_0.25s_forwards] opacity-0 motion-reduce:translate-y-0 motion-reduce:animate-[loading-pill-fade_0.22s_ease-out_0.25s_forwards]"
           style={{ animationDelay: immediate ? '0s' : undefined }}
         />
       ) : null}

@@ -107,7 +107,7 @@ export function Modal({
 
   return (
     <div
-      className="animate-modal-fade fixed inset-0 z-[var(--z-modal,1000)] grid [place-items:start_center] overflow-y-auto bg-black/55 p-[3rem_1rem] backdrop-blur-[4px] max-[680px]:p-4"
+      className="animate-modal-fade fixed inset-0 z-(--z-modal,1000) grid [place-items:start_center] overflow-y-auto bg-black/55 p-[3rem_1rem] backdrop-blur-xs max-[680px]:p-4"
       role="presentation"
       tabIndex={-1}
       onClick={(event) => {
@@ -145,7 +145,7 @@ export function Modal({
               {title}
             </h3>
             {subtitle && (
-              <p className="text-foreground-muted m-0 mt-[0.2rem] text-[0.86rem] leading-[1.45] [overflow-wrap:anywhere]">
+              <p className="text-foreground-muted m-0 mt-[0.2rem] text-[0.86rem] leading-[1.45] wrap-anywhere">
                 {subtitle}
               </p>
             )}
