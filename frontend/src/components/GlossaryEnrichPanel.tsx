@@ -1,6 +1,7 @@
 import { useT } from '../i18n'
 import { legacyButtonClass } from '../lib/buttonClasses'
 import { legacyCardClass } from '../lib/cardClasses'
+import { cn } from '../lib/cn'
 import { legacyTableClass } from '../lib/tableClasses'
 import type { EnrichAnalyzeResult, EnrichApplyResult } from '../types/enrichContext'
 interface EnrichSelection {
@@ -93,11 +94,12 @@ export function GlossaryEnrichPanel({
 
       {applyResult && (
         <div
-          className={`mb-3 rounded-lg border bg-(--surface-elevated,rgba(255,255,255,0.02)) px-3 py-[0.6rem] text-[0.85rem] ${
+          className={cn(
+            'mb-3 rounded-lg border bg-(--surface-elevated,rgba(255,255,255,0.02)) px-3 py-[0.6rem] text-[0.85rem]',
             applyResult.errors && applyResult.errors.length > 0
               ? 'border-(--danger,#d9534f)'
-              : 'border-border'
-          }`}
+              : 'border-border',
+          )}
           role="status"
         >
           <div className="font-semibold">

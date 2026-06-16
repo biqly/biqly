@@ -40,16 +40,16 @@ export const adminPanelClass = 'flex flex-col gap-4'
 export const adminPanelHeaderClass = 'flex flex-wrap items-center justify-between gap-3'
 
 export const adminBtnPrimaryClass =
-  'cursor-pointer rounded-md border-0 bg-accent px-4 py-2 text-[13px] font-medium text-white transition-all duration-200 hover:bg-[var(--accent-hover,#4338ca)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+  'cursor-pointer rounded-md border-0 bg-accent px-4 py-2 text-caption font-medium text-white transition-all duration-200 hover:bg-[var(--accent-hover,#4338ca)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
 export const adminBtnSecondaryClass =
   'inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-transparent px-3.5 py-2 text-sm font-medium text-foreground-muted transition-all duration-200 hover:bg-card-raised hover:text-foreground'
 
 export const adminBtnSuccessClass =
-  'cursor-pointer rounded border-0 bg-success px-3 py-1.5 text-[13px] font-medium text-white transition-all duration-200 hover:opacity-90'
+  'cursor-pointer rounded border-0 bg-success px-3 py-1.5 text-caption font-medium text-white transition-all duration-200 hover:opacity-90'
 
 export const adminBtnGhostClass =
-  'cursor-pointer rounded border border-border bg-transparent px-3 py-1.5 text-[13px] font-medium text-foreground transition-all duration-200 hover:bg-card-raised'
+  'cursor-pointer rounded border border-border bg-transparent px-3 py-1.5 text-caption font-medium text-foreground transition-all duration-200 hover:bg-card-raised'
 
 export const adminBtnDangerClass =
   'cursor-pointer rounded border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-xs font-medium text-error transition-all duration-200 hover:bg-red-500/20'
@@ -61,19 +61,19 @@ export const adminBtnSubmitClass =
   'mt-2 cursor-pointer rounded-md border-0 bg-accent px-2.5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-[var(--accent-hover,#4338ca)]'
 
 export const adminBtnActivateClass =
-  'cursor-pointer rounded-md border-0 bg-success px-4 py-2 text-[13px] font-semibold text-white transition-all duration-200 hover:opacity-90'
+  'cursor-pointer rounded-md border-0 bg-success px-4 py-2 text-caption font-semibold text-white transition-all duration-200 hover:opacity-90'
 
 export const adminBtnDeactivateClass =
-  'cursor-pointer rounded-md border-0 bg-error px-4 py-2 text-[13px] font-semibold text-white transition-all duration-200 hover:opacity-90'
+  'cursor-pointer rounded-md border-0 bg-error px-4 py-2 text-caption font-semibold text-white transition-all duration-200 hover:opacity-90'
 
 export const adminBtnResendClass =
-  'cursor-pointer rounded-md border border-border bg-card-raised px-3 py-1.5 text-[13px] font-medium text-foreground transition-all duration-200 hover:bg-[var(--control-hover-bg,rgba(255,255,255,0.08))]'
+  'cursor-pointer rounded-md border border-border bg-card-raised px-3 py-1.5 text-caption font-medium text-foreground transition-all duration-200 hover:bg-[var(--control-hover-bg,rgba(255,255,255,0.08))]'
 
 export const adminRoleListItemBaseClass =
   'block w-full cursor-pointer border-0 border-b border-border bg-transparent px-4 py-3 text-left text-foreground transition-[background] duration-150 last:border-b-0 hover:bg-card-raised'
 
 export const adminRoleListItemActiveClass =
-  'bg-[var(--accent-glow,rgba(99,102,241,0.12))] shadow-[inset_3px_0_0_var(--accent,#6366f1)]'
+  'bg-[var(--accent-glow)] shadow-[inset_3px_0_0_var(--accent)]'
 
 export function adminRoleListItemClass(active: boolean): string {
   return active
@@ -87,7 +87,7 @@ export const adminBadgeActiveClass = `${adminBadgeBaseClass} bg-emerald-500/12 t
 
 export const adminBadgeInactiveClass = `${adminBadgeBaseClass} bg-red-500/12 text-error`
 
-export const adminBadgeVerifiedClass = `${adminBadgeBaseClass} bg-[var(--accent-glow,rgba(99,102,241,0.15))] text-accent`
+export const adminBadgeVerifiedClass = `${adminBadgeBaseClass} bg-[var(--accent-glow)] text-accent`
 
 export const adminBadgeUnverifiedClass = `${adminBadgeBaseClass} bg-amber-500/14 text-warning`
 
@@ -98,10 +98,10 @@ export const adminBadgePendingClass = `${adminBadgeBaseClass} bg-amber-500/14 te
 export const adminBadgeExpiredClass = `${adminBadgeBaseClass} bg-red-500/12 text-error`
 
 export const adminBadgeGlobalClass =
-  'inline-block rounded px-1.5 py-px text-[11px] font-semibold uppercase bg-card-raised text-foreground'
+  'inline-block rounded px-1.5 py-px text-2xs font-semibold uppercase bg-card-raised text-foreground'
 
 export const adminBadgeWorkspaceClass =
-  'inline-block rounded px-1.5 py-px text-[11px] font-semibold uppercase bg-emerald-500/12 text-[#166534]'
+  'inline-block rounded px-1.5 py-px text-2xs font-semibold uppercase bg-emerald-500/12 text-success'
 
 export function adminActiveBadgeClass(active: boolean): string {
   return active ? adminBadgeActiveClass : adminBadgeInactiveClass
@@ -151,7 +151,7 @@ export function adminActivateBtnClass(isActive: boolean): string {
 export const cardLeadMarginClass = 'mb-5!'
 
 export const adminBadgeActionClass =
-  'inline-flex items-center rounded border border-border bg-[var(--accent-glow,rgba(99,102,241,0.15))] px-1.5 py-0.5 font-mono text-xs text-accent'
+  'inline-flex items-center rounded border border-border bg-[var(--accent-glow)] px-1.5 py-0.5 font-mono text-xs text-accent'
 
 export const adminCountBadgeClass =
   'rounded-xl border border-border bg-card-raised px-2 py-1 text-xs font-semibold text-foreground-muted'
@@ -168,7 +168,7 @@ export const adminGridClass =
 export const adminGridItemClass = 'flex flex-col gap-1'
 
 export const adminFormLabelClass =
-  'flex flex-col gap-1.5 text-[13px] font-semibold text-foreground-muted [&_.ui-select]:w-full [&_.ui-select]:min-w-0'
+  'flex flex-col gap-1.5 text-caption font-semibold text-foreground-muted [&_.ui-select]:w-full [&_.ui-select]:min-w-0'
 
 export const adminFilterRowClass = '[&_.ui-select]:min-w-0 [&_.ui-select]:flex-1'
 
@@ -214,7 +214,7 @@ export const adminTdMonoClass = 'px-4 py-3 font-mono text-xs text-foreground'
 export const adminTdMetadataClass =
   'max-w-[360px] overflow-hidden px-4 py-3 font-mono text-xs text-ellipsis whitespace-nowrap text-foreground'
 
-export const adminSubtextClass = 'font-mono text-[11px] text-[#9ca3af]'
+export const adminSubtextClass = 'font-mono text-2xs text-[#9ca3af]'
 
 export const adminTextMutedClass = 'p-4 text-sm text-foreground-muted'
 

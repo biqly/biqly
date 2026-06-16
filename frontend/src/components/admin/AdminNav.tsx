@@ -10,7 +10,7 @@ import {
   adminNavMobileLabelClass,
   adminNavSelectClass,
 } from './adminClasses'
-import { ADMIN_NAV_GROUPS, ADMIN_TAB_LABEL_KEYS, type AdminTab } from './adminNavConfig'
+import { ADMIN_NAV_GROUPS, ADMIN_TAB_LABEL_KEYS, type AdminTab, isAdminTab } from './adminNavConfig'
 
 interface AdminNavProps {
   activeTab: AdminTab
@@ -31,7 +31,11 @@ export function AdminNav({ activeTab, onTabChange, onTabHover }: AdminNavProps) 
           id="admin-nav-select"
           className={adminNavSelectClass}
           value={activeTab}
-          onChange={(e) => onTabChange(e.target.value as AdminTab)}
+          onChange={(e) => {
+            if (isAdminTab(e.target.value)) {
+              onTabChange(e.target.value)
+            }
+          }}
         >
           {ADMIN_NAV_GROUPS.map((group) => (
             <optgroup key={group.id} label={t(group.labelKey)}>

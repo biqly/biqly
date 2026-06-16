@@ -20,6 +20,8 @@ interface SavedQuestionFormModalProps {
   onChange: (patch: Partial<SavedQuestionFormState>) => void
   onClose: () => void
   onSave: () => void
+  /** Disables the save button while a save request is in flight. */
+  saving?: boolean
   t: TFunction
 }
 
@@ -37,6 +39,7 @@ export function SavedQuestionFormModal({
   onChange,
   onClose,
   onSave,
+  saving = false,
   t,
 }: SavedQuestionFormModalProps) {
   const id = (field: string) => `${mode}-${field}`
@@ -164,8 +167,13 @@ export function SavedQuestionFormModal({
           <button type="button" className={legacyButtonClass('btn btn--neutral')} onClick={onClose}>
             {t('saved_questions.btn_cancel')}
           </button>
-          <button type="button" className={legacyButtonClass('btn btn-primary')} onClick={onSave}>
-            {t('saved_questions.btn_save')}
+          <button
+            type="button"
+            className={legacyButtonClass('btn btn-primary')}
+            onClick={onSave}
+            disabled={saving}
+          >
+            {saving ? t('common.saving') : t('saved_questions.btn_save')}
           </button>
         </div>
       </div>

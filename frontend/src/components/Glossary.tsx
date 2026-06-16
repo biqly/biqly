@@ -293,8 +293,8 @@ export default function Glossary() {
         })
         void loadTerms()
         resetForm()
-      } catch (err: unknown) {
-        setFormError(err instanceof Error ? err.message : 'Failed to update glossary term')
+      } catch {
+        setFormError(t('glossary.save_failed'))
       }
     } else {
       try {
@@ -305,8 +305,8 @@ export default function Glossary() {
         })
         void loadTerms()
         resetForm()
-      } catch (err: unknown) {
-        setFormError(err instanceof Error ? err.message : 'Failed to create glossary term')
+      } catch {
+        setFormError(t('glossary.save_failed'))
       }
     }
   }
@@ -458,8 +458,8 @@ export default function Glossary() {
         }
       }
       setEnrichSelections(next)
-    } catch (err) {
-      setEnrichError(err instanceof Error ? err.message : String(err))
+    } catch {
+      setEnrichError(t('glossary.enrich_failed'))
     }
   }, [adminConfigured, adminPost, selectedDatasourceId, selectedModelId, t])
 
@@ -485,8 +485,8 @@ export default function Glossary() {
       if (result) {
         setEnrichApplyResult(result)
       }
-    } catch (err) {
-      setEnrichError(err instanceof Error ? err.message : String(err))
+    } catch {
+      setEnrichError(t('glossary.enrich_failed'))
     }
   }, [
     adminPost,
@@ -496,6 +496,7 @@ export default function Glossary() {
     runEnrichAnalyze,
     selectedDatasourceId,
     selectedModelId,
+    t,
   ])
 
   if (initLoading && terms.length === 0) {
@@ -619,7 +620,12 @@ export default function Glossary() {
           />
         )}
 
-        {displayedTerms.length === 0 && <EmptyState description={t('glossary.empty')} />}
+        {displayedTerms.length === 0 && (
+          <EmptyState
+            description={t('glossary.empty')}
+            action={{ label: t('glossary.empty_cta'), onClick: openAdd }}
+          />
+        )}
 
         {displayedTerms.length > 0 && (
           <div className="table-wrap">

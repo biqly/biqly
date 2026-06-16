@@ -62,7 +62,7 @@ export const aiModalActions: React.CSSProperties = {
 }
 export const aiModalPrimaryBtn: React.CSSProperties = {
   padding: '8px 14px',
-  background: 'var(--accent, #6366f1)',
+  background: 'var(--accent)',
   color: '#fff',
   border: 'none',
   borderRadius: 6,
@@ -83,7 +83,7 @@ export const aiModalLinkBtn: React.CSSProperties = {
   padding: '4px 8px',
   background: 'transparent',
   border: 'none',
-  color: 'var(--accent, #6366f1)',
+  color: 'var(--accent)',
   fontSize: 12,
   cursor: 'pointer',
 }

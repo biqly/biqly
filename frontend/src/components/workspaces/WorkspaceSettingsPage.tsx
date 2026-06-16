@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import {
@@ -228,12 +227,12 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
   return (
     <div className="flex flex-col gap-5" style={{ position: 'relative' }}>
       <LoadingOverlay loading={loading}>
-        <h2 className="m-0 text-[20px]">{t('admin.workspaces.settings_title')}</h2>
+        <h2 className="m-0 text-xl">{t('admin.workspaces.settings_title')}</h2>
 
         {error && (
           <div
             className={legacyFeedbackClass(
-              'bg-error/10 border-error/25 text-error rounded-[6px] border px-3.5 py-2.5 text-[13px]',
+              'bg-error/10 border-error/25 text-error text-caption rounded-[6px] border px-3.5 py-2.5',
             )}
           >
             {error}
@@ -242,7 +241,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
         {success && (
           <div
             className={legacyFeedbackClass(
-              'bg-success/10 border-success/25 text-success rounded-[6px] border px-3.5 py-2.5 text-[13px]',
+              'bg-success/10 border-success/25 text-success text-caption rounded-[6px] border px-3.5 py-2.5',
             )}
           >
             {success}
@@ -253,18 +252,18 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
         <section className={legacyCardClass('border-border bg-card rounded-[8px] border p-4')}>
           <div className="mb-3 flex items-center gap-2.5">
             <span
-              className={clsx(
-                'inline-block rounded-[12px] px-2.5 py-[2px] text-[11px] font-semibold tracking-[0.5px] uppercase',
+              className={cn(
+                'text-2xs inline-block rounded-[12px] px-2.5 py-[2px] font-semibold tracking-[0.5px] uppercase',
                 isPersonal ? 'bg-accent/10 text-accent' : 'bg-success/10 text-success',
               )}
             >
               {isPersonal ? t('admin.workspaces.type_personal') : t('admin.workspaces.type_team')}
             </span>
-            <span className="text-foreground-muted font-mono text-[12px]">{workspace.slug}</span>
+            <span className="text-foreground-muted font-mono text-xs">{workspace.slug}</span>
           </div>
 
           {isPersonal ? (
-            <p className="text-foreground-muted m-0 text-[13px] italic">
+            <p className="text-foreground-muted text-caption m-0 italic">
               {t('admin.workspaces.personal_readonly')}
             </p>
           ) : (
@@ -274,7 +273,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               }}
               className="flex flex-wrap items-end gap-2.5"
             >
-              <label className="text-foreground-muted flex flex-col gap-1 text-[12px]">
+              <label className="text-foreground-muted flex flex-col gap-1 text-xs">
                 <span>{t('admin.workspaces.name')}</span>
                 <input
                   className="min-w-[200px] px-2.5 py-[7px]"
@@ -283,7 +282,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                   required
                 />
               </label>
-              <label className="text-foreground-muted flex flex-col gap-1 text-[12px]">
+              <label className="text-foreground-muted flex flex-col gap-1 text-xs">
                 <span>{t('admin.workspaces.description')}</span>
                 <input
                   className="min-w-[200px] px-2.5 py-[7px]"
@@ -291,7 +290,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                   onChange={(e) => setEditDesc(e.target.value)}
                 />
               </label>
-              <label className="text-foreground inline-flex min-h-[32px] items-center gap-2 text-[13px] whitespace-nowrap">
+              <label className="text-foreground text-caption inline-flex min-h-[32px] items-center gap-2 whitespace-nowrap">
                 <input
                   type="checkbox"
                   className="m-0 h-4 w-4"
@@ -312,14 +311,14 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
 
         {/* ── Members ── */}
         <section className={legacyCardClass('border-border bg-card rounded-[8px] border p-4')}>
-          <h3 className="m-0 mb-3 text-[15px] font-semibold">{t('admin.workspaces.members')}</h3>
+          <h3 className="text-md-sm m-0 mb-3 font-semibold">{t('admin.workspaces.members')}</h3>
           {members.length === 0 ? (
-            <p className="text-foreground-muted mx-0 my-2 text-[13px]">
+            <p className="text-foreground-muted text-caption mx-0 my-2">
               {t('admin.workspaces.members_empty')}
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="[&_td]:border-border [&_th]:border-border [&_th]:text-foreground-muted mb-3 w-full border-collapse text-[13px] [&_td]:border-b [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-left [&_td]:align-middle [&_th]:border-b [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:align-middle [&_th]:text-[11px] [&_th]:font-semibold [&_th]:tracking-[0.4px] [&_th]:whitespace-nowrap [&_th]:uppercase">
+              <table className="[&_td]:border-border [&_th]:border-border [&_th]:text-foreground-muted text-caption [&_th]:text-2xs mb-3 w-full border-collapse [&_td]:border-b [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-left [&_td]:align-middle [&_th]:border-b [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:align-middle [&_th]:font-semibold [&_th]:tracking-[0.4px] [&_th]:whitespace-nowrap [&_th]:uppercase">
                 <thead>
                   <tr>
                     <th>{t('admin.fields.user')}</th>
@@ -356,7 +355,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                             void onRemoveMember(m.user_id)
                           }}
                           className={legacyFeedbackClass(
-                            'border-error/30 text-error hover:bg-error/6 inline-flex min-h-[1.85rem] cursor-pointer items-center justify-center rounded-[6px] border bg-transparent px-2.5 text-[12px] leading-[1.2] transition-colors',
+                            'border-error/30 text-error hover:bg-error/6 inline-flex min-h-[1.85rem] cursor-pointer items-center justify-center rounded-[6px] border bg-transparent px-2.5 text-xs leading-[1.2] transition-colors',
                           )}
                           disabled={!canManageMembers}
                         >
@@ -410,22 +409,20 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               </button>
             </form>
           ) : (
-            <p className="text-foreground-muted m-0 text-[13px] italic">{restrictedNote}</p>
+            <p className="text-foreground-muted text-caption m-0 italic">{restrictedNote}</p>
           )}
         </section>
 
         {/* ── Datasources ── */}
         <section className={legacyCardClass('border-border bg-card rounded-[8px] border p-4')}>
-          <h3 className="m-0 mb-3 text-[15px] font-semibold">
-            {t('admin.workspaces.datasources')}
-          </h3>
+          <h3 className="text-md-sm m-0 mb-3 font-semibold">{t('admin.workspaces.datasources')}</h3>
           {datasources.length === 0 ? (
-            <p className="text-foreground-muted mx-0 my-2 text-[13px]">
+            <p className="text-foreground-muted text-caption mx-0 my-2">
               {t('admin.workspaces.datasources_empty')}
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="[&_td]:border-border [&_th]:border-border [&_th]:text-foreground-muted mb-3 w-full border-collapse text-[13px] [&_td]:border-b [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-left [&_td]:align-middle [&_th]:border-b [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:align-middle [&_th]:text-[11px] [&_th]:font-semibold [&_th]:tracking-[0.4px] [&_th]:whitespace-nowrap [&_th]:uppercase">
+              <table className="[&_td]:border-border [&_th]:border-border [&_th]:text-foreground-muted text-caption [&_th]:text-2xs mb-3 w-full border-collapse [&_td]:border-b [&_td]:px-3 [&_td]:py-2.5 [&_td]:text-left [&_td]:align-middle [&_th]:border-b [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:align-middle [&_th]:font-semibold [&_th]:tracking-[0.4px] [&_th]:whitespace-nowrap [&_th]:uppercase">
                 <thead>
                   <tr>
                     <th>{t('admin.workspaces.datasource_name')}</th>
@@ -440,7 +437,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                         {datasourceDisplayLabel(d.datasource_id, allDatasources, d.datasource_name)}
                       </td>
                       <td className="text-foreground-muted whitespace-nowrap">
-                        <span className="bg-accent/10 text-accent inline-block rounded-[10px] px-2 py-[2px] text-[11px] font-medium">
+                        <span className="bg-accent/10 text-accent text-2xs inline-block rounded-[10px] px-2 py-[2px] font-medium">
                           {d.access_level}
                         </span>
                       </td>
@@ -451,7 +448,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                             void onDetachDS(d.datasource_id)
                           }}
                           className={legacyFeedbackClass(
-                            'border-error/30 text-error hover:bg-error/6 inline-flex min-h-[1.85rem] cursor-pointer items-center justify-center rounded-[6px] border bg-transparent px-2.5 text-[12px] leading-[1.2] transition-colors',
+                            'border-error/30 text-error hover:bg-error/6 inline-flex min-h-[1.85rem] cursor-pointer items-center justify-center rounded-[6px] border bg-transparent px-2.5 text-xs leading-[1.2] transition-colors',
                           )}
                           disabled={!canManageDatasources}
                         >
@@ -494,7 +491,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               </button>
             </form>
           ) : (
-            <p className="text-foreground-muted m-0 text-[13px] italic">{restrictedNote}</p>
+            <p className="text-foreground-muted text-caption m-0 italic">{restrictedNote}</p>
           )}
         </section>
       </LoadingOverlay>

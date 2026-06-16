@@ -420,8 +420,8 @@ const sectionTitleStyle: React.CSSProperties = {
 const btnAddStyle: React.CSSProperties = {
   padding: '6px 12px',
   background: 'rgba(99, 102, 241, 0.1)',
-  color: 'var(--accent, #6366f1)',
-  border: '1px solid var(--accent, #6366f1)',
+  color: 'var(--accent)',
+  border: '1px solid var(--accent)',
   borderRadius: 6,
   cursor: 'pointer',
   fontSize: 12,
@@ -508,7 +508,7 @@ const btnDeleteRowStyle: React.CSSProperties = {
 
 const btnPrimary: React.CSSProperties = {
   padding: '8px 16px',
-  background: 'var(--accent, #6366f1)',
+  background: 'var(--accent)',
   color: 'white',
   border: 0,
   borderRadius: 6,

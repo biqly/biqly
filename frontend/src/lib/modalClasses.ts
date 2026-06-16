@@ -194,7 +194,7 @@ export const modalDescribeResultsScrollClass =
   'max-w-full overflow-x-auto overflow-y-auto max-h-[min(40vh,18rem)] rounded-lg border border-border'
 
 export const modalDescribeResultsTableClass = cn(
-  'w-full min-w-[28rem] border-collapse text-[0.8125rem] table-fixed',
+  'w-full min-w-[28rem] border-collapse text-caption table-fixed',
   '[&_th]:px-3 [&_td]:px-3 [&_th]:py-2 [&_td]:py-2',
   '[&_thead_th]:text-left [&_thead_th]:text-[0.68rem] [&_thead_th]:font-bold [&_thead_th]:uppercase',
   '[&_thead_th]:tracking-[0.06em] [&_thead_th]:text-foreground-muted [&_thead_th]:align-middle',

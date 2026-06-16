@@ -1,8 +1,7 @@
-import clsx from 'clsx'
-
 import type { ToastItem } from '../../hooks/useToast'
 import { useT } from '../../i18n'
 import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
 
 const VARIANT_ICON: Record<ToastItem['variant'], string> = {
   success: '✓',
@@ -44,7 +43,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={clsx(
+          className={cn(
             'border-border-strong bg-card text-foreground pointer-events-auto grid grid-cols-[auto_1fr_auto] items-start gap-[0.65rem] rounded-[0.6rem] border border-l-3 px-[0.85rem] py-3 shadow-[0_10px_32px_rgba(0,0,0,0.4)] motion-safe:animate-[toast-in_180ms_ease]',
             VARIANT_BORDER[toast.variant],
           )}
@@ -52,7 +51,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
           aria-live={toast.variant === 'error' ? 'assertive' : 'polite'}
         >
           <span
-            className={clsx(
+            className={cn(
               'inline-grid h-[1.4rem] w-[1.4rem] place-items-center rounded-full text-[0.8rem] leading-none font-bold text-white',
               VARIANT_BG[toast.variant],
             )}

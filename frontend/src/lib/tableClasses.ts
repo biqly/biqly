@@ -46,7 +46,7 @@ export const datasourceConnectionHintClass = cn(
 
 const resultsTableMetadataListBase = cn(
   resultsTableShellClass,
-  'min-w-0 w-full mt-2 text-[0.8125rem] table-fixed',
+  'min-w-0 w-full mt-2 text-caption table-fixed',
   '[&_th]:p-[0.4rem_0.55rem] [&_td]:p-[0.4rem_0.55rem]',
   '[&_thead_th]:text-[0.86rem] [&_thead_th]:leading-[1.35] [&_thead_th]:pt-[0.6rem] [&_thead_th]:pb-[0.6rem]',
   '[&_thead_th]:text-left [&_thead_th]:align-middle',
@@ -225,7 +225,7 @@ export function metadataDescCellClass(editing?: boolean): string {
 export const metadataInlineFieldClass = cn(
   'metadata-inline-field block box-border w-full min-w-0 min-h-[3.25rem] m-0 font-inherit',
   'px-[0.45rem_0.55rem] py-[0.45rem] border border-border-strong rounded-[0.4rem]',
-  'bg-card-raised text-foreground text-[0.8125rem] leading-[1.45] resize-y',
+  'bg-card-raised text-foreground text-caption leading-[1.45] resize-y',
   'shadow-[inset_0_1px_0_var(--control-surface-highlight)]',
   'transition-[border-color,box-shadow] duration-[120ms]',
   'hover:border-[var(--metadata-inline-hover-border)]',

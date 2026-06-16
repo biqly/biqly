@@ -69,7 +69,7 @@ export function HavingStep({
             type="button"
             className={qbTagCloseClass}
             onClick={() => removeHaving(i)}
-            aria-label="Remove Having Constraint"
+            aria-label={t('query_builder.remove_having_aria', { n: i + 1 })}
           >
             ×
           </button>

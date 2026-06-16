@@ -38,7 +38,7 @@ export function MetadataBulkDescribeProgress({
       )}
       <div className={`border-border min-h-0 flex-1 overflow-auto rounded-md border`}>
         <table
-          className="mt-0 w-full min-w-0 table-fixed border-collapse text-[0.8125rem]"
+          className="text-caption mt-0 w-full min-w-0 table-fixed border-collapse"
           style={{ margin: 0 }}
         >
           <thead>

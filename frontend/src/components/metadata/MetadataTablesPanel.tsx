@@ -231,10 +231,7 @@ export function MetadataTablesPanel({
                     <td>
                       <button
                         type="button"
-                        className={cn(
-                          legacyButtonClass('icon-btn'),
-                          'gap-[0.35rem] text-[0.8125rem]',
-                        )}
+                        className={cn(legacyButtonClass('icon-btn'), 'text-caption gap-[0.35rem]')}
                         aria-expanded={openTableId === tab.id}
                         aria-label={
                           openTableId === tab.id

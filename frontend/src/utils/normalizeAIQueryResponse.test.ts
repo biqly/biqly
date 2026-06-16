@@ -71,4 +71,17 @@ describe('normalizeAIQueryResponse', () => {
     expect(flat?.generation_trace?.routed_table).toBe('orders')
     expect(flat?.generation_trace?.columns_resolved?.[0]?.resolved).toBe('sum(orders.total_amount)')
   })
+
+  it('filters non-string clarification_options entries', () => {
+    const nested = {
+      result: { confidence: 0 },
+      clarification: {
+        needs_clarification: true,
+        clarification_question: 'Pick one',
+        clarification_options: ['orders', 42, null, 'customers', { bad: true }],
+      },
+    }
+    const flat = normalizeAIQueryResponse(nested)
+    expect(flat?.clarification_options).toEqual(['orders', 'customers'])
+  })
 })

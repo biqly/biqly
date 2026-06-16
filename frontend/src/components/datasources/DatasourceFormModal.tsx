@@ -9,12 +9,22 @@ import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
 import { legacyCardClass } from '../../lib/cardClasses'
+import { cn } from '../../lib/cn'
 import { formStackClass, legacyFormClass } from '../../lib/formClasses'
 import { modalActionsBorderedClass, modalFormRowClass } from '../../lib/modalClasses'
 import { DriverTileGrid } from '../DriverTileGrid'
 import { Modal } from '../ui/Modal'
 
 type ConnectionMode = 'structured' | 'raw'
+
+const CONN_MODE_BTN_BASE =
+  'm-0 flex cursor-pointer flex-col items-start gap-[0.15rem] rounded-[0.4rem] border bg-transparent px-[0.65rem] py-[0.55rem] text-left text-caption leading-tight font-medium transition-all duration-150 ease-out'
+const CONN_MODE_BTN_ACTIVE =
+  'bg-card text-foreground border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] shadow-[0_1px_2px_rgba(0,0,0,0.12)]'
+const CONN_MODE_BTN_INACTIVE =
+  'text-foreground-muted hover:text-foreground border-transparent hover:bg-[color-mix(in_srgb,var(--bg-card)_70%,transparent)]'
+const CONN_MODE_DESC_ACTIVE = 'text-foreground-muted'
+const CONN_MODE_DESC_INACTIVE = 'text-foreground-faint'
 
 interface StructuredForm {
   host: string
@@ -94,36 +104,38 @@ export function DatasourceFormModal({
           >
             <button
               type="button"
-              className={`m-0 flex cursor-pointer flex-col items-start gap-[0.15rem] rounded-[0.4rem] border bg-transparent px-[0.65rem] py-[0.55rem] text-left text-[0.8125rem] leading-tight font-medium transition-all duration-150 ease-out ${
-                connMode === 'structured'
-                  ? 'bg-card text-foreground border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] shadow-[0_1px_2px_rgba(0,0,0,0.12)]'
-                  : 'text-foreground-muted hover:text-foreground border-transparent hover:bg-[color-mix(in_srgb,var(--bg-card)_70%,transparent)]'
-              }`}
+              className={cn(
+                CONN_MODE_BTN_BASE,
+                connMode === 'structured' ? CONN_MODE_BTN_ACTIVE : CONN_MODE_BTN_INACTIVE,
+              )}
               aria-pressed={connMode === 'structured'}
               onClick={() => onConnModeChange('structured')}
             >
-              <span className="text-[0.8125rem] font-semibold">
-                {t('datasources.mode_structured')}
-              </span>
+              <span className="text-caption font-semibold">{t('datasources.mode_structured')}</span>
               <span
-                className={`text-[0.7rem] leading-[1.3] font-normal ${connMode === 'structured' ? 'text-foreground-muted' : 'text-foreground-faint'}`}
+                className={cn(
+                  'text-[0.7rem] leading-[1.3] font-normal',
+                  connMode === 'structured' ? CONN_MODE_DESC_ACTIVE : CONN_MODE_DESC_INACTIVE,
+                )}
               >
                 {t('datasources.mode_structured_desc')}
               </span>
             </button>
             <button
               type="button"
-              className={`m-0 flex cursor-pointer flex-col items-start gap-[0.15rem] rounded-[0.4rem] border bg-transparent px-[0.65rem] py-[0.55rem] text-left text-[0.8125rem] leading-tight font-medium transition-all duration-150 ease-out ${
-                connMode === 'raw'
-                  ? 'bg-card text-foreground border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] shadow-[0_1px_2px_rgba(0,0,0,0.12)]'
-                  : 'text-foreground-muted hover:text-foreground border-transparent hover:bg-[color-mix(in_srgb,var(--bg-card)_70%,transparent)]'
-              }`}
+              className={cn(
+                CONN_MODE_BTN_BASE,
+                connMode === 'raw' ? CONN_MODE_BTN_ACTIVE : CONN_MODE_BTN_INACTIVE,
+              )}
               aria-pressed={connMode === 'raw'}
               onClick={() => onConnModeChange('raw')}
             >
-              <span className="text-[0.8125rem] font-semibold">{t('datasources.mode_raw')}</span>
+              <span className="text-caption font-semibold">{t('datasources.mode_raw')}</span>
               <span
-                className={`text-[0.7rem] leading-[1.3] font-normal ${connMode === 'raw' ? 'text-foreground-muted' : 'text-foreground-faint'}`}
+                className={cn(
+                  'text-[0.7rem] leading-[1.3] font-normal',
+                  connMode === 'raw' ? CONN_MODE_DESC_ACTIVE : CONN_MODE_DESC_INACTIVE,
+                )}
               >
                 {t('datasources.mode_raw_desc')}
               </span>
@@ -260,11 +272,12 @@ export function DatasourceFormModal({
 
         {draftTestResult && (
           <p
-            className={`m-0 rounded-[0.45rem] border px-[0.65rem] py-[0.55rem] text-[0.8rem] leading-[1.4] ${
+            className={cn(
+              'm-0 rounded-[0.45rem] border px-[0.65rem] py-[0.55rem] text-[0.8rem] leading-[1.4]',
               draftTestResult.includes('successful') || draftTestResult.includes('başarılı')
                 ? 'text-success border-[color-mix(in_srgb,var(--success)_30%,var(--border))] bg-[color-mix(in_srgb,var(--success)_10%,transparent)]'
-                : 'border-border bg-card-raised text-foreground-muted'
-            }`}
+                : 'border-border bg-card-raised text-foreground-muted',
+            )}
             role="status"
           >
             {draftTestResult}

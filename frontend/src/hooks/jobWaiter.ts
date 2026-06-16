@@ -5,6 +5,7 @@ export interface JobCallbacks<TResult = unknown> {
   onEnqueued?: (job: AIJob) => void
   onComplete?: (result: TResult) => void
   onError?: (message: string) => void
+  parseResult?: (result: unknown) => TResult
 }
 
 export interface JobWaiterHandle {
@@ -25,11 +26,21 @@ export function createJobWaiter<TResult>(
     settled = true
     run()
   }
+  const parse = callbacks?.parseResult
   return {
     settleComplete: (result) =>
       once(() => {
-        callbacks?.onComplete?.(result as TResult)
-        resolve(result as TResult)
+        let value: TResult
+        try {
+          value = parse ? parse(result) : (result as TResult)
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Invalid job result'
+          callbacks?.onError?.(message)
+          resolve(null)
+          return
+        }
+        callbacks?.onComplete?.(value)
+        resolve(value)
       }),
     settleError: (message) =>
       once(() => {

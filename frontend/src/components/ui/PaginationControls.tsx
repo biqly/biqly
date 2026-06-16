@@ -1,6 +1,5 @@
-import clsx from 'clsx'
-
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import { buildStablePageTokens } from './paginationTokens'
 
 /**
@@ -29,7 +28,7 @@ export function PaginationControls({
   const tokens = buildStablePageTokens(current, total)
 
   const getBtnCls = (isActive: boolean) =>
-    clsx(
+    cn(
       'inline-flex items-center justify-center border rounded-[0.4rem] text-foreground [font-variant-numeric:tabular-nums] transition-colors duration-120 ease-out focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-1',
       size === 'sm'
         ? 'min-h-[1.6rem] min-w-[1.6rem] text-[0.74rem] py-[0.15rem] px-[0.35rem]'

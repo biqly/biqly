@@ -77,15 +77,7 @@ export function TimeGrainsTable({
                       {tg.synonyms.map((syn) => (
                         <span
                           key={syn}
-                          style={{
-                            display: 'inline-block',
-                            padding: '0.15rem 0.5rem',
-                            background: 'rgba(99,102,241,0.08)',
-                            borderRadius: '0.3rem',
-                            fontSize: '0.72rem',
-                            color: 'var(--accent)',
-                            border: '1px solid rgba(99,102,241,0.15)',
-                          }}
+                          className="text-accent inline-block rounded-[0.3rem] border border-(--accent-tint-border) bg-(--accent-tint-bg) px-2 py-[0.15rem] text-[0.72rem]"
                         >
                           {syn}
                         </span>

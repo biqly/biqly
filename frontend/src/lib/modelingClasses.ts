@@ -207,13 +207,13 @@ export const modelingSubgroupMetaClass = 'text-foreground-muted text-[0.7rem] fo
 export function modelingGroupClass(open?: boolean): string {
   return cn(
     'flex-[0_0_auto] border border-border rounded-lg mb-[0.4rem] bg-card overflow-hidden',
-    open && '[&_.modeling-group-header]:bg-[var(--surface-hover,rgba(99,102,241,0.06))]',
+    open && '[&_.modeling-group-header]:bg-[var(--surface-hover)]',
   )
 }
 
 export const modelingGroupHeaderClass = cn(
   'flex items-center gap-[0.4rem] w-full py-[0.45rem] px-[0.6rem] border-0 bg-transparent cursor-pointer text-left font-inherit text-inherit',
-  'hover:bg-[var(--surface-hover,rgba(99,102,241,0.06))]',
+  'hover:bg-[var(--surface-hover)]',
 )
 
 export const modelingGroupChevronClass = 'shrink-0 w-[0.9rem] text-foreground-muted text-[0.7rem]'
@@ -225,7 +225,7 @@ export const modelingGroupMetaClass =
   'flex-[0_1_auto] text-foreground-muted text-[0.66rem] whitespace-nowrap overflow-hidden text-ellipsis'
 
 export const modelingGroupCountClass =
-  'shrink-0 min-w-[1.4rem] py-[0.05rem] px-[0.4rem] rounded-full bg-[var(--accent-soft,rgba(99,102,241,0.12))] text-[var(--accent,#6366f1)] text-[0.68rem] font-semibold text-center'
+  'shrink-0 min-w-[1.4rem] py-[0.05rem] px-[0.4rem] rounded-full bg-[var(--accent-soft)] text-accent text-[0.68rem] font-semibold text-center'
 
 export const modelingGroupBodyClass = cn(
   'flex flex-col gap-[0.3rem] px-2 py-[0.3rem] pb-2',

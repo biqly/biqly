@@ -449,7 +449,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                       max={100}
                       required
                     />
-                    <label className="flex items-center gap-2 text-[13px]">
+                    <label className="text-caption flex items-center gap-2">
                       <input
                         type="checkbox"
                         checked={newVarIsControl}

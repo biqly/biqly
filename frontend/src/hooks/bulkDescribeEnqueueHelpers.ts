@@ -2,6 +2,7 @@ import type { DescribeBatchConflictBody } from '../api/describeBatchConflict'
 import type { BulkEntry } from '../components/metadata/bulkProgressUtils'
 import type { AIJob } from '../types/ai'
 import type { DescribeBatchResult } from '../types/metadata'
+import { parseDescribeBatchResult } from '../utils/parseJobResults'
 import { applyBatchResultToQueue, runSequentialBulkDescribe } from './bulkDescribeRunner'
 import type { JobWaiterHandle } from './jobWaiter'
 import { createJobWaiter } from './jobWaiter'
@@ -78,7 +79,9 @@ async function waitForBatchJobResult(
   jobId: string,
 ): Promise<DescribeBatchResult | null> {
   return new Promise<DescribeBatchResult | null>((resolve) => {
-    const waiter = createJobWaiter<DescribeBatchResult>(resolve)
+    const waiter = createJobWaiter<DescribeBatchResult>(resolve, {
+      parseResult: parseDescribeBatchResult,
+    })
     opts.registerWaiter(jobId, waiter)
   })
 }

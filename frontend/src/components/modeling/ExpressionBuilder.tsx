@@ -87,7 +87,7 @@ const exprModeToggleBase =
 
 function exprModeToggleClass(active: boolean) {
   return active
-    ? `${exprModeToggleBase} border-accent bg-accent text-white shadow-[0_0_8px_rgba(99,102,241,0.4)]`
+    ? `${exprModeToggleBase} border-accent bg-accent text-white shadow-[var(--accent-shadow-glow)]`
     : `${exprModeToggleBase} border-border-strong bg-canvas text-foreground-muted hover:bg-border hover:text-foreground`
 }
 

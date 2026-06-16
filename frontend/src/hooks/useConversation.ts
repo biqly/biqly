@@ -41,7 +41,10 @@ export function loadConversations(
       return []
     }
     const parsed: unknown = JSON.parse(raw)
-    return Array.isArray(parsed) ? (parsed as Conversation[]).map(normalizeConversation) : []
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+    return parsed.filter(isStoredConversation).map(normalizeConversation)
   } catch {
     return []
   }
@@ -67,6 +70,15 @@ export function saveConversations(
 
 function generateId(): string {
   return `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+/** Guards localStorage entries: only objects with a string `id` are real conversations. */
+function isStoredConversation(value: unknown): value is Conversation {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { id?: unknown }).id === 'string'
+  )
 }
 
 function normalizeConversation(conversation: Conversation): Conversation {

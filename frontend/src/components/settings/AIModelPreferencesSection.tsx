@@ -223,7 +223,7 @@ export function AIModelPreferencesSection() {
             {t('settings.ai_models.hint')}
           </p>
           {restricted && (
-            <p className="text-foreground-muted m-0 mt-[0.35rem] max-w-2xl text-[0.8125rem] leading-[1.45]">
+            <p className="text-foreground-muted text-caption m-0 mt-[0.35rem] max-w-2xl leading-[1.45]">
               {t('settings.ai_models.restricted_hint')}
             </p>
           )}
@@ -245,7 +245,7 @@ export function AIModelPreferencesSection() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-foreground m-0 inline-flex items-center gap-2 text-[0.8125rem] leading-[1.3] font-semibold">
+                      <p className="text-foreground text-caption m-0 inline-flex items-center gap-2 leading-[1.3] font-semibold">
                         {PURPOSE_ICONS[purpose]}
                         {t(`admin.ai_providers.purposes.${purpose}`)}
                       </p>

@@ -57,7 +57,7 @@ export function FieldsStep({
             type="button"
             className={qbTagCloseClass}
             onClick={() => removeSelectItem(i)}
-            aria-label="Remove Field"
+            aria-label={t('query_builder.remove_field_aria', { n: i + 1 })}
           >
             ×
           </button>

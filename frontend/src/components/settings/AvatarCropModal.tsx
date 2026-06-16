@@ -93,7 +93,7 @@ export function AvatarCropModal({ imageSrc, onClose, onSave }: AvatarCropModalPr
     // 3. Draw crop border
     ctx.beginPath()
     ctx.arc(canvas.width / 2, canvas.height / 2, 100, 0, Math.PI * 2)
-    ctx.strokeStyle = 'var(--accent, #6366f1)'
+    ctx.strokeStyle = 'var(--accent)'
     ctx.lineWidth = 2.5
     ctx.stroke()
   }, [imgElement, pan.x, pan.y, zoom])
@@ -296,7 +296,7 @@ export function AvatarCropModal({ imageSrc, onClose, onSave }: AvatarCropModalPr
             height: '5px',
             borderRadius: '999px',
             background: 'var(--border)',
-            accentColor: 'var(--accent, #6366f1)',
+            accentColor: 'var(--accent)',
             cursor: 'pointer',
           }}
         />

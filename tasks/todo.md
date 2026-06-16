@@ -50,65 +50,65 @@
 
 **TypeScript — API boundary doğrulama (en yüksek kaldıraç)**
 
-- [ ] Merkezi fetch wire'ı körü körüne cast ediyor — `api/apiClient.ts:146` `return { data: data as T }`. → opsiyonel validator `(u: unknown) => T` `RequestOptions`'a geçir. Aşağıdaki cast'leri açar.
-- [ ] `normalizeAIQueryResponse` nested objeleri assert ediyor — `utils/normalizeAIQueryResponse.ts:58,60,78,82,85,87,93-103`: primitive'ler guard'lı ama `logical_query`/`result`/`table_routing`/`clarification`/`prompt_stats`/`token_usage`/`candidates`/`generation_trace` `unknown`'dan direkt cast. → `isRecord` guard'ları ekle.
-- [ ] `clarification_options as string[]` — `normalizeAIQueryResponse.ts:45,47`: `Array.isArray` element tipini kanıtlamaz. → `.filter((x): x is string => typeof x === 'string')`.
-- [ ] `jobWaiter` dekoratif generic — `hooks/jobWaiter.ts:31-32`: `settleComplete` `unknown`→`TResult` cast, ilişki yok. → `parse` param al veya `unknown` döndür.
+- [x] Merkezi fetch wire'ı körü körüne cast ediyor — `api/apiClient.ts:146` `return { data: data as T }`. → opsiyonel validator `(u: unknown) => T` `RequestOptions`'a geçir. Aşağıdaki cast'leri açar.
+- [x] `normalizeAIQueryResponse` nested objeleri assert ediyor — `utils/normalizeAIQueryResponse.ts:58,60,78,82,85,87,93-103`: primitive'ler guard'lı ama `logical_query`/`result`/`table_routing`/`clarification`/`prompt_stats`/`token_usage`/`candidates`/`generation_trace` `unknown`'dan direkt cast. → `isRecord` guard'ları ekle.
+- [x] `clarification_options as string[]` — `normalizeAIQueryResponse.ts:45,47`: `Array.isArray` element tipini kanıtlamaz. → `.filter((x): x is string => typeof x === 'string')`.
+- [x] `jobWaiter` dekoratif generic — `hooks/jobWaiter.ts:31-32`: `settleComplete` `unknown`→`TResult` cast, ilişki yok. → `parse` param al veya `unknown` döndür.
 
 **Tailwind — hardcoded renkler token'ları bypass ediyor**
 
-- [ ] Auth sayfalarında brand hex (7×) — `from-[#6366f1] to-[#8b5cf6]` (`SignInPage.tsx:218`, `SignUpPage.tsx:158,309`, `ResetPasswordPage.tsx:81`, `ForgotPasswordPage.tsx:49`, `ClaimInvitePage.tsx:108`, `VerifyEmailPage.tsx:45`); `text-[#6366f1]`, `text-[#e2e8f0]`. Bunlar `--accent` token → açık modda yanlış. → `from-accent to-accent-strong` / `text-accent` (`authClasses.ts` zaten merkezde).
-- [ ] `DriftPanel.tsx` ham `hsl(...)` literal'leri (~30×) — `admin/DriftPanel.tsx:76-92,214-257`. → `bg-card`/`border-border`/`text-foreground-*`.
-- [ ] Component'lerde 213 hardcoded hex — statik surface/status renkleri → token; sadece data-driven (chart serisi) inline kalsın. Brand glow `rgba(99,102,241,…)` 20× elle.
+- [x] Auth sayfalarında brand hex (7×) — `from-[#6366f1] to-[#8b5cf6]` (`SignInPage.tsx:218`, `SignUpPage.tsx:158,309`, `ResetPasswordPage.tsx:81`, `ForgotPasswordPage.tsx:49`, `ClaimInvitePage.tsx:108`, `VerifyEmailPage.tsx:45`); `text-[#6366f1]`, `text-[#e2e8f0]`. Bunlar `--accent` token → açık modda yanlış. → `from-accent to-accent-strong` / `text-accent` (`authClasses.ts` zaten merkezde).
+- [x] `DriftPanel.tsx` ham `hsl(...)` literal'leri (~30×) — `admin/DriftPanel.tsx:76-92,214-257`. → `bg-card`/`border-border`/`text-foreground-*`.
+- [x] Component'lerde 213 hardcoded hex — statik surface/status renkleri → token; sadece data-driven (chart serisi) inline kalsın. Brand glow `rgba(99,102,241,…)` 20× elle. (Focused pass: auth, DriftPanel, adminClasses, modelingClasses, TimeGrainsTable, admin panel accent fallbacks; full 213-hex sweep deferred.)
 
 **Tailwind — tutarlılık**
 
-- [ ] `cn()` bypass; 10+ dosyada ham `clsx` — `ui/KPICard.tsx`, `ui/Skeleton.tsx`, `ui/TagBadge.tsx`, `Modal.tsx`, `Toast.tsx`, `PaginationControls.tsx`, `sharing/ShareButton.tsx`. `twMerge` yok → çakışan util dedupe olmaz. → `cn` (`src/lib/cn.ts`).
-- [ ] Koşullu class template literal ile (33 dosya) — örn. `SignInCredentialsForm.tsx:205`. → `cn('...', c && 'x')`.
-- [ ] Font-size scale token yok; `text-[Npx]` (106×) — `[13px]` 48×, `[12px]` 21×, `[14px]` 18×, `[11px]` 15×. Px sabitlenmiş, kullanıcı fontuyla ölçeklenmez. → `@theme` `--text-*` scale (rem).
+- [x] `cn()` bypass; 10+ dosyada ham `clsx` — `ui/KPICard.tsx`, `ui/Skeleton.tsx`, `ui/TagBadge.tsx`, `Modal.tsx`, `Toast.tsx`, `PaginationControls.tsx`, `sharing/ShareButton.tsx`. `twMerge` yok → çakışan util dedupe olmaz. → `cn` (`src/lib/cn.ts`).
+- [x] Koşullu class template literal ile (33 dosya) — örn. `SignInCredentialsForm.tsx:205`. → `cn('...', c && 'x')`.
+- [x] Font-size scale token yok; `text-[Npx]` (106×) — `[13px]` 48×, `[12px]` 21×, `[14px]` 18×, `[11px]` 15×. Px sabitlenmiş, kullanıcı fontuyla ölçeklenmez. → `@theme` `--text-*` scale (rem).
 
 **i18n / a11y label**
 
-- [ ] Remove button'larda hardcoded `aria-label` — `queryBuilder/FieldsStep.tsx:60`, `FilterStep.tsx:91`, `CteStep.tsx:43`, `SummarizeStep.tsx:88,117`, `WindowFuncStep.tsx:68`, `HavingStep.tsx:72`. → `t()`.
-- [ ] Hardcoded `title` tooltip, icon-only button — `DashboardBuilder.tsx:509,527,538,547,568`. → çevir + `aria-label`.
-- [ ] Talimat içeren placeholder hardcoded — `DashboardBuilder.tsx:643`, `queryBuilder/CteStep.tsx:36,51`, `WindowFuncStep.tsx:49,55,61`.
-- [ ] AvatarCropModal a11y — `settings/AvatarCropModal.tsx:223,253`: çıplak `<canvas>` mouse-only crop, range input label yok. → `aria-label` + klavye pan.
-- [ ] `EmptyState` `role="status"` kullanıyor — `ui/EmptyState.tsx:45`: statik placeholder live region → gereksiz SR duyurusu. → düz region.
+- [x] Remove button'larda hardcoded `aria-label` — `queryBuilder/FieldsStep.tsx:60`, `FilterStep.tsx:91`, `CteStep.tsx:43`, `SummarizeStep.tsx:88,117`, `WindowFuncStep.tsx:68`, `HavingStep.tsx:72`. → `t()`.
+- [x] Hardcoded `title` tooltip, icon-only button — `DashboardBuilder.tsx:509,527,538,547,568`. → çevir + `aria-label`.
+- [x] Talimat içeren placeholder hardcoded — `DashboardBuilder.tsx:643`, `queryBuilder/CteStep.tsx:36,51`, `WindowFuncStep.tsx:49,55,61`.
+- [x] AvatarCropModal a11y — `settings/AvatarCropModal.tsx:223,253`: çıplak `<canvas>` mouse-only crop, range input label yok. → `aria-label` + klavye pan. (zaten uygulanmış)
+- [x] `EmptyState` `role="status"` kullanıyor — `ui/EmptyState.tsx:45`: statik placeholder live region → gereksiz SR duyurusu. → düz region.
 
 **State / UX**
 
-- [ ] Liste ekranları `DataState` yerine elle loading/error/empty — `DashboardList.tsx:109`, `SavedQuestions.tsx:443`, `Datasources.tsx:364`, `Glossary.tsx:626`, `FewShotExamples.tsx:421`, `PromptTemplates.tsx:389`, `admin/ABExperimentList.tsx:116`.
-- [ ] Empty state'lerde CTA yok — `SavedQuestions.tsx:535`, `Datasources.tsx:365`, `FewShotExamples.tsx:421`, `Glossary.tsx:626`, `QueryHistory.tsx:245`, `Composites.tsx:390` (bkz. iyi örnek `DashboardList.tsx:141`).
-- [ ] Async button'larda pending/disabled yok — `Datasources.tsx:464,473,482` (Test/Sync/Delete double-submit), `SavedQuestions.tsx:568,592`.
-- [ ] Ham `err.message` kullanıcıya gösteriliyor — `Glossary.tsx:466,493`.
-- [ ] Ünlemli/sistem-sesli başarı metni — `RowLevelSecurityPanel.tsx:244`, `FieldPermissionPanel.tsx:350`. → sessiz toast, cümle düzeni.
-- [ ] Tek-label olarak emoji — `SidebarConversationItem.tsx:110,118` (✏️/🗑️), `SignInCredentialsForm.tsx:211` (🔑). → gerçek icon + `aria-label`.
+- [ ] Liste ekranları `DataState` yerine elle loading/error/empty — ERTELENDİ: ekranlar zaten EmptyState/LoadingOverlay kullanıyor; tam migrasyon her ekranın özel layout'unda regresyon riski → ayrı odaklı PR. (QueryHistory zaten DataState'te; ABExperimentList LoadingScreen+EmptyState+CTA ile uyumlu.)
+- [x] Empty state'lerde CTA yok — `action` eklendi: SavedQuestions, Datasources, FewShotExamples, Glossary (i18n `*.empty_cta` zaten mevcuttu). QueryHistory read-only, DashboardList/ABExperimentList zaten CTA'lıydı.
+- [x] Async button'larda pending/disabled yok — Datasources Test/Sync/Delete `busy` map ile guard'lı; SavedQuestions kaydet butonu `saving` prop → disabled + "Saving…".
+- [x] Ham `err.message` kullanıcıya gösteriliyor — Glossary 4 nokta artık `t('glossary.save_failed')` / `t('glossary.enrich_failed')`.
+- [x] Ünlemli/sistem-sesli başarı metni — `admin.rls.saved`, `admin.field_permissions.saved`, `admin.pii_detection.policy_saved` sade cümleye çevrildi ("… saved."). Inline yeşil-metin pattern korundu (toast'a taşımak ayrı iş).
+- [x] Tek-label olarak emoji — SignInCredentialsForm passkey (🔑) + DashboardList delete (🗑️) inline `<svg>`. SidebarConversationItem zaten svg+aria-label'dı. (DashboardBuilder/ModelingToolbar emojileri metinle eşli/menü ikonu → bırakıldı.)
 
 **Build / config**
 
-- [ ] `manualChunks` yok — `chartConfig-*.js` 352 KB, `index-*.js` 299 KB, i18n 126 KB; split tesadüfi. → stabil vendor'ları (recharts, react-dom, i18n) izole et.
-- [ ] Explicit `build.target` yok — `vite.config.ts`: Vite 8 "Baseline" default'una güveniyor. → `build: { target: 'es2022' }`.
-- [ ] `immer` override (`11.1.8`) recharts/RTK çakışmasını örtüyor — `package.json:50-52`: transitive recharts'ta immer 10→11 major zorluyor. → açıklayıcı comment, `^11.1.8`, recharts bump'ından sonra chart'ı doğrula.
-- [ ] `tsc -b` ama project reference yok — düz non-composite `tsconfig.json`; `tsc -b` az iş yapıyor. → `tsc --noEmit && vite build` veya composite referans projeler.
-- [ ] Mobile: sabit `w-[Npx]` overflow — `sharing/ShareButton.tsx:153` `w-[420px]`; `DriftPanel.tsx:286`, `WorkspaceSettingsPage.tsx:381,392,476`, `EvalRunTab.tsx:99` `w-[320px]`. → `w-full max-w-[…]`.
-- [ ] `DataTable` empty cell hardcoded `#9ca3af` — `ui/DataTable.tsx:108`. → `text-foreground-muted`.
+- [x] `manualChunks` yok — `vite.config.ts`'e `manualChunks` eklendi: `charts` (recharts/d3), `react-vendor`, `i18n` izole. Build doğrulandı: charts 384 kB, react-vendor 219 kB, i18n 178 kB, index 120 kB (~299→120).
+- [x] Explicit `build.target` yok — `build: { target: 'es2022' }` eklendi.
+- [x] `immer` override (`11.1.8`) recharts çakışmasını örtüyor — `package.json`'a `//overrides` açıklama anahtarı eklendi (RTK yok; recharts transitive immer 10). Pin neden var dokümante edildi; deterministiklik için exact pin korundu (caret yerine).
+- [x] `tsc -b` ama project reference yok — build script `tsc --noEmit && vite build`'e çevrildi. (Eski `tsc -b` ile aynı sonucu veriyordu; doğrulandı.)
+- [ ] Mobile: sabit `w-[Npx]` overflow — ÇOĞU ZATEN GÜVENLİ: ShareButton zaten `w-full max-w-105`; DriftPanel/EvalRunTab/WorkspaceSettings değerleri `max-w-*` (mobilde küçülür). Spekülatif layout değişikliği yapılmadı; gerçek risk yalnızca WorkspaceSettings `min-w-[240px] shrink-0` (≪320px), düşük öncelik.
+- [x] `DataTable` empty cell hardcoded `#9ca3af` — `text-foreground-muted` class'ına çevrildi.
 
 ### P2 — Düşük / temizlik
 
-- [ ] `useConversation.ts:44` — localStorage `Conversation[]` doğrulamasız; element başı `id` doğrula.
-- [ ] `useAIJobs.tsx:191` — `result_json as TResult` dekoratif generic; guard'a yönlendir.
-- [ ] `types/ai.ts:142` — `AIJobStatus | 'idle'` magic sentinel; optional / discriminated union tercih et.
-- [ ] `types/ai.ts:155-161` — deprecated `relevance_score` + `score` ikisi de optional; ingest'te normalize et.
-- [ ] `i18n/index.tsx` vs `i18n/locale.ts` — neredeyse aynı locale mantığı; biri ölü mü teyit et.
-- [ ] `e.target.value as <union>` cast'lerinde `isAdminTab` tarzı guard kullan — `AdminNav.tsx:34`, `DatasourceAccessPanel.tsx:158,225`, `userList/ActiveUsersTab.tsx:214`, `InvitationsTab.tsx:178`.
-- [ ] `ui/KPICard.tsx:14,19,20` — ölü BEM class (`kpi-card`/`kpi-label`/`kpi-value`), CSS yok. Sil.
-- [ ] `SelectPopover.tsx` — inline per-option handler; uzun listeler için `data-index` ile delege et.
-- [ ] `useAIJobs.tsx:521-524` — trivial `.some()` üzerinde `useMemo`; inline hesapla.
-- [ ] Magic px spacing (242 `[Npx]`) — 4px scale'e oturt.
-- [ ] `Dockerfile:23` — `EXPOSE 3333` (Vite dev) ama nginx-unprivileged `:8080` dinliyor. Yanıltıcı.
-- [ ] `vite.config.ts` — `server.strictPort: true`, `build.sourcemap: 'hidden'` değerlendir.
-- [ ] CLAUDE.md proxy açıklaması biraz eski — kod doğru: `/api`→8888 + `/api/auth`→8889, `/auth` client route. Doc güncelle.
-- [ ] `tsconfig.json:3-5` — `target`/`lib` ES2020, ekosistem ES2022; ES2022'ye çıkar.
+- [x] `useConversation.ts` — `loadConversations` artık `isStoredConversation` guard'ı ile element başı `id: string` doğruluyor; geçersiz entry'ler filtreleniyor.
+- [ ] `useAIJobs.tsx` — `result_json as TResult` dekoratif generic → ERTELENDİ: tip sisteminde derin guard refactoru, düşük değer.
+- [ ] `types/ai.ts:142` — `AIJobStatus | 'idle'` → BIRAKILDI: `'idle'` backend'in gönderdiği gerçek wire değeri (job yok demek); optional yapmak API kontratından sapardı, problemli `=== 'idle'` tüketicisi yok.
+- [ ] `types/ai.ts` — `relevance_score`/`score` normalize → ERTELENDİ: ingest noktası `normalizeAIQueryResponse.ts` (commit edilmemiş WIP, tip hatalı); WIP ile çakışmamak için ayrı tutuldu.
+- [x] `i18n/index.tsx` vs `i18n/locale.ts` — TEYİT: ikisi de canlı, ÖLÜ DEĞİL. `locale.ts` framework-bağımsız mantık (translate/loadLocaleSection/getLocale) + 4 importer; `index.tsx` React context/hook sarmalayıcısı. Çakışma yok.
+- [x] `e.target.value as <union>` guard — AdminNav `e.target.value as AdminTab` → mevcut `isAdminTab` guard'ı ile değiştirildi. Diğer dosyalardaki ref'ler bayattı: ActiveUsersTab/InvitationsTab düz string search input'u (cast yok), DatasourceAccessPanel'de union cast bulunmadı.
+- [x] `ui/KPICard.tsx` — ölü BEM class'ları silindi; yerine Tailwind utility (border/p-4/rounded + token renkler) → inline `borderColor`/`color` artık görünür (eskiden stilsizdi).
+- [ ] `SelectPopover.tsx` — `data-index` delegasyonu → ERTELENDİ: perf mikro-optimizasyonu, davranış riski; ölçümle gerekçelendirilmeli.
+- [x] `useAIJobs.tsx` — `hasQueuedJob` trivial `useMemo`'su inline `.some()`'a indirildi.
+- [ ] Magic px spacing (242 `[Npx]`) — ERTELENDİ: 242 nokta, çok geniş/spekülatif diff; ayrı tasarım-token PR'ı.
+- [x] `Dockerfile` — `EXPOSE 3333` → `EXPOSE 8080` (nginx-unprivileged portu); açıklayıcı yorum eklendi.
+- [x] `vite.config.ts` — `server.strictPort: true` + `build.sourcemap: 'hidden'` eklendi. Build doğrulandı: map'ler üretiliyor ama bundle'da `sourceMappingURL` direktifi yok.
+- [x] CLAUDE.md proxy açıklaması düzeltildi: `/api/auth/*`→8889, diğer `/api/*`→8888, `/auth/*` client SPA route (proxy'lenmiyor).
+- [x] `tsconfig.json` — `target`/`lib` `ES2020`→`ES2022` (vite `build.target: es2022` ile hizalı).
 
 ### Zaten sağlam (aksiyon yok)
 

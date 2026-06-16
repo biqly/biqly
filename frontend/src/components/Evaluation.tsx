@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAdminApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { localeLanguageTag, useI18n, useT } from '../i18n'
+import { cn } from '../lib/cn'
 import type { EvalRunDetail, EvalRunSummary, RegressionReport } from '../types/ai'
 import type { EvalRunResponse } from './evaluation/demoData'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -232,11 +233,12 @@ export default function Evaluation() {
               type="button"
               role="tab"
               aria-selected={isActive}
-              className={`mt-0 w-auto rounded-[0.35rem] border px-4 py-1.5 text-[0.78rem] font-semibold shadow-none transition-all duration-180 ease-out ${
+              className={cn(
+                'mt-0 w-auto rounded-[0.35rem] border px-4 py-1.5 text-[0.78rem] font-semibold shadow-none transition-all duration-180 ease-out',
                 isActive
                   ? 'bg-card-raised border-border-strong text-foreground shadow-[0_2px_8px_rgba(0,0,0,0.15)]'
-                  : 'text-foreground-muted hover:text-foreground border-transparent bg-transparent hover:border-transparent hover:bg-[rgba(255,255,255,0.04)]'
-              }`}
+                  : 'text-foreground-muted hover:text-foreground border-transparent bg-transparent hover:border-transparent hover:bg-[rgba(255,255,255,0.04)]',
+              )}
               onClick={() => {
                 startTransition(() => {
                   setActiveTab(tab.key)

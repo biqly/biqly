@@ -99,6 +99,8 @@ export default function Datasources() {
   const [syncResult, setSyncResult] = useState<Record<string, string>>({})
   const [testResult, setTestResult] = useState<Record<string, string>>({})
   const [draftTestResult, setDraftTestResult] = useState<string | null>(null)
+  // Tracks in-flight row actions (key: `${op}:${id}`) to prevent double-submit.
+  const [busy, setBusy] = useState<Record<string, boolean>>({})
 
   const formatDateTime = (value: string | null | undefined) => {
     if (!value) {
@@ -265,6 +267,10 @@ export default function Datasources() {
   }
 
   const del = async (id: string) => {
+    const key = `del:${id}`
+    if (busy[key]) {
+      return
+    }
     const ok = await confirm({
       title: t('datasources.delete_confirm'),
       message: t('datasources.delete_confirm'),
@@ -273,46 +279,69 @@ export default function Datasources() {
     if (!ok) {
       return
     }
-    await deleteData(`/api/datasources/${id}`, authRequestOptions(accessToken))
-    void load()
+    setBusy((b) => ({ ...b, [key]: true }))
+    try {
+      await deleteData(`/api/datasources/${id}`, authRequestOptions(accessToken))
+      void load()
+    } finally {
+      setBusy((b) => ({ ...b, [key]: false }))
+    }
   }
 
   const test = async (id: string) => {
+    const key = `test:${id}`
+    if (busy[key]) {
+      return
+    }
+    setBusy((b) => ({ ...b, [key]: true }))
     setTestResult({ ...testResult, [id]: t('datasources.testing') })
-    const res = await postData<{ success: boolean; latency_ms?: number; error?: string }>(
-      `/api/datasources/${id}/test`,
-      {},
-      authRequestOptions(accessToken),
-    )
-    if (res?.success) {
-      setTestResult({
-        ...testResult,
-        [id]: t('datasources.test_success', { ms: res.latency_ms ?? 0 }),
-      })
-    } else {
-      setTestResult({
-        ...testResult,
-        [id]: t('datasources.test_failed', { error: res?.error ?? 'unknown' }),
-      })
+    try {
+      const res = await postData<{ success: boolean; latency_ms?: number; error?: string }>(
+        `/api/datasources/${id}/test`,
+        {},
+        authRequestOptions(accessToken),
+      )
+      if (res?.success) {
+        setTestResult({
+          ...testResult,
+          [id]: t('datasources.test_success', { ms: res.latency_ms ?? 0 }),
+        })
+      } else {
+        setTestResult({
+          ...testResult,
+          [id]: t('datasources.test_failed', { error: res?.error ?? 'unknown' }),
+        })
+      }
+    } finally {
+      setBusy((b) => ({ ...b, [key]: false }))
     }
   }
 
   const sync = async (id: string) => {
+    const key = `sync:${id}`
+    if (busy[key]) {
+      return
+    }
+    setBusy((b) => ({ ...b, [key]: true }))
     setSyncResult({ ...syncResult, [id]: t('datasources.syncing') })
-    const res = await postData<{
-      schemas: number
-      tables: number
-      columns: number
-      relations: number
-    }>(`/api/datasources/${id}/sync-metadata`, {}, authRequestOptions(accessToken))
-    if (res) {
-      setSyncResult({
-        ...syncResult,
-        [id]: t('datasources.sync_result', { tables: res.tables, columns: res.columns }),
-      })
-      void load()
-    } else {
-      setSyncResult({ ...syncResult, [id]: t('datasources.sync_failed') })
+    try {
+      const res = await postData<{
+        schemas: number
+        tables: number
+        columns: number
+        relations: number
+      }>(`/api/datasources/${id}/sync-metadata`, {}, authRequestOptions(accessToken))
+      if (res) {
+        setSyncResult({
+          ...syncResult,
+          [id]: t('datasources.sync_result', { tables: res.tables, columns: res.columns }),
+        })
+        void load()
+      } else {
+        setSyncResult({ ...syncResult, [id]: t('datasources.sync_failed') })
+      }
+    } finally {
+      setBusy((b) => ({ ...b, [key]: false }))
     }
   }
 
@@ -362,7 +391,11 @@ export default function Datasources() {
         )}
 
         {datasourceRows.length === 0 && !loading ? (
-          <EmptyState description={t('datasources.empty')} className={uiEmptyStateInlineClass} />
+          <EmptyState
+            description={t('datasources.empty')}
+            className={uiEmptyStateInlineClass}
+            action={{ label: t('datasources.empty_cta'), onClick: openNewForm }}
+          />
         ) : (
           <>
             <p className={datasourceTableSectionLabelClass}>
@@ -398,7 +431,7 @@ export default function Datasources() {
                         <td className="datasources-col-record">
                           <div className="flex min-w-0 flex-col gap-1.5">
                             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-                              <span className="text-foreground text-[0.9375rem] font-semibold">
+                              <span className="text-foreground text-md-sm font-semibold">
                                 {ds.name}
                               </span>
                               {showAccessBadge && access === 'allowed' && (
@@ -464,6 +497,7 @@ export default function Datasources() {
                               onClick={() => {
                                 void test(ds.id)
                               }}
+                              disabled={busy[`test:${ds.id}`]}
                             >
                               {t('datasources.test')}
                             </button>
@@ -473,6 +507,7 @@ export default function Datasources() {
                               onClick={() => {
                                 void sync(ds.id)
                               }}
+                              disabled={busy[`sync:${ds.id}`]}
                             >
                               {t('datasources.sync')}
                             </button>
@@ -482,6 +517,7 @@ export default function Datasources() {
                               onClick={() => {
                                 void del(ds.id)
                               }}
+                              disabled={busy[`del:${ds.id}`]}
                             >
                               {t('datasources.delete')}
                             </button>

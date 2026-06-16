@@ -241,7 +241,7 @@ export function AIHistoryPanel() {
                               ) : detail ? (
                                 <div className={aiHistoryDetailContentClass}>
                                   <div className={aiHistoryDetailHeaderClass}>
-                                    <span className="text-foreground-muted text-[11px] font-semibold tracking-wide uppercase">
+                                    <span className="text-foreground-muted text-2xs font-semibold tracking-wide uppercase">
                                       {t('admin.ai_history.detail')}
                                     </span>
                                     <button

@@ -67,7 +67,7 @@ export function SummarizeStep({
         <div className={qbSummarizeSectionClass}>
           {selectItems
             .filter((item) => item.type === 'metric')
-            .map((item) => {
+            .map((item, aggIdx) => {
               const i = selectItems.indexOf(item)
               return (
                 <div
@@ -85,7 +85,7 @@ export function SummarizeStep({
                     type="button"
                     className={qbTagCloseClass}
                     onClick={() => removeSelectItem(i)}
-                    aria-label="Remove Aggregation"
+                    aria-label={t('query_builder.remove_aggregation_aria', { n: aggIdx + 1 })}
                   >
                     ×
                   </button>
@@ -114,7 +114,7 @@ export function SummarizeStep({
                 type="button"
                 className={qbTagCloseClass}
                 onClick={() => removeGroupByRow(i)}
-                aria-label="Remove Grouping"
+                aria-label={t('query_builder.remove_group_aria', { n: i + 1 })}
               >
                 ×
               </button>

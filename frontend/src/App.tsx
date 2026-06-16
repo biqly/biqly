@@ -21,9 +21,10 @@ import { LanguageSwitcher } from './components/ui/LanguageSwitcher'
 import { LoadingScreen } from './components/ui/LoadingScreen'
 import { ThemeToggle } from './components/ui/ThemeToggle'
 import { LocaleSection, type TranslationKey, useLocaleSection, useT } from './i18n'
-import { authCardClass, authPageClass } from './lib/authClasses'
+import { authAvatarClass, authCardClass, authPageClass } from './lib/authClasses'
 import { legacyButtonClass } from './lib/buttonClasses'
 import { legacyCardClass } from './lib/cardClasses'
+import { cn } from './lib/cn'
 import { legacyFeedbackClass } from './lib/feedbackClasses'
 import { sidebarFooterControlsClass, sidebarLogoutBtnClass } from './lib/headerControlClasses'
 import {
@@ -498,7 +499,7 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
           onMouseEnter={() => handleNavHover(Settings)}
           onFocus={() => handleNavHover(Settings)}
         >
-          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-[#6366f1] to-[#8b5cf6] text-[14px] font-semibold text-white">
+          <div className={authAvatarClass}>
             {user.avatarUrl ? (
               <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
@@ -506,10 +507,10 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
             )}
           </div>
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="text-foreground overflow-hidden text-[13px] font-semibold text-ellipsis whitespace-nowrap">
+            <span className="text-foreground text-caption overflow-hidden font-semibold text-ellipsis whitespace-nowrap">
               {user.displayName?.trim() ? user.displayName : user.email}
             </span>
-            <span className="text-foreground-muted overflow-hidden text-[11px] text-ellipsis whitespace-nowrap">
+            <span className="text-foreground-muted text-2xs overflow-hidden text-ellipsis whitespace-nowrap">
               {roleLabel}
             </span>
           </div>
@@ -864,7 +865,7 @@ function App() {
               </button>
 
               <div
-                className={`${mobileNavScrimClass} ${mobileNavOpen ? mobileNavScrimVisibleClass : ''}`}
+                className={cn(mobileNavScrimClass, mobileNavOpen && mobileNavScrimVisibleClass)}
                 hidden={!mobileNavOpen}
                 onClick={() => setMobileNavOpen(false)}
                 aria-hidden="true"

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint . --max-warnings 0",
@@ -50,6 +50,7 @@
     "vite": "^8.0.16",
     "vitest": "^4.1.8"
   },
+  "//overrides": "immer is pinned to 11.1.8 because recharts pulls immer 10 transitively while the app requires 11; vite.config dedupe keeps a single copy. Bump this in lockstep with recharts and re-verify that charts render.",
   "overrides": {
     "immer": "11.1.8"
   }

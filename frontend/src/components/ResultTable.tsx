@@ -3,6 +3,7 @@ import { type KeyboardEvent, type MouseEvent, useMemo, useState } from 'react'
 import { useToast } from '../hooks/useToast'
 import { useT } from '../i18n'
 import { legacyButtonClass } from '../lib/buttonClasses'
+import { cn } from '../lib/cn'
 import { cellDrillableClass } from '../lib/tableClasses'
 import type { ResultAnomaly } from '../types/ai'
 import { downloadCsv } from '../utils/exportCsv'
@@ -196,7 +197,11 @@ export function ResultTable({
                     return (
                       <td
                         key={colIdx}
-                        className={`border-border text-foreground-muted border-b p-[0.75rem_0.9rem] text-left align-middle text-[0.86rem] leading-[1.4] transition-colors duration-150 max-[720px]:p-[0.55rem_0.6rem] ${isAnomaly ? 'text-foreground! bg-[color-mix(in_srgb,var(--warning)_4%,transparent)] font-semibold shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--warning)_40%,transparent)]' : ''}`}
+                        className={cn(
+                          'border-border text-foreground-muted border-b p-[0.75rem_0.9rem] text-left align-middle text-[0.86rem] leading-[1.4] transition-colors duration-150 max-[720px]:p-[0.55rem_0.6rem]',
+                          isAnomaly &&
+                            'text-foreground! bg-[color-mix(in_srgb,var(--warning)_4%,transparent)] font-semibold shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--warning)_40%,transparent)]',
+                        )}
                         title={isAnomaly ? anomalyTitle : undefined}
                         onContextMenu={(e) => handleContextMenu(e, colName, String(cell))}
                         onKeyDown={(e) => handleCellKeyDown(e, colName, String(cell))}
