@@ -59,9 +59,9 @@ export function Pagination({
 
   return (
     <div
-      className={`border-border flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3`}
+      className={`flex items-center justify-between flex-wrap gap-3 py-3 px-4 border-t border-border`}
     >
-      <div className="text-foreground-muted flex flex-wrap items-center gap-3 text-[13px]">
+      <div className="flex items-center flex-wrap gap-3 text-[13px] text-foreground-muted">
         <span>
           {totalItems !== undefined && itemsPerPage !== undefined
             ? t('common.pagination.range_of_total', { start, end, total: totalItems })
@@ -76,7 +76,7 @@ export function Pagination({
               options={sizeSelectOptions}
               onChange={(v) => onPageSizeChange(Number(v))}
               size="sm"
-              className="w-[4.5rem]"
+              className="w-18"
               ariaLabel={resolvedPageSizeLabel}
             />
           </label>
