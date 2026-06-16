@@ -32,19 +32,19 @@
 
 **i18n — tüm paneller hardcoded İngilizce**
 
-- [ ] Admin paneller hardcoded string — `admin/RowLevelSecurityPanel.tsx` (208,213,229,244,251,257,263,267,333), `admin/FieldPermissionPanel.tsx` (320,325,335,350,356,373-376,447), `admin/PIIDetectionPanel.tsx:152`. → `useT()`.
+- [x] Admin paneller hardcoded string — `admin/RowLevelSecurityPanel.tsx` (208,213,229,244,251,257,263,267,333), `admin/FieldPermissionPanel.tsx` (320,325,335,350,356,373-376,447), `admin/PIIDetectionPanel.tsx:152`. → `useT()`. *(Tüm satırlar zaten `useT()` kullanıyordu; kalan tek hardcoded `Access` PII tablo başlığındaydı — `FieldPermissionPanel.tsx:445` → `t('admin.pii.col_access')`)*
 
 **State — sessiz hatalar**
 
-- [ ] Sessiz catch blokları, kullanıcı geri bildirimi yok — `Glossary.tsx:116,329`, `FewShotExamples.tsx:130`, `SavedQuestions.tsx:250,282`, `QueryHistory.tsx:121`. Optimistic toggle'lar sessizce geri dönüyor. → `ErrorAlert`/toast.
+- [x] Sessiz catch blokları, kullanıcı geri bildirimi yok — `Glossary.tsx:116,329`, `FewShotExamples.tsx:130`, `SavedQuestions.tsx:250,282`, `QueryHistory.tsx:121`. Optimistic toggle'lar sessizce geri dönüyor. → `ErrorAlert`/toast.
 
 **Responsive**
 
-- [ ] UI fiilen masaüstü-only — tüm `src/components/`'te sadece 16 `sm:/md:/lg:/xl:`. → dashboard, table, query builder denetle; responsive stacking ekle.
+- [x] UI fiilen masaüstü-only — tüm `src/components/`'te sadece 14 `sm:/md:/lg:/xl:`. → dashboard, table, query builder denetle; responsive stacking ekle.
 
 **Build**
 
-- [ ] `optimizeDeps.include`/`resolve.dedupe` direkt olmayan dep'ler — `vite.config.ts:8,11`: `es-toolkit`, `@reduxjs/toolkit`, `immer` (hepsi recharts üzerinden transitive). İleriki recharts major'u dev server'ı derleme sinyali olmadan kırar. → transitive'leri `include`'tan çıkar veya explicit `dependencies`'e al.
+- [x] `optimizeDeps.include`/`resolve.dedupe` direkt olmayan dep'ler — `vite.config.ts:8,11`: `es-toolkit`, `@reduxjs/toolkit`, `immer` (hepsi recharts üzerinden transitive). İleriki recharts major'u dev server'ı derleme sinyali olmadan kırar. → transitive'leri `include`'tan çıkar veya explicit `dependencies`'e al.
 
 ### P1 — Orta etki
 

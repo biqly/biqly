@@ -777,6 +777,8 @@ export const core = {
     placeholder_name: 'e.g. Sales by region',
     placeholder_description: 'e.g. Shows regional breakdown for orders',
     placeholder_question: 'e.g. how many orders did we get by country?',
+    toggle_fewshot_error: 'Failed to update few-shot status.',
+    favorite_toggle_error: 'Failed to update favorite status.',
   },
   prompt_templates: {
     title: 'Prompt templates',
@@ -844,6 +846,7 @@ export const core = {
     available_fields_title: 'Available Fields',
     helper_select_model: 'Select a semantic model to list available dimensions and metrics here.',
     search_fields_placeholder: 'Search fields…',
+    load_error: 'Failed to load few-shot examples.',
   },
   result_table: {
     filter_by_value: 'Filter: {{column}} = "{{value}}"',
@@ -1466,6 +1469,8 @@ export const core = {
     placeholder_null_meaning: 'What null values mean in this metric…',
     label_business_rules: 'Business rules',
     placeholder_business_rules: 'Type a rule and press enter…',
+    load_error: 'Failed to load glossary terms.',
+    delete_error: 'Failed to delete glossary term.',
   },
   query_history: {
     title: 'Query History',
@@ -1488,6 +1493,7 @@ export const core = {
     prompt: 'Prompt',
     generated_sql: 'Generated SQL',
     logical_query: 'Logical Query',
+    detail_load_error: 'Failed to load query details.',
   },
   customDashboards: {
     title: 'Custom Dashboards',

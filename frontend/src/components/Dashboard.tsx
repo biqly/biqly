@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { cn } from '../lib/cn'
 import AIUsageDashboard from './AIUsageDashboard'
 import DashboardBuilder from './DashboardBuilder'
 import DashboardList from './DashboardList'
@@ -13,47 +14,27 @@ export default function Dashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Tab Selectors: Hide when a custom dashboard is actively open for editing */}
       {!selectedDashboardId && (
-        <div
-          style={{
-            display: 'flex',
-            borderBottom: '1px solid var(--border)',
-            gap: '1rem',
-            paddingBottom: '0.2rem',
-            marginBottom: '0.5rem',
-          }}
-        >
+        <div className="border-border mb-2 flex gap-4 border-b pb-[0.2rem] max-sm:flex-col max-sm:gap-1 max-sm:border-b-0">
           <button
             type="button"
-            style={{
-              background: 'none',
-              border: 'none',
-              borderBottom:
-                activeTab === 'custom' ? '2px solid var(--accent)' : '2px solid transparent',
-              color: activeTab === 'custom' ? 'var(--text)' : 'var(--text-muted)',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: activeTab === 'custom' ? 600 : 500,
-              padding: '0.5rem 1rem',
-              transition: 'all 0.2s',
-            }}
+            className={cn(
+              'cursor-pointer border-0 border-b-2 bg-transparent px-4 py-2 text-[1rem] transition-all duration-200',
+              activeTab === 'custom'
+                ? 'border-accent text-foreground font-semibold'
+                : 'text-foreground-muted hover:text-foreground border-transparent font-medium',
+            )}
             onClick={() => setActiveTab('custom')}
           >
             📊 Custom Dashboards
           </button>
           <button
             type="button"
-            style={{
-              background: 'none',
-              border: 'none',
-              borderBottom:
-                activeTab === 'ai_usage' ? '2px solid var(--accent)' : '2px solid transparent',
-              color: activeTab === 'ai_usage' ? 'var(--text)' : 'var(--text-muted)',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: activeTab === 'ai_usage' ? 600 : 500,
-              padding: '0.5rem 1rem',
-              transition: 'all 0.2s',
-            }}
+            className={cn(
+              'cursor-pointer border-0 border-b-2 bg-transparent px-4 py-2 text-[1rem] transition-all duration-200',
+              activeTab === 'ai_usage'
+                ? 'border-accent text-foreground font-semibold'
+                : 'text-foreground-muted hover:text-foreground border-transparent font-medium',
+            )}
             onClick={() => setActiveTab('ai_usage')}
           >
             🤖 AI Analytics

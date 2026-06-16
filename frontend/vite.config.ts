@@ -8,7 +8,7 @@ export default defineConfig({
     dedupe: ['immer', 'recharts'],
   },
   optimizeDeps: {
-    include: ['recharts', 'es-toolkit', '@reduxjs/toolkit', 'immer'],
+    include: ['recharts'],
   },
   test: {
     environment: 'node',

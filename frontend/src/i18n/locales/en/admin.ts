@@ -55,6 +55,7 @@ export const admin = {
     scan_summary: 'Scanned {{scanned}} columns, {{detected}} PII detections.',
     col_column: 'Column',
     col_type: 'PII Type',
+    col_access: 'Access',
     col_confidence: 'Confidence',
     col_strategy: 'Masking Strategy',
     strategy_partial: 'Partial Mask',

@@ -364,6 +364,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
             <div
               style={{
                 display: 'flex',
+                flexWrap: 'wrap',
                 gap: '0.75rem',
                 marginTop: '1.5rem',
                 padding: '1rem 0 0 0',
@@ -450,13 +451,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
             )}
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(12, 1fr)',
-              gap: '1.5rem',
-            }}
-          >
+          <div className="grid gap-6 max-lg:gap-4 max-md:grid-cols-1 md:grid-cols-12">
             {widgets.map((widget, idx) => (
               <div
                 key={widget.id}
@@ -553,7 +548,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                 </div>
 
                 {/* Mapped visual display */}
-                <div style={{ flexGrow: 1, overflow: 'hidden' }}>
+                <div style={{ flexGrow: 1, minWidth: 0, overflow: 'auto' }}>
                   <DashboardWidgetRenderer widget={widget} />
                 </div>
               </div>

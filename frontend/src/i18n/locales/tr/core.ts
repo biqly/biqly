@@ -787,6 +787,8 @@ export const core: CoreDictionary = {
     placeholder_name: 'örn. Bölgeye göre satış',
     placeholder_description: 'örn. Siparişlerin bölgesel dağılımını gösterir',
     placeholder_question: 'örn. ülkelere göre ne kadar sipariş aldık?',
+    toggle_fewshot_error: 'Few-shot durumu güncellenemedi.',
+    favorite_toggle_error: 'Favori durumu güncellenemedi.',
   },
   prompt_templates: {
     title: 'Prompt şablonları',
@@ -854,6 +856,7 @@ export const core: CoreDictionary = {
     helper_select_model:
       'Semantik model seçerek kullanılabilir boyut ve metrikleri burada listeleyebilirsiniz.',
     search_fields_placeholder: 'Alanlarda ara…',
+    load_error: 'Few-shot örnekleri yüklenemedi.',
   },
   result_table: {
     filter_by_value: 'Filtre: {{column}} = "{{value}}"',
@@ -1478,7 +1481,9 @@ export const core: CoreDictionary = {
     label_null_meaning: 'Null anlamı',
     placeholder_null_meaning: 'Bu metrikte null değerler ne anlama gelir…',
     label_business_rules: 'İş kuralları',
-    placeholder_business_rules: 'Kural yazıp enter’a basın…',
+    placeholder_business_rules: 'Kural yazıp enter\u2019a basın\u2026',
+    load_error: 'Sözlük terimleri yüklenemedi.',
+    delete_error: 'Sözlük terimi silinemedi.',
   },
   query_history: {
     title: 'Sorgu Geçmişi',
@@ -1501,6 +1506,7 @@ export const core: CoreDictionary = {
     prompt: 'İstem (Prompt)',
     generated_sql: 'Derlenen SQL',
     logical_query: 'Mantıksal Sorgu',
+    detail_load_error: 'Sorgu detayları yüklenemedi.',
   },
   customDashboards: {
     title: 'Özel Panolar',

@@ -5,6 +5,7 @@ import { useConfirm } from '../hooks/useConfirm'
 import { useDatasources } from '../hooks/useDatasources'
 import { useModelDetail } from '../hooks/useModelDetail'
 import { useSemanticModels } from '../hooks/useSemanticModels'
+import { useToast } from '../hooks/useToast'
 import { useT } from '../i18n'
 import { legacyButtonClass, rowActionsClass } from '../lib/buttonClasses'
 import { legacyCardClass } from '../lib/cardClasses'
@@ -61,6 +62,7 @@ function filterLocalFewShotExamples(
 
 export default function FewShotExamples() {
   const t = useT()
+  const toast = useToast()
   const confirm = useConfirm()
   const { get, postData, putData, deleteData, loading } = useApi()
   const [examples, setExamples] = useState<FewShotExample[]>([])
@@ -123,15 +125,18 @@ export default function FewShotExamples() {
             ) as FewShotExample[]
             setExamples(filterLocalFewShotExamples(local, selectedDatasourceId, selectedModelId))
           } catch {
-            /* empty */
+            /* localStorage parse error — ignore, degrade gracefully */
           }
           setApiReady(false)
         }
       })
+      .catch(() => {
+        toast.error(t('few_shot.load_error'))
+      })
       .finally(() => {
         setInitLoading(false)
       })
-  }, [selectedDatasourceId, selectedModelId, get])
+  }, [selectedDatasourceId, selectedModelId, get, t, toast])
 
   const persist = (updated: FewShotExample[]) => {
     setExamples(updated)

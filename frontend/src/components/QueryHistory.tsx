@@ -6,6 +6,7 @@ import { useDatasources } from '../hooks/useDatasources'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { usePaginatedList } from '../hooks/usePaginatedList'
 import { useSemanticModels } from '../hooks/useSemanticModels'
+import { useToast } from '../hooks/useToast'
 import { useT } from '../i18n'
 import { legacyButtonClass } from '../lib/buttonClasses'
 import { legacyCardClass } from '../lib/cardClasses'
@@ -38,6 +39,7 @@ import { Select } from './ui/Select'
 
 export default function QueryHistory() {
   const t = useT()
+  const toast = useToast()
   const navigate = useNavigate()
   const { accessToken } = useAuth()
 
@@ -121,6 +123,7 @@ export default function QueryHistory() {
       .catch(() => {
         if (!cancelled) {
           setDetailCache((prev) => ({ ...prev, [expandedId]: null }))
+          toast.error(t('query_history.detail_load_error'))
         }
       })
       .finally(() => {
@@ -131,7 +134,7 @@ export default function QueryHistory() {
     return () => {
       cancelled = true
     }
-  }, [expandedId, accessToken, detailCache])
+  }, [expandedId, accessToken, detailCache, t, toast])
 
   const detail = expandedId ? (detailCache[expandedId] ?? null) : null
   const detailLoading =
