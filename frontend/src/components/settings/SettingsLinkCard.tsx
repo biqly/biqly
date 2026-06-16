@@ -13,7 +13,7 @@ export function SettingsLinkCard({ title, description, action, icon }: SettingsL
   return (
     <article
       className={legacyCardClass(
-        'card card--elevated hover:border-accent mb-0 flex min-h-full flex-col gap-[0.85rem] p-5 transition-all duration-220 ease-in-out hover:translate-y-[-3px] hover:shadow-[0_12px_30px_var(--accent-glow)]',
+        'card card--elevated hover:border-accent mb-0 flex min-h-full flex-col gap-[0.85rem] p-5 transition-all duration-220 ease-in-out hover:-translate-y-0.75 hover:shadow-[0_12px_30px_var(--accent-glow)]',
       )}
     >
       <div className="flex items-center gap-3">

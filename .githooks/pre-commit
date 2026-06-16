@@ -1,17 +1,24 @@
 #!/bin/sh
-# Pre-commit hook: run all linters and tests before allowing a commit.
+# Pre-commit hook: format → stage → lint → test.
+#
+# 1. Formats all files (Prettier for frontend, gofmt for Go via lint)
+# 2. Stages formatting changes so they're included in the commit
+# 3. Runs linters and tests on the staged content
+# 4. Blocks the commit if anything fails
+#
 # Activated by: git config core.hooksPath .githooks
 # (or run: make setup-githooks)
 
-echo "=== pre-commit: running make precommit ==="
-make precommit
-status=$?
+set -e
 
-if [ $status -ne 0 ]; then
-    echo ""
-    echo "!!! pre-commit FAILED — fix errors above before committing."
-    echo "    To skip (not recommended): git commit --no-verify"
-    exit 1
-fi
+echo "=== pre-commit: formatting ==="
+make format-frontend
+git add -u
+
+echo "=== pre-commit: linting ==="
+make lint
+
+echo "=== pre-commit: running tests ==="
+make test
 
 echo "=== pre-commit: all checks passed ==="

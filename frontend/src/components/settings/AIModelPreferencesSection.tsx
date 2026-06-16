@@ -240,7 +240,7 @@ export function AIModelPreferencesSection() {
                 <div
                   key={purpose}
                   className={legacyCardClass(
-                    'border-border bg-card-raised flex min-h-[118px] flex-col gap-2 rounded-[10px] border px-3.5 py-3',
+                    'border-border bg-card-raised flex min-h-29.5 flex-col gap-2 rounded-[10px] border px-3.5 py-3',
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
