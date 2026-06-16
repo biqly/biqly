@@ -61,7 +61,7 @@ function ensureImports(content, file) {
 }
 
 function toLegacyCall(cls) {
-  const escaped = cls.trim().replace(/'/g, "\\'")
+  const escaped = cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")
   return `legacyTableClass('${escaped}')`
 }
 
@@ -87,7 +87,7 @@ for (const file of files) {
     if (!TABLE_TOKENS.test(cls)) {
       return `className={\`${cls}\`}`
     }
-    return `className={legacyTableClass('${cls.trim().replace(/'/g, "\\'")}')}`
+    return `className={legacyTableClass('${cls.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')}`
   })
 
   if (content !== orig) {
