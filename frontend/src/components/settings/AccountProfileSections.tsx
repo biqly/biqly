@@ -51,7 +51,7 @@ export function AccountProfileHero({
         <div className="relative h-13 w-13">
           <button
             type="button"
-            className="group text-accent hover:border-accent relative grid h-full w-full cursor-pointer place-items-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] p-0 transition-all duration-200 hover:shadow-[var(--accent-shadow-ring)]"
+            className="group text-accent hover:border-accent relative grid h-full w-full cursor-pointer place-items-center overflow-hidden rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] p-0 transition-all duration-200 hover:shadow-(--accent-shadow-ring)"
             onClick={onAvatarClick}
             title={t('settings.profile_picture_change')}
           >
