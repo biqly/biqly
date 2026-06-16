@@ -5,6 +5,7 @@ import { getSecurityPolicyByKeys, upsertSecurityPolicy } from '../../api/admin'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useModelDetail } from '../../hooks/useModelDetail'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
+import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
@@ -21,6 +22,7 @@ import { fieldSelectOptions, FILTER_OPERATOR_OPTIONS } from './securityPolicyCon
 // eslint-disable-next-line complexity
 export function RowLevelSecurityPanel({ token }: { token: string }) {
   const t = useT()
+  const toast = useToast()
   const { hasPermission } = useAuth()
   // Row-level security policies are stored as permissions (admin:roles).
   const canEdit = hasPermission('admin:roles')
@@ -42,7 +44,6 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   const [filters, setFilters] = useState<PermissionRowFilter[]>([])
   const [loadingPolicy, setLoadingPolicy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [saveSuccess, setSaveSuccess] = useState(false)
 
   // Fetch policy when role or datasource changes
   useEffect(() => {
@@ -54,7 +55,6 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
     async function loadPolicy() {
       setLoadingPolicy(true)
       setError(null)
-      setSaveSuccess(false)
       try {
         const policyData = await getSecurityPolicyByKeys(
           token,
@@ -66,9 +66,9 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
         }
         setPolicy(policyData)
         setFilters(policyData.row_filters)
-      } catch (err) {
+      } catch {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err))
+          setError(t('admin.rls.load_failed'))
         }
       } finally {
         if (!cancelled) {
@@ -81,7 +81,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
     return () => {
       cancelled = true
     }
-  }, [token, selectedRole, effectiveSelectedDS])
+  }, [token, selectedRole, effectiveSelectedDS, t])
 
   const fields = useMemo(() => {
     const names: string[] = []
@@ -110,12 +110,10 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
     }
     const firstField = fields[0] ?? ''
     setFilters([...filters, { field: firstField, operator: 'eq', value: '' }])
-    setSaveSuccess(false)
   }
 
   const handleRemoveFilter = (index: number) => {
     setFilters(filters.filter((_, i) => i !== index))
-    setSaveSuccess(false)
   }
 
   const handleFilterChange = (index: number, key: keyof PermissionRowFilter, val: string) => {
@@ -162,7 +160,6 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       updated[index] = { field: val, operator: item.operator, value: item.value }
     }
     setFilters(updated)
-    setSaveSuccess(false)
   }
 
   const handleSave = async () => {
@@ -170,7 +167,6 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       return
     }
     setError(null)
-    setSaveSuccess(false)
 
     // Construct request policy
     const policyToSave: SecurityPolicy = {
@@ -187,9 +183,9 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       const res = await upsertSecurityPolicy(token, policyToSave)
       setPolicy(res)
       setFilters(res.row_filters)
-      setSaveSuccess(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      toast.success(t('admin.rls.saved'))
+    } catch {
+      setError(t('admin.rls.save_failed'))
     } finally {
       setLoadingPolicy(false)
     }
@@ -219,7 +215,6 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
               setSelectedModel('')
               setPolicy(null)
               setFilters([])
-              setSaveSuccess(false)
             }}
             disabled={loadingDS || dsOptions.every((o) => o.disabled)}
           />
@@ -236,12 +231,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
         </div>
       </div>
 
-      {error && (
-        <div style={errStyle}>
-          {t('common.error')}: {error}
-        </div>
-      )}
-      {saveSuccess && <div style={successStyle}>{t('admin.rls.saved')}</div>}
+      {error ? <div style={errStyle}>{error}</div> : null}
 
       <div style={contentGridStyle}>
         <div style={leftPanelStyle}>
@@ -549,16 +539,6 @@ const errStyle: React.CSSProperties = {
   background: 'rgba(239, 68, 68, 0.1)',
   borderRadius: 6,
   border: '1px solid rgba(239, 68, 68, 0.2)',
-  fontSize: 13,
-  fontWeight: 500,
-}
-
-const successStyle: React.CSSProperties = {
-  color: 'var(--success, #10b981)',
-  padding: '10px 16px',
-  background: 'rgba(16, 185, 129, 0.1)',
-  borderRadius: 6,
-  border: '1px solid rgba(16, 185, 129, 0.2)',
   fontSize: 13,
   fontWeight: 500,
 }

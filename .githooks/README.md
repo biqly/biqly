@@ -19,12 +19,19 @@ make setup-githooks
 
 ## Available hooks
 
-| Hook | What it runs | When |
-|------|-------------|------|
-| `pre-commit` | `make format-frontend` → `git add -u` → `make lint` → `make test` | Before every `git commit` |
+**`pre-commit`** runs before every `git commit`, in order:
 
-The hook automatically stages formatting changes so they're included in the
-commit — no leftover unstaged diffs.
+1. `make format-frontend` then `git add -u` (stage the formatting changes)
+2. `make lint-go` and `make test-go` (Go gate)
+3. `make check-frontend` (frontend CI gate)
+
+`check-frontend` is the **exact** `npm run check` gate CI runs (lint + tailwind +
+format:check + knip + test + `build`, where `build` runs `tsc --noEmit`). Running
+it here means type errors, unused code (knip), and format drift fail locally
+instead of in CI. The hook automatically stages formatting changes so they're
+included in the commit — no leftover unstaged diffs.
+
+For a faster type-only check during development, run `make typecheck-frontend`.
 
 ## Skipping
 

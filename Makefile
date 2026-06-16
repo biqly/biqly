@@ -126,6 +126,11 @@ lint-frontend:
 	@npm --prefix frontend run lint
 	@npm --prefix frontend run lint:tailwind
 
+# Type-check only (tsc --noEmit). Fast signal for the type errors that otherwise
+# surface in CI's `build` step; runnable on its own during development.
+typecheck-frontend:
+	@npm --prefix frontend run typecheck
+
 format-frontend:
 	@npm --prefix frontend run format
 
@@ -134,8 +139,13 @@ format-frontend:
 check-frontend:
 	@npm --prefix frontend run check
 
-# Run before every commit: all linters and all tests for both stacks.
-precommit: format-frontend lint test
+# Run before every commit. Mirrors the CI gate so failures surface locally:
+#   - Go:       lint-go + test-go
+#   - Frontend: check-frontend = the exact `npm run check` CI runs
+#               (lint + tailwind + format:check + knip + test + build/tsc --noEmit)
+# Frontend lint/test live inside check-frontend, so we list lint-go/test-go (not
+# the combined lint/test) to avoid running the frontend suite twice.
+precommit: format-frontend lint-go test-go check-frontend
 
 # Enable the .githooks/ pre-commit hook so tests run automatically
 # before every `git commit`. Run once per clone.

@@ -60,27 +60,28 @@ function pickClarification(
           ? raw.resolved_question
           : undefined,
     clarification: isRecord(clarificationValue)
-      ? (clarificationValue as AIQueryResponse['clarification'])
+      ? (clarificationValue as unknown as AIQueryResponse['clarification'])
       : undefined,
   }
 }
 
 function assignQueryFields(flat: AIQueryResponse, source: Record<string, unknown>): void {
   if (isRecord(source.logical_query)) {
-    flat.logical_query = source.logical_query as AIQueryResponse['logical_query']
+    flat.logical_query = source.logical_query as unknown as AIQueryResponse['logical_query']
   }
   if (typeof source.sql === 'string') {
     flat.sql = source.sql
   }
   flat.warnings = toStringArray(source.warnings)
   if (isRecord(source.result)) {
-    flat.result = source.result as AIQueryResponse['result']
+    flat.result = source.result as unknown as AIQueryResponse['result']
   }
   if (typeof source.confidence === 'number') {
     flat.confidence = source.confidence
   }
   if (isRecord(source.visualization_hint)) {
-    flat.visualization_hint = source.visualization_hint as AIQueryResponse['visualization_hint']
+    flat.visualization_hint =
+      source.visualization_hint as unknown as AIQueryResponse['visualization_hint']
   }
 }
 
@@ -92,7 +93,7 @@ function assignMetadataFields(flat: AIQueryResponse, metadata: Record<string, un
     flat.prompt_stats = metadata.prompt_stats
   }
   if (isRecord(metadata.token_usage)) {
-    flat.token_usage = metadata.token_usage as AIQueryResponse['token_usage']
+    flat.token_usage = metadata.token_usage as unknown as AIQueryResponse['token_usage']
   }
   if (typeof metadata.cost_usd === 'number') {
     flat.cost_usd = metadata.cost_usd
@@ -104,10 +105,11 @@ function assignMetadataFields(flat: AIQueryResponse, metadata: Record<string, un
     flat.retry_count = metadata.retry_count
   }
   if (isRecord(metadata.table_routing)) {
-    flat.table_routing = metadata.table_routing as AIQueryResponse['table_routing']
+    flat.table_routing = metadata.table_routing as unknown as AIQueryResponse['table_routing']
   }
   if (isRecord(metadata.validation_result)) {
-    flat.validation_result = metadata.validation_result as AIQueryResponse['validation_result']
+    flat.validation_result =
+      metadata.validation_result as unknown as AIQueryResponse['validation_result']
   }
   if (Array.isArray(metadata.candidates)) {
     flat.candidates = metadata.candidates as AIQueryResponse['candidates']

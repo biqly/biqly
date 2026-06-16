@@ -5,6 +5,7 @@ import { getSecurityPolicyByKeys, listPIIColumns, upsertSecurityPolicy } from '.
 import { listSemanticModelFields } from '../../api/semantic'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
+import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
 import type { SemanticModelFieldRow } from '../../types/semantic'
 import { pickValidIdOrFirst } from '../../utils/effectiveSelection'
@@ -28,6 +29,7 @@ const EMPTY_PII_COLUMNS: PIIColumn[] = []
 // eslint-disable-next-line complexity
 export function FieldPermissionPanel({ token }: { token: string }) {
   const t = useT()
+  const toast = useToast()
   const { hasPermission } = useAuth()
   // Field-level security policies are stored as permissions (admin:roles).
   const canEdit = hasPermission('admin:roles')
@@ -49,7 +51,6 @@ export function FieldPermissionPanel({ token }: { token: string }) {
 
   const [loadingPolicy, setLoadingPolicy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [saveSuccess, setSaveSuccess] = useState(false)
 
   const [modelName, setModelName] = useState<string | null>(null)
   const [fieldRows, setFieldRows] = useState<SemanticModelFieldRow[]>([])
@@ -116,7 +117,6 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     async function loadPolicy() {
       setLoadingPolicy(true)
       setError(null)
-      setSaveSuccess(false)
       try {
         const [policyData, piiCols] = await Promise.all([
           getSecurityPolicyByKeys(token, `role:${selectedRole}`, selectedDS),
@@ -132,9 +132,9 @@ export function FieldPermissionPanel({ token }: { token: string }) {
           piiPolicy: policyData.pii_policy ?? {},
           piiColumns: piiCols,
         })
-      } catch (err) {
+      } catch {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err))
+          setError(t('admin.field_permissions.load_failed'))
         }
       } finally {
         if (!cancelled) {
@@ -147,7 +147,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     return () => {
       cancelled = true
     }
-  }, [token, selectedRole, selectedDS, policyScopeKey])
+  }, [token, selectedRole, selectedDS, policyScopeKey, t])
 
   const loadFields = useCallback(async () => {
     if (!selectedModel) {
@@ -165,7 +165,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       fieldPageSize,
     )
     if (fieldsErr) {
-      setError(fieldsErr)
+      setError(t('admin.field_permissions.load_failed'))
       setModelName(null)
       setFieldRows([])
       setFieldTotal(0)
@@ -179,7 +179,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       setFieldTotal(0)
     }
     setLoadingFields(false)
-  }, [selectedModel, fieldPage, fieldPageSize])
+  }, [selectedModel, fieldPage, fieldPageSize, t])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -202,7 +202,6 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     }
 
     updatePolicyFields({ deniedFields: updated })
-    setSaveSuccess(false)
   }
 
   const handleSave = async () => {
@@ -210,7 +209,6 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       return
     }
     setError(null)
-    setSaveSuccess(false)
 
     const policyToSave: SecurityPolicy = {
       id: policy?.id,
@@ -230,9 +228,9 @@ export function FieldPermissionPanel({ token }: { token: string }) {
         deniedFields: res.denied_fields,
         piiPolicy: res.pii_policy ?? {},
       })
-      setSaveSuccess(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      toast.success(t('admin.field_permissions.saved'))
+    } catch {
+      setError(t('admin.field_permissions.save_failed'))
     } finally {
       setLoadingPolicy(false)
     }
@@ -265,7 +263,6 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       next[key] = { access: access as PIIAccessLevel }
     }
     updatePolicyFields({ piiPolicy: next })
-    setSaveSuccess(false)
   }
 
   const handleBulkApplyDefaults = () => {
@@ -274,7 +271,6 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       next[piiKey(col)] = { access: roleDefaultAccess(col.pii_type) }
     }
     updatePolicyFields({ piiPolicy: next })
-    setSaveSuccess(false)
   }
 
   // PII badge support: map of "table.column" refs to PII type for the badge
@@ -347,7 +343,6 @@ export function FieldPermissionPanel({ token }: { token: string }) {
           {t('common.error')}: {error}
         </div>
       )}
-      {saveSuccess && <div style={successStyle}>{t('admin.field_permissions.saved')}</div>}
 
       <div style={contentLayout}>
         <LoadingOverlay loading={loadingPolicy || loadingFields}>
@@ -758,16 +753,6 @@ const errStyle: React.CSSProperties = {
   background: 'rgba(239, 68, 68, 0.1)',
   borderRadius: 6,
   border: '1px solid rgba(239, 68, 68, 0.2)',
-  fontSize: 13,
-  fontWeight: 500,
-}
-
-const successStyle: React.CSSProperties = {
-  color: 'var(--success, #10b981)',
-  padding: '10px 16px',
-  background: 'rgba(16, 185, 129, 0.1)',
-  borderRadius: 6,
-  border: '1px solid rgba(16, 185, 129, 0.2)',
   fontSize: 13,
   fontWeight: 500,
 }
