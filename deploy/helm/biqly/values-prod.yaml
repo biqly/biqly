@@ -30,6 +30,9 @@ global:
   postgresqlVIP:
     enabled: true
   gateway:
+    parentRef:
+      name: eg-gw
+      namespace: envoy-gateway-system
     hostnames:
       - abi.il1.nl
   secrets:

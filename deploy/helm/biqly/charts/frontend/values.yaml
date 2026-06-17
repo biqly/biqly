@@ -7,14 +7,6 @@ global:
   serviceAccount:
     name: biqly
     automountServiceAccountToken: false
-  gateway:
-    enabled: true
-    parentRef:
-      name: lan-gw
-      namespace: gateway
-      sectionName: https
-    hostnames:
-      - abi.il1.nl
 
 replicaCount: 1
 image:

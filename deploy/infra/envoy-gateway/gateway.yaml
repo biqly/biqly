@@ -1,0 +1,28 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: eg-gw
+  namespace: envoy-gateway-system
+  annotations:
+    # Requested L2 VIP; Cilium LB-IPAM may assign a nearby free address (e.g. 192.168.0.160).
+    proxy.envoyproxy.io/loadbalancer-ip: "192.168.0.181"
+spec:
+  gatewayClassName: envoy-gw
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: wildcard-il1-nl-tls
+      allowedRoutes:
+        namespaces:
+          from: All

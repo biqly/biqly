@@ -21,14 +21,6 @@ global:
     BI_ENCRYPTION_KEY: ""
     BI_INTERNAL_API_TOKEN: ""
     # AI provider API keys are stored encrypted in the database, not in secrets.
-  gateway:
-    enabled: true
-    parentRef:
-      name: lan-gw
-      namespace: gateway
-      sectionName: https
-    hostnames:
-      - abi.il1.nl
 
 replicaCount: 2
 image:

@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: envoy-gateway
+  namespace: argocd
+spec:
+  project: biqly
+  sources:
+    - chart: gateway-helm
+      repoURL: oci://docker.io/envoyproxy
+      targetRevision: v1.8.1
+      helm:
+        releaseName: eg
+        valueFiles:
+          - $values/deploy/infra/envoy-gateway/helm-values.yaml
+    - repoURL: https://github.com/biqly/biqly.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/biqly/biqly.git
+      targetRevision: main
+      path: deploy/infra/envoy-gateway
+      directory:
+        include: "{gateway-class,gateway}.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: envoy-gateway-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

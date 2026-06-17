@@ -16,14 +16,6 @@ global:
     BI_METADATA_DB_DSN: ""
     BI_ENCRYPTION_KEY: ""
     BI_INTERNAL_API_TOKEN: ""
-  gateway:
-    enabled: true
-    parentRef:
-      name: lan-gw
-      namespace: gateway
-      sectionName: https
-    hostnames:
-      - abi.il1.nl
 
 replicaCount: 2
 image:
