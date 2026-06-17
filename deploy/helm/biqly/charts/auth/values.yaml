@@ -11,18 +11,6 @@ global:
     authConfig: biqly-auth-config
     authSecret: biqly-auth-secrets
     authDB: biqly-auth-db
-  gateway:
-    enabled: true
-    parentRef:
-      name: lan-gw
-      namespace: gateway
-      sectionName: https
-    httpParentRef:
-      name: lan-gw
-      namespace: gateway
-      sectionName: http
-    hostnames:
-      - abi.il1.nl
   secrets:
     createSecrets: true
     BI_AUTH_DB_DSN: ""

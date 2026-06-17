@@ -28,14 +28,11 @@ global:
   namespaceOverride: ""
   gateway:
     enabled: true
+    # Envoy Gateway (envoy-gateway-system/eg-gw) terminates LAN HTTP/HTTPS.
+    # Single parentRef — both listeners are on the same Gateway resource.
     parentRef:
-      name: lan-gw
-      namespace: gateway
-      sectionName: https
-    httpParentRef:
-      name: lan-gw
-      namespace: gateway
-      sectionName: http
+      name: eg-gw
+      namespace: envoy-gateway-system
     hostnames:
       - abi.il1.nl
     redirect:
@@ -43,6 +40,7 @@ global:
       scheme: https
       statusCode: 301
   apiVIP:
+    # Legacy Cilium LBIPAM VIP; superseded by Envoy Gateway (192.168.0.160).
     enabled: false
     name: biqly-api-vip
     ip: 192.168.0.160
