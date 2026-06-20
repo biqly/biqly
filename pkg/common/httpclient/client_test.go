@@ -135,6 +135,33 @@ func TestDoWithRetryDoesNotRetryContextCancellation(t *testing.T) {
 	}
 }
 
+func TestShouldRetry(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		resp *http.Response
+		err  error
+		want bool
+	}{
+		{name: "transport error retries", err: io.ErrUnexpectedEOF, want: true},
+		{name: "context canceled does not retry", err: context.Canceled, want: false},
+		{name: "deadline exceeded does not retry", err: context.DeadlineExceeded, want: false},
+		{name: "bad gateway retries", resp: &http.Response{StatusCode: http.StatusBadGateway}, want: true},
+		{name: "service unavailable retries", resp: &http.Response{StatusCode: http.StatusServiceUnavailable}, want: true},
+		{name: "gateway timeout retries", resp: &http.Response{StatusCode: http.StatusGatewayTimeout}, want: true},
+		{name: "too many requests does not retry", resp: &http.Response{StatusCode: http.StatusTooManyRequests}, want: false},
+		{name: "ok does not retry", resp: &http.Response{StatusCode: http.StatusOK}, want: false},
+		{name: "nil response and nil error does not retry", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldRetry(tt.resp, tt.err); got != tt.want {
+				t.Fatalf("shouldRetry(%v, %v) = %v, want %v", tt.resp, tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
 type nilReader struct{}
 
 func (nilReader) Read(_ []byte) (int, error) { return 0, io.EOF }

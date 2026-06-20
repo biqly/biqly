@@ -14,6 +14,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestSkipMigrationSpans(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+		want  bool
+	}{
+		{name: "normal query kept", query: "SELECT * FROM users", want: true},
+		{name: "schema migrations select skipped", query: "SELECT version FROM schema_migrations", want: false},
+		{name: "case insensitive", query: "INSERT INTO SCHEMA_MIGRATIONS(version, dirty) VALUES ($1, $2)", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := skipMigrationSpans(context.Background(), "", tt.query, nil); got != tt.want {
+				t.Fatalf("skipMigrationSpans(%q) = %v, want %v", tt.query, got, tt.want)
+			}
+		})
+	}
+}
+
 // -- Null conversion helpers tests --
 
 func TestNullHelpers(t *testing.T) {

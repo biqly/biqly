@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"log/slog"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -76,6 +78,37 @@ func TestDBWriterDropCounterIncrementsWhenChannelFull(t *testing.T) {
 	after := promtest.ToFloat64(MetricAuditEventsDropped.WithLabelValues("channel_full"))
 
 	assert.Equal(t, before+1, after)
+}
+
+func TestDBWriter_WriteDuringCloseDoesNotPanic(t *testing.T) {
+	db := testutil.OpenMetadataDB(t)
+	w := NewDBWriter(context.Background(), db, nil)
+	require.NotNil(t, w)
+
+	start := make(chan struct{})
+	var panics atomic.Int64
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() {
+				if recover() != nil {
+					panics.Add(1)
+				}
+			}()
+			<-start
+			for i := range 100 {
+				w.Write(Event{EventType: EventType("close_race"), Timestamp: time.Now().Add(time.Duration(i))})
+			}
+		}()
+	}
+
+	close(start)
+	require.NoError(t, w.Close())
+	wg.Wait()
+
+	assert.Equal(t, int64(0), panics.Load())
 }
 
 func TestDBWriter_Integration(t *testing.T) {

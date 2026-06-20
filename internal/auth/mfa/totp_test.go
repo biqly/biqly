@@ -1,9 +1,14 @@
 package mfa
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/biqly/biqly/internal/testutil"
+	"github.com/google/uuid"
 )
 
 func TestGenerateTOTPSecret_UniqueAndBase32(t *testing.T) {
@@ -79,6 +84,55 @@ func TestVerifyTOTP_RejectsMalformed(t *testing.T) {
 	}
 	if VerifyTOTP(secret, "abcdef", time.Now()) {
 		t.Fatal("non-numeric code accepted")
+	}
+}
+
+func TestVerifyCodeRejectsReplayedTOTPStep(t *testing.T) {
+	db := testutil.OpenAuthDB(t)
+	ctx := context.Background()
+
+	var userID string
+	err := db.QueryRowContext(ctx, `
+		INSERT INTO users (email, display_name, password_hash, email_verified)
+		VALUES ($1, 'TOTP Replay', 'hash', TRUE)
+		RETURNING id
+	`, "totp-replay-"+uuid.NewString()+"@example.com").Scan(&userID)
+	if err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, cleanupErr := db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", userID); cleanupErr != nil {
+			t.Fatalf("cleanup user: %v", cleanupErr)
+		}
+	})
+
+	secret, err := GenerateTOTPSecret()
+	if err != nil {
+		t.Fatalf("generate secret: %v", err)
+	}
+	repo := NewMFARepository(db, nil)
+	if err := repo.Upsert(ctx, userID, "totp", secret, nil); err != nil {
+		t.Fatalf("upsert mfa: %v", err)
+	}
+	if err := repo.Enable(ctx, userID); err != nil {
+		t.Fatalf("enable mfa: %v", err)
+	}
+
+	counter, ok := totpCounter(time.Now())
+	if !ok {
+		t.Fatal("current totp counter overflowed")
+	}
+	code, err := generateTOTPCode(secret, counter)
+	if err != nil {
+		t.Fatalf("generate code: %v", err)
+	}
+
+	svc := NewMFAService(repo, nil, "Biqly")
+	if err := svc.VerifyCode(ctx, userID, code); err != nil {
+		t.Fatalf("first verify: %v", err)
+	}
+	if err := svc.VerifyCode(ctx, userID, code); !errors.Is(err, ErrTOTPCodeAlreadyUsed) {
+		t.Fatalf("replayed verify error = %v, want %v", err, ErrTOTPCodeAlreadyUsed)
 	}
 }
 

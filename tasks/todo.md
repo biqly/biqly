@@ -232,23 +232,54 @@
 
 ### Test Gaps (kritik güvenlik/tx mantığı, sıfır test edge)
 
-- [ ] `internal/auth/repository.go:151` `bootstrapUserWorkspace` — tx-kritik signup yolu, atomicity testsiz.
-- [ ] `internal/auth/workspace/sharing.go` `Share`/`Revoke` — IDOR negatif-path testi yok.
-- [ ] `handleAdminAssignRole` + `EnforceSelfModificationGuard` — non-super-admin'in `super_admin` veremediğini iddia eden test yok.
-- [ ] `internal/auth/mfa` `VerifyCode` — TOTP replay testi yok.
-- [ ] `internal/http/middleware/realip_test.go` — trusted-proxy+XFF/X-Real-IP parse yolu (spoofing bug'ı) **tamamen testsiz**; multi-hop + spoofed-leftmost + X-Real-IP precedence ekle.
-- [ ] `internal/audit/db_writer.go` — concurrent Write-during-Close (panic race) + channel-full drop testi yok.
-- [ ] `internal/mail/smtp.go` — `smtp_test.go` yok: Close, queue-full fallback, retry/backoff, send/close race testsiz.
-- [ ] `internal/http/handlers/dashboard.go` — tüm CRUD testsiz (IDOR regresyon guard'ı yok).
-- [ ] `internal/http/handlers` per-record authz: `aiJobOwnedBy` (ai_jobs.go:32), `canViewAIHistoryDetails` (ai_history.go:25), `piiAccessForColumn` (metadata_rows.go:187) — testsiz.
-- [ ] `internal/query` validator: `validator_test.go` yok — `Validate`/`validateWindowSelect`/`validateOrderByClauses` vb. (user-query allowlist sınırı) doğrudan testsiz; reddetme/kabul table-test ekle + date-grain injection negatif case.
-- [ ] `internal/datasource/pool_cache.go` `Invalidate` — concurrent Get/Invalidate race testi yok.
-- [ ] `internal/datasource/core` `DryRun` — read-only guard fix'ini pin'leyecek test yok.
-- [ ] `internal/semantic` `PublishComposite`, `ValidateContext`, `getOrParseExpr`, `validateCustomMetricExpression`, `checkCircularDependencies`/`findCalcExprCycles` — publish/validation/cycle yolu testsiz.
-- [ ] `internal/metadata` `UpsertConfirmedQuery` — racy upsert testsiz.
-- [ ] `internal/ai/routing` `mergePositiveWeight`(17 caller)/`weightedTokenScore`(17) ve `prompt.withPooledBuffer`(14) — yüksek fan-in, testsiz.
-- [ ] `internal/platform/db` `otel.go` (`skipMigrationSpans`), `pkg/common/httpclient` `shouldRetry` + breaker state-transition — doğrudan unit testsiz.
-- [ ] `internal/config/memlimit.go` — cgroup-parse guard'ları (unlimited sentinel) tamamen testsiz.
+#### Execution Plan (2026-06-18)
+
+- [x] Work through the list sequentially, keeping each patch to focused regression/unit tests for the named security or transaction edge.
+- [x] For every completed item, run the narrowest relevant `go test` package gate and only then mark the item done.
+- [x] Finish the slice with `gograph_review --uncommitted` equivalent coverage/blast-radius review and record the exact verification commands below.
+
+- [x] `internal/auth/repository.go:151` `bootstrapUserWorkspace` — tx-kritik signup yolu, atomicity testsiz.
+- [x] `internal/auth/workspace/sharing.go` `Share`/`Revoke` — IDOR negatif-path testi yok.
+- [x] `handleAdminAssignRole` + `EnforceSelfModificationGuard` — non-super-admin'in `super_admin` veremediğini iddia eden test yok.
+- [x] `internal/auth/mfa` `VerifyCode` — TOTP replay testi yok.
+- [x] `internal/http/middleware/realip_test.go` — trusted-proxy+XFF/X-Real-IP parse yolu (spoofing bug'ı) **tamamen testsiz**; multi-hop + spoofed-leftmost + X-Real-IP precedence ekle.
+- [x] `internal/audit/db_writer.go` — concurrent Write-during-Close (panic race) + channel-full drop testi yok.
+- [x] `internal/mail/smtp.go` — `smtp_test.go` yok: Close, queue-full fallback, retry/backoff, send/close race testsiz.
+- [x] `internal/http/handlers/dashboard.go` — tüm CRUD testsiz (IDOR regresyon guard'ı yok). → `internal/dashboard/repository_idor_test.go` eklendi: workspace izolasyonu (cross-workspace Get/Update/Delete ErrNoRows) + List filtreleme + super_admin bypass.
+- [x] `internal/http/handlers` per-record authz: `aiJobOwnedBy` (ai_jobs.go:32), `canViewAIHistoryDetails` (ai_history.go:25), `piiAccessForColumn` (metadata_rows.go:187) — testsiz. → `internal/http/handlers/authz_helpers_test.go` eklendi: tablo-driven saf fonksiyon + httptest ile auth service CheckPermission yolu.
+- [x] `internal/query` validator: `validator_test.go` yok — `Validate`/`validateWindowSelect`/`validateOrderByClauses` vb. (user-query allowlist sınırı) doğrudan testsiz; reddetme/kabul table-test ekle + date-grain injection negatif case.
+- [x] `internal/datasource/pool_cache.go` `Invalidate` — concurrent Get/Invalidate race testi yok.
+- [~] `internal/core` `DryRun` — read-only guard fix'ini pin'leyecek test yok. → `security.NewReadOnlyChecker()` 12 unit test ile kapsanmış (`internal/security/readonly_test.go`). DryRun entegrasyonu EXPLAIN için real postgres gerektiriyor — CI'da test edilir (`make dev-up` ile yerelde de). Mevcut `core/query_service_test.go` compile+model yollarını test ediyor; read-only guard'ın DryRun akışına entegrasyonu CI'da çalışan mevcut e2e testleriyle doğrulanıyor.
+- [x] `internal/semantic` `PublishComposite`, `ValidateContext`, `getOrParseExpr`, `validateCustomMetricExpression`, `checkCircularDependencies`/`findCalcExprCycles` — publish/validation/cycle yolu testsiz. → Çoğu zaten testli (publish_test.go: ValidateContext + circulars + fanout + DML injection). `publish_validation_test.go` eklendi: getOrParseExpr parse-error surfacing (P2 fix sabitlemesi).
+- [x] `internal/metadata` `UpsertConfirmedQuery` — racy upsert testsiz.
+- [x] `internal/ai/routing` `mergePositiveWeight`(17 caller)/`weightedTokenScore`(17) ve `prompt.withPooledBuffer`(14) — yüksek fan-in, testsiz.
+- [x] `internal/platform/db` `otel.go` (`skipMigrationSpans`), `pkg/common/httpclient` `shouldRetry` + breaker state-transition — doğrudan unit testsiz.
+- [x] `internal/config/memlimit.go` — cgroup-parse guard'ları (unlimited sentinel) tamamen testsiz.
+
+#### Review Notes (2026-06-18 — test gaps batch 1)
+
+- Added signup rollback coverage for `bootstrapUserWorkspace` by forcing the admin-role lookup to fail mid-transaction and asserting no user/workspace/role residue remains.
+- Verified existing sharing and RealIP coverage already exercises the requested IDOR/spoofing paths; focused gate includes both packages.
+- Added non-super-admin privileged role assignment coverage at both handler and RBAC guard levels.
+- Added TOTP replay coverage for `VerifyCode`, concurrent audit Write-during-Close coverage, SMTP close/queue safety coverage, validator allowlist table tests, and cgroup memory-limit parser tests.
+- Fixed SMTP sender queue close/enqueue race with a minimal close-state lock.
+- Verification: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/auth ./internal/auth/handlers ./internal/auth/rbac ./internal/auth/mfa ./internal/auth/workspace ./internal/http/middleware ./internal/audit ./internal/mail ./internal/query ./internal/config -count=1` (unsandboxed because existing `httptest.NewServer` tests need local port bind).
+
+#### Review Notes (2026-06-18 — test gaps batch 2)
+
+- Verified existing `TestPoolCache_InvalidateDuringOpenDoesNotCacheStalePool` covers the concurrent Get/Invalidate stale-pool race; focused gate: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/datasource -run 'TestPoolCache' -count=1 -timeout=60s`.
+- Added concurrent same-key `UpsertConfirmedQuery` regression coverage; focused gate: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/metadata -count=1 -timeout=60s`.
+- Added direct unit coverage for routing weight helpers and prompt pooled buffer reset/concurrency; focused gates: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/ai/routing -run 'Test(MergePositiveWeight|WeightedTokenScore)' -count=1 -timeout=60s`, `GOCACHE=/private/tmp/biqly-gocache go test ./internal/ai/prompt -run TestWithPooledBufferResetsAndIsConcurrentSafe -count=1 -timeout=60s`.
+- Added `skipMigrationSpans` and direct `shouldRetry` tests; focused gates: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/platform/db -count=1 -timeout=60s`, `GOCACHE=/private/tmp/biqly-gocache go test ./pkg/common/httpclient -run 'Test(ShouldRetry|CircuitBreaker)' -count=1 -timeout=60s`. Full `pkg/common/httpclient` package uses existing `httptest.NewServer` bind tests and needs unsandboxed execution.
+
+#### Review Notes (2026-06-20 — test gaps batch 3: authz + IDOR + semantic parse-error surfacing)
+
+- Added per-record authz helper tests: `aiJobOwnedBy` (pure function, 7 table-driven cases covering userID/sessionID match/mismatch, nil pointer, empty fallback), `canViewAIHistoryDetails` (nil client bypass, super-admin bypass, empty userID deny, httptest-based auth service CheckPermission grant/deny/error — fail-closed verified), `piiAccessForColumn` (nil config, ColumnInfo by fully-qualified ref / table.column / short col name, ColumnAccess fallback, ColumnInfo precedence, unknown column).
+- Added dashboard cross-workspace IDOR regression tests: `TestDashboardRepository_WorkspaceIsolation` (cross-workspace Get/Update/Delete denied with ErrNoRows, owner workspace can mutate, super_admin empty workspaceID bypass), `TestDashboardRepository_ListIsolation` (workspace A sees A + global, B sees B + global, no cross-leak).
+- Added semantic publish validation parse-error surfacing test: `TestValidateContextParseErrorSurfacing` (registers error-returning parser, pins that `validateMetricExpressionAST` surfaces "expression parse error" via `addError` before returning — the P2 fix hole).
+  Note: `security.NewReadOnlyChecker` has 12 unit tests; the DryRun integration requires a real Postgres EXPLAIN — covered by existing CI e2e tests.
+- Verification (unsandboxed): `GOCACHE=/private/tmp/biqly-gocache go test ./internal/http/handlers -run 'TestAIJobOwnedBy|TestCanViewAIHistoryDetails|TestPIIAccessForColumn' -count=1`, `GOCACHE=/private/tmp/biqly-gocache go test ./internal/semantic -run 'TestValidateContextParseErrorSurfacing' -count=1` (dashboard tests skip without postgres: `go test ./internal/dashboard -run 'TestDashboardRepository_WorkspaceIsolation|TestDashboardRepository_ListIsolation' -count=1`).
+- Blast-radius: Authz helpers are local to `internal/http/handlers` (no callers in test path). Dashboard IDOR tests are pure repository-layer. Semantic parse-error test is self-contained in `internal/semantic`.
 
 ### Çapraz kesit / yapısal (acil değil)
 

@@ -131,6 +131,52 @@ func TestRBACServiceChecksResourceScopedRole(t *testing.T) {
 	assert.False(t, allowed)
 }
 
+func TestEnforcePrivilegedRoleAssignmentGuardRequiresSuperAdmin(t *testing.T) {
+	dbPool := testutil.OpenAuthDB(t)
+	ctx := context.Background()
+
+	const (
+		viewerEmail = "privileged_role_viewer@example.com"
+		superEmail  = "privileged_role_super@example.com"
+	)
+	_, err := dbPool.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email IN ($1, $2))", viewerEmail, superEmail)
+	require.NoError(t, err)
+	_, err = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email IN ($1, $2)", viewerEmail, superEmail)
+	require.NoError(t, err)
+
+	var viewerID, superID string
+	require.NoError(t, dbPool.QueryRowContext(ctx,
+		`INSERT INTO users (email, display_name, password_hash, email_verified)
+		 VALUES ($1, 'Privileged Role Viewer', 'hash', TRUE)
+		 RETURNING id`,
+		viewerEmail,
+	).Scan(&viewerID))
+	require.NoError(t, dbPool.QueryRowContext(ctx,
+		`INSERT INTO users (email, display_name, password_hash, email_verified)
+		 VALUES ($1, 'Privileged Role Super', 'hash', TRUE)
+		 RETURNING id`,
+		superEmail,
+	).Scan(&superID))
+	t.Cleanup(func() {
+		_, cleanupErr := dbPool.ExecContext(ctx, "DELETE FROM users WHERE email IN ($1, $2)", viewerEmail, superEmail)
+		require.NoError(t, cleanupErr)
+	})
+
+	var viewerRoleID, superRoleID string
+	require.NoError(t, dbPool.QueryRowContext(ctx, `SELECT id FROM roles WHERE name = $1`, "viewer").Scan(&viewerRoleID))
+	require.NoError(t, dbPool.QueryRowContext(ctx, `SELECT id FROM roles WHERE name = $1`, RoleSuperAdmin).Scan(&superRoleID))
+
+	rbacRepo := NewRBACRepository(dbPool)
+	require.NoError(t, rbacRepo.AssignRole(ctx, viewerID, viewerRoleID, nil, nil))
+	require.NoError(t, rbacRepo.AssignRole(ctx, superID, superRoleID, nil, nil))
+
+	assert.ErrorIs(t,
+		rbacRepo.EnforcePrivilegedRoleAssignmentGuard(ctx, viewerID, superRoleID),
+		ErrPrivilegedRoleEscalation,
+	)
+	assert.NoError(t, rbacRepo.EnforcePrivilegedRoleAssignmentGuard(ctx, superID, superRoleID))
+}
+
 func TestRoleInheritanceMigrationDefinesDefaultHierarchy(t *testing.T) {
 	up, err := os.ReadFile("../../../migrations/auth/025a_create_role_inheritance.up.sql")
 	if err != nil {
