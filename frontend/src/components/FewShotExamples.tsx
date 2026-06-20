@@ -421,7 +421,6 @@ export default function FewShotExamples() {
         {displayedExamples.length === 0 && (
           <EmptyState
             description={t('few_shot.empty')}
-            action={{ label: t('few_shot.empty_cta'), onClick: openAdd }}
           />
         )}
 
