@@ -1,8 +1,11 @@
 package prompt
 
 import (
+	"bytes"
 	"context"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/biqly/biqly/internal/i18n"
@@ -98,6 +101,35 @@ func TestFormatEnumValuesTruncates(t *testing.T) {
 	}
 	if strings.Count(got, "=") != maxEnumValuesPerLine {
 		t.Errorf("expected %d pairs, got %d in %q", maxEnumValuesPerLine, strings.Count(got, "="), got)
+	}
+}
+
+func TestWithPooledBufferResetsAndIsConcurrentSafe(t *testing.T) {
+	longText := strings.Repeat("x", 128)
+	if got := withPooledBuffer(func(buf *bytes.Buffer) { buf.WriteString(longText) }); got != longText {
+		t.Fatalf("withPooledBuffer long output = %q, want %q", got, longText)
+	}
+	if got := withPooledBuffer(func(buf *bytes.Buffer) { buf.WriteString("ok") }); got != "ok" {
+		t.Fatalf("withPooledBuffer did not reset pooled buffer; got %q, want ok", got)
+	}
+
+	var wg sync.WaitGroup
+	errs := make(chan string, 32)
+	for i := range 32 {
+		want := "prompt-" + strconv.Itoa(i) + strings.Repeat("!", i%7)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			got := withPooledBuffer(func(buf *bytes.Buffer) { buf.WriteString(want) })
+			if got != want {
+				errs <- "got " + got + ", want " + want
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Error(err)
 	}
 }
 

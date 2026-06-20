@@ -70,3 +70,55 @@ func TestInternalCheckDatasourceAccessDoesNotLeakInternalError(t *testing.T) {
 	assert.NotContains(t, responseBody, "database is closed")
 	assert.NotContains(t, responseBody, "check direct access")
 }
+
+func TestHandleAdminAssignRoleRejectsSuperAdminGrantFromNonSuperAdmin(t *testing.T) {
+	db := testutil.OpenAuthDB(t)
+	ctx := context.Background()
+
+	const (
+		callerEmail = "handler_assign_role_caller@example.com"
+		targetEmail = "handler_assign_role_target@example.com"
+	)
+	_, err := db.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email IN ($1, $2))", callerEmail, targetEmail)
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, "DELETE FROM users WHERE email IN ($1, $2)", callerEmail, targetEmail)
+	require.NoError(t, err)
+
+	var callerID, targetID string
+	require.NoError(t, db.QueryRowContext(ctx,
+		`INSERT INTO users (email, display_name, password_hash, email_verified)
+		 VALUES ($1, 'Role Caller', 'hash', TRUE)
+		 RETURNING id`,
+		callerEmail,
+	).Scan(&callerID))
+	require.NoError(t, db.QueryRowContext(ctx,
+		`INSERT INTO users (email, display_name, password_hash, email_verified)
+		 VALUES ($1, 'Role Target', 'hash', TRUE)
+		 RETURNING id`,
+		targetEmail,
+	).Scan(&targetID))
+	t.Cleanup(func() {
+		_, cleanupErr := db.ExecContext(ctx, "DELETE FROM users WHERE email IN ($1, $2)", callerEmail, targetEmail)
+		require.NoError(t, cleanupErr)
+	})
+
+	var viewerRoleID, superRoleID string
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT id FROM roles WHERE name = $1`, "viewer").Scan(&viewerRoleID))
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT id FROM roles WHERE name = $1`, rbac.RoleSuperAdmin).Scan(&superRoleID))
+
+	rbacRepo := rbac.NewRBACRepository(db)
+	require.NoError(t, rbacRepo.AssignRole(ctx, callerID, viewerRoleID, nil, nil))
+	handler := NewRBACHandler(rbac.NewRBACService(rbacRepo), rbacRepo, nil, nil, nil, nil, nil, nil, nil, nil)
+
+	body := bytes.NewBufferString(`{"role_id":"` + superRoleID + `"}`)
+	req := httptest.NewRequestWithContext(bimw.WithUserID(ctx, callerID), http.MethodPost, "/admin/users/"+targetID+"/roles", body)
+	routeCtx := chi.NewRouteContext()
+	routeCtx.URLParams.Add("id", targetID)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
+	rec := httptest.NewRecorder()
+
+	handler.handleAdminAssignRole(rec, req)
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Contains(t, rec.Body.String(), rbac.ErrPrivilegedRoleEscalation.Error())
+}

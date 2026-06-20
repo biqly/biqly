@@ -3,6 +3,8 @@ package mail
 import (
 	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -60,4 +62,62 @@ func TestSendTemplateSuppressesBlockedRecipient(t *testing.T) {
 	})
 
 	assert.ErrorIs(t, err, ErrEmailBlocked)
+}
+
+func TestSendTemplateFallsBackSynchronouslyWhenQueueFull(t *testing.T) {
+	registry, err := newEmailTemplateRegistry("en")
+	require.NoError(t, err)
+	sender := &SMTPEmailSender{
+		config: &Config{
+			EmailDefaultLocale: "en",
+			FrontendBaseURL:    "https://app.example.com",
+			SMTPFrom:           "no-reply@example.com",
+		},
+		registry: registry,
+		queue:    make(chan emailJob, 1),
+		stop:     make(chan struct{}),
+	}
+	sender.queue <- emailJob{to: "queued@example.com"}
+
+	err = sender.sendTemplate(context.Background(), "user@example.com", "verification", map[string]any{
+		"URL": "https://app.example.com/auth/verify-email?token=x",
+	})
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "SMTP host is not configured")
+}
+
+func TestSMTPEmailSenderCloseIsConcurrentSafe(t *testing.T) {
+	sender, err := NewSMTPEmailSender(&Config{
+		EmailDefaultLocale: "en",
+		FrontendBaseURL:    "https://app.example.com",
+		EmailQueueSize:     1,
+		SMTPFrom:           "no-reply@example.com",
+	}, nil, nil)
+	require.NoError(t, err)
+
+	start := make(chan struct{})
+	var panics atomic.Int64
+	var wg sync.WaitGroup
+	for range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() {
+				if recover() != nil {
+					panics.Add(1)
+				}
+			}()
+			<-start
+			sender.Close()
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	assert.Equal(t, int64(0), panics.Load())
+	err = sender.sendTemplate(context.Background(), "user@example.com", "verification", map[string]any{
+		"URL": "https://app.example.com/auth/verify-email?token=x",
+	})
+	assert.ErrorContains(t, err, "email sender closed")
 }

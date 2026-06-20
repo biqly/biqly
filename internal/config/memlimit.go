@@ -64,14 +64,23 @@ func configureGCPercent() {
 func readCgroupMemoryLimit() int64 {
 	// Try cgroup v2
 	if limitBytes, err := os.ReadFile("/sys/fs/cgroup/memory.max"); err == nil {
-		limitStr := strings.TrimSpace(string(limitBytes))
-		if limitStr != "max" && limitStr != "" {
-			if v, err := strconv.ParseInt(limitStr, 10, 64); err == nil {
-				return v
-			}
+		if limit := parseCgroupV2MemoryLimit(string(limitBytes)); limit > 0 {
+			return limit
 		}
 	}
 	return readCgroupV1MemoryLimit()
+}
+
+func parseCgroupV2MemoryLimit(raw string) int64 {
+	limitStr := strings.TrimSpace(raw)
+	if limitStr == "max" || limitStr == "" {
+		return 0
+	}
+	v, err := strconv.ParseInt(limitStr, 10, 64)
+	if err != nil || v <= 0 {
+		return 0
+	}
+	return v
 }
 
 func readCgroupV1MemoryLimit() int64 {
@@ -79,7 +88,11 @@ func readCgroupV1MemoryLimit() int64 {
 	if err != nil {
 		return 0
 	}
-	limitStr := strings.TrimSpace(string(limitBytes))
+	return parseCgroupV1MemoryLimit(string(limitBytes))
+}
+
+func parseCgroupV1MemoryLimit(raw string) int64 {
+	limitStr := strings.TrimSpace(raw)
 	if limitStr == "" {
 		return 0
 	}

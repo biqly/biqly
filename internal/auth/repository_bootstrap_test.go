@@ -61,6 +61,44 @@ func TestCreateUser_BootstrapCreatesPersonalWorkspaceAndRoles(t *testing.T) {
 	assertUserBootstrap(ctx, t, db, user.ID, rbac.RoleSuperAdmin)
 }
 
+func TestCreateUser_BootstrapRollbackOnWorkspaceRoleFailure(t *testing.T) {
+	db := testutil.OpenAuthDB(t)
+	ctx := context.Background()
+	testutil.ResetAuthUserTables(ctx, t, db)
+
+	_, err := db.ExecContext(ctx, "UPDATE roles SET name = 'admin_missing_for_atomicity_test' WHERE name = 'admin'")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, restoreErr := db.ExecContext(ctx, "UPDATE roles SET name = 'admin' WHERE name = 'admin_missing_for_atomicity_test'")
+		require.NoError(t, restoreErr)
+	})
+
+	repo := NewUserRepository(db, nil)
+	_, err = repo.CreateUser(ctx, "bootstrap-rollback@example.com", "hash", "Atomic Rollback")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "get admin role")
+
+	var userCount int
+	err = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE email = $1", "bootstrap-rollback@example.com").Scan(&userCount)
+	require.NoError(t, err)
+	assert.Equal(t, 0, userCount)
+
+	var workspaceCount int
+	err = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM workspaces WHERE name = $1", "Atomic Rollback's Workspace").Scan(&workspaceCount)
+	require.NoError(t, err)
+	assert.Equal(t, 0, workspaceCount)
+
+	var globalRoleCount int
+	err = db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM user_roles ur
+		JOIN users u ON u.id = ur.user_id
+		WHERE u.email = $1
+	`, "bootstrap-rollback@example.com").Scan(&globalRoleCount)
+	require.NoError(t, err)
+	assert.Equal(t, 0, globalRoleCount)
+}
+
 func TestSecondUserGetsViewerAfterFirstSuperAdmin(t *testing.T) {
 	db := testutil.OpenAuthDB(t)
 	ctx := context.Background()

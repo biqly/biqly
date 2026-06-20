@@ -29,6 +29,8 @@ type SMTPEmailSender struct {
 	queue    chan emailJob
 	stop     chan struct{}
 	wg       sync.WaitGroup
+	mu       sync.RWMutex
+	closed   bool
 }
 
 type emailJob struct {
@@ -68,13 +70,15 @@ func (s *SMTPEmailSender) Close() {
 	if s.queue == nil {
 		return
 	}
-	select {
-	case <-s.stop:
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
 		return
-	default:
 	}
+	s.closed = true
 	close(s.stop)
 	close(s.queue)
+	s.mu.Unlock()
 	s.wg.Wait()
 }
 
@@ -218,12 +222,17 @@ func (s *SMTPEmailSender) sendTemplate(ctx context.Context, to, name string, dat
 
 	job := emailJob{to: normalized, headers: headers, body: msg}
 	if s.queue != nil {
-		select {
-		case <-s.stop:
+		s.mu.RLock()
+		if s.closed {
+			s.mu.RUnlock()
 			return errors.New("email sender closed")
+		}
+		select {
 		case s.queue <- job:
+			s.mu.RUnlock()
 			return nil
 		default:
+			s.mu.RUnlock()
 			slog.Warn("email queue full; sending synchronously", "to", emailaddr.Mask(normalized))
 			return s.dispatch(job)
 		}
