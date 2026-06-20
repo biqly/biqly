@@ -368,13 +368,15 @@ export default function Datasources() {
         <div className={legacyCardClass('card-intro card-intro--compact')}>
           <div className={legacyCardClass('card-header-row')}>
             <h2>{t('datasources.panel_title')}</h2>
-            <button
+            {datasourceRows.length > 0 && (
+              <button
               className={legacyButtonClass('btn btn-primary')}
               type="button"
               onClick={openNewForm}
             >
               + {t('datasources.new')}
             </button>
+            )}
           </div>
           <p className={legacyCardClass('card-lead')}>{t('datasources.form_subtitle')}</p>
         </div>
@@ -394,6 +396,7 @@ export default function Datasources() {
           <EmptyState
             description={t('datasources.empty')}
             className={uiEmptyStateInlineClass}
+            action={{ label: t('datasources.empty_cta'), onClick: openNewForm }}
           />
         ) : (
           <>
