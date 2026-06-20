@@ -8,14 +8,12 @@ import { Select } from '../ui/Select'
 import {
   aiEmbeddingErrorClass,
   aiEmbeddingStatusClass,
-  formLabelClass,
   queryConfigEmbedBtnClass,
   queryConfigEmbedStatusClass,
   queryConfigHeaderClass,
   queryConfigTopClass,
   queryControlsClass,
   routingToggleRowBtnClass,
-  routingToggleRowClass,
   routingToggleRowGroupClass,
 } from './aiQueryClasses'
 import { RoutingPanelManualScope } from './RoutingPanelManualScope'
@@ -131,49 +129,48 @@ export function RoutingPanel({
         </div>
         <div className={legacyFormClass('form-group')}>
           <label htmlFor="ai-semantic-model">{t('ai_query.semantic_model_label')}</label>
-          <Select
-            id="ai-semantic-model"
-            value={semanticModelId}
-            onChange={setSemanticModelId}
-            placeholder={t('ai_query.semantic_model_auto')}
-            header={t('ai_query.semantic_model_header')}
-            options={[
-              { value: '', label: t('ai_query.semantic_model_auto') },
-              ...semanticModels.map((m) => ({
-                value: m.id,
-                label: m.label ?? m.name,
-                hint: m.status,
-              })),
-              ...(composites ?? []).map((c) => ({
-                value: `composite:${c.id}`,
-                label: `⧉ ${c.label ?? c.name}`,
-                hint: c.status,
-              })),
-            ]}
-          />
-        </div>
-        <div className={legacyFormClass('form-group')}>
-          <span className={formLabelClass}>{t('ai_query.table_routing_label')}</span>
-          <div className={routingToggleRowClass}>
-            <div
-              className={toggleGroupClass(routingToggleRowGroupClass)}
-              role="group"
-              aria-label={t('ai_query.table_routing_label')}
-            >
-              <button
-                type="button"
-                className={toggleBtnClass(autoTableRouting, routingToggleRowBtnClass)}
-                onClick={() => setAutoTableRouting(true)}
+          <div className="flex items-stretch gap-3">
+            <Select
+              id="ai-semantic-model"
+              value={semanticModelId}
+              onChange={setSemanticModelId}
+              placeholder={t('ai_query.semantic_model_auto')}
+              header={t('ai_query.semantic_model_header')}
+              options={[
+                { value: '', label: t('ai_query.semantic_model_auto') },
+                ...semanticModels.map((m) => ({
+                  value: m.id,
+                  label: m.label ?? m.name,
+                  hint: m.status,
+                })),
+                ...(composites ?? []).map((c) => ({
+                  value: `composite:${c.id}`,
+                  label: `⧉ ${c.label ?? c.name}`,
+                  hint: c.status,
+                })),
+              ]}
+            />
+            <div className="flex items-center self-stretch">
+              <div
+                className={toggleGroupClass(routingToggleRowGroupClass)}
+                role="group"
+                aria-label={t('ai_query.table_routing_label')}
               >
-                {t('ai_query.table_routing_auto')}
-              </button>
-              <button
-                type="button"
-                className={toggleBtnClass(!autoTableRouting, routingToggleRowBtnClass)}
-                onClick={() => setAutoTableRouting(false)}
-              >
-                {t('ai_query.table_routing_manual')}
-              </button>
+                <button
+                  type="button"
+                  className={toggleBtnClass(autoTableRouting, routingToggleRowBtnClass)}
+                  onClick={() => setAutoTableRouting(true)}
+                >
+                  {t('ai_query.table_routing_auto')}
+                </button>
+                <button
+                  type="button"
+                  className={toggleBtnClass(!autoTableRouting, routingToggleRowBtnClass)}
+                  onClick={() => setAutoTableRouting(false)}
+                >
+                  {t('ai_query.table_routing_manual')}
+                </button>
+              </div>
             </div>
           </div>
         </div>

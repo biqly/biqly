@@ -14,7 +14,7 @@ export const modelingToolbarModelRowClass = cn(
 )
 
 export const modelingToolbarActionsClass = cn(
-  'flex w-full min-w-0 items-center justify-end gap-2 self-end max-[1024px]:flex-wrap',
+  'flex w-full min-w-0 items-center justify-end gap-2 self-end flex-nowrap max-[1024px]:flex-wrap',
   'max-[1024px]:justify-start max-[1024px]:self-auto',
   '[&_.btn]:mt-0 [&_.btn]:min-h-[2.1rem] [&_.btn]:px-4 [&_.btn]:whitespace-nowrap',
   '[&_.btn]:inline-flex [&_.btn]:items-center [&_.btn]:justify-center [&_.btn]:leading-none',

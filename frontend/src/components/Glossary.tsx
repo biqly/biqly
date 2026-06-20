@@ -621,12 +621,7 @@ export default function Glossary() {
           />
         )}
 
-        {displayedTerms.length === 0 && (
-          <EmptyState
-            description={t('glossary.empty')}
-            action={{ label: t('glossary.empty_cta'), onClick: openAdd }}
-          />
-        )}
+        {displayedTerms.length === 0 && <EmptyState description={t('glossary.empty')} />}
 
         {displayedTerms.length > 0 && (
           <div className="table-wrap">
