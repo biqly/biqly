@@ -120,7 +120,6 @@ export function ABExperimentList({ onSelect, onCreate }: ABExperimentListProps) 
           title={t('admin.ab_experiments.empty_title')}
           description={t('admin.ab_experiments.empty')}
           icon={<AbExperimentEmptyIcon />}
-          action={{ label: t('admin.ab_experiments.create_btn'), onClick: onCreate }}
         />
       ) : (
         <div className={adminTableContainerClass} style={{ position: 'relative' }}>

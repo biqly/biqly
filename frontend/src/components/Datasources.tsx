@@ -394,7 +394,6 @@ export default function Datasources() {
           <EmptyState
             description={t('datasources.empty')}
             className={uiEmptyStateInlineClass}
-            action={{ label: t('datasources.empty_cta'), onClick: openNewForm }}
           />
         ) : (
           <>
