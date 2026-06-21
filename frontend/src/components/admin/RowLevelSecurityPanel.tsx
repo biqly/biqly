@@ -9,17 +9,18 @@ import { useModelDetail } from '../../hooks/useModelDetail'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
-import { adminFilterRowClass, adminFormLabelClass } from './adminClasses'
+import { adminBtnPrimaryClass, adminFilterRowClass, adminFormLabelClass } from './adminClasses'
+import { AdminPanelShell } from './AdminPanelShell'
 import {
   datasourceSelectOptions,
   securityRoleOptions,
   semanticModelSelectOptions,
 } from './adminSelectOptions'
-import { ReadOnlyNote } from './ReadOnlyNote'
 import { fieldSelectOptions, FILTER_OPERATOR_OPTIONS } from './securityPolicyConstants'
 
 // eslint-disable-next-line complexity
@@ -179,19 +180,19 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   const isSavingDisabled = fields.length === 0 || loadingPolicy || saving
 
   return (
-    <div style={containerStyle}>
-      <h2 style={headerStyle}>{t('admin.tabs.row_level_security')}</h2>
-
-      {!canEdit && <ReadOnlyNote />}
-
-      <div style={gridSelectStyle}>
-        <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>{t('admin.rls.role')}</span>
+    <AdminPanelShell title={t('admin.tabs.row_level_security')} readOnly={!canEdit} maxWidth="100%">
+      <div className="bg-card-raised border-border grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 rounded-lg border p-4">
+        <label className={adminFormLabelClass}>
+          <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">
+            {t('admin.rls.role')}
+          </span>
           <Select value={selectedRole} options={securityRoleOptions()} onChange={setSelectedRole} />
-        </div>
+        </label>
 
-        <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>{t('admin.rls.datasource')}</span>
+        <label className={adminFormLabelClass}>
+          <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">
+            {t('admin.rls.datasource')}
+          </span>
           <Select
             value={effectiveSelectedDS}
             options={dsOptions}
@@ -203,42 +204,52 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
             }}
             disabled={loadingDS || dsOptions.every((o) => o.disabled)}
           />
-        </div>
+        </label>
 
-        <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>{t('admin.rls.semantic_model')}</span>
+        <label className={adminFormLabelClass}>
+          <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">
+            {t('admin.rls.semantic_model')}
+          </span>
           <Select
             value={effectiveSelectedModel}
             options={modelOptions}
             onChange={setSelectedModel}
             disabled={!effectiveSelectedDS || loadingModels}
           />
-        </div>
+        </label>
       </div>
 
-      <ErrorAlert error={error} />
+      {error && <ErrorAlert error={error} />}
 
-      <div style={contentGridStyle}>
-        <div style={leftPanelStyle}>
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[3fr_2fr]">
+        <div className="bg-card border-border overflow-hidden rounded-lg border shadow-sm">
           <LoadingOverlay loading={loadingPolicy || loadingModelDetail || saving}>
-            <div style={innerPanelStyle}>
-              <div style={builderHeaderStyle}>
-                <h3 style={sectionTitleStyle}>{t('admin.rls.filter_rules')}</h3>
+            <div className="p-6">
+              <div className="mb-5 flex items-center justify-between">
+                <h3 className="text-foreground m-0 text-base font-semibold">
+                  {t('admin.rls.filter_rules')}
+                </h3>
                 <button
                   onClick={handleAddFilter}
                   disabled={fields.length === 0 || !canEdit}
-                  style={fields.length === 0 || !canEdit ? btnSecondaryDisabled : btnAddStyle}
+                  className={cn(
+                    'border-accent bg-accent/10 text-accent hover:bg-accent/20 cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
                 >
                   {t('admin.rls.add_filter')}
                 </button>
               </div>
 
               {fields.length === 0 ? (
-                <div style={noFieldsStyle}>{t('admin.rls.no_fields')}</div>
+                <div className="text-foreground-muted bg-card-raised border-border rounded-lg border border-dashed p-[40px_20px] text-center text-sm">
+                  {t('admin.rls.no_fields')}
+                </div>
               ) : filters.length === 0 ? (
-                <div style={noFiltersStyle}>{t('admin.rls.no_filters')}</div>
+                <div className="text-foreground-muted bg-card-raised border-border rounded-lg border border-dashed p-[40px_20px] text-center text-sm">
+                  {t('admin.rls.no_filters')}
+                </div>
               ) : (
-                <div style={filtersListStyle}>
+                <div className="flex max-h-100 flex-col gap-3 overflow-y-auto pr-1">
                   {filters.map((f, i) => {
                     const isValDisabled = f.operator === 'is_null' || f.operator === 'is_not_null'
                     let valDisplay = ''
@@ -249,7 +260,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
                     }
 
                     return (
-                      <div key={i} style={filterRowStyle} className={adminFilterRowClass}>
+                      <div key={i} className={cn(adminFilterRowClass, 'flex items-center gap-3')}>
                         <Select
                           size="sm"
                           value={f.field}
@@ -276,12 +287,16 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
                               ? t('admin.rls.list_placeholder')
                               : t('admin.rls.value_placeholder')
                           }
-                          style={isValDisabled ? inputStyleDisabled : filterInputStyle}
+                          className={cn(
+                            'bg-card text-foreground border-border flex-2 rounded-lg border p-2 text-sm focus-visible:outline-none',
+                            (isValDisabled || !canEdit) &&
+                              'bg-card-raised text-foreground-muted cursor-not-allowed opacity-50',
+                          )}
                         />
 
                         <button
                           onClick={() => handleRemoveFilter(i)}
-                          style={btnDeleteRowStyle}
+                          className="text-error cursor-pointer border-0 bg-transparent p-1 px-2 text-lg transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                           disabled={!canEdit}
                         >
                           ✕
@@ -292,13 +307,16 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
                 </div>
               )}
 
-              <div style={{ marginTop: 24 }}>
+              <div className="mt-6">
                 <button
                   onClick={() => {
                     void handleSave()
                   }}
                   disabled={isSavingDisabled || !canEdit}
-                  style={isSavingDisabled || !canEdit ? btnPrimaryDisabled : btnPrimary}
+                  className={cn(
+                    adminBtnPrimaryClass,
+                    (isSavingDisabled || !canEdit) && 'cursor-not-allowed opacity-50',
+                  )}
                 >
                   {t('admin.rls.save_rules')}
                 </button>
@@ -307,213 +325,15 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
           </LoadingOverlay>
         </div>
 
-        <div style={rightPanelStyle}>
-          <h3 style={sectionTitleStyle}>{t('admin.rls.json_policy_output')}</h3>
-          <pre style={jsonPreviewStyle}>{JSON.stringify(filters, null, 2)}</pre>
+        <div className="flex flex-col gap-3">
+          <h3 className="text-foreground m-0 text-base font-semibold">
+            {t('admin.rls.json_policy_output')}
+          </h3>
+          <pre className="border-border m-0 max-h-115 overflow-x-auto rounded-lg border bg-[#09090b] p-4 font-mono text-xs text-emerald-400">
+            {JSON.stringify(filters, null, 2)}
+          </pre>
         </div>
       </div>
-    </div>
+    </AdminPanelShell>
   )
-}
-
-const containerStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 20,
-}
-
-const headerStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: '20px',
-  fontWeight: 600,
-  color: 'var(--text-primary, #f4f4f5)',
-}
-
-const gridSelectStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-  gap: 16,
-  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.04))',
-  padding: 16,
-  borderRadius: 8,
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-}
-
-const labelStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 6,
-}
-
-const labelTextStyle: React.CSSProperties = {
-  fontSize: '12px',
-  color: 'var(--text-secondary, #a1a1aa)',
-  fontWeight: 500,
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-}
-
-const contentGridStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '3fr 2fr',
-  gap: 24,
-  alignItems: 'start',
-}
-
-const leftPanelStyle: React.CSSProperties = {
-  background: 'var(--bg-card, #ffffff)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 8,
-  overflow: 'hidden',
-  boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
-}
-
-const innerPanelStyle: React.CSSProperties = {
-  padding: 24,
-}
-
-const rightPanelStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 12,
-}
-
-const builderHeaderStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: 20,
-}
-
-const sectionTitleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 16,
-  fontWeight: 600,
-  color: 'var(--text-primary, #f4f4f5)',
-}
-
-const btnAddStyle: React.CSSProperties = {
-  padding: '6px 12px',
-  background: 'rgba(99, 102, 241, 0.1)',
-  color: 'var(--accent)',
-  border: '1px solid var(--accent)',
-  borderRadius: 6,
-  cursor: 'pointer',
-  fontSize: 12,
-  fontWeight: 600,
-  transition: 'all 150ms ease',
-}
-
-const btnSecondaryDisabled: React.CSSProperties = {
-  padding: '6px 12px',
-  background: 'rgba(255, 255, 255, 0.02)',
-  color: 'var(--text-secondary, #a1a1aa)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 6,
-  cursor: 'not-allowed',
-  fontSize: 12,
-  opacity: 0.5,
-}
-
-const noFieldsStyle: React.CSSProperties = {
-  padding: '40px 20px',
-  textAlign: 'center',
-  color: 'var(--text-secondary, #a1a1aa)',
-  fontSize: 14,
-  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.02))',
-  borderRadius: 6,
-  border: '1px dashed var(--border, rgba(255, 255, 255, 0.06))',
-}
-
-const noFiltersStyle: React.CSSProperties = {
-  padding: '40px 20px',
-  textAlign: 'center',
-  color: 'var(--text-secondary, #a1a1aa)',
-  fontSize: 14,
-  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.02))',
-  borderRadius: 6,
-  border: '1px dashed var(--border, rgba(255, 255, 255, 0.06))',
-}
-
-const filtersListStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 12,
-  maxHeight: '400px',
-  overflowY: 'auto',
-  paddingRight: 4,
-}
-
-const filterRowStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: 12,
-  alignItems: 'center',
-}
-
-const filterInputStyle: React.CSSProperties = {
-  flex: '2',
-  padding: '8px 12px',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 6,
-  fontSize: 13,
-  background: 'var(--input-bg, #18181b)',
-  color: 'var(--text-primary, #f4f4f5)',
-}
-
-const inputStyleDisabled: React.CSSProperties = {
-  flex: '2',
-  padding: '8px 12px',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 6,
-  fontSize: 13,
-  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.02))',
-  color: 'var(--text-secondary, #a1a1aa)',
-  cursor: 'not-allowed',
-  opacity: 0.5,
-}
-
-const btnDeleteRowStyle: React.CSSProperties = {
-  background: 'transparent',
-  border: 0,
-  color: 'var(--error, #ef4444)',
-  fontSize: 16,
-  cursor: 'pointer',
-  padding: '4px 8px',
-}
-
-const btnPrimary: React.CSSProperties = {
-  padding: '8px 16px',
-  background: 'var(--accent)',
-  color: 'white',
-  border: 0,
-  borderRadius: 6,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 600,
-  boxShadow: 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05))',
-}
-
-const btnPrimaryDisabled: React.CSSProperties = {
-  padding: '8px 16px',
-  background: 'var(--border, rgba(255, 255, 255, 0.06))',
-  color: 'var(--text-secondary, #a1a1aa)',
-  border: 0,
-  borderRadius: 6,
-  cursor: 'not-allowed',
-  fontSize: 13,
-  fontWeight: 600,
-  opacity: 0.5,
-}
-
-const jsonPreviewStyle: React.CSSProperties = {
-  margin: 0,
-  padding: 16,
-  background: '#09090b',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 8,
-  fontFamily: 'var(--font-mono, monospace)',
-  fontSize: 12,
-  color: '#34d399',
-  overflowX: 'auto',
-  maxHeight: '460px',
 }

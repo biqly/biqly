@@ -767,7 +767,7 @@ export function Collapsible({
   defaultOpen?: boolean
 }) {
   return (
-    <details open={defaultOpen} className={`${collapsibleSectionClass} group`}>
+    <details open={defaultOpen} className={cn(collapsibleSectionClass, 'group')}>
       <summary className={collapsibleSectionSummaryClass}>
         {title}
         <span className="text-foreground-faint text-[0.65rem] transition-transform duration-180 group-open:rotate-180">

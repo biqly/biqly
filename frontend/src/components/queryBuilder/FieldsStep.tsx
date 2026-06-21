@@ -1,4 +1,5 @@
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import type { SemanticDimension, SemanticMetric } from '../../types/semantic'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
@@ -33,7 +34,7 @@ export function FieldsStep({
   return (
     <NotebookStep label="Dimensions" themeClass="fields">
       {selectItems.map((item, i) => (
-        <div key={item.id} className={`${qbTagBase} ${qbTagBlueClass} flex items-center gap-1`}>
+        <div key={item.id} className={cn(qbTagBase, qbTagBlueClass, 'flex items-center gap-1')}>
           <Select
             value={item.type}
             onChange={(v) => updateSelectItem(i, 'type', v)}
@@ -48,9 +49,11 @@ export function FieldsStep({
             onChange={(v) => updateSelectItem(i, 'name', v)}
             placeholder={t('query_builder.pick_field_placeholder')}
             disabled={item.type === 'dimension' ? dimensions.length === 0 : metrics.length === 0}
-            options={
-              item.type === 'dimension' ? dimFieldOptions(dimensions) : metricFieldOptions(metrics)
-            }
+            options={[
+              ...(item.type === 'dimension'
+                ? dimFieldOptions(dimensions)
+                : metricFieldOptions(metrics)),
+            ]}
             size="sm"
           />
           <button

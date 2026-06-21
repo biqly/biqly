@@ -1,4 +1,4 @@
-import { type CSSProperties, useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 
 import { getPlatformSettings, updatePlatformSettings } from '../../api/admin'
 import type { AIAdminRuntimeConfig, RuntimeConfigSource } from '../../api/aiAdmin'
@@ -10,11 +10,11 @@ import {
   useRuntimeConfig,
 } from '../../hooks/useRuntimeConfig'
 import { useToast } from '../../hooks/useToast'
-import { type TFunction, useT } from '../../i18n'
+import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import { cn } from '../../lib/cn'
 import { formHintClass } from '../../lib/formClasses'
-import { legacyLayoutClass } from '../../lib/layoutClasses'
 import { errorMessage } from '../../utils/error'
+import { formatDateTime } from '../../utils/formatters'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import {
@@ -22,24 +22,13 @@ import {
   adminBadgePendingClass,
   adminBtnPrimaryClass,
   adminBtnSecondaryClass,
-  adminCardClass,
   adminFormLabelClass,
   adminInputClass,
   adminLabelTextClass,
   adminRangeSliderClass,
 } from './adminClasses'
-import { ReadOnlyNote } from './ReadOnlyNote'
-
-const toggleCardStyle: CSSProperties = {
-  display: 'flex',
-  gap: 12,
-  alignItems: 'flex-start',
-  padding: 16,
-  borderRadius: 8,
-  border: '1px solid var(--border, rgba(0, 0, 0, 0.12))',
-  background: 'var(--bg-card-raised, rgba(0, 0, 0, 0.02))',
-  cursor: 'pointer',
-}
+import { AdminFormSection } from './AdminFormSection'
+import { AdminPanelShell } from './AdminPanelShell'
 
 // SourceBadge marks where a knob's effective value comes from: the
 // ai_runtime_config DB row ("DB") or environment defaults ("Env").
@@ -51,13 +40,15 @@ function SourceBadge({ source }: { source?: RuntimeConfigSource }) {
   const fromDB = source === 'database'
   return (
     <span
-      className={fromDB ? adminActiveBadgeClass(true) : adminBadgePendingClass}
+      className={cn(
+        fromDB ? adminActiveBadgeClass(true) : adminBadgePendingClass,
+        'ml-2 align-middle',
+      )}
       aria-label={
         fromDB
           ? t('admin.platform_settings.source_db_aria')
           : t('admin.platform_settings.source_env_aria')
       }
-      style={{ marginLeft: 8, verticalAlign: 'middle' }}
     >
       {fromDB ? t('admin.platform_settings.source_db') : t('admin.platform_settings.source_env')}
     </span>
@@ -80,16 +71,16 @@ function ToggleField({
   onChange: (checked: boolean) => void
 }) {
   return (
-    <label style={toggleCardStyle}>
+    <label className="border-border bg-card-raised flex cursor-pointer items-start gap-3 rounded-lg border p-4">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         disabled={disabled}
-        style={{ marginTop: 3 }}
+        className="mt-0.75"
       />
       <span>
-        <strong style={{ display: 'block', marginBottom: 4 }}>
+        <strong className="mb-1 block">
           {label}
           <SourceBadge source={source} />
         </strong>
@@ -131,28 +122,20 @@ function StepperField({
   }
 
   return (
-    <label className={adminFormLabelClass} style={{ gap: 4, maxWidth: 360 }} htmlFor={inputId}>
+    <label className={cn(adminFormLabelClass, 'max-w-90 gap-1')} htmlFor={inputId}>
       <span className={adminLabelTextClass}>
         {label}
         <SourceBadge source={source} />
       </span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: 4 }}>
+      <div className="mt-1 flex items-center gap-1">
         <button
           type="button"
-          className={adminBtnSecondaryClass}
+          className={cn(
+            adminBtnSecondaryClass,
+            'm-0 flex h-8.5 min-h-0 items-center justify-center px-3 py-1 text-[1.1rem] font-bold',
+          )}
           onClick={decrement}
           disabled={disabled || value <= min}
-          style={{
-            padding: '4px 12px',
-            height: '34px',
-            minHeight: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.1rem',
-            fontWeight: 700,
-            margin: 0,
-          }}
         >
           -
         </button>
@@ -169,30 +152,16 @@ function StepperField({
             }
           }}
           disabled={disabled}
-          className={adminInputClass}
-          style={{
-            textAlign: 'center',
-            height: '34px',
-            maxWidth: '4.5rem',
-            margin: 0,
-          }}
+          className={cn(adminInputClass, 'm-0 h-8.5 max-w-18 text-center')}
         />
         <button
           type="button"
-          className={adminBtnSecondaryClass}
+          className={cn(
+            adminBtnSecondaryClass,
+            'm-0 flex h-8.5 min-h-0 items-center justify-center px-3 py-1 text-[1.1rem] font-bold',
+          )}
           onClick={increment}
           disabled={disabled || value >= max}
-          style={{
-            padding: '4px 12px',
-            height: '34px',
-            minHeight: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.1rem',
-            fontWeight: 700,
-            margin: 0,
-          }}
         >
           +
         </button>
@@ -221,12 +190,12 @@ function PercentageField({
   const pctValue = Math.round(value * 100)
 
   return (
-    <label className={adminFormLabelClass} style={{ gap: 4, maxWidth: 360 }} htmlFor={inputId}>
+    <label className={cn(adminFormLabelClass, 'max-w-90 gap-1')} htmlFor={inputId}>
       <span className={adminLabelTextClass}>
         {label}
         <SourceBadge source={source} />
       </span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: 4 }}>
+      <div className="mt-1 flex items-center gap-3">
         <input
           id={inputId}
           type="range"
@@ -236,22 +205,9 @@ function PercentageField({
           value={pctValue}
           onChange={(e) => onChange(Number(e.target.value) / 100)}
           disabled={disabled}
-          className={adminRangeSliderClass}
-          style={{ flex: 1, cursor: 'pointer' }}
+          className={cn(adminRangeSliderClass, 'flex-1 cursor-pointer')}
         />
-        <div
-          style={{
-            minWidth: '3.5rem',
-            textAlign: 'center',
-            padding: '4px 8px',
-            background: 'var(--bg-card-raised)',
-            border: '1px solid var(--border)',
-            borderRadius: '6px',
-            fontSize: '0.82rem',
-            fontWeight: 700,
-            color: 'var(--text-primary)',
-          }}
-        >
+        <div className="bg-card-raised border-border text-foreground min-w-14 rounded-md border px-2 py-1 text-center text-[0.82rem] font-bold">
           {pctValue}%
         </div>
       </div>
@@ -267,7 +223,6 @@ interface GeneralSettingsCardProps {
   saving: boolean
   updatedAt: string | null
   onSave: () => void
-  t: TFunction
 }
 
 function GeneralSettingsCard({
@@ -277,27 +232,22 @@ function GeneralSettingsCard({
   saving,
   updatedAt,
   onSave,
-  t,
 }: GeneralSettingsCardProps) {
-  return (
-    <div
-      className={adminCardClass}
-      style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
-    >
-      <h3 style={{ margin: 0 }}>{t('admin.platform_settings.title')}</h3>
+  const t = useT()
+  const [locale] = useLocale()
 
-      <label style={toggleCardStyle}>
+  return (
+    <AdminFormSection title={t('admin.platform_settings.title')}>
+      <label className="border-border bg-card-raised flex cursor-pointer items-start gap-3 rounded-lg border p-4">
         <input
           type="checkbox"
           checked={selfSignupEnabled}
           onChange={(e) => setSelfSignupEnabled(e.target.checked)}
           disabled={!canEdit}
-          style={{ marginTop: 3 }}
+          className="mt-0.75"
         />
         <span>
-          <strong style={{ display: 'block', marginBottom: 4 }}>
-            {t('admin.platform_settings.self_signup_label')}
-          </strong>
+          <strong className="mb-1 block">{t('admin.platform_settings.self_signup_label')}</strong>
           <span className={cn(formHintClass, 'm-0')}>
             {selfSignupEnabled
               ? t('admin.platform_settings.self_signup_on_hint')
@@ -309,12 +259,12 @@ function GeneralSettingsCard({
       {updatedAt && (
         <p className={cn(formHintClass, 'm-0')}>
           {t('admin.platform_settings.last_updated', {
-            date: new Date(updatedAt).toLocaleString(),
+            date: formatDateTime(updatedAt, localeLanguageTag(locale)),
           })}
         </p>
       )}
 
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div className="flex gap-2">
         <button
           type="button"
           className={adminBtnPrimaryClass}
@@ -324,7 +274,7 @@ function GeneralSettingsCard({
           {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>
-    </div>
+    </AdminFormSection>
   )
 }
 
@@ -333,7 +283,6 @@ interface AmbiguitySettingsCardProps {
   canEditRuntime: boolean
   sources?: Record<string, RuntimeConfigSource>
   setAmbiguity: (patch: Partial<RuntimeConfigDraft['ambiguity']>) => void
-  t: TFunction
 }
 
 function AmbiguitySettingsCard({
@@ -341,16 +290,11 @@ function AmbiguitySettingsCard({
   canEditRuntime,
   sources,
   setAmbiguity,
-  t,
 }: AmbiguitySettingsCardProps) {
+  const t = useT()
   const ambiguitySources = sources ?? {}
   return (
-    <div
-      className={adminCardClass}
-      style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
-    >
-      <h3 style={{ margin: 0 }}>{t('admin.platform_settings.ambiguity_title')}</h3>
-
+    <AdminFormSection title={t('admin.platform_settings.ambiguity_title')}>
       <ToggleField
         label={t('admin.platform_settings.ambiguity_check_label')}
         hint={t('admin.platform_settings.ambiguity_check_hint')}
@@ -399,7 +343,7 @@ function AmbiguitySettingsCard({
         source={ambiguitySources.max_options}
         onChange={(v) => setAmbiguity({ max_options: v })}
       />
-    </div>
+    </AdminFormSection>
   )
 }
 
@@ -409,24 +353,13 @@ interface PIISettingsCardProps {
   canEditRuntime: boolean
   sources?: Record<string, RuntimeConfigSource>
   setPII: (patch: Partial<RuntimeConfigDraft['pii']>) => void
-  t: TFunction
 }
 
-function PIISettingsCard({
-  config,
-  draft,
-  canEditRuntime,
-  sources,
-  setPII,
-  t,
-}: PIISettingsCardProps) {
+function PIISettingsCard({ config, draft, canEditRuntime, sources, setPII }: PIISettingsCardProps) {
+  const t = useT()
   const piiSources = sources ?? {}
   return (
-    <div
-      className={adminCardClass}
-      style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
-    >
-      <h3 style={{ margin: 0 }}>{t('admin.platform_settings.pii_title')}</h3>
+    <AdminFormSection title={t('admin.platform_settings.pii_title')}>
       <p className={cn(formHintClass, 'm-0')}>
         {config.pii.enabled
           ? t('admin.platform_settings.pii_enabled_on')
@@ -441,7 +374,7 @@ function PIISettingsCard({
         source={piiSources.detection_threshold}
         onChange={(v) => setPII({ detection_threshold: v })}
       />
-    </div>
+    </AdminFormSection>
   )
 }
 
@@ -450,7 +383,6 @@ interface MemorySettingsCardProps {
   canEditRuntime: boolean
   sources?: Record<string, RuntimeConfigSource>
   setMemory: (patch: Partial<RuntimeConfigDraft['memory']>) => void
-  t: TFunction
 }
 
 function MemorySettingsCard({
@@ -458,16 +390,11 @@ function MemorySettingsCard({
   canEditRuntime,
   sources,
   setMemory,
-  t,
 }: MemorySettingsCardProps) {
+  const t = useT()
   const memorySources = sources ?? {}
   return (
-    <div
-      className={adminCardClass}
-      style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
-    >
-      <h3 style={{ margin: 0 }}>{t('admin.platform_settings.memory_title')}</h3>
-
+    <AdminFormSection title={t('admin.platform_settings.memory_title')}>
       <ToggleField
         label={t('admin.platform_settings.memory_recall_label')}
         hint={t('admin.platform_settings.memory_recall_hint')}
@@ -487,7 +414,7 @@ function MemorySettingsCard({
         source={memorySources.recall_limit}
         onChange={(v) => setMemory({ recall_limit: v })}
       />
-    </div>
+    </AdminFormSection>
   )
 }
 
@@ -496,24 +423,13 @@ interface QueueSettingsCardProps {
   canEditRuntime: boolean
   sources?: Record<string, RuntimeConfigSource>
   setQueue: (patch: Partial<RuntimeConfigDraft['queue']>) => void
-  t: TFunction
 }
 
-function QueueSettingsCard({
-  draft,
-  canEditRuntime,
-  sources,
-  setQueue,
-  t,
-}: QueueSettingsCardProps) {
+function QueueSettingsCard({ draft, canEditRuntime, sources, setQueue }: QueueSettingsCardProps) {
+  const t = useT()
   const queueSources = sources ?? {}
   return (
-    <div
-      className={adminCardClass}
-      style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
-    >
-      <h3 style={{ margin: 0 }}>{t('admin.platform_settings.queue_title')}</h3>
-
+    <AdminFormSection title={t('admin.platform_settings.queue_title')}>
       <StepperField
         label={t('admin.platform_settings.queue_concurrency_label')}
         hint={t('admin.platform_settings.queue_concurrency_hint')}
@@ -524,7 +440,7 @@ function QueueSettingsCard({
         source={queueSources.concurrency}
         onChange={(v) => setQueue({ concurrency: v })}
       />
-    </div>
+    </AdminFormSection>
   )
 }
 
@@ -537,7 +453,6 @@ interface RuntimeSettingsSectionProps {
   setPII: (patch: Partial<RuntimeConfigDraft['pii']>) => void
   setMemory: (patch: Partial<RuntimeConfigDraft['memory']>) => void
   setQueue: (patch: Partial<RuntimeConfigDraft['queue']>) => void
-  t: TFunction
 }
 
 function RuntimeSettingsSection({
@@ -549,8 +464,8 @@ function RuntimeSettingsSection({
   setPII,
   setMemory,
   setQueue,
-  t,
 }: RuntimeSettingsSectionProps) {
+  const t = useT()
   const piiSources = config.pii.sources ?? {}
   const memorySources = config.memory.sources ?? {}
   const queueSources = config.queue.sources ?? {}
@@ -568,29 +483,26 @@ function RuntimeSettingsSection({
         canEditRuntime={canEditRuntime}
         sources={piiSources}
         setPII={setPII}
-        t={t}
       />
       <MemorySettingsCard
         draft={draft}
         canEditRuntime={canEditRuntime}
         sources={memorySources}
         setMemory={setMemory}
-        t={t}
       />
       <QueueSettingsCard
         draft={draft}
         canEditRuntime={canEditRuntime}
         sources={queueSources}
         setQueue={setQueue}
-        t={t}
       />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div className="flex flex-col gap-4">
         <p className={cn(formHintClass, 'm-0')}>
           {anyDBOverride
             ? t('admin.platform_settings.ambiguity_db_override_note')
             : t('admin.platform_settings.ambiguity_env_default_note')}
         </p>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="flex gap-2">
           <button
             type="button"
             className={adminBtnPrimaryClass}
@@ -694,42 +606,28 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
   const ambiguitySources = config?.ambiguity.sources ?? {}
 
   return (
-    <div className={legacyLayoutClass('page-stack')} style={{ maxWidth: 1000, width: '100%' }}>
-      <div>
-        <h2 style={{ margin: 0 }}>{t('admin.platform_settings.title')}</h2>
-        <p className={formHintClass}>
+    <AdminPanelShell
+      title={t('admin.platform_settings.title')}
+      description={
+        <>
           {t('admin.platform_settings.description')}{' '}
           <a
             href="https://github.com/biqly/biqly/blob/main/docs/configuration.md"
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: 'var(--accent, #0066cc)', textDecoration: 'underline' }}
+            className="text-accent underline"
           >
             {t('admin.platform_settings.all_keys_reference')}
           </a>
-        </p>
-      </div>
-
-      {!canEdit && <ReadOnlyNote />}
-
-      {runtimeError && (
-        <p className={cn(formHintClass, 'm-0 text-(--danger,#c0392b)')} role="alert">
-          {runtimeError}
-        </p>
-      )}
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-          gap: '1.5rem',
-          alignItems: 'start',
-          width: '100%',
-          marginTop: '1.5rem',
-        }}
-      >
+        </>
+      }
+      readOnly={!canEdit}
+      error={runtimeError}
+      maxWidth={1000}
+    >
+      <div className="mt-6 grid w-full grid-cols-[repeat(auto-fit,minmax(400px,1fr))] items-start gap-6">
         {/* LEFT COLUMN */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div className="flex flex-col gap-6">
           <GeneralSettingsCard
             selfSignupEnabled={selfSignupEnabled}
             setSelfSignupEnabled={setSelfSignupEnabled}
@@ -737,7 +635,6 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
             saving={saving}
             updatedAt={updatedAt}
             onSave={() => void save()}
-            t={t}
           />
           {config && draft && (
             <AmbiguitySettingsCard
@@ -745,13 +642,12 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
               canEditRuntime={canEditRuntime}
               sources={ambiguitySources}
               setAmbiguity={setAmbiguity}
-              t={t}
             />
           )}
         </div>
 
         {/* RIGHT COLUMN */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div className="flex flex-col gap-6">
           {config && draft && (
             <RuntimeSettingsSection
               config={config}
@@ -762,11 +658,10 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
               setPII={setPII}
               setMemory={setMemory}
               setQueue={setQueue}
-              t={t}
             />
           )}
         </div>
       </div>
-    </div>
+    </AdminPanelShell>
   )
 }

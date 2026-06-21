@@ -3,13 +3,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { useAutofocus } from '../hooks/useAutofocus'
 import { useConfirm } from '../hooks/useConfirm'
-import { useT } from '../i18n'
+import { localeLanguageTag, useLocale, useT } from '../i18n'
 import { legacyButtonClass } from '../lib/buttonClasses'
 import { legacyCardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
 import { modalActionsBorderedClass, modalDashboardCardClass } from '../lib/modalClasses'
+import { formatDateOnly } from '../utils/formatters'
 import { adminBtnAutoWidthClass } from './admin/adminClasses'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -31,6 +32,7 @@ interface DashboardListProps {
 
 export default function DashboardList({ onSelect }: DashboardListProps) {
   const t = useT()
+  const [locale] = useLocale()
   const { get, postData, deleteData, loading, error } = useApi()
   const confirm = useConfirm()
   const [dashboards, setDashboards] = useState<Dashboard[]>([])
@@ -203,13 +205,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
                 </div>
                 <div className="text-foreground-faint mt-4 flex justify-between gap-3 text-[0.8rem]">
                   <span>{t('customDashboards.widgets_count', { count: d.widgets.length })}</span>
-                  <span>
-                    {new Date(d.created_at).toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
-                  </span>
+                  <span>{formatDateOnly(d.created_at, localeLanguageTag(locale))}</span>
                 </div>
               </div>
             ))}

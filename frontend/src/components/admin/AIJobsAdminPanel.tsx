@@ -5,12 +5,12 @@ import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { jobIsActive, jobQuestionPreview } from '../../hooks/useAIJobsUtils'
 import { useConfirm } from '../../hooks/useConfirm'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
-import { useT } from '../../i18n'
+import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
 import type { AIJob } from '../../types/ai'
 import type { PageQuery } from '../../types/pagination'
 import { errorMessage } from '../../utils/error'
-import { formatDurationMs } from '../../utils/formatters'
+import { formatDateTime, formatDurationMs } from '../../utils/formatters'
 import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import {
   aiHistoryStatusClass,
@@ -69,6 +69,7 @@ function jobElapsedMs(job: AIJob): number {
 
 export function AIJobsAdminPanel() {
   const t = useT()
+  const [locale] = useLocale()
   const confirm = useConfirm()
   const { accessToken } = useAuth()
   const { users } = useAdminLookups(accessToken ?? '')
@@ -285,7 +286,9 @@ export function AIJobsAdminPanel() {
                         {t(`admin.ai_jobs.status_${job.status}`)}
                       </span>
                     </td>
-                    <td style={tdStyle}>{new Date(job.created_at).toLocaleString()}</td>
+                    <td style={tdStyle}>
+                      {formatDateTime(job.created_at, localeLanguageTag(locale))}
+                    </td>
                   </tr>
                 )
               })
@@ -400,7 +403,7 @@ export function AIJobsAdminPanel() {
               <div className={jobDetailItemClass}>
                 <span className={jobDetailLabelClass}>{t('admin.ai_jobs.col_created')}</span>
                 <span className={jobDetailValueClass}>
-                  {new Date(selectedJob.created_at).toLocaleString()}
+                  {formatDateTime(selectedJob.created_at, localeLanguageTag(locale))}
                 </span>
               </div>
 
@@ -408,7 +411,7 @@ export function AIJobsAdminPanel() {
                 <div className={jobDetailItemClass}>
                   <span className={jobDetailLabelClass}>{t('admin.ai_jobs.col_finished')}</span>
                   <span className={jobDetailValueClass}>
-                    {new Date(selectedJob.finished_at).toLocaleString()}
+                    {formatDateTime(selectedJob.finished_at, localeLanguageTag(locale))}
                   </span>
                 </div>
               )}

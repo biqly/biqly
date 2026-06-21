@@ -1,4 +1,5 @@
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import { NotebookStep } from './NotebookStep'
 import { qbAddBtnClass, qbTagBase, qbTagCloseClass, qbTagPurpleClass } from './queryBuilderClasses'
 import type { CTERow } from './types'
@@ -28,13 +29,13 @@ export function CteStep({ ctes, updateCTE, removeCTE, addCTE, onClear }: CteStep
       summary={t('query_builder.step_summary_count', { count: ctes.length })}
     >
       {ctes.map((c, i) => (
-        <div key={i} className={`${qbTagBase} ${qbTagPurpleClass} flex flex-col items-start gap-1`}>
+        <div key={i} className={cn(qbTagBase, qbTagPurpleClass, 'flex flex-col items-start gap-1')}>
           <div className="flex w-full items-center gap-1">
             <input
               value={c.name}
               onChange={(e) => updateCTE(i, 'name', e.target.value)}
               placeholder={t('query_builder.cte_name_placeholder')}
-              style={{ width: '8rem' }}
+              className="w-32"
             />
             <button
               type="button"

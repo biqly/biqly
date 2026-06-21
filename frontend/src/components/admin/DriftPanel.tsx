@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { useApi } from '../../hooks/useApi'
-import type { TranslationKey } from '../../i18n'
-import { useT } from '../../i18n'
+import { localeLanguageTag, type TranslationKey, useLocale, useT } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
+import { formatDateTime } from '../../utils/formatters'
 
 /* ------------------------------------------------------------------ */
 /*  Types matching the backend drift_types.go API response             */
@@ -183,6 +183,7 @@ interface DriftPanelProps {
 
 export function DriftPanel({ modelId, defaultOpen = false }: DriftPanelProps) {
   const t = useT()
+  const [locale] = useLocale()
   const { get, postData } = useApi()
   const [reports, setReports] = useState<DriftReport[]>([])
   const [open, setOpen] = useState(defaultOpen)
@@ -255,7 +256,7 @@ export function DriftPanel({ modelId, defaultOpen = false }: DriftPanelProps) {
               <div className="text-foreground-faint mx-0 mt-2.5 mb-0.5 flex items-center gap-2 text-[0.8rem] [&_time]:italic">
                 <span>{severityLabel(report.severity, t)}</span>
                 <time dateTime={report.detected_at}>
-                  {new Date(report.detected_at).toLocaleString()}
+                  {formatDateTime(report.detected_at, localeLanguageTag(locale))}
                 </time>
               </div>
               <table

@@ -12,7 +12,6 @@ import { useT } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { formHintClass } from '../../lib/formClasses'
-import { legacyLayoutClass } from '../../lib/layoutClasses'
 import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingScreen } from '../ui/LoadingScreen'
@@ -21,11 +20,11 @@ import {
   adminFormLabelClass,
   adminInputClass,
   adminLabelTextClass,
-  ldapFieldsetClass,
   ldapGridClass,
   ldapToggleClass,
 } from './adminClasses'
-import { ReadOnlyNote } from './ReadOnlyNote'
+import { AdminFormSection } from './AdminFormSection'
+import { AdminPanelShell } from './AdminPanelShell'
 
 const EMPTY: LDAPConfigInput = {
   enabled: false,
@@ -129,35 +128,34 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
   ]
 
   return (
-    <div className={legacyLayoutClass('page-stack')} style={{ maxWidth: 760 }}>
-      <div>
-        <h2 style={{ margin: 0 }}>{t('admin.ldap.title')}</h2>
-        <p className={formHintClass}>{t('admin.ldap.description')}</p>
+    <AdminPanelShell
+      title={t('admin.ldap.title')}
+      description={t('admin.ldap.description')}
+      readOnly={!canEdit}
+      maxWidth={760}
+    >
+      {/* Toggles */}
+      <div className="flex flex-col gap-4">
+        <Toggle
+          label={t('admin.ldap.enabled_label')}
+          hint={t('admin.ldap.enabled_hint')}
+          checked={form.enabled}
+          disabled={!canEdit}
+          onChange={(v) => set('enabled', v)}
+        />
+        <Toggle
+          label={t('admin.ldap.auto_create_label')}
+          hint={t('admin.ldap.auto_create_hint')}
+          checked={form.auto_create_users}
+          disabled={!canEdit}
+          onChange={(v) => set('auto_create_users', v)}
+        />
       </div>
 
-      {!canEdit && <ReadOnlyNote />}
-
-      {/* Toggles */}
-      <Toggle
-        label={t('admin.ldap.enabled_label')}
-        hint={t('admin.ldap.enabled_hint')}
-        checked={form.enabled}
-        disabled={!canEdit}
-        onChange={(v) => set('enabled', v)}
-      />
-      <Toggle
-        label={t('admin.ldap.auto_create_label')}
-        hint={t('admin.ldap.auto_create_hint')}
-        checked={form.auto_create_users}
-        disabled={!canEdit}
-        onChange={(v) => set('auto_create_users', v)}
-      />
-
       {/* Connection */}
-      <fieldset className={ldapFieldsetClass} disabled={!canEdit}>
-        <legend>{t('admin.ldap.connection')}</legend>
+      <AdminFormSection title={t('admin.ldap.connection')} disabled={!canEdit}>
         <div className={ldapGridClass}>
-          <Field label={t('admin.ldap.host')} style={{ gridColumn: 'span 2' }}>
+          <Field label={t('admin.ldap.host')} className="col-span-2">
             <input
               className={adminInputClass}
               value={form.host}
@@ -210,11 +208,10 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
             placeholder={t('admin.ldap.bind_password_placeholder')}
           />
         </Field>
-      </fieldset>
+      </AdminFormSection>
 
       {/* Directory & mapping */}
-      <fieldset className={ldapFieldsetClass} disabled={!canEdit}>
-        <legend>{t('admin.ldap.directory')}</legend>
+      <AdminFormSection title={t('admin.ldap.directory')} disabled={!canEdit}>
         <Field label={t('admin.ldap.base_dn')} hint={t('admin.ldap.base_dn_hint')}>
           <input
             className={adminInputClass}
@@ -249,9 +246,9 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
             />
           </Field>
         </div>
-      </fieldset>
+      </AdminFormSection>
 
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div className="flex gap-2">
         <button
           type="button"
           className={legacyButtonClass('btn btn-secondary')}
@@ -269,7 +266,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
           {saving ? '…' : t('admin.ldap.save')}
         </button>
       </div>
-    </div>
+    </AdminPanelShell>
   )
 }
 
@@ -277,18 +274,15 @@ function Field({
   label,
   hint,
   children,
-  style,
+  className,
 }: {
   label: string
   hint?: string
   children: React.ReactNode
-  style?: React.CSSProperties
+  className?: string
 }) {
   return (
-    <label
-      className={adminFormLabelClass}
-      style={{ display: 'flex', flexDirection: 'column', gap: 4, ...style }}
-    >
+    <label className={cn(adminFormLabelClass, className)}>
       <span className={adminLabelTextClass}>{label}</span>
       {children}
       {hint && <span className={cn(formHintClass, 'm-0')}>{hint}</span>}
@@ -318,7 +312,7 @@ function Toggle({
         onChange={(e) => onChange(e.target.checked)}
       />
       <span>
-        <strong style={{ display: 'block' }}>{label}</strong>
+        <strong className="block font-bold">{label}</strong>
         {hint && <span className={cn(formHintClass, 'm-0')}>{hint}</span>}
       </span>
     </label>
@@ -339,13 +333,13 @@ function CheckRow({
   onChange: (v: boolean) => void
 }) {
   return (
-    <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 8 }}>
+    <label className="mt-2 flex items-start gap-2">
       <input
         type="checkbox"
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
-        style={{ marginTop: 3 }}
+        className="mt-0.5"
       />
       <span>
         {label}

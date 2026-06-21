@@ -10,11 +10,12 @@ import { useDatasources } from '../../hooks/useDatasources'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useSortState } from '../../hooks/useSortState'
 import { useToast } from '../../hooks/useToast'
-import { useT } from '../../i18n'
+import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import { formHintClass } from '../../lib/formClasses'
 import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { PageQuery } from '../../types/pagination'
 import { errorMessage } from '../../utils/error'
+import { formatDateTime } from '../../utils/formatters'
 import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import { Button } from '../ui/Button'
 import type { ColumnDef } from '../ui/DataTable'
@@ -36,6 +37,7 @@ import { datasourceSelectOptions } from './adminSelectOptions'
 // (the AI memory store) and lets admins pull a pair out of few-shot recall.
 export function ConfirmedQueriesPanel() {
   const t = useT()
+  const [locale] = useLocale()
   const toast = useToast()
   const confirm = useConfirm()
   const { datasources, loading: loadingDS } = useDatasources()
@@ -157,7 +159,7 @@ export function ConfirmedQueriesPanel() {
       header: t('admin.confirmed_queries.col_confirmed_at'),
       className: adminTdMonoClass,
       sortable: true,
-      cell: (row) => new Date(row.confirmed_at).toLocaleString(),
+      cell: (row) => formatDateTime(row.confirmed_at, localeLanguageTag(locale)),
     },
     {
       key: 'status',

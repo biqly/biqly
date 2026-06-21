@@ -7,7 +7,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { usePaginatedList } from '../hooks/usePaginatedList'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useToast } from '../hooks/useToast'
-import { useT } from '../i18n'
+import { localeLanguageTag, useLocale, useT } from '../i18n'
 import { legacyButtonClass } from '../lib/buttonClasses'
 import { legacyCardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
@@ -16,6 +16,7 @@ import { legacyLayoutClass } from '../lib/layoutClasses'
 import type { AIHistoryEntry } from '../types/auth'
 import type { PageQuery } from '../types/pagination'
 import { pickValidId } from '../utils/effectiveSelection'
+import { formatDateTime } from '../utils/formatters'
 import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../utils/paging'
 import {
   aiHistoryDetailBlockClass,
@@ -39,6 +40,7 @@ import { Select } from './ui/Select'
 
 export default function QueryHistory() {
   const t = useT()
+  const [locale] = useLocale()
   const toast = useToast()
   const navigate = useNavigate()
   const { accessToken } = useAuth()
@@ -399,7 +401,7 @@ export default function QueryHistory() {
                               fontSize: '0.8rem',
                             }}
                           >
-                            {new Date(entry.created_at).toLocaleString()}
+                            {formatDateTime(entry.created_at, localeLanguageTag(locale))}
                           </td>
                           <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                             <div
