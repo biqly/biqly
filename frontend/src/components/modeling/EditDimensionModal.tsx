@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import type { TranslationKey, useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { modelingFormGroupClass } from '../../lib/formClasses'
 import {
   modalActionsBorderedClass,
@@ -320,7 +320,7 @@ export function EditDimensionModal({
 
         <div className={modalActionsBorderedClass()}>
           <button
-            className={legacyButtonClass('btn btn-secondary')}
+            className={buttonClass('secondary')}
             type="button"
             onClick={onClose}
             disabled={saving}
@@ -328,7 +328,7 @@ export function EditDimensionModal({
             {t('common.cancel')}
           </button>
           <button
-            className={legacyButtonClass('btn btn-primary')}
+            className={buttonClass('primary')}
             type="submit"
             disabled={
               saving ||

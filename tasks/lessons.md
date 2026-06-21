@@ -37,6 +37,18 @@ Run `npx prettier --check` (or `npm --prefix frontend run format:check`) on ever
 
 **Rule**: After editing any frontend file, run `prettier --write` (or `--check`) on it before commit. Do not rely on eslint/tsc to surface formatting issues.
 
+### Frontend Tailwind Canonical Class Gate Before Commit
+
+`npm run check` (and `make check-frontend`) runs `lint:tailwind` via `frontend/scripts/lint-tailwind-diagnostics.mjs` with `tailwindCSS.lint.suggestCanonicalClasses: error` — the same rule as the VS Code Tailwind extension.
+
+**Why it bites**: ESLint and `tsc` can pass while CI still fails. Arbitrary pixel classes that map to the v4 spacing/radius scale are rejected, e.g. `rounded-[6px]` → `rounded-md`, `h-[180px]` → `h-45`, `min-w-[240px]` → `min-w-60`, `max-h-[250px]` → `max-h-62.5`, `inset-[-3px]` → `-inset-0.75`. Typical after BEM→Tailwind refactors or copying design specs verbatim.
+
+**Rule**: Prefer theme-scale utilities when the language server suggests a canonical equivalent. After editing `className` strings, run `npm --prefix frontend run lint:tailwind` on touched files (or full `make check-frontend`). Apply CI suggestions literally.
+
+**When arbitrary is OK**: values with no canonical token (`text-[0.8125rem]`, `tracking-[0.5px]`, percentage widths like `w-[28%]`). The linter only flags replaceable equivalents.
+
+**Speed tip**: full-repo `lint:tailwind` waits ~30s for LSP diagnostics; scope to changed files: `npm --prefix frontend run lint:tailwind -- src/components/Foo.tsx`.
+
 ### Go Min/Max Modernization
 
 Use Go's built-in `min` / `max` for simple clamps and two-value comparisons, such as `chunk = min(chunk, len(encoded))`. Keep explicit `if` statements when branches have side effects, extra logic, or clearer domain meaning.
@@ -217,13 +229,13 @@ Kademeli vanilla CSS → Tailwind v4 migrasyonu. Detaylı checklist: `tasks/todo
 
 **Runtime tema (kritik):** Tokenlar `:root` / `[data-theme]` ile runtime'da değişir. `@theme inline { --color-card: var(--bg-card); ... }` kullan — util'ler `var(--token)` emit eder. **Hardcode renkli Tailwind util (`bg-zinc-900` vb.) kullanma**; light/dark kırılır.
 
-**Tercih edilen util isimleri:** `bg-canvas`, `bg-card`, `text-foreground`, `text-foreground-muted`, `border-border`, `text-accent`, `shadow-card`, `font-mono`. Off-grid spacing için arbitrary: `p-[0.35rem]`, `text-[0.8125rem]`.
+**Tercih edilen util isimleri:** `bg-canvas`, `bg-card`, `text-foreground`, `text-foreground-muted`, `border-border`, `text-accent`, `shadow-card`, `font-mono`. Spacing/radius: theme scale first (`rounded-md`, `min-w-60`, `h-45`) — **not** `rounded-[6px]` / `h-[180px]` when canonical exists (CI `suggestCanonicalClasses` fails). Arbitrary only for true off-scale values (`text-[0.8125rem]`, `tracking-[0.5px]`).
 
 **Yeni / taşınan component'ler:** Tailwind util'leri tercih et. Mevcut `.btn`/`.card`/`.input` global sınıfları `index.css`'te kalır (170+ `.btn` referansı); yeni kodda `ui/Button`, `ui/FormField` kullan.
 
 **Silinen CSS dosyası:** Component'teki `import './x.css'` satırını da kaldır — aksi halde build kırılır (`Modeling.tsx` + `drift.css` örneği).
 
-**Doğrulama:** Her grup sonrası `make check-frontend` + görsel light/dark kontrol.
+**Doğrulama:** Her grup sonrası `make check-frontend` + görsel light/dark kontrol. `lint:tailwind` ayrı gate — eslint/tsc yeşil olsa da arbitrary→canonical ihlalleri burada patlar.
 
 ### Shared List/Table Building Blocks (use in NEW code — do not hand-roll)
 
@@ -374,6 +386,14 @@ These rules are enforced by `make lint-go` (golangci-lint via `.golangci.yml`) a
 #### Test Relaxations
 
 - In `**/*.test.{ts,tsx}` and `**/test/**`: `no-explicit-any` and `no-non-null-assertion` are relaxed. Test code often needs `any` for partial mocks and `!` for asserting test preconditions. Production code has no such exemptions.
+
+#### Tailwind — `suggestCanonicalClasses` (`lint:tailwind`)
+
+Enforced by `tailwindcss-language-server` via `frontend/scripts/lint-tailwind-diagnostics.mjs` (part of `npm run check`, not ESLint).
+
+- **suggestCanonicalClasses** (`error`): do not use arbitrary `[Npx]` / `rounded-[Npx]` when Tailwind v4 exposes an equivalent scale class. Fix by applying the suggestion in the diagnostic (`rounded-[8px]` → `rounded-lg`).
+- Arbitrary values are fine when no canonical util exists (fractional rem typography, letter-spacing, percentages).
+- See **Frontend Tailwind Canonical Class Gate Before Commit** above for workflow and examples.
 
 ## Naming Conventions — Best Practices
 

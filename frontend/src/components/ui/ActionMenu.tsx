@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 import { useEffect, useId, useRef, useState } from 'react'
 
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 
 export interface ActionMenuItem {
@@ -56,10 +55,7 @@ export function ActionMenu({
     <div className="relative inline-flex" ref={rootRef}>
       <button
         type="button"
-        className={cn(
-          legacyButtonClass('btn btn-secondary'),
-          'inline-flex items-center gap-[0.35rem]',
-        )}
+        className={cn(buttonClass('secondary'), 'inline-flex items-center gap-[0.35rem]')}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
@@ -70,9 +66,9 @@ export function ActionMenu({
       </button>
       {open && (
         <div
-          className={legacyCardClass(
-            'border-border-strong bg-card absolute top-[calc(100%+0.35rem)] right-0 z-30 grid min-w-52 gap-[0.1rem] rounded-[0.6rem] border p-[0.35rem] shadow-[0_12px_36px_rgba(0,0,0,0.35)] motion-safe:animate-[action-menu-in_120ms_ease]',
-          )}
+          className={
+            'border-border-strong bg-card absolute top-[calc(100%+0.35rem)] right-0 z-30 grid min-w-52 gap-[0.1rem] rounded-[0.6rem] border p-[0.35rem] shadow-[0_12px_36px_rgba(0,0,0,0.35)] motion-safe:animate-[action-menu-in_120ms_ease]'
+          }
           id={menuId}
           role="menu"
         >

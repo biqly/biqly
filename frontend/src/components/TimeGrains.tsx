@@ -3,8 +3,15 @@ import { useNavigate } from 'react-router-dom'
 
 import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
-import { legacyCardClass } from '../lib/cardClasses'
+import { buttonClass } from '../lib/buttonClasses'
+import {
+  cardClass,
+  cardHeaderRowClass,
+  cardIntroClass,
+  cardLeadClass,
+  cardLeadSingleLineClass,
+} from '../lib/cardClasses'
+import { cn } from '../lib/cn'
 import { legacyLayoutClass } from '../lib/layoutClasses'
 import { TimeGrainsEditModal } from './TimeGrainsEditModal'
 import { TimeGrainsTable } from './TimeGrainsTable'
@@ -109,13 +116,13 @@ export default function TimeGrains() {
 
   return (
     <div className={legacyLayoutClass('page-stack')}>
-      <div className={legacyCardClass('card')}>
-        <div className={legacyCardClass('card-intro')}>
-          <div className={legacyCardClass('card-header-row')}>
+      <div className={cardClass()}>
+        <div className={cardIntroClass}>
+          <div className={cardHeaderRowClass}>
             <h2>{t('time_grains.title') || 'Time Grains'}</h2>
             <button
               type="button"
-              className={legacyButtonClass('btn-back')}
+              className={buttonClass('back')}
               onClick={() => {
                 void navigate('/settings')
               }}
@@ -124,7 +131,7 @@ export default function TimeGrains() {
             </button>
           </div>
           <p
-            className={legacyCardClass('card-lead card-lead--single-line')}
+            className={cn(cardLeadClass, cardLeadSingleLineClass)}
             title={
               t('time_grains.subtitle') ||
               'Customize how the AI recognizes and handles time/date query grains (e.g., daily, monthly, yearly).'

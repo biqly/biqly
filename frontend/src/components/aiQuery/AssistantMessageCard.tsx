@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import type { QueryResultPayload } from '../../types/ai'
 import { normalizeAIQueryResponse } from '../../utils/normalizeAIQueryResponse'
 import { buildPivotTable } from '../../utils/pivotTable'
@@ -120,7 +120,7 @@ function AssistantMessageFeedbackRow({
       {hasLogicalQuery && (
         <button
           type="button"
-          className={legacyButtonClass('btn btn-sm btn-ghost')}
+          className={buttonClass('ghost', { size: 'sm' })}
           style={{
             marginLeft: 'auto',
             display: 'inline-flex',

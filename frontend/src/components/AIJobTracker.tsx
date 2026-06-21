@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { jobQuestionPreview, type TrackedAIJob, useAIJobs } from '../hooks/useAIJobs'
 import { type TranslationKey, useT } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
+import { buttonClass } from '../lib/buttonClasses'
 import { cn } from '../lib/cn'
 import type { AIQueueStatus } from '../types/ai'
 import {
@@ -334,7 +334,7 @@ function JobCard({
           {active && onCancel && (
             <button
               type="button"
-              className={cn(legacyButtonClass('btn btn-sm btn-ghost'), aiJobCardCancelClass)}
+              className={cn(buttonClass('ghost', { size: 'sm' }), aiJobCardCancelClass)}
               onClick={onCancel}
               disabled={cancelling}
             >
@@ -344,7 +344,7 @@ function JobCard({
           {!active && (
             <button
               type="button"
-              className={legacyButtonClass('btn btn-sm btn-ghost')}
+              className={buttonClass('ghost', { size: 'sm' })}
               onClick={onDismiss}
               aria-label={t('ai_jobs.dismiss')}
             >
@@ -400,7 +400,7 @@ function StaleJobsPanel({
             </span>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-sm btn-ghost')}
+              className={buttonClass('ghost', { size: 'sm' })}
               disabled={busy}
               onClick={() => onCancelIds([job.id])}
             >
@@ -411,7 +411,7 @@ function StaleJobsPanel({
       </ul>
       <button
         type="button"
-        className={legacyButtonClass('btn btn-sm btn-ghost')}
+        className={buttonClass('ghost', { size: 'sm' })}
         disabled={busy}
         onClick={onCancelAll}
       >
@@ -526,7 +526,7 @@ export default function AIJobTracker() {
         <div className={aiJobPanelActionsClass}>
           <button
             type="button"
-            className={legacyButtonClass('btn btn-sm btn-ghost')}
+            className={buttonClass('ghost', { size: 'sm' })}
             onClick={() => setExpanded(!expanded)}
             aria-expanded={expanded}
           >
@@ -534,7 +534,7 @@ export default function AIJobTracker() {
           </button>
           <button
             type="button"
-            className={legacyButtonClass('btn btn-sm btn-ghost')}
+            className={buttonClass('ghost', { size: 'sm' })}
             onClick={() => setMinimized(true)}
             aria-label={t('ai_jobs.minimize')}
             title={t('ai_jobs.minimize')}
@@ -548,7 +548,7 @@ export default function AIJobTracker() {
           {activeCount > 0 && (
             <button
               type="button"
-              className={legacyButtonClass('btn btn-sm btn-ghost')}
+              className={buttonClass('ghost', { size: 'sm' })}
               disabled={manageBusy}
               onClick={() => {
                 setManageBusy(true)
@@ -561,7 +561,7 @@ export default function AIJobTracker() {
           {finishedCount > 0 && (
             <button
               type="button"
-              className={legacyButtonClass('btn btn-sm btn-ghost')}
+              className={buttonClass('ghost', { size: 'sm' })}
               disabled={manageBusy}
               onClick={dismissFinishedJobs}
             >
@@ -570,7 +570,7 @@ export default function AIJobTracker() {
           )}
           <button
             type="button"
-            className={legacyButtonClass('btn btn-sm btn-ghost')}
+            className={buttonClass('ghost', { size: 'sm' })}
             disabled={manageBusy}
             onClick={() => {
               setManageBusy(true)

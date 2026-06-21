@@ -1,6 +1,5 @@
 import type { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { legacyFormClass } from '../../lib/formClasses'
@@ -56,9 +55,9 @@ export function MetadataBulkDescribeSetup({
       </p>
       <div className="grid grid-cols-1 items-stretch gap-[0.65rem] sm:grid-cols-2">
         <fieldset
-          className={legacyCardClass(
-            'border-border bg-card-raised m-0 min-w-0 rounded-lg border p-[0.55rem_0.65rem_0.65rem]',
-          )}
+          className={
+            'border-border bg-card-raised m-0 min-w-0 rounded-lg border p-[0.55rem_0.65rem_0.65rem]'
+          }
         >
           <legend className="text-foreground-faint px-1 py-0 text-[0.62rem] font-extrabold tracking-[0.07em] uppercase">
             {t('metadata.bulk_legend_types')}
@@ -73,9 +72,7 @@ export function MetadataBulkDescribeSetup({
                 key={ty}
                 type="button"
                 className={cn(
-                  legacyCardClass(
-                    'bg-card text-foreground-muted hover:border-border-strong hover:text-foreground inline-flex cursor-pointer items-baseline gap-[0.35rem] rounded-full border p-[0.28rem_0.55rem] text-[0.75rem] leading-[1.2] transition-[background,border-color,color] duration-120',
-                  ),
+                  'bg-card text-foreground-muted hover:border-border-strong hover:text-foreground inline-flex cursor-pointer items-baseline gap-[0.35rem] rounded-full border p-[0.28rem_0.55rem] text-[0.75rem] leading-[1.2] transition-[background,border-color,color] duration-120',
                   bulkTypeEnabled[ty] === true
                     ? 'border-border-strong bg-card-raised text-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]'
                     : 'border-border',
@@ -102,9 +99,9 @@ export function MetadataBulkDescribeSetup({
           )}
         </fieldset>
         <fieldset
-          className={legacyCardClass(
-            'border-border bg-card-raised m-0 min-w-0 rounded-lg border p-[0.55rem_0.65rem_0.65rem]',
-          )}
+          className={
+            'border-border bg-card-raised m-0 min-w-0 rounded-lg border p-[0.55rem_0.65rem_0.65rem]'
+          }
         >
           <legend className="text-foreground-faint px-1 py-0 text-[0.62rem] font-extrabold tracking-[0.07em] uppercase">
             {t('metadata.bulk_legend_schemas')}
@@ -162,14 +159,14 @@ export function MetadataBulkDescribeSetup({
                 <div className="mt-[0.35rem] flex flex-wrap items-center gap-[0.3rem_0.5rem]">
                   <button
                     type="button"
-                    className={legacyButtonClass('btn btn-ghost btn-sm')}
+                    className={buttonClass('ghost', { size: 'sm' })}
                     onClick={() => onSchemasSelectedChange([...schemaOptions])}
                   >
                     {t('metadata.bulk_select_all')}
                   </button>
                   <button
                     type="button"
-                    className={legacyButtonClass('btn btn-ghost btn-sm')}
+                    className={buttonClass('ghost', { size: 'sm' })}
                     onClick={() => onSchemasSelectedChange([])}
                   >
                     {t('metadata.bulk_select_none')}
@@ -239,16 +236,12 @@ export function MetadataBulkDescribeSetup({
         </p>
       )}
       <div className={modalActionsClass()}>
-        <button
-          type="button"
-          className={legacyButtonClass('btn btn-ghost btn-sm')}
-          onClick={onClose}
-        >
+        <button type="button" className={buttonClass('ghost', { size: 'sm' })} onClick={onClose}>
           {t('metadata.bulk_cancel')}
         </button>
         <button
           type="button"
-          className={legacyButtonClass('btn btn-sm')}
+          className={buttonClass('secondary', { size: 'sm' })}
           onClick={onStart}
           disabled={!bulkCanStart}
         >

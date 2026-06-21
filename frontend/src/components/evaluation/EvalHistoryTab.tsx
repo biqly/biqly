@@ -1,6 +1,6 @@
 import type { TFunction } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
+import { cardClass } from '../../lib/cardClasses'
 import { evalStatusBadgeClass } from '../../lib/feedbackClasses'
 import { legacyTableClass } from '../../lib/tableClasses'
 import type { EvalRunDetail, EvalRunSummary } from '../../types/ai'
@@ -25,7 +25,7 @@ export function EvalHistoryTab({
 }: EvalHistoryTabProps) {
   if (!selectedRun) {
     return (
-      <div className={legacyCardClass('card')}>
+      <div className={cardClass()}>
         <h3>{t('evaluation.history_title')}</h3>
         {runHistory.length === 0 ? (
           <p className="text-foreground-faint py-8 text-center text-[0.85rem]">
@@ -64,7 +64,7 @@ export function EvalHistoryTab({
                   <td>v{r.prompt_template_bundle_version ?? 0}</td>
                   <td>
                     <button
-                      className={legacyButtonClass('btn btn-sm')}
+                      className={buttonClass('secondary', { size: 'sm' })}
                       onClick={() => loadRunDetail(r.run_id)}
                     >
                       {t('evaluation.detail_btn')}
@@ -82,7 +82,7 @@ export function EvalHistoryTab({
   return (
     <>
       <div style={{ marginBottom: '0.5rem' }}>
-        <button className={legacyButtonClass('btn-back')} onClick={() => setSelectedRun(null)}>
+        <button className={buttonClass('back')} onClick={() => setSelectedRun(null)}>
           {t('evaluation.back')}
         </button>
       </div>
@@ -108,7 +108,7 @@ export function EvalHistoryTab({
           color="var(--warning)"
         />
       </div>
-      <div className={legacyCardClass('card')}>
+      <div className={cardClass()}>
         <h3>
           {t('evaluation.detail_cases_title', {
             model: selectedRun.summary.model,

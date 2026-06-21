@@ -1,6 +1,6 @@
 import type { DescribeResult } from '../../api/metadataDescribe'
 import type { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { legacyFeedbackClass, suggestionBlockClass } from '../../lib/feedbackClasses'
 import {
   modalActionsClass,
@@ -65,7 +65,7 @@ export function MetadataDescribeResults({
           <div className={modalActionsClass()}>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-sm')}
+              className={buttonClass('secondary', { size: 'sm' })}
               onClick={() => onApplyTable(result.description)}
             >
               {t('metadata.describe_apply_table')}
@@ -103,7 +103,7 @@ export function MetadataDescribeResults({
                       {c.description ? (
                         <button
                           type="button"
-                          className={legacyButtonClass('btn btn-sm btn-secondary')}
+                          className={buttonClass('secondary', { size: 'sm' })}
                           onClick={() => onApplyColumn(c.name, c.description)}
                         >
                           {t('metadata.describe_apply')}

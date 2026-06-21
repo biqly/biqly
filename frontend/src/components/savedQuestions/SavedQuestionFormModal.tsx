@@ -1,5 +1,5 @@
 import type { TFunction } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { formStackClass, legacyFormClass } from '../../lib/formClasses'
 import { modalActionsClass } from '../../lib/modalClasses'
@@ -164,12 +164,12 @@ export function SavedQuestionFormModal({
         </div>
 
         <div className={cn(modalActionsClass(), 'mt-4')}>
-          <button type="button" className={legacyButtonClass('btn btn--neutral')} onClick={onClose}>
+          <button type="button" className={buttonClass('neutral')} onClick={onClose}>
             {t('saved_questions.btn_cancel')}
           </button>
           <button
             type="button"
-            className={legacyButtonClass('btn btn-primary')}
+            className={buttonClass('primary')}
             onClick={onSave}
             disabled={saving}
           >

@@ -2,7 +2,7 @@ import { type KeyboardEvent, type MouseEvent, useMemo, useState } from 'react'
 
 import { useToast } from '../hooks/useToast'
 import { useT } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
+import { buttonClass } from '../lib/buttonClasses'
 import { cn } from '../lib/cn'
 import { cellDrillableClass } from '../lib/tableClasses'
 import type { ResultAnomaly } from '../types/ai'
@@ -239,9 +239,11 @@ export function ResultTable({
         )}
         <button
           type="button"
-          className={legacyButtonClass(
-            'btn btn-secondary m-[0_0_0_auto]! w-auto! px-3 py-[0.3rem] text-[0.78rem]',
-          )}
+          className={buttonClass('secondary', {
+            size: 'sm',
+            autoWidth: true,
+            className: 'ml-auto! text-[0.78rem]',
+          })}
           onClick={handleExport}
           disabled={rows.length === 0}
         >

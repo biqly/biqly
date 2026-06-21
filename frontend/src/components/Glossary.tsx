@@ -8,8 +8,14 @@ import { useModelDetail } from '../hooks/useModelDetail'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useToast } from '../hooks/useToast'
 import { useT } from '../i18n'
-import { legacyButtonClass, rowActionsClass } from '../lib/buttonClasses'
-import { legacyCardClass } from '../lib/cardClasses'
+import { buttonClass, rowActionsClass } from '../lib/buttonClasses'
+import {
+  cardClass,
+  cardHeaderRowClass,
+  cardIntroClass,
+  cardLeadClass,
+  cardLeadSingleLineClass,
+} from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import {
   fewShotMainFormClass,
@@ -506,14 +512,14 @@ export default function Glossary() {
 
   return (
     <div className={legacyLayoutClass('page-stack')}>
-      <div className={legacyCardClass('card')}>
-        <div className={legacyCardClass('card-intro')}>
-          <div className={legacyCardClass('card-header-row')}>
+      <div className={cardClass()}>
+        <div className={cardIntroClass}>
+          <div className={cardHeaderRowClass}>
             <h2>{t('glossary.title')}</h2>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                className={legacyButtonClass('btn btn-sm btn-secondary')}
+                className={buttonClass('secondary', { size: 'sm' })}
                 disabled={!selectedModelId || enrichLoading}
                 title={t('glossary.enrich_context_hint')}
                 onClick={() => {
@@ -524,7 +530,7 @@ export default function Glossary() {
               </button>
               <button
                 type="button"
-                className={legacyButtonClass('btn btn-sm btn-primary')}
+                className={buttonClass('primary', { size: 'sm' })}
                 onClick={openAdd}
               >
                 {t('glossary.new')}
@@ -532,7 +538,7 @@ export default function Glossary() {
             </div>
           </div>
           <p
-            className={legacyCardClass('card-lead card-lead--single-line')}
+            className={cn(cardLeadClass, cardLeadSingleLineClass)}
             title={t('glossary.manage_hint')}
           >
             {t('glossary.manage_hint')}
@@ -679,14 +685,14 @@ export default function Glossary() {
                       <div className={rowActionsClass}>
                         <button
                           type="button"
-                          className={legacyButtonClass('btn btn-sm btn-ghost')}
+                          className={buttonClass('ghost', { size: 'sm' })}
                           onClick={() => openEdit(term)}
                         >
                           {t('common.edit')}
                         </button>
                         <button
                           type="button"
-                          className={legacyButtonClass('btn btn-sm btn-danger')}
+                          className={buttonClass('danger', { size: 'sm' })}
                           onClick={() => {
                             void handleDelete(term.id)
                           }}
@@ -991,16 +997,12 @@ export default function Glossary() {
             )}
           </div>
           <div className={modalActionsClass()}>
-            <button
-              type="button"
-              className={legacyButtonClass('btn btn-ghost')}
-              onClick={resetForm}
-            >
+            <button type="button" className={buttonClass('ghost')} onClick={resetForm}>
               {t('common.cancel')}
             </button>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-primary')}
+              className={buttonClass('primary')}
               onClick={() => {
                 void handleSave()
               }}

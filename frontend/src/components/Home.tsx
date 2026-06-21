@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { useToast } from '../hooks/useToast'
 import { localeLanguageTag, type TranslationKey, useLocale, useT } from '../i18n'
-import { legacyCardClass } from '../lib/cardClasses'
+import { cardClass } from '../lib/cardClasses'
 import { formatDateTime } from '../utils/formatters'
 import type { SavedQuestion } from './savedQuestions/types'
 import { EmptyState } from './ui/EmptyState'
@@ -107,9 +107,9 @@ export default function Home() {
             <button
               key={action.path}
               type="button"
-              className={legacyCardClass(
-                'border-border bg-card text-foreground hover:border-accent flex cursor-pointer flex-col items-start gap-[0.65rem] rounded-[0.7rem] border p-4 text-left transition-all duration-140 ease-out hover:-translate-y-0.5 hover:bg-(--accent-glow)',
-              )}
+              className={
+                'border-border bg-card text-foreground hover:border-accent flex cursor-pointer flex-col items-start gap-[0.65rem] rounded-[0.7rem] border p-4 text-left transition-all duration-140 ease-out hover:-translate-y-0.5 hover:bg-(--accent-glow)'
+              }
               onClick={() => {
                 void navigate(action.path)
               }}
@@ -164,7 +164,7 @@ function RecentQueries() {
   }, [get])
 
   return (
-    <section className={legacyCardClass('card min-w-0')}>
+    <section className={cardClass({ className: 'min-w-0' })}>
       <h2 className="m-0 mb-[0.85rem] text-[1rem] font-semibold tracking-[-0.01em]">
         {t('home.recent_queries')}
       </h2>
@@ -187,9 +187,9 @@ function RecentQueries() {
             <li key={item.id}>
               <button
                 type="button"
-                className={legacyCardClass(
-                  'hover:bg-card-raised hover:border-border flex w-full flex-col items-start gap-1 rounded-lg border border-transparent px-[0.65rem] py-[0.6rem] text-left transition-colors duration-140 ease-out',
-                )}
+                className={
+                  'hover:bg-card-raised hover:border-border flex w-full flex-col items-start gap-1 rounded-lg border border-transparent px-[0.65rem] py-[0.6rem] text-left transition-colors duration-140 ease-out'
+                }
                 onClick={() => {
                   void navigate('/ai-query', { state: { question: item.question } })
                 }}
@@ -243,7 +243,7 @@ function Favorites() {
   )
 
   return (
-    <section className={legacyCardClass('card min-w-0')}>
+    <section className={cardClass({ className: 'min-w-0' })}>
       <h2 className="m-0 mb-[0.85rem] text-[1rem] font-semibold tracking-[-0.01em]">
         {t('home.favorites')}
       </h2>
@@ -266,9 +266,9 @@ function Favorites() {
             <li key={item.id} className="flex items-center gap-[0.35rem]">
               <button
                 type="button"
-                className={legacyCardClass(
-                  'text-foreground font-inherit hover:bg-card-raised flex w-full min-w-0 flex-1 cursor-pointer flex-col gap-[0.2rem] rounded-lg border-0 bg-transparent px-[0.65rem] py-[0.6rem] text-left',
-                )}
+                className={
+                  'text-foreground font-inherit hover:bg-card-raised flex w-full min-w-0 flex-1 cursor-pointer flex-col gap-[0.2rem] rounded-lg border-0 bg-transparent px-[0.65rem] py-[0.6rem] text-left'
+                }
                 onClick={() => {
                   void navigate('/saved')
                 }}
@@ -283,9 +283,9 @@ function Favorites() {
               </button>
               <button
                 type="button"
-                className={legacyCardClass(
-                  'text-warning hover:bg-card-raised shrink-0 cursor-pointer rounded-[0.4rem] border-0 bg-transparent p-[0.3rem] text-[1.1rem] leading-none',
-                )}
+                className={
+                  'text-warning hover:bg-card-raised shrink-0 cursor-pointer rounded-[0.4rem] border-0 bg-transparent p-[0.3rem] text-[1.1rem] leading-none'
+                }
                 onClick={() => {
                   void unfavorite(item)
                 }}

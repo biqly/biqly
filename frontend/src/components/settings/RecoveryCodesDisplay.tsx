@@ -1,5 +1,5 @@
 import { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyLayoutClass } from '../../lib/layoutClasses'
 import {
@@ -41,14 +41,14 @@ export function RecoveryCodesDisplay({
         <div className={cn(adminFlexGapCenterEndClass, 'mt-2')}>
           <button
             type="button"
-            className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
+            className={cn(buttonClass('secondary'), adminBtnAutoWidthClass)}
             onClick={copyCodes}
           >
             📋 {t('common.copy')}
           </button>
           <button
             type="button"
-            className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
+            className={cn(buttonClass('primary'), adminBtnAutoWidthClass)}
             onClick={onDone}
           >
             {t('common.confirm_ok')}
@@ -74,7 +74,7 @@ export function RecoveryCodesDisplay({
       </div>
       <button
         type="button"
-        className={cn(legacyButtonClass('btn btn-sm btn-secondary'), 'mt-3 w-auto')}
+        className={cn(buttonClass('secondary', { size: 'sm' }), 'mt-3 w-auto')}
         onClick={copyCodes}
       >
         📋 {t('common.copy')}

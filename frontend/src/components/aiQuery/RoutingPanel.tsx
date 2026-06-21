@@ -1,4 +1,4 @@
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { legacyFormClass } from '../../lib/formClasses'
@@ -92,7 +92,7 @@ export function RoutingPanel({
         {embeddingsAvailable && (
           <button
             type="button"
-            className={cn(legacyButtonClass('btn btn-sm'), queryConfigEmbedBtnClass)}
+            className={cn(buttonClass('secondary', { size: 'sm' }), queryConfigEmbedBtnClass)}
             onClick={onRefreshEmbeddings}
             disabled={!datasourceId || embeddingLoading || embeddingRunning}
             title={

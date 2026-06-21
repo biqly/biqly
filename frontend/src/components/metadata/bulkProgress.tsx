@@ -2,7 +2,6 @@
 
 import type { TranslationKey } from '../../i18n'
 import { useT } from '../../i18n'
-import { legacyCardClass } from '../../lib/cardClasses'
 import { TagBadge } from '../ui/TagBadge'
 
 export type BulkStatus = 'pending' | 'running' | 'ok' | 'error' | 'skipped'
@@ -117,9 +116,7 @@ export function BulkProgressHeader({
         </span>
         <span>{pct}%</span>
       </div>
-      <div
-        className={legacyCardClass('bg-card border-border h-1.5 overflow-hidden rounded-sm border')}
-      >
+      <div className={'bg-card border-border h-1.5 overflow-hidden rounded-sm border'}>
         <div
           className="h-full transition-[width] duration-200 ease-in-out"
           style={{

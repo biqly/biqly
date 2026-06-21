@@ -26,7 +26,7 @@ import {
   authPageClass,
   authSubmitBtnClass,
 } from '../../lib/authClasses'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { isValidEmailFormat } from '../../lib/emailValidation'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
@@ -454,7 +454,7 @@ export default function SignUpPage() {
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
           <button
             type="button"
-            className={legacyButtonClass('btn btn-primary')}
+            className={buttonClass('primary')}
             onClick={() => {
               setAgree(true)
               setTermsOpen(false)
@@ -476,7 +476,7 @@ export default function SignUpPage() {
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
           <button
             type="button"
-            className={legacyButtonClass('btn btn-primary')}
+            className={buttonClass('primary')}
             onClick={() => {
               setAgree(true)
               setPrivacyOpen(false)

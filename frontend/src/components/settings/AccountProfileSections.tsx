@@ -2,8 +2,8 @@ import { type SubmitEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 import type { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
+import { cardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { legacyFormClass } from '../../lib/formClasses'
@@ -44,7 +44,7 @@ export function AccountProfileHero({
 
   return (
     <section
-      className={legacyCardClass('card card--elevated flex flex-col gap-6')}
+      className={cardClass({ className: 'flex flex-col gap-6', elevated: true })}
       aria-labelledby="settings-profile-heading"
     >
       <div className="flex flex-wrap items-center gap-4">
@@ -81,9 +81,9 @@ export function AccountProfileHero({
           {user.avatarUrl && (
             <button
               type="button"
-              className={legacyCardClass(
-                'bg-card border-border text-foreground-faint hover:text-error hover:border-error absolute -right-1 -bottom-1 flex h-[1.35rem] w-[1.35rem] cursor-pointer items-center justify-center rounded-full border shadow-[0_2px_6px_rgba(0,0,0,0.4)] transition-all duration-180 hover:scale-105 hover:bg-[color-mix(in_srgb,var(--error)_10%,var(--bg-card))]',
-              )}
+              className={
+                'bg-card border-border text-foreground-faint hover:text-error hover:border-error absolute -right-1 -bottom-1 flex h-[1.35rem] w-[1.35rem] cursor-pointer items-center justify-center rounded-full border shadow-[0_2px_6px_rgba(0,0,0,0.4)] transition-all duration-180 hover:scale-105 hover:bg-[color-mix(in_srgb,var(--error)_10%,var(--bg-card))]'
+              }
               onClick={onAvatarRemove}
               title={t('settings.profile_picture_remove')}
             >
@@ -165,7 +165,7 @@ export function AccountProfileHero({
         )}
         <button
           type="submit"
-          className={cn(legacyButtonClass('btn btn-primary btn-sm'), adminBtnAutoWidthClass)}
+          className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
           disabled={profileSaving}
         >
           {profileSaving ? '...' : t('settings.profile_save')}
@@ -192,7 +192,7 @@ export function AccountEmailChangeSection({
 }) {
   return (
     <section
-      className={legacyCardClass('card card--elevated flex flex-col gap-6')}
+      className={cardClass({ className: 'flex flex-col gap-6', elevated: true })}
       aria-labelledby="settings-email-change-heading"
     >
       <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-3 border-t-0 pt-0">
@@ -226,7 +226,7 @@ export function AccountEmailChangeSection({
         )}
         <button
           type="submit"
-          className={cn(legacyButtonClass('btn btn-secondary btn-sm'), adminBtnAutoWidthClass)}
+          className={cn(buttonClass('secondary', { size: 'sm' }), adminBtnAutoWidthClass)}
           disabled={emailSaving || !newEmail.trim()}
         >
           {emailSaving ? '...' : t('settings.profile_email_request')}
@@ -267,7 +267,7 @@ export function AccountPasswordSection({
 }) {
   return (
     <section
-      className={legacyCardClass('card card--elevated flex flex-col gap-6')}
+      className={cardClass({ className: 'flex flex-col gap-6', elevated: true })}
       aria-labelledby="settings-password-heading"
     >
       <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-3 border-t-0 pt-0">
@@ -329,7 +329,7 @@ export function AccountPasswordSection({
             <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
               <button
                 type="submit"
-                className={cn(legacyButtonClass('btn btn-primary btn-sm'), adminBtnAutoWidthClass)}
+                className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
                 disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
               >
                 {passwordSaving ? '...' : t('settings.profile_password_save')}
@@ -365,7 +365,7 @@ export function AccountMfaBypassSection({
   return (
     <section
       className={cn(
-        legacyCardClass('card card--elevated flex flex-col gap-6'),
+        cardClass({ className: 'flex flex-col gap-6', elevated: true }),
         'from-card border-[color-mix(in_srgb,var(--warning)_20%,var(--border))] bg-linear-to-b to-[color-mix(in_srgb,var(--warning)_3%,var(--bg-card))]',
       )}
       aria-labelledby="settings-support-heading"
@@ -380,7 +380,7 @@ export function AccountMfaBypassSection({
         <button
           type="button"
           className={cn(
-            legacyButtonClass('btn btn-secondary btn-sm'),
+            buttonClass('secondary', { size: 'sm' }),
             adminBtnAutoWidthClass,
             'inline-flex items-center gap-1.5',
           )}
@@ -402,7 +402,7 @@ export function AccountMfaBypassSection({
             <button
               type="button"
               className={cn(
-                legacyButtonClass('btn btn-secondary btn-sm'),
+                buttonClass('secondary', { size: 'sm' }),
                 adminBtnAutoWidthClass,
                 'inline-flex items-center gap-1.5',
               )}

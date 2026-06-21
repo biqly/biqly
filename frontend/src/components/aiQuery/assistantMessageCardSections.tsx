@@ -1,5 +1,5 @@
 import { promptWarningClass, wfBadgeClass } from '../../lib/badgeClasses'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import {
   sqlPreviewClass,
@@ -211,7 +211,7 @@ function AssistantTableRoutingSection({
       {(result.table_routing.selected_tables?.length ?? 0) > 0 && (
         <button
           type="button"
-          className={legacyButtonClass('btn btn-sm btn-sample')}
+          className={buttonClass('secondary', { className: 'btn-sample', size: 'sm' })}
           onClick={() => {
             const firstSel = result.table_routing?.selected_tables?.[0]
             if (firstSel) {
@@ -379,7 +379,7 @@ export function AssistantMessageRunQuery({
     <div className={btnRunQueryContainerClass}>
       <button
         type="button"
-        className={legacyButtonClass('btn btn-primary')}
+        className={buttonClass('primary')}
         disabled={loading}
         onClick={onRunQuery}
       >

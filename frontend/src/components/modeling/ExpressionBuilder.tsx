@@ -2,7 +2,6 @@
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import type { LooseTFunction } from '../../i18n'
-import { legacyCardClass } from '../../lib/cardClasses'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { ColumnRow, SemanticExprNode, SemanticModelDetail } from '../../types/semantic'
 
@@ -229,9 +228,9 @@ export function ExpressionBuilder({
   }
   return (
     <div
-      className={legacyCardClass(
-        'bg-card border-border shadow-card-sm mt-3 flex flex-col gap-4 rounded-lg border p-5',
-      )}
+      className={
+        'bg-card border-border shadow-card-sm mt-3 flex flex-col gap-4 rounded-lg border p-5'
+      }
     >
       <div className={`border-border flex gap-2 border-b pb-3`}>
         <button type="button" className={exprModeToggleClass(mode === 'text')} onClick={toggleMode}>

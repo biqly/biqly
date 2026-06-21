@@ -13,8 +13,8 @@ import {
 } from 'recharts'
 
 import type { TFunction } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
+import { cardClass, cardHeaderRowClass } from '../../lib/cardClasses'
 import { chartContainerClass, evalStatusBadgeClass } from '../../lib/feedbackClasses'
 import { legacyTableClass } from '../../lib/tableClasses'
 import {
@@ -64,9 +64,7 @@ function DiffView({
   const gotStr = JSON.stringify(got, null, 2)
   return (
     <div
-      className={legacyCardClass(
-        'bg-card-raised border-border mt-2 grid grid-cols-2 gap-3 rounded-lg border p-3',
-      )}
+      className={'bg-card-raised border-border mt-2 grid grid-cols-2 gap-3 rounded-lg border p-3'}
     >
       <div className="diff-col">
         <div className="text-foreground-faint mb-1.5 text-[0.72rem] font-bold tracking-wider uppercase">
@@ -115,10 +113,7 @@ function TestCaseRow({ tc, t }: { tc: EvalTestCase; t: TFunction }) {
               {tc.error_message}
             </span>
           )}
-          <button
-            className={legacyButtonClass('btn btn-sm btn-ghost')}
-            onClick={() => setOpen(!open)}
-          >
+          <button className={buttonClass('ghost', { size: 'sm' })} onClick={() => setOpen(!open)}>
             {open ? t('evaluation.hide_diff') : t('evaluation.show_diff')}
           </button>
         </td>
@@ -146,12 +141,12 @@ export function EvalRunTab({
 }: EvalRunTabProps) {
   return (
     <>
-      <div className={legacyCardClass('card')}>
-        <div className={legacyCardClass('card-header-row')}>
+      <div className={cardClass()}>
+        <div className={cardHeaderRowClass}>
           <h2>{t('evaluation.panel_title')}</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
-              className={legacyButtonClass('btn btn-sm btn-primary')}
+              className={buttonClass('primary', { size: 'sm' })}
               onClick={runEvaluation}
               disabled={running}
             >
@@ -197,7 +192,7 @@ export function EvalRunTab({
 
           {/* Charts */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className={legacyCardClass('card')}>
+            <div className={cardClass()}>
               <h3>{t('evaluation.chart_pass_distribution')}</h3>
               <div className={chartContainerClass} style={{ height: 240 }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -221,7 +216,7 @@ export function EvalRunTab({
               </div>
             </div>
 
-            <div className={legacyCardClass('card')}>
+            <div className={cardClass()}>
               <h3>{t('evaluation.chart_accuracy_trend')}</h3>
               {trendData.length > 0 ? (
                 <div className={chartContainerClass} style={{ height: 240 }}>
@@ -252,7 +247,7 @@ export function EvalRunTab({
           </div>
 
           {/* Test Cases Table */}
-          <div className={legacyCardClass('card')}>
+          <div className={cardClass()}>
             <h3>{t('evaluation.test_cases_title')}</h3>
             <table className={legacyTableClass('results-table mt-2')}>
               <thead>

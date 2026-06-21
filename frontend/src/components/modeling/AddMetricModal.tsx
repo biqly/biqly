@@ -1,6 +1,6 @@
 import { useAutofocus } from '../../hooks/useAutofocus'
 import type { TranslationKey, useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { modelingFormGroupClass } from '../../lib/formClasses'
 import {
   modalActionsBorderedClass,
@@ -176,18 +176,14 @@ export function AddMetricModal({
         </div>
         <div className={modalActionsBorderedClass()}>
           <button
-            className={legacyButtonClass('btn btn-secondary')}
+            className={buttonClass('secondary')}
             type="button"
             onClick={onClose}
             disabled={state.saving}
           >
             {t('common.cancel')}
           </button>
-          <button
-            className={legacyButtonClass('btn btn-primary')}
-            type="submit"
-            disabled={!state.canSubmit}
-          >
+          <button className={buttonClass('primary')} type="submit" disabled={!state.canSubmit}>
             {state.saving ? t('common.saving') : metric ? t('common.save') : t('common.create')}
           </button>
         </div>

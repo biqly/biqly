@@ -2,7 +2,7 @@ import type { KeyboardEvent } from 'react'
 import { useEffect, useMemo, useRef } from 'react'
 
 import type { TranslationKey } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { formatTimeOnly } from '../../utils/formatters'
@@ -308,14 +308,14 @@ export function ChatPanel({
             <div className={chatComposerActionsClass}>
               {loading && queryAction !== null && (
                 <button
-                  className={cn(legacyButtonClass('btn btn-ghost'), chatComposerActionBtnClass)}
+                  className={cn(buttonClass('ghost'), chatComposerActionBtnClass)}
                   onClick={onAbort}
                 >
                   {t('ai_query.cancel')}
                 </button>
               )}
               <button
-                className={cn(legacyButtonClass('btn btn-secondary'), chatComposerActionBtnClass)}
+                className={cn(buttonClass('secondary'), chatComposerActionBtnClass)}
                 onClick={() => onSendQuery(question, false)}
                 disabled={loading || !question || !datasourceId}
               >
@@ -323,7 +323,7 @@ export function ChatPanel({
               </button>
               <button
                 className={cn(
-                  legacyButtonClass('btn btn-primary'),
+                  buttonClass('primary'),
                   chatComposerActionBtnClass,
                   chatComposerSendClass,
                 )}

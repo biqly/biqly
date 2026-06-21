@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import type { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import {
   modalActionsBorderedClass,
   modalEnumValuesCardClass,
@@ -148,7 +148,7 @@ export function EnumValuesModal({
 
         <button
           type="button"
-          className={legacyButtonClass('btn btn-secondary btn-sm w-auto self-start')}
+          className={buttonClass('secondary', { className: 'w-auto self-start', size: 'sm' })}
           onClick={addRow}
           disabled={saving}
         >
@@ -157,14 +157,14 @@ export function EnumValuesModal({
 
         <div className={modalActionsBorderedClass()}>
           <button
-            className={legacyButtonClass('btn btn-secondary')}
+            className={buttonClass('secondary')}
             type="button"
             onClick={onClose}
             disabled={saving}
           >
             {t('common.cancel')}
           </button>
-          <button className={legacyButtonClass('btn btn-primary')} type="submit" disabled={saving}>
+          <button className={buttonClass('primary')} type="submit" disabled={saving}>
             {saving ? t('common.saving') : t('common.save')}
           </button>
         </div>

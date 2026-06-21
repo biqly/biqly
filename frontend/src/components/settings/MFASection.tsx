@@ -1,6 +1,12 @@
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
+import {
+  cardClass,
+  cardHeaderRowClass,
+  cardIntroClass,
+  cardIntroCompactClass,
+  cardLeadClass,
+} from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { formatDateTime } from '../../utils/formatters'
@@ -40,15 +46,15 @@ export function MFASection({
   const [locale] = useLocale()
 
   return (
-    <section className={cn(legacyCardClass('card card--elevated'), className)}>
-      <div className={legacyCardClass('card-intro card-intro--compact')}>
-        <div className={legacyCardClass('card-header-row card-header-row--spaced')}>
+    <section className={cn(cardClass({ elevated: true }), className)}>
+      <div className={cn(cardIntroClass, cardIntroCompactClass)}>
+        <div className={cn(cardHeaderRowClass, cardHeaderRowClass)}>
           <h2>{t('mfa.title')}</h2>
           {status &&
             (status.enabled ? (
               <button
                 type="button"
-                className={legacyButtonClass('btn btn-danger-outline btn-sm')}
+                className={buttonClass('danger-outline', { size: 'sm' })}
                 style={{
                   width: 'auto',
                   margin: 0,
@@ -78,7 +84,7 @@ export function MFASection({
             ) : (
               <button
                 type="button"
-                className={cn(legacyButtonClass('btn btn-primary btn-sm'), adminBtnAutoWidthClass)}
+                className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 onClick={onEnable}
               >
@@ -101,7 +107,7 @@ export function MFASection({
               </button>
             ))}
         </div>
-        <p className={cn(legacyCardClass('card-lead'), cardLeadMarginClass)}>{t('mfa.subtitle')}</p>
+        <p className={cn(cardLeadClass, cardLeadMarginClass)}>{t('mfa.subtitle')}</p>
       </div>
 
       {!status ? (
@@ -159,10 +165,7 @@ export function MFASection({
                 <div className="flex shrink-0 items-center gap-[0.35rem]">
                   <button
                     type="button"
-                    className={cn(
-                      legacyButtonClass('btn btn-sm btn-secondary'),
-                      adminBtnIconOnlyClass,
-                    )}
+                    className={cn(buttonClass('secondary', { size: 'sm' }), adminBtnIconOnlyClass)}
                     title={t('mfa.regenerate_recovery_btn')}
                     onClick={onRegenerate}
                     style={{

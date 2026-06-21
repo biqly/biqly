@@ -11,8 +11,15 @@ import {
   datasourceAccessNoteClass,
   datasourceIdCopyButtonClass,
 } from '../lib/badgeClasses'
-import { legacyButtonClass, rowActionsClass } from '../lib/buttonClasses'
-import { legacyCardClass } from '../lib/cardClasses'
+import { buttonClass, rowActionsClass } from '../lib/buttonClasses'
+import {
+  cardClass,
+  cardHeaderRowClass,
+  cardIntroClass,
+  cardIntroCompactClass,
+  cardLeadClass,
+} from '../lib/cardClasses'
+import { cn } from '../lib/cn'
 import { driverCellClass, driverCellLabelClass, driverCellLogoClass } from '../lib/driverClasses'
 import { errorAlertTopGapClass, uiEmptyStateInlineClass } from '../lib/feedbackClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
@@ -363,21 +370,17 @@ export default function Datasources() {
     <div className={legacyLayoutClass('page-stack min-w-0')}>
       <ErrorAlert error={error} className={errorAlertTopGapClass} />
 
-      <div className={legacyCardClass('card')}>
-        <div className={legacyCardClass('card-intro card-intro--compact')}>
-          <div className={legacyCardClass('card-header-row')}>
+      <div className={cardClass()}>
+        <div className={cn(cardIntroClass, cardIntroCompactClass)}>
+          <div className={cardHeaderRowClass}>
             <h2>{t('datasources.panel_title')}</h2>
             {datasourceRows.length > 0 && (
-              <button
-                className={legacyButtonClass('btn btn-primary')}
-                type="button"
-                onClick={openNewForm}
-              >
+              <button className={buttonClass('primary')} type="button" onClick={openNewForm}>
                 + {t('datasources.new')}
               </button>
             )}
           </div>
-          <p className={legacyCardClass('card-lead')}>{t('datasources.form_subtitle')}</p>
+          <p className={cardLeadClass}>{t('datasources.form_subtitle')}</p>
         </div>
 
         {accessibleDatasourceIDs !== null && datasourceRows.length < items.length && (
@@ -487,14 +490,14 @@ export default function Datasources() {
                           <div className={rowActionsClass}>
                             <button
                               type="button"
-                              className={legacyButtonClass('btn btn-sm btn-ghost')}
+                              className={buttonClass('ghost', { size: 'sm' })}
                               onClick={() => edit(ds)}
                             >
                               {t('datasources.edit')}
                             </button>
                             <button
                               type="button"
-                              className={legacyButtonClass('btn btn-sm btn-secondary')}
+                              className={buttonClass('secondary', { size: 'sm' })}
                               onClick={() => {
                                 void test(ds.id)
                               }}
@@ -504,7 +507,7 @@ export default function Datasources() {
                             </button>
                             <button
                               type="button"
-                              className={legacyButtonClass('btn btn-sm btn-secondary')}
+                              className={buttonClass('secondary', { size: 'sm' })}
                               onClick={() => {
                                 void sync(ds.id)
                               }}
@@ -514,7 +517,7 @@ export default function Datasources() {
                             </button>
                             <button
                               type="button"
-                              className={legacyButtonClass('btn btn-sm btn-danger-outline')}
+                              className={buttonClass('danger-outline', { size: 'sm' })}
                               onClick={() => {
                                 void del(ds.id)
                               }}

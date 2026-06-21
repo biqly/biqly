@@ -11,8 +11,15 @@ import {
   useLocale,
   useT,
 } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
-import { legacyCardClass } from '../lib/cardClasses'
+import { buttonClass } from '../lib/buttonClasses'
+import {
+  cardClass,
+  cardHeaderRowClass,
+  cardIntroClass,
+  cardLeadClass,
+  cardLeadSingleLineClass,
+  cardSubtitleClass,
+} from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { formRowClass, legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
@@ -398,15 +405,15 @@ export default function PromptTemplates() {
     <div className={legacyLayoutClass('page-stack')}>
       {error && <ErrorAlert error={error} />}
       {actionError && <ErrorAlert error={actionError} />}
-      {saveOk && <p className={legacyCardClass('card-subtitle')}>{saveOk}</p>}
+      {saveOk && <p className={cardSubtitleClass}>{saveOk}</p>}
 
-      <div className={legacyCardClass('card')}>
-        <div className={legacyCardClass('card-intro')}>
-          <div className={legacyCardClass('card-header-row')}>
+      <div className={cardClass()}>
+        <div className={cardIntroClass}>
+          <div className={cardHeaderRowClass}>
             <h2>{t('prompt_templates.title')}</h2>
           </div>
           <p
-            className={legacyCardClass('card-lead card-lead--single-line')}
+            className={cn(cardLeadClass, cardLeadSingleLineClass)}
             title={t('prompt_templates.manage_hint')}
           >
             {t('prompt_templates.manage_hint')}
@@ -514,7 +521,7 @@ export default function PromptTemplates() {
         <div className={cn(formRowClass, 'mt-4 gap-2')}>
           <button
             type="button"
-            className={legacyButtonClass('btn btn-primary btn-sm')}
+            className={buttonClass('primary', { size: 'sm' })}
             disabled={loading || !dirty}
             onClick={() => void handleSave()}
           >
@@ -522,7 +529,7 @@ export default function PromptTemplates() {
           </button>
           <button
             type="button"
-            className={legacyButtonClass('btn btn-sm')}
+            className={buttonClass('secondary', { size: 'sm' })}
             disabled={loading}
             onClick={() => void handleRestore()}
           >
@@ -530,7 +537,7 @@ export default function PromptTemplates() {
           </button>
           <button
             type="button"
-            className={legacyButtonClass('btn btn-sm btn-danger-outline')}
+            className={buttonClass('danger-outline', { size: 'sm' })}
             disabled={loading}
             onClick={() => void handleReseed()}
           >

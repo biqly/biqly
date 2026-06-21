@@ -1,7 +1,7 @@
 import { type ReactNode, useMemo, useState } from 'react'
 
 import type { TranslationKey } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import {
   modelingAddBtnClass,
@@ -547,10 +547,7 @@ export function ModelingPalette({
               <div className={modelingSectionHeaderClass}>
                 <h3>{t('modeling.dimensions_tab')}</h3>
                 <button
-                  className={cn(
-                    legacyButtonClass('btn btn-sm btn-primary'),
-                    modelingSectionAddBtnClass,
-                  )}
+                  className={cn(buttonClass('primary', { size: 'sm' }), modelingSectionAddBtnClass)}
                   type="button"
                   onClick={onSyncDimensions}
                   disabled={!model}
@@ -644,10 +641,7 @@ export function ModelingPalette({
               <div className={modelingSectionHeaderClass}>
                 <h3>{t('modeling.metrics_tab')}</h3>
                 <button
-                  className={cn(
-                    legacyButtonClass('btn btn-sm btn-primary'),
-                    modelingSectionAddBtnClass,
-                  )}
+                  className={cn(buttonClass('primary', { size: 'sm' }), modelingSectionAddBtnClass)}
                   type="button"
                   onClick={onOpenAddMetric}
                   disabled={!model}

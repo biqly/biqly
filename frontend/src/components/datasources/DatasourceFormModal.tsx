@@ -7,8 +7,7 @@ import {
 } from '../../dbDrivers'
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { formStackClass, legacyFormClass } from '../../lib/formClasses'
 import { modalActionsBorderedClass, modalFormRowClass } from '../../lib/modalClasses'
@@ -96,9 +95,9 @@ export function DatasourceFormModal({
             {t('datasources.connection_mode')}
           </span>
           <div
-            className={legacyCardClass(
-              'border-border bg-card-raised grid w-full grid-cols-2 gap-1 rounded-lg border p-1',
-            )}
+            className={
+              'border-border bg-card-raised grid w-full grid-cols-2 gap-1 rounded-lg border p-1'
+            }
             role="group"
             aria-label={t('datasources.connection_mode')}
           >
@@ -287,7 +286,7 @@ export function DatasourceFormModal({
 
       <div className={modalActionsBorderedClass()}>
         <button
-          className={legacyButtonClass('btn')}
+          className={buttonClass('secondary')}
           type="button"
           onClick={onClose}
           disabled={loading}
@@ -295,7 +294,7 @@ export function DatasourceFormModal({
           {t('datasources.cancel')}
         </button>
         <button
-          className={legacyButtonClass('btn')}
+          className={buttonClass('secondary')}
           type="button"
           onClick={onTest}
           disabled={loading || !canSubmit}
@@ -303,7 +302,7 @@ export function DatasourceFormModal({
           {t('datasources.test_before_save')}
         </button>
         <button
-          className={legacyButtonClass('btn btn-primary')}
+          className={buttonClass('primary')}
           type="button"
           onClick={onSave}
           disabled={loading || !canSubmit}

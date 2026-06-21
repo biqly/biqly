@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import {
   canReloadForUpdate,
   isLikelyAssetLoadFailure,
@@ -96,9 +95,9 @@ export function AppUpdateGate() {
 
   return (
     <div
-      className={legacyCardClass(
-        'fixed right-4 bottom-4 left-4 z-2000 flex items-center justify-between gap-3.5 rounded-xl border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--bg-card)_92%,var(--accent)_8%)] p-[12px_14px] shadow-[0_14px_42px_rgba(0,0,0,0.55)] backdrop-blur-[10px] max-[520px]:right-3 max-[520px]:bottom-3 max-[520px]:left-3 max-[520px]:flex-col max-[520px]:items-start',
-      )}
+      className={
+        'fixed right-4 bottom-4 left-4 z-2000 flex items-center justify-between gap-3.5 rounded-xl border border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] bg-[color-mix(in_srgb,var(--bg-card)_92%,var(--accent)_8%)] p-[12px_14px] shadow-[0_14px_42px_rgba(0,0,0,0.55)] backdrop-blur-[10px] max-[520px]:right-3 max-[520px]:bottom-3 max-[520px]:left-3 max-[520px]:flex-col max-[520px]:items-start'
+      }
       role="status"
       aria-live="polite"
     >
@@ -112,7 +111,7 @@ export function AppUpdateGate() {
         </div>
         <button
           type="button"
-          className={legacyButtonClass('btn btn-sm')}
+          className={buttonClass('secondary', { size: 'sm' })}
           onClick={() => {
             markReloadForUpdate()
             window.location.reload()

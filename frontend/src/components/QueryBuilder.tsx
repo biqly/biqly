@@ -7,8 +7,8 @@ import { useModelDetail } from '../hooks/useModelDetail'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
-import { legacyCardClass } from '../lib/cardClasses'
+import { buttonClass } from '../lib/buttonClasses'
+import { cardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { legacyFeedbackClass } from '../lib/feedbackClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
@@ -335,7 +335,7 @@ export default function QueryBuilder() {
 
   return (
     <div className={legacyLayoutClass('page-stack')}>
-      <div className={cn(legacyCardClass('card'), qbCardClass)}>
+      <div className={cn(cardClass(), qbCardClass)}>
         {/* Header Breadcrumbs and Mode selector */}
         <div className={qbHeaderClass}>
           <div className={qbPickersClass}>
@@ -483,12 +483,12 @@ export default function QueryBuilder() {
 
       {/* SQL Preview */}
       {sqlVisible && sql && (
-        <div className={legacyCardClass('card')}>
+        <div className={cardClass()}>
           <div className={qbSqlCardHeadClass}>
             <h2>{t('query_builder.generated_sql')}</h2>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-sm btn-ghost')}
+              className={buttonClass('ghost', { size: 'sm' })}
               onClick={() => setSqlVisible(false)}
             >
               {t('query_builder.hide_sql')}

@@ -8,8 +8,13 @@ import { usePaginatedList } from '../hooks/usePaginatedList'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useToast } from '../hooks/useToast'
 import { localeLanguageTag, useLocale, useT } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
-import { legacyCardClass } from '../lib/cardClasses'
+import { buttonClass } from '../lib/buttonClasses'
+import {
+  cardClass,
+  cardIntroClass,
+  cardLeadClass,
+  cardLeadSingleLineClass,
+} from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { formRowClass, legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
@@ -183,10 +188,10 @@ export default function QueryHistory() {
 
   return (
     <div className={legacyLayoutClass('page-stack')}>
-      <div className={legacyCardClass('card')}>
-        <div className={legacyCardClass('card-intro')}>
+      <div className={cardClass()}>
+        <div className={cardIntroClass}>
           <h2>{t('query_history.title')}</h2>
-          <p className={legacyCardClass('card-lead card-lead--single-line')}>
+          <p className={cn(cardLeadClass, cardLeadSingleLineClass)}>
             {t('app.nav.query_history_desc')}
           </p>
         </div>
@@ -334,7 +339,7 @@ export default function QueryHistory() {
                                 type="button"
                                 onClick={() => handleRerun(entry.question)}
                                 className={cn(
-                                  legacyButtonClass('btn btn-sm btn-ghost'),
+                                  buttonClass('ghost', { size: 'sm' }),
                                   'px-2 py-1 text-xs',
                                 )}
                               >

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import {
   feedbackBtnClass,
   feedbackCatBtnClass,
@@ -103,14 +103,14 @@ export function FeedbackSection({ onSubmitPositive, onSubmitNegative }: Feedback
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-sm btn-primary')}
+              className={buttonClass('primary', { size: 'sm' })}
               onClick={submitNegative}
             >
               {t('ai_query.feedback_submit')}
             </button>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-sm btn-ghost')}
+              className={buttonClass('ghost', { size: 'sm' })}
               onClick={() => {
                 setShowFeedbackForm(false)
                 setFeedbackCategories([])

@@ -14,8 +14,8 @@ import {
 } from '../api/auth'
 import { usePasskeyRegistration } from '../hooks/usePasskeyRegistration'
 import { localeLanguageTag, useLocale, useT } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
-import { legacyCardClass } from '../lib/cardClasses'
+import { buttonClass } from '../lib/buttonClasses'
+import { cardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { settingsFootnoteClass, settingsPrefsCardClass } from '../lib/layoutClasses'
 import type { PasskeyInfo } from '../types/auth'
@@ -355,7 +355,10 @@ export default function Settings() {
               />
 
               <section
-                className={cn(legacyCardClass('card card--elevated mb-0'), settingsPrefsCardClass)}
+                className={cn(
+                  cardClass({ className: 'mb-0', elevated: true }),
+                  settingsPrefsCardClass,
+                )}
                 aria-labelledby="passkeys-heading"
               >
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
@@ -367,10 +370,7 @@ export default function Settings() {
                   </div>
                   <button
                     type="button"
-                    className={cn(
-                      legacyButtonClass('btn btn-primary btn-sm'),
-                      adminBtnAutoWidthClass,
-                    )}
+                    className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
                     onClick={openAddModal}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
@@ -449,10 +449,7 @@ export default function Settings() {
                 action={
                   <button
                     type="button"
-                    className={cn(
-                      legacyButtonClass('btn btn-primary btn-sm'),
-                      adminBtnAutoWidthClass,
-                    )}
+                    className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
                     onClick={() => goTo('/prompt-templates')}
                   >
                     {t('settings.prompt_templates_open')}
@@ -491,10 +488,7 @@ export default function Settings() {
                 action={
                   <button
                     type="button"
-                    className={cn(
-                      legacyButtonClass('btn btn-primary btn-sm'),
-                      adminBtnAutoWidthClass,
-                    )}
+                    className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
                     onClick={() => goTo('/time-grains')}
                   >
                     {t('settings.time_grains_open')}
@@ -533,10 +527,7 @@ export default function Settings() {
                 action={
                   <button
                     type="button"
-                    className={cn(
-                      legacyButtonClass('btn btn-primary btn-sm'),
-                      adminBtnAutoWidthClass,
-                    )}
+                    className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
                     onClick={() => goTo('/admin?tab=ai_providers')}
                   >
                     {t('settings.ai_config_open')}

@@ -1,5 +1,5 @@
 import { useT } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
+import { buttonClass } from '../lib/buttonClasses'
 import { legacyFormClass } from '../lib/formClasses'
 import { modalActionsClass } from '../lib/modalClasses'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -97,12 +97,12 @@ export function TimeGrainsEditModal({
       </div>
       {formError && <ErrorAlert error={formError} />}
       <div className={modalActionsClass()}>
-        <button type="button" className={legacyButtonClass('btn btn-ghost')} onClick={onCancel}>
+        <button type="button" className={buttonClass('ghost')} onClick={onCancel}>
           {t('common.cancel') || 'Cancel'}
         </button>
         <button
           type="button"
-          className={legacyButtonClass('btn btn-primary')}
+          className={buttonClass('primary')}
           onClick={onSave}
           disabled={loading}
         >

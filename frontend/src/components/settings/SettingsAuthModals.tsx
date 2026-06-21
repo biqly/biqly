@@ -1,5 +1,5 @@
 import type { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFormClass } from '../../lib/formClasses'
 import { legacyLayoutClass } from '../../lib/layoutClasses'
@@ -126,7 +126,7 @@ export function SettingsAuthModals({
           <div className={cn(adminFlexGapCenterEndClass, 'mt-2')}>
             <button
               type="button"
-              className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
+              className={cn(buttonClass('secondary'), adminBtnAutoWidthClass)}
               onClick={onAddModalClose}
               disabled={registering}
             >
@@ -135,7 +135,7 @@ export function SettingsAuthModals({
             <button
               type="submit"
               className={cn(
-                legacyButtonClass('btn btn-primary'),
+                buttonClass('primary'),
                 adminBtnAutoWidthClass,
                 'inline-flex items-center gap-1.5',
               )}
@@ -169,7 +169,7 @@ export function SettingsAuthModals({
           <div className={cn(adminFlexGapCenterEndClass, 'mt-2')}>
             <button
               type="button"
-              className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
+              className={cn(buttonClass('secondary'), adminBtnAutoWidthClass)}
               onClick={onRenameModalClose}
               disabled={renaming}
             >
@@ -177,7 +177,7 @@ export function SettingsAuthModals({
             </button>
             <button
               type="submit"
-              className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
+              className={cn(buttonClass('primary'), adminBtnAutoWidthClass)}
               disabled={renaming || !renamingName.trim()}
             >
               {renaming ? `${t('passkeys.modal_submit')}...` : t('passkeys.modal_submit')}
@@ -204,7 +204,7 @@ export function SettingsAuthModals({
               </div>
               {mfaQrCode && (
                 <div className={mfaQrContainerClass}>
-                  <img src={mfaQrCode} alt="2FA QR Code" className="block h-[180px] w-[180px]" />
+                  <img src={mfaQrCode} alt="2FA QR Code" className="block h-45 w-45" />
                 </div>
               )}
               {mfaEnrollData && (
@@ -231,7 +231,7 @@ export function SettingsAuthModals({
               <div className={cn(adminFlexGapCenterEndClass, 'mt-2')}>
                 <button
                   type="button"
-                  className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
+                  className={cn(buttonClass('secondary'), adminBtnAutoWidthClass)}
                   onClick={onMfaEnrollClose}
                   disabled={mfaVerifying}
                 >
@@ -239,7 +239,7 @@ export function SettingsAuthModals({
                 </button>
                 <button
                   type="submit"
-                  className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
+                  className={cn(buttonClass('primary'), adminBtnAutoWidthClass)}
                   disabled={mfaVerifying || mfaVerifyCode.length !== 6}
                 >
                   {mfaVerifying ? '...' : t('mfa.verify_btn')}
@@ -277,7 +277,7 @@ export function SettingsAuthModals({
           <div className={cn(adminFlexGapCenterEndClass, 'mt-2')}>
             <button
               type="button"
-              className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
+              className={cn(buttonClass('secondary'), adminBtnAutoWidthClass)}
               onClick={onMfaDisableClose}
               disabled={mfaDisabling}
             >
@@ -285,7 +285,7 @@ export function SettingsAuthModals({
             </button>
             <button
               type="submit"
-              className={cn(legacyButtonClass('btn btn-danger'), adminBtnAutoWidthClass)}
+              className={cn(buttonClass('danger'), adminBtnAutoWidthClass)}
               disabled={mfaDisabling || mfaDisableCode.length !== 6}
             >
               {mfaDisabling ? '...' : t('mfa.disable_submit')}
@@ -310,7 +310,7 @@ export function SettingsAuthModals({
           <div className={cn(adminFlexGapCenterEndClass, 'mt-2')}>
             <button
               type="button"
-              className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
+              className={cn(buttonClass('secondary'), adminBtnAutoWidthClass)}
               onClick={onMfaRegenClose}
               disabled={mfaRegening}
             >
@@ -318,7 +318,7 @@ export function SettingsAuthModals({
             </button>
             <button
               type="submit"
-              className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
+              className={cn(buttonClass('primary'), adminBtnAutoWidthClass)}
               disabled={mfaRegening || mfaRegenCode.length !== 6}
             >
               {mfaRegening ? '...' : t('mfa.regenerate_recovery_btn')}
