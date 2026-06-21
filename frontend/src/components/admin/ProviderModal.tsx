@@ -11,16 +11,17 @@ import {
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import { errorMessage } from '../../utils/error'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import {
-  aiModalActions,
-  aiModalCheckboxRow,
-  aiModalFormStyle,
-  aiModalInputStyle,
-  aiModalPrimaryBtn,
-  aiModalSecondaryBtn,
+  aiModalActionsClass,
+  aiModalCheckboxRowClass,
+  aiModalFormClass,
+  aiModalInputClass,
+  aiModalPrimaryBtnClass,
+  aiModalSecondaryBtnClass,
   defaultBaseURL,
   ModalField,
   PROVIDER_TYPES,
@@ -38,19 +39,21 @@ function ProviderConnectionTest({
   onTest: () => void
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <button type="button" style={aiModalSecondaryBtn} disabled={testing} onClick={onTest}>
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        className={aiModalSecondaryBtnClass}
+        disabled={testing}
+        onClick={onTest}
+      >
         {testing ? t('admin.ai_providers.testing') : t('admin.ai_providers.test_connection')}
       </button>
       {testResult && (
         <span
-          style={{
-            fontSize: 13,
-            color:
-              testResult.status === 'connected'
-                ? 'var(--success, #10b981)'
-                : 'var(--error, #ef4444)',
-          }}
+          className={cn(
+            'text-sm',
+            testResult.status === 'connected' ? 'text-success' : 'text-error',
+          )}
         >
           {testResult.status === 'connected'
             ? t('admin.ai_providers.test_connected', { ms: testResult.latency_ms ?? 0 })
@@ -150,10 +153,10 @@ export function ProviderModal({
       title={editing ? t('admin.ai_providers.edit_provider') : t('admin.ai_providers.add_provider')}
       onClose={onClose}
     >
-      <div style={aiModalFormStyle}>
+      <div className={aiModalFormClass}>
         <ModalField label={t('admin.ai_providers.fields.name')}>
           <input
-            style={aiModalInputStyle}
+            className={aiModalInputClass}
             ref={nameInputRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -171,35 +174,39 @@ export function ProviderModal({
         </ModalField>
         <ModalField label={t('admin.ai_providers.fields.base_url')}>
           <input
-            style={aiModalInputStyle}
+            className={aiModalInputClass}
             value={baseURL}
             onChange={(e) => setBaseURL(e.target.value)}
             placeholder="https://…/v1"
           />
         </ModalField>
         <ModalField label={t('admin.ai_providers.fields.api_key')}>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="flex gap-2">
             <input
-              style={{ ...aiModalInputStyle, flex: 1 }}
+              className={cn(aiModalInputClass, 'flex-1')}
               type={showKey ? 'text' : 'password'}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder={editing ? t('admin.ai_providers.fields.api_key_keep') : ''}
             />
-            <button type="button" style={aiModalSecondaryBtn} onClick={() => setShowKey((s) => !s)}>
+            <button
+              type="button"
+              className={aiModalSecondaryBtnClass}
+              onClick={() => setShowKey((s) => !s)}
+            >
               {showKey ? t('admin.ai_providers.hide_key') : t('admin.ai_providers.show_key')}
             </button>
           </div>
         </ModalField>
         <ModalField label={t('admin.ai_providers.fields.http_timeout')}>
           <input
-            style={aiModalInputStyle}
+            className={aiModalInputClass}
             type="number"
             value={timeout}
             onChange={(e) => setTimeoutVal(Number(e.target.value))}
           />
         </ModalField>
-        <label style={aiModalCheckboxRow}>
+        <label className={aiModalCheckboxRowClass}>
           <input
             type="checkbox"
             checked={isActive}
@@ -217,11 +224,16 @@ export function ProviderModal({
           />
         )}
 
-        <div style={aiModalActions}>
-          <button style={aiModalSecondaryBtn} onClick={onClose}>
+        <div className={aiModalActionsClass}>
+          <button type="button" className={aiModalSecondaryBtnClass} onClick={onClose}>
             {t('common.cancel')}
           </button>
-          <button style={aiModalPrimaryBtn} disabled={saving} onClick={() => void save()}>
+          <button
+            type="button"
+            className={aiModalPrimaryBtnClass}
+            disabled={saving}
+            onClick={() => void save()}
+          >
             {t('common.save')}
           </button>
         </div>

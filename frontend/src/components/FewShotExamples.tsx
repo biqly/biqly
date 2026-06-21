@@ -388,7 +388,7 @@ export default function FewShotExamples() {
 
         {/* Filters */}
         <div className={cn(formRowClass, 'mb-5')}>
-          <label className={legacyFormClass('form-field')} style={{ minWidth: '14rem' }}>
+          <label className={cn(legacyFormClass('form-field'), 'min-w-56')}>
             <span className={legacyFormClass('form-label')}>{t('few_shot.label_datasource')}</span>
             <Select
               value={selectedDatasourceId}
@@ -403,7 +403,7 @@ export default function FewShotExamples() {
             />
           </label>
           {selectedDatasourceId && (
-            <label className={legacyFormClass('form-field')} style={{ minWidth: '14rem' }}>
+            <label className={cn(legacyFormClass('form-field'), 'min-w-56')}>
               <span className={legacyFormClass('form-label')}>{t('few_shot.label_model')}</span>
               <Select
                 value={selectedModelId}
@@ -437,12 +437,7 @@ export default function FewShotExamples() {
                 {displayedExamples.map((ex) => (
                   <tr key={ex.id}>
                     <td
-                      style={{
-                        maxWidth: 280,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
+                      className="max-w-70 overflow-hidden text-ellipsis whitespace-nowrap"
                       title={ex.question}
                     >
                       {ex.question}
@@ -450,23 +445,13 @@ export default function FewShotExamples() {
                     <td>{getDatasourceName(ex.datasource_id)}</td>
                     <td>{getModelName(ex.model_id)}</td>
                     <td>
-                      <code style={{ fontSize: '0.78rem', color: 'var(--accent)' }}>
-                        {ex.dialect}
-                      </code>
+                      <code className="text-caption text-accent">{ex.dialect}</code>
                     </td>
                     <td>
                       {ex.tags.map((tag) => (
                         <span
                           key={tag}
-                          style={{
-                            display: 'inline-block',
-                            padding: '0.15rem 0.5rem',
-                            background: 'rgba(96,165,250,0.1)',
-                            borderRadius: '0.3rem',
-                            fontSize: '0.72rem',
-                            marginRight: '0.3rem',
-                            color: 'var(--accent)',
-                          }}
+                          className="text-caption text-accent mr-1 inline-block rounded-[5px] bg-blue-400/10 px-2 py-0.5"
                         >
                           {tag}
                         </span>
@@ -550,10 +535,7 @@ export default function FewShotExamples() {
               />
             </div>
 
-            <div
-              className={legacyFormClass('form-group')}
-              style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
-            >
+            <div className={cn(legacyFormClass('form-group'), 'flex flex-1 flex-col')}>
               <label htmlFor="fs-lq">{t('few_shot.label_lq_json')}</label>
               <textarea
                 ref={lqRef}
@@ -562,12 +544,7 @@ export default function FewShotExamples() {
                 onChange={(e) => setFormLq(e.target.value)}
                 onFocus={() => setLastFocusedInput('lq')}
                 placeholder='{"select": [{"type": "metric", "name": "revenue"}]}'
-                style={{
-                  fontFamily: 'monospace',
-                  fontSize: '0.8rem',
-                  flex: 1,
-                  minHeight: '120px',
-                }}
+                className="text-caption min-h-30 flex-1 font-mono"
               />
             </div>
 
@@ -634,28 +611,14 @@ export default function FewShotExamples() {
                     </button>
                   ))}
                   {filteredDimensions.length === 0 && filteredMetrics.length === 0 && (
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        color: 'var(--text-secondary)',
-                        textAlign: 'center',
-                        marginTop: '1rem',
-                      }}
-                    >
+                    <span className="text-caption text-foreground-muted mt-4 text-center">
                       No fields found
                     </span>
                   )}
                 </div>
               </>
             ) : (
-              <div
-                style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--text-secondary)',
-                  lineHeight: '1.4',
-                  marginTop: '0.5rem',
-                }}
-              >
+              <div className="text-caption text-foreground-muted mt-2 leading-normal">
                 {t('few_shot.helper_select_model')}
               </div>
             )}

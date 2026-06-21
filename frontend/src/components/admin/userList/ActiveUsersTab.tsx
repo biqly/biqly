@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 
 import { localeLanguageTag, useLocale, useT } from '../../../i18n'
+import { cn } from '../../../lib/cn'
 import type { AuthUser } from '../../../types/auth'
 import { formatDateOnly } from '../../../utils/formatters'
 import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../../utils/paging'
@@ -81,38 +82,23 @@ export function ActiveUsersTab({
       key: 'user',
       header: t('admin.users.col_user'),
       cell: (u) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="flex items-center gap-3">
           <div
-            className={adminListAvatarClass}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              background: 'var(--bg-avatar, #e0e7ff)',
-              color: 'var(--text-avatar, #4f46e5)',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              fontWeight: 700,
-              fontSize: 12,
-              overflow: 'hidden',
-              flexShrink: 0,
-            }}
+            className={cn(
+              adminListAvatarClass,
+              'text-accent flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-xs font-bold',
+            )}
           >
             {u.avatarUrl ? (
-              <img
-                src={u.avatarUrl}
-                alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
+              <img src={u.avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : u.displayName ? (
               u.displayName.slice(0, 2).toUpperCase()
             ) : (
               u.email.slice(0, 2).toUpperCase()
             )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontWeight: 600 }}>{u.email}</span>
+          <div className="flex flex-col">
+            <span className="font-semibold">{u.email}</span>
             {u.username && <span className={adminSubtextClass}>{u.username}</span>}
           </div>
         </div>
@@ -136,7 +122,7 @@ export function ActiveUsersTab({
       key: 'email_verification',
       header: t('admin.users.col_email_verification'),
       cell: (u) => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+        <div className="flex flex-col items-start gap-1.5">
           <span className={adminVerifiedBadgeClass(u.emailVerified)}>
             {u.emailVerified ? t('admin.users.email_verified') : t('admin.users.email_unverified')}
           </span>
@@ -198,16 +184,15 @@ export function ActiveUsersTab({
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="flex flex-wrap items-center gap-3">
         <input
           type="text"
           placeholder={t('admin.users.search_placeholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className={adminInputClass}
-          style={{ maxWidth: 320 }}
+          className={cn(adminInputClass, 'max-w-xs')}
         />
-        <div style={{ minWidth: 180 }}>
+        <div className="min-w-45">
           <Select
             value={statusFilter}
             options={statusOptions}

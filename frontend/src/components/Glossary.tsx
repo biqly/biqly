@@ -510,7 +510,7 @@ export default function Glossary() {
         <div className={legacyCardClass('card-intro')}>
           <div className={legacyCardClass('card-header-row')}>
             <h2>{t('glossary.title')}</h2>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 className={legacyButtonClass('btn btn-sm btn-secondary')}
@@ -541,7 +541,7 @@ export default function Glossary() {
 
         {/* Filters & Search */}
         <div className={cn(formRowClass, 'mb-5')}>
-          <label className={legacyFormClass('form-field')} style={{ minWidth: '14rem' }}>
+          <label className={cn(legacyFormClass('form-field'), 'min-w-56')}>
             <span className={legacyFormClass('form-label')}>{t('glossary.label_datasource')}</span>
             <Select
               value={selectedDatasourceId}
@@ -552,7 +552,7 @@ export default function Glossary() {
               }}
             />
           </label>
-          <label className={legacyFormClass('form-field')} style={{ minWidth: '14rem' }}>
+          <label className={cn(legacyFormClass('form-field'), 'min-w-56')}>
             <span className={legacyFormClass('form-label')}>{t('glossary.label_model')}</span>
             <Select
               value={selectedModelId}
@@ -563,7 +563,7 @@ export default function Glossary() {
               onChange={setSelectedModelId}
             />
           </label>
-          <div className={legacyFormClass('form-field')} style={{ flex: 1, minWidth: '16rem' }}>
+          <div className={cn(legacyFormClass('form-field'), 'min-w-[16rem] flex-1')}>
             <span className={legacyFormClass('form-label')}>{t('common.search')}</span>
             <input
               type="text"
@@ -639,47 +639,24 @@ export default function Glossary() {
               <tbody>
                 {displayedTerms.map((term) => (
                   <tr key={term.id}>
-                    <td style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{term.term}</td>
+                    <td className="text-foreground font-semibold">{term.term}</td>
                     <td
-                      style={{
-                        maxWidth: 300,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
+                      className="max-w-75 overflow-hidden text-ellipsis whitespace-nowrap"
                       title={term.definition}
                     >
-                      {term.definition ?? (
-                        <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>—</span>
-                      )}
+                      {term.definition ?? <span className="text-foreground-faint italic">—</span>}
                     </td>
                     <td>
-                      <code style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>
-                        {term.maps_to_name}
-                      </code>
+                      <code className="text-caption text-foreground">{term.maps_to_name}</code>
                     </td>
                     <td>
                       <span
-                        style={{
-                          display: 'inline-block',
-                          padding: '0.15rem 0.45rem',
-                          borderRadius: '0.25rem',
-                          fontSize: '0.7rem',
-                          fontWeight: '700',
-                          textTransform: 'uppercase',
-                          background:
-                            term.maps_to_type === 'metric'
-                              ? 'rgba(16,185,129,0.1)'
-                              : term.maps_to_type === 'dimension'
-                                ? 'rgba(59,130,246,0.1)'
-                                : 'rgba(139,92,246,0.1)',
-                          color:
-                            term.maps_to_type === 'metric'
-                              ? '#10b981'
-                              : term.maps_to_type === 'dimension'
-                                ? '#3b82f6'
-                                : '#8b5cf6',
-                        }}
+                        className={cn(
+                          'text-2xs inline-block rounded px-1.5 py-0.5 font-bold uppercase',
+                          term.maps_to_type === 'metric' && 'bg-success/10 text-success',
+                          term.maps_to_type === 'dimension' && 'bg-blue-500/10 text-blue-500',
+                          term.maps_to_type === 'model' && 'bg-purple-500/10 text-purple-500',
+                        )}
                       >
                         {t(`glossary.type_${term.maps_to_type}`)}
                       </span>
@@ -689,23 +666,13 @@ export default function Glossary() {
                         term.aliases.map((alias) => (
                           <span
                             key={alias}
-                            style={{
-                              display: 'inline-block',
-                              padding: '0.15rem 0.45rem',
-                              background: 'rgba(255,255,255,0.05)',
-                              border: '1px solid var(--border)',
-                              borderRadius: '0.25rem',
-                              fontSize: '0.7rem',
-                              marginRight: '0.25rem',
-                              marginBottom: '0.25rem',
-                              color: 'var(--text-secondary)',
-                            }}
+                            className="border-border text-2xs text-foreground-muted mr-1 mb-1 inline-block rounded border bg-white/5 px-1.5 py-0.5"
                           >
                             {alias}
                           </span>
                         ))
                       ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        <span className="text-foreground-faint">—</span>
                       )}
                     </td>
                     <td className="actions">
@@ -838,48 +805,17 @@ export default function Glossary() {
 
             <div className={legacyFormClass('form-group')}>
               <label htmlFor="gl-aliases">{t('glossary.label_aliases')}</label>
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '0.4rem',
-                  padding: '0.4rem',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  background: 'var(--bg-primary)',
-                  alignItems: 'center',
-                }}
-              >
+              <div className="border-border bg-canvas flex flex-wrap items-center gap-1.5 rounded-lg border p-1.5">
                 {formAliases.map((alias) => (
                   <span
                     key={alias}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      padding: '0.15rem 0.5rem',
-                      background: 'rgba(96,165,250,0.1)',
-                      border: '1px solid rgba(96,165,250,0.2)',
-                      borderRadius: '0.25rem',
-                      fontSize: '0.75rem',
-                      color: 'var(--accent)',
-                    }}
+                    className="text-caption text-accent inline-flex items-center gap-1 rounded border border-blue-400/20 bg-blue-400/10 px-2 py-0.5"
                   >
                     {alias}
                     <button
                       type="button"
                       onClick={() => handleRemoveAlias(alias)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--accent)',
-                        cursor: 'pointer',
-                        fontSize: '0.8rem',
-                        fontWeight: 'bold',
-                        padding: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
+                      className="text-accent text-caption flex cursor-pointer items-center border-0 bg-transparent p-0 font-bold"
                     >
                       ×
                     </button>
@@ -893,13 +829,7 @@ export default function Glossary() {
                   onKeyDown={handleAliasKeyDown}
                   onBlur={handleAddAlias}
                   placeholder={t('glossary.placeholder_aliases')}
-                  className="w-auto! border-0! bg-transparent! px-1.5! py-1! shadow-none! focus-visible:shadow-none! focus-visible:ring-0!"
-                  style={{
-                    flex: '1',
-                    minWidth: '120px',
-                    fontSize: '0.8rem',
-                    color: 'var(--text-primary)',
-                  }}
+                  className="text-caption text-foreground w-auto! min-w-30 flex-1 border-0! bg-transparent! px-1.5! py-1! shadow-none! focus-visible:shadow-none! focus-visible:ring-0!"
                 />
               </div>
             </div>
@@ -908,48 +838,17 @@ export default function Glossary() {
               <label>{t('glossary.section_ai_context')}</label>
               <div className={legacyFormClass('form-group')}>
                 <label htmlFor="gl-context-synonyms">{t('glossary.label_context_synonyms')}</label>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: '0.4rem',
-                    padding: '0.4rem',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    background: 'var(--bg-primary)',
-                    alignItems: 'center',
-                  }}
-                >
+                <div className="border-border bg-canvas flex flex-wrap items-center gap-1.5 rounded-lg border p-1.5">
                   {formContextSynonyms.map((synonym) => (
                     <span
                       key={synonym}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.25rem',
-                        padding: '0.15rem 0.5rem',
-                        background: 'rgba(167,139,250,0.1)',
-                        border: '1px solid rgba(167,139,250,0.2)',
-                        borderRadius: '0.25rem',
-                        fontSize: '0.75rem',
-                        color: '#a78bfa',
-                      }}
+                      className="text-caption inline-flex items-center gap-1 rounded border border-purple-400/20 bg-purple-400/10 px-2 py-0.5 text-purple-400"
                     >
                       {synonym}
                       <button
                         type="button"
                         onClick={() => handleRemoveContextSynonym(synonym)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#a78bfa',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem',
-                          fontWeight: 'bold',
-                          padding: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
+                        className="text-caption flex cursor-pointer items-center border-0 bg-transparent p-0 font-bold text-purple-400"
                       >
                         ×
                       </button>
@@ -963,13 +862,7 @@ export default function Glossary() {
                     onKeyDown={handleContextSynonymKeyDown}
                     onBlur={handleAddContextSynonym}
                     placeholder={t('glossary.placeholder_context_synonyms')}
-                    className="w-auto! border-0! bg-transparent! px-1.5! py-1! shadow-none! focus-visible:shadow-none! focus-visible:ring-0!"
-                    style={{
-                      flex: '1',
-                      minWidth: '120px',
-                      fontSize: '0.8rem',
-                      color: 'var(--text-primary)',
-                    }}
+                    className="text-caption text-foreground w-auto! min-w-30 flex-1 border-0! bg-transparent! px-1.5! py-1! shadow-none! focus-visible:shadow-none! focus-visible:ring-0!"
                   />
                 </div>
               </div>
@@ -997,48 +890,17 @@ export default function Glossary() {
               </div>
               <div className={legacyFormClass('form-group')}>
                 <label htmlFor="gl-business-rules">{t('glossary.label_business_rules')}</label>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: '0.4rem',
-                    padding: '0.4rem',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    background: 'var(--bg-primary)',
-                    alignItems: 'center',
-                  }}
-                >
+                <div className="border-border bg-canvas flex flex-wrap items-center gap-1.5 rounded-lg border p-1.5">
                   {formBusinessRules.map((rule) => (
                     <span
                       key={rule}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.25rem',
-                        padding: '0.15rem 0.5rem',
-                        background: 'rgba(245,158,11,0.1)',
-                        border: '1px solid rgba(245,158,11,0.2)',
-                        borderRadius: '0.25rem',
-                        fontSize: '0.75rem',
-                        color: '#f59e0b',
-                      }}
+                      className="bg-warning/10 border-warning/20 text-caption text-warning inline-flex items-center gap-1 rounded border px-2 py-0.5"
                     >
                       {rule}
                       <button
                         type="button"
                         onClick={() => handleRemoveBusinessRule(rule)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#f59e0b',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem',
-                          fontWeight: 'bold',
-                          padding: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
+                        className="text-warning text-caption flex cursor-pointer items-center border-0 bg-transparent p-0 font-bold"
                       >
                         ×
                       </button>
@@ -1052,13 +914,7 @@ export default function Glossary() {
                     onKeyDown={handleBusinessRuleKeyDown}
                     onBlur={handleAddBusinessRule}
                     placeholder={t('glossary.placeholder_business_rules')}
-                    className="w-auto! border-0! bg-transparent! px-1.5! py-1! shadow-none! focus-visible:shadow-none! focus-visible:ring-0!"
-                    style={{
-                      flex: '1',
-                      minWidth: '120px',
-                      fontSize: '0.8rem',
-                      color: 'var(--text-primary)',
-                    }}
+                    className="text-caption text-foreground w-auto! min-w-30 flex-1 border-0! bg-transparent! px-1.5! py-1! shadow-none! focus-visible:shadow-none! focus-visible:ring-0!"
                   />
                 </div>
               </div>
@@ -1122,28 +978,14 @@ export default function Glossary() {
                     </button>
                   ))}
                   {filteredDimensions.length === 0 && filteredMetrics.length === 0 && (
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        color: 'var(--text-secondary)',
-                        textAlign: 'center',
-                        marginTop: '1rem',
-                      }}
-                    >
+                    <span className="text-caption text-foreground-muted mt-4 text-center">
                       No fields found
                     </span>
                   )}
                 </div>
               </>
             ) : (
-              <div
-                style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--text-secondary)',
-                  lineHeight: '1.4',
-                  marginTop: '0.5rem',
-                }}
-              >
+              <div className="text-caption text-foreground-muted mt-2 leading-normal">
                 {t('few_shot.helper_select_model')}
               </div>
             )}

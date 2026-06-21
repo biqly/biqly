@@ -111,7 +111,7 @@ export function AccountProfileHero({
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            style={{ display: 'none' }}
+            className="hidden"
             onChange={onFileChange}
           />
         </div>
@@ -127,8 +127,7 @@ export function AccountProfileHero({
 
       <form
         onSubmit={(e) => void onProfileSubmit(e)}
-        className="flex flex-col gap-3"
-        style={{ borderTop: 'none', paddingTop: 0 }}
+        className="flex flex-col gap-3 border-t-0 pt-0"
       >
         <h3 className="m-0 text-[0.95rem] font-semibold">{t('settings.profile_name_title')}</h3>
         <div className={legacyFormClass('form-group')}>
@@ -196,11 +195,7 @@ export function AccountEmailChangeSection({
       className={legacyCardClass('card card--elevated flex flex-col gap-6')}
       aria-labelledby="settings-email-change-heading"
     >
-      <form
-        onSubmit={(e) => void onSubmit(e)}
-        className="flex flex-col gap-3"
-        style={{ borderTop: 'none', paddingTop: 0 }}
-      >
+      <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-3 border-t-0 pt-0">
         <h3 id="settings-email-change-heading" className="m-0 text-[0.95rem] font-semibold">
           {t('settings.profile_email_change_title')}
         </h3>
@@ -275,11 +270,7 @@ export function AccountPasswordSection({
       className={legacyCardClass('card card--elevated flex flex-col gap-6')}
       aria-labelledby="settings-password-heading"
     >
-      <form
-        onSubmit={(e) => void onSubmit(e)}
-        className="flex flex-col gap-3"
-        style={{ borderTop: 'none', paddingTop: 0 }}
-      >
+      <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-3 border-t-0 pt-0">
         <h3 id="settings-password-heading" className="m-0 text-[0.95rem] font-semibold">
           {t('settings.profile_password_title')}
         </h3>
@@ -373,15 +364,13 @@ export function AccountMfaBypassSection({
 }) {
   return (
     <section
-      className={legacyCardClass('card card--elevated flex flex-col gap-6')}
-      style={{
-        borderColor: 'color-mix(in srgb, var(--warning, #f59e0b) 20%, var(--border))',
-        background:
-          'linear-gradient(180deg, var(--bg-card) 0%, color-mix(in srgb, var(--warning, #f59e0b) 3%, var(--bg-card)) 100%)',
-      }}
+      className={cn(
+        legacyCardClass('card card--elevated flex flex-col gap-6'),
+        'from-card border-[color-mix(in_srgb,var(--warning)_20%,var(--border))] bg-linear-to-b to-[color-mix(in_srgb,var(--warning)_3%,var(--bg-card))]',
+      )}
       aria-labelledby="settings-support-heading"
     >
-      <div className="flex flex-col gap-3" style={{ borderTop: 'none', paddingTop: 0 }}>
+      <div className="flex flex-col gap-3 border-t-0 pt-0">
         <h3 id="settings-support-heading" className="m-0 text-[0.95rem] font-semibold">
           {t('settings.profile_mfa_bypass_title')}
         </h3>
@@ -390,10 +379,13 @@ export function AccountMfaBypassSection({
         </p>
         <button
           type="button"
-          className={cn(legacyButtonClass('btn btn-secondary btn-sm'), adminBtnAutoWidthClass)}
+          className={cn(
+            legacyButtonClass('btn btn-secondary btn-sm'),
+            adminBtnAutoWidthClass,
+            'inline-flex items-center gap-1.5',
+          )}
           onClick={onGenerate}
           disabled={bypassGenerating}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
           {t('settings.profile_mfa_bypass_btn')}
         </button>
@@ -409,8 +401,11 @@ export function AccountMfaBypassSection({
             </code>
             <button
               type="button"
-              className={cn(legacyButtonClass('btn btn-secondary btn-sm'), adminBtnAutoWidthClass)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              className={cn(
+                legacyButtonClass('btn btn-secondary btn-sm'),
+                adminBtnAutoWidthClass,
+                'inline-flex items-center gap-1.5',
+              )}
               onClick={() => void navigator.clipboard.writeText(bypassCode)}
             >
               {t('admin.user_detail.copy')}

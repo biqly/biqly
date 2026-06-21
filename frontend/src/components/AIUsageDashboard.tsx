@@ -63,7 +63,7 @@ export default function AIUsageDashboard() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className="flex flex-col gap-8">
       {summary && <AIUsageSection summary={summary} daily={daily} />}
       {models.length > 0 && <ModelSuccessRates models={models} />}
     </div>
@@ -73,7 +73,7 @@ export default function AIUsageDashboard() {
 function AIUsageSkeleton({ heading }: { heading: string }) {
   return (
     <div>
-      <h2 style={{ marginBottom: '1rem' }}>{heading}</h2>
+      <h2 className="mb-4">{heading}</h2>
       <div
         style={{
           display: 'grid',
@@ -83,11 +83,7 @@ function AIUsageSkeleton({ heading }: { heading: string }) {
         }}
       >
         {Array.from({ length: 6 }, (_, i) => (
-          <div
-            key={i}
-            className={legacyCardClass('card')}
-            style={{ display: 'grid', gap: '0.6rem' }}
-          >
+          <div key={i} className={`${legacyCardClass('card')} grid gap-[0.6rem]`}>
             <Skeleton height="0.7rem" width="55%" />
             <Skeleton height="1.6rem" width="70%" />
           </div>
@@ -101,11 +97,7 @@ function AIUsageSkeleton({ heading }: { heading: string }) {
         }}
       >
         {Array.from({ length: 2 }, (_, i) => (
-          <div
-            key={i}
-            className={legacyCardClass('card')}
-            style={{ display: 'grid', gap: '0.8rem' }}
-          >
+          <div key={i} className={`${legacyCardClass('card')} grid gap-[0.8rem]`}>
             <Skeleton height="1rem" width="40%" />
             <Skeleton height={250} radius="0.5rem" />
           </div>
@@ -126,7 +118,7 @@ function AIUsageSection({ summary, daily }: { summary: AIUsageSummary; daily: Da
 
   return (
     <div>
-      <h2 style={{ marginBottom: '1rem' }}>{t('dashboard.ai_usage_last_30')}</h2>
+      <h2 className="mb-4">{t('dashboard.ai_usage_last_30')}</h2>
 
       <div
         style={{
@@ -180,7 +172,7 @@ function AIUsageSection({ summary, daily }: { summary: AIUsageSummary; daily: Da
           {trendData.length > 0 ? (
             <ChartContainer data={trendData} type="line" height={250} dataKey="queries" />
           ) : (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>
+            <p className="text-foreground-faint pt-16 text-center">
               {t('dashboard.no_ai_queries')}
             </p>
           )}
@@ -198,9 +190,7 @@ function AIUsageSection({ summary, daily }: { summary: AIUsageSummary; daily: Da
               barRadius={[4, 4, 0, 0]}
             />
           ) : (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '4rem' }}>
-              {t('dashboard.no_cost_data')}
-            </p>
+            <p className="text-foreground-faint pt-16 text-center">{t('dashboard.no_cost_data')}</p>
           )}
         </div>
       </div>
@@ -216,54 +206,49 @@ function ModelSuccessRates({ models }: { models: ModelStats[] }) {
 
   return (
     <div>
-      <h2 style={{ marginBottom: '1rem' }}>{t('dashboard.model_rates_heading')}</h2>
+      <h2 className="mb-4">{t('dashboard.model_rates_heading')}</h2>
       <div className={legacyTableClass('results-table-scroll')}>
         <table className={legacyTableClass('results-table')}>
           <thead>
             <tr>
               <th>{t('dashboard.col_model')}</th>
-              <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_total')}</th>
-              <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_success')}</th>
-              <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_fail')}</th>
-              <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_success_pct')}</th>
-              <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_confidence')}</th>
-              <th style={{ textAlign: 'right' }}>{t('dashboard.tbl_latency')}</th>
-              <th style={{ textAlign: 'right' }}>👍</th>
-              <th style={{ textAlign: 'right' }}>👎</th>
+              <th className="text-right">{t('dashboard.tbl_total')}</th>
+              <th className="text-right">{t('dashboard.tbl_success')}</th>
+              <th className="text-right">{t('dashboard.tbl_fail')}</th>
+              <th className="text-right">{t('dashboard.tbl_success_pct')}</th>
+              <th className="text-right">{t('dashboard.tbl_confidence')}</th>
+              <th className="text-right">{t('dashboard.tbl_latency')}</th>
+              <th className="text-right">👍</th>
+              <th className="text-right">👎</th>
             </tr>
           </thead>
           <tbody>
             {models.map((m) => (
               <tr key={m.model_id}>
                 <td>{m.model_name ?? m.model_id}</td>
-                <td style={{ textAlign: 'right' }}>{m.total_queries}</td>
-                <td style={{ textAlign: 'right', color: 'var(--success)' }}>{m.success_count}</td>
-                <td style={{ textAlign: 'right', color: 'var(--error)' }}>{m.failure_count}</td>
-                <td style={{ textAlign: 'right' }}>
-                  <span
-                    style={{
-                      color: getRateColor(m.success_rate),
-                      fontWeight: 700,
-                    }}
-                  >
+                <td className="text-right">{m.total_queries}</td>
+                <td className="text-success text-right">{m.success_count}</td>
+                <td className="text-error text-right">{m.failure_count}</td>
+                <td className="text-right">
+                  <span style={{ color: getRateColor(m.success_rate) }} className="font-bold">
                     {m.success_rate.toFixed(1)}%
                   </span>
                 </td>
-                <td style={{ textAlign: 'right' }}>{(m.avg_confidence * 100).toFixed(0)}%</td>
-                <td style={{ textAlign: 'right' }}>
+                <td className="text-right">{(m.avg_confidence * 100).toFixed(0)}%</td>
+                <td className="text-right">
                   {t('evaluation.latency_ms', { ms: Math.round(m.avg_latency_ms) })}
                 </td>
-                <td style={{ textAlign: 'right', color: 'var(--success)' }}>{m.positive_count}</td>
-                <td style={{ textAlign: 'right', color: 'var(--error)' }}>{m.negative_count}</td>
+                <td className="text-success text-right">{m.positive_count}</td>
+                <td className="text-error text-right">{m.negative_count}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className={legacyCardClass('card')} style={{ marginTop: '1rem' }}>
+      <div className={`${legacyCardClass('card')} mt-4`}>
         <h3>{t('dashboard.chart_success_compare')}</h3>
-        <div style={{ height: 250 }}>
+        <div className="h-62.5">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={models.map((m) => ({

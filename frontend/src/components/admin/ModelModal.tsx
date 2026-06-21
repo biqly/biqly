@@ -18,13 +18,13 @@ import { errorMessage } from '../../utils/error'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import {
-  aiModalActions,
-  aiModalCheckboxRow,
-  aiModalFormStyle,
-  aiModalInputStyle,
-  aiModalLinkBtn,
-  aiModalPrimaryBtn,
-  aiModalSecondaryBtn,
+  aiModalActionsClass,
+  aiModalCheckboxRowClass,
+  aiModalFormClass,
+  aiModalInputClass,
+  aiModalLinkBtnClass,
+  aiModalPrimaryBtnClass,
+  aiModalSecondaryBtnClass,
   ModalField,
   PURPOSES,
 } from './aiProviderModalShared'
@@ -68,10 +68,10 @@ function RemoteModelIdPicker({
   }, [remoteModels, modelID])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-stretch gap-2">
         {remoteModels.length > 0 && !useManualModelID ? (
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="min-w-0 flex-1">
             <Select
               value={modelID}
               onChange={onModelIDChange}
@@ -81,7 +81,7 @@ function RemoteModelIdPicker({
           </div>
         ) : (
           <input
-            style={{ ...aiModalInputStyle, flex: 1 }}
+            className={cn(aiModalInputClass, 'flex-1')}
             ref={remoteModelIdInputRef}
             value={modelID}
             onChange={(e) => onModelIDChange(e.target.value)}
@@ -91,7 +91,7 @@ function RemoteModelIdPicker({
         )}
         <button
           type="button"
-          style={{ ...aiModalSecondaryBtn, flexShrink: 0, alignSelf: 'stretch' }}
+          className={cn(aiModalSecondaryBtnClass, 'shrink-0 self-stretch')}
           disabled={loadingRemote}
           onClick={onFetchRemote}
         >
@@ -106,7 +106,7 @@ function RemoteModelIdPicker({
           {' · '}
           <button
             type="button"
-            style={{ ...aiModalLinkBtn, padding: 0, fontSize: 'inherit' }}
+            className={cn(aiModalLinkBtnClass, 'p-0 text-inherit')}
             onClick={onToggleManual}
           >
             {useManualModelID
@@ -231,7 +231,7 @@ export function ModelModal({
       title={editing ? t('admin.ai_providers.edit_model') : t('admin.ai_providers.add_model')}
       onClose={onClose}
     >
-      <div style={aiModalFormStyle}>
+      <div className={aiModalFormClass}>
         <ModalField label={t('admin.ai_providers.fields.model_id')}>
           <RemoteModelIdPicker
             t={t}
@@ -248,7 +248,7 @@ export function ModelModal({
         </ModalField>
         <ModalField label={t('admin.ai_providers.fields.display_name')}>
           <input
-            style={aiModalInputStyle}
+            className={aiModalInputClass}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
           />
@@ -263,18 +263,18 @@ export function ModelModal({
             }))}
           />
         </ModalField>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <ModalField label={t('admin.ai_providers.fields.max_tokens')} style={{ flex: 1 }}>
+        <div className="flex gap-3">
+          <ModalField label={t('admin.ai_providers.fields.max_tokens')} className="flex-1">
             <input
-              style={aiModalInputStyle}
+              className={aiModalInputClass}
               type="number"
               value={maxTokens}
               onChange={(e) => setMaxTokens(Number(e.target.value))}
             />
           </ModalField>
-          <ModalField label={t('admin.ai_providers.fields.temperature')} style={{ flex: 1 }}>
+          <ModalField label={t('admin.ai_providers.fields.temperature')} className="flex-1">
             <input
-              style={aiModalInputStyle}
+              className={aiModalInputClass}
               type="number"
               step="0.1"
               value={temperature}
@@ -284,14 +284,14 @@ export function ModelModal({
         </div>
         <ModalField label={t('admin.ai_providers.fields.max_prompt_runes')}>
           <input
-            style={aiModalInputStyle}
+            className={aiModalInputClass}
             type="number"
             value={maxPromptRunes}
             onChange={(e) => setMaxPromptRunes(Number(e.target.value))}
           />
         </ModalField>
         {!editing && (
-          <label style={aiModalCheckboxRow}>
+          <label className={aiModalCheckboxRowClass}>
             <input
               type="checkbox"
               checked={isDefault}
@@ -300,11 +300,16 @@ export function ModelModal({
             {t('admin.ai_providers.fields.set_default')}
           </label>
         )}
-        <div style={aiModalActions}>
-          <button style={aiModalSecondaryBtn} onClick={onClose}>
+        <div className={aiModalActionsClass}>
+          <button type="button" className={aiModalSecondaryBtnClass} onClick={onClose}>
             {t('common.cancel')}
           </button>
-          <button style={aiModalPrimaryBtn} disabled={saving} onClick={() => void save()}>
+          <button
+            type="button"
+            className={aiModalPrimaryBtnClass}
+            disabled={saving}
+            onClick={() => void save()}
+          >
             {t('common.save')}
           </button>
         </div>
