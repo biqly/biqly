@@ -196,7 +196,7 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 		Columns:     colDescs,
 		SampleRows:  len(sample),
 	}
-	s.translateDescribeResult(ctx, result)
+	s.translateDescribeResult(ctx, result, req.Locale)
 
 	if req.AutoApply {
 		if err := s.apply(ctx, cols, result); err != nil {
@@ -208,8 +208,14 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 	return result, nil
 }
 
-func (s *DescribeService) translateDescribeResult(ctx context.Context, result *DescribeResult) {
+func (s *DescribeService) translateDescribeResult(ctx context.Context, result *DescribeResult, locale string) {
 	if s.translator == nil {
+		return
+	}
+	// Only translate when the request explicitly asks for a non-default locale.
+	// When the user chose English (or didn't specify), the LLM output is already
+	// in English — skip the translation round-trip entirely.
+	if loc := strings.TrimSpace(locale); loc == "" || loc == "en" {
 		return
 	}
 	// Snapshot the LLM's English output before the translator overwrites

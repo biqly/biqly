@@ -68,6 +68,7 @@ async function runSequentialFallback(opts: BulkEnqueueOpts): Promise<BulkDescrib
     queue: opts.queue,
     datasourceId: opts.datasourceId,
     sampleSize: opts.sampleSize,
+    locale: opts.locale,
     networkErrorMessage: opts.networkErrorMessage,
     okColumnsMessage: opts.okColumnsMessage,
     isCancelled: opts.isCancelled,

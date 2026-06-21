@@ -49,7 +49,7 @@ export function MetadataDescribeModal({
   locale,
 }: MetadataDescribeModalProps) {
   const t = useT()
-  const [form, setForm] = useState({ sample_size: 10, auto_apply: false })
+  const [form, setForm] = useState({ sample_size: 10, auto_apply: true })
   const [result, setResult] = useState<DescribeResult | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
