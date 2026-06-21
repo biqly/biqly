@@ -49,7 +49,18 @@ Run `npx prettier --check` (or `npm --prefix frontend run format:check`) on ever
 
 **Speed tip**: full-repo `lint:tailwind` waits ~30s for LSP diagnostics; scope to changed files: `npm --prefix frontend run lint:tailwind -- src/components/Foo.tsx`.
 
-### Go Min/Max Modernization
+### Unit Test External Service Gate Before Commit
+
+`make test-go` (and CI `go test ./...`) runs `internal/testpolicy` static analysis: `TestUnitTestsDoNotRequireLiveExternalServices`.
+
+**Why it bites**: a unit test can pass locally when Docker infra is up (`make dev-up` → NATS/Redis/Postgres on localhost) but fail in CI where those services are absent. Real example: `TestConnectNATS_DefaultsApplied` called `ConnectNATS("nats://localhost:4222")` + `require.NoError` — green locally, red in GitHub Actions.
+
+**Rule**: default `./...` unit tests must not require live NATS/Redis/DB. Prefer mocks (see `internal/queue/nats_test.go`), extract pure helpers (`normalizeNATSConfig`), or `t.Skip` when the service is unavailable. Full stack tests belong in `*_integration_test.go` or `//go:build integration` files.
+
+**Checker**: flags `require.NoError` / `assert.NoError` on errors from `ConnectNATS` / `nats.Connect` without `t.Skip` in the same test. Extend `liveConnectCallees` in `internal/testpolicy/external_service_usage_test.go` when adding similar connect helpers.
+
+**Local CI parity**: run `make test-go` or `make verify-main` before push — do not rely on `go test ./internal/queue/...` alone if NATS happens to be running locally.
+
 
 Use Go's built-in `min` / `max` for simple clamps and two-value comparisons, such as `chunk = min(chunk, len(encoded))`. Keep explicit `if` statements when branches have side effects, extra logic, or clearer domain meaning.
 
