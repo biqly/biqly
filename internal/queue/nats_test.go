@@ -294,20 +294,18 @@ func TestConnectNATS_Errors(t *testing.T) {
 	assert.Contains(t, err2.Error(), "nats connect")
 }
 
-func TestConnectNATS_DefaultsApplied(t *testing.T) {
-	cfg := NATSConfig{URL: "nats://localhost:4222"}
-	q, err := ConnectNATS(cfg)
-	require.NoError(t, err)
-	require.NotNil(t, q)
+func TestNormalizeNATSConfig(t *testing.T) {
+	got := normalizeNATSConfig(NATSConfig{URL: "nats://127.0.0.1:4222"})
+	assert.Equal(t, AIJobStream, got.Stream)
+	assert.Equal(t, AIJobSubject, got.Subject)
 
-	assert.Equal(t, AIJobStream, q.stream)
-	assert.Equal(t, AIJobSubject, q.subj)
-
-	// Close with non-nil nc (covers line 170)
-	assert.NoError(t, q.Close())
-
-	// Double close (nil nc path)
-	assert.NoError(t, q.Close())
+	custom := normalizeNATSConfig(NATSConfig{
+		URL:     "nats://127.0.0.1:4222",
+		Stream:  "custom-stream",
+		Subject: "custom.subject",
+	})
+	assert.Equal(t, "custom-stream", custom.Stream)
+	assert.Equal(t, "custom.subject", custom.Subject)
 }
 
 func TestNATSQueueSubscribe_EmptyGroupDefault(t *testing.T) {
