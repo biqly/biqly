@@ -1300,6 +1300,7 @@ func normalizeLogicalQueryContext(lq *query.LogicalQuery, model *semantic.Semant
 			names = append(names, model.Dimensions[i].Name)
 		}
 		query.RepairMisnamedCalendarGrainDimensions(lq, names)
+		query.RepairRawTimestampDayEqualityFilters(lq, model)
 	}
 }
 

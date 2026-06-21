@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatDateOnly, formatDateTime, formatDurationMs, getRateColor } from './formatters'
+import {
+  formatDateOnly,
+  formatDateTime,
+  formatDurationMs,
+  formatTimeOnly,
+  getRateColor,
+} from './formatters'
 
 describe('formatDurationMs', () => {
   it('formats sub-second, second, minute, and hour ranges', () => {
@@ -39,6 +45,18 @@ describe('formatDateTime / formatDateOnly', () => {
   it('passes unparseable strings through as-is (AuditLog convention)', () => {
     expect(formatDateTime('not-a-date', 'en-US')).toBe('not-a-date')
     expect(formatDateOnly('', 'tr-TR')).toBe('')
+  })
+})
+
+describe('formatTimeOnly', () => {
+  it('formats compact time values per locale', () => {
+    const iso = '2026-06-12T14:30:00Z'
+    expect(formatTimeOnly(iso, 'en-US')).toBe(
+      new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    )
+    expect(formatTimeOnly(iso, 'tr-TR')).toBe(
+      new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+    )
   })
 })
 

@@ -3,8 +3,9 @@ package ai
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"github.com/bytedance/sonic"
 	"time"
+
+	"github.com/bytedance/sonic"
 
 	ambiguitypkg "github.com/biqly/biqly/internal/ai/ambiguity"
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"

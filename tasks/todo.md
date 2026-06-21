@@ -4976,5 +4976,5 @@ Notes:
 - [ ] A10: inline-style→utility (643 blocks), magic-value tokens (`text-caption` etc.), `cn()` adoption (~43 sites).
 - [ ] A11: `AdminPanelShell`/`AdminFormSection` (FW-3).
 - [ ] A12: deprecate BEM `.btn`/`.card` (~170 call sites) as A4 lands.
-- [ ] A13: adopt `formatters` at 26+ inline `toLocale*` sites (FW-10 adoption).
+- [x] A13 DONE 2026-06-21: adopted shared locale-aware formatters for remaining inline date/time display bypasses in `PromptTemplates`, `Datasources`, `AIHistoryPanel`, `ChatPanel`, `EvalHistoryTab`, and `EvalRegressionTab`; added `formatTimeOnly` + formatter regression coverage. Remaining raw `toLocaleString` uses are numeric formatting, and `resultCellFormat.ts` keeps its central generic cell-date formatter. Verified: focused formatter vitest ✓, eslint ✓, tailwind diagnostics ✓, format:check ✓, knip:ci ✓, vitest 214/214 ✓, build/typecheck ✓.
 - [ ] QA gap: seeded-workspace pass for data-heavy states (UX-3) — populated tables, charts, Row Modal, generation trace, clarification cards, async job tray.

@@ -3,7 +3,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import type { Locale, TranslationKey } from '../i18n'
-import { DEFAULT_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, useT } from '../i18n'
+import {
+  DEFAULT_LOCALE,
+  LOCALE_OPTIONS,
+  localeLanguageTag,
+  SUPPORTED_LOCALES,
+  useLocale,
+  useT,
+} from '../i18n'
 import { legacyButtonClass } from '../lib/buttonClasses'
 import { legacyCardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
@@ -15,6 +22,7 @@ import {
   promptEditorUnderlayClass,
 } from '../lib/promptEditorClasses'
 import { legacyTableClass } from '../lib/tableClasses'
+import { formatDateTime } from '../utils/formatters'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
 import { Select } from './ui/Select'
@@ -125,6 +133,8 @@ function highlightContent(text: string) {
 
 export default function PromptTemplates() {
   const t = useT()
+  const [locale] = useLocale()
+  const languageTag = localeLanguageTag(locale)
   const { get, putData, postData, loading, error } = useApi()
   const confirm = useConfirm()
   const [initLoading, setInitLoading] = useState(true)
@@ -378,7 +388,7 @@ export default function PromptTemplates() {
   }
 
   const updatedLabel =
-    currentRow?.updated_at != null ? new Date(currentRow.updated_at).toLocaleString() : '—'
+    currentRow?.updated_at != null ? formatDateTime(currentRow.updated_at, languageTag) : '—'
 
   if (initLoading && rows.length === 0) {
     return <LoadingScreen minHeight="300px" />
@@ -651,7 +661,7 @@ export default function PromptTemplates() {
                           ? t('prompt_templates.status_active')
                           : t('prompt_templates.status_inactive')}
                       </td>
-                      <td>{new Date(row.updated_at).toLocaleString()}</td>
+                      <td>{formatDateTime(row.updated_at, languageTag)}</td>
                       <td>{row.content.length}</td>
                     </tr>
                   ))}

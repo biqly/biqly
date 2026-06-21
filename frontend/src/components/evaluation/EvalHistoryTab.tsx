@@ -4,7 +4,7 @@ import { legacyCardClass } from '../../lib/cardClasses'
 import { evalStatusBadgeClass } from '../../lib/feedbackClasses'
 import { legacyTableClass } from '../../lib/tableClasses'
 import type { EvalRunDetail, EvalRunSummary } from '../../types/ai'
-import { getRateColor } from '../../utils/formatters'
+import { formatDateTime, getRateColor } from '../../utils/formatters'
 import { KPICard } from '../ui/KPICard'
 interface EvalHistoryTabProps {
   runHistory: EvalRunSummary[]
@@ -48,7 +48,7 @@ export function EvalHistoryTab({
             <tbody>
               {runHistory.map((r) => (
                 <tr key={r.run_id}>
-                  <td>{new Date(r.completed_at).toLocaleString(localeTag)}</td>
+                  <td>{formatDateTime(r.completed_at, localeTag)}</td>
                   <td>{r.model}</td>
                   <td>{r.total_cases}</td>
                   <td style={{ color: 'var(--success)' }}>{r.passed}</td>
@@ -112,7 +112,7 @@ export function EvalHistoryTab({
         <h3>
           {t('evaluation.detail_cases_title', {
             model: selectedRun.summary.model,
-            date: new Date(selectedRun.summary.completed_at).toLocaleString(localeTag),
+            date: formatDateTime(selectedRun.summary.completed_at, localeTag),
           })}
         </h3>
         <table className={legacyTableClass('results-table mt-2')}>

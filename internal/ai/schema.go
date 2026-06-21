@@ -1,3 +1,4 @@
+// Package ai defines the AI query endpoint schema and response types.
 package ai
 
 import (

@@ -37,6 +37,15 @@ export function formatDateOnly(value: string | Date, languageTag: string): strin
   return date.toLocaleDateString(languageTag)
 }
 
+/** Locale-aware time-only display for compact chat/message timestamps. */
+export function formatTimeOnly(value: string | Date, languageTag: string): string {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return typeof value === 'string' ? value : ''
+  }
+  return date.toLocaleTimeString(languageTag, { hour: '2-digit', minute: '2-digit' })
+}
+
 /** Safe display string for unknown cell/query values (avoids implicit object toString). */
 /** Human-readable duration from milliseconds (ms, s, or min as appropriate). */
 export function formatDurationMs(ms: number): string {

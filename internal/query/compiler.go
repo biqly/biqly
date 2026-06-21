@@ -1104,6 +1104,13 @@ func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]*semantic.Dime
 			continue
 		}
 
+		if expr, ok, err := c.rawDateDayFilterExpr(f, dimMap, resolver, args); err != nil {
+			return "", err
+		} else if ok {
+			parts = append(parts, expr)
+			continue
+		}
+
 		colSQL, err := c.resolveFilterLHS(f.Field, dimMap, metricMap, model, resolver)
 		if err != nil {
 			return "", err
@@ -1132,6 +1139,8 @@ func (c *Compiler) calendarGrainFilterExpr(
 	}
 	var grain string
 	switch {
+	case dayGrainFilterUsesDateTrunc(dim, f):
+		grain = TimeGrainDay
 	case monthGrainFilterUsesDateTrunc(dim, f):
 		grain = TimeGrainMonth
 	case quarterGrainFilterUsesDateTrunc(dim, f):

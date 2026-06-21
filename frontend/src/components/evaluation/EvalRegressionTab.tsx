@@ -8,6 +8,7 @@ import {
 } from '../../lib/feedbackClasses'
 import { legacyTableClass } from '../../lib/tableClasses'
 import type { EvalRunSummary, RegressionReport } from '../../types/ai'
+import { formatDateTime } from '../../utils/formatters'
 import { Select } from '../ui/Select'
 interface EvalRegressionTabProps {
   runHistory: EvalRunSummary[]
@@ -60,7 +61,7 @@ export function EvalRegressionTab({
               options={runHistory.map((r) => ({
                 value: r.run_id,
                 label: `${r.model} ${t('common.em_dash')} ${(r.pass_rate * 100).toFixed(0)}%`,
-                hint: new Date(r.completed_at).toLocaleString(localeTag),
+                hint: formatDateTime(r.completed_at, localeTag),
               }))}
             />
           </div>
@@ -83,7 +84,7 @@ export function EvalRegressionTab({
               options={runHistory.map((r) => ({
                 value: r.run_id,
                 label: `${r.model} ${t('common.em_dash')} ${(r.pass_rate * 100).toFixed(0)}%`,
-                hint: new Date(r.completed_at).toLocaleString(localeTag),
+                hint: formatDateTime(r.completed_at, localeTag),
               }))}
             />
           </div>

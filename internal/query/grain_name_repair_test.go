@@ -1,6 +1,10 @@
 package query
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/biqly/biqly/internal/semantic"
+)
 
 func TestRepairMisnamedCalendarGrainDimensions_createdAtTs(t *testing.T) {
 	dims := []string{
@@ -85,5 +89,22 @@ func TestRepairMisnamedCalendarGrainDimensions_noOpWhenAlreadyValid(t *testing.T
 	RepairMisnamedCalendarGrainDimensions(&lq, dims)
 	if lq.Filters[0].Field != "created_at_month" {
 		t.Errorf("expected canonical name kept when both exist, got %q", lq.Filters[0].Field)
+	}
+}
+
+func TestRepairRawTimestampDayEqualityFilters(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_ts", ColumnRef: "timeline_tweets.created_at_ts", Type: "timestamp"},
+			{Name: "created_at_ts_day", ColumnRef: "timeline_tweets.created_at_ts", Type: "timestamp", TimeGrain: TimeGrainDay},
+		},
+	}
+	lq := LogicalQuery{
+		Filters: []Filter{{Field: "created_at_ts", Operator: OpEq, Value: "2026-06-20"}},
+		Limit:   100,
+	}
+	RepairRawTimestampDayEqualityFilters(&lq, model)
+	if lq.Filters[0].Field != "created_at_ts_day" {
+		t.Fatalf("filter field: got %q want created_at_ts_day", lq.Filters[0].Field)
 	}
 }
