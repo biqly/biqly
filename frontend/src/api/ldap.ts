@@ -1,6 +1,5 @@
 import { apiFetch } from './apiClient'
-
-const AUTH_API_BASE = '/api/auth'
+import { AUTH_API_BASE } from './constants'
 
 export type LDAPSecurity = 'none' | 'starttls' | 'ldaps'
 

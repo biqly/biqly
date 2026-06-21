@@ -1,6 +1,7 @@
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useState } from 'react'
 
 import { getAIHistoryDetail, listAIHistory } from '../../api/admin'
+import { useFetch } from '../../hooks/useFetch'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useQueryParam } from '../../hooks/useQueryParam'
 import { useT } from '../../i18n'
@@ -53,8 +54,6 @@ export function AIHistoryPanel() {
   const [showAll, setShowAll] = useState(false)
   const [historyIdParam, setHistoryIdParam] = useQueryParam('historyId')
   const expandedId = historyIdParam || null
-  const [detail, setDetail] = useState<AIHistoryEntry | null>(null)
-  const [detailLoading, setDetailLoading] = useState(false)
 
   const isAdmin = roles.some((r) => r === 'super_admin' || r === 'admin')
 
@@ -87,34 +86,11 @@ export function AIHistoryPanel() {
     resetPageKey: showAll,
   })
 
-  useEffect(() => {
-    if (!expandedId || !accessToken) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDetail(null)
-      return
-    }
-    let cancelled = false
-    setDetailLoading(true)
-    getAIHistoryDetail(accessToken, expandedId)
-      .then((d) => {
-        if (!cancelled) {
-          setDetail(d)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setDetail(null)
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setDetailLoading(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [expandedId, accessToken])
+  const { data: detail, loading: detailLoading } = useFetch(
+    () => getAIHistoryDetail(accessToken ?? '', expandedId ?? ''),
+    [expandedId, accessToken],
+    { enabled: Boolean(expandedId && accessToken) },
+  )
 
   function toggleDetail(id: string) {
     if (expandedId === id) {

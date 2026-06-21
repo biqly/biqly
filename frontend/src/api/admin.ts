@@ -15,10 +15,10 @@ import type {
   WorkspaceDatasource,
   WorkspaceMember,
 } from '../types/auth'
+import { buildQueryString } from '../utils/query'
 import { apiFetch } from './apiClient'
 import { normalizeAuthUser } from './auth'
-
-const AUTH_API_BASE = '/api/auth'
+import { AUTH_API_BASE } from './constants'
 
 // === RBAC admin ===
 
@@ -27,17 +27,9 @@ export async function listRoles(
   page?: number,
   pageSize?: number,
 ): Promise<{ roles: Role[]; total: number }> {
-  const params = new URLSearchParams()
-  if (page) {
-    params.set('page', String(page))
-  }
-  if (pageSize) {
-    params.set('page_size', String(pageSize))
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : ''
   return apiFetch<{ roles: Role[]; total: number }>(
     'GET',
-    `${AUTH_API_BASE}/admin/roles${suffix}`,
+    `${AUTH_API_BASE}/admin/roles${buildQueryString({ page, page_size: pageSize })}`,
     undefined,
     { token },
   )
@@ -48,17 +40,9 @@ export async function listPermissions(
   page?: number,
   pageSize?: number,
 ): Promise<{ permissions: Permission[]; total: number }> {
-  const params = new URLSearchParams()
-  if (page) {
-    params.set('page', String(page))
-  }
-  if (pageSize) {
-    params.set('page_size', String(pageSize))
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : ''
   return apiFetch<{ permissions: Permission[]; total: number }>(
     'GET',
-    `${AUTH_API_BASE}/admin/permissions${suffix}`,
+    `${AUTH_API_BASE}/admin/permissions${buildQueryString({ page, page_size: pageSize })}`,
     undefined,
     { token },
   )
@@ -129,26 +113,15 @@ export async function listAuditLog(
   token: string,
   filters: AuditLogFilters = {},
 ): Promise<{ entries: AuditLogEntry[]; total: number }> {
-  const params = new URLSearchParams()
-  if (filters.userID) {
-    params.set('user_id', filters.userID)
-  }
-  if (filters.action) {
-    params.set('action', filters.action)
-  }
-  if (filters.limit) {
-    params.set('limit', String(filters.limit))
-  }
-  if (filters.page) {
-    params.set('page', String(filters.page))
-  }
-  if (filters.pageSize) {
-    params.set('page_size', String(filters.pageSize))
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : ''
   const data = await apiFetch<{ entries?: AuditLogEntry[]; total?: number }>(
     'GET',
-    `${AUTH_API_BASE}/admin/audit-log${suffix}`,
+    `${AUTH_API_BASE}/admin/audit-log${buildQueryString({
+      user_id: filters.userID,
+      action: filters.action,
+      limit: filters.limit,
+      page: filters.page,
+      page_size: filters.pageSize,
+    })}`,
     undefined,
     { token },
   )
@@ -162,17 +135,9 @@ export async function listDatasourceAccess(
   page?: number,
   pageSize?: number,
 ): Promise<{ access: DatasourceAccess[]; total: number }> {
-  const params = new URLSearchParams()
-  if (page) {
-    params.set('page', String(page))
-  }
-  if (pageSize) {
-    params.set('page_size', String(pageSize))
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : ''
   return apiFetch<{ access: DatasourceAccess[]; total: number }>(
     'GET',
-    `${AUTH_API_BASE}/admin/datasource-access${suffix}`,
+    `${AUTH_API_BASE}/admin/datasource-access${buildQueryString({ page, page_size: pageSize })}`,
     undefined,
     { token },
   )
@@ -244,17 +209,9 @@ export async function listWorkspaces(
   page?: number,
   pageSize?: number,
 ): Promise<{ workspaces: Workspace[]; total: number }> {
-  const params = new URLSearchParams()
-  if (page) {
-    params.set('page', String(page))
-  }
-  if (pageSize) {
-    params.set('page_size', String(pageSize))
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : ''
   return apiFetch<{ workspaces: Workspace[]; total: number }>(
     'GET',
-    `${AUTH_API_BASE}/workspaces${suffix}`,
+    `${AUTH_API_BASE}/workspaces${buildQueryString({ page, page_size: pageSize })}`,
     undefined,
     { token },
   )
@@ -324,23 +281,14 @@ export async function listUsers(
   token: string,
   filters: { page?: number; pageSize?: number; search?: string; status?: string } = {},
 ): Promise<{ users: AuthUser[]; total: number }> {
-  const params = new URLSearchParams()
-  if (filters.page) {
-    params.set('page', String(filters.page))
-  }
-  if (filters.pageSize) {
-    params.set('page_size', String(filters.pageSize))
-  }
-  if (filters.search) {
-    params.set('search', filters.search)
-  }
-  if (filters.status) {
-    params.set('status', filters.status)
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : ''
   const data = await apiFetch<{ users: AuthUserRaw[]; total: number }>(
     'GET',
-    `${AUTH_API_BASE}/admin/users${suffix}`,
+    `${AUTH_API_BASE}/admin/users${buildQueryString({
+      page: filters.page,
+      page_size: filters.pageSize,
+      search: filters.search,
+      status: filters.status,
+    })}`,
     undefined,
     { token },
   )
@@ -521,37 +469,19 @@ export async function listAIHistory(
     search?: string
   } = {},
 ): Promise<{ entries: AIHistoryEntry[]; total: number }> {
-  const params = new URLSearchParams()
-  if (opts.page) {
-    params.set('page', String(opts.page))
-  }
-  if (opts.pageSize) {
-    params.set('page_size', String(opts.pageSize))
-  }
-  if (opts.limit) {
-    params.set('limit', String(opts.limit))
-  }
-  if (opts.showAll) {
-    params.set('show_all', 'true')
-  } else if (opts.showAll === false) {
-    params.set('show_all', 'false')
-  }
-  if (opts.datasourceId) {
-    params.set('datasource_id', opts.datasourceId)
-  }
-  if (opts.modelId) {
-    params.set('model_id', opts.modelId)
-  }
-  if (opts.status) {
-    params.set('status', opts.status)
-  }
-  if (opts.search?.trim()) {
-    params.set('search', opts.search.trim())
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const showAllStr = opts.showAll === true ? 'true' : opts.showAll === false ? 'false' : undefined
   return apiFetch<{ entries: AIHistoryEntry[]; total: number }>(
     'GET',
-    `/api/ai/history${suffix}`,
+    `/api/ai/history${buildQueryString({
+      page: opts.page,
+      page_size: opts.pageSize,
+      limit: opts.limit,
+      show_all: showAllStr,
+      datasource_id: opts.datasourceId,
+      model_id: opts.modelId,
+      status: opts.status,
+      search: opts.search?.trim(),
+    })}`,
     undefined,
     { token },
   )
@@ -587,23 +517,21 @@ export async function getAIUsageBreakdown(
   rows: AIUsageBreakdownRow[]
   total: number
 }> {
-  const params = new URLSearchParams()
-  if (opts.days) {
-    params.set('days', String(opts.days))
-  }
-  if (opts.page) {
-    params.set('page', String(opts.page))
-  }
-  if (opts.pageSize) {
-    params.set('page_size', String(opts.pageSize))
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : ''
   return apiFetch<{
     days: number
     totals: AIUsageTotals
     rows: AIUsageBreakdownRow[]
     total: number
-  }>('GET', `/api/ai/usage/breakdown${suffix}`, undefined, { token })
+  }>(
+    'GET',
+    `/api/ai/usage/breakdown${buildQueryString({
+      days: opts.days,
+      page: opts.page,
+      page_size: opts.pageSize,
+    })}`,
+    undefined,
+    { token },
+  )
 }
 
 export async function getAIHistoryDetail(token: string, id: string): Promise<AIHistoryEntry> {
@@ -627,26 +555,15 @@ export async function listAdminAIJobs(
     pageSize?: number
   } = {},
 ): Promise<{ jobs: AIJob[]; total: number }> {
-  const params = new URLSearchParams()
-  if (opts.status) {
-    params.set('status', opts.status)
-  }
-  if (opts.kind) {
-    params.set('kind', opts.kind)
-  }
-  if (opts.userId) {
-    params.set('user_id', opts.userId)
-  }
-  if (opts.page) {
-    params.set('page', String(opts.page))
-  }
-  if (opts.pageSize) {
-    params.set('page_size', String(opts.pageSize))
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : ''
   const data = await apiFetch<{ jobs?: AIJob[]; total?: number }>(
     'GET',
-    `/api/ai/jobs/admin${suffix}`,
+    `/api/ai/jobs/admin${buildQueryString({
+      status: opts.status,
+      kind: opts.kind,
+      user_id: opts.userId,
+      page: opts.page,
+      page_size: opts.pageSize,
+    })}`,
     undefined,
     { token },
   )
@@ -675,20 +592,13 @@ export async function listShares(
   token: string,
   opts: { page?: number; pageSize?: number; resourceType?: string } = {},
 ): Promise<{ shares: ResourceShare[]; total: number }> {
-  const params = new URLSearchParams()
-  if (opts.page) {
-    params.set('page', String(opts.page))
-  }
-  if (opts.pageSize) {
-    params.set('page_size', String(opts.pageSize))
-  }
-  if (opts.resourceType) {
-    params.set('resource_type', opts.resourceType)
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : ''
   const data = await apiFetch<{ shares: ResourceShare[] | null; total: number } | null>(
     'GET',
-    `${AUTH_API_BASE}/shares${suffix}`,
+    `${AUTH_API_BASE}/shares${buildQueryString({
+      page: opts.page,
+      page_size: opts.pageSize,
+      resource_type: opts.resourceType,
+    })}`,
     undefined,
     { token },
   )

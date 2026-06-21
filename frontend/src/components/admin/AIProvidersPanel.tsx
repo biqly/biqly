@@ -11,7 +11,8 @@ import {
   listProviders,
   setDefaultModel,
 } from '../../api/aiProviders'
-import { useConfirm } from '../../hooks/useConfirm'
+import { useConfirmedMutation } from '../../hooks/useConfirmedMutation'
+import { useModal } from '../../hooks/useModal'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
 import { errorMessage } from '../../utils/error'
@@ -39,7 +40,6 @@ const adminAiPurposePillBase =
 export function AIProvidersPanel() {
   const t = useT()
   const toast = useToast()
-  const confirm = useConfirm()
   const { hasPermission } = useAuth()
   // Managing AI providers/models is a platform-config action (admin:settings).
   const canEdit = hasPermission('admin:settings')
@@ -52,10 +52,9 @@ export function AIProvidersPanel() {
   const [modelsLoading, setModelsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [providerModalOpen, setProviderModalOpen] = useState(false)
-  const [editingProvider, setEditingProvider] = useState<AIProvider | null>(null)
-  const [modelModalOpen, setModelModalOpen] = useState(false)
-  const [editingModel, setEditingModel] = useState<AIModel | null>(null)
+  const providerModal = useModal<AIProvider>()
+  const modelModal = useModal<AIModel>()
+  const confirmMutation = useConfirmedMutation()
 
   const reloadTop = useCallback(async () => {
     setLoading(true)
@@ -101,44 +100,30 @@ export function AIProvidersPanel() {
   }, [selectedProvider, reloadModels])
 
   const handleDeleteProvider = async (p: AIProvider) => {
-    const ok = await confirm({
+    const ok = await confirmMutation(() => deleteProvider(p.id), {
       title: t('admin.ai_providers.title'),
       message: t('admin.ai_providers.confirm_delete_provider', { name: p.name }),
-      variant: 'danger',
+      successMessage: t('admin.ai_providers.deleted'),
     })
-    if (!ok) {
-      return
-    }
-    try {
-      await deleteProvider(p.id)
-      toast.success(t('admin.ai_providers.deleted'))
+    if (ok) {
       if (selectedProvider?.id === p.id) {
         setSelectedProvider(null)
       }
       await reloadTop()
-    } catch (e) {
-      toast.error(errorMessage(e))
     }
   }
 
   const handleDeleteModel = async (m: AIModel) => {
-    const ok = await confirm({
+    const ok = await confirmMutation(() => deleteModel(m.id), {
       title: t('admin.ai_providers.title'),
       message: t('admin.ai_providers.confirm_delete_model', { name: m.display_name }),
-      variant: 'danger',
+      successMessage: t('admin.ai_providers.deleted'),
     })
-    if (!ok) {
-      return
-    }
-    try {
-      await deleteModel(m.id)
-      toast.success(t('admin.ai_providers.deleted'))
+    if (ok) {
       if (selectedProvider) {
         await reloadModels(selectedProvider.id)
       }
       await reloadTop()
-    } catch (e) {
-      toast.error(errorMessage(e))
     }
   }
 
@@ -156,8 +141,7 @@ export function AIProvidersPanel() {
   }
 
   const onProviderSaved = async () => {
-    setProviderModalOpen(false)
-    setEditingProvider(null)
+    providerModal.closeModal()
     await reloadTop()
     if (selectedProvider) {
       const refreshed = providers.find((p) => p.id === selectedProvider.id)
@@ -168,8 +152,7 @@ export function AIProvidersPanel() {
   }
 
   const onModelSaved = async () => {
-    setModelModalOpen(false)
-    setEditingModel(null)
+    modelModal.closeModal()
     if (selectedProvider) {
       await reloadModels(selectedProvider.id)
     }
@@ -270,14 +253,7 @@ export function AIProvidersPanel() {
       <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ margin: 0, fontSize: 15 }}>{t('admin.ai_providers.providers_title')}</h3>
-          <button
-            style={primaryBtn}
-            disabled={!canEdit}
-            onClick={() => {
-              setEditingProvider(null)
-              setProviderModalOpen(true)
-            }}
-          >
+          <button style={primaryBtn} disabled={!canEdit} onClick={() => providerModal.openModal()}>
             + {t('admin.ai_providers.add_provider')}
           </button>
         </div>
@@ -290,10 +266,7 @@ export function AIProvidersPanel() {
                 provider={p}
                 selected={selectedProvider?.id === p.id}
                 onSelect={() => setSelectedProvider((cur) => (cur?.id === p.id ? null : p))}
-                onEdit={() => {
-                  setEditingProvider(p)
-                  setProviderModalOpen(true)
-                }}
+                onEdit={() => providerModal.openModal(p)}
                 onDelete={() => {
                   void handleDeleteProvider(p)
                 }}
@@ -321,14 +294,7 @@ export function AIProvidersPanel() {
             }}
           >
             <span>{t('admin.ai_providers.models_for', { name: selectedProvider.name })}</span>
-            <button
-              style={secondaryBtn}
-              disabled={!canEdit}
-              onClick={() => {
-                setEditingModel(null)
-                setModelModalOpen(true)
-              }}
-            >
+            <button style={secondaryBtn} disabled={!canEdit} onClick={() => modelModal.openModal()}>
               + {t('admin.ai_providers.add_model')}
             </button>
           </div>
@@ -381,10 +347,7 @@ export function AIProvidersPanel() {
                       <button
                         style={linkBtn}
                         disabled={!canEdit}
-                        onClick={() => {
-                          setEditingModel(m)
-                          setModelModalOpen(true)
-                        }}
+                        onClick={() => modelModal.openModal(m)}
                       >
                         {t('common.edit')}
                       </button>
@@ -420,27 +383,21 @@ export function AIProvidersPanel() {
         </section>
       )}
 
-      {providerModalOpen && (
+      {providerModal.open && (
         <ProviderModal
-          provider={editingProvider}
-          onClose={() => {
-            setProviderModalOpen(false)
-            setEditingProvider(null)
-          }}
+          provider={providerModal.data}
+          onClose={providerModal.closeModal}
           onSaved={() => {
             void onProviderSaved()
           }}
         />
       )}
 
-      {modelModalOpen && selectedProvider && (
+      {modelModal.open && selectedProvider && (
         <ModelModal
           provider={selectedProvider}
-          model={editingModel}
-          onClose={() => {
-            setModelModalOpen(false)
-            setEditingModel(null)
-          }}
+          model={modelModal.data}
+          onClose={modelModal.closeModal}
           onSaved={() => {
             void onModelSaved()
           }}

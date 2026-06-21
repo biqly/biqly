@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 
 import { listWorkspaces } from '../../api/admin'
+import { useAsyncState } from '../../hooks/useAsyncState'
+import { useFetch } from '../../hooks/useFetch'
 import { useT } from '../../i18n'
 import type { Workspace } from '../../types/auth'
 import { useAuth } from '../auth/AuthProvider'
@@ -8,16 +10,19 @@ import { Select } from '../ui/Select'
 import { resolveActiveWorkspace } from './workspaceSelection'
 
 const storageKey = 'biqly_active_workspace_id'
+const EMPTY_WORKSPACES: Workspace[] = []
 
 export function WorkspaceSelector({ token }: { token: string }) {
   const t = useT()
   const { user, setActiveWorkspace } = useAuth()
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [activeID, setActiveID] = useState<string | null>(
     () => user?.active_workspace_id ?? localStorage.getItem(storageKey),
   )
-  const [loading, setLoading] = useState(true)
-  const [switching, setSwitching] = useState(false)
+
+  const { data: workspacesRes, loading } = useFetch(() => listWorkspaces(token), [token])
+  const workspaces = workspacesRes?.workspaces ?? EMPTY_WORKSPACES
+
+  const { loading: switching, run: runSwitch } = useAsyncState()
 
   useEffect(() => {
     if (user?.active_workspace_id) {
@@ -28,34 +33,15 @@ export function WorkspaceSelector({ token }: { token: string }) {
   }, [user?.active_workspace_id])
 
   useEffect(() => {
-    let cancelled = false
-    async function load() {
-      try {
-        const res = await listWorkspaces(token)
-        if (cancelled) {
-          return
-        }
-        setWorkspaces(res.workspaces)
-        const active = resolveActiveWorkspace(res.workspaces, activeID)
-        setActiveID(active?.id ?? null)
-        if (active) {
-          localStorage.setItem(storageKey, active.id)
-        }
-      } catch {
-        if (!cancelled) {
-          setWorkspaces([])
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
+    if (workspaces.length > 0) {
+      const active = resolveActiveWorkspace(workspaces, activeID)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveID(active?.id ?? null)
+      if (active) {
+        localStorage.setItem(storageKey, active.id)
       }
     }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [activeID, token])
+  }, [workspaces, activeID])
 
   if (loading || workspaces.length === 0) {
     return null
@@ -73,16 +59,11 @@ export function WorkspaceSelector({ token }: { token: string }) {
     if (!nextID || nextID === activeID) {
       return
     }
-    setSwitching(true)
-    try {
+    await runSwitch(async () => {
       await setActiveWorkspace(nextID)
       setActiveID(nextID)
       localStorage.setItem(storageKey, nextID)
-    } catch {
-      // revert on failure: server rejected (likely lost membership)
-    } finally {
-      setSwitching(false)
-    }
+    })
   }
 
   return (

@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 
 import type { PermissionRowFilter, SecurityPolicy } from '../../api/admin'
 import { getSecurityPolicyByKeys, upsertSecurityPolicy } from '../../api/admin'
+import { useAsyncState } from '../../hooks/useAsyncState'
 import { useDatasources } from '../../hooks/useDatasources'
+import { useFetch } from '../../hooks/useFetch'
 import { useModelDetail } from '../../hooks/useModelDetail'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
 import { useToast } from '../../hooks/useToast'
@@ -41,48 +43,36 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   const { model, loading: loadingModelDetail } = useModelDetail(effectiveSelectedModel || null)
 
   // Policy & Filters
-  const [policy, setPolicy] = useState<SecurityPolicy | null>(null)
   const [filters, setFilters] = useState<PermissionRowFilter[]>([])
-  const [loadingPolicy, setLoadingPolicy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+
+  const {
+    data: policy,
+    loading: loadingPolicy,
+    error: loadError,
+    setData: setPolicy,
+  } = useFetch(
+    () => getSecurityPolicyByKeys(token, `role:${selectedRole}`, effectiveSelectedDS),
+    [token, selectedRole, effectiveSelectedDS],
+    { enabled: Boolean(selectedRole && effectiveSelectedDS) },
+  )
+
+  const {
+    loading: saving,
+    error: saveError,
+    setError: setSaveError,
+    run: runSave,
+  } = useAsyncState({ useSaving: true })
+  const error = (loadError ? t('admin.rls.load_failed') : null) ?? saveError
 
   // Fetch policy when role or datasource changes
   useEffect(() => {
-    if (!selectedRole || !effectiveSelectedDS) {
-      return
+    if (policy) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFilters(policy.row_filters)
+    } else {
+      setFilters([])
     }
-
-    let cancelled = false
-    async function loadPolicy() {
-      setLoadingPolicy(true)
-      setError(null)
-      try {
-        const policyData = await getSecurityPolicyByKeys(
-          token,
-          `role:${selectedRole}`,
-          effectiveSelectedDS,
-        )
-        if (cancelled) {
-          return
-        }
-        setPolicy(policyData)
-        setFilters(policyData.row_filters)
-      } catch {
-        if (!cancelled) {
-          setError(t('admin.rls.load_failed'))
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingPolicy(false)
-        }
-      }
-    }
-
-    void loadPolicy()
-    return () => {
-      cancelled = true
-    }
-  }, [token, selectedRole, effectiveSelectedDS, t])
+  }, [policy])
 
   const fields = useMemo(() => {
     const names: string[] = []
@@ -167,7 +157,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
     if (!effectiveSelectedDS) {
       return
     }
-    setError(null)
+    setSaveError(null)
 
     // Construct request policy
     const policyToSave: SecurityPolicy = {
@@ -179,20 +169,14 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
       row_filters: filters,
     }
 
-    try {
-      setLoadingPolicy(true)
+    await runSave(async () => {
       const res = await upsertSecurityPolicy(token, policyToSave)
       setPolicy(res)
-      setFilters(res.row_filters)
       toast.success(t('admin.rls.saved'))
-    } catch {
-      setError(t('admin.rls.save_failed'))
-    } finally {
-      setLoadingPolicy(false)
-    }
+    })
   }
 
-  const isSavingDisabled = fields.length === 0 || loadingPolicy
+  const isSavingDisabled = fields.length === 0 || loadingPolicy || saving
 
   return (
     <div style={containerStyle}>
@@ -236,7 +220,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
 
       <div style={contentGridStyle}>
         <div style={leftPanelStyle}>
-          <LoadingOverlay loading={loadingPolicy || loadingModelDetail}>
+          <LoadingOverlay loading={loadingPolicy || loadingModelDetail || saving}>
             <div style={innerPanelStyle}>
               <div style={builderHeaderStyle}>
                 <h3 style={sectionTitleStyle}>{t('admin.rls.filter_rules')}</h3>

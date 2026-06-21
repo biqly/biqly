@@ -1,7 +1,6 @@
 import type { AIPurpose } from './aiProviders'
 import { apiFetch } from './apiClient'
-
-const AI_API_BASE = '/api/ai'
+import { AI_API_BASE } from './constants'
 
 export interface SelectableAIModel {
   id: string

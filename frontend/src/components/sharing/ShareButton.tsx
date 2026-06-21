@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { createShare, listUsers, listWorkspaces } from '../../api/admin'
+import { useAsyncState } from '../../hooks/useAsyncState'
+import { useFetch } from '../../hooks/useFetch'
 import { useT } from '../../i18n'
 import { legacyCardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { AuthUser, Workspace } from '../../types/auth'
-import { errorMessage } from '../../utils/error'
 import { shareUserSelectOptions, workspaceSelectOptions } from '../admin/adminSelectOptions'
 import { useAuth } from '../auth/AuthProvider'
 import { Select } from '../ui/Select'
+
 interface Props {
   resourceType: string
   resourceID: string
@@ -22,6 +24,8 @@ interface Props {
 }
 
 const LOOKUP_PAGE_SIZE = 500
+const EMPTY_USERS: AuthUser[] = []
+const EMPTY_WORKSPACES: Workspace[] = []
 
 export function ShareButton({
   resourceType,
@@ -42,44 +46,33 @@ export function ShareButton({
   const [mode, setMode] = useState<'user' | 'workspace'>('user')
   const [targetID, setTargetID] = useState('')
   const [permission, setPermission] = useState<'view' | 'execute' | 'edit'>('view')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [lookupsLoading, setLookupsLoading] = useState(false)
-  const [users, setUsers] = useState<AuthUser[]>([])
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
 
-  useEffect(() => {
-    if (!open || !accessToken) {
-      return
-    }
-    let cancelled = false
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLookupsLoading(true)
-    Promise.all([
-      listUsers(accessToken, { pageSize: LOOKUP_PAGE_SIZE }),
-      listWorkspaces(accessToken, 1, LOOKUP_PAGE_SIZE),
-    ])
-      .then(([userRes, wsRes]) => {
-        if (cancelled) {
-          return
-        }
-        setUsers(userRes.users)
-        setWorkspaces(wsRes.workspaces)
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(errorMessage(e))
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLookupsLoading(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [open, accessToken])
+  const {
+    data: lookupsData,
+    loading: lookupsLoading,
+    error: lookupError,
+  } = useFetch(
+    async () => {
+      const [userRes, wsRes] = await Promise.all([
+        listUsers(accessToken ?? '', { pageSize: LOOKUP_PAGE_SIZE }),
+        listWorkspaces(accessToken ?? '', 1, LOOKUP_PAGE_SIZE),
+      ])
+      return { users: userRes.users, workspaces: wsRes.workspaces }
+    },
+    [accessToken],
+    { enabled: open && Boolean(accessToken) },
+  )
+
+  const users = lookupsData?.users ?? EMPTY_USERS
+  const workspaces = lookupsData?.workspaces ?? EMPTY_WORKSPACES
+
+  const {
+    loading,
+    error: mutationError,
+    setError: setMutationError,
+    run: runSubmit,
+  } = useAsyncState()
+  const error = lookupError ?? mutationError
 
   const targetOptions = useMemo(() => {
     if (mode === 'user') {
@@ -93,9 +86,7 @@ export function ShareButton({
     if (!accessToken || !targetID.trim()) {
       return
     }
-    setLoading(true)
-    setError(null)
-    try {
+    await runSubmit(async () => {
       await createShare(
         accessToken,
         resourceType,
@@ -107,17 +98,13 @@ export function ShareButton({
       setOpen(false)
       setTargetID('')
       onShared?.()
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   function closeModal() {
     setOpen(false)
     setTargetID('')
-    setError(null)
+    setMutationError(null)
   }
 
   return (

@@ -1,10 +1,10 @@
+import { buildQueryString } from '../utils/query'
 import { apiFetch } from './apiClient'
-
-const AI_API_BASE = '/api/ai'
+import { ADMIN_OPTS, AI_API_BASE } from './constants'
 
 // Provider/model management endpoints are admin-gated; the admin key is sent
 // via the apiClient's useAdminKey option (same scheme as the eval endpoints).
-const adminOpts = { useAdminKey: true as const }
+const adminOpts = ADMIN_OPTS
 
 export type AIPurpose = 'query' | 'describe' | 'embedding' | 'translation' | 'judge'
 export type AIProviderType = 'openai' | 'openai-compatible' | 'anthropic'
@@ -135,15 +135,8 @@ export const listActiveModels = () =>
   apiFetch<AIModel[]>('GET', `${AI_API_BASE}/providers/active-models`, undefined, adminOpts)
 
 export const listModels = (providerID?: string, purpose?: string) => {
-  const params = new URLSearchParams()
-  if (providerID) {
-    params.set('provider_id', providerID)
-  }
-  if (purpose) {
-    params.set('purpose', purpose)
-  }
-  const suffix = params.toString() ? `?${params.toString()}` : ''
-  return apiFetch<AIModel[]>('GET', `${AI_API_BASE}/models${suffix}`, undefined, adminOpts)
+  const query = buildQueryString({ provider_id: providerID, purpose })
+  return apiFetch<AIModel[]>('GET', `${AI_API_BASE}/models${query}`, undefined, adminOpts)
 }
 
 export const createModel = (payload: CreateModelPayload) =>
