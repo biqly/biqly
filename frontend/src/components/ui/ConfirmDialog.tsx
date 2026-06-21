@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useT } from '../../i18n'
-import { buttonClass, legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { confirmDialogActionsClass, confirmDialogMessageClass } from '../../lib/modalClasses'
 import { Modal } from './Modal'
 
@@ -38,11 +38,7 @@ export function ConfirmDialog({
       <div>
         {message && <p className={confirmDialogMessageClass}>{message}</p>}
         <div className={confirmDialogActionsClass}>
-          <button
-            type="button"
-            className={legacyButtonClass('btn btn-secondary')}
-            onClick={onCancel}
-          >
+          <button type="button" className={buttonClass('secondary')} onClick={onCancel}>
             {cancelText}
           </button>
           <button

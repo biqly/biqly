@@ -1,4 +1,4 @@
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { semanticModelSetupClass, semanticModelSetupStatusClass } from '../../lib/feedbackClasses'
 import type { GenerateSemanticModelResponse } from '../../types/semantic'
@@ -46,7 +46,7 @@ export function QueryBuilderEmptyModelSetup({
       </div>
       <button
         type="button"
-        className={legacyButtonClass('btn btn-sm')}
+        className={buttonClass('secondary', { size: 'sm' })}
         onClick={onCreate}
         disabled={generatingModel}
       >

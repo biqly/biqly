@@ -22,8 +22,8 @@ import { LoadingScreen } from './components/ui/LoadingScreen'
 import { ThemeToggle } from './components/ui/ThemeToggle'
 import { LocaleSection, type TranslationKey, useLocaleSection, useT } from './i18n'
 import { authAvatarClass, authCardClass, authPageClass } from './lib/authClasses'
-import { legacyButtonClass } from './lib/buttonClasses'
-import { legacyCardClass } from './lib/cardClasses'
+import { buttonClass } from './lib/buttonClasses'
+import { cardClass } from './lib/cardClasses'
 import { cn } from './lib/cn'
 import { legacyFeedbackClass } from './lib/feedbackClasses'
 import { sidebarFooterControlsClass, sidebarLogoutBtnClass } from './lib/headerControlClasses'
@@ -1025,13 +1025,13 @@ function App() {
                     <Route
                       path="*"
                       element={
-                        <section className={legacyCardClass('card card--elevated')}>
+                        <section className={cardClass({ elevated: true })}>
                           <EmptyState
                             title={t('common.module_not_found')}
                             description={t('common.module_not_found_desc')}
                           >
                             <a
-                              className={legacyButtonClass('btn')}
+                              className={buttonClass('secondary')}
                               href={DEFAULT_PATH}
                               onClick={(event) => handleNavClick(event, DEFAULT_PATH)}
                             >

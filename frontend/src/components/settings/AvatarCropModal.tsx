@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import {
   modalActionsClass,
@@ -305,7 +305,7 @@ export function AvatarCropModal({ imageSrc, onClose, onSave }: AvatarCropModalPr
       <div className={modalActionsClass()}>
         <button
           type="button"
-          className={legacyButtonClass('btn btn-secondary btn-sm')}
+          className={buttonClass('secondary', { size: 'sm' })}
           onClick={onClose}
           disabled={saving}
         >
@@ -313,7 +313,7 @@ export function AvatarCropModal({ imageSrc, onClose, onSave }: AvatarCropModalPr
         </button>
         <button
           type="button"
-          className={legacyButtonClass('btn btn-primary btn-sm')}
+          className={buttonClass('primary', { size: 'sm' })}
           onClick={() => {
             void handleSave()
           }}

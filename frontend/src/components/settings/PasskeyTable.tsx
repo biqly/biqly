@@ -1,5 +1,5 @@
 import { type Locale, localeLanguageTag, useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import type { PasskeyInfo } from '../../types/auth'
 import { formatDateTime } from '../../utils/formatters'
@@ -80,10 +80,7 @@ export function PasskeyTable({ passkeys, loading, locale, onRename, onDelete }: 
               <div className="flex shrink-0 items-center gap-[0.35rem]">
                 <button
                   type="button"
-                  className={cn(
-                    legacyButtonClass('btn btn-sm btn-secondary'),
-                    adminBtnIconOnlyClass,
-                  )}
+                  className={cn(buttonClass('secondary', { size: 'sm' }), adminBtnIconOnlyClass)}
                   title={t('passkeys.rename_title')}
                   onClick={() => onRename(passkey)}
                   style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
@@ -107,7 +104,7 @@ export function PasskeyTable({ passkeys, loading, locale, onRename, onDelete }: 
                 <button
                   type="button"
                   className={cn(
-                    legacyButtonClass('btn btn-sm btn-danger-outline'),
+                    buttonClass('danger-outline', { size: 'sm' }),
                     adminBtnIconOnlyClass,
                   )}
                   title={t('passkeys.delete_title')}

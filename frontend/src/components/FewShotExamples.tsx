@@ -7,8 +7,14 @@ import { useModelDetail } from '../hooks/useModelDetail'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useToast } from '../hooks/useToast'
 import { useT } from '../i18n'
-import { legacyButtonClass, rowActionsClass } from '../lib/buttonClasses'
-import { legacyCardClass } from '../lib/cardClasses'
+import { buttonClass, rowActionsClass } from '../lib/buttonClasses'
+import {
+  cardClass,
+  cardHeaderRowClass,
+  cardIntroClass,
+  cardLeadClass,
+  cardLeadSingleLineClass,
+} from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import {
   fewShotMainFormClass,
@@ -366,20 +372,20 @@ export default function FewShotExamples() {
     <div className={legacyLayoutClass('page-stack')}>
       {!apiReady && <ErrorAlert error={t('few_shot.api_offline_alert')} />}
 
-      <div className={legacyCardClass('card')}>
-        <div className={legacyCardClass('card-intro')}>
-          <div className={legacyCardClass('card-header-row')}>
+      <div className={cardClass()}>
+        <div className={cardIntroClass}>
+          <div className={cardHeaderRowClass}>
             <h2>{t('few_shot.title')}</h2>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-sm btn-primary')}
+              className={buttonClass('primary', { size: 'sm' })}
               onClick={openAdd}
             >
               {t('few_shot.new')}
             </button>
           </div>
           <p
-            className={legacyCardClass('card-lead card-lead--single-line')}
+            className={cn(cardLeadClass, cardLeadSingleLineClass)}
             title={t('few_shot.manage_hint')}
           >
             {t('few_shot.manage_hint')}
@@ -461,14 +467,14 @@ export default function FewShotExamples() {
                       <div className={rowActionsClass}>
                         <button
                           type="button"
-                          className={legacyButtonClass('btn btn-sm btn-ghost')}
+                          className={buttonClass('ghost', { size: 'sm' })}
                           onClick={() => openEdit(ex)}
                         >
                           {t('common.edit')}
                         </button>
                         <button
                           type="button"
-                          className={legacyButtonClass('btn btn-sm btn-danger')}
+                          className={buttonClass('danger', { size: 'sm' })}
                           onClick={() => {
                             void handleDelete(ex.id)
                           }}
@@ -624,16 +630,12 @@ export default function FewShotExamples() {
             )}
           </div>
           <div className={modalActionsClass()}>
-            <button
-              type="button"
-              className={legacyButtonClass('btn btn-ghost')}
-              onClick={resetForm}
-            >
+            <button type="button" className={buttonClass('ghost')} onClick={resetForm}>
               {t('common.cancel')}
             </button>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-primary')}
+              className={buttonClass('primary')}
               onClick={() => {
                 void handleSave()
               }}

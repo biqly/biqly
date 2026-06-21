@@ -8,7 +8,7 @@ import { useDatasources } from '../hooks/useDatasources'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useLocale, useT } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
+import { buttonClass } from '../lib/buttonClasses'
 import { cn } from '../lib/cn'
 import type {
   AIJob,
@@ -521,7 +521,7 @@ export default function AIQuery() {
           <div className="flex w-full shrink-0 flex-col items-center gap-2 max-[900px]:w-auto max-[900px]:flex-row">
             <button
               className={cn(
-                legacyButtonClass('btn btn-primary btn-sm'),
+                buttonClass('primary', { size: 'sm' }),
                 'w-full justify-center max-[900px]:w-auto',
               )}
               style={{

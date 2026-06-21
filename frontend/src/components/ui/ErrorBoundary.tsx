@@ -1,8 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 
 import { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
+import { cardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import { emptyStateClass } from '../../lib/feedbackClasses'
 
@@ -17,10 +17,10 @@ interface ErrorBoundaryState {
 function ErrorFallback({ error, onRetry }: { error: Error; onRetry: () => void }) {
   const t = useT()
   return (
-    <section className={cn(legacyCardClass('card'), emptyStateClass)} role="alert">
+    <section className={cn(cardClass(), emptyStateClass)} role="alert">
       <h2>{t('common.error_boundary_title')}</h2>
       <p>{error.message || t('common.error_boundary_fallback_message')}</p>
-      <button type="button" className={legacyButtonClass('btn btn-sm')} onClick={onRetry}>
+      <button type="button" className={buttonClass('secondary', { size: 'sm' })} onClick={onRetry}>
         {t('common.error_boundary_retry')}
       </button>
     </section>

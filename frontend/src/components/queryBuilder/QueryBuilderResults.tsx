@@ -1,4 +1,4 @@
-import { legacyCardClass } from '../../lib/cardClasses'
+import { cardClass, cardHeaderRowClass } from '../../lib/cardClasses'
 import { legacyTableClass } from '../../lib/tableClasses'
 import type { rowsToChartData } from '../../utils/chartData'
 import { formatResultCell } from '../../utils/resultCellFormat'
@@ -33,9 +33,9 @@ export function QueryBuilderResults({
   })
 
   return (
-    <div className={legacyCardClass('card')}>
+    <div className={cardClass()}>
       {chartData.length > 0 ? (
-        <div className={legacyCardClass('card-header-row card-header-row--spaced')}>
+        <div className={cardHeaderRowClass}>
           <h2>{title}</h2>
           <ChartTypeSelector
             value={chartType}

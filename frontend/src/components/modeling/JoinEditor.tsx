@@ -1,6 +1,5 @@
 import type { TranslationKey } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { modelingFormGroupClass } from '../../lib/formClasses'
 import {
@@ -163,9 +162,7 @@ export function JoinEditor({
                   role="radio"
                   aria-checked={isActive}
                   className={cn(
-                    legacyCardClass(
-                      'bg-card-raised focus-visible:outline-accent inline-flex flex-1 cursor-pointer items-center justify-center gap-[0.35rem] rounded-lg border px-2 py-[0.45rem] text-[0.74rem] font-semibold transition-[border-color,color,background] duration-120 ease-in-out focus-visible:outline-2 focus-visible:outline-offset-2',
-                    ),
+                    'bg-card-raised focus-visible:outline-accent inline-flex flex-1 cursor-pointer items-center justify-center gap-[0.35rem] rounded-lg border px-2 py-[0.45rem] text-[0.74rem] font-semibold transition-[border-color,color,background] duration-120 ease-in-out focus-visible:outline-2 focus-visible:outline-offset-2',
                     isActive
                       ? 'border-accent text-accent bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]'
                       : 'border-border text-foreground-muted hover:border-accent hover:text-foreground',
@@ -195,9 +192,9 @@ export function JoinEditor({
           >
             <div className="flex flex-wrap items-center justify-center gap-2">
               <span
-                className={legacyCardClass(
-                  'text-foreground bg-card-raised border-border max-w-36 overflow-hidden rounded-[0.35rem] border px-2 py-[0.2rem] font-mono text-[0.76rem] text-ellipsis whitespace-nowrap',
-                )}
+                className={
+                  'text-foreground bg-card-raised border-border max-w-36 overflow-hidden rounded-[0.35rem] border px-2 py-[0.2rem] font-mono text-[0.76rem] text-ellipsis whitespace-nowrap'
+                }
               >
                 {shortTableName(joinForm.fromTable)}
               </span>
@@ -208,9 +205,9 @@ export function JoinEditor({
                 <JoinTypeIcon type={joinForm.joinType} size={22} />
               </span>
               <span
-                className={legacyCardClass(
-                  'text-foreground bg-card-raised border-border max-w-36 overflow-hidden rounded-[0.35rem] border px-2 py-[0.2rem] font-mono text-[0.76rem] text-ellipsis whitespace-nowrap',
-                )}
+                className={
+                  'text-foreground bg-card-raised border-border max-w-36 overflow-hidden rounded-[0.35rem] border px-2 py-[0.2rem] font-mono text-[0.76rem] text-ellipsis whitespace-nowrap'
+                }
               >
                 {shortTableName(joinForm.toTable)}
               </span>
@@ -224,7 +221,7 @@ export function JoinEditor({
           </div>
         )}
         <button
-          className={legacyButtonClass('btn btn-primary')}
+          className={buttonClass('primary')}
           type="button"
           onClick={onSave}
           disabled={!canSave || saving || loading}

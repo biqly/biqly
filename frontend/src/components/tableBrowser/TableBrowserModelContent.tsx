@@ -1,7 +1,7 @@
 import type { DragEvent } from 'react'
 
 import type { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { legacyTableClass } from '../../lib/tableClasses'
@@ -74,7 +74,7 @@ function ValidationErrorBanner({
         </span>
         <button
           type="button"
-          className={legacyButtonClass('btn btn-sm btn-primary')}
+          className={buttonClass('primary', { size: 'sm' })}
           onClick={onOpenModeling}
         >
           {t('table_browser.validation_error_open_modeling')}

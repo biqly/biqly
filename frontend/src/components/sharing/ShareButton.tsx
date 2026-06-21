@@ -4,7 +4,6 @@ import { createShare, listUsers, listWorkspaces } from '../../api/admin'
 import { useAsyncState } from '../../hooks/useAsyncState'
 import { useFetch } from '../../hooks/useFetch'
 import { useT } from '../../i18n'
-import { legacyCardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { AuthUser, Workspace } from '../../types/auth'
@@ -137,9 +136,9 @@ export function ShareButton({
           onClick={closeModal}
         >
           <div
-            className={legacyCardClass(
-              'bg-card border-border motion-safe:animate-slide-up w-full max-w-105 rounded-xl border shadow-(--shadow,0_20px_60px_rgba(0,0,0,0.2))',
-            )}
+            className={
+              'bg-card border-border motion-safe:animate-slide-up w-full max-w-105 rounded-xl border shadow-(--shadow,0_20px_60px_rgba(0,0,0,0.2))'
+            }
             onClick={(e) => e.stopPropagation()}
           >
             <div className={`border-border flex items-center justify-between border-b px-5 py-4`}>

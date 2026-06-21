@@ -6,7 +6,7 @@ import { jobIsActive, jobQuestionPreview } from '../../hooks/useAIJobsUtils'
 import { useConfirmedMutation } from '../../hooks/useConfirmedMutation'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import type { AIJob } from '../../types/ai'
 import type { PageQuery } from '../../types/pagination'
@@ -200,7 +200,7 @@ export function AIJobsAdminPanel() {
         <Select value={kindFilter} onChange={setKindFilter} options={kindOptions} />
         <button
           type="button"
-          className={legacyButtonClass('btn btn-sm')}
+          className={buttonClass('secondary', { size: 'sm' })}
           onClick={() => void cancelStale()}
         >
           {t('admin.ai_jobs.cancel_stale')}
@@ -375,7 +375,7 @@ export function AIJobsAdminPanel() {
                   <div className="mt-1">
                     <button
                       type="button"
-                      className={cn(legacyButtonClass('btn btn-danger'), 'w-full')}
+                      className={cn(buttonClass('danger'), 'w-full')}
                       disabled={busyJobId === selectedJob.id}
                       onClick={() => void cancelJob(selectedJob)}
                     >

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import type { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { modelingFormGroupClass } from '../../lib/formClasses'
 import {
   modelingMenuModelNameClass,
@@ -86,7 +86,7 @@ export function ModelingToolbar({
       </div>
       <div className={modelingToolbarActionsClass}>
         <button
-          className={legacyButtonClass('btn btn-primary mt-0! w-auto!')}
+          className={buttonClass('primary', { className: 'mt-0! w-auto!' })}
           type="button"
           onClick={onCreateModel}
           disabled={!datasourceId || creatingModel}

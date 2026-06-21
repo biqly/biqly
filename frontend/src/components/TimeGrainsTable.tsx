@@ -1,5 +1,5 @@
 import { useT } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
+import { buttonClass } from '../lib/buttonClasses'
 import { legacyTableClass } from '../lib/tableClasses'
 import { LoadingOverlay } from './ui/LoadingOverlay'
 interface TimeGrain {
@@ -87,7 +87,7 @@ export function TimeGrainsTable({
                   <td className="actions">
                     <button
                       type="button"
-                      className={legacyButtonClass('btn btn-sm btn-ghost')}
+                      className={buttonClass('ghost', { size: 'sm' })}
                       onClick={() => onEdit(tg)}
                     >
                       {t('common.edit')}

@@ -16,8 +16,7 @@ import {
 import { type AIModel, type AIProvider, listModels, listProviders } from '../../api/aiProviders'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
@@ -295,14 +294,10 @@ export function AIModelSharingPanel() {
                 placeholder={resourcePlaceholder}
               />
             </label>
-            <div
-              className={legacyButtonClass(
-                'flex items-end gap-2 [&_.btn]:w-full [&_.btn]:justify-center',
-              )}
-            >
+            <div className="flex items-end gap-2 [&_button]:w-full [&_button]:justify-center">
               <button
                 type="button"
-                className={legacyButtonClass('btn btn-primary btn-sm')}
+                className={buttonClass('primary', { size: 'sm' })}
                 disabled={submitting || !targetID || !resourceID}
                 onClick={() => {
                   void handleGrant()
@@ -334,9 +329,9 @@ export function AIModelSharingPanel() {
               {grantItems.map((item) => (
                 <li
                   key={item.key}
-                  className={legacyCardClass(
-                    'border-border bg-card-raised flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5',
-                  )}
+                  className={
+                    'border-border bg-card-raised flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5'
+                  }
                 >
                   <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                     <div className="flex flex-wrap gap-1.5">
@@ -357,7 +352,10 @@ export function AIModelSharingPanel() {
                   </div>
                   <button
                     type="button"
-                    className={legacyButtonClass('btn btn-secondary btn-sm m-0 w-auto shrink-0')}
+                    className={buttonClass('secondary', {
+                      className: 'm-0 w-auto shrink-0',
+                      size: 'sm',
+                    })}
                     onClick={() => {
                       void revoke(item.onRevoke)
                     }}

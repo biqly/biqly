@@ -8,7 +8,7 @@ import { useApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import type { Locale } from '../i18n'
 import { FALLBACK_LOCALE, useLocale, useT } from '../i18n'
-import { legacyCardClass } from '../lib/cardClasses'
+import { cardClass } from '../lib/cardClasses'
 import { legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
 import type { AIRuntimeSettings } from '../types/ai'
@@ -319,7 +319,7 @@ export default function Metadata() {
 
   return (
     <div className={legacyLayoutClass('page-stack')}>
-      <div className={legacyCardClass('card')}>
+      <div className={cardClass()}>
         <h2>{t('metadata.page_title')}</h2>
         <div className={legacyFormClass('form-group')}>
           <label>{t('metadata.datasource_label')}</label>

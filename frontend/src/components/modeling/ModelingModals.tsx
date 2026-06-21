@@ -1,6 +1,6 @@
 import { useAutofocus } from '../../hooks/useAutofocus'
 import type { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { modelingFormGroupClass } from '../../lib/formClasses'
 import { modalActionsBorderedClass, modalModelingCardClass } from '../../lib/modalClasses'
 import type {
@@ -105,7 +105,7 @@ export function ModelingModals({
             </div>
             <div className={modalActionsBorderedClass()}>
               <button
-                className={legacyButtonClass('btn btn-secondary')}
+                className={buttonClass('secondary')}
                 type="button"
                 onClick={onCloseRename}
                 disabled={savingRename}
@@ -113,7 +113,7 @@ export function ModelingModals({
                 {t('common.cancel')}
               </button>
               <button
-                className={legacyButtonClass('btn btn-primary')}
+                className={buttonClass('primary')}
                 type="submit"
                 disabled={savingRename || !renameValue.trim()}
               >

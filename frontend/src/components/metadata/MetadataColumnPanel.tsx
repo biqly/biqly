@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import {
   metadataColNameBaseClass,
   metadataColNameCellClass,
@@ -86,7 +86,7 @@ function DisplayExpressionEditor({
         />
         <button
           type="button"
-          className={legacyButtonClass('btn btn-sm')}
+          className={buttonClass('secondary', { size: 'sm' })}
           disabled={!dirty || saving}
           onClick={() => {
             void save()

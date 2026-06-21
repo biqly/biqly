@@ -15,8 +15,7 @@ import {
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { useConfirm } from '../../hooks/useConfirm'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { Role, Workspace, WorkspaceDatasource, WorkspaceMember } from '../../types/auth'
@@ -233,7 +232,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
         {error && (
           <div
             className={legacyFeedbackClass(
-              'bg-error/10 border-error/25 text-error text-caption rounded-[6px] border px-3.5 py-2.5',
+              'bg-error/10 border-error/25 text-error text-caption rounded-md border px-3.5 py-2.5',
             )}
           >
             {error}
@@ -242,7 +241,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
         {success && (
           <div
             className={legacyFeedbackClass(
-              'bg-success/10 border-success/25 text-success text-caption rounded-[6px] border px-3.5 py-2.5',
+              'bg-success/10 border-success/25 text-success text-caption rounded-md border px-3.5 py-2.5',
             )}
           >
             {success}
@@ -250,11 +249,11 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
         )}
 
         {/* ── Info / Edit Form ── */}
-        <section className={legacyCardClass('border-border bg-card rounded-[8px] border p-4')}>
+        <section className={'border-border bg-card rounded-lg border p-4'}>
           <div className="mb-3 flex items-center gap-2.5">
             <span
               className={cn(
-                'text-2xs inline-block rounded-[12px] px-2.5 py-[2px] font-semibold tracking-[0.5px] uppercase',
+                'text-2xs inline-block rounded-xl px-2.5 py-0.5 font-semibold tracking-[0.5px] uppercase',
                 isPersonal ? 'bg-accent/10 text-accent' : 'bg-success/10 text-success',
               )}
             >
@@ -277,7 +276,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               <label className="text-foreground-muted flex flex-col gap-1 text-xs">
                 <span>{t('admin.workspaces.name')}</span>
                 <input
-                  className="min-w-[200px] px-2.5 py-[7px]"
+                  className="min-w-50 px-2.5 py-1.75"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   required
@@ -286,12 +285,12 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               <label className="text-foreground-muted flex flex-col gap-1 text-xs">
                 <span>{t('admin.workspaces.description')}</span>
                 <input
-                  className="min-w-[200px] px-2.5 py-[7px]"
+                  className="min-w-50 px-2.5 py-1.75"
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
                 />
               </label>
-              <label className="text-foreground text-caption inline-flex min-h-[32px] items-center gap-2 whitespace-nowrap">
+              <label className="text-foreground text-caption inline-flex min-h-8 items-center gap-2 whitespace-nowrap">
                 <input
                   type="checkbox"
                   className="m-0 h-4 w-4"
@@ -300,10 +299,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                 />
                 <span>{t('admin.workspaces.mfa_required')}</span>
               </label>
-              <button
-                type="submit"
-                className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
-              >
+              <button type="submit" className={cn(buttonClass('primary'), adminBtnAutoWidthClass)}>
                 {t('common.save')}
               </button>
             </form>
@@ -311,7 +307,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
         </section>
 
         {/* ── Members ── */}
-        <section className={legacyCardClass('border-border bg-card rounded-[8px] border p-4')}>
+        <section className={'border-border bg-card rounded-lg border p-4'}>
           <h3 className="text-md-sm m-0 mb-3 font-semibold">{t('admin.workspaces.members')}</h3>
           {members.length === 0 ? (
             <p className="text-foreground-muted text-caption mx-0 my-2">
@@ -337,7 +333,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                           display_name: m.display_name,
                         })}
                       </td>
-                      <td className="w-[28%] min-w-[240px]">
+                      <td className="w-[28%] min-w-60">
                         <Select
                           size="sm"
                           value={m.role_id}
@@ -356,7 +352,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                             void onRemoveMember(m.user_id)
                           }}
                           className={legacyFeedbackClass(
-                            'border-error/30 text-error hover:bg-error/6 inline-flex min-h-[1.85rem] cursor-pointer items-center justify-center rounded-[6px] border bg-transparent px-2.5 text-xs leading-[1.2] transition-colors',
+                            'border-error/30 text-error hover:bg-error/6 inline-flex min-h-[1.85rem] cursor-pointer items-center justify-center rounded-md border bg-transparent px-2.5 text-xs leading-[1.2] transition-colors',
                           )}
                           disabled={!canManageMembers}
                         >
@@ -378,7 +374,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               className={`border-border mt-3 flex flex-wrap items-end gap-3 border-t pt-3`}
             >
               <label
-                className={`${adminFormLabelClass} max-w-[320px] min-w-[240px] flex-1 shrink-0 basis-[240px]`}
+                className={`${adminFormLabelClass} max-w-[320px] min-w-60 flex-1 shrink-0 basis-60`}
               >
                 <span className={adminLabelTextClass}>{t('admin.fields.user')}</span>
                 <Select
@@ -389,7 +385,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                 />
               </label>
               <label
-                className={`${adminFormLabelClass} max-w-[320px] min-w-[240px] flex-1 shrink-0 basis-[240px]`}
+                className={`${adminFormLabelClass} max-w-[320px] min-w-60 flex-1 shrink-0 basis-60`}
               >
                 <span className={adminLabelTextClass}>{t('admin.workspaces.role')}</span>
                 <Select
@@ -402,7 +398,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               <button
                 type="submit"
                 className={cn(
-                  legacyButtonClass('btn btn-primary mb-0 min-h-[2.1rem] self-end'),
+                  buttonClass('primary', { className: 'mb-0 min-h-[2.1rem] self-end' }),
                   adminBtnAutoWidthClass,
                 )}
               >
@@ -415,7 +411,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
         </section>
 
         {/* ── Datasources ── */}
-        <section className={legacyCardClass('border-border bg-card rounded-[8px] border p-4')}>
+        <section className={'border-border bg-card rounded-lg border p-4'}>
           <h3 className="text-md-sm m-0 mb-3 font-semibold">{t('admin.workspaces.datasources')}</h3>
           {datasources.length === 0 ? (
             <p className="text-foreground-muted text-caption mx-0 my-2">
@@ -438,7 +434,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                         {datasourceDisplayLabel(d.datasource_id, allDatasources, d.datasource_name)}
                       </td>
                       <td className="text-foreground-muted whitespace-nowrap">
-                        <span className="bg-accent/10 text-accent text-2xs inline-block rounded-[10px] px-2 py-[2px] font-medium">
+                        <span className="bg-accent/10 text-accent text-2xs inline-block rounded-[10px] px-2 py-0.5 font-medium">
                           {d.access_level}
                         </span>
                       </td>
@@ -449,7 +445,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                             void onDetachDS(d.datasource_id)
                           }}
                           className={legacyFeedbackClass(
-                            'border-error/30 text-error hover:bg-error/6 inline-flex min-h-[1.85rem] cursor-pointer items-center justify-center rounded-[6px] border bg-transparent px-2.5 text-xs leading-[1.2] transition-colors',
+                            'border-error/30 text-error hover:bg-error/6 inline-flex min-h-[1.85rem] cursor-pointer items-center justify-center rounded-md border bg-transparent px-2.5 text-xs leading-[1.2] transition-colors',
                           )}
                           disabled={!canManageDatasources}
                         >
@@ -471,7 +467,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               className={`border-border mt-3 flex flex-wrap items-end gap-3 border-t pt-3`}
             >
               <label
-                className={`${adminFormLabelClass} max-w-[320px] min-w-[240px] flex-1 shrink-0 basis-[240px]`}
+                className={`${adminFormLabelClass} max-w-[320px] min-w-60 flex-1 shrink-0 basis-60`}
               >
                 <span className={adminLabelTextClass}>{t('admin.workspaces.datasource_name')}</span>
                 <Select
@@ -484,7 +480,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
               <button
                 type="submit"
                 className={cn(
-                  legacyButtonClass('btn btn-primary mb-0 min-h-[2.1rem] self-end'),
+                  buttonClass('primary', { className: 'mb-0 min-h-[2.1rem] self-end' }),
                   adminBtnAutoWidthClass,
                 )}
               >

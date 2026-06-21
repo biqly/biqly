@@ -1,5 +1,5 @@
 import type { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import {
   checkboxRowClass,
   modalActionsBorderedClass,
@@ -69,7 +69,7 @@ export function MetadataDescribeForm({
       <footer className={modalActionsBorderedClass()}>
         <button
           type="button"
-          className={legacyButtonClass('btn btn-ghost btn-sm')}
+          className={buttonClass('ghost', { size: 'sm' })}
           onClick={onClose}
           disabled={running}
         >
@@ -77,7 +77,7 @@ export function MetadataDescribeForm({
         </button>
         <button
           type="button"
-          className={legacyButtonClass('btn btn-sm')}
+          className={buttonClass('secondary', { size: 'sm' })}
           onClick={onRun}
           disabled={running}
         >

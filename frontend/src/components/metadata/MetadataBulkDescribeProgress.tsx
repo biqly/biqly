@@ -1,5 +1,5 @@
 import type { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { modalActionsClass } from '../../lib/modalClasses'
 import {
   type BulkEntry,
@@ -95,21 +95,25 @@ export function MetadataBulkDescribeProgress({
           <>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-ghost btn-sm')}
+              className={buttonClass('ghost', { size: 'sm' })}
               onClick={onClose}
             >
               {t('metadata.bulk_run_background')}
             </button>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-ghost btn-sm')}
+              className={buttonClass('ghost', { size: 'sm' })}
               onClick={onCancelBulk}
             >
               {t('metadata.bulk_stop_after')}
             </button>
           </>
         ) : (
-          <button type="button" className={legacyButtonClass('btn btn-sm')} onClick={onClose}>
+          <button
+            type="button"
+            className={buttonClass('secondary', { size: 'sm' })}
+            onClick={onClose}
+          >
             {t('metadata.bulk_close_btn')}
           </button>
         )}

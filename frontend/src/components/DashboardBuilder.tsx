@@ -4,8 +4,8 @@ import { useApi } from '../hooks/useApi'
 import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
-import { legacyCardClass } from '../lib/cardClasses'
+import { buttonClass } from '../lib/buttonClasses'
+import { cardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { formRowClass, legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
@@ -299,12 +299,12 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
         {error && <ErrorAlert error={error} />}
 
         {/* Header Panel */}
-        <div className={legacyCardClass('card')}>
+        <div className={cardClass()}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <button
                 type="button"
-                className={cn(legacyButtonClass('btn btn-secondary btn-sm'), 'mb-2')}
+                className={cn(buttonClass('secondary', { size: 'sm' }), 'mb-2')}
                 onClick={onBack}
               >
                 ← Back to Dashboards
@@ -321,7 +321,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                 <>
                   <button
                     type="button"
-                    className={legacyButtonClass('btn btn-secondary')}
+                    className={buttonClass('secondary')}
                     onClick={() => {
                       setIsEditMode(false)
                       void fetchDashboard()
@@ -331,7 +331,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                   </button>
                   <button
                     type="button"
-                    className={legacyButtonClass('btn btn-primary')}
+                    className={buttonClass('primary')}
                     onClick={() => {
                       void handleSaveLayout()
                     }}
@@ -343,7 +343,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
               ) : (
                 <button
                   type="button"
-                  className={legacyButtonClass('btn btn-primary')}
+                  className={buttonClass('primary')}
                   onClick={() => setIsEditMode(true)}
                 >
                   ✏️ Edit Layout
@@ -360,28 +360,28 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
               </span>
               <button
                 type="button"
-                className={legacyButtonClass('btn btn-secondary btn-sm')}
+                className={buttonClass('secondary', { size: 'sm' })}
                 onClick={() => handleAddWidget('kpi')}
               >
                 ➕ KPI
               </button>
               <button
                 type="button"
-                className={legacyButtonClass('btn btn-secondary btn-sm')}
+                className={buttonClass('secondary', { size: 'sm' })}
                 onClick={() => handleAddWidget('chart')}
               >
                 ➕ Chart
               </button>
               <button
                 type="button"
-                className={legacyButtonClass('btn btn-secondary btn-sm')}
+                className={buttonClass('secondary', { size: 'sm' })}
                 onClick={() => handleAddWidget('table')}
               >
                 ➕ Table
               </button>
               <button
                 type="button"
-                className={legacyButtonClass('btn btn-secondary btn-sm')}
+                className={buttonClass('secondary', { size: 'sm' })}
                 onClick={() => handleAddWidget('text')}
               >
                 ➕ Text
@@ -394,7 +394,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
         {widgets.length === 0 ? (
           <div
             className={cn(
-              legacyCardClass('card'),
+              cardClass(),
               'border-border border-2 border-dashed px-8 py-24 text-center',
             )}
           >
@@ -403,14 +403,14 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
               <div className="mt-4 flex justify-center gap-4">
                 <button
                   type="button"
-                  className={legacyButtonClass('btn btn-secondary')}
+                  className={buttonClass('secondary')}
                   onClick={() => handleAddWidget('chart')}
                 >
                   Add Chart
                 </button>
                 <button
                   type="button"
-                  className={legacyButtonClass('btn btn-secondary')}
+                  className={buttonClass('secondary')}
                   onClick={() => handleAddWidget('kpi')}
                 >
                   Add KPI
@@ -427,7 +427,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                 onDragStart={(e) => handleDragStart(e, idx)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => handleDrop(e, idx)}
-                className={cn(legacyCardClass('card card--elevated'), 'relative flex flex-col p-5')}
+                className={cn(cardClass({ elevated: true }), 'relative flex flex-col p-5')}
                 style={{
                   gridColumn: `span ${widget.w || 6}`,
                   minHeight: heightPixels(widget.h),
@@ -444,7 +444,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       <button
                         type="button"
                         className={cn(
-                          legacyButtonClass('btn btn-secondary btn-sm'),
+                          buttonClass('secondary', { size: 'sm' }),
                           'px-[0.3rem] py-[0.1rem] text-xs',
                         )}
                         onClick={() => {
@@ -463,7 +463,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       <button
                         type="button"
                         className={cn(
-                          legacyButtonClass('btn btn-secondary btn-sm'),
+                          buttonClass('secondary', { size: 'sm' }),
                           'px-[0.3rem] py-[0.1rem] text-xs',
                         )}
                         onClick={() => {
@@ -483,7 +483,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       <button
                         type="button"
                         className={cn(
-                          legacyButtonClass('btn btn-secondary btn-sm'),
+                          buttonClass('secondary', { size: 'sm' }),
                           'px-[0.3rem] py-[0.1rem]',
                         )}
                         onClick={() => handleOpenConfig(widget)}
@@ -495,7 +495,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       <button
                         type="button"
                         className={cn(
-                          legacyButtonClass('btn btn-danger btn-sm'),
+                          buttonClass('danger', { size: 'sm' }),
                           'px-[0.3rem] py-[0.1rem]',
                         )}
                         onClick={() => handleDeleteWidget(widget.id)}
@@ -781,14 +781,14 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
           <div className={modalActionsBorderedClass()}>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-secondary')}
+              className={buttonClass('secondary')}
               onClick={() => setIsConfigModalOpen(false)}
             >
               Cancel
             </button>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-primary')}
+              className={buttonClass('primary')}
               onClick={handleSaveConfig}
               disabled={configType !== 'text' && !selQuestionId}
             >

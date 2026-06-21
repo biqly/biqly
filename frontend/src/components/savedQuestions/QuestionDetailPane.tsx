@@ -1,6 +1,6 @@
 import type { TFunction } from '../../i18n'
 import { tagPillMetaClass } from '../../lib/badgeClasses'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import {
@@ -76,14 +76,14 @@ export function QuestionDetailPane({
       <p className="bg-card-raised rounded-md px-4 py-3 italic">{selectedQuestion.question}</p>
 
       <h3 className="mt-6 mb-2">{t('saved_questions.logical_query_heading')}</h3>
-      <pre className={cn(legacyFeedbackClass('sql-preview'), 'max-h-[250px] overflow-y-auto')}>
+      <pre className={cn(legacyFeedbackClass('sql-preview'), 'max-h-62.5 overflow-y-auto')}>
         {JSON.stringify(selectedQuestion.logical_query, null, 2)}
       </pre>
 
       <div className={savedQuestionActionsClass()}>
         <button
           type="button"
-          className={legacyButtonClass('btn btn-primary')}
+          className={buttonClass('primary')}
           onClick={() => onRun(selectedQuestion.logical_query)}
           disabled={runLoading}
           aria-label={t('saved_questions.aria_run_query')}
@@ -92,7 +92,7 @@ export function QuestionDetailPane({
         </button>
         <button
           type="button"
-          className={legacyButtonClass('btn')}
+          className={buttonClass('secondary')}
           onClick={() => onOpenEdit(selectedQuestion)}
           aria-label={t('saved_questions.aria_edit_query')}
         >
@@ -100,7 +100,7 @@ export function QuestionDetailPane({
         </button>
         <button
           type="button"
-          className={legacyButtonClass('btn btn-danger')}
+          className={buttonClass('danger')}
           onClick={() => onDelete(selectedQuestion.id)}
           aria-label={t('saved_questions.aria_delete_query')}
         >

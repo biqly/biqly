@@ -4,8 +4,8 @@ import { useApi } from '../hooks/useApi'
 import { useAutofocus } from '../hooks/useAutofocus'
 import { useConfirm } from '../hooks/useConfirm'
 import { localeLanguageTag, useLocale, useT } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
-import { legacyCardClass } from '../lib/cardClasses'
+import { buttonClass } from '../lib/buttonClasses'
+import { cardClass, cardHeaderRowClass, cardLeadClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
@@ -120,33 +120,32 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
       <LoadingOverlay loading={loading}>
         {error && <ErrorAlert error={error} />}
 
-        <div className={legacyCardClass('card')}>
-          <div className={legacyCardClass('card-header-row card-header-row--spaced')}>
+        <div className={cardClass()}>
+          <div className={cn(cardHeaderRowClass, cardHeaderRowClass)}>
             <div>
               <h2>{t('customDashboards.title')}</h2>
-              <p className={legacyCardClass('card-lead')} style={{ marginTop: '0.4rem' }}>
+              <p className={cardLeadClass} style={{ marginTop: '0.4rem' }}>
                 {t('customDashboards.lead')}
               </p>
             </div>
-            <button
-              type="button"
-              className={legacyButtonClass('btn btn-primary')}
-              onClick={openCreateModal}
-            >
+            <button type="button" className={buttonClass('primary')} onClick={openCreateModal}>
               + {t('customDashboards.new')}
             </button>
           </div>
         </div>
 
         {dashboards.length === 0 ? (
-          <div className={legacyCardClass('card px-8 py-16 text-center')}>
+          <div className={cardClass({ className: 'px-8 py-16 text-center' })}>
             <EmptyState
               title={t('customDashboards.empty_title')}
               description={t('customDashboards.empty_description')}
             >
               <button
                 type="button"
-                className={cn(legacyButtonClass('btn btn-primary mt-4'), adminBtnAutoWidthClass)}
+                className={cn(
+                  buttonClass('primary', { className: 'mt-4' }),
+                  adminBtnAutoWidthClass,
+                )}
                 onClick={openCreateModal}
               >
                 + {t('customDashboards.empty_cta')}
@@ -158,9 +157,11 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
             {dashboards.map((d) => (
               <div
                 key={d.id}
-                className={legacyCardClass(
-                  'card card--elevated flex min-h-40 cursor-pointer flex-col justify-between transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg',
-                )}
+                className={cardClass({
+                  elevated: true,
+                  className:
+                    'flex min-h-40 cursor-pointer flex-col justify-between transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg',
+                })}
                 role="button"
                 tabIndex={0}
                 onClick={() => onSelect(d.id)}
@@ -257,14 +258,14 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
           <div className={cn(modalActionsBorderedClass(), 'mt-1')}>
             <button
               type="button"
-              className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
+              className={cn(buttonClass('secondary'), adminBtnAutoWidthClass)}
               onClick={closeCreateModal}
             >
               {t('customDashboards.cancel')}
             </button>
             <button
               type="submit"
-              className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
+              className={cn(buttonClass('primary'), adminBtnAutoWidthClass)}
               disabled={loading || !name.trim()}
             >
               {t('customDashboards.create')}

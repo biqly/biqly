@@ -9,7 +9,7 @@ import {
 } from '../../api/ldap'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { formHintClass } from '../../lib/formClasses'
 import { errorMessage } from '../../utils/error'
@@ -251,7 +251,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
       <div className="flex gap-2">
         <button
           type="button"
-          className={legacyButtonClass('btn btn-secondary')}
+          className={buttonClass('secondary')}
           disabled={!canEdit || testing}
           onClick={() => void onTest()}
         >
@@ -259,7 +259,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
         </button>
         <button
           type="button"
-          className={legacyButtonClass('btn btn-primary')}
+          className={buttonClass('primary')}
           disabled={!canEdit || saving}
           onClick={() => void onSave()}
         >

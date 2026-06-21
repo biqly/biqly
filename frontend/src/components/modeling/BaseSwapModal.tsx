@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import type { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { modelingFormGroupClass } from '../../lib/formClasses'
 import { modalActionsBorderedClass, modalModelingCardClass } from '../../lib/modalClasses'
 import { modelingEmptyClass } from '../../lib/modelingClasses'
@@ -58,7 +58,7 @@ export function BaseSwapModal({
       )}
       <div className={modalActionsBorderedClass()}>
         <button
-          className={legacyButtonClass('btn btn-secondary')}
+          className={buttonClass('secondary')}
           type="button"
           onClick={onCancel}
           disabled={saving}
@@ -66,7 +66,7 @@ export function BaseSwapModal({
           {t('common.cancel')}
         </button>
         <button
-          className={legacyButtonClass('btn btn-danger')}
+          className={buttonClass('danger')}
           type="button"
           disabled={saving || !picked}
           onClick={() => {

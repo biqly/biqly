@@ -1,6 +1,6 @@
 import type { TFunction } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
+import { cardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import {
   evalStatusBadgeClass,
@@ -40,7 +40,7 @@ export function EvalRegressionTab({
 }: EvalRegressionTabProps) {
   return (
     <>
-      <div className={legacyCardClass('card')}>
+      <div className={cardClass()}>
         <h3>{t('evaluation.regression_title')}</h3>
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-56 flex-1">
@@ -76,7 +76,7 @@ export function EvalRegressionTab({
             />
           </div>
           <button
-            className={legacyButtonClass('btn btn-sm btn-primary')}
+            className={buttonClass('primary', { size: 'sm' })}
             onClick={runRegression}
             disabled={!configured || !baselineId || !currentId || regressionLoading}
           >
@@ -88,24 +88,24 @@ export function EvalRegressionTab({
       {regression && (
         <>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
-            <div className={cn(legacyCardClass('card'), 'border-error mb-0')}>
+            <div className={cn(cardClass(), 'border-error mb-0')}>
               <p className="text-foreground-muted text-caption">
                 {t('evaluation.reg_new_failures')}
               </p>
               <p className="text-error text-3xl font-bold">{regression.new_failures.length}</p>
             </div>
-            <div className={cn(legacyCardClass('card'), 'border-success mb-0')}>
+            <div className={cn(cardClass(), 'border-success mb-0')}>
               <p className="text-foreground-muted text-caption">{t('evaluation.reg_fixed')}</p>
               <p className="text-success text-3xl font-bold">{regression.fixed_failures.length}</p>
             </div>
-            <div className={cn(legacyCardClass('card'), 'border-warning mb-0')}>
+            <div className={cn(cardClass(), 'border-warning mb-0')}>
               <p className="text-foreground-muted text-caption">{t('evaluation.reg_changed')}</p>
               <p className="text-warning text-3xl font-bold">{regression.changed_cases.length}</p>
             </div>
           </div>
 
           {regression.new_failures.length > 0 && (
-            <div className={legacyCardClass('card')}>
+            <div className={cardClass()}>
               <h3 className="text-error">{t('evaluation.reg_new_failures_heading')}</h3>
               <table className={legacyTableClass('results-table')}>
                 <thead>
@@ -139,7 +139,7 @@ export function EvalRegressionTab({
           )}
 
           {regression.fixed_failures.length > 0 && (
-            <div className={legacyCardClass('card')}>
+            <div className={cardClass()}>
               <h3 className="text-success">{t('evaluation.reg_fixed_heading')}</h3>
               <table className={legacyTableClass('results-table')}>
                 <thead>
@@ -171,7 +171,7 @@ export function EvalRegressionTab({
           )}
 
           {regression.changed_cases.length > 0 && (
-            <div className={legacyCardClass('card')}>
+            <div className={cardClass()}>
               <h3 className="text-warning">{t('evaluation.reg_changed_heading')}</h3>
               <table className={legacyTableClass('results-table')}>
                 <thead>

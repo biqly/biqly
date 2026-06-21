@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { useApi } from '../../hooks/useApi'
 import { localeLanguageTag, type TranslationKey, useLocale, useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { formatDateTime } from '../../utils/formatters'
 import { AdminPanelShell } from './AdminPanelShell'
@@ -163,7 +163,7 @@ export function DriftBanner({ reports, onExpand }: DriftBannerProps) {
       <span className="flex-1">{t('modeling.drift_banner_text', { count: totalDrifts })}</span>
       <button
         type="button"
-        className={legacyButtonClass('btn btn-secondary shrink-0')}
+        className={buttonClass('secondary', { className: 'shrink-0' })}
         onClick={onExpand}
       >
         {t('modeling.drift_view_details')}

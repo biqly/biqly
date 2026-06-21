@@ -5,7 +5,6 @@ import { useConfirm } from '../../hooks/useConfirm'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { errorMessage } from '../../hooks/usePaginatedListLogic'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
-import { legacyCardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { ResourceShare } from '../../types/auth'
@@ -166,11 +165,7 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
 
   return (
     <div className="overflow-x-auto">
-      <div
-        className={legacyCardClass(
-          'bg-card border-border shadow-card-sm overflow-hidden rounded-lg border',
-        )}
-      >
+      <div className={'bg-card border-border shadow-card-sm overflow-hidden rounded-lg border'}>
         <DataState
           loading={loading}
           error={error}

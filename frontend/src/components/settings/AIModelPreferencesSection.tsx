@@ -9,8 +9,8 @@ import {
 } from '../../api/aiUserModels'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass } from '../../lib/buttonClasses'
+import { cardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import { errorMessage } from '../../utils/error'
 import { adminBtnAutoWidthClass } from '../admin/adminClasses'
@@ -212,7 +212,7 @@ export function AIModelPreferencesSection() {
 
   return (
     <section
-      className={legacyCardClass('card card--elevated mb-0')}
+      className={cardClass({ className: 'mb-0', elevated: true })}
       aria-labelledby="ai-models-prefs-heading"
     >
       <div className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
@@ -240,9 +240,9 @@ export function AIModelPreferencesSection() {
               return (
                 <div
                   key={purpose}
-                  className={legacyCardClass(
-                    'border-border bg-card-raised flex min-h-29.5 flex-col gap-2 rounded-[10px] border px-3.5 py-3',
-                  )}
+                  className={
+                    'border-border bg-card-raised flex min-h-29.5 flex-col gap-2 rounded-[10px] border px-3.5 py-3'
+                  }
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -296,7 +296,7 @@ export function AIModelPreferencesSection() {
           <div className={`border-border mt-5 flex justify-end border-t pt-5`}>
             <button
               type="button"
-              className={cn(legacyButtonClass('btn btn-primary btn-sm'), adminBtnAutoWidthClass)}
+              className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
               disabled={saving || loading}
               onClick={() => {
                 void handleSave()

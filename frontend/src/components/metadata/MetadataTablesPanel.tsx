@@ -2,8 +2,8 @@ import { Fragment } from 'react'
 
 import type { Locale } from '../../i18n'
 import { FALLBACK_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, type useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyCardClass } from '../../lib/cardClasses'
+import { buttonClass, iconBtnClass } from '../../lib/buttonClasses'
+import { cardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import {
   metadataEmptyHintClass,
@@ -98,7 +98,7 @@ export function MetadataTablesPanel({
   onSaveDisplayExpression: (tab: TableRow, expr: string) => Promise<boolean>
 }) {
   return (
-    <div className={legacyCardClass('card')}>
+    <div className={cardClass()}>
       <div className={metadataToolbarClass}>
         <div className={metadataToolbarTopRowClass}>
           <h2 className={metadataToolbarTitleClass}>
@@ -140,7 +140,7 @@ export function MetadataTablesPanel({
               <button
                 type="button"
                 className={cn(
-                  legacyButtonClass('btn btn-sm btn-secondary'),
+                  buttonClass('secondary', { size: 'sm' }),
                   'metadata-toolbar-action-btn shrink-0 px-2.5 py-1 text-[0.75rem] whitespace-nowrap',
                 )}
                 onClick={onBulkOpen}
@@ -231,7 +231,7 @@ export function MetadataTablesPanel({
                     <td>
                       <button
                         type="button"
-                        className={cn(legacyButtonClass('icon-btn'), 'text-caption gap-[0.35rem]')}
+                        className={cn(iconBtnClass, 'text-caption gap-[0.35rem]')}
                         aria-expanded={openTableId === tab.id}
                         aria-label={
                           openTableId === tab.id

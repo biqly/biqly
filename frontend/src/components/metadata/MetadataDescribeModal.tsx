@@ -4,7 +4,7 @@ import { type DescribeResult, runMetadataDescribeDirect } from '../../api/metada
 import type { DescribeJobRequest } from '../../hooks/useAIJobsUtils'
 import type { Locale } from '../../i18n'
 import { useT } from '../../i18n'
-import { legacyButtonClass } from '../../lib/buttonClasses'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import {
   modalActionsBorderedClass,
@@ -162,7 +162,7 @@ export function MetadataDescribeModal({
           <footer className={cn(modalActionsBorderedClass(), 'shrink-0 px-5 pb-4')}>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-ghost btn-sm')}
+              className={buttonClass('ghost', { size: 'sm' })}
               onClick={() => {
                 setResult(null)
                 onClose()

@@ -7,8 +7,14 @@ import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useToast } from '../hooks/useToast'
 import { useT } from '../i18n'
 import { savedQuestionTagsClass, tagPillClass } from '../lib/badgeClasses'
-import { legacyButtonClass } from '../lib/buttonClasses'
-import { legacyCardClass } from '../lib/cardClasses'
+import { buttonClass } from '../lib/buttonClasses'
+import {
+  cardClass,
+  cardHeaderRowClass,
+  cardIntroClass,
+  cardLeadClass,
+  cardLeadSingleLineClass,
+} from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { formRowClass, legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
@@ -47,7 +53,7 @@ function SavedQuestionsEmptyCard({
   const trimmedSearch = search.trim()
   return (
     <div
-      className={legacyCardClass('card')}
+      className={cardClass()}
       style={{
         position: 'relative',
         minHeight: '300px',
@@ -483,20 +489,20 @@ export default function SavedQuestions() {
 
   return (
     <div className={legacyLayoutClass('page-stack')}>
-      <div className={legacyCardClass('card')}>
-        <div className={legacyCardClass('card-intro')}>
-          <div className={legacyCardClass('card-header-row card-header-row--spaced')}>
+      <div className={cardClass()}>
+        <div className={cardIntroClass}>
+          <div className={cn(cardHeaderRowClass, cardHeaderRowClass)}>
             <h2>{t('saved_questions.title')}</h2>
             <button
               type="button"
-              className={legacyButtonClass('btn btn-primary btn-sm')}
+              className={buttonClass('primary', { size: 'sm' })}
               onClick={openAdd}
             >
               {t('saved_questions.new')}
             </button>
           </div>
           <p
-            className={legacyCardClass('card-lead saved-question-intro card-lead--single-line')}
+            className={cn(cardLeadClass, cardLeadClass, cardLeadSingleLineClass)}
             title={
               fewShotCount > 0
                 ? t('saved_questions.intro_fewshot_active', { count: fewShotCount })
@@ -562,7 +568,7 @@ export default function SavedQuestions() {
       ) : (
         <div className={savedQuestionListClass()}>
           {/* Left Column: Questions List */}
-          <div className={legacyCardClass('card')} style={{ position: 'relative' }}>
+          <div className={cardClass()} style={{ position: 'relative' }}>
             <LoadingOverlay loading={apiLoading} />
             <div className="flex flex-col gap-3">
               {filtered.map((q) => {
@@ -632,7 +638,7 @@ export default function SavedQuestions() {
           </div>
 
           {/* Right Column: Details & Run pane */}
-          <div className={legacyCardClass('card')} style={{ position: 'relative' }}>
+          <div className={cardClass()} style={{ position: 'relative' }}>
             <QuestionDetailPane
               selectedQuestion={selectedQuestion}
               semanticModels={semanticModels}

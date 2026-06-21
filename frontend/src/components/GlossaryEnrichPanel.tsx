@@ -1,6 +1,6 @@
 import { useT } from '../i18n'
-import { legacyButtonClass } from '../lib/buttonClasses'
-import { legacyCardClass } from '../lib/cardClasses'
+import { buttonClass } from '../lib/buttonClasses'
+import { cardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { legacyTableClass } from '../lib/tableClasses'
 import type { EnrichAnalyzeResult, EnrichApplyResult } from '../types/enrichContext'
@@ -46,7 +46,9 @@ export function GlossaryEnrichPanel({
 
   return (
     <div
-      className={legacyCardClass('card border-border bg-card-raised mb-5 rounded-lg border p-4')}
+      className={cardClass({
+        className: 'border-border bg-card-raised mb-5 rounded-lg border p-4',
+      })}
     >
       <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -62,16 +64,12 @@ export function GlossaryEnrichPanel({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className={legacyButtonClass('btn btn-sm btn-ghost')}
-            onClick={onClose}
-          >
+          <button type="button" className={buttonClass('ghost', { size: 'sm' })} onClick={onClose}>
             {t('glossary.enrich_context_close')}
           </button>
           <button
             type="button"
-            className={legacyButtonClass('btn btn-sm btn-secondary')}
+            className={buttonClass('secondary', { size: 'sm' })}
             disabled={loading}
             onClick={onRerun}
           >
@@ -79,7 +77,7 @@ export function GlossaryEnrichPanel({
           </button>
           <button
             type="button"
-            className={legacyButtonClass('btn btn-sm btn-primary')}
+            className={buttonClass('primary', { size: 'sm' })}
             disabled={loading || selectedCount === 0}
             onClick={onApply}
           >
@@ -123,7 +121,7 @@ export function GlossaryEnrichPanel({
         <div className="mb-3 flex items-center gap-2">
           <button
             type="button"
-            className={legacyButtonClass('btn btn-sm btn-ghost')}
+            className={buttonClass('ghost', { size: 'sm' })}
             disabled={loading || allSelected}
             onClick={() => onSelectAll(true)}
           >
@@ -131,7 +129,7 @@ export function GlossaryEnrichPanel({
           </button>
           <button
             type="button"
-            className={legacyButtonClass('btn btn-sm btn-ghost')}
+            className={buttonClass('ghost', { size: 'sm' })}
             disabled={loading || selectedCount === 0}
             onClick={() => onSelectAll(false)}
           >
