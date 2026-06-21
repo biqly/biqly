@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"github.com/bytedance/sonic"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/biqly/biqly/pkg/aiclient"
+	"github.com/biqly/biqly/pkg/common/httpclient"
 	"github.com/biqly/biqly/pkg/common/requestid"
 	"github.com/biqly/biqly/pkg/internalapi"
 	"github.com/biqly/biqly/pkg/logicalquery"
@@ -324,5 +326,316 @@ func TestWithHTTPClient_Transport(t *testing.T) {
 	}
 	if !d.called {
 		t.Fatal("custom doer was not used")
+	}
+}
+
+func TestWithUserAgent_Applied(t *testing.T) {
+	var gotUA string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUA = r.Header.Get("User-Agent")
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(aiclient.SettingsResponse{Provider: "openai"})
+	}))
+	t.Cleanup(srv.Close)
+
+	c := aiclient.New(srv.URL, aiclient.WithUserAgent("custom-agent/1.0"))
+	_, _ = c.Settings(context.Background())
+	if gotUA != "custom-agent/1.0" {
+		t.Fatalf("User-Agent = %q, want %q", gotUA, "custom-agent/1.0")
+	}
+}
+
+func TestWithUserAgent_EmptyDoesNotOverride(t *testing.T) {
+	c := aiclient.New("http://example.invalid", aiclient.WithUserAgent(""))
+	if c.BaseURL() != "http://example.invalid" {
+		t.Fatalf("unexpected base URL: %s", c.BaseURL())
+	}
+	// Empty WithUserAgent should not set it; verify via header in a real server.
+	var gotUA string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUA = r.Header.Get("User-Agent")
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(aiclient.SettingsResponse{Provider: "openai"})
+	}))
+	t.Cleanup(srv.Close)
+	c2 := aiclient.New(srv.URL, aiclient.WithUserAgent(""))
+	_, _ = c2.Settings(context.Background())
+	if gotUA != "biqly-aiclient/0.1" {
+		t.Fatalf("User-Agent = %q, want default %q", gotUA, "biqly-aiclient/0.1")
+	}
+}
+
+func TestWithRetryPolicy(t *testing.T) {
+	custom := httpclient.RetryPolicy{MaxAttempts: 1, BaseBackoff: 1}
+	c := aiclient.New("http://example.invalid", aiclient.WithRetryPolicy(custom))
+	// The option should be applied; we can't easily inspect inside, but
+	// constructing with it shouldn't panic or behave differently.
+	if c.BaseURL() != "http://example.invalid" {
+		t.Fatalf("unexpected base URL after WithRetryPolicy: %s", c.BaseURL())
+	}
+}
+
+func TestWithCircuitBreaker_Nil(t *testing.T) {
+	c := aiclient.New("http://example.invalid", aiclient.WithCircuitBreaker(nil))
+	if c.BaseURL() != "http://example.invalid" {
+		t.Fatalf("unexpected base URL after WithCircuitBreaker: %s", c.BaseURL())
+	}
+}
+
+func TestBaseURL(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"http://localhost:8080", "http://localhost:8080"},
+		{"https://ai.example.com/", "https://ai.example.com"},
+		{"  https://ai.example.com  ", "https://ai.example.com"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			c := aiclient.New(tt.input, aiclient.WithAuthToken("x"))
+			if got := c.BaseURL(); got != tt.want {
+				t.Errorf("BaseURL() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAPIError_Error(t *testing.T) {
+	tests := []struct {
+		name   string
+		status int
+		code   string
+		msg    string
+		want   string
+	}{
+		{
+			name:   "with code",
+			status: http.StatusBadRequest,
+			code:   "invalid_request",
+			msg:    "question required",
+			want:   "aiclient: 400 invalid_request: question required",
+		},
+		{
+			name:   "without code",
+			status: http.StatusNotFound,
+			code:   "",
+			msg:    "not found",
+			want:   "aiclient: 404: not found",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := aiclient.NewAPIErrorFromResponseForTest(tt.status, internalapi.Error{Code: tt.code, Error: tt.msg})
+			if got := err.Error(); got != tt.want {
+				t.Errorf("Error() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClarificationError_Error(t *testing.T) {
+	tests := []struct {
+		name     string
+		response *aiclient.QueryResponse
+		want     string
+	}{
+		{
+			name: "with question",
+			response: &aiclient.QueryResponse{
+				Clarification: &aiclient.ClarificationResponse{
+					NeedsClarification:    true,
+					ClarificationQuestion: "Which table?",
+				},
+			},
+			want: "aiclient: needs clarification: Which table?",
+		},
+		{
+			name: "without question",
+			response: &aiclient.QueryResponse{
+				Clarification: &aiclient.ClarificationResponse{
+					NeedsClarification: true,
+				},
+			},
+			want: "aiclient: needs clarification",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := aiclient.NewClarificationError(tt.response)
+			if got := err.Error(); got != tt.want {
+				t.Errorf("Error() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSentinelForStatus(t *testing.T) {
+	tests := []struct {
+		name   string
+		status int
+		code   string
+		want   error
+	}{
+		{"CodeNotFound", 0, internalapi.CodeNotFound, aiclient.ErrNotFound},
+		{"CodeInvalidRequest", 0, internalapi.CodeInvalidRequest, aiclient.ErrInvalidRequest},
+		{"StatusNotFound", http.StatusNotFound, "", aiclient.ErrNotFound},
+		{"StatusBadRequest", http.StatusBadRequest, "", aiclient.ErrInvalidRequest},
+		{"StatusUnauthorized", http.StatusUnauthorized, "", aiclient.ErrUnauthorized},
+		{"StatusForbidden", http.StatusForbidden, "", aiclient.ErrUnauthorized},
+		{"StatusUpstream", http.StatusInternalServerError, "", aiclient.ErrUpstream},
+		{"StatusServiceUnavailable", http.StatusServiceUnavailable, "", aiclient.ErrUpstream},
+		{"UnmappedStatus", http.StatusTeapot, "", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := aiclient.SentinelForStatusPublic(tt.status, tt.code)
+			if tt.want == nil {
+				if got != nil {
+					t.Errorf("sentinelForStatus(%d, %q) = %v, want nil", tt.status, tt.code, got)
+				}
+				return
+			}
+			if !errors.Is(got, tt.want) {
+				t.Errorf("sentinelForStatus(%d, %q) = %v, want %v", tt.status, tt.code, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecodeErrorResponse(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		body       string
+		wantMsg    string
+		wantCode   string
+	}{
+		{
+			name:       "legacy error field",
+			statusCode: http.StatusBadRequest,
+			body:       `{"error":"bad request"}`,
+			wantMsg:    "bad request",
+		},
+		{
+			name:       "legacy message field",
+			statusCode: http.StatusNotFound,
+			body:       `{"message":"table not found"}`,
+			wantMsg:    "table not found",
+		},
+		{
+			name:       "internalapi error",
+			statusCode: http.StatusForbidden,
+			body:       `{"code":"not_found","error":"resource missing"}`,
+			wantMsg:    "resource missing",
+		},
+		{
+			name:       "empty body falls back to status text",
+			statusCode: http.StatusBadGateway,
+			body:       "",
+			wantMsg:    "Bad Gateway",
+		},
+		{
+			name:       "non-JSON body",
+			statusCode: http.StatusInternalServerError,
+			body:       "upstream crashed",
+			wantMsg:    "upstream crashed",
+		},
+		{
+			name:       "invalid JSON",
+			statusCode: http.StatusBadRequest,
+			body:       `not json at all`,
+			wantMsg:    "not json at all",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := &http.Response{
+				StatusCode: tt.statusCode,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(tt.body)),
+			}
+			apiErr := aiclient.DecodeErrorResponsePublic(resp)
+			if apiErr == nil {
+				t.Fatal("expected non-nil error")
+			}
+			if !strings.Contains(apiErr.Error(), tt.wantMsg) {
+				t.Errorf("error = %q, want containing %q", apiErr.Error(), tt.wantMsg)
+			}
+			if tt.wantCode != "" {
+				var apiErr2 *aiclient.APIError
+				if errors.As(apiErr, &apiErr2) {
+					if apiErr2.Code != tt.wantCode {
+						t.Errorf("Code = %q, want %q", apiErr2.Code, tt.wantCode)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestDecodeErrorResponse_ReadError(t *testing.T) {
+	// Simulate a read error from the response body.
+	resp := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Body:       io.NopCloser(&errorReader{}),
+	}
+	err := aiclient.DecodeErrorResponsePublic(resp)
+	if err == nil {
+		t.Fatal("expected error from read failure")
+	}
+	if !strings.Contains(err.Error(), "read error response") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+type errorReader struct{}
+
+func (errorReader) Read([]byte) (int, error) { return 0, errors.New("read failed") }
+
+func TestDescribe_ErrorPath(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"internal error"}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	c := aiclient.New(srv.URL, aiclient.WithAuthToken("x"))
+	_, err := c.Describe(context.Background(), aiclient.DescribeRequest{
+		DatasourceID: "ds_1",
+		Table:        "orders",
+	})
+	if err == nil {
+		t.Fatal("expected error from Describe error path")
+	}
+}
+
+func TestPreview_ErrorPath(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(internalapi.Error{
+			Code: internalapi.CodeInvalidRequest, Error: "bad input",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	c := aiclient.New(srv.URL, aiclient.WithAuthToken("x"))
+	_, err := c.Preview(context.Background(), &aiclient.QueryRequest{DatasourceID: "ds_1", Question: "test"})
+	if err == nil {
+		t.Fatal("expected error from Preview error path")
+	}
+}
+
+func TestRun_ErrorPath(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(internalapi.Error{
+			Code: "rate_limited", Error: "rate limited",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	c := aiclient.New(srv.URL, aiclient.WithAuthToken("x"))
+	_, err := c.Run(context.Background(), &aiclient.QueryRequest{DatasourceID: "ds_1", Question: "test"})
+	if err == nil {
+		t.Fatal("expected error from Run error path")
 	}
 }

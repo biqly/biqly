@@ -8,6 +8,45 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestResetTrustedProxies(t *testing.T) {
+	// Set custom env, init proxies
+	t.Setenv("BI_TRUSTED_PROXIES", "8.8.8.8")
+	parseOnce = sync.Once{}
+	trustedProxies = nil
+
+	// Trigger init
+	assert.True(t, IsTrustedProxy("8.8.8.8"))
+	assert.False(t, IsTrustedProxy("127.0.0.1"))
+
+	// Reset
+	ResetTrustedProxies()
+
+	// Now defaults should be used again (env still set by t.Setenv but reset re-reads it)
+	// Actually since t.Setenv stays set, after reset it re-reads "8.8.8.8"
+	// Test that reset clears state so next call re-initializes
+	assert.True(t, IsTrustedProxy("8.8.8.8"))
+
+	// Verify internal state was reset
+	ResetTrustedProxies()
+	_ = os.Unsetenv("BI_TRUSTED_PROXIES")
+	assert.True(t, IsTrustedProxy("127.0.0.1")) // defaults restored
+}
+
+func TestResetTrustedProxies_DetectsEnvChange(t *testing.T) {
+	ResetTrustedProxies()
+	trustedProxies = nil
+
+	t.Setenv("BI_TRUSTED_PROXIES", "10.0.0.1")
+	assert.True(t, IsTrustedProxy("10.0.0.1"))
+	assert.False(t, IsTrustedProxy("8.8.8.8"))
+
+	// Change env and reset
+	ResetTrustedProxies()
+	t.Setenv("BI_TRUSTED_PROXIES", "8.8.8.8")
+	assert.True(t, IsTrustedProxy("8.8.8.8"))
+	assert.False(t, IsTrustedProxy("10.0.0.1"))
+}
+
 func TestIsTrustedProxy_Default(t *testing.T) {
 	parseOnce = sync.Once{}
 	trustedProxies = nil

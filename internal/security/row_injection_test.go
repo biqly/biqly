@@ -42,9 +42,9 @@ func TestBuildRowFilterPredicatesNeqIsNotEq(t *testing.T) {
 func TestBuildRowFilterPredicatesAllowedOperators(t *testing.T) {
 	dimMap := map[string]string{"x": "t.x"}
 	cases := []struct {
-		op      string
-		val     any
-		want    string
+		op   string
+		val  any
+		want string
 	}{
 		{"eq", 1, "="},
 		{"neq", 1, "<>"},
@@ -100,5 +100,97 @@ func TestBuildRowFilterPredicatesUnknownFieldOmitted(t *testing.T) {
 	}
 	if len(preds) != 0 || len(args) != 0 {
 		t.Fatalf("expected unknown field to be omitted, got preds=%v args=%v", preds, args)
+	}
+}
+
+// CheckFieldAccess tests
+
+func TestCheckFieldAccess_AllowsAccess(t *testing.T) {
+	pi := NewPermissionInjector()
+	pol := &PermissionPolicy{
+		UserID: "u1",
+	}
+	if err := pi.CheckFieldAccess(pol, "orders", []string{"amount", "date"}, []string{"region"}); err != nil {
+		t.Fatalf("expected all fields to be accessible, got %v", err)
+	}
+}
+
+func TestCheckFieldAccess_DeniedSelectField(t *testing.T) {
+	pi := NewPermissionInjector()
+	pol := &PermissionPolicy{
+		UserID:       "u1",
+		DeniedFields: []string{"orders.salary"},
+	}
+	err := pi.CheckFieldAccess(pol, "orders", []string{"amount", "salary"}, nil)
+	if err == nil {
+		t.Fatal("expected error for denied select field")
+	}
+}
+
+func TestCheckFieldAccess_DeniedFilterField(t *testing.T) {
+	pi := NewPermissionInjector()
+	pol := &PermissionPolicy{
+		UserID:       "u1",
+		DeniedFields: []string{"orders.ssn"},
+	}
+	err := pi.CheckFieldAccess(pol, "orders", []string{"amount"}, []string{"ssn"})
+	if err == nil {
+		t.Fatal("expected error for denied filter field")
+	}
+}
+
+func TestCheckFieldAccess_SelectFieldPIIHidden(t *testing.T) {
+	pi := NewPermissionInjector()
+	pol := &PermissionPolicy{
+		UserID: "u1",
+		PIIPolicy: map[string]string{
+			"orders.email": "hidden",
+		},
+	}
+	err := pi.CheckFieldAccess(pol, "orders", []string{"email"}, nil)
+	if err == nil {
+		t.Fatal("expected error for PII-hidden select field")
+	}
+}
+
+func TestCheckFieldAccess_FilterFieldPIIHidden(t *testing.T) {
+	pi := NewPermissionInjector()
+	pol := &PermissionPolicy{
+		UserID: "u1",
+		PIIPolicy: map[string]string{
+			"orders.email": "hidden",
+		},
+	}
+	err := pi.CheckFieldAccess(pol, "orders", []string{"amount"}, []string{"email"})
+	if err == nil {
+		t.Fatal("expected error for PII-hidden filter field")
+	}
+}
+
+func TestCheckFieldAccess_NoFieldsAllows(t *testing.T) {
+	pi := NewPermissionInjector()
+	pol := &PermissionPolicy{
+		UserID: "u1",
+	}
+	if err := pi.CheckFieldAccess(pol, "orders", nil, nil); err != nil {
+		t.Fatalf("nil/empty fields should not cause error, got %v", err)
+	}
+}
+
+func TestCheckFieldAccess_SelectFieldsCase(t *testing.T) {
+	pi := NewPermissionInjector()
+	pol := &PermissionPolicy{
+		UserID:       "u1",
+		DeniedFields: []string{"orders.salary"},
+	}
+	// Should fail because "salary" is denied
+	err := pi.CheckFieldAccess(pol, "orders", []string{"amount", "salary"}, nil)
+	if err == nil {
+		t.Fatal("expected error for denied field")
+	}
+	// Should pass for non-denied fields
+	err = pi.CheckFieldAccess(pol, "orders", []string{"amount"}, nil)
+	if err != nil {
+		t.Fatalf("expected non-denied field to pass, got %v", err)
 	}
 }

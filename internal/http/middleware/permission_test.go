@@ -467,3 +467,333 @@ func TestAuthClient_ListWorkspaceDatasources_EmptyWorkspace(t *testing.T) {
 		t.Fatalf("expected nil for empty workspace, got %+v", got)
 	}
 }
+
+func TestSharedAuthClient_ReturnsSameInstance(t *testing.T) {
+	c1 := SharedAuthClient("http://auth:8080", "tok-1")
+	c2 := SharedAuthClient("http://auth:8080", "tok-1")
+	if c1 != c2 {
+		t.Fatal("SharedAuthClient should return the same instance for identical args")
+	}
+	// Different token should create a different client.
+	c3 := SharedAuthClient("http://auth:8080", "tok-2")
+	if c1 == c3 {
+		t.Fatal("SharedAuthClient should return different instance for different token")
+	}
+}
+
+func TestSharedAuthClient_URLTrimmed(t *testing.T) {
+	c1 := SharedAuthClient("http://auth:8080/", "tok")
+	c2 := SharedAuthClient("http://auth:8080", "tok")
+	if c1 != c2 {
+		t.Fatal("SharedAuthClient should normalize trailing slash in URL")
+	}
+}
+
+func TestAuthClient_UserAIAccess(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1/ai-access", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Internal-Token") != "tok" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string]any{
+			"restricted":   true,
+			"model_ids":    []string{"gpt-4", "claude-3"},
+			"provider_ids": []string{"openai"},
+			"preferences":  map[string]string{"model": "gpt-4"},
+		})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	access, err := client.UserAIAccess(context.Background(), "u1")
+	if err != nil {
+		t.Fatalf("UserAIAccess: %v", err)
+	}
+	if access == nil {
+		t.Fatal("expected non-nil UserAIAccess")
+	}
+	if !access.Restricted {
+		t.Fatal("expected restricted=true")
+	}
+	if len(access.ModelIDs) != 2 || access.ModelIDs[0] != "gpt-4" {
+		t.Fatalf("unexpected model_ids: %+v", access.ModelIDs)
+	}
+	if len(access.ProviderIDs) != 1 || access.ProviderIDs[0] != "openai" {
+		t.Fatalf("unexpected provider_ids: %+v", access.ProviderIDs)
+	}
+	if access.Preferences["model"] != "gpt-4" {
+		t.Fatalf("unexpected preferences: %+v", access.Preferences)
+	}
+}
+
+func TestAuthClient_UserAIAccess_EmptyUserID(t *testing.T) {
+	client := NewAuthClient("http://unused", "tok")
+	access, err := client.UserAIAccess(context.Background(), "")
+	if err != nil {
+		t.Fatalf("UserAIAccess(''): %v", err)
+	}
+	if access != nil {
+		t.Fatal("expected nil for empty userID")
+	}
+}
+
+func TestAuthClient_UserAIAccess_Non200Status(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1/ai-access", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	_, err := client.UserAIAccess(context.Background(), "u1")
+	if err == nil {
+		t.Fatal("expected error for non-200 status")
+	}
+}
+
+func TestAuthClient_UserAIAccess_NilPreferences(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1/ai-access", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string]any{
+			"restricted":   false,
+			"model_ids":    []string{},
+			"provider_ids": []string{},
+			"preferences":  nil,
+		})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	access, err := client.UserAIAccess(context.Background(), "u1")
+	if err != nil {
+		t.Fatalf("UserAIAccess: %v", err)
+	}
+	if access.Preferences == nil {
+		t.Fatal("expected non-nil (empty) preferences map, got nil")
+	}
+}
+
+func TestAuthClient_ListUserAIPreferences(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1/ai-preferences", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Internal-Token") != "tok" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string]any{
+			"preferences": []map[string]string{
+				{"purpose": "chat", "model_id": "gpt-4"},
+				{"purpose": "code", "model_id": "claude-3"},
+			},
+		})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	prefs, err := client.ListUserAIPreferences(context.Background(), "u1")
+	if err != nil {
+		t.Fatalf("ListUserAIPreferences: %v", err)
+	}
+	if len(prefs) != 2 {
+		t.Fatalf("expected 2 preferences, got %d", len(prefs))
+	}
+	if prefs[0].Purpose != "chat" || prefs[0].ModelID != "gpt-4" {
+		t.Fatalf("unexpected pref[0]: %+v", prefs[0])
+	}
+	if prefs[1].Purpose != "code" || prefs[1].ModelID != "claude-3" {
+		t.Fatalf("unexpected pref[1]: %+v", prefs[1])
+	}
+}
+
+func TestAuthClient_ListUserAIPreferences_EmptyUserID(t *testing.T) {
+	client := NewAuthClient("http://unused", "tok")
+	prefs, err := client.ListUserAIPreferences(context.Background(), "")
+	if err != nil {
+		t.Fatalf("ListUserAIPreferences(''): %v", err)
+	}
+	if prefs != nil {
+		t.Fatal("expected nil for empty userID")
+	}
+}
+
+func TestAuthClient_ListUserAIPreferences_Non200Status(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1/ai-preferences", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	_, err := client.ListUserAIPreferences(context.Background(), "u1")
+	if err == nil {
+		t.Fatal("expected error for non-200 status")
+	}
+}
+
+func TestAuthClient_SetUserAIPreference(t *testing.T) {
+	var gotMethod, gotToken, gotContentType string
+	var gotBody []byte
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1/ai-preferences", func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotToken = r.Header.Get("X-Internal-Token")
+		gotContentType = r.Header.Get("Content-Type")
+		var err error
+		gotBody, err = io.ReadAll(r.Body)
+		require.NoError(t, err)
+		w.WriteHeader(http.StatusOK)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	err := client.SetUserAIPreference(context.Background(), "u1", "chat", "gpt-4")
+	if err != nil {
+		t.Fatalf("SetUserAIPreference: %v", err)
+	}
+	if gotMethod != http.MethodPut {
+		t.Fatalf("expected PUT, got %s", gotMethod)
+	}
+	if gotToken != "tok" {
+		t.Fatalf("expected token 'tok', got %q", gotToken)
+	}
+	if gotContentType != "application/json" {
+		t.Fatalf("expected Content-Type application/json, got %q", gotContentType)
+	}
+	var bodyMap map[string]string
+	require.NoError(t, sonic.ConfigStd.Unmarshal(gotBody, &bodyMap))
+	if bodyMap["purpose"] != "chat" || bodyMap["model_id"] != "gpt-4" {
+		t.Fatalf("unexpected body: %+v", bodyMap)
+	}
+}
+
+func TestAuthClient_SetUserAIPreference_NoContentSuccess(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1/ai-preferences", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	err := client.SetUserAIPreference(context.Background(), "u1", "chat", "gpt-4")
+	if err != nil {
+		t.Fatalf("SetUserAIPreference(204): %v", err)
+	}
+}
+
+func TestAuthClient_SetUserAIPreference_ErrorStatus(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1/ai-preferences", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	err := client.SetUserAIPreference(context.Background(), "u1", "chat", "gpt-4")
+	if err == nil {
+		t.Fatal("expected error for non-success status")
+	}
+}
+
+func TestAuthClient_DeleteUserAIPreference(t *testing.T) {
+	var gotMethod, gotToken string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1/ai-preferences/chat", func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotToken = r.Header.Get("X-Internal-Token")
+		w.WriteHeader(http.StatusOK)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	err := client.DeleteUserAIPreference(context.Background(), "u1", "chat")
+	if err != nil {
+		t.Fatalf("DeleteUserAIPreference: %v", err)
+	}
+	if gotMethod != http.MethodDelete {
+		t.Fatalf("expected DELETE, got %s", gotMethod)
+	}
+	if gotToken != "tok" {
+		t.Fatalf("expected token 'tok', got %q", gotToken)
+	}
+}
+
+func TestAuthClient_DeleteUserAIPreference_NoContentSuccess(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1/ai-preferences/chat", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	err := client.DeleteUserAIPreference(context.Background(), "u1", "chat")
+	if err != nil {
+		t.Fatalf("DeleteUserAIPreference(204): %v", err)
+	}
+}
+
+func TestAuthClient_DeleteUserAIPreference_ErrorStatus(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1/ai-preferences/chat", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	err := client.DeleteUserAIPreference(context.Background(), "u1", "chat")
+	if err == nil {
+		t.Fatal("expected error for non-success status")
+	}
+}
+
+func TestAuthClient_GetUserEmail(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Internal-Token") != "tok" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = sonic.ConfigStd.NewEncoder(w).Encode(map[string]string{"email": "user@example.com"})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	email, err := client.GetUserEmail(context.Background(), "u1")
+	if err != nil {
+		t.Fatalf("GetUserEmail: %v", err)
+	}
+	if email != "user@example.com" {
+		t.Fatalf("expected 'user@example.com', got %q", email)
+	}
+}
+
+func TestAuthClient_GetUserEmail_Non200Status(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/user/u1", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	client := NewAuthClient(srv.URL, "tok")
+	_, err := client.GetUserEmail(context.Background(), "u1")
+	if err == nil {
+		t.Fatal("expected error for non-200 status")
+	}
+}

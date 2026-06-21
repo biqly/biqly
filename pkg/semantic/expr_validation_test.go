@@ -177,6 +177,7 @@ func validateExprStrictFunctionCases() []validateExprStrictCase {
 func TestValidateExprStrict(t *testing.T) {
 	allowedCols, allowedMets, allowedDims := validateExprStrictAllowedMaps()
 	tests := append(validateExprStrictRefCases(), validateExprStrictFunctionCases()...)
+	tests = append(tests, validateExprStrictCaseCases()...)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -193,6 +194,135 @@ func TestValidateExprStrict(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func validateExprStrictCaseCases() []validateExprStrictCase {
+	return []validateExprStrictCase{
+		{
+			name: "valid case expr with else",
+			expr: &CaseExpr{
+				Conditions: []CaseWhen{
+					{
+						When: &BinaryExpr{
+							Op:    OpGt,
+							Left:  &ColumnRefExpr{Column: "revenue"},
+							Right: &LiteralExpr{Value: float64(100)},
+						},
+						Then: &LiteralExpr{Value: "high"},
+					},
+				},
+				ElseExpr: &LiteralExpr{Value: "low"},
+			},
+			allowMetrics: false,
+			wantErr:      "",
+		},
+		{
+			name: "valid case expr without else",
+			expr: &CaseExpr{
+				Conditions: []CaseWhen{
+					{
+						When: &ColumnRefExpr{Column: "region"},
+						Then: &LiteralExpr{Value: "EMEA"},
+					},
+				},
+			},
+			allowMetrics: false,
+			wantErr:      "",
+		},
+		{
+			name: "invalid case when condition",
+			expr: &CaseExpr{
+				Conditions: []CaseWhen{
+					{
+						When: &MetricRefExpr{Name: "total_revenue"},
+						Then: &LiteralExpr{Value: "high"},
+					},
+				},
+			},
+			allowMetrics: false,
+			wantErr:      "invalid when condition 0: metric reference not allowed",
+		},
+		{
+			name: "invalid case then result",
+			expr: &CaseExpr{
+				Conditions: []CaseWhen{
+					{
+						When: &LiteralExpr{Value: true},
+						Then: &MetricRefExpr{Name: "total_revenue"},
+					},
+				},
+			},
+			allowMetrics: false,
+			wantErr:      "invalid then result 0: metric reference not allowed",
+		},
+		{
+			name: "invalid case else result",
+			expr: &CaseExpr{
+				Conditions: []CaseWhen{
+					{
+						When: &LiteralExpr{Value: true},
+						Then: &LiteralExpr{Value: "high"},
+					},
+				},
+				ElseExpr: &MetricRefExpr{Name: "total_revenue"},
+			},
+			allowMetrics: false,
+			wantErr:      "invalid else result: metric reference not allowed",
+		},
+		{
+			name:         "empty node returns nil",
+			expr:         nil,
+			allowMetrics: false,
+			wantErr:      "",
+		},
+		{
+			name: "binary expr invalid left",
+			expr: &BinaryExpr{
+				Op:    OpAdd,
+				Left:  &MetricRefExpr{Name: "total_revenue"},
+				Right: &LiteralExpr{Value: 1},
+			},
+			allowMetrics: false,
+			wantErr:      "metric reference not allowed",
+		},
+		{
+			name: "binary expr valid but right invalid",
+			expr: &BinaryExpr{
+				Op:    OpAdd,
+				Left:  &LiteralExpr{Value: 1},
+				Right: &MetricRefExpr{Name: "total_revenue"},
+			},
+			allowMetrics: false,
+			wantErr:      "metric reference not allowed",
+		},
+		{
+			name: "function call invalid arg",
+			expr: &FunctionCallExpr{
+				Name: "COALESCE",
+				Args: []ExprNode{
+					&LiteralExpr{Value: "good"},
+					&MetricRefExpr{Name: "total_revenue"},
+				},
+			},
+			allowMetrics: false,
+			wantErr:      "metric reference not allowed",
+		},
+	}
+}
+
+type unknownTestExpr struct{}
+
+func (*unknownTestExpr) exprSealed() {}
+
+func TestValidateExprStrictUnknownType(t *testing.T) {
+	allowedCols, allowedMets, allowedDims := validateExprStrictAllowedMaps()
+	err := ValidateExprStrict(&unknownTestExpr{}, allowedCols, allowedMets, allowedDims, false, 0)
+	if err == nil {
+		t.Fatal("expected error for unknown type")
+	}
+	if !strings.Contains(err.Error(), "unknown expression node type") {
+		t.Fatalf("error = %v, want unknown type", err)
 	}
 }
 

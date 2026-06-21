@@ -293,3 +293,42 @@ func TestConnectNATS_Errors(t *testing.T) {
 	assert.Error(t, err2)
 	assert.Contains(t, err2.Error(), "nats connect")
 }
+
+func TestConnectNATS_DefaultsApplied(t *testing.T) {
+	cfg := NATSConfig{URL: "nats://localhost:4222"}
+	q, err := ConnectNATS(cfg)
+	require.NoError(t, err)
+	require.NotNil(t, q)
+
+	assert.Equal(t, AIJobStream, q.stream)
+	assert.Equal(t, AIJobSubject, q.subj)
+
+	// Close with non-nil nc (covers line 170)
+	assert.NoError(t, q.Close())
+
+	// Double close (nil nc path)
+	assert.NoError(t, q.Close())
+}
+
+func TestNATSQueueSubscribe_EmptyGroupDefault(t *testing.T) {
+	var createdCfg jetstream.ConsumerConfig
+	q := &NATSQueue{
+		js: &mockJetStream{
+			createConsumer: func(_ context.Context, _ string, cfg jetstream.ConsumerConfig) (jetstream.Consumer, error) {
+				createdCfg = cfg
+				return &mockConsumer{}, nil
+			},
+		},
+		stream: "test-stream",
+		subj:   "test-subj",
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := q.Subscribe(ctx, "", func(_ context.Context, _ string) error {
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "biqly-ai-workers", createdCfg.Durable)
+}

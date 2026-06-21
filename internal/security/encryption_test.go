@@ -1,11 +1,92 @@
 package security
 
 import (
+	"encoding/base64"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func makeTestKey() []byte {
+	key := make([]byte, 32)
+	for i := range key {
+		key[i] = byte(i)
+	}
+	return key
+}
+
+func makeTestKeyB64() string {
+	return base64.StdEncoding.EncodeToString(makeTestKey())
+}
+
+func TestDecodeEncryptionKeyB64_Valid(t *testing.T) {
+	keyB64 := makeTestKeyB64()
+	key, err := decodeEncryptionKeyB64(keyB64)
+	require.NoError(t, err)
+	assert.Equal(t, 32, len(key))
+	assert.Equal(t, makeTestKey(), key)
+}
+
+func TestDecodeEncryptionKeyB64_InvalidBase64(t *testing.T) {
+	_, err := decodeEncryptionKeyB64("not-valid-base64!!!")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "base64 encoded")
+}
+
+func TestDecodeEncryptionKeyB64_WrongLength(t *testing.T) {
+	// 16 bytes encoded is valid base64 but wrong key length
+	short := base64.StdEncoding.EncodeToString([]byte("0123456789abcdef"))
+	_, err := decodeEncryptionKeyB64(short)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "32 bytes")
+}
+
+func TestNewEncryptionFromBase64_Valid(t *testing.T) {
+	enc, err := NewEncryptionFromBase64(makeTestKeyB64())
+	require.NoError(t, err)
+	require.NotNil(t, enc)
+
+	// Verify it works
+	ct, err := enc.Encrypt("test")
+	require.NoError(t, err)
+	pt, err := enc.Decrypt(ct)
+	require.NoError(t, err)
+	assert.Equal(t, "test", pt)
+}
+
+func TestNewEncryptionFromBase64_Empty(t *testing.T) {
+	_, err := NewEncryptionFromBase64("")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty")
+}
+
+func TestNewEncryptionFromBase64_InvalidKey(t *testing.T) {
+	_, err := NewEncryptionFromBase64("aGVsbG8=") // valid base64 but only 5 bytes
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid encryption key")
+}
+
+func TestNewEncryption_EnvSet(t *testing.T) {
+	t.Setenv("BI_ENCRYPTION_KEY", makeTestKeyB64())
+	enc, err := NewEncryption()
+	require.NoError(t, err)
+	require.NotNil(t, enc)
+
+	ct, err := enc.Encrypt("env-test")
+	require.NoError(t, err)
+	pt, err := enc.Decrypt(ct)
+	require.NoError(t, err)
+	assert.Equal(t, "env-test", pt)
+}
+
+func TestNewEncryption_EnvNotSet(t *testing.T) {
+	_ = os.Unsetenv("BI_ENCRYPTION_KEY")
+	_, err := NewEncryption()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "BI_ENCRYPTION_KEY")
+}
 
 func TestEncryptionRoundTrip(t *testing.T) {
 	key := make([]byte, 32)

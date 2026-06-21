@@ -151,3 +151,18 @@ func TestSampleWorthy(t *testing.T) {
 	assert.False(t, sampleWorthy("uuid"))
 	assert.False(t, sampleWorthy("bytea"))
 }
+
+func TestNewScanner_ZeroSampleLimitDefaults(t *testing.T) {
+	s := NewScanner(NewDetector(DefaultThreshold), newFakeColumnStore(), 0)
+	assert.Equal(t, DefaultSampleLimit, s.sampleLimit)
+}
+
+func TestNewScanner_NegativeSampleLimitDefaults(t *testing.T) {
+	s := NewScanner(NewDetector(DefaultThreshold), newFakeColumnStore(), -5)
+	assert.Equal(t, DefaultSampleLimit, s.sampleLimit)
+}
+
+func TestNewScanner_PositiveSampleLimitPreserved(t *testing.T) {
+	s := NewScanner(NewDetector(DefaultThreshold), newFakeColumnStore(), 25)
+	assert.Equal(t, 25, s.sampleLimit)
+}

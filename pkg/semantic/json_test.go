@@ -78,3 +78,44 @@ func TestSemanticModelJSONDropsInvalidExprs(t *testing.T) {
 		t.Errorf("expression string lost: %q", got.Metrics[0].Expression)
 	}
 }
+
+func TestSemanticModelJSONDropsEmptyExprNode(t *testing.T) {
+	// exprNodeFromRaw with nil/empty JSON: returns nil
+	raw := []byte(`{
+		"id": "m2",
+		"dimensions": [{"name": "d1", "calculated_expr": null}],
+		"metrics": [{"name": "m1", "expression": "total", "expr": null}]
+	}`)
+	var got SemanticModel
+	if err := sonic.ConfigStd.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.Dimensions[0].CalculatedExpr != nil {
+		t.Errorf("null dimension expr should decode to nil, got %#v", got.Dimensions[0].CalculatedExpr)
+	}
+	if got.Metrics[0].Expr != nil {
+		t.Errorf("null metric expr should decode to nil, got %#v", got.Metrics[0].Expr)
+	}
+}
+
+func TestDimensionUnmarshalJSONBadFieldType(t *testing.T) {
+	// sonic.ConfigStd.Unmarshal fails inside Dimension.UnmarshalJSON
+	// because "id" is a number, not a string
+	raw := []byte(`{"id":123,"name":"d1","column_ref":"col","type":"text"}`)
+	var d Dimension
+	err := sonic.ConfigStd.Unmarshal(raw, &d)
+	if err == nil {
+		t.Fatal("expected unmarshal error for wrong id type")
+	}
+}
+
+func TestMetricUnmarshalJSONBadFieldType(t *testing.T) {
+	// sonic.ConfigStd.Unmarshal fails inside Metric.UnmarshalJSON
+	// because "name" is a number, not a string
+	raw := []byte(`{"name":123,"expression":"count","aggregation":"sum"}`)
+	var m Metric
+	err := sonic.ConfigStd.Unmarshal(raw, &m)
+	if err == nil {
+		t.Fatal("expected unmarshal error for wrong name type")
+	}
+}

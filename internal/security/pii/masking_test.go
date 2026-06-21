@@ -84,3 +84,55 @@ func TestMaskExpression_UnknownTypeFailsClosed(t *testing.T) {
 		assert.Equal(t, HiddenLiteral, strategy.MaskExpression("col", "unknown_type", d))
 	}
 }
+
+func TestNormalizeMaskingStrategy_Empty(t *testing.T) {
+	assert.Equal(t, MaskingStrategyPartial, NormalizeMaskingStrategy(""))
+}
+
+func TestNormalizeMaskingStrategy_Partial(t *testing.T) {
+	assert.Equal(t, MaskingStrategyPartial, NormalizeMaskingStrategy(MaskingStrategyPartial))
+	assert.Equal(t, MaskingStrategyPartial, NormalizeMaskingStrategy("PARTIAL"))
+	assert.Equal(t, MaskingStrategyPartial, NormalizeMaskingStrategy(" Partial "))
+}
+
+func TestNormalizeMaskingStrategy_Full(t *testing.T) {
+	assert.Equal(t, MaskingStrategyFull, NormalizeMaskingStrategy(MaskingStrategyFull))
+	assert.Equal(t, MaskingStrategyFull, NormalizeMaskingStrategy("FULL"))
+}
+
+func TestNormalizeMaskingStrategy_UnknownFailsClosed(t *testing.T) {
+	assert.Equal(t, MaskingStrategyFull, NormalizeMaskingStrategy("surprise"))
+	assert.Equal(t, MaskingStrategyFull, NormalizeMaskingStrategy("whatever"))
+}
+
+func TestEffectiveColumnAccess_Raw(t *testing.T) {
+	assert.Equal(t, AccessRaw, EffectiveColumnAccess(AccessRaw, ""))
+	assert.Equal(t, AccessRaw, EffectiveColumnAccess(AccessRaw, MaskingStrategyFull))
+	assert.Equal(t, AccessRaw, EffectiveColumnAccess(AccessRaw, MaskingStrategyPartial))
+	assert.Equal(t, AccessRaw, EffectiveColumnAccess(AccessRaw, "surprise"))
+}
+
+func TestEffectiveColumnAccess_MaskedWithPartialStrategy(t *testing.T) {
+	assert.Equal(t, AccessMasked, EffectiveColumnAccess(AccessMasked, MaskingStrategyPartial))
+	assert.Equal(t, AccessMasked, EffectiveColumnAccess(AccessMasked, ""))
+}
+
+func TestEffectiveColumnAccess_MaskedWithFullStrategy(t *testing.T) {
+	assert.Equal(t, AccessHidden, EffectiveColumnAccess(AccessMasked, MaskingStrategyFull))
+}
+
+func TestEffectiveColumnAccess_MaskedWithUnknownStrategy(t *testing.T) {
+	// Unknown strategies normalize to full, which maps masked to hidden
+	assert.Equal(t, AccessHidden, EffectiveColumnAccess(AccessMasked, "surprise"))
+}
+
+func TestEffectiveColumnAccess_Hidden(t *testing.T) {
+	assert.Equal(t, AccessHidden, EffectiveColumnAccess(AccessHidden, ""))
+	assert.Equal(t, AccessHidden, EffectiveColumnAccess(AccessHidden, MaskingStrategyPartial))
+	assert.Equal(t, AccessHidden, EffectiveColumnAccess(AccessHidden, MaskingStrategyFull))
+}
+
+func TestEffectiveColumnAccess_UnknownAccessFailsClosed(t *testing.T) {
+	assert.Equal(t, AccessHidden, EffectiveColumnAccess("bogus", ""))
+	assert.Equal(t, AccessHidden, EffectiveColumnAccess("", ""))
+}

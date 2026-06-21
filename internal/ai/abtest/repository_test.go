@@ -100,6 +100,245 @@ func TestRepositoryAddVariantValidatesPromptTemplateVersion(t *testing.T) {
 	}
 }
 
+func TestRepositoryCreateExperimentDraft(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+	experiment := &Experiment{
+		Name:         "test-experiment",
+		Description:  "test description",
+		TemplateName: "system_rules",
+		Locale:       "en",
+		Status:       ExperimentStatusDraft,
+		StartedAt:    &now,
+		EndedAt:      &now,
+		CreatedBy:    "admin-1",
+	}
+	runner := &fakeDBRunner{
+		queryRowContext: func(_ context.Context, query string, _ ...any) rowScanner {
+			if !strings.Contains(query, "INSERT INTO ab_experiments") {
+				t.Errorf("CreateExperiment query = %q, want INSERT INTO ab_experiments", query)
+			}
+			return fakeRow{values: []any{"exp-1", now, now}}
+		},
+		queryContext: func(context.Context, string, ...any) (rowsScanner, error) {
+			return newFakeRows(nil), nil // no variants for draft
+		},
+	}
+	repo := newRepositoryWithRunner(runner)
+
+	err := repo.CreateExperiment(ctx, experiment)
+	if err != nil {
+		t.Fatalf("CreateExperiment(ctx, draft) error = %v, want nil", err)
+	}
+	if experiment.ID != "exp-1" {
+		t.Errorf("CreateExperiment ID = %q, want exp-1", experiment.ID)
+	}
+}
+
+func TestRepositoryCreateExperimentRunningFailsValidation(t *testing.T) {
+	ctx := context.Background()
+	experiment := &Experiment{
+		ID:           "exp-1",
+		Name:         "running-test",
+		TemplateName: "system_rules",
+		Locale:       "en",
+		Status:       ExperimentStatusRunning,
+	}
+	runner := &fakeDBRunner{
+		queryContext: func(_ context.Context, query string, _ ...any) (rowsScanner, error) {
+			if !strings.Contains(query, "FROM ab_variants") {
+				t.Errorf("CreateExperiment running query = %q, want ab_variants lookup", query)
+			}
+			// Return variants that fail validation (traffic sums to 0)
+			return newFakeRows([][]any{
+				{"control", "exp-1", "control", 1, 0, true},
+			}), nil
+		},
+		queryRowContext: func(context.Context, string, ...any) rowScanner {
+			t.Fatal("CreateExperiment should not insert when validation fails")
+			return fakeRow{}
+		},
+	}
+	repo := newRepositoryWithRunner(runner)
+
+	err := repo.CreateExperiment(ctx, experiment)
+	if err == nil {
+		t.Fatal("CreateExperiment(ctx, running) error = nil, want validation error")
+	}
+}
+
+func TestRepositoryListExperimentsAll(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+	runner := &fakeDBRunner{
+		queryContext: func(_ context.Context, query string, _ ...any) (rowsScanner, error) {
+			if strings.Contains(query, "WHERE status = $1") {
+				t.Error("ListExperiments('') should not add status filter")
+			}
+			return newFakeRows([][]any{
+				{
+					"exp-1", "Test 1", "", "system_rules", "en", string(ExperimentStatusDraft),
+					sql.NullTime{}, sql.NullTime{}, sql.NullString{}, now, now,
+				},
+				{
+					"exp-2", "Test 2", "desc", "clarification", "tr", string(ExperimentStatusRunning),
+					sql.NullTime{Time: now, Valid: true}, sql.NullTime{}, sql.NullString{}, now, now,
+				},
+			}), nil
+		},
+	}
+	repo := newRepositoryWithRunner(runner)
+
+	experiments, err := repo.ListExperiments(ctx, "")
+	if err != nil {
+		t.Fatalf("ListExperiments(ctx, '') error = %v, want nil", err)
+	}
+	if len(experiments) != 2 {
+		t.Fatalf("ListExperiments(ctx, '') len = %d, want 2", len(experiments))
+	}
+}
+
+func TestRepositoryListExperimentsFiltered(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+	runner := &fakeDBRunner{
+		queryContext: func(_ context.Context, query string, args ...any) (rowsScanner, error) {
+			if !strings.Contains(query, "WHERE status = $1") {
+				t.Error("ListExperiments('running') should add status filter")
+			}
+			if got, want := args[0], "running"; got != want {
+				t.Errorf("ListExperiments status arg = %v, want %v", got, want)
+			}
+			return newFakeRows([][]any{
+				{
+					"exp-1", "Test", "desc", "clarification", "en", string(ExperimentStatusRunning),
+					sql.NullTime{Time: now, Valid: true}, sql.NullTime{}, sql.NullString{}, now, now,
+				},
+			}), nil
+		},
+	}
+	repo := newRepositoryWithRunner(runner)
+
+	experiments, err := repo.ListExperiments(ctx, "running")
+	if err != nil {
+		t.Fatalf("ListExperiments(ctx, 'running') error = %v, want nil", err)
+	}
+	if len(experiments) != 1 {
+		t.Fatalf("ListExperiments(ctx, 'running') len = %d, want 1", len(experiments))
+	}
+}
+
+func TestRepositoryUpdateVariant(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+	variant := &Variant{
+		ID:              "var-1",
+		ExperimentID:    "exp-1",
+		Name:            "updated-treatment",
+		TemplateVersion: 2,
+		TrafficPct:      50,
+		IsControl:       false,
+	}
+	runner := &fakeDBRunner{
+		queryRowContext: func(_ context.Context, _ string, _ ...any) rowScanner {
+			return fakeRow{values: []any{
+				"exp-1", "Test", "desc", "clarification", "en", string(ExperimentStatusDraft),
+				sql.NullTime{}, sql.NullTime{}, sql.NullString{}, now, now,
+			}}
+		},
+		queryScalarContext: func(_ context.Context, _ string, _ ...any) rowScanner {
+			return fakeRow{values: []any{1}} // template version exists
+		},
+		execContext: func(_ context.Context, query string, _ ...any) (sql.Result, error) {
+			if !strings.Contains(query, "UPDATE ab_variants") {
+				t.Errorf("UpdateVariant query = %q, want UPDATE ab_variants", query)
+			}
+			return fakeResult{}, nil
+		},
+	}
+	repo := newRepositoryWithRunner(runner)
+
+	err := repo.UpdateVariant(ctx, variant)
+	if err != nil {
+		t.Fatalf("UpdateVariant(ctx, variant) error = %v, want nil", err)
+	}
+}
+
+func TestRepositoryDeleteVariant(t *testing.T) {
+	ctx := context.Background()
+	runner := &fakeDBRunner{
+		execContext: func(_ context.Context, query string, _ ...any) (sql.Result, error) {
+			if !strings.Contains(query, "DELETE FROM ab_variants") {
+				t.Errorf("DeleteVariant query = %q, want DELETE FROM ab_variants", query)
+			}
+			return fakeResult{}, nil
+		},
+	}
+	repo := newRepositoryWithRunner(runner)
+
+	err := repo.DeleteVariant(ctx, "var-1")
+	if err != nil {
+		t.Fatalf("DeleteVariant(ctx, 'var-1') error = %v, want nil", err)
+	}
+}
+
+func TestNullStringEmpty(t *testing.T) {
+	ns := nullString("")
+	if ns.Valid {
+		t.Fatal("nullString('') should return NullString with Valid=false")
+	}
+}
+
+func TestNullStringNonEmpty(t *testing.T) {
+	ns := nullString("admin-1")
+	if !ns.Valid {
+		t.Fatal("nullString('admin-1') should return NullString with Valid=true")
+	}
+	if ns.String != "admin-1" {
+		t.Fatalf("nullString('admin-1').String = %q, want 'admin-1'", ns.String)
+	}
+}
+
+func TestCloseRowsError(t *testing.T) {
+	rows := &fakeRows{
+		closeErr: errors.New("close failed"),
+	}
+	var err error
+	closeRows(&err, rows, "test rows")
+	if err == nil {
+		t.Fatal("closeRows should propagate close error")
+	}
+	if !strings.Contains(err.Error(), "close failed") {
+		t.Errorf("closeRows error = %v, want 'close failed'", err)
+	}
+}
+
+func TestRepositoryUpdateExperimentNonRunning(t *testing.T) {
+	ctx := context.Background()
+	experiment := &Experiment{
+		ID:           "exp-1",
+		Name:         "updated-name",
+		Description:  "updated desc",
+		TemplateName: "system_rules",
+		Locale:       "fr",
+		Status:       ExperimentStatusDraft,
+	}
+	runner := &fakeDBRunner{
+		execContext: func(_ context.Context, query string, _ ...any) (sql.Result, error) {
+			if !strings.Contains(query, "UPDATE ab_experiments") {
+				t.Errorf("UpdateExperiment query = %q, want UPDATE ab_experiments", query)
+			}
+			return fakeResult{}, nil
+		},
+	}
+	repo := newRepositoryWithRunner(runner)
+
+	err := repo.UpdateExperiment(ctx, experiment)
+	if err != nil {
+		t.Fatalf("UpdateExperiment(ctx, draft) error = %v, want nil", err)
+	}
+}
+
 func TestRepositoryGetRunningExperimentsForTemplate(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 6, 5, 12, 0, 0, 0, time.UTC)
@@ -184,9 +423,10 @@ func (r fakeRow) Scan(dest ...any) error {
 }
 
 type fakeRows struct {
-	values [][]any
-	index  int
-	err    error
+	values   [][]any
+	index    int
+	err      error
+	closeErr error
 }
 
 func newFakeRows(values [][]any) *fakeRows {
@@ -209,8 +449,8 @@ func (r *fakeRows) Err() error {
 	return r.err
 }
 
-func (r *fakeRows) Close() error { //nolint:revive // satisfies rowsScanner in tests
-	return nil
+func (r *fakeRows) Close() error {
+	return r.closeErr
 }
 
 type fakeResult struct{}

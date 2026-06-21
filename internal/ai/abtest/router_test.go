@@ -138,3 +138,67 @@ func TestTrafficRouterCacheTTL(t *testing.T) {
 		t.Fatalf("expected cache invalidation to trigger DB query, got %d queries", queryCount)
 	}
 }
+
+func TestExperimentTrackerAddVariantAndGetVariants(t *testing.T) {
+	tracker := &ExperimentTracker{}
+	variant1 := Variant{ID: "var-1", ExperimentID: "exp-1", Name: "control", TemplateVersion: 2, TrafficPct: 50, IsControl: true}
+	variant2 := Variant{ID: "var-2", ExperimentID: "exp-1", Name: "treatment", TemplateVersion: 3, TrafficPct: 50}
+
+	tracker.AddVariant(variant1)
+	tracker.AddVariant(variant2)
+
+	got := tracker.GetVariants()
+	if len(got) != 2 {
+		t.Fatalf("GetVariants() len = %d, want 2", len(got))
+	}
+	if got[0].ID != "var-1" || got[1].ID != "var-2" {
+		t.Errorf("GetVariants() = %v, want [var-1 var-2]", got)
+	}
+}
+
+func TestExperimentTrackerGetVariantsEmpty(t *testing.T) {
+	tracker := &ExperimentTracker{}
+	got := tracker.GetVariants()
+	if got != nil {
+		t.Fatalf("GetVariants() for empty tracker = %v, want nil", got)
+	}
+}
+
+func TestExperimentTrackerGetVariantsIsCopy(t *testing.T) {
+	tracker := &ExperimentTracker{}
+	tracker.AddVariant(Variant{ID: "var-1", ExperimentID: "exp-1"})
+
+	got := tracker.GetVariants()
+	got[0].ID = "mutated"
+	// Internal state should be unchanged
+	original := tracker.GetVariants()
+	if original[0].ID != "var-1" {
+		t.Errorf("GetVariants returned non-copy, internal state mutated: %q", original[0].ID)
+	}
+}
+
+func TestWithExperimentTrackerAndTrackerFromContext(t *testing.T) {
+	ctx := context.Background()
+	tracker := &ExperimentTracker{}
+	variant := Variant{ID: "var-1", ExperimentID: "exp-1"}
+
+	ctx = WithExperimentTracker(ctx, tracker)
+	tracker.AddVariant(variant)
+
+	got := TrackerFromContext(ctx)
+	if got == nil {
+		t.Fatal("TrackerFromContext returned nil")
+	}
+	variants := got.GetVariants()
+	if len(variants) != 1 || variants[0].ID != "var-1" {
+		t.Fatalf("TrackerFromContext variants = %v, want [var-1]", variants)
+	}
+}
+
+func TestTrackerFromContextNoTracker(t *testing.T) {
+	ctx := context.Background()
+	got := TrackerFromContext(ctx)
+	if got != nil {
+		t.Fatal("TrackerFromContext on context without tracker should return nil")
+	}
+}

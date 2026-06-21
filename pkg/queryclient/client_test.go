@@ -1,9 +1,11 @@
 package queryclient_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"github.com/bytedance/sonic"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -260,5 +262,254 @@ func TestContextCancellation(t *testing.T) {
 	cancel()
 	if _, err := c.Compile(ctx, sampleLQ()); err == nil {
 		t.Fatal("expected error from cancelled context")
+	}
+}
+
+func TestBaseURL(t *testing.T) {
+	c := queryclient.New("http://example.com")
+	if got := c.BaseURL(); got != "http://example.com" {
+		t.Fatalf("BaseURL() = %q, want %q", got, "http://example.com")
+	}
+
+	// Ensure trailing slash is trimmed
+	c2 := queryclient.New("http://example.com/")
+	if got := c2.BaseURL(); got != "http://example.com" {
+		t.Fatalf("BaseURL() = %q, want %q", got, "http://example.com")
+	}
+}
+
+func TestWithHTTPClient_NilDefaultsToServiceClient(t *testing.T) {
+	c := queryclient.New("http://example.com", queryclient.WithHTTPClient(nil))
+	if c.BaseURL() != "http://example.com" {
+		t.Fatalf("unexpected base URL: %s", c.BaseURL())
+	}
+}
+
+// roundTripper is a minimal HTTPDoer for testing WithHTTPClient.
+type roundTripper struct {
+	fn func(req *http.Request) (*http.Response, error)
+}
+
+func (rt *roundTripper) Do(req *http.Request) (*http.Response, error) {
+	return rt.fn(req)
+}
+
+func TestWithHTTPClient_CustomClient(t *testing.T) {
+	var gotMethod, gotPath string
+	rt := &roundTripper{fn: func(req *http.Request) (*http.Response, error) {
+		gotMethod = req.Method
+		gotPath = req.URL.Path
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader([]byte(`{"sql":"SELECT 1"}`))),
+		}, nil
+	}}
+	c := queryclient.New("http://example.com", queryclient.WithHTTPClient(rt))
+	if _, err := c.Compile(context.Background(), sampleLQ()); err != nil {
+		t.Fatalf("Compile() error: %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q, want POST", gotMethod)
+	}
+	if !strings.HasSuffix(gotPath, "/internal/query/compile") {
+		t.Errorf("path = %q, want /internal/query/compile", gotPath)
+	}
+}
+
+func TestWithUserAgent(t *testing.T) {
+	var gotUA string
+	rt := &roundTripper{fn: func(req *http.Request) (*http.Response, error) {
+		gotUA = req.Header.Get("User-Agent")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader([]byte(`{"sql":"SELECT 1"}`))),
+		}, nil
+	}}
+	c := queryclient.New("http://example.com",
+		queryclient.WithHTTPClient(rt),
+		queryclient.WithUserAgent("custom-agent/1.0"),
+	)
+	if _, err := c.Compile(context.Background(), sampleLQ()); err != nil {
+		t.Fatalf("Compile() error: %v", err)
+	}
+	if gotUA != "custom-agent/1.0" {
+		t.Errorf("User-Agent = %q, want %q", gotUA, "custom-agent/1.0")
+	}
+
+	// Empty string should keep default
+	gotUA = ""
+	c2 := queryclient.New("http://example.com",
+		queryclient.WithHTTPClient(rt),
+		queryclient.WithUserAgent(""),
+	)
+	if _, err := c2.Compile(context.Background(), sampleLQ()); err != nil {
+		t.Fatalf("Compile() error: %v", err)
+	}
+	if gotUA != "biqly-queryclient/0.1" {
+		t.Errorf("User-Agent = %q, want %q (default)", gotUA, "biqly-queryclient/0.1")
+	}
+}
+
+func TestDo_EmptyBaseURL(t *testing.T) {
+	c := queryclient.New("")
+	if _, err := c.Compile(context.Background(), sampleLQ()); err == nil {
+		t.Fatal("expected error for empty baseURL")
+	}
+}
+
+func TestDo_NoContentResponse(t *testing.T) {
+	rt := &roundTripper{fn: func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusNoContent,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+		}, nil
+	}}
+	c := queryclient.New("http://example.com", queryclient.WithHTTPClient(rt))
+	out, err := c.Compile(context.Background(), sampleLQ())
+	if err != nil {
+		t.Fatalf("Compile() error: %v", err)
+	}
+	if out.SQL != "" {
+		t.Errorf("expected empty response, got SQL=%q", out.SQL)
+	}
+}
+
+func TestSentinelForStatus(t *testing.T) {
+	tests := []struct {
+		name   string
+		status int
+		code   string
+		want   error
+	}{
+		// Code-based mapping (highest priority)
+		{"code_not_found", http.StatusBadRequest, internalapi.CodeNotFound, queryclient.ErrNotFound},
+		{"code_invalid_request", http.StatusBadRequest, internalapi.CodeInvalidRequest, queryclient.ErrInvalidRequest},
+		{"code_compile_error", http.StatusBadRequest, internalapi.CodeCompileError, queryclient.ErrCompile},
+		{"code_execution_error", http.StatusInternalServerError, internalapi.CodeExecutionError, queryclient.ErrExecution},
+		{"code_permission_error", http.StatusForbidden, internalapi.CodePermissionError, queryclient.ErrPermission},
+		{"code_read_only", http.StatusBadRequest, internalapi.CodeReadOnlyError, queryclient.ErrReadOnly},
+		// Status-based mapping (fallback)
+		{"status_404", http.StatusNotFound, "", queryclient.ErrNotFound},
+		{"status_400", http.StatusBadRequest, "", queryclient.ErrInvalidRequest},
+		{"status_401", http.StatusUnauthorized, "", queryclient.ErrUnauthorized},
+		{"status_403", http.StatusForbidden, "", queryclient.ErrUnauthorized},
+		{"status_500", http.StatusInternalServerError, "", queryclient.ErrUpstream},
+		{"status_503", http.StatusServiceUnavailable, "", queryclient.ErrUpstream},
+		// Unknown status returns nil sentinel (but still returns an APIError)
+		{"status_429", http.StatusTooManyRequests, "", nil},
+		// Code takes priority over status
+		{"code_compile_overrides_500", http.StatusInternalServerError, internalapi.CodeCompileError, queryclient.ErrCompile},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test through the error response path
+			rt := &roundTripper{fn: func(_ *http.Request) (*http.Response, error) {
+				body := `{"code":"` + tt.code + `","error":"test error"}`
+				return &http.Response{
+					StatusCode: tt.status,
+					Body:       io.NopCloser(bytes.NewReader([]byte(body))),
+				}, nil
+			}}
+			c := queryclient.New("http://example.com", queryclient.WithHTTPClient(rt))
+			_, err := c.Compile(context.Background(), sampleLQ())
+			if tt.want == nil {
+				// For unknown status codes, we still get an APIError but without a sentinel
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				// Verify no sentinel matches
+				if errors.Is(err, queryclient.ErrNotFound) {
+					t.Fatal("should not match ErrNotFound")
+				}
+				return
+			}
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("status=%d code=%q: got %v, want sentinel %v", tt.status, tt.code, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestAPIError_Error(t *testing.T) {
+	// Test with Code set
+	err := &queryclient.APIError{
+		StatusCode: http.StatusBadRequest,
+		Code:       "COMPILE_ERR",
+		Message:    "syntax error at line 1",
+	}
+	msg := err.Error()
+	want := "queryclient: 400 COMPILE_ERR: syntax error at line 1"
+	if msg != want {
+		t.Errorf("Error() = %q, want %q", msg, want)
+	}
+
+	// Test without Code
+	err2 := &queryclient.APIError{
+		StatusCode: http.StatusNotFound,
+		Message:    "not found",
+	}
+	msg2 := err2.Error()
+	want2 := "queryclient: 404: not found"
+	if msg2 != want2 {
+		t.Errorf("Error() = %q, want %q", msg2, want2)
+	}
+}
+
+func TestDo_Non2XXErrorResponse(t *testing.T) {
+	rt := &roundTripper{fn: func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(bytes.NewReader([]byte(`{"code":"compile_error","error":"bad query"}`))),
+		}, nil
+	}}
+	c := queryclient.New("http://example.com", queryclient.WithHTTPClient(rt))
+	_, err := c.Compile(context.Background(), sampleLQ())
+	if err == nil {
+		t.Fatal("expected error from 400 response")
+	}
+	if !errors.Is(err, queryclient.ErrCompile) {
+		t.Fatalf("expected ErrCompile sentinel, got %v", err)
+	}
+}
+
+func TestDo_NonJSONErrorResponse(t *testing.T) {
+	rt := &roundTripper{fn: func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(bytes.NewReader([]byte(`plain text error`))),
+		}, nil
+	}}
+	c := queryclient.New("http://example.com", queryclient.WithHTTPClient(rt))
+	_, err := c.Compile(context.Background(), sampleLQ())
+	if err == nil {
+		t.Fatal("expected error from 400 response")
+	}
+	var apiErr *queryclient.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected *APIError, got %T", err)
+	}
+	if apiErr.Message != "plain text error" {
+		t.Errorf("Message = %q, want %q", apiErr.Message, "plain text error")
+	}
+}
+
+func TestDo_EmptyErrorResponse(t *testing.T) {
+	rt := &roundTripper{fn: func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+		}, nil
+	}}
+	c := queryclient.New("http://example.com", queryclient.WithHTTPClient(rt))
+	_, err := c.Compile(context.Background(), sampleLQ())
+	if err == nil {
+		t.Fatal("expected error from 400 response")
+	}
+	var apiErr *queryclient.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected *APIError, got %T", err)
+	}
+	if apiErr.Message != "Bad Request" {
+		t.Errorf("Message = %q, want %q (http.StatusText)", apiErr.Message, "Bad Request")
 	}
 }
