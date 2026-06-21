@@ -53,11 +53,12 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 	if strings.TrimSpace(userID) != "" {
 		userIDPtr = new(userID)
 	}
+	jobLocale := aiJobLocaleFromRequest(kind, req, string(i18n.FromContext(ctx)))
 	job := &metadata.AIJob{
 		ID:              uuid.NewString(),
 		ClientSessionID: sessionID,
 		UserID:          userIDPtr,
-		Locale:          string(i18n.FromContext(ctx)),
+		Locale:          jobLocale,
 		Kind:            kind,
 		Status:          metadata.AIJobStatusQueued,
 		Phase:           "queued",
@@ -79,6 +80,23 @@ func (s *AIJobService) Enqueue(ctx context.Context, kind, sessionID, userID stri
 		}
 	}
 	return job, nil
+}
+
+func aiJobLocaleFromRequest(kind string, raw json.RawMessage, fallback string) string {
+	locale := strings.TrimSpace(fallback)
+	switch kind {
+	case "describe":
+		var req ai.DescribeRequest
+		if err := sonic.ConfigStd.Unmarshal(raw, &req); err == nil && strings.TrimSpace(req.Locale) != "" {
+			locale = strings.TrimSpace(req.Locale)
+		}
+	case "describe_batch":
+		var req ai.DescribeBatchRequest
+		if err := sonic.ConfigStd.Unmarshal(raw, &req); err == nil && strings.TrimSpace(req.Locale) != "" {
+			locale = strings.TrimSpace(req.Locale)
+		}
+	}
+	return string(i18n.ParseLocale(locale))
 }
 
 func (s *AIJobService) enqueueJobScope(ctx context.Context, kind string, req json.RawMessage) (*string, []string, error) {

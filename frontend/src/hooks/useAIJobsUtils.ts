@@ -22,6 +22,24 @@ export interface BulkDescribeTarget {
   description: string | null
 }
 
+export interface DescribeJobRequest {
+  datasource_id: string
+  schema: string
+  table: string
+  locale?: string
+  sample_size: number
+  auto_apply: boolean
+}
+
+export interface DescribeBatchJobRequest {
+  datasource_id: string
+  tables: { schema: string; table: string }[]
+  locale?: string
+  sample_size: number
+  auto_apply: boolean
+  skip_existing: boolean
+}
+
 export function jobIsActive(job: AIJob): boolean {
   return job.status === 'pending' || job.status === 'queued' || job.status === 'running'
 }

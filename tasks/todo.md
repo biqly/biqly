@@ -4978,3 +4978,18 @@ Notes:
 - [ ] A12: deprecate BEM `.btn`/`.card` (~170 call sites) as A4 lands.
 - [x] A13 DONE 2026-06-21: adopted shared locale-aware formatters for remaining inline date/time display bypasses in `PromptTemplates`, `Datasources`, `AIHistoryPanel`, `ChatPanel`, `EvalHistoryTab`, and `EvalRegressionTab`; added `formatTimeOnly` + formatter regression coverage. Remaining raw `toLocaleString` uses are numeric formatting, and `resultCellFormat.ts` keeps its central generic cell-date formatter. Verified: focused formatter vitest ✓, eslint ✓, tailwind diagnostics ✓, format:check ✓, knip:ci ✓, vitest 214/214 ✓, build/typecheck ✓.
 - [ ] QA gap: seeded-workspace pass for data-heavy states (UX-3) — populated tables, charts, Row Modal, generation trace, clarification cards, async job tray.
+
+## AI Metadata Generator Bugfix Plan (2026-06-21)
+
+- [x] Reproduce locale/background-job mismatch with a focused test around metadata describe batch requests.
+- [x] Fix AI metadata generator so the selected locale is preserved for foreground and background describe jobs.
+- [x] Fix batch table generation so table descriptions and column descriptions are applied in the same table job.
+- [x] Refresh affected table + column rows after generation completes.
+- [x] Verify with focused Go/frontend tests and the relevant frontend gate.
+
+Review:
+
+- DONE 2026-06-21: Metadata describe requests now carry the selected Metadata page locale (`en`/`tr`) through direct, queued, and background batch jobs; queued jobs store that request locale instead of falling back to the app context locale.
+- DONE 2026-06-21: Batch table jobs now preserve locale when converting each table into the existing single-table describe flow, so table + column descriptions are generated/applied together for that table.
+- DONE 2026-06-21: The Metadata page refreshes open column rows after generation, and manual apply in non-default locale writes translation overlays instead of overwriting the base description.
+- Verification: focused Go tests ✓, focused frontend vitest ✓, frontend typecheck ✓, frontend eslint ✓, `make check-frontend` ✓.
