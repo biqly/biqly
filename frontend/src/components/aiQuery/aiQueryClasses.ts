@@ -1,8 +1,8 @@
 export const aiQueryLayoutClass =
-  'flex gap-6 items-stretch h-[calc(100vh-13.5rem)] min-h-[500px] max-[900px]:flex-col'
+  'flex gap-6 items-stretch h-[calc(100vh-13.5rem)] min-h-[500px] max-[900px]:flex-col max-[900px]:h-auto max-[900px]:min-h-0'
 
 export const conversationSidebarClass =
-  'w-[300px] max-[900px]:w-full max-[900px]:max-h-none shrink-0 bg-card border border-border rounded-2xl p-5 flex flex-col h-full shadow-card backdrop-blur-md'
+  'w-[300px] max-[900px]:w-full max-[900px]:max-h-[30vh] shrink-0 bg-card border border-border rounded-2xl p-5 flex flex-col h-full max-[900px]:h-auto shadow-card backdrop-blur-md'
 
 export const sidebarHeaderClass =
   'flex justify-between items-center mb-4 pb-3 border-b border-border gap-2'
@@ -41,7 +41,7 @@ export const convEditInputClass =
   'w-full bg-canvas border border-accent rounded-[0.35rem] text-foreground text-[0.8rem] p-[0.3rem_0.5rem] outline-none shadow-[0_0_0_2px_rgba(91,142,255,0.15)]'
 
 export const chatFeedClass =
-  'flex-1 overflow-y-auto flex flex-col gap-5 p-5 bg-canvas-subtle border border-border rounded-2xl shadow-[inset_0_2px_6px_rgba(0,0,0,0.08)] [data-theme=dark]:shadow-[inset_0_2px_8px_rgba(0,0,0,0.35)] min-h-0 max-h-none overscroll-contain'
+  'flex-1 overflow-y-auto flex flex-col gap-5 p-5 bg-canvas-subtle border border-border rounded-2xl shadow-[inset_0_2px_6px_rgba(0,0,0,0.08)] [data-theme=dark]:shadow-[inset_0_2px_8px_rgba(0,0,0,0.35)] min-h-0 max-h-none max-[900px]:max-h-[45vh] overscroll-contain'
 
 export const chatMsgClass = 'flex w-full animate-bubble-appear'
 
@@ -130,7 +130,8 @@ export const chatEmptyStateSuggestionsClass =
 export const chatEmptyStateChipClass =
   'bg-card-raised text-foreground-muted border border-border rounded-full p-[0.4rem_0.85rem] text-[0.82rem] cursor-pointer transition-all duration-100 hover:border-accent hover:text-foreground hover:bg-accent/15'
 
-export const chatInputAreaClass = 'flex flex-col gap-2 shrink-0'
+export const chatInputAreaClass =
+  'flex flex-col gap-2 shrink-0 max-[900px]:sticky max-[900px]:bottom-0 max-[900px]:bg-card max-[900px]:z-10 max-[900px]:pb-3'
 
 export const chatComposerClass =
   'flex flex-col gap-[0.6rem] bg-card border border-border rounded-2xl p-[0.85rem_1rem] shadow-card transition-all duration-150 focus-within:border-accent focus-within:ring-2 focus-within:ring-[#5b8eff]/15'
@@ -194,7 +195,8 @@ export const formFieldClass = 'flex flex-col gap-[0.35rem]'
 
 export const formLabelClass = 'text-[0.8rem] font-semibold text-foreground-muted'
 
-export const aiQueryMainClass = 'flex-1 min-w-0 flex flex-col gap-4 h-full'
+export const aiQueryMainClass =
+  'flex-1 min-w-0 flex flex-col gap-4 h-full max-[900px]:h-auto max-[900px]:min-h-[55vh]'
 
 export const cardHeaderRowClass = 'mb-[0.25rem]'
 

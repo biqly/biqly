@@ -19,6 +19,7 @@ export const skipLinkClass = cn(
 
 export const pageHeaderClass = cn(
   'grid gap-[0.35rem] mb-8',
+  'max-[980px]:pl-12',
   '[&>p]:text-accent [&>p]:font-[family-name:var(--font-display)]',
   '[&>p]:text-[0.72rem] [&>p]:font-bold [&>p]:tracking-[0.12em] [&>p]:uppercase',
   '[&_h1]:text-foreground [&_h1]:font-[family-name:var(--font-display)]',

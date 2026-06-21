@@ -61,6 +61,8 @@ export const core = {
     confirm_cancel: 'Cancel',
     copy: 'Copy',
     inline_edit_save_hint: 'Save with Cmd/Ctrl+Enter or click outside. Cancel: Escape.',
+    expand_panel: 'Expand panel',
+    collapse_panel: 'Collapse panel',
   },
   app_update: {
     available_title: 'Update available',

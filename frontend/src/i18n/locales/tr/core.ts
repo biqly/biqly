@@ -63,6 +63,8 @@ export const core: CoreDictionary = {
     confirm_cancel: 'İptal',
     copy: 'Kopyala',
     inline_edit_save_hint: 'Kaydetmek için Cmd/Ctrl+Enter veya dışarı tıklayın. İptal: Escape.',
+    expand_panel: 'Paneli genişlet',
+    collapse_panel: 'Paneli daralt',
   },
   app_update: {
     available_title: 'Yeni sürüm hazır',

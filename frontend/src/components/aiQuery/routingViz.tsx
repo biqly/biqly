@@ -17,7 +17,7 @@ import type {
   TableRoutingCandidate,
   TokenUsage,
 } from '../../types/ai'
-import { localeNumberTag } from '../../utils/formatters'
+import { formatDateTime, localeNumberTag } from '../../utils/formatters'
 import {
   breakdownBarBgClass,
   breakdownBarFillClass,
@@ -414,7 +414,7 @@ function RoutingContextSummary({
         <div className={routingContextGridItemClass}>
           <span className={routingContextLabelClass}>{t('ai_query.routing_context_time')}</span>
           <strong className={routingContextValueClass}>
-            {new Date(routing.context_updated_at).toLocaleString(localeTag)}
+            {formatDateTime(routing.context_updated_at, localeTag)}
           </strong>
         </div>
       )}
