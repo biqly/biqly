@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useApi } from '../../hooks/useApi'
 import { useDatasources } from '../../hooks/useDatasources'
+import { useFetch } from '../../hooks/useFetch'
 import { useModelDetail } from '../../hooks/useModelDetail'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
 import { useLocale, useT } from '../../i18n'
@@ -107,55 +108,40 @@ export function useTableBrowserPage() {
 
   // Physical columns of the selected table: the browser shows the table's own
   // data, independent of the semantic model's base table.
-  const [tableColumnsState, setTableColumnsState] = useState<{ key: string; cols: ColumnRow[] }>({
-    key: '',
-    cols: [],
-  })
   const columnsScopeKey = `${datasourceId}:${selectedTableKey}`
+  const { data: fetchedColumns } = useFetch(
+    async () => {
+      const data = await get<ColumnRow[]>(
+        `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(selectedSchema)}&table=${encodeURIComponent(selectedTable)}`,
+      )
+      return { key: columnsScopeKey, cols: data ?? [] }
+    },
+    [get, datasourceId, selectedSchema, selectedTable],
+    { enabled: !!datasourceId && !!selectedSchema && !!selectedTable },
+  )
+  const tableColumnsState = useMemo(() => fetchedColumns ?? { key: '', cols: [] }, [fetchedColumns])
   const tableColumns = useMemo(
     () => (tableColumnsState.key === columnsScopeKey ? tableColumnsState.cols : []),
     [tableColumnsState, columnsScopeKey],
   )
-  useEffect(() => {
-    if (!datasourceId || !selectedSchema || !selectedTable) {
-      return
-    }
-    let cancelled = false
-    void get<ColumnRow[]>(
-      `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(selectedSchema)}&table=${encodeURIComponent(selectedTable)}`,
-    ).then((data) => {
-      if (!cancelled) {
-        setTableColumnsState({ key: columnsScopeKey, cols: data ?? [] })
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [get, datasourceId, selectedSchema, selectedTable, columnsScopeKey])
 
   // Table metadata (description/label/display_expression) for modal titles.
-  const [tablesMetaState, setTablesMetaState] = useState<{ key: string; tables: TableRow[] }>({
-    key: '',
-    tables: [],
-  })
+  const { data: fetchedTablesMeta } = useFetch(
+    async () => {
+      const data = await get<TableRow[]>(`/api/datasources/${datasourceId}/tables`)
+      return { key: datasourceId, tables: data ?? [] }
+    },
+    [get, datasourceId],
+    { enabled: !!datasourceId },
+  )
+  const tablesMetaState = useMemo(
+    () => fetchedTablesMeta ?? { key: '', tables: [] },
+    [fetchedTablesMeta],
+  )
   const tablesMeta = useMemo(
     () => (tablesMetaState.key === datasourceId ? tablesMetaState.tables : []),
     [tablesMetaState, datasourceId],
   )
-  useEffect(() => {
-    if (!datasourceId) {
-      return
-    }
-    let cancelled = false
-    void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`).then((data) => {
-      if (!cancelled) {
-        setTablesMetaState({ key: datasourceId, tables: data ?? [] })
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [get, datasourceId])
 
   const displayExpressionByTable = useMemo(() => {
     const m = new Map<string, string>()

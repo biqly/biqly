@@ -2,13 +2,11 @@ import { useCallback, useState } from 'react'
 
 import { listUsers, resendUserVerification } from '../../api/admin'
 import { apiListInvitations, apiResendInvitation, apiRevokeInvitation } from '../../api/auth'
-import { useConfirm } from '../../hooks/useConfirm'
+import { useConfirmedMutation } from '../../hooks/useConfirmedMutation'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useQueryParam } from '../../hooks/useQueryParam'
 import { useT } from '../../i18n'
-import { legacyCardClass } from '../../lib/cardClasses'
-import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { AuthUser, Invitation } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
@@ -19,6 +17,7 @@ import {
   adminTabButtonClass,
   adminTabContainerClass,
 } from './adminClasses'
+import { AdminPanelShell } from './AdminPanelShell'
 import { ActiveUsersTab } from './userList/ActiveUsersTab'
 import { InvitationsTab } from './userList/InvitationsTab'
 import { InviteUserModal } from './userList/InviteUserModal'
@@ -30,7 +29,7 @@ interface UserListPageProps {
 
 export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   const t = useT()
-  const confirm = useConfirm()
+  const confirmMutation = useConfirmedMutation()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search.trim(), 300)
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
@@ -140,76 +139,50 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   }
 
   const handleResend = async (id: string) => {
-    const ok = await confirm({
-      title: t('auth.invite_resend_confirm'),
-      variant: 'default',
-    })
-    if (!ok) {
-      return
-    }
     setActionLoadingId(id)
     setActionMessage(null)
-    try {
-      await apiResendInvitation(token, id)
-      setActionMessage({ type: 'success', text: t('auth.invite_resend_success') })
+    const ok = await confirmMutation(() => apiResendInvitation(token, id), {
+      title: t('auth.invite_resend_confirm'),
+      variant: 'default',
+      successMessage: t('auth.invite_resend_success'),
+    })
+    if (ok) {
       reloadInvitations()
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Resend failed'
-      setActionMessage({ type: 'error', text: message })
-    } finally {
-      setActionLoadingId(null)
     }
+    setActionLoadingId(null)
   }
 
   const handleResendVerification = async (id: string) => {
-    const ok = await confirm({
-      title: t('admin.users.resend_verification_confirm'),
-      variant: 'default',
-    })
-    if (!ok) {
-      return
-    }
     setVerificationLoadingId(id)
     setActionMessage(null)
-    try {
-      await resendUserVerification(token, id)
-      setActionMessage({ type: 'success', text: t('admin.users.resend_verification_success') })
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Resend failed'
-      setActionMessage({ type: 'error', text: message })
-    } finally {
-      setVerificationLoadingId(null)
-    }
+    await confirmMutation(() => resendUserVerification(token, id), {
+      title: t('admin.users.resend_verification_confirm'),
+      variant: 'default',
+      successMessage: t('admin.users.resend_verification_success'),
+    })
+    setVerificationLoadingId(null)
   }
 
   const handleRevoke = async (id: string) => {
-    const ok = await confirm({
-      title: t('auth.invite_revoke_confirm'),
-      variant: 'danger',
-    })
-    if (!ok) {
-      return
-    }
     setActionLoadingId(id)
     setActionMessage(null)
-    try {
-      await apiRevokeInvitation(token, id)
-      setActionMessage({ type: 'success', text: t('auth.invite_revoke_success') })
+    const ok = await confirmMutation(() => apiRevokeInvitation(token, id), {
+      title: t('auth.invite_revoke_confirm'),
+      successMessage: t('auth.invite_revoke_success'),
+    })
+    if (ok) {
       reloadInvitations()
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Revoke failed'
-      setActionMessage({ type: 'error', text: message })
-    } finally {
-      setActionLoadingId(null)
     }
+    setActionLoadingId(null)
   }
 
   const displayedUsers = users
 
   return (
-    <div className={legacyLayoutClass('page-stack')}>
-      <div className={legacyCardClass('card-header-row')}>
-        <h2 style={{ margin: 0, fontSize: 20 }}>{t('admin.users.title')}</h2>
+    <AdminPanelShell
+      title={t('admin.users.title')}
+      description={t('admin.users.description')}
+      action={
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span className={adminCountBadgeClass}>
             {subTab === 'active'
@@ -226,8 +199,8 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
             </button>
           )}
         </div>
-      </div>
-
+      }
+    >
       {isSuperAdmin && (
         <div className={adminTabContainerClass}>
           <button
@@ -308,6 +281,6 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           }
         }}
       />
-    </div>
+    </AdminPanelShell>
   )
 }

@@ -163,9 +163,9 @@ export default function AIQuery() {
   )
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     void get<AIRuntimeSettings>('/api/ai/settings').then((data) => {
-      if (cancelled) {
+      if (controller.signal.aborted) {
         return
       }
       if (data) {
@@ -177,7 +177,7 @@ export default function AIQuery() {
       }
     })
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [get, t])
 
@@ -185,21 +185,23 @@ export default function AIQuery() {
     if (!datasourceId) {
       return
     }
-    let cancelled = false
+    const controller = new AbortController()
     void get<TableOption[]>(`/api/datasources/${datasourceId}/tables`).then((data) => {
-      if (!cancelled) {
-        setTables(data ?? [])
+      if (controller.signal.aborted) {
+        return
       }
+      setTables(data ?? [])
     })
     void get<CompositeModelSummary[]>(
       `/api/semantic/composites?datasource_id=${datasourceId}`,
     ).then((data) => {
-      if (!cancelled) {
-        setComposites((data ?? []).filter((c) => c.status === 'published'))
+      if (controller.signal.aborted) {
+        return
       }
+      setComposites((data ?? []).filter((c) => c.status === 'published'))
     })
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [datasourceId, get])
 

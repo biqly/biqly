@@ -5,16 +5,13 @@ import {
   deactivateConfirmedQuery,
   listConfirmedQueries,
 } from '../../api/aiAdmin'
-import { useConfirm } from '../../hooks/useConfirm'
+import { useConfirmedMutation } from '../../hooks/useConfirmedMutation'
 import { useDatasources } from '../../hooks/useDatasources'
+import { useModal } from '../../hooks/useModal'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useSortState } from '../../hooks/useSortState'
-import { useToast } from '../../hooks/useToast'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
-import { formHintClass } from '../../lib/formClasses'
-import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { PageQuery } from '../../types/pagination'
-import { errorMessage } from '../../utils/error'
 import { formatDateTime } from '../../utils/formatters'
 import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import { Button } from '../ui/Button'
@@ -31,6 +28,7 @@ import {
   adminTdMonoClass,
   adminTextMutedClass,
 } from './adminClasses'
+import { AdminPanelShell } from './AdminPanelShell'
 import { datasourceSelectOptions } from './adminSelectOptions'
 
 // ConfirmedQueriesPanel lists the NL→SQL pairs learned from thumbs-up feedback
@@ -38,12 +36,11 @@ import { datasourceSelectOptions } from './adminSelectOptions'
 export function ConfirmedQueriesPanel() {
   const t = useT()
   const [locale] = useLocale()
-  const toast = useToast()
-  const confirm = useConfirm()
+  const confirmMutation = useConfirmedMutation()
+  const _modal = useModal()
   const { datasources, loading: loadingDS } = useDatasources()
 
   const [selectedDS, setSelectedDS] = useState('')
-  const [deactivatingId, setDeactivatingId] = useState<string | null>(null)
 
   const { sort, toggle: toggleSortKey } = useSortState()
 
@@ -102,23 +99,14 @@ export function ConfirmedQueriesPanel() {
   }, [datasources, selectedDS])
 
   const handleDeactivate = async (id: string) => {
-    const ok = await confirm({
+    const ok = await confirmMutation(() => deactivateConfirmedQuery(id), {
       title: t('admin.confirmed_queries.deactivate_confirm_title'),
       message: t('admin.confirmed_queries.deactivate_confirm_message'),
+      successMessage: t('admin.confirmed_queries.deactivated'),
       variant: 'warning',
     })
-    if (!ok) {
-      return
-    }
-    setDeactivatingId(id)
-    try {
-      await deactivateConfirmedQuery(id)
+    if (ok) {
       reload()
-      toast.success(t('admin.confirmed_queries.deactivated'))
-    } catch (e) {
-      toast.error(errorMessage(e))
-    } finally {
-      setDeactivatingId(null)
     }
   }
 
@@ -185,12 +173,7 @@ export function ConfirmedQueriesPanel() {
       header: t('admin.confirmed_queries.col_actions'),
       cell: (row) =>
         row.is_active && (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={deactivatingId === row.id}
-            onClick={() => void handleDeactivate(row.id)}
-          >
+          <Button variant="ghost" size="sm" onClick={() => void handleDeactivate(row.id)}>
             {t('admin.confirmed_queries.deactivate')}
           </Button>
         ),
@@ -198,12 +181,10 @@ export function ConfirmedQueriesPanel() {
   ]
 
   return (
-    <div className={legacyLayoutClass('page-stack')}>
-      <div>
-        <h2 style={{ margin: 0 }}>{t('admin.confirmed_queries.title')}</h2>
-        <p className={formHintClass}>{t('admin.confirmed_queries.description')}</p>
-      </div>
-
+    <AdminPanelShell
+      title={t('admin.confirmed_queries.title')}
+      description={t('admin.confirmed_queries.description')}
+    >
       <label className={adminFormLabelClass} style={{ gap: 4, maxWidth: 360 }}>
         <span className={adminLabelTextClass}>{t('admin.confirmed_queries.datasource')}</span>
         <Select
@@ -244,6 +225,6 @@ export function ConfirmedQueriesPanel() {
           />
         </div>
       )}
-    </div>
+    </AdminPanelShell>
   )
 }

@@ -93,16 +93,16 @@ export default function Composites() {
     if (!datasourceId) {
       return
     }
-    let cancelled = false
+    const controller = new AbortController()
     void get<CompositeModelSummary[]>(
       `/api/semantic/composites?datasource_id=${encodeURIComponent(datasourceId)}`,
     ).then((list) => {
-      if (!cancelled) {
+      if (!controller.signal.aborted) {
         setComposites(list ?? [])
       }
     })
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [datasourceId, get])
 
@@ -125,16 +125,16 @@ export default function Composites() {
     if (!selectedId) {
       return
     }
-    let cancelled = false
+    const controller = new AbortController()
     void get<CompositeModelDetail>(`/api/semantic/composites/${selectedId}`).then((full) => {
-      if (!cancelled && full) {
+      if (!controller.signal.aborted && full) {
         setDetailState({ id: selectedId, detail: full })
         setValidation(null)
         setSuggestions([])
       }
     })
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [selectedId, get])
 

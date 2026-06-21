@@ -1233,6 +1233,7 @@ export const core: CoreDictionary = {
     drift_banner_text: '{{count}} şema sapması tespit edildi — model hatalı sonuç üretebilir',
     drift_view_details: 'Detayları gör',
     drift_panel_title: 'Şema Sapması',
+    drift_panel_hint: 'Bu model için tespit edilen şema sapmalarını inceleyin ve çözümleyin.',
     drift_table_aria: 'Şema sapma kalemleri',
     drift_col_type: 'Tür',
     drift_col_field: 'Alan',

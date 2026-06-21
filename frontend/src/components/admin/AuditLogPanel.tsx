@@ -5,8 +5,6 @@ import { listAuditLog } from '../../api/admin'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
-import { legacyCardClass } from '../../lib/cardClasses'
-import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { AuditLogEntry } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { formatDateTime } from '../../utils/formatters'
@@ -26,6 +24,7 @@ import {
   adminTdMetadataClass,
   adminTdMonoClass,
 } from './adminClasses'
+import { AdminPanelShell } from './AdminPanelShell'
 import { stringSelectOptions, userSelectOptions } from './adminSelectOptions'
 
 const COMMON_ACTIONS = [
@@ -176,19 +175,15 @@ export function AuditLogPanel({ token }: { token: string }) {
   }
 
   return (
-    <div className={legacyLayoutClass('page-stack')}>
-      <div className={legacyCardClass('card-header-row')} style={{ alignItems: 'flex-start' }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 18 }}>{t('admin.audit.title')}</h2>
-          <p style={{ margin: '4px 0 0', color: 'var(--text-secondary, #a1a1aa)', fontSize: 13 }}>
-            {t('admin.audit.description')}
-          </p>
-        </div>
+    <AdminPanelShell
+      title={t('admin.audit.title')}
+      description={t('admin.audit.description')}
+      action={
         <div style={{ color: 'var(--text-secondary, #a1a1aa)', fontSize: 13 }}>
           {t('admin.audit.count', { count: totalItems })}
         </div>
-      </div>
-
+      }
+    >
       <form
         onSubmit={onSubmit}
         style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}
@@ -253,7 +248,7 @@ export function AuditLogPanel({ token }: { token: string }) {
           />
         )}
       </div>
-    </div>
+    </AdminPanelShell>
   )
 }
 

@@ -10,13 +10,14 @@ import {
   resendUserVerification,
   updateUserActiveStatus,
 } from '../../api/admin'
+import { useAsyncState } from '../../hooks/useAsyncState'
 import { useConfirm } from '../../hooks/useConfirm'
+import { useConfirmedMutation } from '../../hooks/useConfirmedMutation'
 import { useLocale, useT } from '../../i18n'
-import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { AuthUser, Role, UserRoleInfo } from '../../types/auth'
 import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
-import { adminErrTextClass, adminTextMutedClass } from './adminClasses'
+import { AdminPanelShell } from './AdminPanelShell'
 import { roleSelectOptions } from './adminSelectOptions'
 import {
   UserDetailMfaSupportCard,
@@ -33,20 +34,16 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   const t = useT()
   const [locale] = useLocale()
   const confirm = useConfirm()
+  const confirmMutation = useConfirmedMutation()
   const { user: currentUser, roles: currentUserRoles, hasPermission } = useAuth()
   // User activation/update needs admin:users; role assignment/revocation needs admin:roles.
   const canManageUsers = hasPermission('admin:users')
   const canManageRoles = hasPermission('admin:roles')
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [verificationSending, setVerificationSending] = useState(false)
-  const [verificationMessage, setVerificationMessage] = useState<{
-    type: 'success' | 'error'
-    text: string
-  } | null>(null)
   const [userRoles, setUserRoles] = useState<UserRoleInfo[]>([])
   const [availableRoles, setAvailableRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { error, setError, run } = useAsyncState()
 
   // Form states
   const [selectedRoleID, setSelectedRoleID] = useState('')
@@ -55,12 +52,10 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
 
   // MFA bypass code (super_admin support flow)
   const [bypassCode, setBypassCode] = useState<string | null>(null)
-  const [bypassGenerating, setBypassGenerating] = useState(false)
-  const [bypassError, setBypassError] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
-    try {
-      setLoading(true)
+    setLoading(true)
+    await run(async () => {
       const [u, ur, arRes] = await Promise.all([
         getUserDetail(token, userID),
         getUserRoles(token, userID),
@@ -72,13 +67,9 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
       if (arRes.roles.length > 0 && arRes.roles[0]) {
         setSelectedRoleID(arRes.roles[0].id)
       }
-      setError(null)
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setLoading(false)
-    }
-  }, [token, userID])
+    })
+    setLoading(false)
+  }, [token, userID, run])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -98,50 +89,29 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   )
 
   async function handleGenerateBypassCode() {
-    const ok = await confirm({
-      title: t('admin.user_detail.mfa_generate_bypass_confirm'),
-      variant: 'default',
-    })
-    if (!ok) {
-      return
-    }
-    setBypassGenerating(true)
-    setBypassError(null)
-    setBypassCode(null)
-    try {
-      const resp = await generateMFABypassCode(token, userID)
-      setBypassCode(resp.bypass_code)
-    } catch (e) {
-      setBypassError(errorMessage(e))
-    } finally {
-      setBypassGenerating(false)
-    }
+    await confirmMutation(
+      async () => {
+        const resp = await generateMFABypassCode(token, userID)
+        setBypassCode(resp.bypass_code)
+      },
+      {
+        title: t('admin.user_detail.mfa_generate_bypass_confirm'),
+        variant: 'default',
+      },
+    )
   }
 
   async function handleResendVerification() {
-    const ok = await confirm({
-      title: t('admin.user_detail.resend_verification_confirm'),
-      variant: 'default',
-    })
-    if (!ok) {
-      return
-    }
-    setVerificationSending(true)
-    setVerificationMessage(null)
-    try {
-      await resendUserVerification(token, userID)
-      setVerificationMessage({
-        type: 'success',
-        text: t('admin.user_detail.resend_verification_success'),
-      })
-    } catch (e) {
-      setVerificationMessage({
-        type: 'error',
-        text: e instanceof Error ? e.message : t('common.error'),
-      })
-    } finally {
-      setVerificationSending(false)
-    }
+    await confirmMutation(
+      async () => {
+        await resendUserVerification(token, userID)
+      },
+      {
+        title: t('admin.user_detail.resend_verification_confirm'),
+        variant: 'default',
+        successMessage: t('admin.user_detail.resend_verification_success'),
+      },
+    )
   }
 
   async function handleToggleActive() {
@@ -208,58 +178,62 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   }
 
   if (loading) {
-    return <div className={adminTextMutedClass}>{t('admin.user_detail.loading')}</div>
+    return <div className="text-foreground-muted p-4 text-sm">{t('admin.user_detail.loading')}</div>
   }
   if (error) {
     return (
-      <div className={adminErrTextClass}>
+      <div className="text-error p-4 font-semibold">
         {t('common.error')}: {error}
       </div>
     )
   }
   if (!user) {
-    return <div className={adminTextMutedClass}>{t('admin.user_detail.not_found')}</div>
+    return (
+      <div className="text-foreground-muted p-4 text-sm">{t('admin.user_detail.not_found')}</div>
+    )
   }
 
   return (
-    <div className={legacyLayoutClass('page-stack')} style={{ gap: 24 }}>
-      <UserDetailProfileCard
-        t={t}
-        locale={locale}
-        user={user}
-        isSelf={isSelf}
-        canManageUsers={canManageUsers}
-        verificationSending={verificationSending}
-        verificationMessage={verificationMessage}
-        onToggleActive={() => void handleToggleActive()}
-        onResendVerification={() => void handleResendVerification()}
-      />
-      {isSuperAdmin && (
-        <UserDetailMfaSupportCard
+    <AdminPanelShell title={t('admin.user_detail.title')} description={user.email}>
+      <div className="flex flex-col gap-6">
+        <UserDetailProfileCard
           t={t}
-          bypassGenerating={bypassGenerating}
-          bypassCode={bypassCode}
-          bypassError={bypassError}
-          onGenerate={() => void handleGenerateBypassCode()}
+          locale={locale}
+          user={user}
+          isSelf={isSelf}
+          canManageUsers={canManageUsers}
+          verificationSending={false}
+          verificationMessage={null}
+          onToggleActive={() => void handleToggleActive()}
+          onResendVerification={() => void handleResendVerification()}
         />
-      )}
-      <UserDetailRolesPanel
-        t={t}
-        userRoles={userRoles}
-        canManageRoles={canManageRoles}
-        assignableRoleOptions={assignableRoleOptions}
-        selectedRoleID={selectedRoleID}
-        scopeType={scopeType}
-        scopeID={scopeID}
-        scopeTypeOptions={scopeTypeOptions}
-        onRoleChange={setSelectedRoleID}
-        onScopeTypeChange={setScopeType}
-        onScopeIdChange={setScopeID}
-        onAssignRole={(event) => {
-          void handleAssignRole(event)
-        }}
-        onRevokeRole={(roleId) => void handleRevokeRole(roleId)}
-      />
-    </div>
+        {isSuperAdmin && (
+          <UserDetailMfaSupportCard
+            t={t}
+            bypassGenerating={false}
+            bypassCode={bypassCode}
+            bypassError={null}
+            onGenerate={() => void handleGenerateBypassCode()}
+          />
+        )}
+        <UserDetailRolesPanel
+          t={t}
+          userRoles={userRoles}
+          canManageRoles={canManageRoles}
+          assignableRoleOptions={assignableRoleOptions}
+          selectedRoleID={selectedRoleID}
+          scopeType={scopeType}
+          scopeID={scopeID}
+          scopeTypeOptions={scopeTypeOptions}
+          onRoleChange={setSelectedRoleID}
+          onScopeTypeChange={setScopeType}
+          onScopeIdChange={setScopeID}
+          onAssignRole={(event) => {
+            void handleAssignRole(event)
+          }}
+          onRevokeRole={(roleId) => void handleRevokeRole(roleId)}
+        />
+      </div>
+    </AdminPanelShell>
   )
 }

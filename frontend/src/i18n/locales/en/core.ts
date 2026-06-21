@@ -1222,6 +1222,7 @@ export const core = {
     drift_banner_text: '{{count}} schema drift(s) detected — model may produce incorrect results',
     drift_view_details: 'View details',
     drift_panel_title: 'Schema Drift',
+    drift_panel_hint: 'Review and resolve schema drifts detected for this model.',
     drift_table_aria: 'Schema drift items',
     drift_col_type: 'Type',
     drift_col_field: 'Field',

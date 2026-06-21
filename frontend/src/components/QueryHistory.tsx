@@ -110,31 +110,31 @@ export default function QueryHistory() {
     if (!expandedId || !accessToken || expandedId in detailCache) {
       return
     }
-    let cancelled = false
+    const controller = new AbortController()
     void Promise.resolve().then(() => {
-      if (!cancelled) {
+      if (!controller.signal.aborted) {
         setInFlightDetailId(expandedId)
       }
     })
     getAIHistoryDetail(accessToken, expandedId)
       .then((data) => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setDetailCache((prev) => ({ ...prev, [expandedId]: data }))
         }
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setDetailCache((prev) => ({ ...prev, [expandedId]: null }))
           toast.error(t('query_history.detail_load_error'))
         }
       })
       .finally(() => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setInFlightDetailId((prev) => (prev === expandedId ? null : prev))
         }
       })
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [expandedId, accessToken, detailCache, t, toast])
 
