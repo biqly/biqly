@@ -256,8 +256,8 @@ export default function QueryHistory() {
                 <thead>
                   <tr
                     style={{
-                      background: 'var(--table-header-bg, #f9fafb)',
-                      borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
+                      background: 'var(--table-header-bg)',
+                      borderBottom: '1px solid var(--border)',
                       textAlign: 'left',
                     }}
                   >
@@ -265,7 +265,7 @@ export default function QueryHistory() {
                       style={{
                         padding: '12px 16px',
                         fontWeight: 600,
-                        color: 'var(--table-header-fg, #4b5563)',
+                        color: 'var(--table-header-fg)',
                       }}
                     >
                       {t('query_history.col_question')}
@@ -274,7 +274,7 @@ export default function QueryHistory() {
                       style={{
                         padding: '12px 16px',
                         fontWeight: 600,
-                        color: 'var(--table-header-fg, #4b5563)',
+                        color: 'var(--table-header-fg)',
                       }}
                     >
                       {t('query_history.col_status')}
@@ -283,7 +283,7 @@ export default function QueryHistory() {
                       style={{
                         padding: '12px 16px',
                         fontWeight: 600,
-                        color: 'var(--table-header-fg, #4b5563)',
+                        color: 'var(--table-header-fg)',
                       }}
                     >
                       {t('query_history.col_confidence')}
@@ -292,7 +292,7 @@ export default function QueryHistory() {
                       style={{
                         padding: '12px 16px',
                         fontWeight: 600,
-                        color: 'var(--table-header-fg, #4b5563)',
+                        color: 'var(--table-header-fg)',
                       }}
                     >
                       {t('query_history.col_model')}
@@ -301,7 +301,7 @@ export default function QueryHistory() {
                       style={{
                         padding: '12px 16px',
                         fontWeight: 600,
-                        color: 'var(--table-header-fg, #4b5563)',
+                        color: 'var(--table-header-fg)',
                       }}
                     >
                       {t('query_history.col_latency')}
@@ -310,7 +310,7 @@ export default function QueryHistory() {
                       style={{
                         padding: '12px 16px',
                         fontWeight: 600,
-                        color: 'var(--table-header-fg, #4b5563)',
+                        color: 'var(--table-header-fg)',
                       }}
                     >
                       {t('query_history.col_tokens')}
@@ -319,7 +319,7 @@ export default function QueryHistory() {
                       style={{
                         padding: '12px 16px',
                         fontWeight: 600,
-                        color: 'var(--table-header-fg, #4b5563)',
+                        color: 'var(--table-header-fg)',
                       }}
                     >
                       {t('query_history.col_created_at')}
@@ -328,7 +328,7 @@ export default function QueryHistory() {
                       style={{
                         padding: '12px 16px',
                         fontWeight: 600,
-                        color: 'var(--table-header-fg, #4b5563)',
+                        color: 'var(--table-header-fg)',
                       }}
                     >
                       {t('query_history.col_actions')}

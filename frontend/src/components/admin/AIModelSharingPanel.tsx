@@ -18,6 +18,7 @@ import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
 import { legacyCardClass } from '../../lib/cardClasses'
+import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
@@ -91,7 +92,7 @@ export function AIModelSharingPanel() {
       setProviders(provs)
       setModels(allModels)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -199,7 +200,7 @@ export function AIModelSharingPanel() {
       setResourceID('')
       await reload()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     } finally {
       setSubmitting(false)
     }
@@ -214,7 +215,7 @@ export function AIModelSharingPanel() {
       toast.success(t('admin.ai_model_access.revoked'))
       await reload()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     }
   }
 

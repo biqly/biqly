@@ -12,6 +12,7 @@ import { useT } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
 import { legacyCardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
+import { errorMessage } from '../../utils/error'
 import { adminBtnAutoWidthClass } from '../admin/adminClasses'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
@@ -148,7 +149,7 @@ export function AIModelPreferencesSection() {
       setModels(data.models)
       setChoices(data.preferences)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -186,7 +187,7 @@ export function AIModelPreferencesSection() {
       setChoices(res.preferences)
       toast.success(t('settings.ai_models.saved'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     } finally {
       setSaving(false)
     }
@@ -203,7 +204,7 @@ export function AIModelPreferencesSection() {
       })
       toast.success(t('settings.ai_models.cleared'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     } finally {
       setSaving(false)
     }

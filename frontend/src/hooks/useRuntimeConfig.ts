@@ -6,6 +6,7 @@ import {
   getAIAdminConfig,
   updateAIAdminConfig,
 } from '../api/aiAdmin'
+import { errorMessage } from '../utils/error'
 
 /** Editable copy of the admin-tunable runtime config knobs. */
 export interface RuntimeConfigDraft {
@@ -98,7 +99,7 @@ export function useRuntimeConfig() {
     try {
       setConfig(await getAIAdminConfig())
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }

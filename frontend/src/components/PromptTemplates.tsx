@@ -112,10 +112,10 @@ function highlightContent(text: string) {
 
       return (
         <span key={idx} style={{ fontWeight: 'bold' }}>
-          <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>{'{{'}</span>
-          {keyword && <span style={{ color: '#f43f5e', fontWeight: 'bold' }}>{keyword}</span>}
+          <span style={{ color: 'var(--text-muted)' }}>{'{{'}</span>
+          {keyword && <span style={{ color: 'var(--error)', fontWeight: 'bold' }}>{keyword}</span>}
           <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{rest}</span>
-          <span style={{ color: 'rgba(255, 255, 255, 0.35)' }}>{'}}'}</span>
+          <span style={{ color: 'var(--text-muted)' }}>{'}}'}</span>
         </span>
       )
     }

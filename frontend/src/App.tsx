@@ -495,7 +495,7 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
       {user && (
         <Link
           to="/settings"
-          className="color-inherit relative mb-0 flex cursor-pointer items-center gap-3 rounded-lg p-[10px_12px] no-underline transition-colors duration-200 hover:bg-(--bg-hover,#f3f4f6) dark:hover:bg-white/5"
+          className="color-inherit hover:bg-canvas-subtle relative mb-0 flex cursor-pointer items-center gap-3 rounded-lg p-[10px_12px] no-underline transition-colors duration-200"
           onMouseEnter={() => handleNavHover(Settings)}
           onFocus={() => handleNavHover(Settings)}
         >

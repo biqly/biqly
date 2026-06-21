@@ -20,6 +20,7 @@ import { legacyCardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { Role, Workspace, WorkspaceDatasource, WorkspaceMember } from '../../types/auth'
+import { errorMessage } from '../../utils/error'
 import { formatDateOnly } from '../../utils/formatters'
 import {
   adminBtnAutoWidthClass,
@@ -91,7 +92,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       setEditMFARequired(ws.mfa_required)
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -124,7 +125,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       setTimeout(() => setSuccess(null), 3000)
       void load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 
@@ -139,7 +140,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       setInviteRoleID('')
       void load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 
@@ -155,7 +156,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       await removeWorkspaceMember(token, workspaceID, userID)
       void load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 
@@ -164,7 +165,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       await updateWorkspaceMemberRole(token, workspaceID, userID, roleID)
       void load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 
@@ -178,7 +179,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       setAttachDsID('')
       void load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 
@@ -194,7 +195,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       await detachWorkspaceDatasource(token, workspaceID, dsID)
       void load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 

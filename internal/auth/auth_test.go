@@ -454,12 +454,12 @@ func TestBruteForceLockout(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 
-	email := "brute@example.com"
+	email := fmt.Sprintf("brute-%d@example.com", time.Now().UnixNano())
 	rClient.Del(ctx, "login_failures:"+email)
 
 	dbPool := testutil.OpenAuthDB(t)
 
-	testutil.ExecAuthSQL(ctx, t, dbPool, "DELETE FROM sessions", "DELETE FROM users")
+	testutil.ResetAuthUserTables(ctx, t, dbPool)
 
 	config := &Config{
 		JWTAccessTTL:  5 * time.Minute,
@@ -663,7 +663,8 @@ func TestEmailVerificationAndReset(t *testing.T) {
 
 func TestJWTManagerProductionFailFast(t *testing.T) {
 	t.Setenv("BI_ENV", "production")
+	t.Setenv("BI_AUTH_JWT_PRIVATE_KEY", "")
 	_, err := NewJWTManager("", "", 10*time.Minute)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "JWT keys are unconfigured under production environment")
 }

@@ -14,6 +14,7 @@ import { useConfirm } from '../../hooks/useConfirm'
 import { useLocale, useT } from '../../i18n'
 import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { AuthUser, Role, UserRoleInfo } from '../../types/auth'
+import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
 import { adminErrTextClass, adminTextMutedClass } from './adminClasses'
 import { roleSelectOptions } from './adminSelectOptions'
@@ -73,7 +74,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
       }
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -111,7 +112,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
       const resp = await generateMFABypassCode(token, userID)
       setBypassCode(resp.bypass_code)
     } catch (e) {
-      setBypassError(e instanceof Error ? e.message : String(e))
+      setBypassError(errorMessage(e))
     } finally {
       setBypassGenerating(false)
     }
@@ -165,7 +166,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
       await updateUserActiveStatus(token, userID, nextState)
       void loadData()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 
@@ -186,7 +187,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
       setScopeID('')
       void loadData()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 
@@ -202,7 +203,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
       await removeRole(token, userID, roleID)
       void loadData()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     }
   }
 

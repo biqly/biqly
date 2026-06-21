@@ -15,10 +15,7 @@ func TestEnforcePrivilegedRoleAssignmentGuard(t *testing.T) {
 	repo := NewRBACRepository(dbPool)
 
 	const email = "privileged_role_guard@example.com"
-	_, err := dbPool.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = $1)", email)
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
-	require.NoError(t, err)
+	testutil.PurgeAuthUsersByEmail(ctx, t, dbPool, email)
 
 	var callerID string
 	require.NoError(t, dbPool.QueryRowContext(ctx,
@@ -41,7 +38,7 @@ func TestEnforcePrivilegedRoleAssignmentGuard(t *testing.T) {
 	assert.True(t, roleGrantsAdminPermissions(ctx, t, repo, adminRoleID))
 	assert.False(t, roleGrantsAdminPermissions(ctx, t, repo, developerRoleID))
 
-	err = repo.EnforcePrivilegedRoleAssignmentGuard(ctx, callerID, superAdminRoleID)
+	err := repo.EnforcePrivilegedRoleAssignmentGuard(ctx, callerID, superAdminRoleID)
 	assert.ErrorIs(t, err, ErrPrivilegedRoleEscalation)
 
 	err = repo.EnforcePrivilegedRoleAssignmentGuard(ctx, callerID, adminRoleID)

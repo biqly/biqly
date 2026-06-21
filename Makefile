@@ -3,7 +3,7 @@ ifndef .FEATURES
 $(error This Makefile requires GNU Make. On macOS: brew install make && gmake <target>)
 endif
 
-.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai watch debug-watch dev-frontend test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit setup-githooks semgrep-scan vet govulncheck verify-main helm-deps helm-lint helm-template clean migrate-up migrate-down docker-up docker-down dev-up dev-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai watch debug-watch dev-frontend test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit setup-githooks semgrep-scan vet govulncheck verify-main helm-deps helm-lint helm-template clean migrate-up migrate-test-up migrate-down docker-up docker-down dev-up dev-down seed-adventureworks
 
 # air provides Go live-reload (rebuild + restart on .go save). Pinned via
 # `go run` so no global install is required (first run downloads it).
@@ -29,6 +29,20 @@ GO_FILES=$(shell find . -name '*.go' -not -path './vendor/*')
 # env internally). .env.dev overrides DSN hosts to localhost for host-native
 # runs against `make dev-up` infra — see .env.dev.example.
 RUN_WITH_ENV = set -a; [ -f .env ] && . ./.env; [ -f .env.dev ] && . ./.env.dev; set +a;
+# Integration tests always target local dev-up Postgres; ignore shell/.env DSN overrides.
+TEST_METADATA_DB_DSN ?= postgres://bi_user:bi_password@localhost:5432/bi_metadata?sslmode=disable
+TEST_AUTH_DB_DSN ?= postgres://bi_user:bi_password@localhost:5432/bi_auth?sslmode=disable
+TEST_MAIL_DB_DSN ?= postgres://bi_user:bi_password@localhost:5432/bi_mail?sslmode=disable
+TEST_REDIS_DSN ?= redis://localhost:6379
+RUN_WITH_TEST_ENV = env \
+	-u BI_METADATA_DB_DSN -u BI_AUTH_DB_DSN -u BI_MAIL_DB_DSN \
+	-u BI_AUTH_REDIS_DSN -u BI_REDIS_DSN \
+	-u BI_AUTH_JWT_PRIVATE_KEY \
+	BI_METADATA_DB_DSN='$(TEST_METADATA_DB_DSN)' \
+	BI_AUTH_DB_DSN='$(TEST_AUTH_DB_DSN)' \
+	BI_MAIL_DB_DSN='$(TEST_MAIL_DB_DSN)' \
+	BI_AUTH_REDIS_DSN='$(TEST_REDIS_DSN)' \
+	BI_REDIS_DSN='$(TEST_REDIS_DSN)'
 HELM_CHART=deploy/helm/biqly
 SEMGREP_SARIF?=semgrep.sarif
 SEMGREP_CONFIGS=\
@@ -88,15 +102,15 @@ run-ai: build-ai
 
 test: test-go test-frontend
 
-test-go:
-	@go test -v -race -coverprofile=coverage.out ./...
+test-go: migrate-test-up
+	@$(RUN_WITH_TEST_ENV) go test -v -race -coverprofile=coverage.out ./...
 
 # coverage-gate enforces per-package coverage floors for critical packages
 # (datasource drivers + dialect) using the profile produced by `make test-go`.
 # Generates coverage.out first when it is missing so the target is runnable on
 # its own. See scripts/coveragecheck for the floors.
 coverage-gate:
-	@test -f coverage.out || go test -coverprofile=coverage.out ./internal/dialect/... ./internal/datasource/... ./internal/config/... ./internal/dashboard/... ./internal/queue/... ./internal/ai/routing/... ./internal/auth
+	@test -f coverage.out || $(RUN_WITH_TEST_ENV) go test -coverprofile=coverage.out ./internal/dialect/... ./internal/datasource/... ./internal/config/... ./internal/dashboard/... ./internal/queue/... ./internal/ai/routing/... ./internal/auth
 	@go run ./scripts/coveragecheck -profile coverage.out
 
 test-frontend:
@@ -193,6 +207,10 @@ clean:
 
 migrate-up:
 	@$(RUN_WITH_ENV) go run ./cmd/migrate up
+
+migrate-test-up:
+	@$(RUN_WITH_TEST_ENV) go run ./cmd/migrate up
+	@$(RUN_WITH_TEST_ENV) go run ./cmd/auth-migrate up
 
 migrate-down:
 	@$(RUN_WITH_ENV) go run ./cmd/migrate down

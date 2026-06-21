@@ -7,9 +7,9 @@ import { useConfirm } from '../../hooks/useConfirm'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useT } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
-import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { AIJob } from '../../types/ai'
 import type { PageQuery } from '../../types/pagination'
+import { errorMessage } from '../../utils/error'
 import { formatDurationMs } from '../../utils/formatters'
 import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import {
@@ -30,6 +30,7 @@ import {
   jobProgressBarFillClass,
 } from '../ai/aiJobsClasses'
 import { useAuth } from '../auth/AuthProvider'
+import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Modal } from '../ui/Modal'
 import { Pagination } from '../ui/Pagination'
@@ -156,7 +157,7 @@ export function AIJobsAdminPanel() {
       await adminCancelAIJob(accessToken, job.id)
       reload()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errorMessage(err))
     } finally {
       setBusyJobId(null)
     }
@@ -176,7 +177,7 @@ export function AIJobsAdminPanel() {
       )
       reload()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errorMessage(err))
     }
   }
 
@@ -232,7 +233,7 @@ export function AIJobsAdminPanel() {
         {staleNote && <span style={{ color: 'var(--text-muted)' }}>{staleNote}</span>}
       </div>
 
-      {error && <p className={legacyFeedbackClass('error-text')}>{error}</p>}
+      {error && <ErrorAlert error={error} />}
 
       <div
         className={`${aiHistoryTableWrapClass} ${adminTableContainerClass}`}

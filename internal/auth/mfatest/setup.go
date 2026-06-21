@@ -43,11 +43,7 @@ func uniqueTestEmail(t *testing.T, local string) string {
 
 func deleteTestUsers(ctx context.Context, t *testing.T, db *sql.DB, ids ...string) {
 	t.Helper()
-	for _, id := range ids {
-		if _, err := db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id); err != nil {
-			t.Fatalf("cleanup test user %s: %v", id, err)
-		}
-	}
+	testutil.PurgeAuthUserByID(ctx, t, db, ids...)
 }
 
 func NewIntegrationStack(t *testing.T) *IntegrationStack {

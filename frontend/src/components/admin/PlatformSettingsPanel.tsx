@@ -14,6 +14,7 @@ import { type TFunction, useT } from '../../i18n'
 import { cn } from '../../lib/cn'
 import { formHintClass } from '../../lib/formClasses'
 import { legacyLayoutClass } from '../../lib/layoutClasses'
+import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import {
@@ -648,7 +649,7 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
       setSelfSignupEnabled(data.self_signup_enabled)
       setUpdatedAt(data.updated_at ?? null)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -668,7 +669,7 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
       clearPasswordPolicyCache()
       toast.success(t('admin.platform_settings.saved'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     } finally {
       setSaving(false)
     }
@@ -682,7 +683,7 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
       await saveRuntime(buildRuntimeConfigUpdate(draft))
       toast.success(t('admin.platform_settings.runtime_saved'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     }
   }
 

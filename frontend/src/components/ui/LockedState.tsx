@@ -12,6 +12,7 @@ import {
   lockedStateSuccessAlertClass,
   lockedStateTitleClass,
 } from '../../lib/lockedStateClasses'
+import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from './ErrorAlert'
 interface LockedStateProps {
@@ -44,7 +45,7 @@ export function LockedState({ datasourceId, datasourceName }: LockedStateProps) 
     } catch (err: unknown) {
       setError(
         t('datasources.request_failed', {
-          error: err instanceof Error ? err.message : String(err),
+          error: errorMessage(err),
         }),
       )
     } finally {

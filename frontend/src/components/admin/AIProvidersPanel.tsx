@@ -14,7 +14,9 @@ import {
 import { useConfirm } from '../../hooks/useConfirm'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
+import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { AIModelSharingPanel } from './AIModelSharingPanel'
 import { PURPOSES } from './aiProviderModalShared'
@@ -63,7 +65,7 @@ export function AIProvidersPanel() {
       setProviders(provs)
       setActiveModels(active)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -76,7 +78,7 @@ export function AIProvidersPanel() {
         const rows = await listModels(providerID)
         setModels(rows)
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : String(e))
+        toast.error(errorMessage(e))
       } finally {
         setModelsLoading(false)
       }
@@ -115,7 +117,7 @@ export function AIProvidersPanel() {
       }
       await reloadTop()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     }
   }
 
@@ -136,7 +138,7 @@ export function AIProvidersPanel() {
       }
       await reloadTop()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     }
   }
 
@@ -149,7 +151,7 @@ export function AIProvidersPanel() {
       }
       await reloadTop()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     }
   }
 
@@ -185,11 +187,7 @@ export function AIProvidersPanel() {
         </p>
       </div>
 
-      {error && (
-        <div style={errStyle}>
-          {t('common.error')}: {error}
-        </div>
-      )}
+      {error && <ErrorAlert error={`${t('common.error')}: ${error}`} />}
       {!canEdit && <ReadOnlyNote />}
 
       <AIModelSharingPanel />
@@ -610,10 +608,5 @@ const activeDot: React.CSSProperties = {
 const inactiveDot: React.CSSProperties = {
   fontSize: 11,
   color: 'var(--text-secondary, #a1a1aa)',
-  fontWeight: 600,
-}
-const errStyle: React.CSSProperties = {
-  color: 'var(--error, crimson)',
-  padding: 12,
   fontWeight: 600,
 }

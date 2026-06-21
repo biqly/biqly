@@ -14,7 +14,7 @@ import type { PageQuery } from '../../types/pagination'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import {
-  adminBtnSuccessClass,
+  adminBtnPrimaryClass,
   adminCountBadgeClass,
   adminTabButtonClass,
   adminTabContainerClass,
@@ -219,7 +219,7 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           {isSuperAdmin && (
             <button
               type="button"
-              className={adminBtnSuccessClass}
+              className={adminBtnPrimaryClass}
               onClick={() => setShowInviteModal(true)}
             >
               {t('auth.btn_invite_user')}

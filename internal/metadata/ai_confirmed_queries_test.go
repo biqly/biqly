@@ -33,6 +33,8 @@ func TestUpsertConfirmedQueryConcurrentSameKey(t *testing.T) {
 		semanticModelHash = "model@7"
 	)
 	questionHash := QuestionHash("Total revenue by month")
+	testutil.EnsureMetadataTestDatasource(ctx, t, db, datasourceID, "confirmed-query-test")
+	testutil.EnsureMetadataTestSemanticModel(ctx, t, db, modelID, datasourceID, "confirmed-query-model")
 	_, err := db.ExecContext(ctx, `
 		DELETE FROM ai_confirmed_queries
 		WHERE datasource_id = $1::uuid

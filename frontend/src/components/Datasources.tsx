@@ -370,12 +370,12 @@ export default function Datasources() {
             <h2>{t('datasources.panel_title')}</h2>
             {datasourceRows.length > 0 && (
               <button
-              className={legacyButtonClass('btn btn-primary')}
-              type="button"
-              onClick={openNewForm}
-            >
-              + {t('datasources.new')}
-            </button>
+                className={legacyButtonClass('btn btn-primary')}
+                type="button"
+                onClick={openNewForm}
+              >
+                + {t('datasources.new')}
+              </button>
             )}
           </div>
           <p className={legacyCardClass('card-lead')}>{t('datasources.form_subtitle')}</p>

@@ -46,9 +46,7 @@ export function GlossaryEnrichPanel({
 
   return (
     <div
-      className={legacyCardClass(
-        'card border-border mb-5 rounded-lg border bg-(--surface-elevated,rgba(255,255,255,0.02)) p-4',
-      )}
+      className={legacyCardClass('card border-border bg-card-raised mb-5 rounded-lg border p-4')}
     >
       <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -95,10 +93,8 @@ export function GlossaryEnrichPanel({
       {applyResult && (
         <div
           className={cn(
-            'mb-3 rounded-lg border bg-(--surface-elevated,rgba(255,255,255,0.02)) px-3 py-[0.6rem] text-[0.85rem]',
-            applyResult.errors && applyResult.errors.length > 0
-              ? 'border-(--danger,#d9534f)'
-              : 'border-border',
+            'bg-card-raised mb-3 rounded-lg border px-3 py-[0.6rem] text-[0.85rem]',
+            applyResult.errors && applyResult.errors.length > 0 ? 'border-error' : 'border-border',
           )}
           role="status"
         >
@@ -113,7 +109,7 @@ export function GlossaryEnrichPanel({
               <div>
                 {t('glossary.enrich_context_apply_failed', { count: applyResult.errors.length })}
               </div>
-              <ul className="mt-[0.4rem] mr-0 mb-0 ml-0 pl-[1.1rem] text-(--danger,#d9534f)">
+              <ul className="text-error mt-[0.4rem] mr-0 mb-0 ml-0 pl-[1.1rem]">
                 {applyResult.errors.map((err, idx) => (
                   <li key={idx}>{err}</li>
                 ))}

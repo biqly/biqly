@@ -418,11 +418,7 @@ export default function FewShotExamples() {
           )}
         </div>
 
-        {displayedExamples.length === 0 && (
-          <EmptyState
-            description={t('few_shot.empty')}
-          />
-        )}
+        {displayedExamples.length === 0 && <EmptyState description={t('few_shot.empty')} />}
 
         {displayedExamples.length > 0 && (
           <div className="table-wrap">

@@ -101,9 +101,7 @@ func TestVerifyCodeRejectsReplayedTOTPStep(t *testing.T) {
 		t.Fatalf("insert user: %v", err)
 	}
 	t.Cleanup(func() {
-		if _, cleanupErr := db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", userID); cleanupErr != nil {
-			t.Fatalf("cleanup user: %v", cleanupErr)
-		}
+		testutil.PurgeAuthUserByID(ctx, t, db)
 	})
 
 	secret, err := GenerateTOTPSecret()

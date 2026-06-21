@@ -4,6 +4,7 @@ import { getRolePermissions, listPermissions, listRoles, setRolePermissions } fr
 import { useRowSelection } from '../../hooks/useRowSelection'
 import { useT } from '../../i18n'
 import type { Permission, Role } from '../../types/auth'
+import { errorMessage } from '../../utils/error'
 import { sameIdSet, selectionStateFor } from '../../utils/selection'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from '../ui/ErrorAlert'
@@ -60,7 +61,7 @@ export function RolesPanel({ token }: { token: string }) {
         setError(null)
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : String(e))
+          setError(errorMessage(e))
         }
       } finally {
         if (!cancelled) {
@@ -83,7 +84,7 @@ export function RolesPanel({ token }: { token: string }) {
         setSavedIds(new Set(ids))
         setError(null)
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
+        setError(errorMessage(e))
       } finally {
         setLoadingRolePerms(false)
       }
@@ -130,7 +131,7 @@ export function RolesPanel({ token }: { token: string }) {
       setSavedIds(new Set(assignedIds))
       setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     } finally {
       setSaving(false)
     }

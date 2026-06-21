@@ -4,6 +4,7 @@ import { listUsers, listWorkspaces } from '../api/admin'
 import { apiFetch } from '../api/apiClient'
 import type { AuthUser, Workspace } from '../types/auth'
 import type { Datasource } from '../types/metadata'
+import { errorMessage } from '../utils/error'
 
 export function useAdminLookups(token: string) {
   const [users, setUsers] = useState<AuthUser[]>([])
@@ -33,7 +34,7 @@ export function useAdminLookups(token: string) {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err))
+          setError(errorMessage(err))
         }
       } finally {
         if (!cancelled) {

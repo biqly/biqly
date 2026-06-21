@@ -1,3 +1,6 @@
+import { buttonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+
 const qbStepLabelTheme: Record<string, string> = {
   data: 'text-indigo-600 dark:text-indigo-400',
   join: 'text-sky-600 dark:text-sky-400',
@@ -132,8 +135,10 @@ export function qbToolbarBtnVariantClass(
 
 export const qbVisualizeContainerClass = 'mt-5 flex items-center gap-[0.6rem]'
 
-export const qbVisualizeBtnClass =
-  'inline-flex min-h-[2.1rem] cursor-pointer items-center gap-[0.4rem] rounded-lg border border-accent-strong bg-gradient-to-br from-accent to-accent-strong px-6 py-[0.4rem] text-[0.82rem] font-semibold text-white shadow-[0_2px_8px_var(--accent-glow)] transition-all duration-[180ms] hover:-translate-y-px hover:border-accent-hover hover:from-accent-hover hover:to-accent-strong hover:shadow-[0_4px_14px_var(--accent-glow)] disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none'
+// Delegate to shared ui/Button primary styling so the Visualize CTA matches
+// <Button variant="primary">. autoWidth keeps it inline (buttonBase is
+// full-width). gap-[0.4rem] preserves the original icon+label spacing.
+export const qbVisualizeBtnClass = cn(buttonClass('primary', { autoWidth: true }), 'gap-[0.4rem]')
 
 export const qbSqlToggleClass = 'font-mono'
 

@@ -13,6 +13,7 @@ import { legacyButtonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { formHintClass } from '../../lib/formClasses'
 import { legacyLayoutClass } from '../../lib/layoutClasses'
+import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { Select } from '../ui/Select'
@@ -76,7 +77,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
       })
       setHasStoredPassword(cfg.has_bind_password)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -95,7 +96,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
       setForm((f) => ({ ...f, bind_password: '' }))
       toast.success(t('admin.ldap.saved'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     } finally {
       setSaving(false)
     }
@@ -111,9 +112,7 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
         toast.error(t('admin.ldap.test_failed', { error: res.message ?? '' }))
       }
     } catch (e) {
-      toast.error(
-        t('admin.ldap.test_failed', { error: e instanceof Error ? e.message : String(e) }),
-      )
+      toast.error(t('admin.ldap.test_failed', { error: errorMessage(e) }))
     } finally {
       setTesting(false)
     }
