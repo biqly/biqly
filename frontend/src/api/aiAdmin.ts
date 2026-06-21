@@ -1,11 +1,11 @@
+import { buildQueryString } from '../utils/query'
 import { apiFetch } from './apiClient'
-
-const AI_API_BASE = '/api/ai'
+import { ADMIN_OPTS, AI_API_BASE } from './constants'
 
 // Memory store + runtime config endpoints are admin-gated; the admin key (or a
 // super-admin JWT) is sent via the apiClient's useAdminKey option, matching the
 // provider/model management endpoints.
-const adminOpts = { useAdminKey: true as const }
+const adminOpts = ADMIN_OPTS
 
 export interface ConfirmedQuery {
   id: string
@@ -30,22 +30,16 @@ export const listConfirmedQueries = (
   datasourceId: string,
   opts: ListConfirmedQueriesOptions = {},
 ) => {
-  const params = new URLSearchParams({ datasource_id: datasourceId })
-  if (opts.page) {
-    params.set('page', String(opts.page))
-  }
-  if (opts.pageSize) {
-    params.set('page_size', String(opts.pageSize))
-  }
-  if (opts.sort) {
-    params.set('sort', opts.sort)
-  }
-  if (opts.order) {
-    params.set('order', opts.order)
-  }
+  const query = buildQueryString({
+    datasource_id: datasourceId,
+    page: opts.page,
+    page_size: opts.pageSize,
+    sort: opts.sort,
+    order: opts.order,
+  })
   return apiFetch<{ queries: ConfirmedQuery[]; total: number }>(
     'GET',
-    `${AI_API_BASE}/confirmed-queries?${params.toString()}`,
+    `${AI_API_BASE}/confirmed-queries${query}`,
     undefined,
     adminOpts,
   )

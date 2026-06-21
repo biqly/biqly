@@ -10,7 +10,9 @@ import {
   selfSignupEnabledFromPolicy,
 } from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
+import { useAsyncState } from '../../hooks/useAsyncState'
 import { useAutofocus } from '../../hooks/useAutofocus'
+import { useFetch } from '../../hooks/useFetch'
 import { useT } from '../../i18n'
 import {
   authCardClass,
@@ -37,9 +39,6 @@ export default function SignInPage() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [passkeyLoading, setPasskeyLoading] = useState(false)
   const [throttleMs, setThrottleMs] = useState(0)
   const [sessionBanner, setSessionBanner] = useState<{ title: string; body: string } | null>(null)
   const failureCountRef = useRef(0)
@@ -48,32 +47,28 @@ export default function SignInPage() {
   const [mfaRequired, setMfaRequired] = useState(false)
   const [mfaToken, setMfaToken] = useState('')
   const [mfaCode, setMfaCode] = useState('')
-  const [mfaLoading, setMfaLoading] = useState(false)
-  const [signupAllowed, setSignupAllowed] = useState(true)
-  const [firstUserSetupRequired, setFirstUserSetupRequired] = useState(false)
-  const [ldapEnabled, setLdapEnabled] = useState(false)
   const mfaCodeRef = useAutofocus<HTMLInputElement>(mfaRequired)
 
-  useEffect(() => {
-    let cancelled = false
-    apiGetPasswordPolicy()
-      .then((policy) => {
-        if (cancelled) {
-          return
-        }
-        setSignupAllowed(selfSignupEnabledFromPolicy(policy))
-        setFirstUserSetupRequired(firstUserSetupRequiredFromPolicy(policy))
-        setLdapEnabled(policy.ldap_enabled === true)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setSignupAllowed(true)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const { data: policy } = useFetch(apiGetPasswordPolicy, [])
+  const signupAllowed = policy ? selfSignupEnabledFromPolicy(policy) : true
+  const firstUserSetupRequired = policy ? firstUserSetupRequiredFromPolicy(policy) : false
+  const ldapEnabled = policy?.ldap_enabled === true
+
+  const { loading, error: loginError, setError: setLoginError, run: runLogin } = useAsyncState()
+  const {
+    loading: mfaLoading,
+    error: mfaError,
+    setError: setMfaError,
+    run: runMfaLogin,
+  } = useAsyncState()
+  const {
+    loading: passkeyLoading,
+    error: passkeyError,
+    setError: setPasskeyError,
+    run: runPasskeyLogin,
+  } = useAsyncState()
+
+  const error = loginError ?? mfaError ?? passkeyError
 
   // Check for redirect MFA challenge token from OAuth flow on mount
   useEffect(() => {
@@ -118,9 +113,8 @@ export default function SignInPage() {
       return
     }
 
-    setLoading(true)
-    setError(null)
-    try {
+    setLoginError(null)
+    await runLogin(async () => {
       const mfaResult = await login(email, password)
       if (mfaResult && mfaResult.mfaRequired) {
         setMfaToken(mfaResult.mfaToken ?? '')
@@ -129,20 +123,16 @@ export default function SignInPage() {
       }
       failureCountRef.current = 0
       void navigate('/datasources')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed')
-      // Exponential client-side backoff. Server already rate-limits, this is
-      // pure UX so a frustrated user does not hammer the form and pin the
-      // browser tab.
+    }).catch((err) => {
+      // Exponential client-side backoff
       const idx = Math.min(failureCountRef.current + 1, FAILED_LOGIN_BACKOFFS_MS.length - 1)
       failureCountRef.current = idx
       const wait = FAILED_LOGIN_BACKOFFS_MS[idx] ?? 0
       if (wait > 0) {
         setThrottleMs(wait)
       }
-    } finally {
-      setLoading(false)
-    }
+      throw err
+    })
   }
 
   const handleMFALoginSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
@@ -151,23 +141,17 @@ export default function SignInPage() {
       return
     }
 
-    setMfaLoading(true)
-    setError(null)
-    try {
+    setMfaError(null)
+    await runMfaLogin(async () => {
       const resp = await apiMFALogin(mfaToken, mfaCode.trim())
       await loginWithTokens(resp.access_token, resp.roles)
       void navigate('/datasources')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '2FA Verification failed')
-    } finally {
-      setMfaLoading(false)
-    }
+    })
   }
 
   const handlePasskeyLogin = async () => {
-    setPasskeyLoading(true)
-    setError(null)
-    try {
+    setPasskeyError(null)
+    await runPasskeyLogin(async () => {
       const beginResp = await apiPasskeyLoginBegin()
       const publicKeyOptions = resolvePasskeyLoginOptions(beginResp)
 
@@ -205,11 +189,7 @@ export default function SignInPage() {
       const finishResp = await apiPasskeyLoginFinish(credentialJson)
       await loginWithTokens(finishResp.access_token, finishResp.roles)
       void navigate('/datasources')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Passkey login failed')
-    } finally {
-      setPasskeyLoading(false)
-    }
+    })
   }
 
   const handleOAuth = (provider: string) => {
@@ -284,7 +264,9 @@ export default function SignInPage() {
               setMfaRequired(false)
               setMfaToken('')
               setMfaCode('')
-              setError(null)
+              setMfaError(null)
+              setLoginError(null)
+              setPasskeyError(null)
             }}
           />
         ) : (

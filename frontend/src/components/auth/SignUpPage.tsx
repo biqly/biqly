@@ -1,4 +1,4 @@
-import { type MouseEvent, type SubmitEvent, useCallback, useEffect, useState } from 'react'
+import { type MouseEvent, type SubmitEvent, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import {
@@ -7,6 +7,8 @@ import {
   selfSignupEnabledFromPolicy,
 } from '../../api/auth'
 import abiLogo from '../../assets/abi-logo.png'
+import { useAsyncState } from '../../hooks/useAsyncState'
+import { useFetch } from '../../hooks/useFetch'
 import { useLocale, useT } from '../../i18n'
 import {
   authCardClass,
@@ -187,34 +189,16 @@ export default function SignUpPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [agree, setAgree] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
   const [passwordValid, setPasswordValid] = useState(false)
   const [termsOpen, setTermsOpen] = useState(false)
   const [privacyOpen, setPrivacyOpen] = useState(false)
-  const [policyLoading, setPolicyLoading] = useState(true)
-  const [signupAllowed, setSignupAllowed] = useState(true)
-  const [firstUserSetupRequired, setFirstUserSetupRequired] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    void apiGetPasswordPolicy()
-      .then((policy) => {
-        if (!cancelled) {
-          setSignupAllowed(selfSignupEnabledFromPolicy(policy))
-          setFirstUserSetupRequired(firstUserSetupRequiredFromPolicy(policy))
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setPolicyLoading(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const { data: policy, loading: policyLoading } = useFetch(apiGetPasswordPolicy, [])
+  const signupAllowed = policy ? selfSignupEnabledFromPolicy(policy) : true
+  const firstUserSetupRequired = policy ? firstUserSetupRequiredFromPolicy(policy) : false
+
+  const { loading, error, setError, run: runRegister } = useAsyncState()
 
   const handleValidity = useCallback((info: { valid: boolean }) => {
     setPasswordValid(info.valid)
@@ -225,11 +209,11 @@ export default function SignUpPage() {
 
   const clearPasswordMismatchError = useCallback(() => {
     setError((current) => (current === t('auth.passwords_dont_match') ? null : current))
-  }, [t])
+  }, [t, setError])
 
   const clearEmailFormatError = useCallback(() => {
     setError((current) => (current === t('auth.invalid_email') ? null : current))
-  }, [t])
+  }, [t, setError])
 
   const handleSignInClick = useCallback(
     (e: MouseEvent<HTMLAnchorElement>) => {
@@ -265,11 +249,10 @@ export default function SignUpPage() {
       return
     }
 
-    setLoading(true)
     setError(null)
     setSuccess(null)
 
-    try {
+    await runRegister(async () => {
       const result = await register(email, password, displayName)
       if (!result.authenticated) {
         setSuccess(t('auth.register_success'))
@@ -279,12 +262,7 @@ export default function SignUpPage() {
         return
       }
       void navigate('/datasources')
-    } catch (err: unknown) {
-      setSuccess(null)
-      setError(err instanceof Error ? err.message : 'Registration failed')
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   if (policyLoading) {

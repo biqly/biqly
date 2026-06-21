@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { PIIAccessLevel, PIIColumn, PIIColumnAccess, SecurityPolicy } from '../../api/admin'
 import { getSecurityPolicyByKeys, listPIIColumns, upsertSecurityPolicy } from '../../api/admin'
 import { listSemanticModelFields } from '../../api/semantic'
+import { useAsyncState } from '../../hooks/useAsyncState'
 import { useDatasources } from '../../hooks/useDatasources'
+import { useFetch } from '../../hooks/useFetch'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
@@ -50,15 +52,12 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     [selectedModelInput, models],
   )
 
-  const [loadingPolicy, setLoadingPolicy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
   const [modelName, setModelName] = useState<string | null>(null)
   const [fieldRows, setFieldRows] = useState<SemanticModelFieldRow[]>([])
   const [fieldTotal, setFieldTotal] = useState(0)
   const [fieldPage, setFieldPage] = useState(1)
   const [fieldPageSize] = useState(DEFAULT_FIELD_PAGE_SIZE)
-  const [loadingFields, setLoadingFields] = useState(false)
+  const [fieldsError, setFieldsError] = useState<string | null>(null)
 
   const setSelectedDS = useCallback((id: string) => {
     setSelectedDSInput(id)
@@ -109,83 +108,84 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     [policyScopeKey],
   )
 
+  const fetchPolicy = useCallback(async () => {
+    const [policyData, piiCols] = await Promise.all([
+      getSecurityPolicyByKeys(token, `role:${selectedRole}`, selectedDS),
+      listPIIColumns(token, selectedDS).catch(() => [] as PIIColumn[]),
+    ])
+    return { policy: policyData, piiColumns: piiCols }
+  }, [token, selectedRole, selectedDS])
+
+  const {
+    data: policyLoadData,
+    loading: loadingPolicy,
+    error: loadError,
+  } = useFetch(fetchPolicy, [selectedRole, selectedDS, token], {
+    enabled: Boolean(selectedRole && selectedDS),
+  })
+
+  const { data: fieldsData, loading: loadingFields } = useFetch(
+    () =>
+      selectedModel
+        ? listSemanticModelFields(selectedModel, fieldPage, fieldPageSize)
+        : Promise.resolve({ data: null, error: null }),
+    [selectedModel, fieldPage, fieldPageSize],
+    { enabled: Boolean(selectedModel) },
+  )
+
+  const {
+    loading: saving,
+    error: mutationError,
+    setError: setMutationError,
+    run: runSave,
+  } = useAsyncState({ useSaving: true })
+
+  const error =
+    (loadError ? t('admin.field_permissions.load_failed') : null) ?? fieldsError ?? mutationError
+
   useEffect(() => {
-    if (!selectedRole || !selectedDS) {
-      return
+    if (policyLoadData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPolicyState({
+        key: policyScopeKey,
+        policy: policyLoadData.policy,
+        deniedFields: policyLoadData.policy.denied_fields,
+        piiPolicy: policyLoadData.policy.pii_policy ?? {},
+        piiColumns: policyLoadData.piiColumns,
+      })
+    } else {
+      setPolicyState({
+        key: '',
+        policy: null,
+        deniedFields: [],
+        piiPolicy: {},
+        piiColumns: [],
+      })
     }
+  }, [policyLoadData, policyScopeKey])
 
-    let cancelled = false
-    async function loadPolicy() {
-      setLoadingPolicy(true)
-      setError(null)
-      try {
-        const [policyData, piiCols] = await Promise.all([
-          getSecurityPolicyByKeys(token, `role:${selectedRole}`, selectedDS),
-          listPIIColumns(token, selectedDS).catch(() => [] as PIIColumn[]),
-        ])
-        if (cancelled) {
-          return
-        }
-        setPolicyState({
-          key: policyScopeKey,
-          policy: policyData,
-          deniedFields: policyData.denied_fields,
-          piiPolicy: policyData.pii_policy ?? {},
-          piiColumns: piiCols,
-        })
-      } catch {
-        if (!cancelled) {
-          setError(t('admin.field_permissions.load_failed'))
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingPolicy(false)
-        }
-      }
-    }
-
-    void loadPolicy()
-    return () => {
-      cancelled = true
-    }
-  }, [token, selectedRole, selectedDS, policyScopeKey, t])
-
-  const loadFields = useCallback(async () => {
-    if (!selectedModel) {
-      void Promise.resolve().then(() => {
+  useEffect(() => {
+    if (fieldsData) {
+      const { data, error: fieldsErr } = fieldsData
+      if (fieldsErr) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setFieldsError(t('admin.field_permissions.load_failed'))
         setModelName(null)
         setFieldRows([])
         setFieldTotal(0)
-      })
-      return
-    }
-    void Promise.resolve().then(() => setLoadingFields(true))
-    const { data, error: fieldsErr } = await listSemanticModelFields(
-      selectedModel,
-      fieldPage,
-      fieldPageSize,
-    )
-    if (fieldsErr) {
-      setError(t('admin.field_permissions.load_failed'))
-      setModelName(null)
-      setFieldRows([])
-      setFieldTotal(0)
-    } else if (data) {
-      setModelName(data.model_name)
-      setFieldRows(data.items)
-      setFieldTotal(data.total)
+      } else if (data) {
+        setFieldsError(null)
+        setModelName(data.model_name)
+        setFieldRows(data.items)
+        setFieldTotal(data.total)
+      }
     } else {
+      setFieldsError(null)
       setModelName(null)
       setFieldRows([])
       setFieldTotal(0)
     }
-    setLoadingFields(false)
-  }, [selectedModel, fieldPage, fieldPageSize, t])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadFields()
-  }, [loadFields])
+  }, [fieldsData, t])
 
   const handleToggleField = (fieldName: string) => {
     if (!modelName) {
@@ -209,7 +209,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
     if (!selectedDS) {
       return
     }
-    setError(null)
+    setMutationError(null)
 
     const policyToSave: SecurityPolicy = {
       id: policy?.id,
@@ -221,8 +221,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       pii_policy: piiPolicy,
     }
 
-    try {
-      setLoadingPolicy(true)
+    await runSave(async () => {
       const res = await upsertSecurityPolicy(token, policyToSave)
       updatePolicyFields({
         policy: res,
@@ -230,11 +229,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
         piiPolicy: res.pii_policy ?? {},
       })
       toast.success(t('admin.field_permissions.saved'))
-    } catch {
-      setError(t('admin.field_permissions.save_failed'))
-    } finally {
-      setLoadingPolicy(false)
-    }
+    })
   }
 
   // Role defaults mirror the backend pii.DefaultPIIPolicy: admin raw,
@@ -295,7 +290,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
 
   const hasFields = fieldTotal > 0
   const fieldTotalPages = Math.max(1, Math.ceil(fieldTotal / fieldPageSize))
-  const isSavingDisabled = !selectedModel || !modelName || loadingPolicy
+  const isSavingDisabled = !selectedModel || !modelName || loadingPolicy || saving
 
   const dsOptions = useMemo(
     () => datasourceSelectOptions(datasources, loadingDS),
@@ -342,7 +337,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
       {error && <ErrorAlert error={`${t('common.error')}: ${error}`} />}
 
       <div style={contentLayout}>
-        <LoadingOverlay loading={loadingPolicy || loadingFields}>
+        <LoadingOverlay loading={loadingPolicy || loadingFields || saving}>
           <div style={innerPanelStyle}>
             <div style={panelHeaderStyle}>
               <h3 style={sectionTitleStyle}>{t('admin.field_permissions.access_matrix')}</h3>

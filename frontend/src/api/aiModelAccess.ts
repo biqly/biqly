@@ -1,6 +1,5 @@
 import { apiFetch } from './apiClient'
-
-const AUTH_API_BASE = '/api/auth'
+import { ADMIN_OPTS, AUTH_API_BASE } from './constants'
 
 export interface AIProviderWorkspaceGrant {
   workspace_id: string
@@ -51,7 +50,7 @@ function normalizeAIModelAccessGrants(raw: AIModelAccessGrantsRaw): AIModelAcces
   }
 }
 
-const adminOpts = { useAdminKey: true as const }
+const adminOpts = ADMIN_OPTS
 
 const emptyAIModelAccessGrants = (): AIModelAccessGrants => ({
   provider_workspaces: [],

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { getRolePermissions, listPermissions, listRoles, setRolePermissions } from '../../api/admin'
+import { useAsyncState } from '../../hooks/useAsyncState'
+import { useFetch } from '../../hooks/useFetch'
 import { useRowSelection } from '../../hooks/useRowSelection'
 import { useT } from '../../i18n'
 import type { Permission, Role } from '../../types/auth'
-import { errorMessage } from '../../utils/error'
 import { sameIdSet, selectionStateFor } from '../../utils/selection'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from '../ui/ErrorAlert'
@@ -17,88 +18,70 @@ import {
 import { ReadOnlyNote } from './ReadOnlyNote'
 
 const ALL_PAGE_SIZE = 500
+const EMPTY_ROLES: Role[] = []
+const EMPTY_PERMISSIONS: Permission[] = []
 
 export function RolesPanel({ token }: { token: string }) {
   const t = useT()
   const { hasPermission } = useAuth()
   // Editing role→permission mappings requires admin:roles (server-enforced).
   const canEdit = hasPermission('admin:roles')
-  const [roles, setRoles] = useState<Role[]>([])
-  const [allPerms, setAllPerms] = useState<Permission[]>([])
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null)
   const assigned = useRowSelection()
   const assignedIds = assigned.selected
   const { replace: replaceAssigned } = assigned
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
-  const [error, setError] = useState<string | null>(null)
-  const [loadingMeta, setLoadingMeta] = useState(true)
-  const [loadingRolePerms, setLoadingRolePerms] = useState(false)
-  const [saving, setSaving] = useState(false)
+
+  const fetchMeta = useCallback(
+    () =>
+      Promise.all([listRoles(token, 1, ALL_PAGE_SIZE), listPermissions(token, 1, ALL_PAGE_SIZE)]),
+    [token],
+  )
+
+  const { data: metaData, loading: loadingMeta, error: metaError } = useFetch(fetchMeta, [token])
+  const roles = metaData?.[0]?.roles ?? EMPTY_ROLES
+  const allPerms = metaData?.[1]?.permissions ?? EMPTY_PERMISSIONS
+
+  const {
+    data: rolePermsData,
+    loading: loadingRolePerms,
+    error: rolePermsError,
+  } = useFetch(
+    () => (selectedRoleId ? getRolePermissions(token, selectedRoleId) : Promise.resolve([])),
+    [selectedRoleId, token],
+    { enabled: Boolean(selectedRoleId) },
+  )
+
+  const {
+    loading: saving,
+    error: saveError,
+    setError: setSaveError,
+    run: runSave,
+  } = useAsyncState({ useSaving: true })
+  const error = metaError ?? rolePermsError ?? saveError
 
   const selectedRole = roles.find((r) => r.id === selectedRoleId) ?? null
   const dirty = useMemo(() => !sameIdSet(assignedIds, savedIds), [assignedIds, savedIds])
 
   useEffect(() => {
-    let cancelled = false
-    async function loadMeta() {
-      try {
-        setLoadingMeta(true)
-        const [rolesRes, permsRes] = await Promise.all([
-          listRoles(token, 1, ALL_PAGE_SIZE),
-          listPermissions(token, 1, ALL_PAGE_SIZE),
-        ])
-        if (cancelled) {
-          return
-        }
-        setRoles(rolesRes.roles)
-        setAllPerms(permsRes.permissions)
-        const firstRole = rolesRes.roles[0]
-        if (firstRole) {
-          setSelectedRoleId((prev) =>
-            prev && rolesRes.roles.some((r) => r.id === prev) ? prev : firstRole.id,
-          )
-        }
-        setError(null)
-      } catch (e) {
-        if (!cancelled) {
-          setError(errorMessage(e))
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingMeta(false)
-        }
+    if (roles.length > 0) {
+      const firstRole = roles[0]
+      if (firstRole) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSelectedRoleId((prev) =>
+          prev && roles.some((r) => r.id === prev) ? prev : firstRole.id,
+        )
       }
     }
-    void loadMeta()
-    return () => {
-      cancelled = true
-    }
-  }, [token])
-
-  const loadRolePermissions = useCallback(
-    async (roleID: string) => {
-      setLoadingRolePerms(true)
-      try {
-        const ids = await getRolePermissions(token, roleID)
-        replaceAssigned(ids)
-        setSavedIds(new Set(ids))
-        setError(null)
-      } catch (e) {
-        setError(errorMessage(e))
-      } finally {
-        setLoadingRolePerms(false)
-      }
-    },
-    [token, replaceAssigned],
-  )
+  }, [roles])
 
   useEffect(() => {
-    if (!selectedRoleId) {
-      return
+    if (rolePermsData) {
+      replaceAssigned(rolePermsData)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSavedIds(new Set(rolePermsData))
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadRolePermissions(selectedRoleId)
-  }, [selectedRoleId, loadRolePermissions])
+  }, [rolePermsData, replaceAssigned])
 
   const permsByResource = useMemo(() => {
     const map = new Map<string, Permission[]>()
@@ -125,16 +108,11 @@ export function RolesPanel({ token }: { token: string }) {
     if (!selectedRoleId || !dirty) {
       return
     }
-    setSaving(true)
-    try {
+    setSaveError(null)
+    await runSave(async () => {
       await setRolePermissions(token, selectedRoleId, [...assignedIds])
       setSavedIds(new Set(assignedIds))
-      setError(null)
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setSaving(false)
-    }
+    })
   }
 
   function onDiscard() {
