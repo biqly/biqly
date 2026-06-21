@@ -1,3 +1,5 @@
+import { buttonClass } from '../../lib/buttonClasses'
+
 export const adminLayoutClass =
   'grid min-w-0 gap-5 min-[900px]:grid-cols-[minmax(12rem,14.5rem)_minmax(0,1fr)] min-[900px]:items-start min-[900px]:gap-x-8 min-[900px]:gap-y-6'
 
@@ -38,17 +40,14 @@ export const adminPanelClass = 'flex flex-col gap-4'
 
 export const adminPanelHeaderClass = 'flex flex-wrap items-center justify-between gap-3'
 
-export const adminBtnPrimaryClass =
-  'cursor-pointer rounded-md border-0 bg-accent px-4 py-2 text-caption font-medium text-white transition-all duration-200 hover:bg-[var(--accent-hover,#4338ca)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+// Delegate to the shared ui/Button styling (buttonClass) so admin buttons render
+// the same design-system look as <Button>. autoWidth keeps them inline (the base
+// buttonClass is full-width), matching the original admin toolbar layout.
+export const adminBtnPrimaryClass = buttonClass('primary', { autoWidth: true })
 
-export const adminBtnSecondaryClass =
-  'inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-transparent px-3.5 py-2 text-sm font-medium text-foreground-muted transition-all duration-200 hover:bg-card-raised hover:text-foreground'
+export const adminBtnSecondaryClass = buttonClass('secondary', { autoWidth: true })
 
-export const adminBtnSuccessClass =
-  'cursor-pointer rounded border-0 bg-success px-3 py-1.5 text-caption font-medium text-white transition-all duration-200 hover:opacity-90'
-
-export const adminBtnGhostClass =
-  'cursor-pointer rounded border border-border bg-transparent px-3 py-1.5 text-caption font-medium text-foreground transition-all duration-200 hover:bg-card-raised'
+export const adminBtnGhostClass = buttonClass('ghost', { autoWidth: true })
 
 export const adminBtnDangerClass =
   'cursor-pointer rounded border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-xs font-medium text-error transition-all duration-200 hover:bg-red-500/20'

@@ -50,3 +50,4 @@ deploy/helm/biqly/charts/*.tgz
 testdata/adventureworks/
 
 .gograph/
+.gstack/

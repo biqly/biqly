@@ -4,7 +4,9 @@ import type { PIIColumn, PIIScanSummary } from '../../api/admin'
 import { deleteColumnPII, listPIIColumns, scanPII, updateColumnPII } from '../../api/admin'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useT } from '../../i18n'
+import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
+import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
 import { adminFormLabelClass } from './adminClasses'
@@ -68,7 +70,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
       const cols = await listPIIColumns(token, selectedDS)
       setColumns(cols)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errorMessage(err))
       setColumns([])
     } finally {
       setLoading(false)
@@ -94,7 +96,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
       setScanSummary(summary)
       await loadColumns()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errorMessage(err))
     } finally {
       setScanning(false)
     }
@@ -114,7 +116,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
       })
       await loadColumns()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errorMessage(err))
     }
   }
 
@@ -127,7 +129,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
       await deleteColumnPII(token, col.column_id, reviewer)
       await loadColumns()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errorMessage(err))
     }
   }
 
@@ -168,11 +170,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
         </button>
       </div>
 
-      {error && (
-        <div style={errStyle}>
-          {t('common.error')}: {error}
-        </div>
-      )}
+      {error && <ErrorAlert error={`${t('common.error')}: ${error}`} />}
       {scanSummary && (
         <div style={successStyle}>
           {t('admin.pii.scan_summary', {
@@ -522,16 +520,6 @@ const btnSmallDisabled: React.CSSProperties = {
   border: '1px solid var(--border, rgba(255,255,255,0.1))',
   cursor: 'not-allowed',
   opacity: 0.5,
-}
-
-const errStyle: React.CSSProperties = {
-  color: 'var(--error, #ef4444)',
-  padding: '10px 16px',
-  background: 'rgba(239, 68, 68, 0.1)',
-  borderRadius: 6,
-  border: '1px solid rgba(239, 68, 68, 0.2)',
-  fontSize: 13,
-  fontWeight: 500,
 }
 
 const successStyle: React.CSSProperties = {

@@ -6,6 +6,7 @@ import { legacyCardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { AuthUser, Workspace } from '../../types/auth'
+import { errorMessage } from '../../utils/error'
 import { shareUserSelectOptions, workspaceSelectOptions } from '../admin/adminSelectOptions'
 import { useAuth } from '../auth/AuthProvider'
 import { Select } from '../ui/Select'
@@ -67,7 +68,7 @@ export function ShareButton({
       })
       .catch((e) => {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : String(e))
+          setError(errorMessage(e))
         }
       })
       .finally(() => {
@@ -107,7 +108,7 @@ export function ShareButton({
       setTargetID('')
       onShared?.()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }

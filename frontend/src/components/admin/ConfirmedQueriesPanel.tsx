@@ -14,6 +14,7 @@ import { useT } from '../../i18n'
 import { formHintClass } from '../../lib/formClasses'
 import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { PageQuery } from '../../types/pagination'
+import { errorMessage } from '../../utils/error'
 import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import { Button } from '../ui/Button'
 import type { ColumnDef } from '../ui/DataTable'
@@ -113,7 +114,7 @@ export function ConfirmedQueriesPanel() {
       reload()
       toast.success(t('admin.confirmed_queries.deactivated'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     } finally {
       setDeactivatingId(null)
     }

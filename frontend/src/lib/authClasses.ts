@@ -69,13 +69,11 @@ export const authOAuthBtnClass = cn(
 export const authSpinnerClass =
   'h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent'
 
-export const authSubmitBtnClass = cn(
-  'flex w-full items-center justify-center gap-2 rounded-lg border-0',
-  'bg-gradient-to-br from-accent to-accent-strong px-4 py-[11px]',
-  'text-sm font-semibold text-white shadow-[var(--accent-shadow-sm)]',
-  'cursor-pointer transition-all duration-150 hover:-translate-y-px hover:opacity-95 active:translate-y-0',
-  'disabled:cursor-not-allowed disabled:opacity-60 disabled:transform-none',
-)
+// Delegate to the shared ui/Button primary styling so auth submit renders
+// the same gradient-system look as <Button>. mt-0 (form uses gap-based
+// layout, buttonBase's mt-2 would add unwanted margin) + gap-2 (icon spacing
+// for spinner+text) override buttonBase via tailwind-merge.
+export const authSubmitBtnClass = cn(buttonClass('primary'), 'mt-0 gap-2')
 
 export const authCheckboxRowClass =
   'flex items-start gap-2.5 text-caption leading-snug text-foreground-muted'

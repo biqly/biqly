@@ -14,6 +14,7 @@ import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
 import { cn } from '../../lib/cn'
 import { formHintClass, formHintWarningClass } from '../../lib/formClasses'
+import { errorMessage } from '../../utils/error'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import {
@@ -168,7 +169,7 @@ export function ModelModal({
       }
     } catch (e) {
       setRemoteModels([])
-      setRemoteError(e instanceof Error ? e.message : String(e))
+      setRemoteError(errorMessage(e))
       setUseManualModelID(true)
     } finally {
       setLoadingRemote(false)
@@ -218,7 +219,7 @@ export function ModelModal({
       toast.success(t('admin.ai_providers.saved'))
       onSaved()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     } finally {
       setSaving(false)
     }

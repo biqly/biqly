@@ -8,6 +8,7 @@ import { useSemanticModels } from '../../hooks/useSemanticModels'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
 import { useAuth } from '../auth/AuthProvider'
+import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
 import { adminFilterRowClass, adminFormLabelClass } from './adminClasses'
@@ -231,7 +232,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
         </div>
       </div>
 
-      {error ? <div style={errStyle}>{error}</div> : null}
+      <ErrorAlert error={error} />
 
       <div style={contentGridStyle}>
         <div style={leftPanelStyle}>
@@ -531,14 +532,4 @@ const jsonPreviewStyle: React.CSSProperties = {
   color: '#34d399',
   overflowX: 'auto',
   maxHeight: '460px',
-}
-
-const errStyle: React.CSSProperties = {
-  color: 'var(--error, #ef4444)',
-  padding: '10px 16px',
-  background: 'rgba(239, 68, 68, 0.1)',
-  borderRadius: 6,
-  border: '1px solid rgba(239, 68, 68, 0.2)',
-  fontSize: 13,
-  fontWeight: 500,
 }

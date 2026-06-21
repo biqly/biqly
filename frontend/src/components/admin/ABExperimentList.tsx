@@ -91,9 +91,11 @@ export function ABExperimentList({ onSelect, onCreate }: ABExperimentListProps) 
           <h2 style={{ margin: 0 }}>{t('admin.ab_experiments.title')}</h2>
           <p className={formHintClass}>{t('admin.ab_experiments.description')}</p>
         </div>
-        <Button variant="primary" autoWidth onClick={onCreate}>
-          {t('admin.ab_experiments.create_btn')}
-        </Button>
+        {experiments.length > 0 && (
+          <Button variant="primary" autoWidth onClick={onCreate}>
+            {t('admin.ab_experiments.create_btn')}
+          </Button>
+        )}
       </div>
 
       {error ? (

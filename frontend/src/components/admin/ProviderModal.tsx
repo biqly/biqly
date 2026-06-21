@@ -11,6 +11,7 @@ import {
 import { useAutofocus } from '../../hooks/useAutofocus'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { errorMessage } from '../../utils/error'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import {
@@ -120,7 +121,7 @@ export function ProviderModal({
       toast.success(t('admin.ai_providers.saved'))
       onSaved()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(errorMessage(e))
     } finally {
       setSaving(false)
     }
@@ -137,7 +138,7 @@ export function ProviderModal({
       const res = await testProvider(provider.id)
       setTestResult(res)
     } catch (e) {
-      setTestResult({ status: 'error', message: e instanceof Error ? e.message : String(e) })
+      setTestResult({ status: 'error', message: errorMessage(e) })
     } finally {
       setTesting(false)
     }

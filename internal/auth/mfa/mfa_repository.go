@@ -54,6 +54,9 @@ func (r *Repository) Upsert(ctx context.Context, userID, method, secret string, 
 	if err != nil {
 		return err
 	}
+	if recoveryHashes == nil {
+		recoveryHashes = []string{}
+	}
 	query := `
 		INSERT INTO user_mfa (user_id, method, secret_encrypted, recovery_codes, bypass_codes, enabled, verified_at, updated_at)
 		VALUES ($1, $2, $3, $4, '{}', FALSE, NULL, NOW())

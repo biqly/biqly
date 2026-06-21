@@ -10,6 +10,7 @@ import { useT } from '../../i18n'
 import type { SemanticModelFieldRow } from '../../types/semantic'
 import { pickValidIdOrFirst } from '../../utils/effectiveSelection'
 import { useAuth } from '../auth/AuthProvider'
+import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
@@ -338,11 +339,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
         </div>
       </div>
 
-      {error && (
-        <div style={errStyle}>
-          {t('common.error')}: {error}
-        </div>
-      )}
+      {error && <ErrorAlert error={`${t('common.error')}: ${error}`} />}
 
       <div style={contentLayout}>
         <LoadingOverlay loading={loadingPolicy || loadingFields}>
@@ -745,14 +742,4 @@ const btnSecondaryDisabled: React.CSSProperties = {
   border: '1px solid var(--border, rgba(255,255,255,0.1))',
   cursor: 'not-allowed',
   opacity: 0.5,
-}
-
-const errStyle: React.CSSProperties = {
-  color: 'var(--error, #ef4444)',
-  padding: '10px 16px',
-  background: 'rgba(239, 68, 68, 0.1)',
-  borderRadius: 6,
-  border: '1px solid rgba(239, 68, 68, 0.2)',
-  fontSize: 13,
-  fontWeight: 500,
 }

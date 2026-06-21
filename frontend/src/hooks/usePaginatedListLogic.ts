@@ -41,9 +41,9 @@ export function paginatedListReducer<T>(
   }
 }
 
-export function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e)
-}
+// Canonical implementation moved to ../utils/error. Re-exported here so existing
+// `from '../hooks/usePaginatedListLogic'` imports keep working.
+export { errorMessage } from '../utils/error'
 
 /** Page number from a URL query param (syncToUrl); anything invalid or < 1 is page 1. */
 export function parsePageParam(value: string | null | undefined): number {

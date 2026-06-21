@@ -39,9 +39,14 @@ func TestCheckDatasourceAccessDenialReasonOnlyForDenied(t *testing.T) {
 		dsAccess: rbac.NewDatasourceAccessService(db, nil, nil),
 	}
 
-	req := httptest.NewRequestWithContext(bimw.WithUserID(ctx, "user-1"), http.MethodGet, "/me/datasources/ds-1/check", nil)
+	const (
+		userID       = "00000000-0000-0000-0000-000000000001"
+		datasourceID = "00000000-0000-0000-0000-00000000d001"
+	)
+
+	req := httptest.NewRequestWithContext(bimw.WithUserID(ctx, userID), http.MethodGet, "/me/datasources/"+datasourceID+"/check", nil)
 	routeCtx := chi.NewRouteContext()
-	routeCtx.URLParams.Add("id", "ds-1")
+	routeCtx.URLParams.Add("id", datasourceID)
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeCtx))
 	rec := httptest.NewRecorder()
 
@@ -79,10 +84,7 @@ func TestHandleAdminAssignRoleRejectsSuperAdminGrantFromNonSuperAdmin(t *testing
 		callerEmail = "handler_assign_role_caller@example.com"
 		targetEmail = "handler_assign_role_target@example.com"
 	)
-	_, err := db.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email IN ($1, $2))", callerEmail, targetEmail)
-	require.NoError(t, err)
-	_, err = db.ExecContext(ctx, "DELETE FROM users WHERE email IN ($1, $2)", callerEmail, targetEmail)
-	require.NoError(t, err)
+	testutil.PurgeAuthUsersByEmail(ctx, t, db, callerEmail, targetEmail)
 
 	var callerID, targetID string
 	require.NoError(t, db.QueryRowContext(ctx,
@@ -98,8 +100,7 @@ func TestHandleAdminAssignRoleRejectsSuperAdminGrantFromNonSuperAdmin(t *testing
 		targetEmail,
 	).Scan(&targetID))
 	t.Cleanup(func() {
-		_, cleanupErr := db.ExecContext(ctx, "DELETE FROM users WHERE email IN ($1, $2)", callerEmail, targetEmail)
-		require.NoError(t, cleanupErr)
+		testutil.PurgeAuthUsersByEmail(ctx, t, db, callerEmail, targetEmail)
 	})
 
 	var viewerRoleID, superRoleID string

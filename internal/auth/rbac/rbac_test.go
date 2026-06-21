@@ -82,10 +82,7 @@ func TestRBACServiceChecksResourceScopedRole(t *testing.T) {
 		datasourceB = "00000000-0000-0000-0000-00000000d5b2"
 	)
 
-	_, err := dbPool.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = $1)", email)
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
-	require.NoError(t, err)
+	testutil.PurgeAuthUsersByEmail(ctx, t, dbPool, email)
 
 	var userID string
 	require.NoError(t, dbPool.QueryRowContext(ctx,
@@ -139,10 +136,7 @@ func TestEnforcePrivilegedRoleAssignmentGuardRequiresSuperAdmin(t *testing.T) {
 		viewerEmail = "privileged_role_viewer@example.com"
 		superEmail  = "privileged_role_super@example.com"
 	)
-	_, err := dbPool.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email IN ($1, $2))", viewerEmail, superEmail)
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email IN ($1, $2)", viewerEmail, superEmail)
-	require.NoError(t, err)
+	testutil.PurgeAuthUsersByEmail(ctx, t, dbPool, viewerEmail, superEmail)
 
 	var viewerID, superID string
 	require.NoError(t, dbPool.QueryRowContext(ctx,
@@ -158,8 +152,7 @@ func TestEnforcePrivilegedRoleAssignmentGuardRequiresSuperAdmin(t *testing.T) {
 		superEmail,
 	).Scan(&superID))
 	t.Cleanup(func() {
-		_, cleanupErr := dbPool.ExecContext(ctx, "DELETE FROM users WHERE email IN ($1, $2)", viewerEmail, superEmail)
-		require.NoError(t, cleanupErr)
+		testutil.PurgeAuthUsersByEmail(ctx, t, dbPool, viewerEmail, superEmail)
 	})
 
 	var viewerRoleID, superRoleID string
@@ -213,10 +206,7 @@ func TestRBACServiceInheritsGlobalRolePermissions(t *testing.T) {
 	}
 
 	const email = "rbac_role_inheritance@example.com"
-	_, err := dbPool.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = $1)", email)
-	require.NoError(t, err)
-	_, err = dbPool.ExecContext(ctx, "DELETE FROM users WHERE email = $1", email)
-	require.NoError(t, err)
+	testutil.PurgeAuthUsersByEmail(ctx, t, dbPool, email)
 
 	var userID string
 	if err := dbPool.QueryRowContext(ctx,

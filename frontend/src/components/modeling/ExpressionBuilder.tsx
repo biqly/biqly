@@ -9,6 +9,7 @@ import type { ColumnRow, SemanticExprNode, SemanticModelDetail } from '../../typ
 type SemanticUnaryExpr = Extract<SemanticExprNode, { type: 'unary' }>
 type SemanticFunctionCallExpr = Extract<SemanticExprNode, { type: 'function_call' }>
 type SemanticCaseExpr = Extract<SemanticExprNode, { type: 'case' }>
+import { errorMessage } from '../../utils/error'
 import { isRecord } from '../../utils/record'
 // Whitelisted SQL functions with arity hints (-1 = variadic)
 export interface FunctionInfo {
@@ -180,7 +181,7 @@ export function ExpressionBuilder({
           setCompiledSQL('')
         }
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err)
+        const message = errorMessage(err)
         setErrorMsg('Network error: ' + message)
         setCompiledSQL('')
       } finally {

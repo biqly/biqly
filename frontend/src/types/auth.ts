@@ -154,12 +154,9 @@ export interface AuditLogEntry {
   created_at: string
 }
 
-export interface AIQueueStatus {
-  total_pending: number
-  my_position?: number
-  my_job_id?: string
-  my_job_status: string
-}
+// Canonical definition lives in ./ai (precise my_job_status union). Re-exported
+// here so existing `from '../types/auth'` imports keep working without drift.
+export type { AIQueueStatus } from './ai'
 
 export interface UserRoleInfo {
   role_id: string

@@ -4927,3 +4927,52 @@ Verification:
 Notes:
 
 - gograph MCP tools were not connected in this session, so `gograph_capabilities`, `gograph_plan`, and `gograph_review --uncommitted` could not be run.
+
+---
+
+## Frontend UI/UX + Design System + Duplication Audit (2026-06-20)
+
+> Full report: `tasks/frontend-ui-audit.md`. Audit-only, no code changed. Live QA done as Super Admin
+> (light+dark × 390/768/1440) against local stack. FW-1..FW-13 statuses below are **code-verified**
+> (todo.md's earlier FW claims were partly stale). Data-heavy states (populated tables/charts/Row Modal/
+> generation trace/clarification/async-job tray) NOT exercised — test workspace has no synced models.
+
+### Verified FW status (re-check before implementing)
+- [x] FW-10 `formatDate` — DONE (`utils/formatters.ts`); but 26+ inline `toLocale*` sites still bypass it (adoption gap).
+- [ ] FW-1 `errorMessage` — helper EXISTS but misplaced in `hooks/usePaginatedListLogic.ts:44`; **51** inline sites bypass it. Move to `utils/error.ts` + adopt.
+- [ ] FW-9 `AIQueueStatus` — CONFIRMED DUPLICATE: `types/ai.ts:138` + `types/auth.ts:157`. Keep one, re-export.
+- [ ] FW-2 `useFetch` / FW-8 `useAsyncState` — MISSING. 22 loading-triples + 23 `let cancelled=false` guards vs AbortController in `usePaginatedList`.
+- [ ] FW-3 admin shared styles — PARTIAL (643 inline `style={{}}` blocks across ~75 files).
+- [ ] FW-4 `ErrorAlert` — component exists; inline error `<div>`s remain in ≥5 files; `DataState` adopted in only 8 files.
+- [ ] FW-5 `apiConstants` / FW-6 `buildQueryString` / FW-7 `useApiResource` / FW-12 `useModal` / FW-13 `useConfirmedMutation` — MISSING (helper files absent).
+
+### P0 — light-mode correctness (small, safe)
+- [x] A1 (TW-1) DONE 2026-06-20: hardcoded theme-agnostic colors → tokens; dropped `var(--token,#hex)` fallbacks.
+      `PromptTemplates.tsx:115-118` (markers `rgba(255,255,255,0.35)`→`var(--text-muted)`, keyword `#f43f5e`→`var(--error)`);
+      `QueryHistory.tsx:259-331` (table-header bg/fg + border fallbacks removed — tokens defined both themes);
+      `GlossaryEnrichPanel.tsx:50,98,100,116` (`--surface-elevated,rgba()`→`bg-card-raised` [token was UNDEFINED]; `--danger,#d9534f`→`border-error`/`text-error`);
+      `App.tsx:498` (`bg-(--bg-hover,#f3f4f6) dark:hover:bg-white/5`→`hover:bg-canvas-subtle` [`--bg-hover` was UNDEFINED]).
+      Verified: typecheck ✓, eslint ✓ (--max-warnings 0), prettier ✓, build ✓, live light-theme no regression.
+      INTENTIONALLY KEPT: `Glossary.tsx:670-681` metric/dimension/other type chips (3-way category palette over
+      semi-transparent bg — theme-safe by design, like chart palette; tokenizing only 1 of 3 would break the triad).
+      Also kept: chart palette hex in `utils/constants.ts` + Recharts fills (data-viz, OK).
+
+### P1 — standardization
+- [x] A2 DONE 2026-06-20 (FW-9): `types/auth.ts` `AIQueueStatus` interface replaced with `export type { AIQueueStatus } from './ai'` (canonical, precise `my_job_status: AIJobStatus | 'idle'`). `api/admin.ts` import unchanged, now resolves to canonical type. Verified: typecheck ✓, eslint ✓, knip:ci ✓, build ✓.
+- [x] A3 DONE 2026-06-20 (FW-1): canonical `errorMessage` moved to `utils/error.ts`; `hooks/usePaginatedListLogic.ts` re-exports it (keeps 3 existing importers + test working). Replaced the exact `X instanceof Error ? X.message : String(X)` pattern at **49 sites across 18 files** (admin panels, modeling, settings, sharing, ui, workspaces, hooks) with `errorMessage(X)` + import. Left untouched: ~34 sites with intentional custom fallbacks (`t('...')` / literal strings) — out of scope for a 1:1 swap. Verified: typecheck ✓, eslint ✓ (--max-warnings 0, import order fixed), knip:ci ✓, vitest 197/197 ✓, build ✓.
+- [~] A4 PARTIAL DONE 2026-06-20: unified the parallel button systems that were genuinely inconsistent with `ui/Button` — NOT the ~200 `legacyButtonClass` raw buttons (those already render identical classes to `<Button>`, so converting is pure churn with zero visual benefit). Converted by delegating to `buttonClass()`:
+      `adminBtnPrimaryClass`/`adminBtnSecondaryClass`/`adminBtnGhostClass` (flat indigo → gradient `buttonClass` w/ `autoWidth`; admin UserList QA'd light+dark ✓), `authSubmitBtnClass` (custom gradient → `cn(buttonClass('primary'),'mt-0 gap-2')`; visual QA pending — httpOnly auth cookie blocks signin page access without manual signout), `qbVisualizeBtnClass` (custom gradient → `cn(buttonClass('primary',{autoWidth:true}),'gap-[0.4rem]')`; QA deferred — needs full query built to surface the button). All three now share the exact same gradient/glow/shadow as `<Button variant="primary">`.
+      INTENTIONALLY KEPT (design patterns, not inconsistencies): `qbAddBtnClass` (round dashed "+" icon button — no `ui/Button` variant matches), `qbToolbarBtn*` (categorical toggle colors: purple=filter, rose=sort, amber=advanced — intentional, like chart palettes), `authLinkBtnClass` (inline text link, not a button), `authOAuthBtnClass` (OAuth provider buttons), `legacyButtonClass` 200 sites (already delegated). Verified: typecheck ✓, eslint ✓, knip:ci ✓, vitest 197/197 ✓, build ✓.
+- [~] A5 PARTIAL DONE 2026-06-20 (FW-4): inline error markup → `ErrorAlert` in 5 panels — `RowLevelSecurityPanel`, `AIProvidersPanel`, `FieldPermissionPanel`, `PIIDetectionPanel` (removed their `errStyle` consts, which also carried `var(--error,#hex)` fallbacks), `AIJobsAdminPanel` (swapped `legacyFeedbackClass('error-text')` <p>; removed now-unused import). Verified: typecheck ✓, eslint ✓, knip:ci ✓, vitest 197/197 ✓, build ✓.
+      REMAINING (deferred — riskier restructure, needs per-panel visual QA): adopt `DataState` to unify loading/error/empty in AIProviders/RLS/FieldPermission/PII/Roles/ExpressionBuilder (these still use `LoadingOverlay` + custom empty). Error display is now standardized; state-wrapper consolidation is the next step.
+- [x] A6 DONE 2026-06-20: Admin "Invite User" (`UserListPage.tsx:222`) switched from `adminBtnSuccessClass` (green `bg-success`) to `adminBtnPrimaryClass` (indigo `bg-accent`), matching its own modal submit + all other primary CTAs. Removed now-orphaned `adminBtnSuccessClass` from `adminClasses.ts`. Verified: build/lint/typecheck/knip:ci ✓. Visual reconfirm pending fresh login (session expired). Note left: `adminBtnPrimaryClass` still has redundant `var(--accent-hover,#4338ca)` fallback → fold into A10 theme cleanup.
+- [ ] A7: AI Query mobile — empty Conversations panel stacks full-height above chat, buries prompt; hamburger overlaps header.
+
+### P2 — refactor / polish
+- [ ] A8: `useAsyncState`/`useFetch` + migrate fetch screens (FW-2/FW-8).
+- [ ] A9: `buildQueryString` + `apiConstants` + `useModal` + `useConfirmedMutation` (FW-5/6/12/13).
+- [ ] A10: inline-style→utility (643 blocks), magic-value tokens (`text-caption` etc.), `cn()` adoption (~43 sites).
+- [ ] A11: `AdminPanelShell`/`AdminFormSection` (FW-3).
+- [ ] A12: deprecate BEM `.btn`/`.card` (~170 call sites) as A4 lands.
+- [ ] A13: adopt `formatters` at 26+ inline `toLocale*` sites (FW-10 adoption).
+- [ ] QA gap: seeded-workspace pass for data-heavy states (UX-3) — populated tables, charts, Row Modal, generation trace, clarification cards, async job tray.
