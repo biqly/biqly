@@ -119,11 +119,11 @@ function highlightContent(text: string) {
       }
 
       return (
-        <span key={idx} style={{ fontWeight: 'bold' }}>
-          <span style={{ color: 'var(--text-muted)' }}>{'{{'}</span>
-          {keyword && <span style={{ color: 'var(--error)', fontWeight: 'bold' }}>{keyword}</span>}
-          <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{rest}</span>
-          <span style={{ color: 'var(--text-muted)' }}>{'}}'}</span>
+        <span key={idx} className="font-bold">
+          <span className="text-foreground-faint">{'{{'}</span>
+          {keyword && <span className="text-error font-bold">{keyword}</span>}
+          <span className="text-accent font-bold">{rest}</span>
+          <span className="text-foreground-faint">{'}}'}</span>
         </span>
       )
     }
@@ -414,7 +414,7 @@ export default function PromptTemplates() {
         </div>
 
         <div className={formRowClass}>
-          <label className={legacyFormClass('form-field')} style={{ minWidth: '10rem' }}>
+          <label className={cn(legacyFormClass('form-field'), 'min-w-40')}>
             <span className={legacyFormClass('form-label')}>
               {t('prompt_templates.label_locale')}
             </span>
@@ -425,7 +425,7 @@ export default function PromptTemplates() {
               size="sm"
             />
           </label>
-          <label className={legacyFormClass('form-field')} style={{ minWidth: '14rem', flex: 1 }}>
+          <label className={cn(legacyFormClass('form-field'), 'min-w-56 flex-1')}>
             <span className={legacyFormClass('form-label')}>
               {t('prompt_templates.label_section')}
             </span>
@@ -438,99 +438,30 @@ export default function PromptTemplates() {
           </label>
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: '0.5rem',
-            marginTop: '0.75rem',
-            marginBottom: '1rem',
-          }}
-        >
-          <span
-            style={{
-              fontSize: '0.72rem',
-              fontWeight: 500,
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid var(--border)',
-              borderRadius: '4px',
-              padding: '0.15rem 0.5rem',
-              color: 'var(--text-secondary)',
-            }}
-          >
+        <div className="mt-3 mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-caption border-border text-foreground-muted rounded border bg-white/2 px-2 py-0.5 font-medium">
             {t('prompt_templates.meta_updated', { date: updatedLabel })}
           </span>
-          <span
-            style={{
-              fontSize: '0.72rem',
-              fontWeight: 500,
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid var(--border)',
-              borderRadius: '4px',
-              padding: '0.15rem 0.5rem',
-              color: 'var(--text-secondary)',
-            }}
-          >
+          <span className="text-caption border-border text-foreground-muted rounded border bg-white/2 px-2 py-0.5 font-medium">
             {t('prompt_templates.meta_chars', { count: draft.length })}
           </span>
-          <span
-            style={{
-              fontSize: '0.72rem',
-              fontWeight: 500,
-              background: 'rgba(99, 102, 241, 0.08)',
-              border: '1px solid rgba(99, 102, 241, 0.15)',
-              borderRadius: '4px',
-              padding: '0.15rem 0.5rem',
-              color: 'var(--accent)',
-            }}
-          >
+          <span className="text-caption bg-accent/8 border-accent/15 text-accent rounded border px-2 py-0.5 font-medium">
             {t('prompt_templates.meta_version', { version: currentRow?.version ?? '-' })}
           </span>
         </div>
 
         {/* Clickable parameter pills */}
         {TEMPLATE_PARAMS[selectedName].length > 0 && (
-          <div
-            style={{
-              marginBottom: '1rem',
-              padding: '0.75rem',
-              background: 'rgba(255, 255, 255, 0.015)',
-              border: '1px solid var(--border)',
-              borderRadius: '0.5rem',
-            }}
-          >
-            <div
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: 'var(--text-secondary)',
-                marginBottom: '0.5rem',
-              }}
-            >
+          <div className="border-border mb-4 rounded-lg border bg-white/1.5 p-3">
+            <div className="text-caption text-foreground-muted mb-2 font-semibold">
               {t('prompt_templates.available_params')}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+            <div className="flex flex-wrap gap-1.5">
               {TEMPLATE_PARAMS[selectedName].map((param) => (
                 <button
                   key={param}
                   type="button"
-                  className={legacyButtonClass('btn btn-sm')}
-                  style={{
-                    width: 'auto',
-                    marginTop: 0,
-                    padding: '0.15rem 0.5rem',
-                    minHeight: '1.5rem',
-                    fontSize: '0.72rem',
-                    fontFamily: 'var(--font-mono, monospace)',
-                    borderRadius: '4px',
-                    borderColor: 'rgba(99, 102, 241, 0.2)',
-                    background: 'rgba(99, 102, 241, 0.03)',
-                    color: 'var(--accent)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
+                  className="text-caption border-accent/20 bg-accent/3 text-accent mt-0 inline-flex min-h-6 w-auto items-center justify-center rounded border px-2 py-0.5 font-mono"
                   onClick={() => insertParameter(param)}
                 >
                   {param}
@@ -554,35 +485,8 @@ export default function PromptTemplates() {
             spellCheck={false}
           />
           {showSuggestions && suggestions.length > 0 && (
-            <div
-              className="autocomplete-dropdown"
-              style={{
-                position: 'absolute',
-                bottom: '1.25rem',
-                left: '1.25rem',
-                background: 'var(--bg-card-raised)',
-                border: '1px solid var(--border-strong)',
-                borderRadius: '0.5rem',
-                boxShadow:
-                  'var(--shadow-lg, 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3))',
-                zIndex: 10,
-                maxHeight: '150px',
-                overflowY: 'auto',
-                width: '260px',
-                padding: '0.25rem',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '0.68rem',
-                  color: 'var(--text-secondary)',
-                  padding: '0.25rem 0.4rem',
-                  borderBottom: '1px solid var(--border)',
-                  marginBottom: '0.25rem',
-                }}
-              >
+            <div className="autocomplete-dropdown bg-card-raised border-border-strong absolute bottom-5 left-5 z-10 max-h-37.5 w-65 overflow-y-auto rounded-lg border p-1 shadow-lg backdrop-blur-md">
+              <div className="text-2xs text-foreground-muted border-border mb-1 border-b px-1.5 py-1">
                 {t('prompt_templates.intellisense_hint')}
               </div>
               {suggestions.map((s, idx) => {
@@ -590,15 +494,12 @@ export default function PromptTemplates() {
                 return (
                   <div
                     key={s}
-                    style={{
-                      padding: '0.35rem 0.5rem',
-                      borderRadius: '0.3rem',
-                      cursor: 'pointer',
-                      fontSize: '0.78rem',
-                      fontFamily: 'var(--font-mono, monospace)',
-                      color: isSelected ? '#ffffff' : 'var(--text-primary)',
-                      background: isSelected ? 'var(--accent)' : 'transparent',
-                    }}
+                    className={cn(
+                      'text-caption cursor-pointer rounded px-2 py-1.5 font-mono',
+                      isSelected
+                        ? 'bg-accent text-white'
+                        : 'text-foreground hover:bg-canvas-subtle',
+                    )}
                     onClick={() => insertParameter(s, queryStartIdx)}
                     onMouseEnter={() => setSuggestionIndex(idx)}
                   >
@@ -638,10 +539,8 @@ export default function PromptTemplates() {
         </div>
 
         {versionHistory.length > 0 && (
-          <div style={{ marginTop: '1.5rem' }}>
-            <h3 style={{ fontSize: '0.95rem', marginBottom: '0.5rem' }}>
-              {t('prompt_templates.version_history')}
-            </h3>
+          <div className="mt-6">
+            <h3 className="mb-2 text-sm font-semibold">{t('prompt_templates.version_history')}</h3>
             <div className="table-wrap">
               <table className={legacyTableClass('results-table')}>
                 <thead>

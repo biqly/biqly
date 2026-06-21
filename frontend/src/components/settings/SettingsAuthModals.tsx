@@ -110,12 +110,8 @@ export function SettingsAuthModals({
         subtitle={t('passkeys.modal_desc')}
         onClose={onAddModalClose}
       >
-        <form
-          onSubmit={onRegisterSubmit}
-          className={legacyLayoutClass('page-stack')}
-          style={{ gap: '1rem' }}
-        >
-          <div className={legacyFormClass('form-group')} style={{ margin: 0 }}>
+        <form onSubmit={onRegisterSubmit} className={cn(legacyLayoutClass('page-stack'), 'gap-4')}>
+          <div className={cn(legacyFormClass('form-group'), 'm-0')}>
             <label htmlFor="passkey-name">{t('passkeys.modal_label_name')}</label>
             <input
               id="passkey-name"
@@ -127,7 +123,7 @@ export function SettingsAuthModals({
               disabled={registering}
             />
           </div>
-          <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
+          <div className={cn(adminFlexGapCenterEndClass, 'mt-2')}>
             <button
               type="button"
               className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
@@ -138,8 +134,11 @@ export function SettingsAuthModals({
             </button>
             <button
               type="submit"
-              className={cn(legacyButtonClass('btn btn-primary'), adminBtnAutoWidthClass)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              className={cn(
+                legacyButtonClass('btn btn-primary'),
+                adminBtnAutoWidthClass,
+                'inline-flex items-center gap-1.5',
+              )}
               disabled={registering || !newPasskeyName.trim()}
             >
               {registering ? `${t('passkeys.modal_submit')}...` : t('passkeys.modal_submit')}
@@ -154,12 +153,8 @@ export function SettingsAuthModals({
         subtitle={t('passkeys.rename_desc')}
         onClose={onRenameModalClose}
       >
-        <form
-          onSubmit={onRenameSubmit}
-          className={legacyLayoutClass('page-stack')}
-          style={{ gap: '1rem' }}
-        >
-          <div className={legacyFormClass('form-group')} style={{ margin: 0 }}>
+        <form onSubmit={onRenameSubmit} className={cn(legacyLayoutClass('page-stack'), 'gap-4')}>
+          <div className={cn(legacyFormClass('form-group'), 'm-0')}>
             <label htmlFor="rename-passkey-name">{t('passkeys.modal_label_name')}</label>
             <input
               id="rename-passkey-name"
@@ -171,7 +166,7 @@ export function SettingsAuthModals({
               disabled={renaming}
             />
           </div>
-          <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
+          <div className={cn(adminFlexGapCenterEndClass, 'mt-2')}>
             <button
               type="button"
               className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
@@ -197,56 +192,33 @@ export function SettingsAuthModals({
         subtitle={t('mfa.modal_enroll_desc')}
         onClose={onMfaEnrollClose}
       >
-        <div className={legacyLayoutClass('page-stack')} style={{ gap: '1.5rem' }}>
+        <div className={cn(legacyLayoutClass('page-stack'), 'gap-6')}>
           {!mfaShowRecovery ? (
             <form
               onSubmit={onMfaVerifySubmit}
-              className={legacyLayoutClass('page-stack')}
-              style={{ gap: '1rem' }}
+              className={cn(legacyLayoutClass('page-stack'), 'gap-4')}
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <h4 style={{ margin: 0 }}>{t('mfa.step_scan')}</h4>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  {t('mfa.step_scan_desc')}
-                </p>
+              <div className="flex flex-col gap-2">
+                <h4 className="m-0">{t('mfa.step_scan')}</h4>
+                <p className="text-caption text-foreground-muted m-0">{t('mfa.step_scan_desc')}</p>
               </div>
               {mfaQrCode && (
                 <div className={mfaQrContainerClass}>
-                  <img
-                    src={mfaQrCode}
-                    alt="2FA QR Code"
-                    style={{ display: 'block', width: '180px', height: '180px' }}
-                  />
+                  <img src={mfaQrCode} alt="2FA QR Code" className="block h-[180px] w-[180px]" />
                 </div>
               )}
               {mfaEnrollData && (
-                <div
-                  style={{
-                    fontSize: '0.85rem',
-                    backgroundColor: 'rgba(255,255,255,0.02)',
-                    padding: '0.75rem',
-                    borderRadius: '0.25rem',
-                    border: '1px dashed var(--border)',
-                  }}
-                >
+                <div className="text-caption border-border rounded border border-dashed bg-white/2 p-3">
                   <strong>{t('mfa.step_manual')}</strong>
-                  <div
-                    style={{
-                      fontFamily: 'monospace',
-                      fontSize: '1rem',
-                      color: 'var(--accent)',
-                      marginTop: '0.25rem',
-                      letterSpacing: '1px',
-                    }}
-                  >
+                  <div className="text-accent mt-1 font-mono text-base tracking-wider">
                     {mfaEnrollData.secret}
                   </div>
                 </div>
               )}
-              <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <h4 style={{ margin: 0 }}>{t('mfa.step_verify')}</h4>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              <hr className="border-border my-2 border-0 border-t" />
+              <div className="flex flex-col gap-2">
+                <h4 className="m-0">{t('mfa.step_verify')}</h4>
+                <p className="text-caption text-foreground-muted m-0">
                   {t('mfa.step_verify_desc')}
                 </p>
               </div>
@@ -256,7 +228,7 @@ export function SettingsAuthModals({
                 onChange={onMfaVerifyCodeChange}
                 disabled={mfaVerifying}
               />
-              <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
+              <div className={cn(adminFlexGapCenterEndClass, 'mt-2')}>
                 <button
                   type="button"
                   className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
@@ -294,8 +266,7 @@ export function SettingsAuthModals({
       >
         <form
           onSubmit={onMfaDisableSubmit}
-          className={legacyLayoutClass('page-stack')}
-          style={{ gap: '1rem' }}
+          className={cn(legacyLayoutClass('page-stack'), 'gap-4')}
         >
           <OTPCodeInput
             id="mfa-disable-input"
@@ -303,7 +274,7 @@ export function SettingsAuthModals({
             onChange={onMfaDisableCodeChange}
             disabled={mfaDisabling}
           />
-          <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
+          <div className={cn(adminFlexGapCenterEndClass, 'mt-2')}>
             <button
               type="button"
               className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
@@ -329,18 +300,14 @@ export function SettingsAuthModals({
         subtitle={t('mfa.disable_desc')}
         onClose={onMfaRegenClose}
       >
-        <form
-          onSubmit={onMfaRegenSubmit}
-          className={legacyLayoutClass('page-stack')}
-          style={{ gap: '1rem' }}
-        >
+        <form onSubmit={onMfaRegenSubmit} className={cn(legacyLayoutClass('page-stack'), 'gap-4')}>
           <OTPCodeInput
             id="mfa-regen-input"
             value={mfaRegenCode}
             onChange={onMfaRegenCodeChange}
             disabled={mfaRegening}
           />
-          <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
+          <div className={cn(adminFlexGapCenterEndClass, 'mt-2')}>
             <button
               type="button"
               className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}

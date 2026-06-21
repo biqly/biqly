@@ -192,7 +192,7 @@ export default function QueryHistory() {
         </div>
 
         <div className={cn(formRowClass, 'mb-5')}>
-          <label className={legacyFormClass('form-field')} style={{ minWidth: '13rem' }}>
+          <label className={cn(legacyFormClass('form-field'), 'min-w-52')}>
             <span className={legacyFormClass('form-label')}>{t('glossary.label_datasource')}</span>
             <Select
               value={selectedDatasourceId}
@@ -206,7 +206,7 @@ export default function QueryHistory() {
               }}
             />
           </label>
-          <label className={legacyFormClass('form-field')} style={{ minWidth: '13rem' }}>
+          <label className={cn(legacyFormClass('form-field'), 'min-w-52')}>
             <span className={legacyFormClass('form-label')}>{t('glossary.label_model')}</span>
             <Select
               value={selectedModelId}
@@ -217,7 +217,7 @@ export default function QueryHistory() {
               onChange={setSelectedModelId}
             />
           </label>
-          <label className={legacyFormClass('form-field')} style={{ minWidth: '10rem' }}>
+          <label className={cn(legacyFormClass('form-field'), 'min-w-40')}>
             <span className={legacyFormClass('form-label')}>{t('query_history.label_status')}</span>
             <Select
               value={statusFilter}
@@ -230,7 +230,7 @@ export default function QueryHistory() {
               onChange={setStatusFilter}
             />
           </label>
-          <div className={legacyFormClass('form-field')} style={{ flex: 1, minWidth: '15rem' }}>
+          <div className={cn(legacyFormClass('form-field'), 'min-w-60 flex-1')}>
             <span className={legacyFormClass('form-label')}>{t('common.search')}</span>
             <input
               type="text"
@@ -251,88 +251,37 @@ export default function QueryHistory() {
         >
           <>
             <div className={aiHistoryTableWrapClass}>
-              <table
-                className={aiHistoryTableClass}
-                style={{ borderCollapse: 'collapse', width: '100%' }}
-              >
+              <table className={`${aiHistoryTableClass} w-full border-collapse`}>
                 <thead>
                   <tr
                     style={{
                       background: 'var(--table-header-bg)',
                       borderBottom: '1px solid var(--border)',
-                      textAlign: 'left',
                     }}
+                    className="text-left"
                   >
-                    <th
-                      style={{
-                        padding: '12px 16px',
-                        fontWeight: 600,
-                        color: 'var(--table-header-fg)',
-                      }}
-                    >
+                    <th className="p-3 font-semibold text-(--table-header-fg)">
                       {t('query_history.col_question')}
                     </th>
-                    <th
-                      style={{
-                        padding: '12px 16px',
-                        fontWeight: 600,
-                        color: 'var(--table-header-fg)',
-                      }}
-                    >
+                    <th className="p-3 font-semibold text-(--table-header-fg)">
                       {t('query_history.col_status')}
                     </th>
-                    <th
-                      style={{
-                        padding: '12px 16px',
-                        fontWeight: 600,
-                        color: 'var(--table-header-fg)',
-                      }}
-                    >
+                    <th className="p-3 font-semibold text-(--table-header-fg)">
                       {t('query_history.col_confidence')}
                     </th>
-                    <th
-                      style={{
-                        padding: '12px 16px',
-                        fontWeight: 600,
-                        color: 'var(--table-header-fg)',
-                      }}
-                    >
+                    <th className="p-3 font-semibold text-(--table-header-fg)">
                       {t('query_history.col_model')}
                     </th>
-                    <th
-                      style={{
-                        padding: '12px 16px',
-                        fontWeight: 600,
-                        color: 'var(--table-header-fg)',
-                      }}
-                    >
+                    <th className="p-3 font-semibold text-(--table-header-fg)">
                       {t('query_history.col_latency')}
                     </th>
-                    <th
-                      style={{
-                        padding: '12px 16px',
-                        fontWeight: 600,
-                        color: 'var(--table-header-fg)',
-                      }}
-                    >
+                    <th className="p-3 font-semibold text-(--table-header-fg)">
                       {t('query_history.col_tokens')}
                     </th>
-                    <th
-                      style={{
-                        padding: '12px 16px',
-                        fontWeight: 600,
-                        color: 'var(--table-header-fg)',
-                      }}
-                    >
+                    <th className="p-3 font-semibold text-(--table-header-fg)">
                       {t('query_history.col_created_at')}
                     </th>
-                    <th
-                      style={{
-                        padding: '12px 16px',
-                        fontWeight: 600,
-                        color: 'var(--table-header-fg)',
-                      }}
-                    >
+                    <th className="p-3 font-semibold text-(--table-header-fg)">
                       {t('query_history.col_actions')}
                     </th>
                   </tr>
@@ -350,73 +299,44 @@ export default function QueryHistory() {
                     return (
                       <Fragment key={entry.id}>
                         <tr
-                          className={isExpanded ? aiHistoryRowExpandedClass : ''}
-                          style={{
-                            borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-                          }}
+                          className={cn(
+                            isExpanded ? aiHistoryRowExpandedClass : '',
+                            'border-border border-b',
+                          )}
                         >
-                          <td
-                            className={aiHistoryQuestionClass}
-                            style={{ padding: '12px 16px', color: 'var(--text-primary)' }}
-                          >
-                            <div style={{ fontWeight: '500' }}>{entry.question || '—'}</div>
-                            <div
-                              style={{
-                                fontSize: '0.75rem',
-                                color: 'var(--text-secondary)',
-                                marginTop: '2px',
-                              }}
-                            >
+                          <td className={cn(aiHistoryQuestionClass, 'text-foreground p-3')}>
+                            <div className="font-medium">{entry.question || '—'}</div>
+                            <div className="text-foreground-muted mt-0.5 text-xs">
                               {datasourceName}
                             </div>
                           </td>
-                          <td style={{ padding: '12px 16px' }}>
+                          <td className="p-3">
                             <span className={aiHistoryStatusClass(badge.cls)}>{badge.label}</span>
                           </td>
-                          <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
+                          <td className="text-foreground p-3">
                             {entry.confidence_score != null
                               ? `${(entry.confidence_score * 100).toFixed(0)}%`
                               : '—'}
                           </td>
-                          <td
-                            className={aiHistoryMonoClass}
-                            style={{
-                              padding: '12px 16px',
-                              fontFamily: 'var(--font-mono, monospace)',
-                              color: 'var(--text-primary)',
-                            }}
-                          >
+                          <td className={cn(aiHistoryMonoClass, 'text-foreground p-3')}>
                             {modelName}
                           </td>
-                          <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
+                          <td className="text-foreground p-3">
                             {entry.latency_ms != null ? `${entry.latency_ms}ms` : '—'}
                           </td>
-                          <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>
-                            {entry.token_count ?? '—'}
-                          </td>
-                          <td
-                            style={{
-                              padding: '12px 16px',
-                              color: 'var(--text-primary)',
-                              fontSize: '0.8rem',
-                            }}
-                          >
+                          <td className="text-foreground p-3">{entry.token_count ?? '—'}</td>
+                          <td className="text-foreground p-3 text-[0.8rem]">
                             {formatDateTime(entry.created_at, localeLanguageTag(locale))}
                           </td>
-                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                            <div
-                              style={{
-                                display: 'flex',
-                                gap: '8px',
-                                justifyContent: 'flex-end',
-                                alignItems: 'center',
-                              }}
-                            >
+                          <td className="p-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
                               <button
                                 type="button"
                                 onClick={() => handleRerun(entry.question)}
-                                className={legacyButtonClass('btn btn-sm btn-ghost')}
-                                style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                                className={cn(
+                                  legacyButtonClass('btn btn-sm btn-ghost'),
+                                  'px-2 py-1 text-xs',
+                                )}
                               >
                                 {t('query_history.action_rerun')}
                               </button>
@@ -436,15 +356,7 @@ export default function QueryHistory() {
                           <tr className={aiHistoryDetailRowClass}>
                             <td colSpan={8}>
                               {detailLoading ? (
-                                <div
-                                  style={{
-                                    position: 'relative',
-                                    minHeight: 85,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                  }}
-                                >
+                                <div className="relative flex min-h-21.25 items-center justify-center">
                                   <LoadingOverlay loading={true} />
                                 </div>
                               ) : detail ? (
@@ -469,7 +381,7 @@ export default function QueryHistory() {
                                   )}
                                 </div>
                               ) : (
-                                <p style={{ padding: 16, color: 'var(--text-muted)' }}>—</p>
+                                <p className="text-foreground-faint p-4">—</p>
                               )}
                             </td>
                           </tr>

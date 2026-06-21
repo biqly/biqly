@@ -112,7 +112,7 @@ function ExperimentDetailHeader({
 
       <div className={adminPanelHeaderClass}>
         <div>
-          <h2 style={{ margin: 0 }}>{exp.name}</h2>
+          <h2 className="m-0 text-xl font-bold">{exp.name}</h2>
           <p className={formHintClass}>{exp.description || t('metadata.no_description')}</p>
           <div className="text-foreground-muted mt-2 flex flex-wrap gap-4 text-sm">
             <span>
@@ -336,11 +336,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
             ))}
           </div>
           {isDraft && totalTraffic !== 100 && (
-            <div
-              className="alert alert-warning"
-              role="alert"
-              style={{ fontSize: 13, padding: '8px 12px' }}
-            >
+            <div className="alert alert-warning px-3 py-2 text-sm" role="alert">
               {t('admin.ab_experiments.traffic_sum_hint')}
             </div>
           )}
@@ -350,7 +346,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
       {/* Main Grid content */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         {/* Left column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="flex flex-col gap-6">
           {/* Recommendation Banner */}
           {recommendation && (
             <div className={abRecommendationBannerClass(recommendationIsWorse)}>
@@ -415,9 +411,9 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
 
             {/* Add Variant Form (Draft only) */}
             {isDraft && (
-              <form onSubmit={(e) => void handleAddVariant(e)} style={{ marginTop: 24 }}>
+              <form onSubmit={(e) => void handleAddVariant(e)} className="mt-6">
                 <div className="border-border bg-card-raised flex flex-col gap-3 rounded-lg border border-dashed p-4">
-                  <h3 style={{ fontSize: 14, margin: '0 0 8px 0', fontWeight: 600 }}>
+                  <h3 className="m-0 mb-2 text-sm font-semibold">
                     {t('admin.ab_experiments.add_variant')}
                   </h3>
                   {varError ? <div className={adminErrBoxClass}>{varError}</div> : null}
@@ -458,7 +454,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                       {t('admin.ab_experiments.is_control')}
                     </label>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <div className="mt-2 flex justify-end">
                     <Button type="submit" variant="primary" size="sm" autoWidth>
                       {t('common.add')}
                     </Button>
@@ -495,7 +491,7 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
                         <td className={`border-border border-b px-4 py-3 text-sm font-semibold`}>
                           {variant?.name ?? 'Unknown'}{' '}
                           {variant?.is_control && (
-                            <span style={{ fontSize: 11, color: '#6b7280' }}>(Control)</span>
+                            <span className="text-2xs text-foreground-faint">(Control)</span>
                           )}
                         </td>
                         <td className={`border-border border-b px-4 py-3 text-sm`}>
@@ -529,27 +525,16 @@ export function ABExperimentDetail({ experimentId, onBack, onEdit }: ABExperimen
               <h2 className={`border-border mt-0 mb-4 border-b pb-3 text-lg font-semibold`}>
                 {t('admin.ab_experiments.timeseries_title')}
               </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div className="flex flex-col gap-4">
                 {timeseries.map((day) => (
-                  <div
-                    key={day.date}
-                    style={{
-                      borderBottom: '1px solid var(--color-border-subtle, #f3f4f6)',
-                      paddingBottom: 8,
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>{day.date}</div>
+                  <div key={day.date} className="border-border/40 border-b pb-2">
+                    <div className="mb-1.5 text-sm font-semibold">{day.date}</div>
                     {day.metrics?.map((m) => {
                       const variant = variants.find((v) => v.id === m.variant_id)
                       return (
                         <div
                           key={m.variant_id}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            fontSize: 12,
-                            color: '#4b5563',
-                          }}
+                          className="text-foreground-muted flex justify-between text-xs"
                         >
                           <span>{variant?.name}:</span>
                           <span>

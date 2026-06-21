@@ -148,7 +148,7 @@ export function GlossaryEnrichPanel({
           <table className={legacyTableClass('results-table')}>
             <thead>
               <tr>
-                <th scope="col" style={{ width: '2.5rem' }} />
+                <th scope="col" className="w-10" />
                 <th scope="col">{t('glossary.col_type')}</th>
                 <th scope="col">{t('glossary.col_term')}</th>
                 <th scope="col">{t('glossary.enrich_context_suggested')}</th>

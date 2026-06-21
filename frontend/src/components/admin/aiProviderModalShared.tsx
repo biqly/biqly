@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { AIProviderType, AIPurpose } from '../../api/aiProviders'
+import { cn } from '../../lib/cn'
 
 export const PROVIDER_TYPES: AIProviderType[] = ['openai', 'openai-compatible', 'anthropic']
 export const PURPOSES: AIPurpose[] = ['query', 'describe', 'embedding', 'translation', 'judge']
@@ -18,72 +19,28 @@ export function defaultBaseURL(type: AIProviderType): string {
 export function ModalField({
   label,
   children,
-  style,
+  className,
 }: {
   label: string
   children: React.ReactNode
-  style?: React.CSSProperties
+  className?: string
 }) {
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, ...style }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #a1a1aa)' }}>
-        {label}
-      </span>
+    <label className={cn('flex flex-col gap-1', className)}>
+      <span className="text-caption text-foreground-muted font-semibold">{label}</span>
       {children}
     </label>
   )
 }
 
-export const aiModalFormStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 14,
-}
-export const aiModalInputStyle: React.CSSProperties = {
-  padding: '8px 10px',
-  background: 'var(--bg-input, rgba(255,255,255,0.04))',
-  border: '1px solid var(--border, rgba(255,255,255,0.1))',
-  borderRadius: 6,
-  color: 'var(--text-primary, #f4f4f5)',
-  fontSize: 13,
-  width: '100%',
-}
-export const aiModalCheckboxRow: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  fontSize: 13,
-}
-export const aiModalActions: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'flex-end',
-  gap: 8,
-  marginTop: 8,
-}
-export const aiModalPrimaryBtn: React.CSSProperties = {
-  padding: '8px 14px',
-  background: 'var(--accent)',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 6,
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: 'pointer',
-}
-export const aiModalSecondaryBtn: React.CSSProperties = {
-  padding: '8px 14px',
-  background: 'transparent',
-  color: 'var(--text-primary, #f4f4f5)',
-  border: '1px solid var(--border-strong, rgba(255,255,255,0.12))',
-  borderRadius: 6,
-  fontSize: 13,
-  cursor: 'pointer',
-}
-export const aiModalLinkBtn: React.CSSProperties = {
-  padding: '4px 8px',
-  background: 'transparent',
-  border: 'none',
-  color: 'var(--accent)',
-  fontSize: 12,
-  cursor: 'pointer',
-}
+export const aiModalFormClass = 'flex flex-col gap-3.5'
+export const aiModalInputClass =
+  'px-2.5 py-2 bg-input border border-border rounded-md text-foreground text-sm w-full focus:outline-none focus:border-accent'
+export const aiModalCheckboxRowClass = 'flex items-center gap-2 text-sm'
+export const aiModalActionsClass = 'flex justify-end gap-2 mt-2'
+export const aiModalPrimaryBtnClass =
+  'px-3.5 py-2 bg-accent hover:bg-accent-strong text-white border-0 rounded-md text-sm font-semibold cursor-pointer disabled:opacity-50'
+export const aiModalSecondaryBtnClass =
+  'px-3.5 py-2 bg-transparent text-foreground border border-border rounded-md text-sm cursor-pointer hover:bg-canvas-subtle'
+export const aiModalLinkBtnClass =
+  'px-2 py-1 bg-transparent border-0 text-accent text-caption cursor-pointer hover:underline'

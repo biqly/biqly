@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 
 import { useApi } from '../../hooks/useApi'
+import { cn } from '../../lib/cn'
 import { legacyTableClass } from '../../lib/tableClasses'
 import type { LogicalQuery, QueryResultPayload } from '../../types/ai'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../../utils/chartConfig'
@@ -40,18 +41,12 @@ export interface DashboardWidget {
 
 type ChartRow = Record<string, unknown>
 
-const centerMessageStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  height: '100%',
-  minHeight: '120px',
-  color: 'var(--text-muted)',
-  fontSize: '0.85rem',
-} as const
-
 function WidgetCenterMessage({ children }: { children: React.ReactNode }) {
-  return <div style={centerMessageStyle}>{children}</div>
+  return (
+    <div className="text-foreground-faint flex h-full min-h-30 items-center justify-center text-[0.85rem]">
+      {children}
+    </div>
+  )
 }
 
 function formatKpiValue(val: unknown): string | number {
@@ -76,29 +71,9 @@ function WidgetKpiView({
   const val = valCol && data[0]?.[valCol] !== undefined ? data[0][valCol] : 'N/A'
   const formattedVal = formatKpiValue(val)
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        height: '100%',
-        minHeight: '100px',
-        padding: '0.5rem',
-      }}
-    >
-      <span
-        style={{
-          fontSize: '2.2rem',
-          fontWeight: 800,
-          color: 'var(--accent)',
-          wordBreak: 'break-all',
-        }}
-      >
-        {formattedVal}
-      </span>
-      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-        Latest value of {valCol}
-      </span>
+    <div className="flex h-full min-h-25 flex-col justify-center p-2">
+      <span className="text-accent text-[2.2rem] font-extrabold break-all">{formattedVal}</span>
+      <span className="text-foreground-faint mt-0.5 text-xs">Latest value of {valCol}</span>
     </div>
   )
 }
@@ -110,7 +85,7 @@ function WidgetPieChart({ data, xKey, yKey }: { data: ChartRow[]; xKey: string; 
     fill: chartColor(idx),
   }))
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: '200px' }}>
+    <div className="h-full min-h-50 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -142,7 +117,7 @@ function WidgetCartesianChart({
   yKeys: string[]
 }) {
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: '200px' }}>
+    <div className="h-full min-h-50 w-full">
       <ResponsiveContainer width="100%" height="100%">
         {widget.chart_type === 'bar' ? (
           <BarChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
@@ -194,18 +169,12 @@ function WidgetTableView({
   }
 
   return (
-    <div
-      className={legacyTableClass('results-table-scroll')}
-      style={{ maxHeight: '100%', overflowY: 'auto' }}
-    >
-      <table
-        className={legacyTableClass('results-table')}
-        style={{ fontSize: '0.85rem', width: '100%' }}
-      >
+    <div className={cn(legacyTableClass('results-table-scroll'), 'max-h-full overflow-y-auto')}>
+      <table className={cn(legacyTableClass('results-table'), 'w-full text-sm')}>
         <thead>
           <tr>
             {showCols.map((col) => (
-              <th key={col} style={{ padding: '0.5rem' }}>
+              <th key={col} className="p-2">
                 {col}
               </th>
             ))}
@@ -275,13 +244,7 @@ function getWidgetDataStateElement(
 
   if (loading) {
     return (
-      <div
-        style={{
-          ...centerMessageStyle,
-          flexDirection: 'column',
-          gap: '0.5rem',
-        }}
-      >
+      <div className="text-foreground-faint flex flex-col items-center justify-center gap-2 p-16 text-center">
         <span
           className="status-dot"
           style={{ background: 'var(--accent)', animation: 'pulse 1.5s infinite' }}

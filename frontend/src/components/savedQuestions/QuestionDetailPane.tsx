@@ -1,6 +1,7 @@
 import type { TFunction } from '../../i18n'
 import { tagPillMetaClass } from '../../lib/badgeClasses'
 import { legacyButtonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import {
   savedQuestionActionsClass,
@@ -49,7 +50,7 @@ export function QuestionDetailPane({
         <p className={`${savedQuestionDescriptionClass()} mt-2`}>{selectedQuestion.description}</p>
       )}
 
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', margin: '1rem 0' }}>
+      <div className="my-4 flex flex-wrap gap-2">
         {selectedQuestion.model_id && (
           <span className={tagPillMetaClass}>
             <strong>{t('saved_questions.label_select_model')}:</strong>
@@ -71,27 +72,11 @@ export function QuestionDetailPane({
         )}
       </div>
 
-      <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>
-        {t('saved_questions.label_question')}
-      </h3>
-      <p
-        style={{
-          background: 'var(--bg-card-raised)',
-          padding: '0.75rem 1rem',
-          borderRadius: '0.35rem',
-          fontStyle: 'italic',
-        }}
-      >
-        {selectedQuestion.question}
-      </p>
+      <h3 className="mt-6 mb-2">{t('saved_questions.label_question')}</h3>
+      <p className="bg-card-raised rounded-md px-4 py-3 italic">{selectedQuestion.question}</p>
 
-      <h3 style={{ marginTop: '1.5rem', marginBottom: '0.5rem' }}>
-        {t('saved_questions.logical_query_heading')}
-      </h3>
-      <pre
-        className={legacyFeedbackClass('sql-preview')}
-        style={{ maxHeight: '250px', overflowY: 'auto' }}
-      >
+      <h3 className="mt-6 mb-2">{t('saved_questions.logical_query_heading')}</h3>
+      <pre className={cn(legacyFeedbackClass('sql-preview'), 'max-h-[250px] overflow-y-auto')}>
         {JSON.stringify(selectedQuestion.logical_query, null, 2)}
       </pre>
 
@@ -125,27 +110,19 @@ export function QuestionDetailPane({
 
       {/* Inline query execution results */}
       {runLoading && (
-        <div
-          style={{
-            marginTop: '1.5rem',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: 100,
-          }}
-        >
+        <div className="mt-6 flex min-h-25 items-center justify-center">
           <LoadingOverlay loading={true} />
         </div>
       )}
 
       {runError && (
-        <div style={{ marginTop: '1.5rem' }}>
+        <div className="mt-6">
           <ErrorAlert error={runError} />
         </div>
       )}
 
       {runResult && (
-        <div className="results-section" style={{ marginTop: '1.5rem' }}>
+        <div className="results-section mt-6">
           <ResultTable
             columns={runResult.columns}
             rows={runResult.rows}

@@ -294,38 +294,29 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
   }
 
   return (
-    <div className={legacyLayoutClass('page-stack')} style={{ position: 'relative' }}>
+    <div className={cn(legacyLayoutClass('page-stack'), 'relative')}>
       <LoadingOverlay loading={loading}>
         {error && <ErrorAlert error={error} />}
 
         {/* Header Panel */}
         <div className={legacyCardClass('card')}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '1rem',
-            }}
-          >
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <button
                 type="button"
-                className={legacyButtonClass('btn btn-secondary btn-sm')}
+                className={cn(legacyButtonClass('btn btn-secondary btn-sm'), 'mb-2')}
                 onClick={onBack}
-                style={{ marginBottom: '0.5rem' }}
               >
                 ← Back to Dashboards
               </button>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 700 }}>{dashboard?.name}</h2>
+              <h2 className="text-[1.8rem] font-bold">{dashboard?.name}</h2>
               {dashboard?.description && (
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                <p className="text-foreground-faint mt-0.5 text-[0.9rem]">
                   {dashboard.description}
                 </p>
               )}
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <div className="flex gap-3">
               {isEditMode ? (
                 <>
                   <button
@@ -363,23 +354,8 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
 
           {/* Toolbox */}
           {isEditMode && (
-            <div
-              style={{
-                display: 'flex',
-                gap: '0.75rem',
-                marginTop: '1.5rem',
-                padding: '1rem 0 0 0',
-                borderTop: '1px solid var(--border)',
-              }}
-            >
-              <span
-                style={{
-                  alignSelf: 'center',
-                  fontWeight: 600,
-                  color: 'var(--text-muted)',
-                  fontSize: '0.9rem',
-                }}
-              >
+            <div className="border-border mt-6 flex gap-3 border-t pt-4">
+              <span className="text-foreground-faint self-center text-[0.9rem] font-semibold">
                 Add Widget:
               </span>
               <button
@@ -417,23 +393,14 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
         {/* Widgets Grid */}
         {widgets.length === 0 ? (
           <div
-            className={legacyCardClass('card')}
-            style={{
-              padding: '6rem 2rem',
-              textAlign: 'center',
-              border: '2px dashed var(--border)',
-            }}
+            className={cn(
+              legacyCardClass('card'),
+              'border-border border-2 border-dashed px-8 py-24 text-center',
+            )}
           >
-            <p style={{ color: 'var(--text-muted)' }}>This dashboard is empty.</p>
+            <p className="text-foreground-faint">This dashboard is empty.</p>
             {isEditMode && (
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  gap: '1rem',
-                  marginTop: '1rem',
-                }}
-              >
+              <div className="mt-4 flex justify-center gap-4">
                 <button
                   type="button"
                   className={legacyButtonClass('btn btn-secondary')}
@@ -452,13 +419,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
             )}
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(12, 1fr)',
-              gap: '1.5rem',
-            }}
-          >
+          <div className="grid grid-cols-12 gap-6">
             {widgets.map((widget, idx) => (
               <div
                 key={widget.id}
@@ -466,41 +427,26 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                 onDragStart={(e) => handleDragStart(e, idx)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => handleDrop(e, idx)}
-                className={legacyCardClass('card card--elevated')}
+                className={cn(legacyCardClass('card card--elevated'), 'relative flex flex-col p-5')}
                 style={{
                   gridColumn: `span ${widget.w || 6}`,
                   minHeight: heightPixels(widget.h),
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative',
-                  padding: '1.25rem',
                   border: isEditMode ? '2px dashed var(--accent-light, var(--border))' : undefined,
                   cursor: isEditMode ? 'grab' : 'default',
                 }}
               >
                 {/* Widget Header Controls */}
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '0.8rem',
-                    borderBottom: '1px solid var(--border-light, #f1f5f9)',
-                    paddingBottom: '0.4rem',
-                  }}
-                >
-                  <h3
-                    style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}
-                  >
-                    {widget.title}
-                  </h3>
+                <div className="mb-3 flex items-center justify-between border-b border-(--border-light,#f1f5f9) pb-1">
+                  <h3 className="text-foreground m-0 text-base font-semibold">{widget.title}</h3>
                   {isEditMode && (
-                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <div className="flex items-center gap-1">
                       {/* Width Resize */}
                       <button
                         type="button"
-                        className={legacyButtonClass('btn btn-secondary btn-sm')}
-                        style={{ padding: '0.1rem 0.3rem', fontSize: '0.75rem' }}
+                        className={cn(
+                          legacyButtonClass('btn btn-secondary btn-sm'),
+                          'px-[0.3rem] py-[0.1rem] text-xs',
+                        )}
                         onClick={() => {
                           const newW = Math.max(2, (widget.w || 6) - 1)
                           setWidgets(
@@ -513,13 +459,13 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       >
                         ◀
                       </button>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {widget.w || 6}
-                      </span>
+                      <span className="text-foreground-faint text-xs">{widget.w || 6}</span>
                       <button
                         type="button"
-                        className={legacyButtonClass('btn btn-secondary btn-sm')}
-                        style={{ padding: '0.1rem 0.3rem', fontSize: '0.75rem' }}
+                        className={cn(
+                          legacyButtonClass('btn btn-secondary btn-sm'),
+                          'px-[0.3rem] py-[0.1rem] text-xs',
+                        )}
                         onClick={() => {
                           const newW = Math.min(12, (widget.w || 6) + 1)
                           setWidgets(
@@ -536,8 +482,10 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       {/* Config / Delete */}
                       <button
                         type="button"
-                        className={legacyButtonClass('btn btn-secondary btn-sm')}
-                        style={{ padding: '0.1rem 0.3rem' }}
+                        className={cn(
+                          legacyButtonClass('btn btn-secondary btn-sm'),
+                          'px-[0.3rem] py-[0.1rem]',
+                        )}
                         onClick={() => handleOpenConfig(widget)}
                         title={t('customDashboards.builder_configure_widget_aria')}
                         aria-label={t('customDashboards.builder_configure_widget_aria')}
@@ -546,8 +494,10 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       </button>
                       <button
                         type="button"
-                        className={legacyButtonClass('btn btn-danger btn-sm')}
-                        style={{ padding: '0.1rem 0.3rem' }}
+                        className={cn(
+                          legacyButtonClass('btn btn-danger btn-sm'),
+                          'px-[0.3rem] py-[0.1rem]',
+                        )}
                         onClick={() => handleDeleteWidget(widget.id)}
                         title={t('customDashboards.builder_delete_widget_aria')}
                         aria-label={t('customDashboards.builder_delete_widget_aria')}
@@ -559,7 +509,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                 </div>
 
                 {/* Mapped visual display */}
-                <div style={{ flexGrow: 1, overflow: 'hidden' }}>
+                <div className="flex-1 overflow-hidden">
                   <DashboardWidgetRenderer widget={widget} />
                 </div>
               </div>
@@ -589,7 +539,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
           </div>
 
           <div className={formRowClass}>
-            <div className={legacyFormClass('form-field')} style={{ flex: 1 }}>
+            <div className={cn(legacyFormClass('form-field'), 'flex-1')}>
               <label className={legacyFormClass('form-label')} htmlFor="w-width">
                 Width Grid Span (2-12 Columns)
               </label>
@@ -603,7 +553,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                 }))}
               />
             </div>
-            <div className={legacyFormClass('form-field')} style={{ flex: 1 }}>
+            <div className={cn(legacyFormClass('form-field'), 'flex-1')}>
               <label className={legacyFormClass('form-label')} htmlFor="w-height">
                 Height Class
               </label>
@@ -652,20 +602,13 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
             </div>
           ) : (
             <>
-              <div
-                style={{
-                  padding: '0.8rem',
-                  border: '1px solid var(--border)',
-                  borderRadius: '0.5rem',
-                  background: 'var(--bg-card-raised)',
-                }}
-              >
-                <h4 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', fontWeight: 600 }}>
+              <div className="border-border bg-card-raised rounded-lg border p-3">
+                <h4 className="m-0 mb-3 text-[0.9rem] font-semibold">
                   Link Saved Query Data Source
                 </h4>
 
                 <div className={cn(formRowClass, 'mb-[0.8rem] gap-3')}>
-                  <div className={legacyFormClass('form-field')} style={{ flex: 1 }}>
+                  <div className={cn(legacyFormClass('form-field'), 'flex-1')}>
                     <label className={legacyFormClass('form-label')} htmlFor="w-ds">
                       Datasource
                     </label>
@@ -680,7 +623,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       options={datasources.map((d) => ({ value: d.id, label: d.name }))}
                     />
                   </div>
-                  <div className={legacyFormClass('form-field')} style={{ flex: 1 }}>
+                  <div className={cn(legacyFormClass('form-field'), 'flex-1')}>
                     <label className={legacyFormClass('form-label')} htmlFor="w-model">
                       Model
                     </label>
@@ -719,17 +662,8 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
               </div>
 
               {selQuestionId && availableColumns.length > 0 && (
-                <div
-                  style={{
-                    padding: '0.8rem',
-                    border: '1px solid var(--border)',
-                    borderRadius: '0.5rem',
-                    marginTop: '0.5rem',
-                  }}
-                >
-                  <h4 style={{ margin: '0 0 0.8rem 0', fontSize: '0.9rem', fontWeight: 600 }}>
-                    Map Fields / Columns
-                  </h4>
+                <div className="border-border mt-2 rounded-lg border p-3">
+                  <h4 className="m-0 mb-3 text-[0.9rem] font-semibold">Map Fields / Columns</h4>
 
                   {configType === 'kpi' && (
                     <div className={legacyFormClass('form-field')}>
@@ -746,7 +680,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                   )}
 
                   {configType === 'chart' && (
-                    <div style={{ display: 'grid', gap: '1rem' }}>
+                    <div className="grid gap-4">
                       <div className={legacyFormClass('form-field')}>
                         <label className={legacyFormClass('form-label')} htmlFor="w-chart-type">
                           Chart Visualization Type
@@ -764,7 +698,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                       </div>
 
                       <div className={cn(formRowClass, 'gap-3')}>
-                        <div className={legacyFormClass('form-field')} style={{ flex: 1 }}>
+                        <div className={cn(legacyFormClass('form-field'), 'flex-1')}>
                           <label className={legacyFormClass('form-label')} htmlFor="w-xaxis">
                             X-Axis Category Column
                           </label>
@@ -778,32 +712,17 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                             }))}
                           />
                         </div>
-                        <div className={legacyFormClass('form-field')} style={{ flex: 1 }}>
+                        <div className={cn(legacyFormClass('form-field'), 'flex-1')}>
                           <label className={legacyFormClass('form-label')}>
                             Y-Axis Metric Series (Select multiple)
                           </label>
-                          <div
-                            style={{
-                              maxHeight: '100px',
-                              overflowY: 'auto',
-                              border: '1px solid var(--border)',
-                              padding: '0.4rem',
-                              borderRadius: '0.4rem',
-                            }}
-                          >
+                          <div className="border-border max-h-25 overflow-y-auto rounded border p-1">
                             {availableColumns.map((col) => {
                               const checked = yAxisColumns.includes(col)
                               return (
                                 <label
                                   key={col}
-                                  style={{
-                                    display: 'flex',
-                                    gap: '0.4rem',
-                                    alignItems: 'center',
-                                    fontSize: '0.8rem',
-                                    padding: '0.1rem 0',
-                                    cursor: 'pointer',
-                                  }}
+                                  className="flex cursor-pointer items-center gap-1 py-[0.1rem] text-xs"
                                 >
                                   <input
                                     type="checkbox"
@@ -829,28 +748,13 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                   {configType === 'table' && (
                     <div className={legacyFormClass('form-field')}>
                       <label className={legacyFormClass('form-label')}>Visible Table Columns</label>
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: '0.8rem',
-                          border: '1px solid var(--border)',
-                          padding: '0.6rem',
-                          borderRadius: '0.4rem',
-                        }}
-                      >
+                      <div className="border-border flex flex-wrap gap-3 rounded border p-1.5">
                         {availableColumns.map((col) => {
                           const checked = visibleColumns.includes(col)
                           return (
                             <label
                               key={col}
-                              style={{
-                                display: 'flex',
-                                gap: '0.4rem',
-                                alignItems: 'center',
-                                fontSize: '0.8rem',
-                                cursor: 'pointer',
-                              }}
+                              className="flex cursor-pointer items-center gap-1 text-xs"
                             >
                               <input
                                 type="checkbox"

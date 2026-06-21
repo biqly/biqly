@@ -6,6 +6,7 @@ import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { errorMessage } from '../../hooks/usePaginatedListLogic'
 import { useQueryParam } from '../../hooks/useQueryParam'
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import type { Workspace } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
@@ -89,7 +90,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
         onSubmit={(e) => {
           void onCreate(e)
         }}
-        style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}
+        className="flex flex-wrap items-end gap-3"
       >
         <FormField
           label={t('admin.workspaces.name')}
@@ -103,44 +104,34 @@ export function WorkspacesPanel({ token }: { token: string }) {
         </button>
       </form>
 
-      <div style={containerStyle}>
+      <div className="bg-card border-border overflow-hidden rounded-lg border shadow-sm">
         <DataState
           loading={loading}
           error={error}
           errorPrefix={t('common.error')}
           empty={displayedItems.length === 0}
         >
-          <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column' }}>
+          <ul className="flex list-none flex-col p-0">
             {displayedItems.length === 0 ? (
-              <li style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
+              <li className="text-foreground-faint p-6 text-center text-sm">
                 {loading ? '' : '—'}
               </li>
             ) : (
               displayedItems.map((w, i) => (
                 <li
                   key={w.id}
-                  style={{
-                    padding: '16px 20px',
-                    borderBottom:
-                      i === displayedItems.length - 1 && totalPages <= 1
-                        ? 'none'
-                        : '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: 12,
-                  }}
+                  className={cn(
+                    'flex flex-wrap items-center justify-between gap-3 px-5 py-4',
+                    !(i === displayedItems.length - 1 && totalPages <= 1) &&
+                      'border-border/45 border-b',
+                  )}
                 >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <strong style={{ fontSize: 15, color: 'var(--text-primary, #f4f4f5)' }}>
-                        {w.name}
-                      </strong>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <strong className="text-foreground text-sm font-semibold">{w.name}</strong>
                       <span
-                        className="ws-settings__badge"
+                        className="ws-settings__badge text-micro px-1.5 py-0.5"
                         data-type={w.is_personal ? 'personal' : 'team'}
-                        style={{ fontSize: 10, padding: '1px 6px' }}
                       >
                         {w.is_personal
                           ? t('admin.workspaces.type_personal')
@@ -148,27 +139,17 @@ export function WorkspacesPanel({ token }: { token: string }) {
                       </span>
                     </div>
                     {w.description && (
-                      <div style={{ fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>
-                        {w.description}
-                      </div>
+                      <div className="text-foreground-muted text-sm">{w.description}</div>
                     )}
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: 'var(--text-muted, #8a8a92)',
-                        fontFamily: 'var(--font-mono, monospace)',
-                      }}
-                    >
-                      {w.slug}
-                    </div>
+                    <div className="text-caption text-foreground-muted font-mono">{w.slug}</div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div className="flex gap-2">
                     <button
                       onClick={() => {
                         setSelectedWSParam(w.id)
                         setWorkspaceLabelParam(w.name)
                       }}
-                      style={btnSettings}
+                      className="border-accent text-accent hover:bg-accent/5 cursor-pointer rounded-md border bg-transparent px-3 py-1.5 text-sm font-medium"
                     >
                       {t('admin.workspaces.settings')}
                     </button>
@@ -177,7 +158,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
                         onClick={() => {
                           void onDelete(w.id, w.name)
                         }}
-                        style={btnSecondary}
+                        className="border-border text-error hover:bg-error/5 hover:border-error cursor-pointer rounded-md border bg-transparent px-3 py-1.5 text-sm"
                       >
                         {t('common.delete')}
                       </button>
@@ -206,31 +187,4 @@ export function WorkspacesPanel({ token }: { token: string }) {
   )
 }
 
-const containerStyle: React.CSSProperties = {
-  background: 'var(--bg-card, #ffffff)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 8,
-  overflow: 'hidden',
-  boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
-}
-
-const btnSecondary: React.CSSProperties = {
-  padding: '6px 12px',
-  background: 'transparent',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  color: 'var(--error, crimson)',
-  borderRadius: 6,
-  cursor: 'pointer',
-  fontSize: 13,
-}
-
-const btnSettings: React.CSSProperties = {
-  padding: '6px 12px',
-  background: 'transparent',
-  border: '1px solid var(--accent, #4f46e5)',
-  color: 'var(--accent, #4f46e5)',
-  borderRadius: 6,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 500,
-}
+// CSS-in-JS style objects removed and migrated to Tailwind classes.
