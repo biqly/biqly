@@ -9,6 +9,7 @@ import { useQueryParam } from '../hooks/useQueryParam'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useLocale, useT } from '../i18n'
 import { legacyButtonClass } from '../lib/buttonClasses'
+import { cn } from '../lib/cn'
 import type {
   AIJob,
   AIQueryRequest,
@@ -27,7 +28,6 @@ import {
   aiQueryMainClass,
   conversationSidebarClass,
   conversationsListClass,
-  sidebarHeaderClass,
   sidebarHeaderTitleClass,
 } from './aiQuery/aiQueryClasses'
 import { ChatPanel } from './aiQuery/ChatPanel'
@@ -87,6 +87,7 @@ export default function AIQuery() {
   const [queryAction, setQueryAction] = useState<'preview' | 'execute' | null>(null)
   const [jobError, setJobError] = useState<string | null>(null)
   const [aiElapsedMs, setAiElapsedMs] = useState(0)
+  const [isConversationsExpanded, setIsConversationsExpanded] = useState(false)
 
   // Derive the clarification round from the conversation itself so it survives
   // page refreshes and conversation switches.
@@ -493,39 +494,77 @@ export default function AIQuery() {
 
   return (
     <div className={aiQueryLayoutClass}>
-      <aside className={conversationSidebarClass}>
+      <aside
+        className={cn(
+          conversationSidebarClass,
+          conversations.length === 0 && 'max-[900px]:hidden',
+          'max-[900px]:p-4',
+        )}
+      >
         <div
-          className={sidebarHeaderClass}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'stretch',
-            gap: '0.75rem',
-          }}
+          className={cn(
+            'border-border mb-4 flex flex-col gap-3 border-b pb-3',
+            'max-[900px]:mb-0 max-[900px]:flex-row max-[900px]:items-center max-[900px]:justify-between max-[900px]:gap-2 max-[900px]:border-b-0 max-[900px]:pb-0',
+            isConversationsExpanded && 'max-[900px]:mb-4 max-[900px]:border-b max-[900px]:pb-3',
+          )}
         >
-          <h3 className={`${sidebarHeaderTitleClass} w-full! text-center!`}>
-            {t('ai_query.conv_title')}
-          </h3>
-          <button
-            className={legacyButtonClass('btn btn-primary btn-sm')}
-            style={{
-              width: '100%',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-            onClick={() => {
-              createConversation({
-                datasource_id: datasourceId,
-                model_id: semanticModelId.startsWith('composite:') ? null : semanticModelId || null,
-              })
-              setQuestion('')
-            }}
-          >
-            {t('ai_query.conv_new')}
-          </button>
+          <div className="flex min-w-0 items-center gap-2">
+            <h3 className={sidebarHeaderTitleClass}>{t('ai_query.conv_title')}</h3>
+            {conversations.length > 0 && (
+              <span className="bg-canvas-subtle border-border text-foreground-muted shrink-0 rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold">
+                {conversations.length}
+              </span>
+            )}
+          </div>
+          <div className="flex w-full shrink-0 flex-col items-center gap-2 max-[900px]:w-auto max-[900px]:flex-row">
+            <button
+              className={cn(
+                legacyButtonClass('btn btn-primary btn-sm'),
+                'w-full justify-center max-[900px]:w-auto',
+              )}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              onClick={() => {
+                createConversation({
+                  datasource_id: datasourceId,
+                  model_id: semanticModelId.startsWith('composite:')
+                    ? null
+                    : semanticModelId || null,
+                })
+                setQuestion('')
+                setIsConversationsExpanded(true)
+              }}
+            >
+              {t('ai_query.conv_new')}
+            </button>
+            <button
+              type="button"
+              className="border-border bg-card-raised text-foreground hidden h-8 w-8 cursor-pointer items-center justify-center rounded-lg border transition-colors hover:bg-(--control-hover-bg) max-[900px]:inline-flex"
+              onClick={() => setIsConversationsExpanded(!isConversationsExpanded)}
+              aria-label={
+                isConversationsExpanded ? t('common.collapse_panel') : t('common.expand_panel')
+              }
+            >
+              <svg
+                className={cn(
+                  'h-4 w-4 transition-transform duration-200',
+                  isConversationsExpanded && 'rotate-180',
+                )}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
         </div>
-        <div className={conversationsListClass}>
+        <div
+          className={cn(conversationsListClass, !isConversationsExpanded && 'max-[900px]:hidden')}
+        >
           {conversations.map((c) => (
             <SidebarConversationItem
               key={c.id}
