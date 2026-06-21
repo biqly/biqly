@@ -40,16 +40,21 @@ type NATSQueue struct {
 	subj   string
 }
 
-func ConnectNATS(cfg NATSConfig) (*NATSQueue, error) {
-	if cfg.URL == "" {
-		return nil, errors.New("nats url is empty")
-	}
+func normalizeNATSConfig(cfg NATSConfig) NATSConfig {
 	if cfg.Stream == "" {
 		cfg.Stream = AIJobStream
 	}
 	if cfg.Subject == "" {
 		cfg.Subject = AIJobSubject
 	}
+	return cfg
+}
+
+func ConnectNATS(cfg NATSConfig) (*NATSQueue, error) {
+	if cfg.URL == "" {
+		return nil, errors.New("nats url is empty")
+	}
+	cfg = normalizeNATSConfig(cfg)
 	nc, err := nats.Connect(cfg.URL, nats.Timeout(10*time.Second))
 	if err != nil {
 		return nil, fmt.Errorf("nats connect: %w", err)
