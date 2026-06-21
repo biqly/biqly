@@ -59,7 +59,7 @@ function TypingIndicator({ queryAction, aiElapsedMs, t }: TypingIndicatorProps) 
     return null
   }
   return (
-    <div className={`${chatMsgClass} ${chatMsgAssistantClass}`} role="status">
+    <div className={cn(chatMsgClass, chatMsgAssistantClass)} role="status">
       <span className={chatMsgAvatarClass} aria-hidden="true">
         ✦
       </span>
@@ -196,8 +196,8 @@ export function ChatPanel({
           messages.map((message, index) => {
             if (message.role === 'user') {
               return (
-                <div key={index} className={`${chatMsgClass} ${chatMsgUserClass}`}>
-                  <div className={`${chatBubbleClass} ${userBubbleClass}`}>
+                <div key={index} className={cn(chatMsgClass, chatMsgUserClass)}>
+                  <div className={cn(chatBubbleClass, userBubbleClass)}>
                     <div className={userBubbleContentClass}>{message.content}</div>
                     <span className={userBubbleTimeClass}>
                       {formatMessageTime(message.timestamp)}
@@ -210,7 +210,7 @@ export function ChatPanel({
               return (
                 <div
                   key={index}
-                  className={`${chatMsgClass} ${chatMsgAssistantClass}`}
+                  className={cn(chatMsgClass, chatMsgAssistantClass)}
                   data-message-index={index}
                 >
                   <span className={chatMsgAvatarClass} aria-hidden="true">

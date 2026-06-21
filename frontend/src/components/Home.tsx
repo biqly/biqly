@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 
 import { useApi } from '../hooks/useApi'
 import { useToast } from '../hooks/useToast'
-import { type TranslationKey, useT } from '../i18n'
+import { localeLanguageTag, type TranslationKey, useLocale, useT } from '../i18n'
 import { legacyCardClass } from '../lib/cardClasses'
+import { formatDateTime } from '../utils/formatters'
 import type { SavedQuestion } from './savedQuestions/types'
 import { EmptyState } from './ui/EmptyState'
 import { Skeleton } from './ui/Skeleton'
@@ -151,6 +152,7 @@ function ListSkeleton() {
 
 function RecentQueries() {
   const t = useT()
+  const [locale] = useLocale()
   const navigate = useNavigate()
   const { get } = useApi()
   const [items, setItems] = useState<RecentQuery[] | null>(null)
@@ -180,13 +182,13 @@ function RecentQueries() {
           }}
         />
       ) : (
-        <ul className="m-0 flex list-none flex-col gap-[0.3rem] p-0">
+        <ul className="m-0 flex list-none flex-col gap-[0.1rem] p-0">
           {items.map((item) => (
             <li key={item.id}>
               <button
                 type="button"
                 className={legacyCardClass(
-                  'text-foreground font-inherit hover:bg-card-raised flex w-full cursor-pointer flex-col gap-[0.2rem] rounded-lg border-0 bg-transparent px-[0.65rem] py-[0.6rem] text-left',
+                  'hover:bg-card-raised hover:border-border flex w-full flex-col items-start gap-1 rounded-lg border border-transparent px-[0.65rem] py-[0.6rem] text-left transition-colors duration-140 ease-out',
                 )}
                 onClick={() => {
                   void navigate('/ai-query', { state: { question: item.question } })
@@ -195,7 +197,7 @@ function RecentQueries() {
               >
                 <span className="truncate text-[0.88rem] font-medium">{item.question}</span>
                 <span className="text-foreground-muted truncate text-[0.76rem]">
-                  {formatDate(item.created_at)}
+                  {formatDateTime(item.created_at, localeLanguageTag(locale))}
                 </span>
               </button>
             </li>
@@ -298,17 +300,4 @@ function Favorites() {
       )}
     </section>
   )
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) {
-    return ''
-  }
-  return d.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }

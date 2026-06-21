@@ -9,6 +9,7 @@ import { useFetch } from '../../hooks/useFetch'
 import { useSemanticModels } from '../../hooks/useSemanticModels'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import type { SemanticModelFieldRow } from '../../types/semantic'
 import { pickValidIdOrFirst } from '../../utils/effectiveSelection'
 import { useAuth } from '../auth/AuthProvider'
@@ -16,13 +17,13 @@ import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
-import { adminFormLabelClass } from './adminClasses'
+import { adminBtnPrimaryClass, adminBtnSecondaryClass, adminFormLabelClass } from './adminClasses'
+import { AdminPanelShell } from './AdminPanelShell'
 import {
   datasourceSelectOptions,
   securityRoleOptions,
   semanticModelSelectOptions,
 } from './adminSelectOptions'
-import { ReadOnlyNote } from './ReadOnlyNote'
 
 const DEFAULT_FIELD_PAGE_SIZE = 15
 const EMPTY_DENIED_FIELDS: string[] = []
@@ -302,61 +303,79 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   )
 
   return (
-    <div style={containerStyle}>
-      <h2 style={headerStyle}>{t('admin.tabs.field_permissions')}</h2>
-
-      {!canEdit && <ReadOnlyNote />}
-
-      <div style={gridSelectStyle}>
-        <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>{t('admin.field_permissions.role')}</span>
+    <AdminPanelShell title={t('admin.tabs.field_permissions')} readOnly={!canEdit} maxWidth="100%">
+      <div className="bg-card-raised border-border grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 rounded-lg border p-4">
+        <label className={adminFormLabelClass}>
+          <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">
+            {t('admin.field_permissions.role')}
+          </span>
           <Select value={selectedRole} options={securityRoleOptions()} onChange={setSelectedRole} />
-        </div>
+        </label>
 
-        <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>{t('admin.field_permissions.datasource')}</span>
+        <label className={adminFormLabelClass}>
+          <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">
+            {t('admin.field_permissions.datasource')}
+          </span>
           <Select
             value={selectedDS}
             options={dsOptions}
             onChange={setSelectedDS}
             disabled={loadingDS || dsOptions.every((o) => o.disabled)}
           />
-        </div>
+        </label>
 
-        <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>{t('admin.field_permissions.semantic_model')}</span>
+        <label className={adminFormLabelClass}>
+          <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">
+            {t('admin.field_permissions.semantic_model')}
+          </span>
           <Select
             value={selectedModel}
             options={modelOptions}
             onChange={setSelectedModel}
             disabled={!selectedDS || loadingModels}
           />
-        </div>
+        </label>
       </div>
 
       {error && <ErrorAlert error={`${t('common.error')}: ${error}`} />}
 
-      <div style={contentLayout}>
+      <div className="bg-card border-border overflow-hidden rounded-lg border shadow-sm">
         <LoadingOverlay loading={loadingPolicy || loadingFields || saving}>
-          <div style={innerPanelStyle}>
-            <div style={panelHeaderStyle}>
-              <h3 style={sectionTitleStyle}>{t('admin.field_permissions.access_matrix')}</h3>
-              {modelName && <span style={badgeStyle}>{modelName}</span>}
+          <div className="p-6">
+            <div className="mb-5 flex flex-wrap items-center gap-3">
+              <h3 className="text-foreground m-0 text-base font-semibold">
+                {t('admin.field_permissions.access_matrix')}
+              </h3>
+              {modelName && (
+                <span className="bg-accent/15 text-accent inline-block rounded px-2 py-0.5 text-xs font-semibold">
+                  {modelName}
+                </span>
+              )}
             </div>
 
             {!selectedModel ? (
-              <div style={noModelStyle}>{t('admin.field_permissions.select_model')}</div>
+              <div className="text-foreground-muted bg-card-raised border-border rounded-lg border border-dashed p-[60px_20px] text-center text-sm">
+                {t('admin.field_permissions.select_model')}
+              </div>
             ) : !hasFields && !loadingFields ? (
-              <div style={noFieldsStyle}>{t('admin.field_permissions.no_fields')}</div>
+              <div className="text-foreground-muted p-[40px_20px] text-center text-sm">
+                {t('admin.field_permissions.no_fields')}
+              </div>
             ) : (
-              <div style={fieldsTableContainer}>
-                <table style={tableStyle}>
+              <div className="border-border overflow-x-auto rounded-lg border">
+                <table className="w-full border-collapse text-left text-sm">
                   <thead>
-                    <tr style={theadRow}>
-                      <th style={thStyle}>{t('admin.field_permissions.col_field')}</th>
-                      <th style={thStyle}>{t('admin.field_permissions.col_type')}</th>
-                      <th style={thStyle}>{t('admin.field_permissions.col_expression')}</th>
-                      <th style={{ ...thStyle, textAlign: 'center', width: 120 }}>
+                    <tr className="border-border bg-card-raised border-b">
+                      <th className="text-foreground p-[12px_16px] text-xs font-semibold tracking-wider uppercase">
+                        {t('admin.field_permissions.col_field')}
+                      </th>
+                      <th className="text-foreground p-[12px_16px] text-xs font-semibold tracking-wider uppercase">
+                        {t('admin.field_permissions.col_type')}
+                      </th>
+                      <th className="text-foreground p-[12px_16px] text-xs font-semibold tracking-wider uppercase">
+                        {t('admin.field_permissions.col_expression')}
+                      </th>
+                      <th className="text-foreground w-30 p-[12px_16px] text-center text-xs font-semibold tracking-wider uppercase">
                         {t('admin.field_permissions.col_denied')}
                       </th>
                     </tr>
@@ -365,40 +384,48 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                     {fieldRows.map((row) => {
                       const denied = isFieldDenied(row.name)
                       return (
-                        <tr key={`${row.kind}-${row.id}`} style={trRow}>
-                          <td style={tdStyle}>
-                            <div style={fieldNameContainer}>
-                              <strong style={nameStyle}>
+                        <tr key={`${row.kind}-${row.id}`} className="border-border border-b">
+                          <td className="text-foreground p-[12px_16px]">
+                            <div className="flex flex-col gap-0.5">
+                              <strong className="text-foreground flex items-center text-sm font-semibold">
                                 {row.name}
                                 {piiTypeByRef.has(row.ref) && (
                                   <span
-                                    style={piiBadgeStyle}
+                                    className="text-error text-micro ml-2 inline-block rounded-full bg-red-500/12 px-1.5 py-0.5 font-bold tracking-wide uppercase"
                                     title={`${t('admin.pii.badge')}: ${piiTypeByRef.get(row.ref)}`}
                                   >
                                     {t('admin.pii.badge')}
                                   </span>
                                 )}
                               </strong>
-                              {row.label && <span style={labelSpan}>{row.label}</span>}
+                              {row.label && (
+                                <span className="text-foreground-muted text-xs">{row.label}</span>
+                              )}
                             </div>
                           </td>
-                          <td style={tdStyle}>
+                          <td className="text-foreground p-[12px_16px]">
                             {row.kind === 'dimension' ? (
-                              <span style={dimTypeBadge}>dimension ({row.subtype})</span>
+                              <span className="text-2xs inline-block rounded bg-blue-500/10 px-1.5 py-0.5 font-medium text-blue-500 uppercase">
+                                dimension ({row.subtype})
+                              </span>
                             ) : (
-                              <span style={metricTypeBadge}>metric ({row.subtype})</span>
+                              <span className="text-success text-2xs inline-block rounded bg-emerald-500/10 px-1.5 py-0.5 font-medium uppercase">
+                                metric ({row.subtype})
+                              </span>
                             )}
                           </td>
-                          <td style={tdStyle}>
-                            <code style={codeStyle}>{row.ref}</code>
+                          <td className="text-foreground p-[12px_16px]">
+                            <code className="text-foreground-muted bg-card-raised rounded px-1.5 py-0.5 font-mono text-xs">
+                              {row.ref}
+                            </code>
                           </td>
-                          <td style={{ ...tdStyle, textAlign: 'center' }}>
+                          <td className="text-foreground p-[12px_16px] text-center">
                             <input
                               type="checkbox"
                               checked={denied}
                               onChange={() => handleToggleField(row.name)}
                               disabled={!canEdit}
-                              style={checkboxStyle}
+                              className="size-4 cursor-pointer"
                             />
                           </td>
                         </tr>
@@ -418,37 +445,49 @@ export function FieldPermissionPanel({ token }: { token: string }) {
             )}
 
             {piiColumns.length > 0 && (
-              <div style={{ marginTop: 32 }}>
-                <div style={panelHeaderStyle}>
-                  <h3 style={sectionTitleStyle}>{t('admin.pii.policy_title')}</h3>
+              <div className="mt-8">
+                <div className="mb-5 flex items-center gap-3">
+                  <h3 className="text-foreground m-0 text-base font-semibold">
+                    {t('admin.pii.policy_title')}
+                  </h3>
                 </div>
-                <p style={piiDescStyle}>{t('admin.pii.policy_description')}</p>
-                <div style={fieldsTableContainer}>
-                  <table style={tableStyle}>
+                <p className="text-foreground-muted m-0 mb-3 text-sm">
+                  {t('admin.pii.policy_description')}
+                </p>
+                <div className="border-border overflow-x-auto rounded-lg border">
+                  <table className="w-full border-collapse text-left text-sm">
                     <thead>
-                      <tr style={theadRow}>
-                        <th style={thStyle}>{t('admin.pii.col_column')}</th>
-                        <th style={thStyle}>{t('admin.pii.col_type')}</th>
-                        <th style={{ ...thStyle, width: 200 }}>{t('admin.pii.col_access')}</th>
+                      <tr className="border-border bg-card-raised border-b">
+                        <th className="text-foreground p-[12px_16px] text-xs font-semibold tracking-wider uppercase">
+                          {t('admin.pii.col_column')}
+                        </th>
+                        <th className="text-foreground p-[12px_16px] text-xs font-semibold tracking-wider uppercase">
+                          {t('admin.pii.col_type')}
+                        </th>
+                        <th className="text-foreground w-50 p-[12px_16px] text-xs font-semibold tracking-wider uppercase">
+                          {t('admin.pii.col_access')}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {piiColumns.map((col) => (
-                        <tr key={col.column_id} style={trRow}>
-                          <td style={tdStyle}>
-                            <code style={codeStyle}>
+                        <tr key={col.column_id} className="border-border border-b">
+                          <td className="text-foreground p-[12px_16px]">
+                            <code className="text-foreground-muted bg-card-raised rounded px-1.5 py-0.5 font-mono text-xs">
                               {col.schema}.{col.table}.{col.column}
                             </code>
                           </td>
-                          <td style={tdStyle}>
-                            <span style={dimTypeBadge}>{col.pii_type}</span>
+                          <td className="text-foreground p-[12px_16px]">
+                            <span className="text-2xs inline-block rounded bg-blue-500/10 px-1.5 py-0.5 font-medium text-blue-500 uppercase">
+                              {col.pii_type}
+                            </span>
                           </td>
-                          <td style={tdStyle}>
+                          <td className="text-foreground p-[12px_16px]">
                             <select
                               value={piiAccessFor(col)}
                               onChange={(e) => handlePIIAccessChange(col, e.target.value)}
                               disabled={!canEdit}
-                              style={piiSelectStyle}
+                              className="border-border bg-card text-foreground min-w-45 rounded border p-[6px_10px] text-sm focus-visible:outline-none"
                               aria-label={t('admin.field_permissions.access', {
                                 column: col.column,
                               })}
@@ -466,11 +505,14 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                     </tbody>
                   </table>
                 </div>
-                <div style={{ marginTop: 12 }}>
+                <div className="mt-3">
                   <button
                     onClick={handleBulkApplyDefaults}
                     disabled={!canEdit}
-                    style={!canEdit ? btnSecondaryDisabled : btnSecondary}
+                    className={cn(
+                      adminBtnSecondaryClass,
+                      !canEdit && 'cursor-not-allowed opacity-50',
+                    )}
                   >
                     {t('admin.pii.bulk_apply', { role: selectedRole })}
                   </button>
@@ -478,13 +520,16 @@ export function FieldPermissionPanel({ token }: { token: string }) {
               </div>
             )}
 
-            <div style={{ marginTop: 24 }}>
+            <div className="mt-6">
               <button
                 onClick={() => {
                   void handleSave()
                 }}
                 disabled={isSavingDisabled || !canEdit}
-                style={isSavingDisabled || !canEdit ? btnPrimaryDisabled : btnPrimary}
+                className={cn(
+                  adminBtnPrimaryClass,
+                  (isSavingDisabled || !canEdit) && 'cursor-not-allowed opacity-50',
+                )}
               >
                 {t('admin.field_permissions.save')}
               </button>
@@ -492,249 +537,6 @@ export function FieldPermissionPanel({ token }: { token: string }) {
           </div>
         </LoadingOverlay>
       </div>
-    </div>
+    </AdminPanelShell>
   )
-}
-
-const containerStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 20,
-}
-
-const headerStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: '20px',
-  fontWeight: 600,
-  color: 'var(--text-primary, #f4f4f5)',
-}
-
-const gridSelectStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-  gap: 16,
-  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.04))',
-  padding: 16,
-  borderRadius: 8,
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-}
-
-const labelStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 6,
-}
-
-const labelTextStyle: React.CSSProperties = {
-  fontSize: '12px',
-  color: 'var(--text-secondary, #a1a1aa)',
-  fontWeight: 500,
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-}
-
-const contentLayout: React.CSSProperties = {
-  background: 'var(--bg-card, #ffffff)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 8,
-  overflow: 'hidden',
-  boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
-}
-
-const innerPanelStyle: React.CSSProperties = {
-  padding: 24,
-}
-
-const panelHeaderStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 12,
-  marginBottom: 20,
-}
-
-const sectionTitleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 16,
-  fontWeight: 600,
-  color: 'var(--text-primary, #f4f4f5)',
-}
-
-const badgeStyle: React.CSSProperties = {
-  padding: '2px 8px',
-  background: 'rgba(99, 102, 241, 0.15)',
-  color: 'var(--accent)',
-  borderRadius: 4,
-  fontSize: 11,
-  fontWeight: 600,
-}
-
-const noModelStyle: React.CSSProperties = {
-  padding: '60px 20px',
-  textAlign: 'center',
-  color: 'var(--text-secondary, #a1a1aa)',
-  fontSize: 14,
-  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.02))',
-  borderRadius: 6,
-  border: '1px dashed var(--border, rgba(255, 255, 255, 0.06))',
-}
-
-const noFieldsStyle: React.CSSProperties = {
-  padding: '40px 20px',
-  textAlign: 'center',
-  color: 'var(--text-secondary, #a1a1aa)',
-  fontSize: 14,
-}
-
-const fieldsTableContainer: React.CSSProperties = {
-  overflowX: 'auto',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 6,
-}
-
-const tableStyle: React.CSSProperties = {
-  width: '100%',
-  borderCollapse: 'collapse',
-  fontSize: 14,
-  textAlign: 'left',
-}
-
-const theadRow: React.CSSProperties = {
-  background: 'var(--bg-card-raised, #f9fafb)',
-  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  fontWeight: 600,
-  color: 'var(--text-primary, #f4f4f5)',
-  fontSize: 13,
-}
-
-const trRow: React.CSSProperties = {
-  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  color: 'var(--text-primary, #f4f4f5)',
-}
-
-const fieldNameContainer: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 2,
-}
-
-const nameStyle: React.CSSProperties = {
-  fontSize: 14,
-  color: 'var(--text-primary, #f4f4f5)',
-}
-
-const labelSpan: React.CSSProperties = {
-  fontSize: 11,
-  color: 'var(--text-secondary, #a1a1aa)',
-}
-
-const dimTypeBadge: React.CSSProperties = {
-  padding: '2px 6px',
-  background: 'rgba(59, 130, 246, 0.1)',
-  color: '#3b82f6',
-  borderRadius: 4,
-  fontSize: 11,
-  fontWeight: 500,
-}
-
-const metricTypeBadge: React.CSSProperties = {
-  padding: '2px 6px',
-  background: 'rgba(16, 185, 129, 0.1)',
-  color: '#10b981',
-  borderRadius: 4,
-  fontSize: 11,
-  fontWeight: 500,
-}
-
-const codeStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-mono, monospace)',
-  fontSize: 12,
-  color: 'var(--text-secondary, #a1a1aa)',
-  background: 'var(--bg-card-raised, rgba(0, 0, 0, 0.2))',
-  padding: '2px 6px',
-  borderRadius: 4,
-}
-
-const checkboxStyle: React.CSSProperties = {
-  width: 16,
-  height: 16,
-  cursor: 'pointer',
-}
-
-const btnPrimary: React.CSSProperties = {
-  padding: '8px 16px',
-  background: 'var(--accent)',
-  color: 'white',
-  border: 0,
-  borderRadius: 6,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 600,
-  boxShadow: 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05))',
-}
-
-const btnPrimaryDisabled: React.CSSProperties = {
-  padding: '8px 16px',
-  background: 'var(--border, rgba(255, 255, 255, 0.06))',
-  color: 'var(--text-secondary, #a1a1aa)',
-  border: 0,
-  borderRadius: 6,
-  cursor: 'not-allowed',
-  fontSize: 13,
-  fontWeight: 600,
-  opacity: 0.5,
-}
-
-const piiBadgeStyle: React.CSSProperties = {
-  marginLeft: 8,
-  padding: '1px 6px',
-  background: 'rgba(239, 68, 68, 0.12)',
-  color: '#ef4444',
-  borderRadius: 999,
-  fontSize: 10,
-  fontWeight: 700,
-  letterSpacing: '0.5px',
-  verticalAlign: 'middle',
-}
-
-const piiDescStyle: React.CSSProperties = {
-  margin: '0 0 12px',
-  fontSize: 13,
-  color: 'var(--text-secondary, #a1a1aa)',
-}
-
-const piiSelectStyle: React.CSSProperties = {
-  padding: '6px 10px',
-  borderRadius: 6,
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.12))',
-  background: 'var(--bg-card, transparent)',
-  color: 'var(--text-primary, #f4f4f5)',
-  fontSize: 13,
-  minWidth: 180,
-}
-
-const btnSecondary: React.CSSProperties = {
-  padding: '6px 12px',
-  background: 'transparent',
-  color: 'var(--accent)',
-  border: '1px solid var(--accent)',
-  borderRadius: 6,
-  cursor: 'pointer',
-  fontSize: 12,
-  fontWeight: 600,
-}
-
-const btnSecondaryDisabled: React.CSSProperties = {
-  ...btnSecondary,
-  color: 'var(--text-secondary, #a1a1aa)',
-  border: '1px solid var(--border, rgba(255,255,255,0.1))',
-  cursor: 'not-allowed',
-  opacity: 0.5,
 }

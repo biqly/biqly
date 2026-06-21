@@ -1,4 +1,5 @@
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import type { SemanticDimension, SemanticMetric } from '../../types/semantic'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
@@ -72,7 +73,7 @@ export function SummarizeStep({
               return (
                 <div
                   key={item.id}
-                  className={`${qbTagBase} ${qbTagGreenClass} flex items-center gap-1`}
+                  className={cn(qbTagBase, qbTagGreenClass, 'flex items-center gap-1')}
                 >
                   <Select
                     value={item.name}
@@ -102,7 +103,7 @@ export function SummarizeStep({
         {/* Group by dimensions */}
         <div className={qbSummarizeSectionClass}>
           {groupBy.map((g, i) => (
-            <div key={i} className={`${qbTagBase} ${qbTagBlueClass} flex items-center gap-1`}>
+            <div key={i} className={cn(qbTagBase, qbTagBlueClass, 'flex items-center gap-1')}>
               <Select
                 value={g}
                 onChange={(v) => updateGroupByRow(i, v)}

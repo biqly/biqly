@@ -5,17 +5,17 @@ import { useAsyncState } from '../../hooks/useAsyncState'
 import { useFetch } from '../../hooks/useFetch'
 import { useRowSelection } from '../../hooks/useRowSelection'
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import type { Permission, Role } from '../../types/auth'
 import { sameIdSet, selectionStateFor } from '../../utils/selection'
 import { useAuth } from '../auth/AuthProvider'
-import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import {
   adminBtnPrimaryClass,
   adminBtnSecondaryClass,
   adminRoleListItemClass,
 } from './adminClasses'
-import { ReadOnlyNote } from './ReadOnlyNote'
+import { AdminPanelShell } from './AdminPanelShell'
 
 const ALL_PAGE_SIZE = 500
 const EMPTY_ROLES: Role[] = []
@@ -120,29 +120,23 @@ export function RolesPanel({ token }: { token: string }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {error && <ErrorAlert error={`${t('common.error')}: ${error}`} />}
-      {!canEdit && <ReadOnlyNote />}
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(220px, 280px) 1fr',
-          gap: 24,
-          alignItems: 'start',
-        }}
-      >
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>
+    <AdminPanelShell
+      title={t('admin.roles.title', { count: roles.length })}
+      readOnly={!canEdit}
+      error={error}
+      maxWidth="100%"
+    >
+      <div className="grid w-full grid-cols-1 items-start gap-6 md:grid-cols-[minmax(220px,280px)_1fr]">
+        {/* ROLES SIDEBAR */}
+        <section className="flex min-w-0 flex-col gap-3">
+          <h3 className="text-foreground m-0 text-base font-bold">
             {t('admin.roles.title', { count: roles.length })}
-          </h2>
-          <div style={containerStyle}>
+          </h3>
+          <div className="border-border bg-card overflow-hidden rounded-lg border shadow-sm">
             <LoadingOverlay loading={loadingMeta}>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              <ul className="m-0 list-none p-0">
                 {roles.length === 0 ? (
-                  <li style={{ padding: 16, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-                    —
-                  </li>
+                  <li className="text-foreground-muted p-4 text-center text-xs">—</li>
                 ) : (
                   roles.map((r) => {
                     const active = r.id === selectedRoleId
@@ -153,15 +147,9 @@ export function RolesPanel({ token }: { token: string }) {
                           onClick={() => setSelectedRoleId(r.id)}
                           className={adminRoleListItemClass(active)}
                         >
-                          <strong style={{ fontSize: 14 }}>{r.name}</strong>
+                          <strong className="text-sm font-semibold">{r.name}</strong>
                           {r.description && (
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: 'var(--text-secondary, #a1a1aa)',
-                                marginTop: 4,
-                              }}
-                            >
+                            <div className="text-foreground-muted mt-1 text-xs">
                               {r.description}
                             </div>
                           )}
@@ -175,23 +163,16 @@ export function RolesPanel({ token }: { token: string }) {
           </div>
         </section>
 
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 12,
-              flexWrap: 'wrap',
-            }}
-          >
-            <h2 style={{ marginTop: 0, fontSize: 18, marginBottom: 0 }}>
+        {/* PERMISSIONS PANEL */}
+        <section className="flex min-w-0 flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-foreground m-0 text-base font-bold">
               {selectedRole
                 ? t('admin.roles.permissions_for', { role: selectedRole.name })
                 : t('admin.roles.permissions_title', { count: allPerms.length })}
-            </h2>
+            </h3>
             {selectedRole && dirty && (
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="flex gap-2">
                 <button
                   type="button"
                   className={adminBtnSecondaryClass}
@@ -213,13 +194,11 @@ export function RolesPanel({ token }: { token: string }) {
           </div>
 
           {!selectedRole ? (
-            <p style={hintStyle}>{t('admin.roles.select_role_hint')}</p>
+            <p className="text-foreground-muted m-0 text-sm">{t('admin.roles.select_role_hint')}</p>
           ) : (
-            <div style={containerStyle}>
+            <div className="border-border bg-card overflow-hidden rounded-lg border shadow-sm">
               <LoadingOverlay loading={loadingMeta || loadingRolePerms}>
-                <div
-                  style={{ padding: '12px 16px', maxHeight: 'min(70vh, 640px)', overflowY: 'auto' }}
-                >
+                <div className="max-h-[min(70vh,640px)] overflow-y-auto p-3 md:p-4">
                   {permsByResource.map(({ resource, permissions }) => {
                     const groupState = selectionStateFor(
                       assignedIds,
@@ -227,8 +206,8 @@ export function RolesPanel({ token }: { token: string }) {
                     )
                     const allChecked = groupState === 'all'
                     return (
-                      <div key={resource} style={{ marginBottom: 20 }}>
-                        <label style={groupLabelStyle}>
+                      <div key={resource} className="mb-5">
+                        <label className="flex cursor-pointer items-center gap-2 font-semibold">
                           <input
                             type="checkbox"
                             checked={allChecked}
@@ -241,32 +220,23 @@ export function RolesPanel({ token }: { token: string }) {
                             disabled={!canEdit}
                           />
                           {resourceBadge(resource)}
-                          <span
-                            style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-secondary)' }}
-                          >
+                          <span className="text-foreground-muted ml-2 text-xs">
                             {permissions.filter((p) => assignedIds.has(p.id)).length}/
                             {permissions.length}
                           </span>
                         </label>
-                        <ul style={{ listStyle: 'none', padding: '8px 0 0 28px', margin: 0 }}>
+                        <ul className="m-0 list-none px-0 pt-2 pb-0 pl-7">
                           {permissions.map((p) => (
-                            <li key={p.id} style={{ marginBottom: 8 }}>
-                              <label style={permLabelStyle}>
+                            <li key={p.id} className="mb-2">
+                              <label className="flex cursor-pointer items-center gap-2 text-sm">
                                 <input
                                   type="checkbox"
                                   checked={assignedIds.has(p.id)}
                                   onChange={() => assigned.toggle(p.id)}
                                   disabled={!canEdit}
                                 />
-                                <span
-                                  style={{
-                                    fontFamily: 'var(--font-mono, monospace)',
-                                    fontSize: 12,
-                                  }}
-                                >
-                                  {p.name}
-                                </span>
-                                <span style={{ marginLeft: 8 }}>{actionBadge(p.action)}</span>
+                                <span className="font-mono text-xs">{p.name}</span>
+                                <span className="ml-2">{actionBadge(p.action)}</span>
                               </label>
                             </li>
                           ))}
@@ -280,92 +250,42 @@ export function RolesPanel({ token }: { token: string }) {
           )}
         </section>
       </div>
-    </div>
+    </AdminPanelShell>
   )
 }
 
 function resourceBadge(res: string) {
-  let style: React.CSSProperties = {
-    padding: '2px 8px',
-    borderRadius: '12px',
-    fontSize: '11px',
-    fontWeight: 600,
-    textTransform: 'uppercase',
-    letterSpacing: '0.4px',
-    display: 'inline-block',
-  }
+  let colorClasses = 'bg-foreground/10 text-foreground-muted'
   switch (res) {
     case 'admin':
-      style = { ...style, background: 'rgba(239, 68, 68, 0.12)', color: 'var(--error, #ef4444)' }
+      colorClasses = 'bg-red-500/12 text-error'
       break
     case 'ai':
-      style = { ...style, background: 'rgba(16, 185, 129, 0.12)', color: 'var(--success, #10b981)' }
+      colorClasses = 'bg-emerald-500/12 text-success'
       break
     case 'datasource':
-      style = {
-        ...style,
-        background: 'var(--accent-glow, rgba(99, 102, 241, 0.15))',
-        color: 'var(--accent)',
-      }
+      colorClasses = 'bg-accent/15 text-accent'
       break
     case 'model':
-      style = { ...style, background: 'rgba(245, 158, 11, 0.14)', color: 'var(--warning, #f59e0b)' }
+      colorClasses = 'bg-amber-500/14 text-warning'
       break
-    default:
-      style = {
-        ...style,
-        background: 'rgba(107, 114, 128, 0.1)',
-        color: 'var(--text-secondary, #a1a1aa)',
-      }
   }
-  return <span style={style}>{res}</span>
-}
-
-function actionBadge(act: string) {
   return (
     <span
-      style={{
-        padding: '2px 6px',
-        background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.08))',
-        border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-        color: 'var(--text-primary, #f4f4f5)',
-        borderRadius: '4px',
-        fontSize: '11px',
-        fontFamily: 'var(--font-mono, monospace)',
-        display: 'inline-block',
-      }}
+      className={cn(
+        'text-2xs inline-block rounded-full px-2 py-0.5 font-semibold tracking-[0.4px] uppercase',
+        colorClasses,
+      )}
     >
-      {act}
+      {res}
     </span>
   )
 }
 
-const containerStyle: React.CSSProperties = {
-  background: 'var(--bg-card, #ffffff)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 8,
-  overflow: 'hidden',
-  boxShadow: 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05))',
-}
-
-const groupLabelStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  cursor: 'pointer',
-  fontWeight: 600,
-}
-
-const permLabelStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  cursor: 'pointer',
-  fontSize: 13,
-}
-
-const hintStyle: React.CSSProperties = {
-  color: 'var(--text-secondary, #a1a1aa)',
-  fontSize: 14,
-  margin: 0,
+function actionBadge(act: string) {
+  return (
+    <span className="border-border bg-card-raised text-2xs text-foreground inline-block rounded border px-1.5 py-0.5 font-mono">
+      {act}
+    </span>
+  )
 }

@@ -4,12 +4,14 @@ import type { PIIColumn, PIIScanSummary } from '../../api/admin'
 import { deleteColumnPII, listPIIColumns, scanPII, updateColumnPII } from '../../api/admin'
 import { useDatasources } from '../../hooks/useDatasources'
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Select } from '../ui/Select'
-import { adminFormLabelClass } from './adminClasses'
+import { adminBtnPrimaryClass, adminFormLabelClass } from './adminClasses'
+import { AdminPanelShell } from './AdminPanelShell'
 import { datasourceSelectOptions } from './adminSelectOptions'
 import {
   normalizePIIMaskingStrategy,
@@ -18,7 +20,6 @@ import {
   piiStrategyChanged,
   shouldShowPIIConfirmAction,
 } from './piiDetectionPanelLogic'
-import { ReadOnlyNote } from './ReadOnlyNote'
 
 const PII_TYPES = [
   'email',
@@ -143,28 +144,33 @@ export function PIIDetectionPanel({ token }: { token: string }) {
     : 0
 
   return (
-    <div className="pii-panel" style={containerStyle}>
-      <h2 style={headerStyle}>{t('admin.pii.title')}</h2>
-      <p style={descriptionStyle}>{t('admin.pii.description')}</p>
-
-      {!canEdit && <ReadOnlyNote />}
-
-      <div style={toolbarStyle}>
-        <div style={labelStyle} className={adminFormLabelClass}>
-          <span style={labelTextStyle}>{t('admin.pii.datasource')}</span>
+    <AdminPanelShell
+      title={t('admin.pii.title')}
+      description={t('admin.pii.description')}
+      readOnly={!canEdit}
+      maxWidth="100%"
+    >
+      <div className="bg-card-raised border-border flex flex-wrap items-end gap-4 rounded-lg border p-4">
+        <label className={cn(adminFormLabelClass, 'min-w-55')}>
+          <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">
+            {t('admin.pii.datasource')}
+          </span>
           <Select
             value={selectedDS}
             options={dsOptions}
             onChange={setSelectedDS}
             disabled={loadingDS || dsOptions.every((o) => o.disabled)}
           />
-        </div>
+        </label>
         <button
           onClick={() => {
             void handleRescan()
           }}
           disabled={!canEdit || !selectedDS || scanning}
-          style={!canEdit || !selectedDS || scanning ? btnPrimaryDisabled : btnPrimary}
+          className={cn(
+            adminBtnPrimaryClass,
+            (!canEdit || !selectedDS || scanning) && 'cursor-not-allowed opacity-50',
+          )}
         >
           {scanning ? t('admin.pii.scanning') : t('admin.pii.rescan')}
         </button>
@@ -172,7 +178,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
 
       {error && <ErrorAlert error={`${t('common.error')}: ${error}`} />}
       {scanSummary && (
-        <div style={successStyle}>
+        <div className="text-success rounded-lg border border-emerald-500/20 bg-emerald-500/12 p-[10px_16px] text-sm font-medium">
           {t('admin.pii.scan_summary', {
             scanned: String(scanSummary.scanned_columns),
             detected: String(totalDetected),
@@ -181,21 +187,37 @@ export function PIIDetectionPanel({ token }: { token: string }) {
       )}
 
       <LoadingOverlay loading={loading}>
-        <div style={contentLayout}>
+        <div className="border-border bg-card overflow-x-auto rounded-lg border shadow-sm">
           {!selectedDS ? (
-            <div style={emptyStyle}>{t('admin.pii.select_datasource')}</div>
+            <div className="text-foreground-muted p-[60px_20px] text-center text-sm">
+              {t('admin.pii.select_datasource')}
+            </div>
           ) : columns.length === 0 && !loading ? (
-            <div style={emptyStyle}>{t('admin.pii.empty')}</div>
+            <div className="text-foreground-muted p-[60px_20px] text-center text-sm">
+              {t('admin.pii.empty')}
+            </div>
           ) : (
-            <table style={tableStyle}>
+            <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr style={theadRow}>
-                  <th style={thStyle}>{t('admin.pii.col_column')}</th>
-                  <th style={thStyle}>{t('admin.pii.col_type')}</th>
-                  <th style={thStyle}>{t('admin.pii.col_confidence')}</th>
-                  <th style={thStyle}>{t('admin.pii.col_strategy')}</th>
-                  <th style={thStyle}>{t('admin.pii.col_reviewed')}</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>{t('admin.pii.col_actions')}</th>
+                <tr className="border-border bg-card-raised border-b">
+                  <th className="text-foreground p-[12px_16px] text-xs font-semibold tracking-wider uppercase">
+                    {t('admin.pii.col_column')}
+                  </th>
+                  <th className="text-foreground p-[12px_16px] text-xs font-semibold tracking-wider uppercase">
+                    {t('admin.pii.col_type')}
+                  </th>
+                  <th className="text-foreground p-[12px_16px] text-xs font-semibold tracking-wider uppercase">
+                    {t('admin.pii.col_confidence')}
+                  </th>
+                  <th className="text-foreground p-[12px_16px] text-xs font-semibold tracking-wider uppercase">
+                    {t('admin.pii.col_strategy')}
+                  </th>
+                  <th className="text-foreground p-[12px_16px] text-xs font-semibold tracking-wider uppercase">
+                    {t('admin.pii.col_reviewed')}
+                  </th>
+                  <th className="text-foreground p-[12px_16px] text-right text-xs font-semibold tracking-wider uppercase">
+                    {t('admin.pii.col_actions')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -217,13 +239,13 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                   })
 
                   return (
-                    <tr key={col.column_id} style={trRow}>
-                      <td style={tdStyle}>
-                        <code style={codeStyle}>
+                    <tr key={col.column_id} className="border-border border-b">
+                      <td className="text-foreground p-[12px_16px]">
+                        <code className="text-foreground-muted bg-card-raised rounded px-1.5 py-0.5 font-mono text-xs">
                           {col.schema}.{col.table}.{col.column}
                         </code>
                       </td>
-                      <td style={tdStyle}>
+                      <td className="text-foreground p-[12px_16px]">
                         {canEdit && !col.reviewed_by ? (
                           <select
                             value={pendingType[col.column_id] ?? col.pii_type}
@@ -233,7 +255,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                                 [col.column_id]: e.target.value,
                               }))
                             }
-                            style={typeSelectStyle}
+                            className="border-border bg-card text-foreground rounded border p-1 px-2 text-xs focus-visible:outline-none"
                             aria-label={t('admin.pii.col_type')}
                           >
                             {PII_TYPES.map((typ) => (
@@ -243,13 +265,15 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                             ))}
                           </select>
                         ) : (
-                          <span style={typeBadge}>{col.pii_type}</span>
+                          <span className="bg-accent/15 text-accent inline-block rounded px-2 py-0.5 text-xs font-semibold">
+                            {col.pii_type}
+                          </span>
                         )}
                       </td>
-                      <td style={tdStyle}>
+                      <td className="text-foreground p-[12px_16px]">
                         <ConfidenceBadge confidence={col.confidence} />
                       </td>
-                      <td style={tdStyle}>
+                      <td className="text-foreground p-[12px_16px]">
                         {canEdit ? (
                           <>
                             <select
@@ -260,7 +284,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                                   [col.column_id]: e.target.value,
                                 }))
                               }
-                              style={typeSelectStyle}
+                              className="border-border bg-card text-foreground rounded border p-1 px-2 text-xs focus-visible:outline-none"
                               aria-label={t('admin.pii.col_strategy')}
                             >
                               {PII_MASKING_STRATEGIES.map((strategy) => (
@@ -270,7 +294,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                               ))}
                             </select>
                             {hasRawPIIAccess && (
-                              <div style={strategyHintStyle}>
+                              <div className="text-foreground-muted text-2xs mt-1 leading-normal">
                                 {t('admin.pii.strategy_raw_access_note')}
                               </div>
                             )}
@@ -283,23 +307,25 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                           </span>
                         )}
                       </td>
-                      <td style={tdStyle}>
+                      <td className="text-foreground p-[12px_16px]">
                         {col.reviewed_by ? (
-                          <span style={reviewedBadge}>
+                          <span className="text-success text-xs font-medium">
                             {t('admin.pii.reviewed_by', { reviewer: col.reviewed_by })}
                           </span>
                         ) : (
-                          <span style={unreviewedBadge}>{t('admin.pii.unreviewed')}</span>
+                          <span className="text-warning text-xs font-medium">
+                            {t('admin.pii.unreviewed')}
+                          </span>
                         )}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td className="text-foreground p-[12px_16px] text-right whitespace-nowrap">
                         {showConfirm && (
                           <button
                             onClick={() => {
                               void handleConfirm(col)
                             }}
                             disabled={!canEdit}
-                            style={canEdit ? btnSmall : btnSmallDisabled}
+                            className="border-accent bg-accent/10 text-accent hover:bg-accent/20 mr-2 cursor-pointer rounded border px-2.5 py-1 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {t('admin.pii.confirm')}
                           </button>
@@ -309,7 +335,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                             void handleDismiss(col)
                           }}
                           disabled={!canEdit}
-                          style={canEdit ? btnSmallDanger : btnSmallDisabled}
+                          className="border-error bg-error/10 text-error hover:bg-error/20 cursor-pointer rounded border px-2.5 py-1 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {t('admin.pii.dismiss')}
                         </button>
@@ -322,7 +348,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
           )}
         </div>
       </LoadingOverlay>
-    </div>
+    </AdminPanelShell>
   )
 }
 
@@ -331,203 +357,20 @@ function ConfidenceBadge({ confidence }: { confidence: number | null }) {
     return <span>—</span>
   }
   const pct = Math.round(confidence * 100)
-  const color = confidence > 0.8 ? '#10b981' : confidence >= 0.6 ? '#f59e0b' : '#ef4444'
+  const colorClass =
+    confidence > 0.8
+      ? 'text-success bg-emerald-500/10 border-emerald-500/20'
+      : confidence >= 0.6
+        ? 'text-warning bg-amber-500/10 border-amber-500/20'
+        : 'text-error bg-red-500/10 border-red-500/20'
   return (
     <span
-      style={{
-        padding: '2px 8px',
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 600,
-        color,
-        background: `${color}1a`,
-        border: `1px solid ${color}33`,
-      }}
+      className={cn(
+        'inline-block rounded-full border px-2 py-0.5 text-xs font-semibold',
+        colorClass,
+      )}
     >
       {pct}%
     </span>
   )
-}
-
-const containerStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16 }
-
-const headerStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: '20px',
-  fontWeight: 600,
-  color: 'var(--text-primary, #f4f4f5)',
-}
-
-const descriptionStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 13,
-  color: 'var(--text-secondary, #a1a1aa)',
-}
-
-const toolbarStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-end',
-  gap: 16,
-  background: 'var(--bg-card-raised, rgba(255, 255, 255, 0.04))',
-  padding: 16,
-  borderRadius: 8,
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-}
-
-const labelStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 6,
-  minWidth: 220,
-}
-
-const labelTextStyle: React.CSSProperties = {
-  fontSize: '12px',
-  color: 'var(--text-secondary, #a1a1aa)',
-  fontWeight: 500,
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-}
-
-const contentLayout: React.CSSProperties = {
-  background: 'var(--bg-card, #ffffff)',
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-  borderRadius: 8,
-  overflow: 'auto',
-}
-
-const emptyStyle: React.CSSProperties = {
-  padding: '60px 20px',
-  textAlign: 'center',
-  color: 'var(--text-secondary, #a1a1aa)',
-  fontSize: 14,
-}
-
-const tableStyle: React.CSSProperties = {
-  width: '100%',
-  borderCollapse: 'collapse',
-  fontSize: 14,
-  textAlign: 'left',
-}
-
-const theadRow: React.CSSProperties = {
-  background: 'var(--bg-card-raised, #f9fafb)',
-  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  fontWeight: 600,
-  color: 'var(--text-primary, #f4f4f5)',
-  fontSize: 13,
-}
-
-const trRow: React.CSSProperties = {
-  borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.06))',
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  color: 'var(--text-primary, #f4f4f5)',
-}
-
-const codeStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-mono, monospace)',
-  fontSize: 12,
-  color: 'var(--text-secondary, #a1a1aa)',
-  background: 'var(--bg-card-raised, rgba(0, 0, 0, 0.2))',
-  padding: '2px 6px',
-  borderRadius: 4,
-}
-
-const typeBadge: React.CSSProperties = {
-  padding: '2px 8px',
-  background: 'rgba(99, 102, 241, 0.15)',
-  color: 'var(--accent)',
-  borderRadius: 4,
-  fontSize: 11,
-  fontWeight: 600,
-}
-
-const typeSelectStyle: React.CSSProperties = {
-  padding: '4px 8px',
-  borderRadius: 4,
-  border: '1px solid var(--border, rgba(255, 255, 255, 0.12))',
-  background: 'var(--bg-card, transparent)',
-  color: 'var(--text-primary, #f4f4f5)',
-  fontSize: 12,
-}
-
-const reviewedBadge: React.CSSProperties = {
-  fontSize: 11,
-  color: '#10b981',
-  fontWeight: 500,
-}
-
-const unreviewedBadge: React.CSSProperties = {
-  fontSize: 11,
-  color: '#f59e0b',
-  fontWeight: 500,
-}
-
-const strategyHintStyle: React.CSSProperties = {
-  marginTop: 4,
-  color: 'var(--text-secondary, #a1a1aa)',
-  fontSize: 11,
-  lineHeight: 1.35,
-}
-
-const btnPrimary: React.CSSProperties = {
-  padding: '8px 16px',
-  background: 'var(--accent)',
-  color: 'white',
-  border: 0,
-  borderRadius: 6,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 600,
-}
-
-const btnPrimaryDisabled: React.CSSProperties = {
-  ...btnPrimary,
-  background: 'var(--border, rgba(255, 255, 255, 0.06))',
-  color: 'var(--text-secondary, #a1a1aa)',
-  cursor: 'not-allowed',
-  opacity: 0.5,
-}
-
-const btnSmall: React.CSSProperties = {
-  padding: '4px 10px',
-  marginLeft: 8,
-  background: 'transparent',
-  color: 'var(--accent)',
-  border: '1px solid var(--accent)',
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontSize: 12,
-  fontWeight: 600,
-}
-
-const btnSmallDanger: React.CSSProperties = {
-  ...btnSmall,
-  color: '#ef4444',
-  border: '1px solid #ef4444',
-}
-
-const btnSmallDisabled: React.CSSProperties = {
-  ...btnSmall,
-  color: 'var(--text-secondary, #a1a1aa)',
-  border: '1px solid var(--border, rgba(255,255,255,0.1))',
-  cursor: 'not-allowed',
-  opacity: 0.5,
-}
-
-const successStyle: React.CSSProperties = {
-  color: 'var(--success, #10b981)',
-  padding: '10px 16px',
-  background: 'rgba(16, 185, 129, 0.1)',
-  borderRadius: 6,
-  border: '1px solid rgba(16, 185, 129, 0.2)',
-  fontSize: 13,
-  fontWeight: 500,
 }

@@ -15,15 +15,17 @@ import { useConfirmedMutation } from '../../hooks/useConfirmedMutation'
 import { useModal } from '../../hooks/useModal'
 import { useToast } from '../../hooks/useToast'
 import { useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
+import { adminBtnPrimaryClass, adminBtnSecondaryClass } from './adminClasses'
+import { AdminPanelShell } from './AdminPanelShell'
 import { AIModelSharingPanel } from './AIModelSharingPanel'
 import { PURPOSES } from './aiProviderModalShared'
 import { ModelModal } from './ModelModal'
 import { ProviderModal } from './ProviderModal'
-import { ReadOnlyNote } from './ReadOnlyNote'
 
 const adminAiCardClass = 'border border-border rounded-[10px] bg-card overflow-hidden'
 const adminAiCardHeaderClass = 'py-3.5 px-[18px] border-b border-border'
@@ -162,16 +164,13 @@ export function AIProvidersPanel() {
   const activeByPurpose = (purpose: AIPurpose) => activeModels.find((m) => m.purpose === purpose)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div>
-        <h2 style={{ margin: 0, fontSize: 18 }}>{t('admin.ai_providers.title')}</h2>
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>
-          {t('admin.ai_providers.description')}
-        </p>
-      </div>
-
+    <AdminPanelShell
+      title={t('admin.ai_providers.title')}
+      description={t('admin.ai_providers.description')}
+      readOnly={!canEdit}
+      maxWidth="100%"
+    >
       {error && <ErrorAlert error={`${t('common.error')}: ${error}`} />}
-      {!canEdit && <ReadOnlyNote />}
 
       <AIModelSharingPanel />
 
@@ -250,16 +249,22 @@ export function AIProvidersPanel() {
       </section>
 
       {/* Providers grid */}
-      <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h3 style={{ margin: 0, fontSize: 15 }}>{t('admin.ai_providers.providers_title')}</h3>
-          <button style={primaryBtn} disabled={!canEdit} onClick={() => providerModal.openModal()}>
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-foreground m-0 text-base font-semibold">
+            {t('admin.ai_providers.providers_title')}
+          </h3>
+          <button
+            onClick={() => providerModal.openModal()}
+            disabled={!canEdit}
+            className={cn(adminBtnPrimaryClass, !canEdit && 'cursor-not-allowed opacity-50')}
+          >
             + {t('admin.ai_providers.add_provider')}
           </button>
         </div>
 
         <LoadingOverlay loading={loading}>
-          <div style={gridStyle}>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
             {providers.map((p) => (
               <ProviderCard
                 key={p.id}
@@ -274,7 +279,7 @@ export function AIProvidersPanel() {
               />
             ))}
             {!loading && providers.length === 0 && (
-              <div style={{ fontSize: 13, color: 'var(--text-secondary, #a1a1aa)', padding: 16 }}>
+              <div className="text-foreground-muted p-4 text-sm">
                 {t('admin.ai_providers.no_providers')}
               </div>
             )}
@@ -284,101 +289,101 @@ export function AIProvidersPanel() {
 
       {/* Models for selected provider */}
       {selectedProvider && (
-        <section style={cardStyle}>
-          <div
-            style={{
-              ...cardHeaderStyle,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
+        <section className="bg-card border-border overflow-hidden rounded-lg border shadow-sm">
+          <div className="border-border flex items-center justify-between border-b p-[12px_16px] text-sm font-semibold">
             <span>{t('admin.ai_providers.models_for', { name: selectedProvider.name })}</span>
-            <button style={secondaryBtn} disabled={!canEdit} onClick={() => modelModal.openModal()}>
+            <button
+              onClick={() => modelModal.openModal()}
+              disabled={!canEdit}
+              className={cn(adminBtnSecondaryClass, !canEdit && 'cursor-not-allowed opacity-50')}
+            >
               + {t('admin.ai_providers.add_model')}
             </button>
           </div>
           <LoadingOverlay loading={modelsLoading}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={theadRow}>
-                  <th style={thStyle}>{t('admin.ai_providers.fields.display_name')}</th>
-                  <th style={thStyle}>{t('admin.ai_providers.fields.model_id')}</th>
-                  <th style={thStyle}>{t('admin.ai_providers.fields.purpose')}</th>
-                  <th style={thStyle}>{t('admin.ai_providers.fields.max_tokens')}</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }} />
-                </tr>
-              </thead>
-              <tbody>
-                {models.map((m) => (
-                  <tr key={m.id} style={trRow}>
-                    <td style={tdStyle}>
-                      {m.display_name}
-                      {m.is_default && (
-                        <span style={defaultBadge}>{t('admin.ai_providers.default_badge')}</span>
-                      )}
-                      {!m.is_active && (
-                        <span style={inactiveBadge}>{t('admin.ai_providers.inactive')}</span>
-                      )}
-                    </td>
-                    <td
-                      style={{
-                        ...tdStyle,
-                        fontFamily: 'var(--font-mono, monospace)',
-                        fontSize: 12,
-                      }}
-                    >
-                      {m.model_id}
-                    </td>
-                    <td style={tdStyle}>{t(`admin.ai_providers.purposes.${m.purpose}`)}</td>
-                    <td style={tdStyle}>{m.max_tokens}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      {!m.is_default && (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-border bg-card-raised border-b">
+                    <th className="text-foreground p-[10px_16px] text-xs font-semibold tracking-wider uppercase">
+                      {t('admin.ai_providers.fields.display_name')}
+                    </th>
+                    <th className="text-foreground p-[10px_16px] text-xs font-semibold tracking-wider uppercase">
+                      {t('admin.ai_providers.fields.model_id')}
+                    </th>
+                    <th className="text-foreground p-[10px_16px] text-xs font-semibold tracking-wider uppercase">
+                      {t('admin.ai_providers.fields.purpose')}
+                    </th>
+                    <th className="text-foreground p-[10px_16px] text-xs font-semibold tracking-wider uppercase">
+                      {t('admin.ai_providers.fields.max_tokens')}
+                    </th>
+                    <th className="text-foreground p-[10px_16px] text-right text-xs font-semibold tracking-wider uppercase" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {models.map((m) => (
+                    <tr key={m.id} className="border-border border-b">
+                      <td className="text-foreground p-[10px_16px]">
+                        {m.display_name}
+                        {m.is_default && (
+                          <span className="text-success text-micro ml-2 inline-block rounded-full bg-emerald-500/12 px-1.5 py-0.5 font-semibold">
+                            {t('admin.ai_providers.default_badge')}
+                          </span>
+                        )}
+                        {!m.is_active && (
+                          <span className="bg-foreground-muted/12 text-foreground-muted text-micro ml-2 inline-block rounded-full px-1.5 py-0.5 font-semibold">
+                            {t('admin.ai_providers.inactive')}
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-foreground p-[10px_16px] font-mono text-xs">
+                        {m.model_id}
+                      </td>
+                      <td className="text-foreground p-[10px_16px]">
+                        {t(`admin.ai_providers.purposes.${m.purpose}`)}
+                      </td>
+                      <td className="text-foreground p-[10px_16px]">{m.max_tokens}</td>
+                      <td className="text-foreground p-[10px_16px] text-right whitespace-nowrap">
+                        {!m.is_default && (
+                          <button
+                            disabled={!canEdit}
+                            onClick={() => {
+                              void handleSetDefault(m)
+                            }}
+                            className="text-accent cursor-pointer border-none bg-transparent px-2 py-1 text-xs font-semibold hover:underline disabled:opacity-50"
+                          >
+                            {t('admin.ai_providers.set_default')}
+                          </button>
+                        )}
                         <button
-                          style={linkBtn}
+                          disabled={!canEdit}
+                          onClick={() => modelModal.openModal(m)}
+                          className="text-accent cursor-pointer border-none bg-transparent px-2 py-1 text-xs font-semibold hover:underline disabled:opacity-50"
+                        >
+                          {t('common.edit')}
+                        </button>
+                        <button
                           disabled={!canEdit}
                           onClick={() => {
-                            void handleSetDefault(m)
+                            void handleDeleteModel(m)
                           }}
+                          className="text-error cursor-pointer border-none bg-transparent px-2 py-1 text-xs font-semibold hover:underline disabled:opacity-50"
                         >
-                          {t('admin.ai_providers.set_default')}
+                          {t('common.delete')}
                         </button>
-                      )}
-                      <button
-                        style={linkBtn}
-                        disabled={!canEdit}
-                        onClick={() => modelModal.openModal(m)}
-                      >
-                        {t('common.edit')}
-                      </button>
-                      <button
-                        style={{ ...linkBtn, color: 'var(--error, #ef4444)' }}
-                        disabled={!canEdit}
-                        onClick={() => {
-                          void handleDeleteModel(m)
-                        }}
-                      >
-                        {t('common.delete')}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {!modelsLoading && models.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      style={{
-                        padding: 20,
-                        textAlign: 'center',
-                        color: 'var(--text-secondary, #a1a1aa)',
-                      }}
-                    >
-                      {t('admin.ai_providers.no_models')}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      </td>
+                    </tr>
+                  ))}
+                  {!modelsLoading && models.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="text-foreground-muted p-5 text-center text-sm">
+                        {t('admin.ai_providers.no_models')}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </LoadingOverlay>
         </section>
       )}
@@ -403,7 +408,7 @@ export function AIProvidersPanel() {
           }}
         />
       )}
-    </div>
+    </AdminPanelShell>
   )
 }
 
@@ -425,145 +430,49 @@ function ProviderCard({
   const t = useT()
   return (
     <div
-      style={{
-        ...providerCardStyle,
-        borderColor: selected ? 'var(--accent)' : 'var(--border, rgba(255,255,255,0.06))',
-      }}
+      className={cn(
+        'bg-card flex cursor-pointer flex-col gap-1.5 rounded-lg border p-3.5 transition-all duration-150',
+        selected ? 'border-accent' : 'border-border',
+      )}
       onClick={onSelect}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-        <strong style={{ fontSize: 14 }}>{provider.name}</strong>
-        <span style={provider.is_active ? activeDot : inactiveDot}>
+      <div className="flex items-start justify-between">
+        <strong className="text-foreground text-sm font-semibold">{provider.name}</strong>
+        <span
+          className={cn(
+            'text-xs font-semibold',
+            provider.is_active ? 'text-success' : 'text-foreground-muted',
+          )}
+        >
           {provider.is_active ? t('admin.ai_providers.active') : t('admin.ai_providers.inactive')}
         </span>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>
+      <div className="text-foreground-muted text-xs">
         {t(`admin.ai_providers.types.${provider.provider_type}`)}
       </div>
-      <div
-        style={{
-          fontSize: 12,
-          color: 'var(--text-secondary, #a1a1aa)',
-          fontFamily: 'var(--font-mono, monospace)',
-          wordBreak: 'break-all',
-        }}
-      >
+      <div className="text-foreground-muted font-mono text-xs break-all">
         {provider.base_url || '—'}
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-secondary, #a1a1aa)' }}>
+      <div className="text-foreground-muted text-xs">
         {t('admin.ai_providers.model_count', { count: provider.model_count })}
         {provider.has_api_key && <span> · {provider.api_key_masked}</span>}
       </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 4 }} onClick={(e) => e.stopPropagation()}>
-        <button style={linkBtn} disabled={!canEdit} onClick={onEdit}>
+      <div className="mt-1 flex gap-2" onClick={(e) => e.stopPropagation()}>
+        <button
+          disabled={!canEdit}
+          onClick={onEdit}
+          className="text-accent cursor-pointer border-none bg-transparent px-2 py-1 text-xs font-semibold hover:underline disabled:opacity-50"
+        >
           {t('common.edit')}
         </button>
         <button
-          style={{ ...linkBtn, color: 'var(--error, #ef4444)' }}
           disabled={!canEdit}
           onClick={onDelete}
+          className="text-error cursor-pointer border-none bg-transparent px-2 py-1 text-xs font-semibold hover:underline disabled:opacity-50"
         >
           {t('common.delete')}
         </button>
       </div>
     </div>
   )
-}
-
-const cardStyle: React.CSSProperties = {
-  background: 'var(--bg-card, #18181b)',
-  border: '1px solid var(--border, rgba(255,255,255,0.06))',
-  borderRadius: 8,
-  overflow: 'hidden',
-}
-const cardHeaderStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  borderBottom: '1px solid var(--border, rgba(255,255,255,0.06))',
-  fontWeight: 600,
-  fontSize: 14,
-}
-const gridStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-  gap: 12,
-}
-const providerCardStyle: React.CSSProperties = {
-  background: 'var(--bg-card, #18181b)',
-  border: '1px solid',
-  borderRadius: 8,
-  padding: 14,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 6,
-  cursor: 'pointer',
-  transition: 'border-color 150ms',
-}
-const theadRow: React.CSSProperties = {
-  background: 'var(--table-header-bg, rgba(255,255,255,0.03))',
-  borderBottom: '1px solid var(--border, rgba(255,255,255,0.06))',
-  textAlign: 'left',
-}
-const thStyle: React.CSSProperties = {
-  padding: '10px 16px',
-  fontWeight: 600,
-  color: 'var(--text-secondary, #a1a1aa)',
-}
-const trRow: React.CSSProperties = {
-  borderBottom: '1px solid var(--border, rgba(255,255,255,0.06))',
-}
-const tdStyle: React.CSSProperties = { padding: '10px 16px', color: 'var(--text-primary, #f4f4f5)' }
-const primaryBtn: React.CSSProperties = {
-  padding: '8px 14px',
-  background: 'var(--accent)',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 6,
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: 'pointer',
-}
-const secondaryBtn: React.CSSProperties = {
-  padding: '8px 14px',
-  background: 'transparent',
-  color: 'var(--text-primary, #f4f4f5)',
-  border: '1px solid var(--border-strong, rgba(255,255,255,0.12))',
-  borderRadius: 6,
-  fontSize: 13,
-  cursor: 'pointer',
-}
-const linkBtn: React.CSSProperties = {
-  padding: '4px 8px',
-  background: 'transparent',
-  border: 'none',
-  color: 'var(--accent)',
-  fontSize: 12,
-  cursor: 'pointer',
-}
-const defaultBadge: React.CSSProperties = {
-  marginLeft: 8,
-  padding: '1px 6px',
-  borderRadius: 10,
-  fontSize: 10,
-  fontWeight: 600,
-  background: 'rgba(16,185,129,0.14)',
-  color: 'var(--success, #10b981)',
-}
-const inactiveBadge: React.CSSProperties = {
-  marginLeft: 8,
-  padding: '1px 6px',
-  borderRadius: 10,
-  fontSize: 10,
-  fontWeight: 600,
-  background: 'rgba(107,114,128,0.15)',
-  color: 'var(--text-secondary, #a1a1aa)',
-}
-const activeDot: React.CSSProperties = {
-  fontSize: 11,
-  color: 'var(--success, #10b981)',
-  fontWeight: 600,
-}
-const inactiveDot: React.CSSProperties = {
-  fontSize: 11,
-  color: 'var(--text-secondary, #a1a1aa)',
-  fontWeight: 600,
 }

@@ -28,22 +28,17 @@ export function RecoveryCodesDisplay({
 
   if (variant === 'confirmation') {
     return (
-      <div className={legacyLayoutClass('page-stack')} style={{ gap: '1rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <h4 style={{ margin: 0, color: 'var(--success)' }}>✔ {t('mfa.success_enabled')}</h4>
-          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            {t('mfa.recovery_desc')}
-          </p>
+      <div className={cn(legacyLayoutClass('page-stack'), 'gap-4')}>
+        <div className="flex flex-col gap-2">
+          <h4 className="text-success m-0">✔ {t('mfa.success_enabled')}</h4>
+          <p className="text-foreground-muted m-0 text-sm">{t('mfa.recovery_desc')}</p>
         </div>
-        <div
-          className={`${recoveryCodesGridClass} border-border border`}
-          style={{ padding: '1rem' }}
-        >
+        <div className={cn(recoveryCodesGridClass, 'border-border border p-4')}>
           {codes.map((code, index) => (
             <div key={index}>{code}</div>
           ))}
         </div>
-        <div className={adminFlexGapCenterEndClass} style={{ marginTop: '0.5rem' }}>
+        <div className={cn(adminFlexGapCenterEndClass, 'mt-2')}>
           <button
             type="button"
             className={cn(legacyButtonClass('btn btn-secondary'), adminBtnAutoWidthClass)}
@@ -65,15 +60,13 @@ export function RecoveryCodesDisplay({
 
   return (
     <div
-      className={`border-border overflow-hidden border ${cardLeadMarginClass}`}
-      style={{ padding: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}
+      className={cn(
+        'border-border bg-card-raised overflow-hidden rounded-lg border p-4',
+        cardLeadMarginClass,
+      )}
     >
-      <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text)' }}>
-        {t('mfa.recovery_title')}
-      </h4>
-      <p style={{ margin: '0.25rem 0 1rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-        {t('mfa.recovery_desc')}
-      </p>
+      <h4 className="text-foreground m-0 text-sm font-semibold">{t('mfa.recovery_title')}</h4>
+      <p className="text-foreground-muted mt-1 mb-4 text-xs">{t('mfa.recovery_desc')}</p>
       <div className={recoveryCodesGridClass}>
         {codes.map((code, index) => (
           <div key={index}>{code}</div>
@@ -81,8 +74,7 @@ export function RecoveryCodesDisplay({
       </div>
       <button
         type="button"
-        className={legacyButtonClass('btn btn-sm btn-secondary')}
-        style={{ marginTop: '0.75rem', width: 'auto' }}
+        className={cn(legacyButtonClass('btn btn-sm btn-secondary'), 'mt-3 w-auto')}
         onClick={copyCodes}
       >
         📋 {t('common.copy')}
