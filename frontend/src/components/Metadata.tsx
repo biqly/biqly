@@ -90,10 +90,10 @@ export default function Metadata() {
   }, [get])
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     void fetchUserAIModels()
       .then((res) => {
-        if (cancelled) {
+        if (controller.signal.aborted) {
           return
         }
         const prefId = res.preferences.describe
@@ -105,12 +105,12 @@ export default function Metadata() {
         setEffectiveDescribeModel(m ? m.display_name || m.model_id : null)
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setEffectiveDescribeModel(null)
         }
       })
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [])
 

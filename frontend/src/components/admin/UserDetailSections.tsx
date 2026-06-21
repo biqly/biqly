@@ -32,6 +32,7 @@ import {
   adminValClass,
   adminVerifiedBadgeClass,
 } from './adminClasses'
+import { AdminFormSection } from './AdminFormSection'
 
 export function UserDetailProfileCard({
   t,
@@ -56,39 +57,29 @@ export function UserDetailProfileCard({
 }) {
   return (
     <div className={adminCardClass}>
-      <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div className={adminAvatarCircleClass} style={{ overflow: 'hidden' }}>
+      <div className="flex flex-wrap items-center gap-6">
+        <div className={`${adminAvatarCircleClass} overflow-hidden`}>
           {user.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt=""
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
+            <img src={user.avatarUrl} alt="" className="size-full object-cover" />
           ) : user.displayName ? (
             user.displayName.slice(0, 2).toUpperCase()
           ) : (
             user.email.slice(0, 2).toUpperCase()
           )}
         </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <h2 style={{ margin: 0, fontSize: 22 }}>
+        <div className="flex flex-1 flex-col gap-1">
+          <h2 className="m-0 text-[22px]">
             {user.displayName ?? t('admin.user_detail.unnamed_user')}
           </h2>
-          <span style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: 500 }}>
+          <span className="text-foreground-muted text-[14px] leading-none font-medium">
             {user.email}
           </span>
-          <span
-            style={{
-              fontSize: 12,
-              color: 'var(--text-muted)',
-              fontFamily: 'var(--font-mono, monospace)',
-            }}
-          >
+          <span className="text-foreground-faint font-mono text-xs leading-none">
             UUID: {user.id}
           </span>
         </div>
         {!(isSelf && user.isActive) && (
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div className="flex items-center gap-3">
             <button
               onClick={onToggleActive}
               disabled={!canManageUsers}
@@ -111,9 +102,7 @@ export function UserDetailProfileCard({
         </div>
         <div className={adminGridItemClass}>
           <span className={adminLabelClass}>{t('admin.user_detail.email_verification')}</span>
-          <div
-            style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}
-          >
+          <div className="flex flex-col items-start gap-2">
             <span className={adminVerifiedBadgeClass(user.emailVerified)}>
               {user.emailVerified
                 ? t('admin.user_detail.email_approved')
@@ -174,11 +163,8 @@ export function UserDetailMfaSupportCard({
   onGenerate: () => void
 }) {
   return (
-    <div className={adminCardClass}>
-      <h3 style={{ marginTop: 0, marginBottom: 8 }}>{t('admin.user_detail.mfa_support_title')}</h3>
-      <p className={adminTextMutedClass} style={{ padding: 0, marginTop: 0, marginBottom: 16 }}>
-        {t('admin.user_detail.mfa_support_desc')}
-      </p>
+    <AdminFormSection title={t('admin.user_detail.mfa_support_title')}>
+      <p className={`${adminTextMutedClass} m-0 p-0`}>{t('admin.user_detail.mfa_support_desc')}</p>
       <button
         type="button"
         onClick={onGenerate}
@@ -187,15 +173,11 @@ export function UserDetailMfaSupportCard({
       >
         {bypassGenerating ? '...' : t('admin.user_detail.mfa_generate_bypass')}
       </button>
-      {bypassError && (
-        <div className={adminErrTextClass} style={{ padding: '12px 0 0' }}>
-          {bypassError}
-        </div>
-      )}
+      {bypassError && <div className={`${adminErrTextClass} p-0 pt-3`}>{bypassError}</div>}
       {bypassCode && (
-        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="mt-4 flex flex-col gap-2">
           <span className={adminLabelClass}>{t('admin.user_detail.mfa_bypass_generated')}</span>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="flex flex-wrap items-center gap-2">
             <code className={adminBypassCodeBoxClass}>{bypassCode}</code>
             <button
               type="button"
@@ -210,7 +192,7 @@ export function UserDetailMfaSupportCard({
           </div>
         </div>
       )}
-    </div>
+    </AdminFormSection>
   )
 }
 
@@ -245,8 +227,8 @@ export function UserDetailRolesPanel({
 }) {
   return (
     <div className={adminRolesGridClass}>
-      <div className={adminCardClass} style={{ minWidth: 0, overflow: 'hidden' }}>
-        <h3 style={{ marginTop: 0, marginBottom: 16 }}>
+      <div className={`${adminCardClass} min-w-0 overflow-hidden`}>
+        <h3 className="m-0 mb-4">
           {t('admin.user_detail.assigned_roles', { count: userRoles.length })}
         </h3>
         {userRoles.length === 0 ? (
@@ -264,9 +246,7 @@ export function UserDetailRolesPanel({
             <tbody>
               {userRoles.map((ur) => (
                 <tr key={`${ur.role_id}-${ur.scope_type}-${ur.scope_id}`} className={adminTrClass}>
-                  <td className={adminTdClass} style={{ fontWeight: 600 }}>
-                    {ur.role_name}
-                  </td>
+                  <td className={`${adminTdClass} font-semibold`}>{ur.role_name}</td>
                   <td className={adminTdClass}>
                     <span className={adminScopeBadgeClass(ur.scope_type)}>{ur.scope_type}</span>
                   </td>
@@ -278,7 +258,7 @@ export function UserDetailRolesPanel({
                       ? t('admin.user_detail.all_or_none')
                       : ur.scope_id}
                   </td>
-                  <td className={adminTdClass} style={{ textAlign: 'right' }}>
+                  <td className={`${adminTdClass} text-right`}>
                     <button
                       onClick={() => onRevokeRole(ur.role_id)}
                       className={adminBtnRevokeClass}
@@ -294,8 +274,7 @@ export function UserDetailRolesPanel({
         )}
       </div>
 
-      <div className={adminCardClass} style={{ minWidth: 0, overflow: 'hidden' }}>
-        <h3 style={{ marginTop: 0, marginBottom: 16 }}>{t('admin.user_detail.assign_new_role')}</h3>
+      <AdminFormSection title={t('admin.user_detail.assign_new_role')}>
         <form
           onSubmit={(e) => void onAssignRole(e)}
           className={legacyLayoutClass('page-stack')}
@@ -331,7 +310,7 @@ export function UserDetailRolesPanel({
             {t('admin.user_detail.assign_role')}
           </button>
         </form>
-      </div>
+      </AdminFormSection>
     </div>
   )
 }

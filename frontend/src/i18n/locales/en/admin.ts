@@ -129,6 +129,8 @@ export const admin = {
   },
   users: {
     title: 'User List',
+    description:
+      'Browse, manage, and invite users. Change roles, resend verifications, and review invitations.',
     loading: 'Loading users…',
     count: '{{count}} users',
     search_placeholder: 'Search email, name, or username...',
@@ -210,18 +212,24 @@ export const admin = {
   },
   datasource_access: {
     title: 'Datasource Access Matrix',
+    description:
+      'Grant or revoke datasource access for users. Each entry specifies the access level for a user-datasource pair.',
     level: 'Level',
     grant: 'Grant Access',
     granted_at: 'Granted At',
+    revoked: 'Access revoked.',
     confirm_revoke: 'Are you sure you want to revoke access?',
   },
   workspaces: {
     title: 'Workspaces',
+    description:
+      'Manage workspaces and their settings. Create new workspaces or delete existing ones.',
     selector_label: 'Workspace',
     name: 'Name',
-    description: 'Description',
+    desc_label: 'Description',
     mfa_required: 'Require 2FA',
     personal_suffix: '(personal)',
+    deleted: 'Workspace deleted.',
     confirm_delete: 'Are you sure you want to delete "{{name}}" workspace?',
     settings: 'Settings',
     settings_title: 'Workspace Settings',

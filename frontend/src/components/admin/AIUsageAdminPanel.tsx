@@ -4,7 +4,6 @@ import { type AIUsageBreakdownRow, type AIUsageTotals, getAIUsageBreakdown } fro
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useT } from '../../i18n'
-import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { PageQuery } from '../../types/pagination'
 import { formatDurationMs } from '../../utils/formatters'
 import {
@@ -13,18 +12,12 @@ import {
   aiHistoryTableWrapClass,
 } from '../ai/aiJobsClasses'
 import { useAuth } from '../auth/AuthProvider'
-import { ErrorAlert } from '../ui/ErrorAlert'
 import { KPICard } from '../ui/KPICard'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
-import {
-  adminFormLabelClass,
-  adminLabelTextClass,
-  adminPanelClass,
-  adminPanelHeaderClass,
-  adminTableContainerClass,
-} from './adminClasses'
+import { adminFormLabelClass, adminLabelTextClass, adminTableContainerClass } from './adminClasses'
+import { AdminPanelShell } from './AdminPanelShell'
 const DEFAULT_PAGE_SIZE = 25
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
@@ -117,23 +110,11 @@ export function AIUsageAdminPanel() {
   }
 
   return (
-    <div className={adminPanelClass}>
-      <div
-        className={adminPanelHeaderClass}
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0 }}>{t('admin.ai_usage.title')}</h2>
-          <p style={{ margin: '0.35rem 0 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            {t('admin.ai_usage.description')}
-          </p>
-        </div>
+    <AdminPanelShell
+      title={t('admin.ai_usage.title')}
+      description={t('admin.ai_usage.description')}
+      error={error}
+      action={
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           {totalItems > 0 && (
             <span style={{ fontSize: 13, color: 'var(--text-secondary, #a1a1aa)' }}>
@@ -153,10 +134,8 @@ export function AIUsageAdminPanel() {
             />
           </label>
         </div>
-      </div>
-
-      <ErrorAlert error={error} className={legacyFeedbackClass('error--top-gap')} />
-
+      }
+    >
       <div style={{ position: 'relative', marginTop: '1.25rem', minHeight: 120 }}>
         <LoadingOverlay loading={loading || lookupsLoading} />
         {totals && (
@@ -254,6 +233,6 @@ export function AIUsageAdminPanel() {
           )}
         </div>
       </div>
-    </div>
+    </AdminPanelShell>
   )
 }

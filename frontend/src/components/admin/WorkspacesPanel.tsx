@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 
 import { createWorkspace, deleteWorkspace, listWorkspaces } from '../../api/admin'
-import { useConfirm } from '../../hooks/useConfirm'
+import { useConfirmedMutation } from '../../hooks/useConfirmedMutation'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { errorMessage } from '../../hooks/usePaginatedListLogic'
 import { useQueryParam } from '../../hooks/useQueryParam'
@@ -14,10 +14,11 @@ import { FormField } from '../ui/FormField'
 import { Pagination } from '../ui/Pagination'
 import { WorkspaceSettingsPage } from '../workspaces/WorkspaceSettingsPage'
 import { adminBtnPrimaryClass } from './adminClasses'
+import { AdminPanelShell } from './AdminPanelShell'
 
 export function WorkspacesPanel({ token }: { token: string }) {
   const t = useT()
-  const confirm = useConfirm()
+  const confirmMutation = useConfirmedMutation()
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [selectedWSParam, setSelectedWSParam] = useQueryParam('workspaceId')
@@ -65,18 +66,13 @@ export function WorkspacesPanel({ token }: { token: string }) {
   }
 
   async function onDelete(id: string, name: string) {
-    const ok = await confirm({
+    const ok = await confirmMutation(() => deleteWorkspace(token, id), {
       title: t('admin.workspaces.confirm_delete', { name }),
+      successMessage: t('admin.workspaces.deleted'),
       variant: 'danger',
     })
-    if (!ok) {
-      return
-    }
-    try {
-      await deleteWorkspace(token, id)
+    if (ok) {
       reload()
-    } catch (e) {
-      setError(errorMessage(e))
     }
   }
 
@@ -85,9 +81,10 @@ export function WorkspacesPanel({ token }: { token: string }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.workspaces.title')}</h2>
-
+    <AdminPanelShell
+      title={t('admin.workspaces.title')}
+      description={t('admin.workspaces.description')}
+    >
       <form
         onSubmit={(e) => {
           void onCreate(e)
@@ -100,11 +97,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
           onChange={setNewName}
           required
         />
-        <FormField
-          label={t('admin.workspaces.description')}
-          value={newDesc}
-          onChange={setNewDesc}
-        />
+        <FormField label={t('admin.workspaces.desc_label')} value={newDesc} onChange={setNewDesc} />
         <button type="submit" className={adminBtnPrimaryClass}>
           {t('common.create')}
         </button>
@@ -209,7 +202,7 @@ export function WorkspacesPanel({ token }: { token: string }) {
           }}
         />
       </div>
-    </div>
+    </AdminPanelShell>
   )
 }
 

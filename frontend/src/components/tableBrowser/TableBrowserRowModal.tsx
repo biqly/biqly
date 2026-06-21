@@ -163,13 +163,13 @@ function RelatedLinkCard({
       setState({ loading: false, total: null, columns: [], firstRow: null })
       return
     }
-    let cancelled = false
+    const controller = new AbortController()
     setState((prev) => ({ ...prev, loading: true }))
     void postData<TableRowsResult>(
       buildTableRowsUrl(datasourceId, link.schema, link.table),
       eqFilterBody(link.remoteColumn, value, 1),
     ).then((res) => {
-      if (cancelled) {
+      if (controller.signal.aborted) {
         return
       }
       setState({
@@ -180,7 +180,7 @@ function RelatedLinkCard({
       })
     })
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [datasourceId, link.schema, link.table, link.remoteColumn, value, postData])
 

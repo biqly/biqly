@@ -7,11 +7,11 @@ import {
   updateDatasourceAccess,
 } from '../../api/admin'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
-import { useConfirm } from '../../hooks/useConfirm'
+import { useConfirmedMutation } from '../../hooks/useConfirmedMutation'
+import { useModal } from '../../hooks/useModal'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { errorMessage } from '../../hooks/usePaginatedListLogic'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
-import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { DatasourceAccess } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { formatDateTime } from '../../utils/formatters'
@@ -31,18 +31,20 @@ import {
   adminTableContainerClass,
   adminTdMonoClass,
 } from './adminClasses'
+import { AdminFormSection } from './AdminFormSection'
+import { AdminPanelShell } from './AdminPanelShell'
 import type { DatasourceAccessLevel } from './adminSelectOptions'
 import {
   datasourceAccessLevelOptions,
   datasourcePickerOptions,
   userSelectOptions,
 } from './adminSelectOptions'
-import { ReadOnlyNote } from './ReadOnlyNote'
 
 export function DatasourceAccessPanel({ token }: { token: string }) {
   const t = useT()
   const [locale] = useLocale()
-  const confirm = useConfirm()
+  const confirmMutation = useConfirmedMutation()
+  const _modal = useModal()
   const { hasPermission } = useAuth()
   // Granting/revoking datasource access requires datasource:grant_access (server-enforced).
   const canEdit = hasPermission('datasource:grant_access')
@@ -102,19 +104,14 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
   }
 
   async function onRevoke(uid: string, dsid: string) {
-    const ok = await confirm({
+    const ok = await confirmMutation(() => revokeDatasourceAccess(token, uid, dsid), {
       title: t('admin.datasource_access.confirm_revoke'),
+      successMessage: t('admin.datasource_access.revoked'),
       variant: 'danger',
     })
-    if (!ok) {
-      return
-    }
-    try {
-      await revokeDatasourceAccess(token, uid, dsid)
+    if (ok) {
       setCurrentPage(1)
       reload()
-    } catch (e) {
-      setError(errorMessage(e))
     }
   }
 
@@ -186,50 +183,52 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
   ]
 
   return (
-    <div className={legacyLayoutClass('page-stack')}>
-      <h2 style={{ marginTop: 0, fontSize: 18 }}>{t('admin.datasource_access.title')}</h2>
-
-      {!canEdit && <ReadOnlyNote />}
-
-      <form
-        onSubmit={(e) => {
-          void onGrant(e)
-        }}
-        style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}
-      >
-        <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 240 }}>
-          <span className={adminLabelTextClass}>{t('admin.fields.user')}</span>
-          <Select
-            value={userID}
-            options={userOptions}
-            onChange={setUserID}
-            placeholder={t('evaluation.placeholder_select')}
-            disabled={!canEdit}
-          />
-        </label>
-        <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 240 }}>
-          <span className={adminLabelTextClass}>Datasource</span>
-          <Select
-            value={datasourceID}
-            options={dsOptions}
-            onChange={setDatasourceID}
-            placeholder={t('evaluation.placeholder_select')}
-            disabled={!canEdit}
-          />
-        </label>
-        <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 240 }}>
-          <span className={adminLabelTextClass}>{t('admin.datasource_access.level')}</span>
-          <Select
-            value={level}
-            options={levelOptions}
-            onChange={(v) => setLevel(v as DatasourceAccessLevel)}
-            disabled={!canEdit}
-          />
-        </label>
-        <button type="submit" className={adminBtnPrimaryClass} disabled={!canEdit}>
-          {t('admin.datasource_access.grant')}
-        </button>
-      </form>
+    <AdminPanelShell
+      title={t('admin.datasource_access.title')}
+      description={t('admin.datasource_access.description')}
+      readOnly={!canEdit}
+    >
+      <AdminFormSection title={t('admin.datasource_access.grant')} disabled={!canEdit}>
+        <form
+          onSubmit={(e) => {
+            void onGrant(e)
+          }}
+          style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}
+        >
+          <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 240 }}>
+            <span className={adminLabelTextClass}>{t('admin.fields.user')}</span>
+            <Select
+              value={userID}
+              options={userOptions}
+              onChange={setUserID}
+              placeholder={t('evaluation.placeholder_select')}
+              disabled={!canEdit}
+            />
+          </label>
+          <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 240 }}>
+            <span className={adminLabelTextClass}>Datasource</span>
+            <Select
+              value={datasourceID}
+              options={dsOptions}
+              onChange={setDatasourceID}
+              placeholder={t('evaluation.placeholder_select')}
+              disabled={!canEdit}
+            />
+          </label>
+          <label className={adminFormLabelClass} style={{ gap: 4, minWidth: 240 }}>
+            <span className={adminLabelTextClass}>{t('admin.datasource_access.level')}</span>
+            <Select
+              value={level}
+              options={levelOptions}
+              onChange={(v) => setLevel(v as DatasourceAccessLevel)}
+              disabled={!canEdit}
+            />
+          </label>
+          <button type="submit" className={adminBtnPrimaryClass} disabled={!canEdit}>
+            {t('admin.datasource_access.grant')}
+          </button>
+        </form>
+      </AdminFormSection>
 
       <div className={adminTableContainerClass}>
         <DataState
@@ -254,6 +253,6 @@ export function DatasourceAccessPanel({ token }: { token: string }) {
           }}
         />
       </div>
-    </div>
+    </AdminPanelShell>
   )
 }

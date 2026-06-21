@@ -5,6 +5,7 @@ import { localeLanguageTag, type TranslationKey, useLocale, useT } from '../../i
 import { legacyButtonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { formatDateTime } from '../../utils/formatters'
+import { AdminPanelShell } from './AdminPanelShell'
 
 /* ------------------------------------------------------------------ */
 /*  Types matching the backend drift_types.go API response             */
@@ -224,9 +225,11 @@ export function DriftPanel({ modelId, defaultOpen = false }: DriftPanelProps) {
   const totalDrifts = reports.reduce((n, r) => n + r.drifts.length, 0)
 
   return (
-    <div
-      className="animate-drift-panel-enter border-border bg-card mt-3 overflow-hidden rounded-xl border"
-      id="drift-panel"
+    <AdminPanelShell
+      title={t('modeling.drift_panel_title')}
+      description={t('modeling.drift_panel_hint')}
+      maxWidth="100%"
+      className="animate-drift-panel-enter m-0 overflow-hidden p-0"
     >
       <button
         type="button"
@@ -329,6 +332,6 @@ export function DriftPanel({ modelId, defaultOpen = false }: DriftPanelProps) {
           ))}
         </div>
       )}
-    </div>
+    </AdminPanelShell>
   )
 }

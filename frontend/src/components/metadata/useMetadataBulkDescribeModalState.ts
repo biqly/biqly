@@ -84,9 +84,9 @@ export function useMetadataBulkDescribeModalState({
       setBulkScopeConflict(null)
       return
     }
-    let cancelled = false
+    const controller = new AbortController()
     void fetchDescribeBatchConflict(datasourceId, bulkScopeSchemas).then((res) => {
-      if (cancelled) {
+      if (controller.signal.aborted) {
         return
       }
       if (res?.conflict) {
@@ -99,7 +99,7 @@ export function useMetadataBulkDescribeModalState({
       }
     })
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [datasourceId, bulkScopeSchemas, t])
 

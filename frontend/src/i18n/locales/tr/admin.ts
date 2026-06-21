@@ -132,6 +132,8 @@ export const admin: AdminDictionary = {
   },
   users: {
     title: 'Kullanıcı Listesi',
+    description:
+      'Kullanıcıları görüntüleyin, yönetin ve davet edin. Rolleri değiştirin, doğrulamaları yeniden gönderin ve davetleri inceleyin.',
     loading: 'Kullanıcılar yükleniyor…',
     count: '{{count}} kullanıcı',
     search_placeholder: 'E-posta, isim veya kullanıcı adı ara...',
@@ -213,18 +215,24 @@ export const admin: AdminDictionary = {
   },
   datasource_access: {
     title: 'Datasource Erişim Matrisi',
+    description:
+      'Kullanıcılara datasource erişimi verin veya iptal edin. Her giriş, bir kullanıcı-datasource çifti için erişim seviyesini belirtir.',
     level: 'Seviye',
     grant: 'Erişim Ver',
     granted_at: 'Verildi',
+    revoked: 'Erişim iptal edildi.',
     confirm_revoke: 'Erişimi kaldırmak istediğinden emin misin?',
   },
   workspaces: {
     title: "Workspace'ler",
+    description:
+      "Workspace'leri ve ayarlarını yönetin. Yeni workspace oluşturun veya mevcut olanları silin.",
     selector_label: 'Workspace',
     name: 'İsim',
-    description: 'Açıklama',
+    desc_label: 'Açıklama',
     mfa_required: '2FA zorunlu',
     personal_suffix: '(kişisel)',
+    deleted: 'Workspace silindi.',
     confirm_delete: '"{{name}}" workspace\'ini silmek istediğinden emin misin?',
     settings: 'Ayarlar',
     settings_title: 'Workspace Ayarları',

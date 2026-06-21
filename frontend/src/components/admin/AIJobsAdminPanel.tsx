@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { adminCancelAIJob, adminCancelAllStaleAIJobs, listAdminAIJobs } from '../../api/admin'
 import { useAdminLookups } from '../../hooks/useAdminLookups'
 import { jobIsActive, jobQuestionPreview } from '../../hooks/useAIJobsUtils'
-import { useConfirm } from '../../hooks/useConfirm'
+import { useConfirmedMutation } from '../../hooks/useConfirmedMutation'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
@@ -30,17 +30,12 @@ import {
   jobProgressBarFillClass,
 } from '../ai/aiJobsClasses'
 import { useAuth } from '../auth/AuthProvider'
-import { ErrorAlert } from '../ui/ErrorAlert'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Modal } from '../ui/Modal'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
-import {
-  adminPanelClass,
-  adminPanelHeaderClass,
-  adminTableContainerClass,
-  jobDetailModalClass,
-} from './adminClasses'
+import { adminTableContainerClass, jobDetailModalClass } from './adminClasses'
+import { AdminPanelShell } from './AdminPanelShell'
 const POLL_MS = 3000
 
 const DEFAULT_AI_JOBS_PAGE_SIZE = 25
@@ -70,7 +65,7 @@ function jobElapsedMs(job: AIJob): number {
 export function AIJobsAdminPanel() {
   const t = useT()
   const [locale] = useLocale()
-  const confirm = useConfirm()
+  const runConfirmedMutation = useConfirmedMutation()
   const { accessToken } = useAuth()
   const { users } = useAdminLookups(accessToken ?? '')
   const [statusFilter, setStatusFilter] = useState('')
@@ -143,24 +138,16 @@ export function AIJobsAdminPanel() {
     if (!accessToken) {
       return
     }
-    const ok = await confirm({
+    setBusyJobId(job.id)
+    const ok = await runConfirmedMutation(() => adminCancelAIJob(accessToken, job.id), {
       title: t('admin.ai_jobs.cancel_confirm_title'),
       message: t('admin.ai_jobs.cancel_confirm_message', {
         request: jobQuestionPreview(job.kind, job.request_json),
       }),
-      confirmLabel: t('admin.ai_jobs.cancel'),
     })
-    if (!ok) {
-      return
-    }
-    setBusyJobId(job.id)
-    try {
-      await adminCancelAIJob(accessToken, job.id)
+    setBusyJobId(null)
+    if (ok) {
       reload()
-    } catch (err) {
-      setError(errorMessage(err))
-    } finally {
-      setBusyJobId(null)
     }
   }
 
@@ -213,15 +200,14 @@ export function AIJobsAdminPanel() {
   }
 
   return (
-    <div className={adminPanelClass}>
-      <div className={adminPanelHeaderClass}>
-        <div>
-          <h2>{t('admin.ai_jobs.title')}</h2>
-          <p style={{ color: 'var(--text-muted)', margin: 0 }}>{t('admin.ai_jobs.description')}</p>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', margin: '0.75rem 0' }}>
+    <AdminPanelShell
+      title={t('admin.ai_jobs.title')}
+      description={t('admin.ai_jobs.description')}
+      error={error}
+    >
+      <div
+        style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.5rem' }}
+      >
         <Select value={statusFilter} onChange={setStatusFilter} options={statusOptions} />
         <Select value={kindFilter} onChange={setKindFilter} options={kindOptions} />
         <button
@@ -233,8 +219,6 @@ export function AIJobsAdminPanel() {
         </button>
         {staleNote && <span style={{ color: 'var(--text-muted)' }}>{staleNote}</span>}
       </div>
-
-      {error && <ErrorAlert error={error} />}
 
       <div
         className={`${aiHistoryTableWrapClass} ${adminTableContainerClass}`}
@@ -465,6 +449,6 @@ export function AIJobsAdminPanel() {
           </div>
         </Modal>
       )}
-    </div>
+    </AdminPanelShell>
   )
 }
