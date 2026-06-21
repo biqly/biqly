@@ -395,13 +395,7 @@ func (h *AIHandler) loadDescribedTableKeys(ctx context.Context, req ai.DescribeB
 }
 
 func (h *AIHandler) runDescribeBatchTable(ctx context.Context, req ai.DescribeBatchRequest, schema, table string) ai.DescribeBatchEntryResult {
-	single := ai.DescribeRequest{
-		DatasourceID: req.DatasourceID,
-		Schema:       schema,
-		Table:        table,
-		SampleSize:   req.SampleSize,
-		AutoApply:    req.AutoApply,
-	}
+	single := describeBatchSingleRequest(req, schema, table)
 	result, err := h.executeMetadataDescribeJob(ctx, single, nil)
 	if err != nil {
 		return ai.DescribeBatchEntryResult{
@@ -416,6 +410,17 @@ func (h *AIHandler) runDescribeBatchTable(ctx context.Context, req ai.DescribeBa
 		Schema: schema, Table: table, Status: "ok",
 		Message: fmt.Sprintf("%d columns described", cols),
 		Result:  result,
+	}
+}
+
+func describeBatchSingleRequest(req ai.DescribeBatchRequest, schema, table string) ai.DescribeRequest {
+	return ai.DescribeRequest{
+		DatasourceID: req.DatasourceID,
+		Schema:       schema,
+		Table:        table,
+		Locale:       req.Locale,
+		SampleSize:   req.SampleSize,
+		AutoApply:    req.AutoApply,
 	}
 }
 

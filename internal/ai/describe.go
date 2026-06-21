@@ -82,6 +82,7 @@ type DescribeRequest struct {
 	DatasourceID string `json:"datasource_id"`
 	Schema       string `json:"schema"`
 	Table        string `json:"table"`
+	Locale       string `json:"locale,omitempty"`
 	SampleSize   int    `json:"sample_size,omitempty"`
 	AutoApply    bool   `json:"auto_apply,omitempty"`
 }

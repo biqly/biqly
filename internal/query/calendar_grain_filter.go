@@ -22,6 +22,41 @@ func grainStemBeforeSuffix(dimName, suffix string) (stem string, ok bool) {
 // calendarAnchorTime parses filter values that pin a specific calendar month or
 // instant (RFC3339, YYYY-MM-DD, YYYY-MM, etc.). Used to compile month/quarter
 // grain filters as DATE_TRUNC instead of bare EXTRACT parts.
+func isDateOnlyCalendarValue(v any) bool {
+	s, ok := v.(string)
+	if !ok {
+		return false
+	}
+	s = strings.TrimSpace(s)
+	if len(s) != 10 {
+		return false
+	}
+	_, err := time.Parse("2006-01-02", s)
+	return err == nil
+}
+
+func isRawDateTimestampDimension(dim *semantic.Dimension) bool {
+	if dim == nil || strings.TrimSpace(dim.TimeGrain) != "" {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(dim.Type)) {
+	case "date", "timestamp", "datetime":
+		return true
+	default:
+		return false
+	}
+}
+
+func rawDateColumnDayEqualityFilter(dim *semantic.Dimension, f Filter) bool {
+	if !isRawDateTimestampDimension(dim) {
+		return false
+	}
+	if f.Operator != OpEq && f.Operator != OpNeq {
+		return false
+	}
+	return isDateOnlyCalendarValue(f.Value)
+}
+
 func calendarAnchorTime(v any) (time.Time, bool) {
 	s, ok := v.(string)
 	if !ok {
@@ -159,6 +194,19 @@ func validateCalendarGrainYearCoverage(lq *LogicalQuery, model *semantic.Semanti
 	return nil
 }
 
+// dayGrainFilterUsesDateTrunc reports whether a *_day grain filter should compare
+// DATE_TRUNC('day', col) to a truncated bind parameter instead of a bare string.
+func dayGrainFilterUsesDateTrunc(dim *semantic.Dimension, f Filter) bool {
+	if strings.ToLower(strings.TrimSpace(dim.TimeGrain)) != TimeGrainDay {
+		return false
+	}
+	if !isScalarCompareOp(f.Operator) {
+		return false
+	}
+	_, ok := calendarAnchorTime(f.Value)
+	return ok
+}
+
 // monthGrainFilterUsesDateTrunc reports whether we should compare
 // DATE_TRUNC('month', col) to a timestamptz parameter instead of EXTRACT(MONTH).
 func monthGrainFilterUsesDateTrunc(dim *semantic.Dimension, f Filter) bool {
@@ -186,7 +234,7 @@ func quarterGrainFilterUsesDateTrunc(dim *semantic.Dimension, f Filter) bool {
 
 func (c *Compiler) dateTruncCompareExpr(part, columnRef, op string, argIndex int) (string, error) {
 	part = strings.ToLower(strings.TrimSpace(part))
-	if part != "month" && part != "quarter" {
+	if part != "day" && part != "month" && part != "quarter" {
 		return "", fmt.Errorf("date_trunc compare: unsupported part %q", part)
 	}
 	lhs := c.dialect.DateTrunc(part, columnRef)
@@ -196,4 +244,37 @@ func (c *Compiler) dateTruncCompareExpr(part, columnRef, op string, argIndex int
 		return "", err
 	}
 	return fmt.Sprintf("%s %s %s", lhs, cmp, rhs), nil
+}
+
+func (c *Compiler) castColumnAsDate(columnRef string) string {
+	quoted := c.dialect.QuoteIdent(columnRef)
+	switch c.dialect.Name() {
+	case "mysql":
+		return fmt.Sprintf("DATE(%s)", quoted)
+	case "clickhouse":
+		return fmt.Sprintf("toDate(%s)", quoted)
+	default:
+		return fmt.Sprintf("CAST(%s AS %s)", quoted, c.dialect.CastType("date"))
+	}
+}
+
+func (c *Compiler) rawDateDayFilterExpr(
+	f Filter,
+	dimMap map[string]*semantic.Dimension,
+	resolver *SchemaResolver,
+	args *[]any,
+) (string, bool, error) {
+	dim, ok := dimMap[f.Field]
+	if !ok || !rawDateColumnDayEqualityFilter(dim, f) {
+		return "", false, nil
+	}
+	colRef := resolver.PhysicalColumnRef(dim.ColumnRef)
+	lhs := c.castColumnAsDate(colRef)
+	cmp, err := sqlComparator(f.Operator)
+	if err != nil {
+		return "", false, err
+	}
+	*args = append(*args, f.Value)
+	ph := c.dialect.Placeholder(len(*args))
+	return fmt.Sprintf("%s %s %s", lhs, cmp, ph), true, nil
 }

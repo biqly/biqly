@@ -8,6 +8,7 @@ type DescribeBatchTable struct {
 type DescribeBatchRequest struct {
 	DatasourceID string               `json:"datasource_id"`
 	Tables       []DescribeBatchTable `json:"tables"`
+	Locale       string               `json:"locale,omitempty"`
 	SampleSize   int                  `json:"sample_size,omitempty"`
 	AutoApply    bool                 `json:"auto_apply,omitempty"`
 	SkipExisting bool                 `json:"skip_existing,omitempty"`

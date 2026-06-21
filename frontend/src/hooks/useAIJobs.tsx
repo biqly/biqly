@@ -108,6 +108,7 @@ interface AIJobsContextValue {
       datasourceId: string
       targets: BulkDescribeTarget[]
       sampleSize: number
+      locale?: string
       skipExisting: boolean
       skipExistingMessage: string
       networkErrorMessage: string
@@ -725,6 +726,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       datasourceId: string
       targets: BulkDescribeTarget[]
       sampleSize: number
+      locale?: string
       skipExisting: boolean
       skipExistingMessage: string
       networkErrorMessage: string
@@ -732,7 +734,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       onConflict?: (message: string, existingJobId?: string) => void
       onFinished?: () => void
     }) => {
-      const { datasourceId, targets, sampleSize, skipExisting, onConflict, onFinished } = opts
+      const { datasourceId, targets, sampleSize, locale, skipExisting, onConflict, onFinished } =
+        opts
       if (!datasourceId || targets.length === 0) {
         return
       }
@@ -753,6 +756,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         datasourceId,
         targets,
         sampleSize,
+        locale,
         skipExisting,
         skipExistingMessage: opts.skipExistingMessage,
         networkErrorMessage: opts.networkErrorMessage,

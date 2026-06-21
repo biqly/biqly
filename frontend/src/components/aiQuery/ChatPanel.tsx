@@ -5,6 +5,7 @@ import type { TranslationKey } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
+import { formatTimeOnly } from '../../utils/formatters'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import {
   chatBubbleClass,
@@ -186,8 +187,7 @@ export function ChatPanel({
   const executeButtonLabel =
     loading && queryAction === 'execute' ? loadingLabel : t('ai_query.execute_btn')
 
-  const formatMessageTime = (timestamp: string) =>
-    new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const formatMessageTime = (timestamp: string) => formatTimeOnly(timestamp, localeTag)
 
   return (
     <>

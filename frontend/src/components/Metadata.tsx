@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchUserAIModels } from '../api/aiUserModels'
 import { type DescribeResult } from '../api/metadataDescribe'
 import { jobIsActive, useAIJobs } from '../hooks/useAIJobs'
+import type { DescribeJobRequest } from '../hooks/useAIJobsUtils'
 import { useApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import type { Locale } from '../i18n'
@@ -205,6 +206,20 @@ export default function Metadata() {
     )
   }, [bulkRunning, bulkSummary, datasourceId, descriptionLocaleOpts, get])
 
+  const refreshOpenColumns = () => {
+    if (!openTableId) {
+      return
+    }
+    const tab = tables.find((row) => row.id === openTableId)
+    if (!tab) {
+      return
+    }
+    void get<ColumnRow[]>(
+      `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(tab.schema_name)}&table=${encodeURIComponent(tab.table_name)}`,
+      descriptionLocaleOpts,
+    ).then((fresh) => setColumns(fresh ?? []))
+  }
+
   const refreshTables = () => {
     void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts).then(
       (fresh) => {
@@ -213,6 +228,7 @@ export default function Metadata() {
         }
       },
     )
+    refreshOpenColumns()
   }
 
   const toggleTable = async (tab: TableRow) => {
@@ -280,7 +296,13 @@ export default function Metadata() {
     description: string,
   ) => {
     const entityPath = kind === 'table' ? 'tables' : 'columns'
-    await patchData(`/api/metadata/${entityPath}/${id}`, { description })
+    if (editLocale === FALLBACK_LOCALE) {
+      await patchData(`/api/metadata/${entityPath}/${id}`, { description })
+    } else {
+      await putData(`/api/metadata/${entityPath}/${id}/translations`, {
+        [editLocale]: { description },
+      })
+    }
     if (kind === 'table') {
       setTables(tables.map((row) => (row.id === id ? { ...row, description } : row)))
     } else {
@@ -288,16 +310,8 @@ export default function Metadata() {
     }
   }
 
-  const runDescribeJob = (
-    request: {
-      datasource_id: string
-      schema: string
-      table: string
-      sample_size: number
-      auto_apply: boolean
-    },
-    onError: (message: string) => void,
-  ) => runJob<typeof request, DescribeResult>('describe', request, { onError })
+  const runDescribeJob = (request: DescribeJobRequest, onError: (message: string) => void) =>
+    runJob<typeof request, DescribeResult>('describe', request, { onError })
 
   if (initLoading && datasources.length === 0) {
     return <LoadingScreen minHeight="300px" />
@@ -399,6 +413,7 @@ export default function Metadata() {
               datasourceId,
               targets,
               sampleSize,
+              locale: editLocale,
               skipExisting,
               skipExistingMessage: t('metadata.bulk_skip_has_desc'),
               networkErrorMessage: t('metadata.bulk_network_error'),
@@ -420,6 +435,7 @@ export default function Metadata() {
           aiRuntime={aiRuntime}
           apiError={error}
           runDescribeJob={runDescribeJob}
+          locale={editLocale}
           patchDescription={patchDescribeDescription}
           onClose={() => setDescribeOpen(null)}
           onApplied={refreshDescribeTarget}

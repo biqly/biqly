@@ -14,6 +14,8 @@ import type { JobWaiterHandle } from './jobWaiter'
 import {
   type BulkDescribeSummary,
   type BulkDescribeTarget,
+  type DescribeBatchJobRequest,
+  type DescribeJobRequest,
   type TrackedAIJob,
 } from './useAIJobsUtils'
 
@@ -114,6 +116,7 @@ export async function runSequentialBulkDescribe(opts: {
   queue: BulkEntry[]
   datasourceId: string
   sampleSize: number
+  locale?: string
   networkErrorMessage: string
   okColumnsMessage: (cols: number) => string
   isCancelled: () => boolean
@@ -143,10 +146,11 @@ export async function runSequentialBulkDescribe(opts: {
     opts.setBulkEntries([...opts.queue])
 
     try {
-      const request = {
+      const request: DescribeJobRequest = {
         datasource_id: opts.datasourceId,
         schema,
         table,
+        locale: opts.locale,
         sample_size: opts.sampleSize,
         auto_apply: true,
       }
@@ -187,6 +191,7 @@ export async function runBulkDescribeEnqueue(opts: {
   datasourceId: string
   targets: BulkDescribeTarget[]
   sampleSize: number
+  locale?: string
   skipExisting: boolean
   skipExistingMessage: string
   networkErrorMessage: string
@@ -208,16 +213,13 @@ export async function runBulkDescribeEnqueue(opts: {
   ) => Promise<TRes | 'fallback' | null>
   onFinished?: () => void
 }): Promise<void> {
-  const batchRequest = {
-    datasource_id: opts.datasourceId,
-    tables: opts.targets.map((row) => ({
-      schema: row.schema_name,
-      table: row.table_name,
-    })),
-    sample_size: opts.sampleSize,
-    auto_apply: true,
-    skip_existing: opts.skipExisting,
-  }
+  const batchRequest = buildDescribeBatchRequest({
+    datasourceId: opts.datasourceId,
+    targets: opts.targets,
+    sampleSize: opts.sampleSize,
+    locale: opts.locale,
+    skipExisting: opts.skipExisting,
+  })
 
   const {
     data: enqueued,
@@ -255,4 +257,24 @@ export async function runBulkDescribeEnqueue(opts: {
     opts.setBulkRunning(false)
   }
   opts.onFinished?.()
+}
+
+export function buildDescribeBatchRequest(opts: {
+  datasourceId: string
+  targets: BulkDescribeTarget[]
+  sampleSize: number
+  locale?: string
+  skipExisting: boolean
+}): DescribeBatchJobRequest {
+  return {
+    datasource_id: opts.datasourceId,
+    tables: opts.targets.map((row) => ({
+      schema: row.schema_name,
+      table: row.table_name,
+    })),
+    sample_size: opts.sampleSize,
+    locale: opts.locale,
+    auto_apply: true,
+    skip_existing: opts.skipExisting,
+  }
 }

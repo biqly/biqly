@@ -9,6 +9,7 @@ import { createJobWaiter } from './jobWaiter'
 import {
   type BulkDescribeSummary,
   type BulkDescribeTarget,
+  type DescribeBatchJobRequest,
   jobQuestionPreview,
   type TrackedAIJob,
 } from './useAIJobsUtils'
@@ -18,6 +19,7 @@ interface BulkEnqueueOpts {
   datasourceId: string
   targets: BulkDescribeTarget[]
   sampleSize: number
+  locale?: string
   skipExisting: boolean
   skipExistingMessage: string
   networkErrorMessage: string
@@ -89,13 +91,7 @@ async function waitForBatchJobResult(
 export async function processEnqueuedBatchJob(
   opts: BulkEnqueueOpts,
   job: AIJob,
-  batchRequest: {
-    datasource_id: string
-    tables: { schema: string; table: string }[]
-    sample_size: number
-    auto_apply: boolean
-    skip_existing: boolean
-  },
+  batchRequest: DescribeBatchJobRequest,
 ): Promise<void> {
   opts.setBulkBatchJobId(job.id)
   opts.upsertJob({

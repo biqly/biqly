@@ -4,9 +4,10 @@ import { getAIHistoryDetail, listAIHistory } from '../../api/admin'
 import { useFetch } from '../../hooks/useFetch'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useQueryParam } from '../../hooks/useQueryParam'
-import { useT } from '../../i18n'
+import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AIHistoryEntry } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
+import { formatDateTime } from '../../utils/formatters'
 import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import { useAuth } from '../auth/AuthProvider'
 import { ShareButton } from '../sharing/ShareButton'
@@ -50,6 +51,8 @@ function formatHistoryTokens(entry: AIHistoryEntry): string {
 
 export function AIHistoryPanel() {
   const t = useT()
+  const [locale] = useLocale()
+  const languageTag = localeLanguageTag(locale)
   const { accessToken, roles } = useAuth()
   const [showAll, setShowAll] = useState(false)
   const [historyIdParam, setHistoryIdParam] = useQueryParam('historyId')
@@ -192,7 +195,7 @@ export function AIHistoryPanel() {
                           <td style={tdStyle} title={t('admin.ai_history.tokens_breakdown')}>
                             {formatHistoryTokens(entry)}
                           </td>
-                          <td style={tdStyle}>{new Date(entry.created_at).toLocaleString()}</td>
+                          <td style={tdStyle}>{formatDateTime(entry.created_at, languageTag)}</td>
                           <td style={{ ...tdStyle, textAlign: 'right' }}>
                             <div className={aiHistoryActionsClass}>
                               <ShareButton resourceType="query" resourceID={entry.id} />

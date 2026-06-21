@@ -25,6 +25,7 @@ import (
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/dialect"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/query"
@@ -666,7 +667,11 @@ func (h *AIHandler) Describe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.executeMetadataDescribe(r.Context(), *req)
+	ctx := r.Context()
+	if loc := strings.TrimSpace(req.Locale); loc != "" {
+		ctx = i18n.WithLocale(ctx, i18n.ParseLocale(loc))
+	}
+	result, err := h.executeMetadataDescribe(ctx, *req)
 	if err != nil {
 		writeCoreServiceError(r.Context(), w, err)
 		return

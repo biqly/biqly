@@ -665,6 +665,91 @@ func TestCompiler_MonthGrainISOUsesDateTruncInWhere(t *testing.T) {
 	}
 }
 
+func TestCompiler_RawTimestampDayEqualityCastsToDate(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "tweets",
+		BaseSchema: "public",
+		BaseTable:  "tracked_profiles",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_ts", ColumnRef: "timeline_tweets.created_at_ts", Type: "timestamp"},
+			{Name: "deleted_at", ColumnRef: "timeline_tweets.deleted_at", Type: "timestamp"},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "count", Expression: "*", Aggregation: "count"},
+		},
+		Joins: []semantic.Join{
+			{
+				Name:         "profiles",
+				FromTable:    "tracked_profiles",
+				FromColumn:   "screen_name",
+				ToTable:      "profiles",
+				ToColumn:     "screen_name",
+				JoinType:     "LEFT",
+				Relationship: "many_to_one",
+			},
+			{
+				Name:         "timeline",
+				FromTable:    "profiles",
+				FromColumn:   "screen_name",
+				ToTable:      "timeline_tweets",
+				ToColumn:     "screen_name",
+				JoinType:     "LEFT",
+				Relationship: "one_to_many",
+			},
+		},
+	}
+	lq := LogicalQuery{
+		DatasourceID: "ds",
+		ModelID:      "tweets",
+		Select:       []SelectItem{{Type: SelectTypeMetric, Name: "count"}},
+		Filters: []Filter{
+			{Field: "created_at_ts", Operator: OpEq, Value: "2026-06-20"},
+			{Field: "deleted_at", Operator: OpIsNull},
+		},
+		Limit: 100,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `CAST("timeline_tweets"."created_at_ts" AS DATE) = $1`
+	if !strings.Contains(cq.SQL, want) {
+		t.Fatalf("expected day cast equality in WHERE, got:\n%s", cq.SQL)
+	}
+	if strings.Contains(cq.SQL, `"created_at_ts" = $1`) {
+		t.Fatalf("raw timestamp equality should not be used, got:\n%s", cq.SQL)
+	}
+}
+
+func TestCompiler_DayGrainISOUsesDateTruncInWhere(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "tweets",
+		BaseSchema: "public",
+		BaseTable:  "timeline_tweets",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_ts_day", ColumnRef: "timeline_tweets.created_at_ts", Type: "timestamp", TimeGrain: TimeGrainDay},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "count", Expression: "*", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		DatasourceID: "ds",
+		ModelID:      "tweets",
+		Select:       []SelectItem{{Type: SelectTypeMetric, Name: "count"}},
+		Filters:      []Filter{{Field: "created_at_ts_day", Operator: OpEq, Value: "2026-06-20"}},
+		Limit:        100,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	low := strings.ToLower(cq.SQL)
+	if !strings.Contains(low, "date_trunc('day'") {
+		t.Fatalf("expected DATE_TRUNC('day' in WHERE, got:\n%s", cq.SQL)
+	}
+}
+
 // TestCompiler_JoinDirectionWhenBaseIsFKTarget verifies the compiler swaps
 // join orientation when the join's ToTable is the base table (or anything
 // already in the FROM set), so the SQL never lists the same table twice.

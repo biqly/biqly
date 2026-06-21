@@ -4,7 +4,7 @@ import { getMyDatasources } from '../api/admin'
 import { driverLabelKey, driverLogoUrl, driverStructuredDefaults } from '../dbDrivers'
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
-import { useT } from '../i18n'
+import { localeLanguageTag, useLocale, useT } from '../i18n'
 import {
   datasourceAccessBadgeClass,
   datasourceAccessBadgeIconClass,
@@ -29,16 +29,13 @@ import {
 } from '../lib/tableClasses'
 import type { Datasource } from '../types/metadata'
 import { noop } from '../utils/constants'
+import { formatDateTime } from '../utils/formatters'
 import { useAuth } from './auth/AuthProvider'
 import { buildDatasourceAccessView } from './datasources/accessView'
 import { DatasourceFormModal } from './datasources/DatasourceFormModal'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-})
 
 type ConnectionMode = 'structured' | 'raw'
 
@@ -85,6 +82,8 @@ function connectionSummary(ds: Datasource): { line1: string; line2?: string } {
 
 export default function Datasources() {
   const t = useT()
+  const [locale] = useLocale()
+  const languageTag = localeLanguageTag(locale)
   const { get, postData, putData, deleteData, loading, error } = useApi()
   const { accessToken } = useAuth()
   const confirm = useConfirm()
@@ -102,15 +101,15 @@ export default function Datasources() {
   // Tracks in-flight row actions (key: `${op}:${id}`) to prevent double-submit.
   const [busy, setBusy] = useState<Record<string, boolean>>({})
 
-  const formatDateTime = (value: string | null | undefined) => {
+  const formatLastSyncAt = (value: string | null | undefined) => {
     if (!value) {
       return t('datasources.never')
     }
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) {
+    const formatted = formatDateTime(value, languageTag)
+    if (formatted === value) {
       return t('datasources.never')
     }
-    return dateFormatter.format(date)
+    return formatted
   }
 
   const load = useCallback(async () => {
@@ -476,7 +475,7 @@ export default function Datasources() {
                           </div>
                         </td>
                         <td className="datasources-col-sync">
-                          <span>{formatDateTime(ds.last_sync_at)}</span>
+                          <span>{formatLastSyncAt(ds.last_sync_at)}</span>
                           {syncResult[ds.id] && (
                             <div className={datasourceRowStatusClass}>{syncResult[ds.id]}</div>
                           )}

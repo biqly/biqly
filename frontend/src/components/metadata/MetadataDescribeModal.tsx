@@ -1,6 +1,8 @@
 import { useState } from 'react'
 
 import { type DescribeResult, runMetadataDescribeDirect } from '../../api/metadataDescribe'
+import type { DescribeJobRequest } from '../../hooks/useAIJobsUtils'
+import type { Locale } from '../../i18n'
 import { useT } from '../../i18n'
 import { legacyButtonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
@@ -25,18 +27,13 @@ interface MetadataDescribeModalProps {
   aiRuntime: AIRuntimeSettings | null
   apiError: string | null
   runDescribeJob: (
-    request: {
-      datasource_id: string
-      schema: string
-      table: string
-      sample_size: number
-      auto_apply: boolean
-    },
+    request: DescribeJobRequest,
     onError: (message: string) => void,
   ) => Promise<DescribeResult | 'fallback' | null>
   patchDescription: (kind: 'table' | 'column', id: string, description: string) => Promise<void>
   onClose: () => void
   onApplied: (table: TableRow) => void
+  locale: Locale
 }
 
 export function MetadataDescribeModal({
@@ -49,6 +46,7 @@ export function MetadataDescribeModal({
   patchDescription,
   onClose,
   onApplied,
+  locale,
 }: MetadataDescribeModalProps) {
   const t = useT()
   const [form, setForm] = useState({ sample_size: 10, auto_apply: false })
@@ -70,10 +68,11 @@ export function MetadataDescribeModal({
   const runDescribe = async () => {
     setRunning(true)
     setError(null)
-    const request = {
+    const request: DescribeJobRequest = {
       datasource_id: datasourceId,
       schema: table.schema_name,
       table: table.table_name,
+      locale,
       sample_size: form.sample_size,
       auto_apply: form.auto_apply,
     }
