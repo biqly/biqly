@@ -57,3 +57,95 @@ func TestPermissionInjector_CheckFieldAccess_NilPolicyFailsClosed(t *testing.T) 
 		t.Fatal("expected nil policy to be rejected")
 	}
 }
+
+// PIIFieldIsHidden tests
+
+func TestPIIFieldIsHidden_NilPolicy(t *testing.T) {
+	if !PIIFieldIsHidden(nil, "orders.email", "email") {
+		t.Fatal("PIIFieldIsHidden with nil policy must return true (fail-closed)")
+	}
+}
+
+func TestPIIFieldIsHidden_AbsentField(t *testing.T) {
+	pol := &PermissionPolicy{
+		UserID:    "u1",
+		PIIPolicy: map[string]string{},
+	}
+	if PIIFieldIsHidden(pol, "orders.email", "email") {
+		t.Fatal("field not in PIIPolicy must not be hidden")
+	}
+}
+
+func TestPIIFieldIsHidden_RawAccess(t *testing.T) {
+	pol := &PermissionPolicy{
+		UserID: "u1",
+		PIIPolicy: map[string]string{
+			"orders.email": "raw",
+		},
+	}
+	if PIIFieldIsHidden(pol, "orders.email", "email") {
+		t.Fatal("field with raw access must not be hidden")
+	}
+}
+
+func TestPIIFieldIsHidden_MaskedAccess(t *testing.T) {
+	pol := &PermissionPolicy{
+		UserID: "u1",
+		PIIPolicy: map[string]string{
+			"orders.phone": "masked",
+		},
+	}
+	if PIIFieldIsHidden(pol, "orders.phone", "phone") {
+		t.Fatal("field with masked access must not be hidden")
+	}
+}
+
+func TestPIIFieldIsHidden_HiddenAccess(t *testing.T) {
+	pol := &PermissionPolicy{
+		UserID: "u1",
+		PIIPolicy: map[string]string{
+			"orders.tckn": "hidden",
+		},
+	}
+	if !PIIFieldIsHidden(pol, "orders.tckn", "tckn") {
+		t.Fatal("field with hidden access must be hidden")
+	}
+}
+
+func TestPIIFieldIsHidden_UnknownAccessFailsClosed(t *testing.T) {
+	pol := &PermissionPolicy{
+		UserID: "u1",
+		PIIPolicy: map[string]string{
+			"orders.tckn": "bogus_value",
+		},
+	}
+	if !PIIFieldIsHidden(pol, "orders.tckn", "tckn") {
+		t.Fatal("unknown access value must fail closed to hidden")
+	}
+}
+
+func TestPIIFieldIsHidden_QualifiedFieldMatch(t *testing.T) {
+	pol := &PermissionPolicy{
+		UserID: "u1",
+		PIIPolicy: map[string]string{
+			"orders.email": "hidden",
+		},
+	}
+	// Must match on qualified field name
+	if !PIIFieldIsHidden(pol, "orders.email", "email") {
+		t.Fatal("qualified field must match PIIPolicy entry")
+	}
+}
+
+func TestPIIFieldIsHidden_PlainFieldMatch(t *testing.T) {
+	pol := &PermissionPolicy{
+		UserID: "u1",
+		PIIPolicy: map[string]string{
+			"email": "hidden",
+		},
+	}
+	// Must match on plain field name
+	if !PIIFieldIsHidden(pol, "orders.email", "email") {
+		t.Fatal("plain field must match PIIPolicy entry")
+	}
+}

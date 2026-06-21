@@ -471,15 +471,16 @@ func validateCaseSelect(item SelectItem, dimMap map[string]bool, dimensionNames 
 				Message: fmt.Sprintf("case branch %d missing when filters", i),
 			})
 		}
-		errs = append(errs, validateCaseThen(br.Then, dimMap, dimensionNames, "select.case")...)
+		errs = append(errs, validateCaseThen(br.Then, dimMap, dimensionNames)...)
 	}
 	if item.Case.Else != nil {
-		errs = append(errs, validateCaseThen(*item.Case.Else, dimMap, dimensionNames, "select.case")...)
+		errs = append(errs, validateCaseThen(*item.Case.Else, dimMap, dimensionNames)...)
 	}
 	return errs
 }
 
-func validateCaseThen(then CaseThen, dimMap map[string]bool, dimensionNames []string, field string) ValidationErrors {
+func validateCaseThen(then CaseThen, dimMap map[string]bool, dimensionNames []string) ValidationErrors {
+	const field = "select.case"
 	var errs ValidationErrors
 	switch strings.ToLower(strings.TrimSpace(then.Type)) {
 	case CaseThenTypeDimension, "":

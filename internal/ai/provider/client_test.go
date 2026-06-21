@@ -105,6 +105,121 @@ func TestTokenUsageFromGenerationPrefersAPI(t *testing.T) {
 	}
 }
 
+func TestClientGenerate(t *testing.T) {
+	// Test Client.Generate() which delegates through baseProvider.generate()
+	// and covers the otherwise-untested generate() wrapper and Client.Generate().
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if err := sonic.ConfigStd.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]string{"content": `{"limit":10}`}},
+			},
+			"usage": map[string]int{
+				"prompt_tokens":     120,
+				"completion_tokens": 30,
+				"total_tokens":      150,
+			},
+		}); err != nil {
+			t.Fatalf("encode response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewClient(config.AIConfig{
+		Connection: config.AIConnectionConfig{
+			BaseURL: srv.URL,
+			APIKey:  "x",
+			Model:   "gpt-test",
+		},
+	})
+	// Call Generate (not GenerateAt) to cover the 0% path.
+	gen, err := client.Generate(context.Background(), "list orders")
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if gen.Content != `{"limit":10}` {
+		t.Fatalf("content = %q", gen.Content)
+	}
+}
+
+func TestClientGenerate_BadRequest(t *testing.T) {
+	// Test the early-return path in generateAt where the API returns a non-OK
+	// status (400 Bad Request is non-retriable, so it errors immediately).
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"bad input"}`))
+	}))
+	defer srv.Close()
+
+	client := NewClient(config.AIConfig{
+		Connection: config.AIConnectionConfig{
+			BaseURL: srv.URL,
+			APIKey:  "x",
+			Model:   "gpt-test",
+		},
+	})
+	_, err := client.Generate(context.Background(), "bad request test")
+	if err == nil {
+		t.Fatal("expected error for 400 response, got nil")
+	}
+}
+
+func TestClientGenerate_ParseError(t *testing.T) {
+	// Test the early-return path in generateAt where HTTP 200 is returned but
+	// the response body contains invalid data that the parse hook cannot handle.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// Valid JSON but missing required "choices" field — parseOpenAIResponse
+		// will return "no choices in response".
+		if err := sonic.ConfigStd.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]string{"message": "no choices"},
+		}); err != nil {
+			t.Fatalf("encode response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewClient(config.AIConfig{
+		Connection: config.AIConnectionConfig{
+			BaseURL: srv.URL,
+			APIKey:  "x",
+			Model:   "gpt-test",
+		},
+	})
+	_, err := client.Generate(context.Background(), "parse error test")
+	if err == nil {
+		t.Fatal("expected error for bad response body, got nil")
+	}
+}
+
+func TestClientGenerate_NoAPIKey(t *testing.T) {
+	// When APIKey is empty, bearerAuthHeaders() returns nil, exercising the
+	// "headers == nil" branch in generateAt.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if err := sonic.ConfigStd.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]string{"content": "ok"}},
+			},
+		}); err != nil {
+			t.Fatalf("encode response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewClient(config.AIConfig{
+		Connection: config.AIConnectionConfig{
+			BaseURL: srv.URL,
+			APIKey:  "", // empty — triggers headers == nil path
+			Model:   "gpt-test",
+		},
+	})
+	gen, err := client.Generate(context.Background(), "no key test")
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if gen.Content != "ok" {
+		t.Fatalf("content = %q", gen.Content)
+	}
+}
+
 func TestParseOpenAIResponseReasoningFallback(t *testing.T) {
 	tests := []struct {
 		name        string

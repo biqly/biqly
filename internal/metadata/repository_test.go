@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -1402,4 +1403,458 @@ func TestSecurityPolicies(t *testing.T) {
 	// 6. Delete by Keys
 	err = repo.DeleteSecurityPolicyByKeys(ctx, "role:viewer", "ds-1")
 	assert.NoError(t, err)
+}
+
+// --- Edge case tests for DB-dependent functions ---
+
+func TestCreateDatasource_EmptyDSNMode(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.execs = []execMock{
+		{Pattern: "INSERT INTO datasources", RowsAffected: 1},
+	}
+
+	// DSNMode empty should default to DSNModeRaw
+	ds := &Datasource{
+		ID:       "ds-empty-mode",
+		Name:     "Default Mode",
+		Type:     "postgres",
+		IsActive: true,
+	}
+
+	err := repo.CreateDatasource(ctx, ds)
+	assert.NoError(t, err)
+}
+
+func TestCreateDatasource_DBError(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.execs = []execMock{
+		{Pattern: "INSERT INTO datasources", Err: errors.New("connection refused")},
+	}
+
+	ds := &Datasource{ID: "ds-err", Name: "Err", Type: "postgres"}
+
+	err := repo.CreateDatasource(ctx, ds)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "create datasource")
+	assert.Contains(t, err.Error(), "connection refused")
+}
+
+func TestUpdateDatasource_EmptyDSNMode(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.execs = []execMock{
+		{Pattern: "UPDATE datasources SET", RowsAffected: 1},
+	}
+
+	ds := &Datasource{
+		ID:   "ds-1",
+		Name: "Updated",
+		Type: "mysql",
+		// DSNMode with whitespace should be trimmed to empty then default to DSNModeRaw
+		DSNMode: "  ",
+	}
+
+	err := repo.UpdateDatasource(ctx, ds)
+	assert.NoError(t, err)
+}
+
+func TestUpdateDatasource_DBError(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.execs = []execMock{
+		{Pattern: "UPDATE datasources SET", Err: errors.New("constraint violation")},
+	}
+
+	ds := &Datasource{ID: "ds-err", Name: "Fail", Type: "postgres"}
+
+	err := repo.UpdateDatasource(ctx, ds)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "update datasource")
+}
+
+func TestUpdateDatasource_NoRows(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.execs = []execMock{
+		{Pattern: "UPDATE datasources SET", RowsAffected: 0},
+	}
+
+	ds := &Datasource{ID: "nonexistent", Name: "Ghost", Type: "postgres"}
+
+	err := repo.UpdateDatasource(ctx, ds)
+	assert.ErrorIs(t, err, sql.ErrNoRows)
+}
+
+func TestListDatasources_DBError(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.queries = []queryMock{
+		{Pattern: "FROM datasources", Err: errors.New("database is down")},
+	}
+
+	list, err := repo.ListDatasources(ctx)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "database is down")
+	assert.Nil(t, list)
+}
+
+func TestGetTable_NotFound(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.queries = []queryMock{
+		{
+			Pattern: "FROM tables WHERE id =",
+			Cols:    []string{"id", "datasource_id", "schema_id", "schema_name", "table_name", "table_type", "row_estimate", "description", "label", "display_expression", "created_at", "updated_at"},
+			Rows:    [][]driver.Value{}, // no rows = sql.ErrNoRows
+		},
+	}
+
+	tbl, err := repo.GetTable(ctx, "nonexistent")
+	assert.Error(t, err)
+	assert.Nil(t, tbl)
+}
+
+func TestGetTable_DBError(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.queries = []queryMock{
+		{
+			Pattern: "FROM tables WHERE id =",
+			Err:     errors.New("connection timeout"),
+		},
+	}
+
+	tbl, err := repo.GetTable(ctx, "t-1")
+	assert.Error(t, err)
+	assert.Nil(t, tbl)
+}
+
+func TestUpdateTableDescription_DBError(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.execs = []execMock{
+		{Pattern: "UPDATE tables SET description =", Err: errors.New("disk full")},
+	}
+
+	desc := "new desc"
+	err := repo.UpdateTableDescription(ctx, "t-1", &desc)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "update table description")
+	assert.Contains(t, err.Error(), "disk full")
+}
+
+func TestUpdateTableLabel_DBError(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.execs = []execMock{
+		{Pattern: "UPDATE tables SET label =", Err: errors.New("permission denied")},
+	}
+
+	label := "New Label"
+	err := repo.UpdateTableLabel(ctx, "t-1", &label)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "update table label")
+	assert.Contains(t, err.Error(), "permission denied")
+}
+
+func TestCreateQueryHistory_DBError(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.queries = []queryMock{
+		{Pattern: "INSERT INTO query_history", Err: errors.New("unique constraint")},
+	}
+
+	entry := &pkgquery.HistoryEntry{
+		DatasourceID: "ds-1",
+		LogicalQuery: logicalquery.LogicalQuery{Version: "v1"},
+		Fingerprint:  "fp",
+	}
+
+	err := repo.CreateQueryHistory(ctx, entry)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "insert query history")
+}
+
+func TestListQueryHistory_DefaultLimit(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+	now := time.Now()
+
+	state.queries = []queryMock{
+		{
+			Pattern: "SELECT id, datasource_id, model_id, user_id, logical_query, compiled_sql",
+			Cols:    []string{"id", "datasource_id", "model_id", "user_id", "logical_query", "compiled_sql", "sql_args", "status", "row_count", "duration_ms", "error_message", "query_fingerprint", "created_at"},
+			Rows: [][]driver.Value{
+				{"qh-1", "ds-1", nil, nil, []byte(`{}`), nil, nil, "success", nil, nil, nil, nil, now},
+			},
+		},
+	}
+
+	// limit <= 0 should default to 100
+	entries, err := repo.ListQueryHistory(ctx, 0)
+	assert.NoError(t, err)
+	assert.Len(t, entries, 1)
+}
+
+func TestListQueryHistory_DBError(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.queries = []queryMock{
+		{Pattern: "SELECT id, datasource_id", Err: errors.New("timeout")},
+	}
+
+	entries, err := repo.ListQueryHistory(ctx, 10)
+	assert.Error(t, err)
+	assert.Nil(t, entries)
+}
+
+func TestGetQueryHistory_NotFound(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.queries = []queryMock{
+		{
+			Pattern: "SELECT id, datasource_id, model_id, user_id, logical_query, compiled_sql",
+			Cols:    []string{"id", "datasource_id", "model_id", "user_id", "logical_query", "compiled_sql", "sql_args", "status", "row_count", "duration_ms", "error_message", "query_fingerprint", "created_at"},
+			Rows:    [][]driver.Value{}, // no rows
+		},
+	}
+
+	entry, err := repo.GetQueryHistory(ctx, "nonexistent")
+	assert.Error(t, err)
+	assert.Nil(t, entry)
+}
+
+func TestGetQueryHistory_DBError(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.queries = []queryMock{
+		{Pattern: "SELECT id, datasource_id", Err: errors.New("query timeout")},
+	}
+
+	entry, err := repo.GetQueryHistory(ctx, "qh-1")
+	assert.Error(t, err)
+	assert.Nil(t, entry)
+}
+
+func TestCreateAIQueryHistory_MarshalPromptContextError(t *testing.T) {
+	db, state := setupMockDB(t)
+	_ = state // state not used since marshal fails before DB call
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	// PromptContext with a channel will fail to marshal
+	entry := &AIQueryHistoryEntry{
+		DatasourceID:  "ds-1",
+		PromptContext: map[string]any{"ch": make(chan int)},
+	}
+
+	err := repo.CreateAIQueryHistory(ctx, entry)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "marshal prompt context")
+}
+
+func TestCreateAIQueryHistory_MarshalAIResponseError(t *testing.T) {
+	db, state := setupMockDB(t)
+	_ = state
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	entry := &AIQueryHistoryEntry{
+		DatasourceID:  "ds-1",
+		PromptContext: map[string]any{},
+		AIResponse:    map[string]any{"ch": make(chan int)},
+	}
+
+	err := repo.CreateAIQueryHistory(ctx, entry)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "marshal AI response")
+}
+
+func TestCreateAIQueryHistory_MarshalLogicalQueryError(t *testing.T) {
+	db, state := setupMockDB(t)
+	_ = state
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	entry := &AIQueryHistoryEntry{
+		DatasourceID:  "ds-1",
+		PromptContext: map[string]any{},
+		AIResponse:    map[string]any{},
+		LogicalQuery:  map[string]any{"ch": make(chan int)},
+	}
+
+	err := repo.CreateAIQueryHistory(ctx, entry)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "marshal logical query")
+}
+
+func TestCreateAIQueryHistory_EmptyOutcome(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+	now := time.Now()
+
+	state.queries = []queryMock{
+		{
+			Pattern: "INSERT INTO ai_query_history",
+			Cols:    []string{"id", "created_at"},
+			Rows:    [][]driver.Value{{"aqh-empty", now}},
+		},
+	}
+
+	entry := &AIQueryHistoryEntry{
+		DatasourceID:  "ds-1",
+		PromptContext: map[string]any{},
+		AIResponse:    map[string]any{},
+		LogicalQuery:  map[string]any{},
+		// OutcomeStatus empty -> should default to "unknown"
+	}
+
+	err := repo.CreateAIQueryHistory(ctx, entry)
+	assert.NoError(t, err)
+	assert.Equal(t, "aqh-empty", entry.ID)
+}
+
+func TestCreateAIQueryHistory_DBError(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.queries = []queryMock{
+		{Pattern: "INSERT INTO ai_query_history", Err: errors.New("deadlock detected")},
+	}
+
+	entry := &AIQueryHistoryEntry{
+		DatasourceID:  "ds-1",
+		PromptContext: map[string]any{},
+		AIResponse:    map[string]any{},
+		LogicalQuery:  map[string]any{},
+	}
+
+	err := repo.CreateAIQueryHistory(ctx, entry)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "insert AI query history")
+}
+
+func TestGetAIQueryHistoryByID_NotFound(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.queries = []queryMock{
+		{
+			Pattern: "SELECT id, datasource_id, model_id, user_id, question, prompt_context",
+			Cols:    []string{"id", "datasource_id", "model_id", "user_id", "question", "prompt_context", "ai_response", "logical_query", "confidence_score", "warnings", "outcome_status", "retry_count", "needs_clarification", "model_used", "prompt_tokens", "completion_tokens", "token_count", "cost_usd", "latency_ms", "created_at", "ab_experiment_id", "ab_variant_id", "memory_recall_used", "memory_recall_hit_count"},
+			Rows:    [][]driver.Value{}, // no rows
+		},
+	}
+
+	entry, err := repo.GetAIQueryHistoryByID(ctx, "nonexistent")
+	assert.ErrorIs(t, err, sql.ErrNoRows)
+	assert.Nil(t, entry)
+}
+
+func TestGetAIQueryHistoryByID_DBError(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.queries = []queryMock{
+		{Pattern: "SELECT id, datasource_id", Err: errors.New("catalog error")},
+	}
+
+	entry, err := repo.GetAIQueryHistoryByID(ctx, "aqh-1")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "get AI history by id")
+	assert.Nil(t, entry)
+}
+
+func TestCreateAIJob_NilJob(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	err := repo.CreateAIJob(ctx, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "job is nil")
+	_ = state
+}
+
+func TestCreateAIJob_NilScopeSchemas(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.execs = []execMock{
+		{Pattern: "INSERT INTO ai_jobs", RowsAffected: 1},
+	}
+
+	job := &AIJob{
+		ID:              "job-nil-scope",
+		ClientSessionID: "sess-1",
+		Kind:            "describe",
+		Status:          "pending",
+		Phase:           "routing",
+		RequestJSON:     json.RawMessage(`{}`),
+		// ScopeSchemas is nil, should be handled
+	}
+
+	err := repo.CreateAIJob(ctx, job)
+	assert.NoError(t, err)
+}
+
+func TestCreateAIJob_DBError(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+
+	state.execs = []execMock{
+		{Pattern: "INSERT INTO ai_jobs", Err: errors.New("duplicate key")},
+	}
+
+	job := &AIJob{
+		ID:              "job-dup",
+		ClientSessionID: "sess-1",
+		Kind:            "describe",
+		Status:          "pending",
+		Phase:           "routing",
+		RequestJSON:     json.RawMessage(`{}`),
+		ScopeSchemas:    []string{},
+	}
+
+	err := repo.CreateAIJob(ctx, job)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "create ai job")
+	assert.Contains(t, err.Error(), "duplicate key")
 }

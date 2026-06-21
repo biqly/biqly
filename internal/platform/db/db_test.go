@@ -133,6 +133,12 @@ func TestNullStringArray(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, []string{}, target)
 	})
+
+	t.Run("Scan NullStringArray with nil destination pointer", func(t *testing.T) {
+		nsa := NullStringArray{S: nil}
+		err := nsa.Scan("hello")
+		assert.ErrorContains(t, err, "destination pointer is nil")
+	})
 }
 
 // -- General DB configurations tests --
@@ -248,6 +254,65 @@ func init() {
 	sql.Register("db_mock_driver", dbMockDriver{})
 }
 
+// -- OTel instrumentation tests --
+
+func TestOTelOptions(t *testing.T) {
+	t.Run("peer service and statement recorded", func(t *testing.T) {
+		opts := OTelOptions("postgresql", "my-service", true)
+		require.Len(t, opts, 2) // attributes + span options
+	})
+
+	t.Run("peer service and statement not recorded", func(t *testing.T) {
+		opts := OTelOptions("postgresql", "my-service", false)
+		require.Len(t, opts, 2)
+	})
+
+	t.Run("no peer service", func(t *testing.T) {
+		opts := OTelOptions("mysql", "", true)
+		require.Len(t, opts, 2)
+	})
+
+	t.Run("empty peer service with no statement", func(t *testing.T) {
+		opts := OTelOptions("clickhouse", "", false)
+		require.Len(t, opts, 2)
+	})
+
+	t.Run("mssql system", func(t *testing.T) {
+		opts := OTelOptions("mssql", "sqlserver-prod", true)
+		require.Len(t, opts, 2)
+	})
+}
+
+func TestOpenInstrumented(t *testing.T) {
+	t.Run("successful open with mock driver", func(t *testing.T) {
+		db, err := OpenInstrumented("db_mock_driver", "mock-dsn-otel", "postgresql", "test-svc", true)
+		require.NoError(t, err)
+		require.NotNil(t, db)
+		require.NoError(t, db.Close())
+	})
+
+	t.Run("open with no peer service", func(t *testing.T) {
+		db, err := OpenInstrumented("db_mock_driver", "mock-dsn-otel-2", "mysql", "", false)
+		require.NoError(t, err)
+		require.NotNil(t, db)
+		require.NoError(t, db.Close())
+	})
+}
+
+func TestNewPool(t *testing.T) {
+	// NewPool requires a real Postgres connection; we can only test the error paths.
+	t.Run("ping fails against unreachable host", func(t *testing.T) {
+		ctx := context.Background()
+		cfg := DefaultConfig("postgres://invalid:5432/nonexistent")
+		db, err := NewPool(ctx, cfg)
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "ping database:")
+		assert.Nil(t, db) // NewPool returns nil db on ping failure
+	})
+}
+
+// -- RunInTx tests (existing + panic recovery) --
+
 func TestRunInTx(t *testing.T) {
 	db, err := sql.Open("db_mock_driver", "mock-dsn-tx")
 	require.NoError(t, err)
@@ -321,6 +386,23 @@ func TestRunInTx(t *testing.T) {
 		})
 
 		assert.ErrorContains(t, err, "commit tx:")
+	})
+
+	t.Run("panic causes rollback and re-panic", func(t *testing.T) {
+		var txState mockDBTx
+
+		persistentMockConn.mu.Lock()
+		persistentMockConn.onBegin = func() (driver.Tx, error) {
+			return &txState, nil
+		}
+		persistentMockConn.mu.Unlock()
+
+		assert.Panics(t, func() {
+			_ = RunInTx(context.Background(), db, func(_ *sql.Tx) error {
+				panic("simulated panic") //nolint:forbidigo // intentional panic to verify rollback
+			})
+		})
+		assert.True(t, txState.rollbackCalled)
 	})
 }
 
@@ -396,5 +478,30 @@ func TestQuerySlice(t *testing.T) {
 
 		assert.ErrorContains(t, err, "GetUsers:")
 		assert.ErrorIs(t, err, queryErr)
+	})
+
+	t.Run("QuerySliceErr success with data", func(t *testing.T) {
+		persistentMockConn.mu.Lock()
+		persistentMockConn.onQuery = func(_ string, _ []driver.NamedValue) (driver.Rows, error) {
+			return &mockDBRows{
+				columns: []string{"name"},
+				data: [][]driver.Value{
+					{"Alice"},
+					{"Bob"},
+				},
+			}, nil
+		}
+		persistentMockConn.mu.Unlock()
+
+		res, err := QuerySliceErr(context.Background(), db, "ListUsers", "SELECT name FROM users", nil, func(s Scanner) (string, error) {
+			var name string
+			err := s.Scan(&name)
+			return name, err
+		})
+
+		assert.NoError(t, err)
+		require.Len(t, res, 2)
+		assert.Equal(t, "Alice", res[0])
+		assert.Equal(t, "Bob", res[1])
 	})
 }

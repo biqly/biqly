@@ -3,6 +3,8 @@ package security
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestReadOnlyCheckerAllowsIdentifiersContainingDangerousWords(t *testing.T) {
@@ -104,6 +106,33 @@ func TestReadOnlyCheckerRejectsBulkInsert(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "BULK") && !strings.Contains(err.Error(), "INSERT") {
 		t.Fatalf("expected BULK INSERT to be rejected, got %v", err)
 	}
+}
+
+func TestSkipReadonlyLineComment_EndOfString(t *testing.T) {
+	// Line comment at end of string, no newline
+	sql := "SELECT 1 -- some comment"
+	idx := skipReadonlyLineComment(sql, 9, len(sql))
+	assert.Equal(t, len(sql), idx)
+}
+
+func TestSkipReadonlyLineComment_WithNewline(t *testing.T) {
+	// Line comment followed by newline
+	sql := "SELECT 1 -- comment\nAND 2 = 2"
+	idx := skipReadonlyLineComment(sql, 9, len(sql))
+	// Should stop at newline (index of \n character)
+	assert.Equal(t, 19, idx) // \n is at index 19 in the string
+}
+
+func TestSkipReadonlyLineComment_EmptyAfter(t *testing.T) {
+	sql := "--"
+	idx := skipReadonlyLineComment(sql, 0, 2)
+	assert.Equal(t, 2, idx)
+}
+
+func TestSkipReadonlyLineComment_MultiLine(t *testing.T) {
+	sql := "-- line1\n-- line2\nSELECT 1"
+	idx := skipReadonlyLineComment(sql, 0, len(sql))
+	assert.Equal(t, 8, idx) // \n is at index 8
 }
 
 func TestReadOnlyCheckerRejectsNonSelectPrefix(t *testing.T) {

@@ -20,3 +20,17 @@ func TestEmptyRequestIDDoesNotWrapContext(t *testing.T) {
 		t.Fatal("empty request ID should return original context")
 	}
 }
+
+func TestFromContextNil(t *testing.T) {
+	t.Parallel()
+	if got := FromContext(context.TODO()); got != "" {
+		t.Fatalf("FromContext(nil) = %q, want empty", got)
+	}
+}
+
+func TestFromContextMissingKey(t *testing.T) {
+	t.Parallel()
+	if got := FromContext(context.Background()); got != "" {
+		t.Fatalf("FromContext(background) = %q, want empty", got)
+	}
+}

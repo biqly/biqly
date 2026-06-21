@@ -403,6 +403,77 @@ func TestOptionalJWTAuth_NoTokenPassesWithoutIdentity(t *testing.T) {
 	}
 }
 
+func TestContextSettersAndGetters(t *testing.T) {
+	t.Run("WithUserID/UserID round-trip", func(t *testing.T) {
+		ctx := WithUserID(context.Background(), "u-42")
+		if got := UserID(ctx); got != "u-42" {
+			t.Fatalf("UserID = %q, want %q", got, "u-42")
+		}
+		// Empty string when not set
+		if got := UserID(context.Background()); got != "" {
+			t.Fatalf("UserID on bare ctx = %q, want \"\"", got)
+		}
+	})
+
+	t.Run("WithUserEmail/UserEmail round-trip", func(t *testing.T) {
+		ctx := WithUserEmail(context.Background(), "a@b.com")
+		if got := UserEmail(ctx); got != "a@b.com" {
+			t.Fatalf("UserEmail = %q, want %q", got, "a@b.com")
+		}
+		if got := UserEmail(context.Background()); got != "" {
+			t.Fatalf("UserEmail on bare ctx = %q, want \"\"", got)
+		}
+	})
+
+	t.Run("WithUserRoles/UserRoles round-trip", func(t *testing.T) {
+		roles := []string{"admin", "viewer"}
+		ctx := WithUserRoles(context.Background(), roles)
+		got := UserRoles(ctx)
+		if len(got) != 2 || got[0] != "admin" || got[1] != "viewer" {
+			t.Fatalf("UserRoles = %+v, want %+v", got, roles)
+		}
+		if got := UserRoles(context.Background()); got != nil {
+			t.Fatalf("UserRoles on bare ctx = %+v, want nil", got)
+		}
+	})
+
+	t.Run("WithWorkspaceID/WorkspaceID round-trip", func(t *testing.T) {
+		ctx := WithWorkspaceID(context.Background(), "ws-99")
+		if got := WorkspaceID(ctx); got != "ws-99" {
+			t.Fatalf("WorkspaceID = %q, want %q", got, "ws-99")
+		}
+		if got := WorkspaceID(context.Background()); got != "" {
+			t.Fatalf("WorkspaceID on bare ctx = %q, want \"\"", got)
+		}
+	})
+
+	t.Run("WithEmailVerified/EmailVerified round-trip", func(t *testing.T) {
+		ctx := WithEmailVerified(context.Background(), true)
+		if got := EmailVerified(ctx); got != true {
+			t.Fatalf("EmailVerified = %v, want true", got)
+		}
+		ctx = WithEmailVerified(context.Background(), false)
+		if got := EmailVerified(ctx); got != false {
+			t.Fatalf("EmailVerified = %v, want false", got)
+		}
+		if got := EmailVerified(context.Background()); got != false {
+			t.Fatalf("EmailVerified on bare ctx = %v, want false", got)
+		}
+	})
+
+	t.Run("AccessibleDatasources on bare context", func(t *testing.T) {
+		if got := AccessibleDatasources(context.Background()); got != nil {
+			t.Fatalf("AccessibleDatasources on bare ctx = %+v, want nil", got)
+		}
+	})
+
+	t.Run("HasRole false on bare context", func(t *testing.T) {
+		if HasRole(context.Background(), "anything") {
+			t.Fatal("HasRole on bare ctx should be false")
+		}
+	})
+}
+
 func TestOptionalJWTAuth_NonJWTBearerNotRejected(t *testing.T) {
 	priv, pub := newSigningKey(t)
 	srv := newKeyServer(t, pub, "biqly")
