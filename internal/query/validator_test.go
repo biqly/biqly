@@ -558,3 +558,89 @@ func TestValidateDateFilterValueType_SkipsNonDateDimensions(t *testing.T) {
 		t.Errorf("expected nil for non-date dimension, got %v", err)
 	}
 }
+
+func TestValidateFormulaSelect_Valid(t *testing.T) {
+	v := NewValidator(100)
+	for _, op := range []string{FormulaOpAdd, FormulaOpSubtract, FormulaOpDivide, FormulaOpPercentOf, FormulaOpPercentChange} {
+		lq := &LogicalQuery{
+			Select: []SelectItem{
+				{
+					Type: SelectTypeFormula,
+					Name: "result",
+					Formula: &FormulaSpec{
+						Op:    op,
+						Left:  MeasureRef{Metric: "orders", Filters: []Filter{{Field: "country", Operator: OpEq, Value: "TR"}}},
+						Right: MeasureRef{Metric: "orders"},
+					},
+				},
+			},
+			Limit: 100,
+		}
+		require.NoErrorf(t, v.Validate(lq, validatorTestModel()), "op %q should validate", op)
+	}
+}
+
+func TestValidateFormulaSelect_UnknownMetricAndBadFilter(t *testing.T) {
+	v := NewValidator(100)
+	lq := &LogicalQuery{
+		Select: []SelectItem{
+			{
+				Type: SelectTypeFormula,
+				Name: "result",
+				Formula: &FormulaSpec{
+					Op:    FormulaOpDivide,
+					Left:  MeasureRef{Metric: "nope", Filters: []Filter{{Field: "ghost", Operator: OpEq, Value: 1}}},
+					Right: MeasureRef{Metric: "orders"},
+				},
+			},
+		},
+		Limit: 100,
+	}
+	err := v.Validate(lq, validatorTestModel())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nope")
+	assert.Contains(t, err.Error(), "ghost")
+}
+
+func TestValidateFormulaSelect_InvalidOp(t *testing.T) {
+	v := NewValidator(100)
+	lq := &LogicalQuery{
+		Select: []SelectItem{
+			{
+				Type: SelectTypeFormula,
+				Name: "result",
+				Formula: &FormulaSpec{
+					Op:    "multiply",
+					Left:  MeasureRef{Metric: "orders"},
+					Right: MeasureRef{Metric: "orders"},
+				},
+			},
+		},
+		Limit: 100,
+	}
+	err := v.Validate(lq, validatorTestModel())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "multiply")
+}
+
+func TestValidateFormulaSelect_MissingSpec(t *testing.T) {
+	v := NewValidator(100)
+	lq := &LogicalQuery{
+		Select: []SelectItem{{Type: SelectTypeFormula, Name: "result"}},
+		Limit:  100,
+	}
+	require.Error(t, v.Validate(lq, validatorTestModel()))
+}
+
+func TestValidateMetricSelect_PerMeasureFilterValidated(t *testing.T) {
+	v := NewValidator(100)
+	lq := &LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeMetric, Name: "orders", Alias: "tr_orders", Filters: []Filter{{Field: "ghost", Operator: OpEq, Value: 1}}},
+		},
+		Limit: 100,
+	}
+	err := v.Validate(lq, validatorTestModel())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ghost")
+}

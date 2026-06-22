@@ -115,17 +115,20 @@ func validateSelectItems(lq *LogicalQuery, model *semantic.SemanticModel, lk val
 					AllowedAlternatives: suggestAlternatives(item.Name, lk.metricNames),
 				})
 			}
+			errs = append(errs, validateFilterList(item.Filters, model, lk, "select.filters")...)
 		case SelectTypeWindow:
 			errs = append(errs, validateWindowSelect(item, model, lk.dimMap, lk.metricRegistry, lk.dimensionNames, lk.metricNames, lk.allFieldNames)...)
 		case SelectTypeCase:
 			errs = append(errs, validateCaseSelect(item, lk.dimMap, lk.dimensionNames)...)
+		case SelectTypeFormula:
+			errs = append(errs, validateFormulaSelect(item, model, lk)...)
 		default:
 			errs = append(errs, &ValidationError{
 				Field:               "select",
 				Code:                errmsg.CodeInvalidSelectType,
 				Message:             "invalid select type: " + item.Type,
 				Value:               item.Type,
-				AllowedAlternatives: []string{SelectTypeDimension, SelectTypeMetric, SelectTypeWindow, SelectTypeCase},
+				AllowedAlternatives: []string{SelectTypeDimension, SelectTypeMetric, SelectTypeWindow, SelectTypeCase, SelectTypeFormula},
 			})
 		}
 	}
@@ -162,11 +165,19 @@ func validateHavingClause(lq *LogicalQuery, lk validationLookups) ValidationErro
 // validateFilterClauses checks WHERE filters: known field, valid operator,
 // subquery shape, and date/value-type compatibility.
 func validateFilterClauses(lq *LogicalQuery, model *semantic.SemanticModel, lk validationLookups) ValidationErrors {
+	return validateFilterList(lq.Filters, model, lk, "filters")
+}
+
+// validateFilterList runs the WHERE-filter checks (known field, valid operator,
+// subquery shape, date/value-type) over an arbitrary filter slice. Shared by the
+// query-level WHERE and by per-measure filters on metric / ratio select items;
+// fieldPath names the offending location in error messages.
+func validateFilterList(filters []Filter, model *semantic.SemanticModel, lk validationLookups, fieldPath string) ValidationErrors {
 	var errs ValidationErrors
-	for _, f := range lq.Filters {
+	for _, f := range filters {
 		if !lk.allowedFields[f.Field] {
 			errs = append(errs, &ValidationError{
-				Field:               "filters",
+				Field:               fieldPath,
 				Code:                errmsg.CodeUnknownField,
 				Message:             errmsg.UnknownFieldMsg(f.Field),
 				Value:               f.Field,
@@ -175,7 +186,7 @@ func validateFilterClauses(lq *LogicalQuery, model *semantic.SemanticModel, lk v
 		}
 		if !slices.Contains(validFilterOps, f.Operator) {
 			errs = append(errs, &ValidationError{
-				Field:               "filters",
+				Field:               fieldPath,
 				Code:                errmsg.CodeInvalidOperator,
 				Message:             "invalid operator: " + f.Operator,
 				Value:               f.Operator,
@@ -189,6 +200,56 @@ func validateFilterClauses(lq *LogicalQuery, model *semantic.SemanticModel, lk v
 			errs = append(errs, err)
 		}
 	}
+	return errs
+}
+
+// validateFormulaSelect checks a `formula` select item: spec present, name/alias
+// available, a supported operator, and that both sides reference known metrics
+// with well-formed per-measure filters.
+func validateFormulaSelect(item SelectItem, model *semantic.SemanticModel, lk validationLookups) ValidationErrors {
+	var errs ValidationErrors
+	if item.Formula == nil {
+		return append(errs, &ValidationError{
+			Field:   "select.formula",
+			Code:    "MISSING_FORMULA_SPEC",
+			Message: "formula item requires a formula spec: " + item.Name,
+		})
+	}
+	if strings.TrimSpace(item.Name) == "" && strings.TrimSpace(item.Alias) == "" {
+		errs = append(errs, &ValidationError{
+			Field:   "select.formula",
+			Code:    "MISSING_FORMULA_NAME",
+			Message: "formula item requires name or alias",
+		})
+	}
+	if !IsValidFormulaOp(item.Formula.Op) {
+		errs = append(errs, &ValidationError{
+			Field:               "select.formula",
+			Code:                "INVALID_FORMULA_OP",
+			Message:             "unsupported formula op: " + item.Formula.Op,
+			Value:               item.Formula.Op,
+			AllowedAlternatives: []string{FormulaOpAdd, FormulaOpSubtract, FormulaOpDivide, FormulaOpPercentOf, FormulaOpPercentChange},
+		})
+	}
+	errs = append(errs, validateMeasureRef(item.Formula.Left, model, lk, "select.formula.left")...)
+	errs = append(errs, validateMeasureRef(item.Formula.Right, model, lk, "select.formula.right")...)
+	return errs
+}
+
+// validateMeasureRef checks a MeasureRef names a known metric and that its
+// per-measure filters are well-formed.
+func validateMeasureRef(m MeasureRef, model *semantic.SemanticModel, lk validationLookups, fieldPath string) ValidationErrors {
+	var errs ValidationErrors
+	if !lk.metricRegistry.Has(m.Metric) {
+		errs = append(errs, &ValidationError{
+			Field:               fieldPath,
+			Code:                errmsg.CodeUnknownMetric,
+			Message:             errmsg.UnknownMetricMsg(m.Metric),
+			Value:               m.Metric,
+			AllowedAlternatives: suggestAlternatives(m.Metric, lk.metricNames),
+		})
+	}
+	errs = append(errs, validateFilterList(m.Filters, model, lk, fieldPath+".filters")...)
 	return errs
 }
 

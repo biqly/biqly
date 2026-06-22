@@ -20,6 +20,8 @@ type (
 	CaseExpr       = logicalquery.CaseExpr
 	CaseBranch     = logicalquery.CaseBranch
 	CaseThen       = logicalquery.CaseThen
+	FormulaSpec    = logicalquery.FormulaSpec
+	MeasureRef     = logicalquery.MeasureRef
 	GroupBy        = logicalquery.GroupBy
 	OrderBy        = logicalquery.OrderBy
 )
@@ -64,6 +66,16 @@ const (
 	SelectTypeMetric    = logicalquery.SelectTypeMetric
 	SelectTypeWindow    = logicalquery.SelectTypeWindow
 	SelectTypeCase      = logicalquery.SelectTypeCase
+	SelectTypeFormula   = logicalquery.SelectTypeFormula
+)
+
+// Re-exported formula operator identifiers.
+const (
+	FormulaOpAdd           = logicalquery.FormulaOpAdd
+	FormulaOpSubtract      = logicalquery.FormulaOpSubtract
+	FormulaOpDivide        = logicalquery.FormulaOpDivide
+	FormulaOpPercentOf     = logicalquery.FormulaOpPercentOf
+	FormulaOpPercentChange = logicalquery.FormulaOpPercentChange
 )
 
 // Re-exported CASE-branch kinds.
@@ -82,4 +94,9 @@ const (
 // grain. Empty is considered valid (means "no bucketing").
 func IsValidTimeGrain(grain string) bool {
 	return logicalquery.IsValidTimeGrain(grain)
+}
+
+// IsValidFormulaOp reports whether op is a supported formula operator.
+func IsValidFormulaOp(op string) bool {
+	return logicalquery.IsValidFormulaOp(op)
 }

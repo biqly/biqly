@@ -102,10 +102,10 @@ func compileExprAcrossDialectsAdvancedCases() []compileExprDialectCase {
 				},
 			},
 			want: map[string]string{
-				"postgres":   `ROUND(("revenue" / NULLIF("quantity", 0)), 2)`,
-				"mysql":      "ROUND((`revenue` / NULLIF(`quantity`, 0)), 2)",
-				"sqlserver":  "ROUND(([revenue] / NULLIF([quantity], 0)), 2)",
-				"clickhouse": "round((`revenue` / nullif(`quantity`, 0)), 2)",
+				"postgres":   `ROUND(("revenue" * 1.0 / NULLIF("quantity", 0)), 2)`,
+				"mysql":      "ROUND((`revenue` * 1.0 / NULLIF(`quantity`, 0)), 2)",
+				"sqlserver":  "ROUND(([revenue] * 1.0 / NULLIF([quantity], 0)), 2)",
+				"clickhouse": "round((`revenue` * 1.0 / nullif(`quantity`, 0)), 2)",
 			},
 		},
 		{

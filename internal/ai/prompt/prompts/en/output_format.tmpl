@@ -6,3 +6,15 @@ The JSON must match this structure:
 ## Example — multi-metric grouping
 Question: "orders per customer name and the most recent order date"
 {"select":[{"type":"dimension","name":"name"},{"type":"metric","name":"row_count"},{"type":"metric","name":"max_order_date"}],"group_by":[{"field":"name"}],"order_by":[{"field":"row_count","direction":"desc"}],"limit":100}
+
+## Example — windowed ratio (two different time windows)
+Question (current date 2026-06-22): "ratio of total tweets sent today to total tweets sent this month" / "bugün atılan toplam tweet sayısının bu ay atılan toplam tweet sayısına oranı"
+{"select":[{"type":"formula","name":"today_to_month_ratio","formula":{"op":"divide","left":{"metric":"row_count","filters":[{"field":"created_at","operator":"eq","value":"2026-06-22"}]},"right":{"metric":"row_count","filters":[{"field":"created_at_month","operator":"eq","value":"2026-06-01"}]}}}],"limit":1}
+
+## Example — difference between two windows
+Question (current date 2026-06-22): "difference between tweets sent today and yesterday" / "bugün atılan tweet sayısının dün atılan tweet sayısından farkı"
+{"select":[{"type":"formula","name":"today_minus_yesterday","formula":{"op":"subtract","left":{"metric":"row_count","filters":[{"field":"created_at","operator":"eq","value":"2026-06-22"}]},"right":{"metric":"row_count","filters":[{"field":"created_at","operator":"eq","value":"2026-06-21"}]}}}],"limit":1}
+
+## Example — change/growth rate vs the previous period
+Question (current date 2026-06-22): "change rate of today's tweets vs yesterday's" / "bugün atılan tweet sayısının düne göre değişim oranı"
+{"select":[{"type":"formula","name":"today_vs_yesterday_pct","formula":{"op":"percent_change","left":{"metric":"row_count","filters":[{"field":"created_at","operator":"eq","value":"2026-06-22"}]},"right":{"metric":"row_count","filters":[{"field":"created_at","operator":"eq","value":"2026-06-21"}]}}}],"limit":1}

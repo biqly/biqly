@@ -167,6 +167,14 @@ func binaryExprSQL(expr *pkgsemantic.BinaryExpr, d dialect.Dialect, resolver *Sc
 			return "(" + left + " || " + right + ")", nil
 		}
 	}
+	if expr.Op == pkgsemantic.OpDivide {
+		// Multiply the dividend by a float literal before dividing so integer
+		// operands (COUNT, integer columns) do not truncate to an integer
+		// result — e.g. 5 / 2 must yield 2.5, not 2. Zero-guarding the divisor
+		// stays the expression author's responsibility (wrap the right operand
+		// in NULLIF(x, 0) when needed), matching existing derived-metric usage.
+		return "(" + left + " * 1.0 / " + right + ")", nil
+	}
 	opSQL, err := binaryOpSQL(expr.Op)
 	if err != nil {
 		return "", err
