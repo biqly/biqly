@@ -429,6 +429,7 @@ export default function Metadata() {
 
       {describeOpen && (
         <MetadataDescribeModal
+          open={!!describeOpen}
           table={describeOpen}
           datasourceId={datasourceId}
           columns={columns}
