@@ -24,7 +24,7 @@ export function AdminPanelShell({
   readOnly,
   error,
   children,
-  maxWidth = 1000,
+  maxWidth = '100%',
   className,
 }: AdminPanelShellProps) {
   const t = useT()
