@@ -4,25 +4,25 @@ helm:
     value: ghcr.io/biqly/ai
     forcestring: true
   - name: ai.image.tag
-    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
+    value: sha-9a721bab45dbd72e1507aecf8754380c1692c7db
     forcestring: true
   - name: auth.image.repository
     value: ghcr.io/biqly/auth
     forcestring: true
   - name: auth.image.tag
-    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
+    value: sha-9a721bab45dbd72e1507aecf8754380c1692c7db
     forcestring: true
   - name: auth.migrate.image.repository
     value: ghcr.io/biqly/auth
     forcestring: true
   - name: auth.migrate.image.tag
-    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
+    value: sha-9a721bab45dbd72e1507aecf8754380c1692c7db
     forcestring: true
   - name: catalog.image.repository
     value: ghcr.io/biqly/catalog
     forcestring: true
   - name: catalog.image.tag
-    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
+    value: sha-9a721bab45dbd72e1507aecf8754380c1692c7db
     forcestring: true
   - name: frontend.image.repository
     value: ghcr.io/biqly/frontend
@@ -40,23 +40,23 @@ helm:
     value: ghcr.io/biqly/mail
     forcestring: true
   - name: mail.image.tag
-    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
+    value: sha-9a721bab45dbd72e1507aecf8754380c1692c7db
     forcestring: true
   - name: mail.migrate.image.repository
     value: ghcr.io/biqly/mail
     forcestring: true
   - name: mail.migrate.image.tag
-    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
+    value: sha-9a721bab45dbd72e1507aecf8754380c1692c7db
     forcestring: true
   - name: query.image.repository
     value: ghcr.io/biqly/query
     forcestring: true
   - name: query.image.tag
-    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
+    value: sha-9a721bab45dbd72e1507aecf8754380c1692c7db
     forcestring: true
   - name: worker.image.repository
     value: ghcr.io/biqly/worker
     forcestring: true
   - name: worker.image.tag
-    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
+    value: sha-9a721bab45dbd72e1507aecf8754380c1692c7db
     forcestring: true
