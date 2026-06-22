@@ -125,6 +125,11 @@ export function useModelingPageState() {
   const [suggestedJoins, setSuggestedJoins] = useState<SuggestedJoin[]>([])
   const [publishing, setPublishing] = useState(false)
   const [highlightJoinId, setHighlightJoinId] = useState<string | null>(null)
+  const highlightJoinIdRef = useRef<string | null>(null)
+  // Keep ref in sync so handleJoinClick can compare
+  useEffect(() => {
+    highlightJoinIdRef.current = highlightJoinId
+  }, [highlightJoinId])
   const [paletteOpen, setPaletteOpen] = useState(
     () => typeof window === 'undefined' || !window.matchMedia('(max-width: 1180px)').matches,
   )
@@ -520,6 +525,13 @@ export function useModelingPageState() {
 
   const handleJoinClick = useCallback(
     (joinId: string | null) => {
+      const prevId = highlightJoinIdRef.current
+      if (joinId === prevId) {
+        // Deselect: restore viewport, clear highlight
+        setHighlightJoinId(null)
+        canvas.restoreSavedViewport()
+        return
+      }
       setHighlightJoinId(joinId)
       if (joinId) {
         const join = joins.find((j) => j.id === joinId)
