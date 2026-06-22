@@ -227,7 +227,13 @@ export function MetadataTablesPanel({
               )}
               {filteredTables.map((tab) => (
                 <Fragment key={tab.id}>
-                  <tr className={metadataTableRowClass(openTableId === tab.id)}>
+                  <tr
+                    className={cn(
+                      metadataTableRowClass(openTableId === tab.id),
+                      'border-border border-b last:border-b-0',
+                      'odd:bg-(--table-stripe-odd) even:bg-(--table-stripe-even) hover:bg-(--table-stripe-hover)',
+                    )}
+                  >
                     <td>
                       <button
                         type="button"
