@@ -14,7 +14,7 @@ import {
   zoomStep,
   zoomViewportAtPoint,
 } from './canvasMath'
-import { COL_LIMIT } from './constants'
+import { CARD_WIDTH, COL_LIMIT } from './constants'
 import type { Pt, Viewport } from './types'
 import { tableKey } from './utils'
 
@@ -205,6 +205,45 @@ export function useModelingCanvas(
     [model?.base_schema, positions, cardLayouts],
   )
 
+  const panToKeys = useCallback(
+    (keys: string[]) => {
+      const node = wrapRef.current
+      if (!node || keys.length === 0) {
+        return
+      }
+      const padding = 60
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+      for (const key of keys) {
+        const pos = positions[key]
+        if (!pos) {
+          continue
+        }
+        const layout = cardLayouts.get(key)
+        const h = layout?.height ?? 200
+        minX = Math.min(minX, pos.x)
+        minY = Math.min(minY, pos.y)
+        maxX = Math.max(maxX, pos.x + CARD_WIDTH)
+        maxY = Math.max(maxY, pos.y + h)
+      }
+      if (!isFinite(minX)) {
+        return
+      }
+      const rect = node.getBoundingClientRect()
+      const boxW = maxX - minX + padding * 2
+      const boxH = maxY - minY + padding * 2
+      const scaleX = rect.width / boxW
+      const scaleY = rect.height / boxH
+      const scale = snapScaleNearest(Math.min(scaleX, scaleY, 1))
+      const tx = -minX * scale + (rect.width - (maxX - minX) * scale) / 2 + padding
+      const ty = -minY * scale + (rect.height - (maxY - minY) * scale) / 2 + padding
+      setViewport({ scale, tx, ty })
+    },
+    [positions, cardLayouts],
+  )
+
   return {
     positions,
     viewport,
@@ -218,6 +257,7 @@ export function useModelingCanvas(
     resetView,
     fitView,
     getJoinPath,
+    panToKeys,
   }
 }
 

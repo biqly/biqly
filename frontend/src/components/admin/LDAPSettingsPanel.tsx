@@ -187,47 +187,51 @@ export function LDAPSettingsPanel({ token }: { token: string }) {
           disabled={!canEdit}
           onChange={(v) => set('skip_tls_verify', v)}
         />
-        <Field label={t('admin.ldap.bind_dn')} hint={t('admin.ldap.bind_dn_hint')}>
-          <input
-            className={adminInputClass}
-            value={form.bind_dn}
-            onChange={(e) => set('bind_dn', e.target.value)}
-            placeholder="cn=svc,dc=example,dc=com"
-          />
-        </Field>
-        <Field
-          label={t('admin.ldap.bind_password')}
-          hint={hasStoredPassword ? t('admin.ldap.bind_password_set') : undefined}
-        >
-          <input
-            className={adminInputClass}
-            type="password"
-            autoComplete="new-password"
-            value={form.bind_password}
-            onChange={(e) => set('bind_password', e.target.value)}
-            placeholder={t('admin.ldap.bind_password_placeholder')}
-          />
-        </Field>
+        <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
+          <Field label={t('admin.ldap.bind_dn')} hint={t('admin.ldap.bind_dn_hint')}>
+            <input
+              className={adminInputClass}
+              value={form.bind_dn}
+              onChange={(e) => set('bind_dn', e.target.value)}
+              placeholder="cn=svc,dc=example,dc=com"
+            />
+          </Field>
+          <Field
+            label={t('admin.ldap.bind_password')}
+            hint={hasStoredPassword ? t('admin.ldap.bind_password_set') : undefined}
+          >
+            <input
+              className={adminInputClass}
+              type="password"
+              autoComplete="new-password"
+              value={form.bind_password}
+              onChange={(e) => set('bind_password', e.target.value)}
+              placeholder={t('admin.ldap.bind_password_placeholder')}
+            />
+          </Field>
+        </div>
       </AdminFormSection>
 
       {/* Directory & mapping */}
       <AdminFormSection title={t('admin.ldap.directory')} disabled={!canEdit}>
-        <Field label={t('admin.ldap.base_dn')} hint={t('admin.ldap.base_dn_hint')}>
-          <input
-            className={adminInputClass}
-            value={form.base_dn}
-            onChange={(e) => set('base_dn', e.target.value)}
-            placeholder="ou=people,dc=example,dc=com"
-          />
-        </Field>
-        <Field label={t('admin.ldap.user_filter')} hint={t('admin.ldap.user_filter_hint')}>
-          <input
-            className={adminInputClass}
-            value={form.user_filter}
-            onChange={(e) => set('user_filter', e.target.value)}
-            placeholder="(uid=%s)"
-          />
-        </Field>
+        <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
+          <Field label={t('admin.ldap.base_dn')} hint={t('admin.ldap.base_dn_hint')}>
+            <input
+              className={adminInputClass}
+              value={form.base_dn}
+              onChange={(e) => set('base_dn', e.target.value)}
+              placeholder="ou=people,dc=example,dc=com"
+            />
+          </Field>
+          <Field label={t('admin.ldap.user_filter')} hint={t('admin.ldap.user_filter_hint')}>
+            <input
+              className={adminInputClass}
+              value={form.user_filter}
+              onChange={(e) => set('user_filter', e.target.value)}
+              placeholder="(uid=%s)"
+            />
+          </Field>
+        </div>
         <div className={ldapGridClass}>
           <Field label={t('admin.ldap.email_attr')}>
             <input

@@ -111,7 +111,7 @@ export default function Modeling() {
               tableImpact={s.getTableImpact}
               suggestedJoins={s.suggestedJoins}
               highlightJoinId={s.highlightJoinId}
-              onHighlightJoin={s.setHighlightJoinId}
+              onHighlightJoin={s.handleJoinClick}
               onSchemaToggle={(schemaName, isExcluded) => {
                 void s.requestSchemaToggle(schemaName, isExcluded)
               }}

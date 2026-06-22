@@ -474,8 +474,16 @@ export function ModelingPalette({
                   <div
                     className={modelingJoinPillClass({ active: highlightJoinId === join.id })}
                     key={join.id}
-                    onMouseEnter={() => onHighlightJoin(join.id)}
-                    onMouseLeave={() => onHighlightJoin(null)}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={highlightJoinId === join.id}
+                    onClick={() => onHighlightJoin(highlightJoinId === join.id ? null : join.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onHighlightJoin(highlightJoinId === join.id ? null : join.id)
+                      }
+                    }}
                   >
                     <div className={modelingJoinPillHeaderClass}>
                       <strong>{join.name}</strong>

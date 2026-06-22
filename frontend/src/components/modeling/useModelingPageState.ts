@@ -517,6 +517,24 @@ export function useModelingPageState() {
   const allMetrics = model?.metrics ?? []
   const metrics = activeEntities(allMetrics)
   const inactiveMetrics = inactiveEntities(allMetrics)
+
+  const handleJoinClick = useCallback(
+    (joinId: string | null) => {
+      setHighlightJoinId(joinId)
+      if (joinId) {
+        const join = joins.find((j) => j.id === joinId)
+        if (join) {
+          const keys = [
+            tableKey(join.from_schema ?? model?.base_schema ?? '', join.from_table),
+            tableKey(join.to_schema ?? model?.base_schema ?? '', join.to_table),
+          ]
+          window.requestAnimationFrame(() => canvas.panToKeys(keys))
+        }
+      }
+    },
+    [joins, model, canvas],
+  )
+
   const {
     renameTarget,
     renameValue,
@@ -671,7 +689,7 @@ export function useModelingPageState() {
     usedTableCount,
     suggestedJoins,
     highlightJoinId,
-    setHighlightJoinId,
+    handleJoinClick,
     getTableImpact,
     requestSchemaToggle,
     renameTable,
