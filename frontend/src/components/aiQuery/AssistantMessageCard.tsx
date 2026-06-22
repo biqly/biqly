@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { buttonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
+import { infoNoticeClass } from '../../lib/feedbackClasses'
 import type { QueryResultPayload } from '../../types/ai'
 import { normalizeAIQueryResponse } from '../../utils/normalizeAIQueryResponse'
 import { buildPivotTable } from '../../utils/pivotTable'
@@ -76,7 +78,14 @@ function AssistantPlainNote({ content }: { content: string }) {
   if (!content) {
     return null
   }
-  return <ErrorAlert error={content} />
+  return (
+    <div className={cn(infoNoticeClass, 'mb-0')} role="status">
+      <span className="text-accent" aria-hidden="true">
+        ⓘ{' '}
+      </span>
+      {content}
+    </div>
+  )
 }
 
 function AssistantMessageFeedbackRow({

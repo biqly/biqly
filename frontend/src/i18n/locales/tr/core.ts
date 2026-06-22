@@ -485,7 +485,7 @@ export const core: CoreDictionary = {
     assistant_sql_preview: 'SQL: {{snippet}}…',
     assistant_executed: 'Sorgu çalıştırıldı',
     job_failed_message: 'Yapay zeka işi başarısız oldu: {{error}}',
-    job_cancelled_message: 'Yapay zeka işi iptal edildi.',
+    job_cancelled_message: 'Sorgu iptal edildi: {{question}}',
     filter_by_value: '{{column}} = "{{value}}" ile filtrele',
     drill_down_prompt: '{{column}} = "{{value}}" olan satırların detayını göster',
     loading_retry: 'AI kendini düzeltti (deneme {{n}}/3)…',

@@ -51,6 +51,12 @@ export const loadingOverlaySpinnerClass = cn(
   'animate-loading-spin shadow-[0_0_8px_var(--accent-glow)]',
 )
 
+export const infoNoticeClass = cn(
+  'border border-[color-mix(in_srgb,var(--accent)_22%,transparent)] rounded-lg',
+  'bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-foreground-muted',
+  'px-[0.85rem] py-[0.7rem] text-[0.85rem] mb-4',
+)
+
 export const warningPanelClass = cn(
   'grid gap-[0.6rem] border border-[color-mix(in_srgb,var(--warning)_30%,transparent)]',
   'border-l-[3px] border-l-warning rounded-lg',

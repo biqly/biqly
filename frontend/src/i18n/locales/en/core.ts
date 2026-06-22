@@ -477,7 +477,7 @@ export const core = {
     assistant_sql_preview: 'SQL: {{snippet}}…',
     assistant_executed: 'Query executed',
     job_failed_message: 'The AI job failed: {{error}}',
-    job_cancelled_message: 'The AI job was cancelled.',
+    job_cancelled_message: 'Query cancelled: {{question}}',
     filter_by_value: '{{column}} = "{{value}}" filter',
     drill_down_prompt: 'Show row details where {{column}} = "{{value}}"',
     loading_retry: 'AI is self‑correcting (attempt {{n}}/3)…',
