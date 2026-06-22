@@ -66,6 +66,33 @@ func (b BaseDialect) Aggregate(fn, column string) string {
 	return AggregateStandardSQL(b, fn, column)
 }
 
+// WindowFunc renders a pure analytic window-function head using standard ANSI
+// SQL:2003 spelling, which PostgreSQL, MySQL 8+, and SQL Server all accept.
+// Dialects whose syntax differs (e.g. ClickHouse) override this. ok=false marks
+// an unrecognised function so the caller rejects the query.
+func (BaseDialect) WindowFunc(fn string, args []string) (string, bool) {
+	switch fn {
+	case "row_number", "rank", "dense_rank", "percent_rank", "cume_dist":
+		return strings.ToUpper(fn) + "()", true
+	case "ntile":
+		if len(args) != 1 {
+			return "", false
+		}
+		return "NTILE(" + args[0] + ")", true
+	case "lag", "lead":
+		if len(args) == 0 {
+			return "", false
+		}
+		return strings.ToUpper(fn) + "(" + strings.Join(args, ", ") + ")", true
+	case "first_value", "last_value":
+		if len(args) != 1 {
+			return "", false
+		}
+		return strings.ToUpper(fn) + "(" + args[0] + ")", true
+	}
+	return "", false
+}
+
 // CalendarPartLookup maps year/quarter/month to dialect-specific expressions.
 func CalendarPartLookup(d Dialect, part, column string, yearFmt, quarterFmt, monthFmt string) string {
 	q := d.QuoteIdent(column)

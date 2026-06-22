@@ -1581,3 +1581,90 @@ func TestCompiler_FormulaFromTaughtJSON(t *testing.T) {
 		t.Errorf("expected two conditional aggregates divided via NULLIF, got:\n%s", cq.SQL)
 	}
 }
+
+// windowFnModel is a small orders model with a date dimension and a numeric
+// metric for exercising analytic window functions.
+func windowFnModel() *semantic.SemanticModel {
+	return &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "order_month", ColumnRef: "orders.created_at", Type: "timestamp", TimeGrain: TimeGrainMonth},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "total_revenue", Expression: "orders.total_amount", Aggregation: "sum"},
+		},
+	}
+}
+
+// TestCompiler_WindowLag proves LAG renders with the value + offset and a
+// dialect-correct spelling on Postgres.
+func TestCompiler_WindowLag(t *testing.T) {
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "order_month"},
+			{
+				Type: SelectTypeWindow, Name: "prev_revenue", Alias: "prev_revenue",
+				Window: &WindowSpec{
+					Aggregation: "lag", Metric: "total_revenue", Offset: 1,
+					OrderBy: []OrderBy{{Field: "order_month", Direction: "asc"}},
+				},
+			},
+		},
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, windowFnModel())
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if !strings.Contains(cq.SQL, `LAG("orders"."total_amount", 1) OVER (ORDER BY `) {
+		t.Errorf("expected LAG(...) head, got:\n%s", cq.SQL)
+	}
+}
+
+// TestCompiler_WindowLagClickHouse proves the same LAG question derives a
+// ClickHouse-native lagInFrame spelling instead of LAG.
+func TestCompiler_WindowLagClickHouse(t *testing.T) {
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "order_month"},
+			{
+				Type: SelectTypeWindow, Name: "prev_revenue", Alias: "prev_revenue",
+				Window: &WindowSpec{
+					Aggregation: "lead", Metric: "total_revenue", Offset: 2,
+					OrderBy: []OrderBy{{Field: "order_month", Direction: "asc"}},
+				},
+			},
+		},
+	}
+	cq, err := NewCompiler(dialect.ClickHouseDialect{}).Compile(context.Background(), &lq, windowFnModel())
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if !strings.Contains(cq.SQL, "leadInFrame(") {
+		t.Errorf("expected ClickHouse leadInFrame head, got:\n%s", cq.SQL)
+	}
+	if strings.Contains(cq.SQL, "LEAD(") {
+		t.Errorf("ClickHouse should not emit ANSI LEAD, got:\n%s", cq.SQL)
+	}
+}
+
+// TestCompiler_WindowFirstValue proves FIRST_VALUE renders with its value arg.
+func TestCompiler_WindowFirstValue(t *testing.T) {
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{
+				Type: SelectTypeWindow, Name: "first_rev", Alias: "first_rev",
+				Window: &WindowSpec{
+					Aggregation: "first_value", Metric: "total_revenue",
+					OrderBy: []OrderBy{{Field: "order_month", Direction: "asc"}},
+				},
+			},
+		},
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, windowFnModel())
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if !strings.Contains(cq.SQL, `FIRST_VALUE("orders"."total_amount") OVER (ORDER BY `) {
+		t.Errorf("expected FIRST_VALUE head, got:\n%s", cq.SQL)
+	}
+}

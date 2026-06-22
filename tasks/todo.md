@@ -44,6 +44,41 @@ cap, fast clarification). Still open; partly mitigated now that the target is ex
 Open risk: mimo-v2.5 is a small model — infra + few-shot now support formulas, but reliably *emitting* the new
 construct may need a stronger model or more few-shots. Verify on the live query after deploy.
 
+## Feature: portable window/analytic functions (2026-06-22)
+
+### Problem
+`window` select type exists (row_number/rank/dense_rank/ntile + sum/avg/...) but: (1) misses
+lag/lead/first_value/last_value/percent_rank/cume_dist; (2) `count_distinct` window emits
+`COUNT(DISTINCT x) OVER` — illegal in PG/MySQL/SQLServer; (3) no ORDER BY enforcement though
+SQL Server requires it for ranking; (4) window SQL is dialect-agnostic so ClickHouse lag/lead
+(needs lagInFrame/leadInFrame) is wrong.
+
+### Solution
+- Dialect hook `WindowFunc(fn, args) (sql, ok)` — ANSI default on BaseDialect; ClickHouse override
+  (lag→lagInFrame, lead→leadInFrame; reject percent_rank/cume_dist). ok=false ⇒ validation rejects.
+- Add lag/lead/first_value/last_value/percent_rank/cume_dist; `WindowSpec.Offset` for lag/lead.
+- Reject count_distinct as a window function (portable nowhere); require ORDER BY for analytic funcs.
+- Prompt: scenarios (top-N per group via subquery, running total, lag/lead period-over-period) + ops list.
+- Tests: compiler (lag/lead/first_value + ClickHouse lagInFrame), validator (reject count_distinct,
+  require order_by, lag offset), dialect WindowFunc unit tests.
+
+### Review
+Added a `dialect.WindowFunc(fn, args) (sql, ok)` hook: BaseDialect emits ANSI SQL:2003 (PostgreSQL/MySQL 8+/
+SQL Server); ClickHouse overrides lag→lagInFrame, lead→leadInFrame, lowercases ranking, and rejects
+percent_rank/cume_dist (ok=false → compiler errors with a clear message instead of broken SQL). Added
+lag/lead/first_value/last_value/percent_rank/cume_dist + `WindowSpec.Offset`. Compiler routes analytic funcs
+through WindowFunc (aggregate family still via Aggregate), quoting the value arg to match the aggregate path.
+Validator: rejects count_distinct as a window function, requires order_by for all ranking/value funcs (mandatory
+on SQL Server), requires a value for lag/lead/first_value/last_value. Prompt teaches the full op set + top-N-per-
+group (row_number in a subquery filtered to rn≤N) in en/tr.
+
+Gates: gofmt ✓ · lint-go 0 ✓ · test-go -race (all pkgs) ✓ · deadcode clean ✓ · eval-regression ✓.
+New tests: compiler (LAG/LEAD ANSI + ClickHouse lagInFrame/leadInFrame derivation, FIRST_VALUE), validator
+(count_distinct rejected, ranking needs order_by, lag needs value, lag valid), dialect WindowFunc unit tests.
+
+Caveat: ClickHouse window spelling (lagInFrame/leadInFrame, lowercase names) is best-effort and not verified
+against a live ClickHouse — the three named engines (PG/MySQL/SQLServer) use the verified ANSI path.
+
 ## Frontend Code Review — Bulgular & Yapılacaklar (2026-06-16)
 
 > Kapsam: `frontend/` — React 19 + Vite 8 + TS 6 + Tailwind v4 SPA (~382 dosya).

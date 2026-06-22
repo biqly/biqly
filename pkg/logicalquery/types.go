@@ -120,13 +120,16 @@ type SelectItem struct {
 
 // WindowSpec describes an analytic window expression.
 type WindowSpec struct {
-	Aggregation string               `json:"aggregation"`            // sum | avg | count | count_distinct | min | max | row_number | rank | dense_rank | ntile
-	Expression  string               `json:"expression,omitempty"`   // raw column ref, optional for ranking functions
+	Aggregation string               `json:"aggregation"`            // sum | avg | count | min | max | row_number | rank | dense_rank | percent_rank | cume_dist | ntile | lag | lead | first_value | last_value
+	Expression  string               `json:"expression,omitempty"`   // raw column ref; the value read by lag/lead/first_value/last_value; the bucket count for ntile; optional for ranking functions
 	Expr        pkgsemantic.ExprNode `json:"expr,omitempty"`         // parsed expression AST, optional for ranking functions
 	Metric      string               `json:"metric,omitempty"`       // metric name to inherit aggregation+expression from
 	PartitionBy []string             `json:"partition_by,omitempty"` // dimension names
 	OrderBy     []OrderBy            `json:"order_by,omitempty"`     // dimension or metric names
-	Frame       string               `json:"frame,omitempty"`        // optional raw frame clause, e.g. "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW"
+	// Offset is the row offset for lag/lead (rows back / forward). Defaults to 1
+	// when zero or negative. Ignored by other window functions.
+	Offset int    `json:"offset,omitempty"`
+	Frame  string `json:"frame,omitempty"` // optional raw frame clause, e.g. "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW"
 }
 
 // Filter represents a WHERE condition.

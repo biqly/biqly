@@ -269,3 +269,47 @@ func TestDefaultOrderByPerDialect(t *testing.T) {
 		t.Errorf("SQLServer.DefaultOrderBy() = %q", got)
 	}
 }
+
+func TestWindowFunc_ANSIStandard(t *testing.T) {
+	d := PostgresDialect{}
+	cases := []struct {
+		fn   string
+		args []string
+		want string
+	}{
+		{"row_number", nil, "ROW_NUMBER()"},
+		{"dense_rank", nil, "DENSE_RANK()"},
+		{"percent_rank", nil, "PERCENT_RANK()"},
+		{"cume_dist", nil, "CUME_DIST()"},
+		{"ntile", []string{"4"}, "NTILE(4)"},
+		{"lag", []string{`"t"."v"`, "1"}, `LAG("t"."v", 1)`},
+		{"lead", []string{`"t"."v"`, "2"}, `LEAD("t"."v", 2)`},
+		{"first_value", []string{`"t"."v"`}, `FIRST_VALUE("t"."v")`},
+		{"last_value", []string{`"t"."v"`}, `LAST_VALUE("t"."v")`},
+	}
+	for _, c := range cases {
+		got, ok := d.WindowFunc(c.fn, c.args)
+		if !ok || got != c.want {
+			t.Errorf("WindowFunc(%q,%v) = (%q,%v), want (%q,true)", c.fn, c.args, got, ok, c.want)
+		}
+	}
+	if _, ok := d.WindowFunc("median", nil); ok {
+		t.Error("expected unknown window function to be rejected")
+	}
+}
+
+func TestWindowFunc_ClickHouseDerivesLagLeadAndRejects(t *testing.T) {
+	d := ClickHouseDialect{}
+	if got, ok := d.WindowFunc("lag", []string{"`t`.`v`", "1"}); !ok || got != "lagInFrame(`t`.`v`, 1)" {
+		t.Errorf("ClickHouse lag = (%q,%v), want lagInFrame(...)", got, ok)
+	}
+	if got, ok := d.WindowFunc("lead", []string{"`t`.`v`", "1"}); !ok || got != "leadInFrame(`t`.`v`, 1)" {
+		t.Errorf("ClickHouse lead = (%q,%v), want leadInFrame(...)", got, ok)
+	}
+	if got, ok := d.WindowFunc("row_number", nil); !ok || got != "row_number()" {
+		t.Errorf("ClickHouse row_number = (%q,%v), want row_number()", got, ok)
+	}
+	if _, ok := d.WindowFunc("percent_rank", nil); ok {
+		t.Error("ClickHouse has no percent_rank; expected rejection (ok=false)")
+	}
+}
