@@ -45,16 +45,16 @@ kullanımına geçirildi. Bu helper `request_id`/`user_id`/`workspace_id` ile st
 ### S2 — Yapısal borç (düşük öncelik, `tasks/todo.md`'den carry-over)
 
 - [x] **God objects (10):** `Metrics` (79 alan), `auth.Config` (35), `Dependencies` (34) vb.
-      Çoğu DTO/config; refactor opsiyonel, bug gizlemiyorlar.
-- [x] **High-arity fonksiyonlar:** `recordMetricsAndState` (14 param), `NewRBACHandler` (10).
-      Param struct'a taşı — okunabilirlik borcu.
-- [x] **`.gograph/boundaries.json` yok:** Mimari katman import kuralları statik
-      enforce edilmiyor. İstenen sınırlar tanımlanabilir (handler→service→repo→compiler).
+     Çoğu DTO/config; refactor opsiyonel, bug gizlemiyorlar. → ATLANDI
+- [x] **High-arity fonksiyonlar:** `recordMetricsAndState` (14 param) → `observeAIRequestParams` struct'ı
+- [x] **High-arity fonksiyonlar:** `NewRBACHandler` (10 param) → `RBACHandlerDeps` struct'ı
+- [x] **`.gograph/boundaries.json` oluşturuldu:** `gograph boundaries --create` ile auto-generate, `internal_core`'a `pgx/v5/stdlib` eklendi.
 
 ### S3 — Test boşlukları (düşük, `tasks/todo.md`'den carry-over)
 
-- [x] `internal/core` `DryRun` read-only guard entegrasyon testi — real Postgres EXPLAIN
-      gerektiriyor, CI e2e ile doğrulanıyor. Yerelde `make dev-up` ile test edilebilir.
+- [x] `internal/core` `DryRun` read-only guard entegrasyon testi — `query_service_dryrun_test.go`
+     (2 test: guard pas geçer, compile hatası guard'tan önce döner).
+     `make dev-up` ile yerelde çalışır; CI'da `BI_METADATA_DB_DSN` yoksa skip.
 
 ## Notes
 
