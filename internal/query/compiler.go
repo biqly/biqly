@@ -350,18 +350,26 @@ type joinNeighbor struct {
 }
 
 // determineJoins returns joins on paths from the base table to every table referenced
-// in the logical query. This avoids emitting duplicate joins to the same physical table
-// when multiple FKs exist but the query only uses base-table columns.
+// in the logical query, plus any unreachable table keys that the query references but
+// the join graph cannot reach. This avoids emitting duplicate joins to the same physical
+// table when multiple FKs exist but the query only uses base-table columns.
 func (*Compiler) determineJoins(
 	lq *LogicalQuery,
 	model *semantic.SemanticModel,
 	dimMap map[string]*semantic.Dimension,
 	metricMap map[string]*semantic.Metric,
 	resolver *SchemaResolver,
-) []string {
+) (joins []string, unreachableTables []string) {
 	neededTables := tablesReferencedInLogicalQuery(lq, model, dimMap, metricMap, resolver)
 	if len(model.Joins) == 0 {
-		return nil
+		// Every needed table aside from the base is unreachable when there are no joins.
+		base := TableKey(model.BaseSchema, model.BaseTable)
+		for t := range neededTables {
+			if t != base {
+				unreachableTables = append(unreachableTables, t)
+			}
+		}
+		return nil, unreachableTables
 	}
 
 	neighbors := make(map[string][]joinNeighbor, len(model.Joins))
@@ -407,6 +415,10 @@ func (*Compiler) determineJoins(
 		if t == base {
 			continue
 		}
+		if _, reachable := visited[t]; !reachable {
+			unreachableTables = append(unreachableTables, t)
+			continue
+		}
 		cur := t
 		for cur != base && cur != "" {
 			pi := parent[cur]
@@ -424,7 +436,7 @@ func (*Compiler) determineJoins(
 			out = append(out, jn)
 		}
 	}
-	return out
+	return out, unreachableTables
 }
 
 func (c *Compiler) dimensionSQL(dim *semantic.Dimension, resolver *SchemaResolver) (string, error) {
@@ -632,6 +644,61 @@ func isSupportedAggregation(fn string) bool {
 	}
 }
 
+// metricFilteredAggregate renders a metric as a conditional aggregate scoped to
+// the rows matching filters, e.g. COUNT(CASE WHEN <cond> THEN 1 END) or
+// SUM(CASE WHEN <cond> THEN "t"."col" END). The inner value's quoting mirrors
+// the unconditional metricAggregate path. Filters reuse buildFilterConjunction
+// so calendar-grain / raw-date handling matches the query-level WHERE. Requires
+// a true aggregating metric — a raw (custom/none) metric has no aggregate to
+// scope and is rejected.
+func (c *Compiler) metricFilteredAggregate(
+	metric *semantic.Metric,
+	filters []Filter,
+	resolver *SchemaResolver,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	model *semantic.SemanticModel,
+	args *[]any,
+) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(metric.Aggregation)) {
+	case "count", "count_distinct", "sum", "avg", "min", "max":
+	default:
+		return "", fmt.Errorf("per-measure filters require an aggregating metric (count/count_distinct/sum/avg/min/max), got %q for metric %q", metric.Aggregation, metric.Name)
+	}
+
+	cond, err := c.buildFilterConjunction(filters, dimMap, metricMap, model, resolver, args)
+	if err != nil {
+		return "", err
+	}
+	if cond == "" {
+		agg := c.metricAggregate(metric, resolver, dimMap, metricMap, model)
+		if c.err != nil {
+			return "", c.err
+		}
+		return agg, nil
+	}
+
+	expr := c.metricExpressionRef(metric, metric.Expression, resolver, dimMap, metricMap, model)
+	if c.err != nil {
+		return "", c.err
+	}
+	var inner string
+	switch {
+	case strings.EqualFold(strings.TrimSpace(metric.Aggregation), "count") && strings.TrimSpace(expr) == "*":
+		inner = "1"
+	case metric.Expr != nil:
+		inner = expr
+	default:
+		inner = c.dialect.QuoteIdent(expr)
+	}
+	caseExpr := "CASE WHEN " + cond + " THEN " + inner + " END"
+	agg := c.aggregateExpr(metric.Aggregation, caseExpr)
+	if c.err != nil {
+		return "", c.err
+	}
+	return agg, nil
+}
+
 func (c *Compiler) qualifyMetricExpression(
 	metric *semantic.Metric,
 	expr string,
@@ -699,11 +766,13 @@ func (c *Compiler) buildSelectItem(
 	case SelectTypeDimension:
 		return c.buildSelectDimension(item, dimMap, resolver)
 	case SelectTypeMetric:
-		return c.buildSelectMetric(item, dimMap, metricMap, model, resolver)
+		return c.buildSelectMetric(item, dimMap, metricMap, model, resolver, args)
 	case SelectTypeWindow:
 		return c.buildSelectWindow(item, dimMap, metricMap, model, resolver)
 	case SelectTypeCase:
 		return c.buildSelectCase(item, dimMap, metricMap, model, resolver, args)
+	case SelectTypeFormula:
+		return c.buildSelectFormula(item, dimMap, metricMap, model, resolver, args)
 	default:
 		return "", nil
 	}
@@ -731,6 +800,7 @@ func (c *Compiler) buildSelectMetric(
 	metricMap map[string]*semantic.Metric,
 	model *semantic.SemanticModel,
 	resolver *SchemaResolver,
+	args *[]any,
 ) (string, error) {
 	metric, ok := metricMap[item.Name]
 	if !ok {
@@ -740,11 +810,94 @@ func (c *Compiler) buildSelectMetric(
 		}
 		return "", validationErrWithCode("select", errmsg.UnknownMetricMsg(item.Name), errmsg.CodeUnknownMetric, item.Name, suggestAlternatives(item.Name, metricKeys))
 	}
+	if len(item.Filters) > 0 {
+		agg, err := c.metricFilteredAggregate(metric, item.Filters, resolver, dimMap, metricMap, model, args)
+		if err != nil {
+			return "", err
+		}
+		return selectItemSQL(agg, selectItemAlias(item.Alias, metric.Name), c.dialect), nil
+	}
 	agg := c.metricAggregate(metric, resolver, dimMap, metricMap, model)
 	if c.err != nil {
 		return "", c.err
 	}
 	return selectItemSQL(agg, selectItemAlias(item.Alias, metric.Name), c.dialect), nil
+}
+
+// buildSelectFormula renders a `formula` select item: an arithmetic operation
+// over two measures (each resolved by measureSQL, optionally filtered). Division
+// operators multiply the dividend by a float literal (1.0 / 100.0) BEFORE
+// dividing so integer aggregates (COUNT, integer SUM) do not truncate to an
+// integer result, and guard a zero divisor with NULLIF (yielding NULL, not a
+// divide-by-zero error).
+func (c *Compiler) buildSelectFormula(
+	item SelectItem,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	model *semantic.SemanticModel,
+	resolver *SchemaResolver,
+	args *[]any,
+) (string, error) {
+	if item.Formula == nil {
+		return "", errors.New("formula select item requires a formula spec")
+	}
+	alias := selectItemAlias(item.Alias, item.Name)
+	if alias == "" {
+		return "", errors.New("formula select item requires name or alias")
+	}
+	left, err := c.measureSQL(item.Formula.Left, dimMap, metricMap, model, resolver, args)
+	if err != nil {
+		return "", err
+	}
+	right, err := c.measureSQL(item.Formula.Right, dimMap, metricMap, model, resolver, args)
+	if err != nil {
+		return "", err
+	}
+	l, r := "("+left+")", "("+right+")"
+	var formulaSQL string
+	switch item.Formula.Op {
+	case FormulaOpAdd:
+		formulaSQL = l + " + " + r
+	case FormulaOpSubtract:
+		formulaSQL = l + " - " + r
+	case FormulaOpDivide:
+		formulaSQL = l + " * 1.0 / NULLIF(" + r + ", 0)"
+	case FormulaOpPercentOf:
+		formulaSQL = l + " * 100.0 / NULLIF(" + r + ", 0)"
+	case FormulaOpPercentChange:
+		formulaSQL = "(" + l + " - " + r + ") * 100.0 / NULLIF(" + r + ", 0)"
+	default:
+		return "", fmt.Errorf("unsupported formula op: %q", item.Formula.Op)
+	}
+	return selectItemSQL(formulaSQL, alias, c.dialect), nil
+}
+
+// measureSQL resolves a MeasureRef to its aggregate SQL: a plain metric
+// aggregate when unfiltered, or a conditional aggregate scoped to its filters.
+func (c *Compiler) measureSQL(
+	m MeasureRef,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	model *semantic.SemanticModel,
+	resolver *SchemaResolver,
+	args *[]any,
+) (string, error) {
+	metric, ok := metricMap[m.Metric]
+	if !ok {
+		metricKeys := make([]string, 0, len(metricMap))
+		for k := range metricMap {
+			metricKeys = append(metricKeys, k)
+		}
+		return "", validationErrWithCode("select", errmsg.UnknownMetricMsg(m.Metric), errmsg.CodeUnknownMetric, m.Metric, suggestAlternatives(m.Metric, metricKeys))
+	}
+	if len(m.Filters) == 0 {
+		agg := c.metricAggregate(metric, resolver, dimMap, metricMap, model)
+		if c.err != nil {
+			return "", c.err
+		}
+		return agg, nil
+	}
+	return c.metricFilteredAggregate(metric, m.Filters, resolver, dimMap, metricMap, model, args)
 }
 
 func (c *Compiler) buildSelectWindow(
@@ -1090,6 +1243,15 @@ func (c *Compiler) buildJoins(joinNames []string, joinMap map[string]semantic.Jo
 }
 
 func (c *Compiler) buildWhere(filters []Filter, dimMap map[string]*semantic.Dimension, metricMap map[string]*semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver, args *[]any) (string, error) {
+	return c.buildFilterConjunction(filters, dimMap, metricMap, model, resolver, args)
+}
+
+// buildFilterConjunction renders a slice of filters into a single SQL predicate
+// joined by AND, applying the same calendar-grain and raw-date handling as the
+// query-level WHERE. It is shared by buildWhere and by per-measure filtered
+// aggregates (CASE WHEN <conjunction> ...), so a measure filter behaves
+// identically to a top-level filter. Returns "" for an empty filter list.
+func (c *Compiler) buildFilterConjunction(filters []Filter, dimMap map[string]*semantic.Dimension, metricMap map[string]*semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver, args *[]any) (string, error) {
 	if len(filters) == 0 {
 		return "", nil
 	}

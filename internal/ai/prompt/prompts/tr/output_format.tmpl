@@ -6,3 +6,15 @@ JSON şu yapıyla uyumlu olmalıdır:
 ## Örnek - çok metrikli gruplama
 Soru: "müşteri adına göre sipariş sayısı ve en son sipariş tarihi"
 {"select":[{"type":"dimension","name":"name"},{"type":"metric","name":"row_count"},{"type":"metric","name":"max_order_date"}],"group_by":[{"field":"name"}],"order_by":[{"field":"row_count","direction":"desc"}],"limit":100}
+
+## Örnek - pencereli oran (iki farklı zaman penceresi)
+Soru (güncel tarih 2026-06-22): "bugün atılan toplam tweet sayısının bu ay atılan toplam tweet sayısına oranı"
+{"select":[{"type":"formula","name":"bugun_bu_ay_orani","formula":{"op":"divide","left":{"metric":"row_count","filters":[{"field":"created_at","operator":"eq","value":"2026-06-22"}]},"right":{"metric":"row_count","filters":[{"field":"created_at_month","operator":"eq","value":"2026-06-01"}]}}}],"limit":1}
+
+## Örnek - iki pencere arasındaki fark
+Soru (güncel tarih 2026-06-22): "bugün atılan tweet sayısının dün atılan tweet sayısından farkı"
+{"select":[{"type":"formula","name":"bugun_eksi_dun","formula":{"op":"subtract","left":{"metric":"row_count","filters":[{"field":"created_at","operator":"eq","value":"2026-06-22"}]},"right":{"metric":"row_count","filters":[{"field":"created_at","operator":"eq","value":"2026-06-21"}]}}}],"limit":1}
+
+## Örnek - önceki döneme göre değişim/büyüme oranı
+Soru (güncel tarih 2026-06-22): "bugün atılan tweet sayısının düne göre değişim oranı"
+{"select":[{"type":"formula","name":"bugun_dun_degisim_yuzde","formula":{"op":"percent_change","left":{"metric":"row_count","filters":[{"field":"created_at","operator":"eq","value":"2026-06-22"}]},"right":{"metric":"row_count","filters":[{"field":"created_at","operator":"eq","value":"2026-06-21"}]}}}],"limit":1}

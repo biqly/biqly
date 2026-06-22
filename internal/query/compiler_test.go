@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bytedance/sonic"
+
 	"github.com/biqly/biqly/internal/dialect"
 	"github.com/biqly/biqly/internal/semantic"
 	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
@@ -1367,5 +1369,215 @@ func TestCompiler_TableSearchContains(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// tweetRatioModel mirrors the timeline_tweets domain used by the AI text-to-
+// query path, with a string dimension plus a year-grain dimension and a simple
+// COUNT(*) metric.
+func tweetRatioModel() *semantic.SemanticModel {
+	return &semantic.SemanticModel{
+		Name:       "tweets",
+		BaseSchema: "public",
+		BaseTable:  "timeline_tweets",
+		Dimensions: []semantic.Dimension{
+			{Name: "lang", ColumnRef: "timeline_tweets.lang", Type: "string"},
+			{Name: "created_at_ts_year", ColumnRef: "timeline_tweets.created_at_ts", Type: "timestamp", TimeGrain: TimeGrainYear},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "row_count", Expression: "*", Aggregation: "count"},
+			{Name: "sum_retweets", Expression: "timeline_tweets.retweets", Aggregation: "sum"},
+		},
+	}
+}
+
+// TestCompiler_FormulaDivide proves the query-time ratio: a left measure
+// filtered to a row subset divided by an unfiltered right measure, with NULLIF
+// guarding division by zero and * 1.0 forcing float (non-truncating) division.
+func TestCompiler_FormulaDivide(t *testing.T) {
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{
+				Type: SelectTypeFormula,
+				Name: "tr_share",
+				Formula: &FormulaSpec{
+					Op:    FormulaOpDivide,
+					Left:  MeasureRef{Metric: "row_count", Filters: []Filter{{Field: "lang", Operator: OpEq, Value: "tr"}}},
+					Right: MeasureRef{Metric: "row_count"},
+				},
+			},
+		},
+		Limit: 100,
+	}
+
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, tweetRatioModel())
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	want := `SELECT (COUNT(CASE WHEN "timeline_tweets"."lang" = $1 THEN 1 END)) * 1.0 / NULLIF((COUNT(*)), 0) AS "tr_share" FROM "public"."timeline_tweets" LIMIT 100`
+	if cq.SQL != want {
+		t.Errorf("SQL mismatch.\nGot:\n%s\n\nWant:\n%s", cq.SQL, want)
+	}
+	if len(cq.Args) != 1 || cq.Args[0] != "tr" {
+		t.Errorf("Args = %v, want [tr]", cq.Args)
+	}
+}
+
+// TestCompiler_FormulaSubtract proves "bugün - dün" style differences: two
+// differently-filtered counts subtracted. No float coercion (a count difference
+// is correctly an integer) and no NULLIF (subtraction cannot divide by zero).
+func TestCompiler_FormulaSubtract(t *testing.T) {
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{
+				Type: SelectTypeFormula,
+				Name: "tr_minus_en",
+				Formula: &FormulaSpec{
+					Op:    FormulaOpSubtract,
+					Left:  MeasureRef{Metric: "row_count", Filters: []Filter{{Field: "lang", Operator: OpEq, Value: "tr"}}},
+					Right: MeasureRef{Metric: "row_count", Filters: []Filter{{Field: "lang", Operator: OpEq, Value: "en"}}},
+				},
+			},
+		},
+		Limit: 100,
+	}
+
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, tweetRatioModel())
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	want := `SELECT (COUNT(CASE WHEN "timeline_tweets"."lang" = $1 THEN 1 END)) - (COUNT(CASE WHEN "timeline_tweets"."lang" = $2 THEN 1 END)) AS "tr_minus_en" FROM "public"."timeline_tweets" LIMIT 100`
+	if cq.SQL != want {
+		t.Errorf("SQL mismatch.\nGot:\n%s\n\nWant:\n%s", cq.SQL, want)
+	}
+}
+
+// TestCompiler_FormulaPercentChange proves "düne göre değişim oranı" style
+// growth: (left - right) / right * 100, float-coerced and zero-guarded.
+func TestCompiler_FormulaPercentChange(t *testing.T) {
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{
+				Type: SelectTypeFormula,
+				Name: "growth_pct",
+				Formula: &FormulaSpec{
+					Op:    FormulaOpPercentChange,
+					Left:  MeasureRef{Metric: "row_count", Filters: []Filter{{Field: "lang", Operator: OpEq, Value: "tr"}}},
+					Right: MeasureRef{Metric: "row_count", Filters: []Filter{{Field: "lang", Operator: OpEq, Value: "en"}}},
+				},
+			},
+		},
+		Limit: 100,
+	}
+
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, tweetRatioModel())
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	want := `SELECT ((COUNT(CASE WHEN "timeline_tweets"."lang" = $1 THEN 1 END)) - (COUNT(CASE WHEN "timeline_tweets"."lang" = $2 THEN 1 END))) * 100.0 / NULLIF((COUNT(CASE WHEN "timeline_tweets"."lang" = $2 THEN 1 END)), 0) AS "growth_pct" FROM "public"."timeline_tweets" LIMIT 100`
+	if cq.SQL != want {
+		t.Errorf("SQL mismatch.\nGot:\n%s\n\nWant:\n%s", cq.SQL, want)
+	}
+}
+
+// TestCompiler_FilteredMetricSelect proves a single metric select item can be
+// scoped to its own filters independently of the query-level WHERE, emitting a
+// conditional aggregate.
+func TestCompiler_FilteredMetricSelect(t *testing.T) {
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeMetric, Name: "row_count", Alias: "tr_count", Filters: []Filter{{Field: "lang", Operator: OpEq, Value: "tr"}}},
+			{Type: SelectTypeMetric, Name: "row_count", Alias: "total_count"},
+		},
+		Limit: 100,
+	}
+
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, tweetRatioModel())
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	want := `SELECT COUNT(CASE WHEN "timeline_tweets"."lang" = $1 THEN 1 END) AS "tr_count", COUNT(*) AS "total_count" FROM "public"."timeline_tweets" LIMIT 100`
+	if cq.SQL != want {
+		t.Errorf("SQL mismatch.\nGot:\n%s\n\nWant:\n%s", cq.SQL, want)
+	}
+}
+
+// TestCompiler_FilteredMetricSumColumn proves the conditional aggregate quotes a
+// non-* inner column exactly like the unconditional path (SUM(CASE ... col)).
+func TestCompiler_FilteredMetricSumColumn(t *testing.T) {
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeMetric, Name: "sum_retweets", Alias: "tr_retweets", Filters: []Filter{{Field: "lang", Operator: OpEq, Value: "tr"}}},
+		},
+		Limit: 100,
+	}
+
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, tweetRatioModel())
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	want := `SELECT SUM(CASE WHEN "timeline_tweets"."lang" = $1 THEN "timeline_tweets"."retweets" END) AS "tr_retweets" FROM "public"."timeline_tweets" LIMIT 100`
+	if cq.SQL != want {
+		t.Errorf("SQL mismatch.\nGot:\n%s\n\nWant:\n%s", cq.SQL, want)
+	}
+}
+
+// TestCompiler_MeasureFilterReusesGrainHandling proves per-measure filters reuse
+// the same calendar-grain handling as the query-level WHERE: a year-grain filter
+// inside a measure compiles via EXTRACT, not a raw equality.
+func TestCompiler_MeasureFilterReusesGrainHandling(t *testing.T) {
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeMetric, Name: "row_count", Alias: "y2026", Filters: []Filter{{Field: "created_at_ts_year", Operator: OpEq, Value: 2026}}},
+		},
+		Limit: 100,
+	}
+
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, tweetRatioModel())
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	if !strings.Contains(cq.SQL, `COUNT(CASE WHEN CAST(EXTRACT(YEAR FROM "timeline_tweets"."created_at_ts") AS INTEGER) = $1 THEN 1 END) AS "y2026"`) {
+		t.Errorf("expected year-grain conditional aggregate, got:\n%s", cq.SQL)
+	}
+}
+
+// TestCompiler_FormulaFromTaughtJSON parses the exact formula JSON taught in the
+// prompt output_format examples and proves it survives unmarshal → compile,
+// guarding against drift between the documented shape and the IR/compiler.
+func TestCompiler_FormulaFromTaughtJSON(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "tweets",
+		BaseSchema: "public",
+		BaseTable:  "timeline_tweets",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at", ColumnRef: "timeline_tweets.created_at", Type: "timestamp"},
+			{Name: "created_at_month", ColumnRef: "timeline_tweets.created_at", Type: "timestamp", TimeGrain: TimeGrainMonth},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "row_count", Expression: "*", Aggregation: "count"},
+		},
+	}
+	raw := `{"select":[{"type":"formula","name":"today_to_month_ratio","formula":{"op":"divide","left":{"metric":"row_count","filters":[{"field":"created_at","operator":"eq","value":"2026-06-22"}]},"right":{"metric":"row_count","filters":[{"field":"created_at_month","operator":"eq","value":"2026-06-01"}]}}}],"limit":1}`
+
+	var lq LogicalQuery
+	if err := sonic.ConfigStd.Unmarshal([]byte(raw), &lq); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if err := NewValidator(10000).Validate(&lq, model); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if !strings.Contains(cq.SQL, "NULLIF(") || strings.Count(cq.SQL, "CASE WHEN") != 2 {
+		t.Errorf("expected two conditional aggregates divided via NULLIF, got:\n%s", cq.SQL)
 	}
 }

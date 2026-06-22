@@ -406,8 +406,14 @@ export default function AIQuery() {
           content: t('ai_query.job_failed_message', { error: job.error_message ?? '' }),
         })
       } else if (job.status === 'cancelled') {
+        const question =
+          job.request_json && typeof job.request_json === 'object'
+            ? (job.request_json as Record<string, unknown>).question
+            : undefined
         appendAssistantForJob(convId, job.id, {
-          content: t('ai_query.job_cancelled_message'),
+          content: t('ai_query.job_cancelled_message', {
+            question: typeof question === 'string' ? question : '',
+          }),
         })
       }
     },

@@ -1,5 +1,49 @@
 # Todo list
 
+## Feature: time-windowed ratio / share-of-total in logical query (2026-06-22)
+
+### Problem (diagnosed, live-evidence backed)
+Question "bugün atılan toplam tweet sayısının bu ay atılan toplam tweet sayısına oranı" =
+ratio of two aggregates with DIFFERENT time-window filters. The logical-query IR cannot
+express it: `Filters` is a single global WHERE shared by every aggregate, and there is no
+query-time ratio. Live worker logs: 105s, retry_count 2, tier escalation compact→standard→
+expanded, `outcome: clarification, confidence 0`; sibling attempt hit `finish_reason: length`
+(8192-token runaway). Prompt is mature; the gap is infrastructure.
+
+### Solution: filtered measures + query-time ratio
+Two coherent IR primitives sharing one compile path (conditional aggregate via CASE):
+1. Per-measure filter on a `metric` select item → `AGG(CASE WHEN <cond> THEN <inner> END)`.
+2. New `ratio` select item dividing numerator/denominator measures (each with optional
+   per-measure filters) → `(<num> * 1.0) / NULLIF(<den>, 0)`.
+
+### Tasks
+- [x] IR types: `SelectItem.Filters`, `SelectItem.Ratio`, `RatioSpec`, `MeasureRef`, `SelectTypeRatio` (pkg/logicalquery/types.go)
+- [x] Re-export in internal/query/logical.go
+- [x] Compiler: extracted `buildFilterConjunction`; added `metricFilteredAggregate`; per-measure filters in `buildSelectMetric`; `buildSelectRatio` + `measureSQL` + dispatch
+- [x] Validator: shared `validateFilterList`; `validateRatioSelect` + `validateMeasureRef`; `ratio` in allowed select types
+- [x] Prompt: ratio rule + tweet example in en/tr system_rules.tmpl + output_format.tmpl
+- [x] schema.go: LogicalQuerySchema now lists `ratio` + per-item `filters` + `$defs`
+- [x] Tests: 6 new (compiler ratio/filtered-metric/sum-col/grain-reuse/taught-JSON, validator ratio×3 + per-measure filter)
+- [x] Gates: gofmt ✓, lint-go (0 issues) ✓, test-go -race (61 pkgs) ✓, deadcode (new symbols live) ✓, eval-regression ✓
+
+### Review
+Generalized `ratio` → `formula` (one construct, 5 ops) covering the realistic two-measure end-user space:
+`subtract` (fark), `divide` (oran, fraction), `percent_of` (yüzde ×100), `percent_change` (değişim/büyüme ×100),
+`add` (toplam). Each side is a measure with its OWN filters (conditional aggregate), so "bugün vs dün", "bu ay vs
+geçen ay", "part vs whole" all compile to one expression. Works under GROUP BY too (per-group ratios/diffs).
+
+Integer-division fix (user-flagged): every division op multiplies the dividend by a float literal (1.0 / 100.0)
+BEFORE dividing, so integer COUNT/SUM no longer truncates; division ops also NULLIF-guard the divisor. ALSO fixed
+the pre-existing structured derived-metric divide (`pkg/semantic OpDivide` in expr_compiler.go) which emitted a
+bare `/` — admin-defined ratio metrics were integer-truncating. Custom free-form SQL expressions (`a / b` written
+as a raw string metric) are left to the author (unsafe to auto-rewrite) — documented caveat.
+
+NOT in scope (user picked full-capability only): latency/UX hardening (105s escalation ladder, 8192-token runaway
+cap, fast clarification). Still open; partly mitigated now that the target is expressible.
+
+Open risk: mimo-v2.5 is a small model — infra + few-shot now support formulas, but reliably *emitting* the new
+construct may need a stronger model or more few-shots. Verify on the live query after deploy.
+
 ## Frontend Code Review — Bulgular & Yapılacaklar (2026-06-16)
 
 > Kapsam: `frontend/` — React 19 + Vite 8 + TS 6 + Tailwind v4 SPA (~382 dosya).

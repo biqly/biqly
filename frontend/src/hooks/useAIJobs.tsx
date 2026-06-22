@@ -325,7 +325,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       } else if (job.status === 'failed') {
         waiter.settleError(job.error_message ?? 'Job failed')
       } else if (job.status === 'cancelled') {
-        waiter.settleError(job.phase_message || 'Job cancelled')
+        waiter.settleDismiss()
       }
     },
     [stopPolling],

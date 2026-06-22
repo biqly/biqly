@@ -55,8 +55,20 @@ func TestResolveFromClause_FromCTE(t *testing.T) {
 func TestResolveFromClause_FromSubquery(t *testing.T) {
 	c := NewCompiler(dialect.PostgresDialect{}).withCompileCtx(context.Background())
 	model := &semantic.SemanticModel{
+		BaseSchema: "public",
+		BaseTable:  "orders",
 		Dimensions: []semantic.Dimension{
 			{Name: "country", ColumnRef: "customers.country", Type: "text"},
+		},
+		Joins: []semantic.Join{
+			{
+				Name:       "orders_customers",
+				FromTable:  "orders",
+				FromColumn: "customer_id",
+				ToTable:    "customers",
+				ToColumn:   "id",
+				JoinType:   "LEFT",
+			},
 		},
 	}
 	lq := &LogicalQuery{
@@ -82,8 +94,20 @@ func TestResolveFromClause_FromSubquery(t *testing.T) {
 func TestResolveFromClause_FromSubqueryDefaultAlias(t *testing.T) {
 	c := NewCompiler(dialect.PostgresDialect{}).withCompileCtx(context.Background())
 	model := &semantic.SemanticModel{
+		BaseSchema: "public",
+		BaseTable:  "orders",
 		Dimensions: []semantic.Dimension{
 			{Name: "country", ColumnRef: "customers.country", Type: "text"},
+		},
+		Joins: []semantic.Join{
+			{
+				Name:       "orders_customers",
+				FromTable:  "orders",
+				FromColumn: "customer_id",
+				ToTable:    "customers",
+				ToColumn:   "id",
+				JoinType:   "LEFT",
+			},
 		},
 	}
 	lq := &LogicalQuery{

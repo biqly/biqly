@@ -248,9 +248,19 @@ const LogicalQuerySchema = `{
         "type": "object",
         "required": ["type", "name"],
         "properties": {
-          "type": {"type": "string", "enum": ["dimension", "metric"]},
+          "type": {"type": "string", "enum": ["dimension", "metric", "formula"]},
           "name": {"type": "string"},
-          "alias": {"type": "string"}
+          "alias": {"type": "string"},
+          "filters": {"type": "array", "items": {"$ref": "#/$defs/filter"}},
+          "formula": {
+            "type": "object",
+            "required": ["op", "left", "right"],
+            "properties": {
+              "op": {"type": "string", "enum": ["add", "subtract", "divide", "percent_of", "percent_change"]},
+              "left": {"$ref": "#/$defs/measure"},
+              "right": {"$ref": "#/$defs/measure"}
+            }
+          }
         }
       }
     },
@@ -289,5 +299,24 @@ const LogicalQuerySchema = `{
       "additionalProperties": {"type": "string"}
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "filter": {
+      "type": "object",
+      "required": ["field", "operator"],
+      "properties": {
+        "field": {"type": "string"},
+        "operator": {"type": "string", "enum": ["eq","neq","gt","gte","lt","lte","in","not_in","contains","starts_with","ends_with","between","is_null","is_not_null","is_empty","is_not_empty"]},
+        "value": {}
+      }
+    },
+    "measure": {
+      "type": "object",
+      "required": ["metric"],
+      "properties": {
+        "metric": {"type": "string"},
+        "filters": {"type": "array", "items": {"$ref": "#/$defs/filter"}}
+      }
+    }
+  }
 }`

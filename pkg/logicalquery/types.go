@@ -89,11 +89,25 @@ func (c *CTE) Subquery() SubqueryBody {
 
 // SelectItem represents a field in the SELECT clause.
 type SelectItem struct {
-	Type  string `json:"type"` // dimension | metric | window | case
+	Type  string `json:"type"` // dimension | metric | window | case | formula
 	Name  string `json:"name"`
 	Alias string `json:"alias,omitempty"`
+	// Filters, when set on a Type == SelectTypeMetric item, scopes that single
+	// aggregate to a row subset independent of the query-level WHERE. The
+	// compiler emits a conditional aggregate (e.g. COUNT(CASE WHEN <filters>
+	// THEN 1 END)), so one query can place differently-filtered measures side
+	// by side — the basis for share-of-total and time-windowed comparisons.
+	// All filters are ANDed. Ignored for non-metric select types.
+	Filters []Filter `json:"filters,omitempty"`
 	// Case is populated only when Type == SelectTypeCase.
 	Case *CaseExpr `json:"case,omitempty"`
+	// Formula is populated only when Type == SelectTypeFormula. It combines two
+	// measures (each optionally filtered) with an arithmetic operator —
+	// difference, ratio, percentage, or percent-change — so questions comparing
+	// two differently-filtered aggregates (today vs yesterday, this vs last
+	// month, part vs whole) compile to a single expression. Division ops are
+	// floating-point and guard division-by-zero via NULLIF.
+	Formula *FormulaSpec `json:"formula,omitempty"`
 	// Window is populated only when Type == SelectTypeWindow. It describes a
 	// window/analytic function, e.g. SUM(orders.total_amount) OVER (PARTITION
 	// BY customers.country ORDER BY orders.created_at). Field names refer to
@@ -149,6 +163,34 @@ type CaseThen struct {
 	Type      string `json:"type"` // dimension | literal
 	Dimension string `json:"dimension,omitempty"`
 	Literal   any    `json:"literal,omitempty"`
+}
+
+// FormulaSpec combines two measures with an arithmetic operator. Each side is a
+// measure (a metric optionally constrained by its own filters), so the two
+// sides can aggregate different row subsets — e.g. today's count vs yesterday's
+// count — which a single shared WHERE cannot express. Division operators
+// (Divide, PercentOf, PercentChange) compute in floating point and guard
+// division by zero with NULLIF, yielding NULL when the right side is zero.
+//
+// Op semantics (L = Left, R = Right):
+//
+//	add            → L + R
+//	subtract       → L - R          ("fark" / difference)
+//	divide         → L / R          ("oran" / ratio, as a fraction e.g. 0.2)
+//	percent_of     → L / R * 100    ("yüzde" / share as a percentage e.g. 20)
+//	percent_change → (L - R) / R * 100  ("değişim/büyüme oranı" / growth %)
+type FormulaSpec struct {
+	Op    string     `json:"op"`
+	Left  MeasureRef `json:"left"`
+	Right MeasureRef `json:"right"`
+}
+
+// MeasureRef names a metric and optional per-measure filters. When Filters is
+// non-empty the metric is aggregated conditionally over the matching rows; when
+// empty the metric aggregates over the full (query-level filtered) row set.
+type MeasureRef struct {
+	Metric  string   `json:"metric"`
+	Filters []Filter `json:"filters,omitempty"`
 }
 
 // GroupBy represents a GROUP BY field.
@@ -215,7 +257,26 @@ const (
 	SelectTypeMetric    = "metric"
 	SelectTypeWindow    = "window"
 	SelectTypeCase      = "case"
+	SelectTypeFormula   = "formula"
 )
+
+// Formula operators for FormulaSpec.Op.
+const (
+	FormulaOpAdd           = "add"
+	FormulaOpSubtract      = "subtract"
+	FormulaOpDivide        = "divide"
+	FormulaOpPercentOf     = "percent_of"
+	FormulaOpPercentChange = "percent_change"
+)
+
+// IsValidFormulaOp reports whether op is a supported formula operator.
+func IsValidFormulaOp(op string) bool {
+	switch op {
+	case FormulaOpAdd, FormulaOpSubtract, FormulaOpDivide, FormulaOpPercentOf, FormulaOpPercentChange:
+		return true
+	}
+	return false
+}
 
 // CaseThen kinds.
 const (
