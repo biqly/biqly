@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/biqly/biqly/internal/errmsg"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -91,30 +92,13 @@ func (c *Compiler) compileStatement(
 	c = c.withCompileCtx(ctx)
 	lq.EnsureGroupBySelected()
 
-	dimMap := make(map[string]*semantic.Dimension, len(model.Dimensions))
-	for _, d := range model.Dimensions {
-		dimMap[d.Name] = new(d)
-	}
-	for _, gb := range lq.GroupBy {
-		if gb.TimeGrain == "" {
-			continue
-		}
-		if dim, ok := dimMap[gb.Field]; ok {
-			dim.TimeGrain = gb.TimeGrain
-		}
-	}
-	metricMap := make(map[string]*semantic.Metric, len(model.Metrics))
-	for _, m := range model.Metrics {
-		metricMap[m.Name] = new(m)
-	}
-	joinMap := make(map[string]semantic.Join)
-	for _, j := range model.Joins {
-		joinMap[j.Name] = j
-	}
-
+	dimMap, metricMap, joinMap := buildCompilerMaps(lq, model)
 	resolver := NewSchemaResolver(model, lq)
 
-	neededJoins := c.determineJoins(lq, model, dimMap, metricMap, resolver)
+	neededJoins, unreachableTables := c.determineJoins(lq, model, dimMap, metricMap, resolver)
+	if err := validateReachableTables(unreachableTables, lq); err != nil {
+		return nil, err
+	}
 
 	selectParts, err := c.buildSelect(lq.Select, dimMap, metricMap, model, resolver, args)
 	if err != nil {
@@ -213,4 +197,62 @@ func (c *Compiler) buildInSubqueryFilter(lhsSQL string, f Filter, model *semanti
 		op = "NOT IN"
 	}
 	return fmt.Sprintf("%s %s (%s)", lhsSQL, op, subSQL), nil, nil
+}
+
+// validateReachableTables checks whether every table referenced in the query is
+// reachable from the base table through the model's join graph. Subqueries and
+// CTEs provide their own FROM clause and are not checked here.
+//
+// Table keys that look like mis-parsed calculated expressions (containing brackets)
+// are silently skipped — they are artifacts of addTableFromColumnRef's naive
+// splitDot parser on metric Expression fields.
+func validateReachableTables(unreachableTables []string, lq *LogicalQuery) error {
+	if len(unreachableTables) == 0 || lq.FromSubquery != nil || lq.FromCTE != "" {
+		return nil
+	}
+	filtered := make([]string, 0, len(unreachableTables))
+	for _, t := range unreachableTables {
+		if !strings.ContainsAny(t, "[]") {
+			filtered = append(filtered, t)
+		}
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	return &ValidationError{
+		Field:   "filters",
+		Code:    errmsg.CodeUnreachableTable,
+		Message: fmt.Sprintf("query references tables not reachable through model relations: %s; add these tables to the model's relations or remove the fields that reference them", strings.Join(filtered, ", ")),
+	}
+}
+
+// buildCompilerMaps builds the dimMap, metricMap, and joinMap lookup maps used
+// by the query compiler. dimMap values are cloned so time grain overrides from
+// the logical query don't mutate the model.
+func buildCompilerMaps(lq *LogicalQuery, model *semantic.SemanticModel) (
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	joinMap map[string]semantic.Join,
+) {
+	dimMap = make(map[string]*semantic.Dimension, len(model.Dimensions))
+	for _, d := range model.Dimensions {
+		dimMap[d.Name] = new(d)
+	}
+	for _, gb := range lq.GroupBy {
+		if gb.TimeGrain == "" {
+			continue
+		}
+		if dim, ok := dimMap[gb.Field]; ok {
+			dim.TimeGrain = gb.TimeGrain
+		}
+	}
+	metricMap = make(map[string]*semantic.Metric, len(model.Metrics))
+	for _, m := range model.Metrics {
+		metricMap[m.Name] = new(m)
+	}
+	joinMap = make(map[string]semantic.Join)
+	for _, j := range model.Joins {
+		joinMap[j.Name] = j
+	}
+	return
 }

@@ -350,18 +350,26 @@ type joinNeighbor struct {
 }
 
 // determineJoins returns joins on paths from the base table to every table referenced
-// in the logical query. This avoids emitting duplicate joins to the same physical table
-// when multiple FKs exist but the query only uses base-table columns.
+// in the logical query, plus any unreachable table keys that the query references but
+// the join graph cannot reach. This avoids emitting duplicate joins to the same physical
+// table when multiple FKs exist but the query only uses base-table columns.
 func (*Compiler) determineJoins(
 	lq *LogicalQuery,
 	model *semantic.SemanticModel,
 	dimMap map[string]*semantic.Dimension,
 	metricMap map[string]*semantic.Metric,
 	resolver *SchemaResolver,
-) []string {
+) (joins []string, unreachableTables []string) {
 	neededTables := tablesReferencedInLogicalQuery(lq, model, dimMap, metricMap, resolver)
 	if len(model.Joins) == 0 {
-		return nil
+		// Every needed table aside from the base is unreachable when there are no joins.
+		base := TableKey(model.BaseSchema, model.BaseTable)
+		for t := range neededTables {
+			if t != base {
+				unreachableTables = append(unreachableTables, t)
+			}
+		}
+		return nil, unreachableTables
 	}
 
 	neighbors := make(map[string][]joinNeighbor, len(model.Joins))
@@ -407,6 +415,10 @@ func (*Compiler) determineJoins(
 		if t == base {
 			continue
 		}
+		if _, reachable := visited[t]; !reachable {
+			unreachableTables = append(unreachableTables, t)
+			continue
+		}
 		cur := t
 		for cur != base && cur != "" {
 			pi := parent[cur]
@@ -424,7 +436,7 @@ func (*Compiler) determineJoins(
 			out = append(out, jn)
 		}
 	}
-	return out
+	return out, unreachableTables
 }
 
 func (c *Compiler) dimensionSQL(dim *semantic.Dimension, resolver *SchemaResolver) (string, error) {

@@ -28,6 +28,7 @@ const (
 	CodeDateValueTypeMismatch = "DATE_VALUE_TYPE_MISMATCH"
 	CodeAmbiguousYearCoverage = "AMBIGUOUS_YEAR_COVERAGE"
 	CodeHiddenPIIField        = "HIDDEN_PII_FIELD"
+	CodeUnreachableTable     = "UNREACHABLE_TABLE"
 )
 
 // HiddenPIIField is the message prefix for filters referencing PII columns
