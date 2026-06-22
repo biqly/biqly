@@ -17,7 +17,7 @@ import type { GenerateSemanticModelResponse } from '../types/semantic'
 import { modelListHint, modelListLabel } from '../types/semantic'
 import { rowsToChartData } from '../utils/chartData'
 import { pickPublishedModelId, pickValidIdOrFirst } from '../utils/effectiveSelection'
-import { buildQueryPayload } from './queryBuilder/logicalQuery'
+import { buildQueryPayload, initializeSummarizeGroupBy } from './queryBuilder/logicalQuery'
 import {
   qbCardClass,
   qbHeaderClass,
@@ -56,6 +56,7 @@ interface QueryBuilderResult {
   stats?: {
     row_count?: number
     duration_ms?: number
+    total_count?: number
   }
 }
 
@@ -115,7 +116,8 @@ export default function QueryBuilder() {
   const [orderBy, setOrderBy] = useState<string>('')
   const [orderDir, setOrderDir] = useState('asc')
   const [limit, setLimit] = useState(100)
-  const [offset] = useState(0)
+  const [page, setPage] = useState(1)
+  const offset = (page - 1) * limit
   const [mode, setMode] = useState<'simple' | 'advanced'>('simple')
   const havingState = useArrayState<HavingRow>([])
   const windowFunctionState = useArrayState<WindowFuncRow>([])
@@ -179,6 +181,9 @@ export default function QueryBuilder() {
   }
 
   const toggleSummarize = () => {
+    if (!isSummarized) {
+      setGroupBy((current) => initializeSummarizeGroupBy(selectItems, current))
+    }
     setIsSummarized((prev) => !prev)
   }
 
@@ -245,7 +250,7 @@ export default function QueryBuilder() {
   }
   const removeCTE = (i: number) => cteState.remove(i)
 
-  const buildPayload = () => {
+  const buildPayload = (overrides?: { offset?: number }) => {
     const querySelectItems = isSummarized
       ? [
           ...groupBy.filter(Boolean).map((g) => ({
@@ -268,7 +273,7 @@ export default function QueryBuilder() {
       orderBy,
       orderDir,
       limit,
-      offset,
+      offset: overrides?.offset ?? offset,
       windowFunctions,
       ctes,
     })
@@ -291,11 +296,23 @@ export default function QueryBuilder() {
   }
 
   const runQuery = async () => {
+    setPage(1)
     const payload = buildPayload()
     await compileSql(payload)
     const res = await postData<QueryBuilderResult>('/api/query/run', payload)
     if (res) {
       setResult(res)
+    }
+  }
+
+  const goToPage = async (newPage: number) => {
+    const newOffset = (newPage - 1) * limit
+    const payload = buildPayload({ offset: newOffset })
+    await compileSql(payload)
+    const res = await postData<QueryBuilderResult>('/api/query/run', payload)
+    if (res) {
+      setResult(res)
+      setPage(newPage)
     }
   }
 
@@ -503,6 +520,12 @@ export default function QueryBuilder() {
           chartData={chartData}
           chartType={chartType}
           setChartType={setChartType}
+          page={page}
+          pageSize={limit}
+          onPageChange={(p: number) => {
+            void goToPage(p)
+          }}
+          loading={loading}
           t={t}
         />
       )}

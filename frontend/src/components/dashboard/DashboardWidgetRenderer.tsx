@@ -86,7 +86,7 @@ function WidgetPieChart({ data, xKey, yKey }: { data: ChartRow[]; xKey: string; 
   }))
   return (
     <div className="h-full min-h-50 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <PieChart>
           <Pie
             data={pieData}
@@ -118,7 +118,7 @@ function WidgetCartesianChart({
 }) {
   return (
     <div className="h-full min-h-50 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         {widget.chart_type === 'bar' ? (
           <BarChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />

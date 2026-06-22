@@ -195,7 +195,7 @@ export function EvalRunTab({
             <div className={cardClass()}>
               <h3>{t('evaluation.chart_pass_distribution')}</h3>
               <div className={chartContainerClass} style={{ height: 240 }}>
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <PieChart>
                     <Pie
                       data={pieData}
@@ -220,7 +220,7 @@ export function EvalRunTab({
               <h3>{t('evaluation.chart_accuracy_trend')}</h3>
               {trendData.length > 0 ? (
                 <div className={chartContainerClass} style={{ height: 240 }}>
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart data={trendData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
                       <XAxis dataKey="date" stroke={chartAxisStroke} tick={smallChartTick} />

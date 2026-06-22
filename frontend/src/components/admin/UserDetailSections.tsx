@@ -65,20 +65,7 @@ export function UserDetailProfileCard({
             user.email.slice(0, 2).toUpperCase()
           )}
         </div>
-        {!(isSelf && user.isActive) && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onToggleActive}
-              disabled={!canManageUsers}
-              className={adminActivateBtnClass(user.isActive)}
-            >
-              {user.isActive
-                ? t('admin.user_detail.suspend_account')
-                : t('admin.user_detail.activate_account')}
-            </button>
-          </div>
-        )}
-        <div className="flex flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h2 className="m-0 text-[22px]">
             {user.displayName ?? t('admin.user_detail.unnamed_user')}
           </h2>
@@ -88,6 +75,30 @@ export function UserDetailProfileCard({
           <span className="text-foreground-faint font-mono text-xs leading-none">
             UUID: {user.id}
           </span>
+        </div>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-3 max-sm:w-full max-sm:justify-start">
+          {!user.emailVerified && (
+            <button
+              type="button"
+              onClick={onResendVerification}
+              disabled={verificationSending}
+              className={adminBtnResendClass}
+            >
+              {verificationSending ? '...' : t('admin.user_detail.resend_verification')}
+            </button>
+          )}
+          {!(isSelf && user.isActive) && (
+            <button
+              type="button"
+              onClick={onToggleActive}
+              disabled={!canManageUsers}
+              className={adminActivateBtnClass(user.isActive)}
+            >
+              {user.isActive
+                ? t('admin.user_detail.suspend_account')
+                : t('admin.user_detail.activate_account')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -106,16 +117,6 @@ export function UserDetailProfileCard({
                 ? t('admin.user_detail.email_approved')
                 : t('admin.user_detail.email_pending')}
             </span>
-            {!user.emailVerified && (
-              <button
-                type="button"
-                onClick={onResendVerification}
-                disabled={verificationSending}
-                className={adminBtnResendClass}
-              >
-                {verificationSending ? '...' : t('admin.user_detail.resend_verification')}
-              </button>
-            )}
             {verificationMessage && (
               <span
                 className={

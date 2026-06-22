@@ -4,8 +4,11 @@ import type { SemanticDimension, SemanticMetric } from '../../types/semantic'
 import { Select } from '../ui/Select'
 import { NotebookStep } from './NotebookStep'
 import {
-  qbAddBtnClass,
+  qbSummarizeAddClass,
   qbSummarizeDividerClass,
+  qbSummarizeHeadingClass,
+  qbSummarizeHintClass,
+  qbSummarizeItemsClass,
   qbSummarizeSectionClass,
   qbSummarizeSplitClass,
   qbTagBase,
@@ -54,7 +57,7 @@ export function SummarizeStep({
   const t = useT()
   return (
     <NotebookStep
-      label="Summarize"
+      label={t('query_builder.summarize_label')}
       themeClass="summarize"
       onClose={onClear}
       closeTitle={t('common.cancel')}
@@ -64,69 +67,90 @@ export function SummarizeStep({
       })}
     >
       <div className={qbSummarizeSplitClass}>
-        {/* Aggregations */}
-        <div className={qbSummarizeSectionClass}>
-          {selectItems
-            .filter((item) => item.type === 'metric')
-            .map((item, aggIdx) => {
-              const i = selectItems.indexOf(item)
-              return (
-                <div
-                  key={item.id}
-                  className={cn(qbTagBase, qbTagGreenClass, 'flex items-center gap-1')}
-                >
-                  <Select
-                    value={item.name}
-                    onChange={(v) => updateSelectItem(i, 'name', v)}
-                    placeholder={t('query_builder.pick_field_placeholder')}
-                    options={metricFieldOptions(metrics)}
-                    size="sm"
-                    searchable
-                  />
-                  <button
-                    type="button"
-                    className={qbTagCloseClass}
-                    onClick={() => removeSelectItem(i)}
-                    aria-label={t('query_builder.remove_aggregation_aria', { n: aggIdx + 1 })}
+        <section
+          className={qbSummarizeSectionClass}
+          aria-label={t('query_builder.aggregations_label')}
+        >
+          <header>
+            <h3 className={qbSummarizeHeadingClass}>{t('query_builder.aggregations_label')}</h3>
+            <p className={qbSummarizeHintClass}>{t('query_builder.aggregations_hint')}</p>
+          </header>
+          <div className={qbSummarizeItemsClass}>
+            {selectItems
+              .filter((item) => item.type === 'metric')
+              .map((item, aggIdx) => {
+                const i = selectItems.indexOf(item)
+                return (
+                  <div
+                    key={item.id}
+                    className={cn(qbTagBase, qbTagGreenClass, 'flex items-center gap-1')}
                   >
-                    ×
-                  </button>
-                </div>
-              )
-            })}
-          <button type="button" className={qbAddBtnClass} onClick={() => addMetricSelectItem('')}>
-            +
+                    <Select
+                      value={item.name}
+                      onChange={(v) => updateSelectItem(i, 'name', v)}
+                      placeholder={t('query_builder.pick_field_placeholder')}
+                      options={metricFieldOptions(metrics)}
+                      size="sm"
+                      searchable
+                    />
+                    <button
+                      type="button"
+                      className={qbTagCloseClass}
+                      onClick={() => removeSelectItem(i)}
+                      aria-label={t('query_builder.remove_aggregation_aria', { n: aggIdx + 1 })}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )
+              })}
+          </div>
+          <button
+            type="button"
+            className={qbSummarizeAddClass}
+            onClick={() => addMetricSelectItem('')}
+          >
+            <span aria-hidden="true">+</span>
+            {t('query_builder.add_aggregation')}
           </button>
+        </section>
+
+        <div className={qbSummarizeDividerClass} aria-hidden="true">
+          →
         </div>
 
-        <div className={qbSummarizeDividerClass}>by</div>
-
-        {/* Group by dimensions */}
-        <div className={qbSummarizeSectionClass}>
-          {groupBy.map((g, i) => (
-            <div key={i} className={cn(qbTagBase, qbTagBlueClass, 'flex items-center gap-1')}>
-              <Select
-                value={g}
-                onChange={(v) => updateGroupByRow(i, v)}
-                placeholder={t('query_builder.pick_dimension_placeholder')}
-                options={dimOptionsForGroupRow(dimensions, groupBy, i)}
-                size="sm"
-                searchable
-              />
-              <button
-                type="button"
-                className={qbTagCloseClass}
-                onClick={() => removeGroupByRow(i)}
-                aria-label={t('query_builder.remove_group_aria', { n: i + 1 })}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-          <button type="button" className={qbAddBtnClass} onClick={addGroupByRow}>
-            +
+        <section className={qbSummarizeSectionClass} aria-label={t('query_builder.group_by_label')}>
+          <header>
+            <h3 className={qbSummarizeHeadingClass}>{t('query_builder.group_by_label')}</h3>
+            <p className={qbSummarizeHintClass}>{t('query_builder.group_by_hint')}</p>
+          </header>
+          <div className={qbSummarizeItemsClass}>
+            {groupBy.map((g, i) => (
+              <div key={i} className={cn(qbTagBase, qbTagBlueClass, 'flex items-center gap-1')}>
+                <Select
+                  value={g}
+                  onChange={(v) => updateGroupByRow(i, v)}
+                  placeholder={t('query_builder.pick_dimension_placeholder')}
+                  options={dimOptionsForGroupRow(dimensions, groupBy, i)}
+                  size="sm"
+                  searchable
+                />
+                <button
+                  type="button"
+                  className={qbTagCloseClass}
+                  onClick={() => removeGroupByRow(i)}
+                  aria-label={t('query_builder.remove_group_aria', { n: i + 1 })}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+          <button type="button" className={qbSummarizeAddClass} onClick={addGroupByRow}>
+            <span aria-hidden="true">+</span>
+            {t('query_builder.add_group_row')}
           </button>
-        </div>
+        </section>
       </div>
     </NotebookStep>
   )

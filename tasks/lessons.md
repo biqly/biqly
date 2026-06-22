@@ -463,6 +463,11 @@ Sources: [Effective Go — Names](https://go.dev/doc/effective_go#names), [Googl
 - Avoid repeating package names in type names: `datasource.Info` instead of `datasource.DatasourceInfo`. `config.Config` is an acceptable exception (standard pattern).
 - Variable names should not stutter their type: `var users int` instead of `var userCount int` (if count context is clear).
 
+### Admin detail action placement
+
+- Keep row-level list cells focused on status and navigation. Put consequential user actions on the detail page.
+- Group account actions in the profile card’s top-right action area; keep identity content together and place the destructive action at the far right.
+
 ### TypeScript / React Naming (ESLint enforced: `@typescript-eslint/naming-convention`)
 
 Sources: [Google TypeScript Style Guide — Naming](https://google.github.io/styleguide/tsguide.html#naming).

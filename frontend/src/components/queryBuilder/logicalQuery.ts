@@ -1,8 +1,23 @@
 import type { CTE } from '../../types/ai'
-import type { QueryBuilderFormState } from './types'
+import type { QueryBuilderFormState, SelectItem } from './types'
 import { parseCTEBody } from './utils'
 
 export type QueryRunPayload = ReturnType<typeof buildQueryPayload>
+
+export function initializeSummarizeGroupBy(
+  selectItems: SelectItem[],
+  currentGroupBy: string[],
+): string[] {
+  if (currentGroupBy.some(Boolean)) {
+    return currentGroupBy
+  }
+
+  return [
+    ...new Set(
+      selectItems.filter((item) => item.type === 'dimension' && item.name).map((item) => item.name),
+    ),
+  ]
+}
 
 export function buildQueryPayload(state: QueryBuilderFormState) {
   const {

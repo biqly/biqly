@@ -247,7 +247,7 @@ function ModelSuccessRates({ models }: { models: ModelStats[] }) {
       <div className={`${cardClass()} mt-4`}>
         <h3>{t('dashboard.chart_success_compare')}</h3>
         <div className="h-62.5">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <BarChart
               data={models.map((m) => ({
                 name: m.model_name ?? m.model_id,

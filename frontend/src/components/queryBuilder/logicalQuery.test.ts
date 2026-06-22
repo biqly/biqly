@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { SemanticDimension } from '../../types/semantic'
-import { buildQueryPayload } from './logicalQuery'
+import { buildQueryPayload, initializeSummarizeGroupBy } from './logicalQuery'
 import {
   addFilterRow,
   addGroupByRow,
@@ -65,6 +65,27 @@ describe('filter row state', () => {
 })
 
 describe('groupBy row state', () => {
+  it('initializes summarize grouping from selected dimensions only', () => {
+    expect(
+      initializeSummarizeGroupBy(
+        [
+          { id: 's1', type: 'dimension', name: 'region' },
+          { id: 's2', type: 'metric', name: 'total_revenue' },
+          { id: 's3', type: 'dimension', name: 'order_date' },
+          { id: 's4', type: 'dimension', name: 'region' },
+          { id: 's5', type: 'dimension', name: '' },
+        ],
+        [],
+      ),
+    ).toEqual(['region', 'order_date'])
+  })
+
+  it('preserves an existing summarize grouping', () => {
+    expect(
+      initializeSummarizeGroupBy([{ id: 's1', type: 'dimension', name: 'region' }], ['status']),
+    ).toEqual(['status'])
+  })
+
   it('adds, updates, and removes groupBy rows', () => {
     let groupBy = addGroupByRow([])
     groupBy = addGroupByRow(groupBy)

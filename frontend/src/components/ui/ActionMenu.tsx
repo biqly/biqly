@@ -95,7 +95,10 @@ export function ActionMenu({
               }}
             >
               {item.icon && (
-                <span className="w-[1.1rem] shrink-0 text-center" aria-hidden="true">
+                <span
+                  className="w-[1.4rem] shrink-0 overflow-hidden text-center"
+                  aria-hidden="true"
+                >
                   {item.icon}
                 </span>
               )}

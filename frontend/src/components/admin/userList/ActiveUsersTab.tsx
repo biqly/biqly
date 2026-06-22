@@ -13,7 +13,6 @@ import { Select } from '../../ui/Select'
 import {
   adminActiveBadgeClass,
   adminBtnPrimaryClass,
-  adminBtnSecondaryClass,
   adminInputClass,
   adminListAvatarClass,
   adminMessageBoxClass,
@@ -34,8 +33,6 @@ interface ActiveUsersTabProps {
   actionMessage: { type: 'success' | 'error'; text: string } | null
   setActionMessage: (v: { type: 'success' | 'error'; text: string } | null) => void
   displayedUsers: AuthUser[]
-  verificationLoadingId: string | null
-  handleResendVerification: (id: string) => Promise<void>
   onSelectUser: (id: string, label: string) => void
   currentPage: number
   totalPages: number
@@ -54,8 +51,6 @@ export function ActiveUsersTab({
   actionMessage,
   setActionMessage,
   displayedUsers,
-  verificationLoadingId,
-  handleResendVerification,
   onSelectUser,
   currentPage,
   totalPages,
@@ -121,23 +116,9 @@ export function ActiveUsersTab({
       key: 'email_verification',
       header: t('admin.users.col_email_verification'),
       cell: (u) => (
-        <div className="flex flex-col items-start gap-1.5">
-          <span className={adminVerifiedBadgeClass(u.emailVerified)}>
-            {u.emailVerified ? t('admin.users.email_verified') : t('admin.users.email_unverified')}
-          </span>
-          {!u.emailVerified && (
-            <button
-              type="button"
-              onClick={() => {
-                void handleResendVerification(u.id)
-              }}
-              disabled={verificationLoadingId === u.id}
-              className={adminBtnSecondaryClass}
-            >
-              {verificationLoadingId === u.id ? '...' : t('admin.users.resend_verification')}
-            </button>
-          )}
-        </div>
+        <span className={adminVerifiedBadgeClass(u.emailVerified)}>
+          {u.emailVerified ? t('admin.users.email_verified') : t('admin.users.email_unverified')}
+        </span>
       ),
     },
     {

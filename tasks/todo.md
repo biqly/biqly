@@ -5072,3 +5072,47 @@ Review:
 - DONE 2026-06-21: Batch table jobs now preserve locale when converting each table into the existing single-table describe flow, so table + column descriptions are generated/applied together for that table.
 - DONE 2026-06-21: The Metadata page refreshes open column rows after generation, and manual apply in non-default locale writes translation overlays instead of overwriting the base description.
 - Verification: focused Go tests ✓, focused frontend vitest ✓, frontend typecheck ✓, frontend eslint ✓, `make check-frontend` ✓.
+
+## Query Builder Summarize UX Fix Plan (2026-06-22)
+
+Success criteria:
+
+- Summarize controls do not create or expose metric rows in the Dimensions step.
+- Enabling Summarize initializes `by` from already-selected dimensions without duplicating existing group rows.
+- Metrics are managed only under the aggregation side of Summarize; grouping dimensions are managed only under `by`.
+- The Summarize card clearly labels both sides and uses descriptive add actions instead of ambiguous `+` controls.
+
+- [x] Add focused failing tests for summarize initialization and ownership boundaries.
+- [x] Implement one-time dimension-to-`by` initialization without overwriting an existing grouping.
+- [x] Keep metric selections out of the Dimensions step while preserving query payload behavior.
+- [x] Improve Summarize hierarchy, labels, helper copy, and accessible action names.
+- [~] Run focused tests, `make check-frontend`, and visual browser QA; document the result below.
+
+Review:
+
+- DONE 2026-06-22: Summarize is now the single editing surface while active. Existing selected dimensions initialize `by` once; configured grouping is preserved on later toggles.
+- DONE 2026-06-22: Summary metrics stay in the Calculation panel and grouping dimensions stay in the Group by panel. Ambiguous round `+` controls were replaced with labeled, accessible actions and clearer helper copy.
+- Verification: focused query-builder vitest ✓ (10/10), frontend typecheck ✓, ESLint ✓, Tailwind diagnostics ✓, `make check-frontend` ✓ (42 files, 217 tests, production build), `git diff --check` ✓.
+- Visual QA PARTIAL: local Vite and API were reachable, but the isolated browser session redirected to sign-in and no non-secret local UI credentials are documented. Authenticated visual confirmation remains pending; no runtime console/interaction claim is made.
+
+## Admin User Verification Action Placement Plan (2026-06-22)
+
+Success criteria:
+
+- User List shows only the email-verification status badge; it does not expose a resend action.
+- User Detail places “Resend Verification Email” in the profile card’s top-right action group for unverified users.
+- The activate/suspend action appears at the far right of that same group when the current user is allowed to see it.
+- Existing confirmation, loading, permission, and self-suspension behavior remains unchanged.
+
+- [x] Remove the list-level resend action and its now-unused state/props/imports.
+- [x] Move detail-level resend and activate/suspend controls into a responsive top-right action group.
+- [x] Keep verification status/message in the details grid without a duplicate action.
+- [~] Run frontend formatting, focused/static verification, `make check-frontend`, and visual QA where authentication permits.
+- [ ] Commit the scoped changes, push `dev`, merge/push `main`, and return to `dev`.
+
+Review:
+
+- DONE 2026-06-22: User List now keeps email verification as a status-only cell; its resend handler, loading state, props, and imports were removed.
+- DONE 2026-06-22: User Detail now groups “Resend Verification Email” and activate/suspend at the profile card’s top-right, with the account-state action at the far right and a stacked mobile fallback.
+- Verification: `make check-frontend` ✓ (ESLint, Tailwind diagnostics, Prettier, knip, 42 test files / 217 tests, typecheck, production build).
+- Visual QA PARTIAL: the supplied authenticated screenshots guided the layout, but the isolated local browser still lacks an authenticated admin session.

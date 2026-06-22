@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 
-import { listUsers, resendUserVerification } from '../../api/admin'
+import { listUsers } from '../../api/admin'
 import { apiListInvitations, apiResendInvitation, apiRevokeInvitation } from '../../api/auth'
 import { useConfirmedMutation } from '../../hooks/useConfirmedMutation'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
@@ -51,7 +51,6 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
   >('all')
 
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
-  const [verificationLoadingId, setVerificationLoadingId] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<{
     type: 'success' | 'error'
     text: string
@@ -152,17 +151,6 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
     setActionLoadingId(null)
   }
 
-  const handleResendVerification = async (id: string) => {
-    setVerificationLoadingId(id)
-    setActionMessage(null)
-    await confirmMutation(() => resendUserVerification(token, id), {
-      title: t('admin.users.resend_verification_confirm'),
-      variant: 'default',
-      successMessage: t('admin.users.resend_verification_success'),
-    })
-    setVerificationLoadingId(null)
-  }
-
   const handleRevoke = async (id: string) => {
     setActionLoadingId(id)
     setActionMessage(null)
@@ -231,8 +219,6 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
           actionMessage={actionMessage}
           setActionMessage={setActionMessage}
           displayedUsers={displayedUsers}
-          verificationLoadingId={verificationLoadingId}
-          handleResendVerification={handleResendVerification}
           onSelectUser={onSelectUser}
           currentPage={currentPage}
           totalPages={totalPages}

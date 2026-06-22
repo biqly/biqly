@@ -87,12 +87,23 @@ export const qbTagCloseClass =
 export const qbAddBtnClass =
   'inline-flex h-[1.55rem] w-[1.55rem] shrink-0 cursor-pointer items-center justify-center rounded-full border border-dashed border-border-strong bg-transparent p-0 text-[0.95rem] leading-none text-foreground-faint transition-all duration-120 hover:border-foreground-muted hover:bg-white/[0.02] hover:text-foreground'
 
-export const qbSummarizeSplitClass = 'flex w-full flex-wrap items-center gap-4'
+export const qbSummarizeSplitClass =
+  'grid w-full gap-3 lg:grid-cols-[minmax(0,1fr)_2rem_minmax(0,1fr)] lg:items-stretch'
 
-export const qbSummarizeSectionClass = 'flex min-w-48 flex-1 flex-wrap items-center gap-2'
+export const qbSummarizeSectionClass =
+  'flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card-raised/50 p-3'
 
 export const qbSummarizeDividerClass =
-  'select-none text-[0.76rem] font-semibold lowercase text-foreground-faint'
+  'hidden select-none items-center justify-center text-lg text-foreground-faint lg:flex'
+
+export const qbSummarizeItemsClass = 'flex min-h-8 flex-wrap items-center gap-2'
+
+export const qbSummarizeHeadingClass = 'text-sm font-semibold text-foreground'
+
+export const qbSummarizeHintClass = 'mt-1 text-xs leading-relaxed text-foreground-muted'
+
+export const qbSummarizeAddClass =
+  'inline-flex min-h-8 w-fit cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-border-strong bg-transparent px-2.5 py-1 text-xs font-semibold text-foreground-muted transition-colors hover:border-accent hover:bg-accent/5 hover:text-foreground'
 
 export const qbToolbarClass =
   'mt-4 flex flex-wrap items-center gap-2 border-t border-border px-2 pt-[0.85rem]'

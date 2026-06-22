@@ -87,6 +87,10 @@ type Stats struct {
 	// the configured max-rows cap. Clients can use this to surface "showing
 	// first N rows" rather than silently presenting a partial result set.
 	Truncated bool `json:"truncated,omitempty"`
+	// TotalCount is the total number of rows the query would return without
+	// LIMIT/OFFSET. Populated by QueryService when pagination is requested;
+	// zero/omitted when unknown or when the count query was skipped.
+	TotalCount int `json:"total_count,omitempty"`
 }
 
 // CompiledQuery holds the SQL generated from a LogicalQuery.

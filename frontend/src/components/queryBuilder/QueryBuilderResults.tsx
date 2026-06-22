@@ -5,12 +5,14 @@ import { formatResultCell } from '../../utils/resultCellFormat'
 import type { MetadataTFunction } from '../metadata/utils'
 import { ChartContainer, type ChartKind } from '../ui/ChartContainer'
 import { ChartTypeSelector } from '../ui/ChartTypeSelector'
+import { Pagination } from '../ui/Pagination'
 interface QueryBuilderResult {
   columns?: { name: string; type?: string }[]
   rows?: unknown[][]
   stats?: {
     row_count?: number
     duration_ms?: number
+    total_count?: number
   }
 }
 
@@ -19,14 +21,24 @@ export function QueryBuilderResults({
   chartData,
   chartType,
   setChartType,
+  page,
+  pageSize,
+  onPageChange,
+  loading,
   t,
 }: {
   result: QueryBuilderResult
   chartData: ReturnType<typeof rowsToChartData>
   chartType: ChartKind
   setChartType: (value: ChartKind) => void
+  page: number
+  pageSize: number
+  onPageChange: (page: number) => void
+  loading: boolean
   t: MetadataTFunction
 }) {
+  const totalCount = result.stats?.total_count ?? 0
+  const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 0
   const title = t('query_builder.results_title', {
     rows: result.stats?.row_count ?? 0,
     ms: result.stats?.duration_ms ?? 0,
@@ -76,6 +88,23 @@ export function QueryBuilderResults({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {totalCount > 0 && totalPages > 1 && (
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          totalItems={totalCount}
+          itemsPerPage={pageSize}
+        />
+      )}
+
+      {/* Loading indicator for page changes */}
+      {loading && (
+        <div className="text-foreground-faint flex items-center justify-center py-3 text-[0.8rem]">
+          {t('common.loading')}
         </div>
       )}
     </div>

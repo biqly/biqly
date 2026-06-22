@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
+	"strings"
 
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/metadata"
@@ -207,6 +209,15 @@ func (s *QueryService) RunWithModel(ctx context.Context, lq *query.LogicalQuery,
 		s.recordHistory(ctx, &compiled.LogicalQuery, compiled.Model, compiled.Compiled, nil, QueryStatusFailed, err)
 		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrQueryExecution, err))
 	}
+	// Compute total count for pagination when the query has a LIMIT.
+	if compiled.Compiled != nil {
+		count, countErr := computeTotalCount(ctx, db, compiled.Compiled)
+		if countErr == nil {
+			result.Stats.TotalCount = count
+		} else {
+			slog.Debug("total count query skipped", "error", countErr)
+		}
+	}
 	query.EnrichResult(result, lq, compiled.Model)
 	s.recordHistory(ctx, &compiled.LogicalQuery, compiled.Model, compiled.Compiled, result, QueryStatusSuccess, nil)
 	return &RunResult{CompileResult: *compiled, Result: result}, nil
@@ -326,4 +337,50 @@ func (s *QueryService) logError(ctx context.Context, msg string, err error) {
 		return
 	}
 	slog.ErrorContext(ctx, msg, "error", err)
+}
+
+// computeTotalCount runs a SELECT COUNT(*) variant of the compiled query,
+// stripping ORDER BY, LIMIT, and OFFSET from the outermost clause so the
+// result reflects the true total row count. Returns 0 if the count query
+// itself fails (caller should treat it as unknown, not a hard error).
+func computeTotalCount(ctx context.Context, db *sql.DB, cq *query.CompiledQuery) (int, error) {
+	querySQL := stripPagination(cq.SQL)
+	if querySQL == cq.SQL {
+		// No LIMIT clause — no pagination needed.
+		return 0, nil
+	}
+	countSQL := "SELECT COUNT(*) FROM (" + querySQL + ") AS _cnt"
+	var count int
+	err := db.QueryRowContext(ctx, countSQL, cq.Args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count query: %w", err)
+	}
+	return count, nil
+}
+
+// stripPagination strips the outermost ORDER BY, LIMIT, and OFFSET clauses
+// from a SQL string, returning the modified SQL. If no LIMIT is found, the
+// original string is returned unchanged.
+func stripPagination(rawSQL string) string {
+	// Normalise whitespace so the trailing-clause regexes can anchor to $.
+	s := strings.TrimSpace(rawSQL)
+
+	// Strip trailing OFFSET (may appear without LIMIT in some dialects).
+	re := regexp.MustCompile(`(?i)\s+OFFSET\s+\d+$`)
+	s = re.ReplaceAllString(s, "")
+
+	// Strip trailing LIMIT [count] [OFFSET count].
+	re = regexp.MustCompile(`(?i)\s+LIMIT\s+\d+(?:\s+OFFSET\s+\d+)?$`)
+	hasLimit := s != re.ReplaceAllString(s, "")
+	s = re.ReplaceAllString(s, "")
+
+	if !hasLimit {
+		return rawSQL // unchanged
+	}
+
+	// Strip trailing ORDER BY ... (safe for COUNT(*) wrapping).
+	re = regexp.MustCompile(`(?i)\s+ORDER\s+BY\s+.+$`)
+	s = re.ReplaceAllString(s, "")
+
+	return s
 }

@@ -140,16 +140,18 @@ export function QueryBuilderNotebook({
           addFilter={addFilter}
           onClear={() => setFilters([])}
         />
-        <FieldsStep
-          selectItems={selectItems}
-          dimensions={dimensions ?? []}
-          metrics={metrics ?? []}
-          updateSelectItem={updateSelectItem}
-          removeSelectItem={removeSelectItem}
-          addSelectItem={addSelectItem}
-          dimFieldOptions={(dims) => dimFieldOptions(dims, fieldLabelMode)}
-          metricFieldOptions={(mets) => metricFieldOptions(mets, fieldLabelMode)}
-        />
+        {!isSummarized && (
+          <FieldsStep
+            selectItems={selectItems}
+            dimensions={dimensions ?? []}
+            metrics={metrics ?? []}
+            updateSelectItem={updateSelectItem}
+            removeSelectItem={removeSelectItem}
+            addSelectItem={addSelectItem}
+            dimFieldOptions={(dims) => dimFieldOptions(dims, fieldLabelMode)}
+            metricFieldOptions={(mets) => metricFieldOptions(mets, fieldLabelMode)}
+          />
+        )}
         {isSummarized && (
           <SummarizeStep
             selectItems={selectItems}
