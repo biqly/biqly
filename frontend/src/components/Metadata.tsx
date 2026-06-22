@@ -148,6 +148,38 @@ export default function Metadata() {
     () => [...new Set(tables.map((tab) => tab.schema_name))].sort((a, b) => a.localeCompare(b)),
     [tables],
   )
+  const commonSchemas = useMemo(
+    () =>
+      new Set([
+        'public',
+        'dbo',
+        'pg_catalog',
+        'information_schema',
+        'guest',
+        'sys',
+        'mysql',
+        'performance_schema',
+      ]),
+    [],
+  )
+  const sortedSchemas = useMemo(
+    () => [
+      ...schemaOptions.filter((s) => commonSchemas.has(s)).sort((a, b) => a.localeCompare(b)),
+      ...schemaOptions.filter((s) => !commonSchemas.has(s)).sort((a, b) => a.localeCompare(b)),
+    ],
+    [schemaOptions, commonSchemas],
+  )
+
+  // Default to first common schema if none selected
+  useEffect(() => {
+    if (!tableFilterSchema && sortedSchemas.length > 0) {
+      const first = sortedSchemas[0]
+      if (first) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTableFilterSchema(first)
+      }
+    }
+  }, [sortedSchemas, tableFilterSchema])
   const typeOptions = useMemo(
     () => [...new Set(tables.map((tab) => tab.table_type))].sort((a, b) => a.localeCompare(b)),
     [tables],
@@ -321,15 +353,45 @@ export default function Metadata() {
     <div className={legacyLayoutClass('page-stack')}>
       <div className={cardClass()}>
         <h2>{t('metadata.page_title')}</h2>
-        <div className={legacyFormClass('form-group')}>
-          <label>{t('metadata.datasource_label')}</label>
-          <Select
-            value={datasourceId}
-            onChange={setDatasourceId}
-            placeholder={t('query_builder.placeholder_pick_datasource')}
-            header={t('query_builder.header_datasources')}
-            options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
-          />
+        <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-3">
+          <div className={legacyFormClass('form-group mb-0')}>
+            <label>{t('metadata.datasource_label')}</label>
+            <Select
+              value={datasourceId}
+              onChange={setDatasourceId}
+              placeholder={t('query_builder.placeholder_pick_datasource')}
+              header={t('query_builder.header_datasources')}
+              options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+            />
+          </div>
+          <div className={legacyFormClass('form-group mb-0')}>
+            <label>{t('metadata.filter_schema_label')}</label>
+            <Select
+              id="metadata-filter-schema"
+              size="sm"
+              ariaLabel={t('metadata.filter_schema_aria')}
+              value={tableFilterSchema}
+              onChange={setTableFilterSchema}
+              options={[
+                { value: '', label: t('metadata.filter_all_schemas') },
+                ...sortedSchemas.map((s) => ({ value: s, label: s })),
+              ]}
+            />
+          </div>
+          <div className={legacyFormClass('form-group mb-0')}>
+            <label>{t('metadata.filter_type_label')}</label>
+            <Select
+              id="metadata-filter-type"
+              size="sm"
+              ariaLabel={t('metadata.filter_type_aria')}
+              value={tableFilterType}
+              onChange={setTableFilterType}
+              options={[
+                { value: '', label: t('metadata.filter_all_types') },
+                ...typeOptions.map((ty) => ({ value: ty, label: ty })),
+              ]}
+            />
+          </div>
         </div>
         <ErrorAlert error={error} />
       </div>
@@ -344,15 +406,9 @@ export default function Metadata() {
           filteredTables={filteredTables}
           tablesLoading={tablesLoading}
           loading={loading}
-          tableFilterSchema={tableFilterSchema}
-          tableFilterType={tableFilterType}
-          schemaOptions={schemaOptions}
-          typeOptions={typeOptions}
           openTableId={openTableId}
           columns={columns}
           editing={editing}
-          onSchemaFilterChange={setTableFilterSchema}
-          onTypeFilterChange={setTableFilterType}
           onBulkOpen={() => setBulkOpen(true)}
           bulkRunning={bulkRunning}
           activeDescribeBatchJob={activeDescribeBatchJob}

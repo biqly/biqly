@@ -119,7 +119,11 @@ export function QueryBuilderVisualizeFooter({
   return (
     <div className={qbVisualizeContainerClass}>
       <button type="button" className={qbVisualizeBtnClass} onClick={onRun} disabled={loading}>
-        {loading ? t('query_builder.running') : 'Visualize'}
+        {loading ? t('query_builder.running') : t('query_builder.run_query')}
+      </button>
+      <button type="button" className={qbVisualizeBtnClass} onClick={onRun} disabled={loading}>
+        <span aria-hidden="true">📊</span>{' '}
+        {loading ? t('query_builder.running') : t('query_builder.visualize')}
       </button>
       <button
         type="button"
