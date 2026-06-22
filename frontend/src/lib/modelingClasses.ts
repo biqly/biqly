@@ -185,10 +185,12 @@ export const modelingTabsClass = 'flex border border-border rounded-lg overflow-
 export function modelingTabClass(active?: boolean): string {
   return cn(
     'flex min-w-0 flex-1 items-center justify-center gap-1 border-0 bg-card-raised text-foreground-muted',
-    'cursor-pointer px-1.5 py-[0.55rem] text-[0.78rem] font-bold',
+    'cursor-pointer px-1.5 py-[0.55rem] text-[0.78rem] font-bold overflow-hidden',
     'transition-[background,color] duration-150 not-last:border-r not-last:border-border',
     'hover:bg-[color-mix(in_srgb,var(--accent)_12%,var(--bg-card-raised))]',
-    active && 'bg-accent text-white hover:bg-accent',
+    active
+      ? 'bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg-card-raised))] text-accent'
+      : 'bg-card-raised text-foreground-muted',
   )
 }
 

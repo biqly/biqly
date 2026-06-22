@@ -67,6 +67,8 @@ export function useModelingCanvas(
     [tableCards, positions, cardLayouts],
   )
 
+  const savedViewportRef = useRef<Viewport | null>(null)
+
   const onCardDragStart = useCallback(
     (key: string) => (event: React.MouseEvent) => {
       if (event.button !== 0) {
@@ -211,6 +213,7 @@ export function useModelingCanvas(
       if (!node || keys.length === 0) {
         return
       }
+      savedViewportRef.current = viewportRef.current
       const padding = 60
       let minX = Infinity
       let minY = Infinity
@@ -244,6 +247,14 @@ export function useModelingCanvas(
     [positions, cardLayouts],
   )
 
+  const restoreSavedViewport = useCallback(() => {
+    const saved = savedViewportRef.current
+    if (saved) {
+      setViewport(saved)
+      savedViewportRef.current = null
+    }
+  }, [])
+
   return {
     positions,
     viewport,
@@ -258,6 +269,7 @@ export function useModelingCanvas(
     fitView,
     getJoinPath,
     panToKeys,
+    restoreSavedViewport,
   }
 }
 
