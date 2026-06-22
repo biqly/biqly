@@ -7,7 +7,7 @@ import { useQueryParam } from '../../hooks/useQueryParam'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import type { AIHistoryEntry } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
-import { formatDateTime } from '../../utils/formatters'
+import { formatDateTime, formatDurationMs } from '../../utils/formatters'
 import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import { useAuth } from '../auth/AuthProvider'
 import { ShareButton } from '../sharing/ShareButton'
@@ -190,7 +190,7 @@ export function AIHistoryPanel() {
                             {entry.model_used ?? '—'}
                           </td>
                           <td style={tdStyle}>
-                            {entry.latency_ms != null ? `${entry.latency_ms}ms` : '—'}
+                            {entry.latency_ms != null ? formatDurationMs(entry.latency_ms) : '—'}
                           </td>
                           <td style={tdStyle} title={t('admin.ai_history.tokens_breakdown')}>
                             {formatHistoryTokens(entry)}

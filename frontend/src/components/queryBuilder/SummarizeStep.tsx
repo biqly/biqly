@@ -81,6 +81,7 @@ export function SummarizeStep({
                     placeholder={t('query_builder.pick_field_placeholder')}
                     options={metricFieldOptions(metrics)}
                     size="sm"
+                    searchable
                   />
                   <button
                     type="button"
@@ -110,6 +111,7 @@ export function SummarizeStep({
                 placeholder={t('query_builder.pick_dimension_placeholder')}
                 options={dimOptionsForGroupRow(dimensions, groupBy, i)}
                 size="sm"
+                searchable
               />
               <button
                 type="button"

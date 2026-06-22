@@ -7,7 +7,7 @@ import { cardClass } from '../lib/cardClasses'
 import { legacyTableClass } from '../lib/tableClasses'
 import type { ModelStats } from '../types/ai'
 import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/chartConfig'
-import { getRateColor } from '../utils/formatters'
+import { formatDurationMs, getRateColor } from '../utils/formatters'
 import { ChartContainer } from './ui/ChartContainer'
 import { KPICard } from './ui/KPICard'
 import { Skeleton } from './ui/Skeleton'
@@ -150,7 +150,7 @@ function AIUsageSection({ summary, daily }: { summary: AIUsageSummary; daily: Da
         />
         <KPICard
           label={t('dashboard.kpi_avg_latency')}
-          value={t('evaluation.latency_ms', { ms: Math.round(summary.avg_latency_ms) })}
+          value={formatDurationMs(summary.avg_latency_ms)}
           color="var(--warning)"
         />
         <KPICard
@@ -235,9 +235,7 @@ function ModelSuccessRates({ models }: { models: ModelStats[] }) {
                   </span>
                 </td>
                 <td className="text-right">{(m.avg_confidence * 100).toFixed(0)}%</td>
-                <td className="text-right">
-                  {t('evaluation.latency_ms', { ms: Math.round(m.avg_latency_ms) })}
-                </td>
+                <td className="text-right">{formatDurationMs(m.avg_latency_ms)}</td>
                 <td className="text-success text-right">{m.positive_count}</td>
                 <td className="text-error text-right">{m.negative_count}</td>
               </tr>

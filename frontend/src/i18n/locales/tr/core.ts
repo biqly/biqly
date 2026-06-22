@@ -1060,6 +1060,7 @@ export const core: CoreDictionary = {
     model_placeholder: '— model seçin —',
     model_header: 'Semantic modeller',
     create_from_metadata: "Metadata'dan oluştur",
+    actions_label: 'İşlemler',
     creating: 'Oluşturuluyor…',
     publishing: 'Yayınlanıyor…',
     published: 'Yayında',

@@ -109,7 +109,7 @@ export default function QueryBuilder() {
   const selectItemsState = useArrayState<SelectItem>([])
   const filterState = useArrayState<FilterRow>([])
   const groupByState = useArrayState<string>([])
-  const { items: selectItems, setItems: setSelectItems } = selectItemsState
+  const { items: selectItems, setItems: _setSelectItems } = selectItemsState
   const { items: filters, setItems: setFilters } = filterState
   const { items: groupBy, setItems: setGroupBy } = groupByState
   const [orderBy, setOrderBy] = useState<string>('')
@@ -442,7 +442,6 @@ export default function QueryBuilder() {
                 addGroupByRow={addGroupByRow}
                 setIsSummarized={setIsSummarized}
                 setGroupBy={setGroupBy}
-                setSelectItems={setSelectItems}
                 orderBy={orderBy}
                 orderDir={orderDir}
                 orderByOpts={orderByOpts}

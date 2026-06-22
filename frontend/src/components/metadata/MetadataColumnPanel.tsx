@@ -1,17 +1,8 @@
-import { useState } from 'react'
-
 import { useT } from '../../i18n'
-import { buttonClass } from '../../lib/buttonClasses'
 import {
   metadataColNameBaseClass,
   metadataColNameCellClass,
   metadataColNameSuffixClass,
-  metadataDisplayExprClass,
-  metadataDisplayExprHintClass,
-  metadataDisplayExprInputClass,
-  metadataDisplayExprLabelClass,
-  metadataDisplayExprRowClass,
-  metadataDisplayExprSavedClass,
   metadataNestedCaptionClass,
   metadataNestedCellClass,
   metadataNestedColDescClass,
@@ -35,74 +26,7 @@ interface MetadataColumnPanelProps {
   onEditChange: (columnId: string, value: string) => void
   onSave: () => void
   onCancelEdit: () => void
-  onSaveDisplayExpression: (tab: TableRow, expr: string) => Promise<boolean>
-}
-
-/** Editor for the table's row display label (e.g. `author_name + " " + screen_name`). */
-function DisplayExpressionEditor({
-  table,
-  onSave,
-}: {
-  table: TableRow
-  onSave: (tab: TableRow, expr: string) => Promise<boolean>
-}) {
-  const t = useT()
-  const original = table.display_expression ?? ''
-  const [value, setValue] = useState(original)
-  const [saving, setSaving] = useState(false)
-  const [savedFlash, setSavedFlash] = useState(false)
-  const inputId = `display-expr-${table.id}`
-  const dirty = value.trim() !== original.trim()
-
-  const save = async () => {
-    setSaving(true)
-    const ok = await onSave(table, value.trim())
-    setSaving(false)
-    if (ok) {
-      setSavedFlash(true)
-      window.setTimeout(() => setSavedFlash(false), 2000)
-    }
-  }
-
-  return (
-    <div className={metadataDisplayExprClass}>
-      <label htmlFor={inputId} className={metadataDisplayExprLabelClass}>
-        ✨ {t('metadata.display_expr_label')}
-      </label>
-      <div className={metadataDisplayExprRowClass}>
-        <input
-          id={inputId}
-          type="text"
-          className={metadataDisplayExprInputClass}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && dirty && !saving) {
-              void save()
-            }
-          }}
-          placeholder={t('metadata.display_expr_placeholder')}
-          spellCheck={false}
-        />
-        <button
-          type="button"
-          className={buttonClass('secondary', { size: 'sm' })}
-          disabled={!dirty || saving}
-          onClick={() => {
-            void save()
-          }}
-        >
-          {saving ? t('common.saving') : t('common.save')}
-        </button>
-        {savedFlash && (
-          <span className={metadataDisplayExprSavedClass} role="status">
-            ✓ {t('metadata.display_expr_saved')}
-          </span>
-        )}
-      </div>
-      <small className={metadataDisplayExprHintClass}>{t('metadata.display_expr_hint')}</small>
-    </div>
-  )
+  onSaveDisplayExpression?: (tab: TableRow, expr: string) => Promise<boolean>
 }
 
 export function MetadataColumnPanel({
@@ -114,7 +38,7 @@ export function MetadataColumnPanel({
   onEditChange,
   onSave,
   onCancelEdit,
-  onSaveDisplayExpression,
+  onSaveDisplayExpression: _onSaveDisplayExpression,
 }: MetadataColumnPanelProps) {
   const t = useT()
 
@@ -122,7 +46,6 @@ export function MetadataColumnPanel({
     <tr className={metadataNestedRowClass}>
       <td colSpan={4} className={metadataNestedCellClass}>
         <div className={metadataNestedPanelClass}>
-          <DisplayExpressionEditor key={table.id} table={table} onSave={onSaveDisplayExpression} />
           <table className={resultsTableNestedClass()} lang={locale}>
             <caption className={metadataNestedCaptionClass}>
               {t('metadata.nested_columns_caption', {

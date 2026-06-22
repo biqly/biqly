@@ -37,12 +37,24 @@ export function getFieldLabel(
   return label?.trim() ? label : name
 }
 
+function extractTable(columnRef: string): string | null {
+  const dot = columnRef.indexOf('.')
+  if (dot > 0) {
+    return columnRef.slice(0, dot)
+  }
+  return null
+}
+
 export function dimFieldOptions(dims: SemanticDimension[], mode: 'technical' | 'human' = 'human') {
-  return dims.map((d) => ({
-    value: d.name,
-    label: getFieldLabel(d.name, d.label, mode),
-    hint: d.type,
-  }))
+  return dims.map((d) => {
+    const table = extractTable(d.column_ref)
+    const label = getFieldLabel(d.name, d.label, mode)
+    return {
+      value: d.name,
+      label: table ? `[${table}] ${label}` : label,
+      hint: d.type,
+    }
+  })
 }
 
 export function metricFieldOptions(
@@ -51,11 +63,15 @@ export function metricFieldOptions(
 ) {
   return metrics
     .filter((m) => m.name !== 'count' && m.aggregation !== 'count')
-    .map((m) => ({
-      value: m.name,
-      label: getFieldLabel(m.name, m.label, mode),
-      hint: m.aggregation,
-    }))
+    .map((m) => {
+      const table = extractTable(m.expression)
+      const label = getFieldLabel(m.name, m.label, mode)
+      return {
+        value: m.name,
+        label: table ? `[${table}] ${label}` : label,
+        hint: m.aggregation,
+      }
+    })
 }
 
 export function metricDisplayName(metric: SemanticMetric) {
@@ -127,19 +143,27 @@ export function dimOptionsForGroupRow(
 
   selectedList.sort((a, b) => selectedDimNames.indexOf(a.name) - selectedDimNames.indexOf(b.name))
 
-  const selectedOptions = selectedList.map((d) => ({
-    value: d.name,
-    label: getFieldLabel(d.name, d.label, mode),
-    hint: d.type,
-    disabled: false,
-  }))
+  const selectedOptions = selectedList.map((d) => {
+    const table = extractTable(d.column_ref)
+    const label = getFieldLabel(d.name, d.label, mode)
+    return {
+      value: d.name,
+      label: table ? `[${table}] ${label}` : label,
+      hint: d.type,
+      disabled: false,
+    }
+  })
 
-  const unselectedOptions = unselectedList.map((d) => ({
-    value: d.name,
-    label: getFieldLabel(d.name, d.label, mode),
-    hint: d.type,
-    disabled: true,
-  }))
+  const unselectedOptions = unselectedList.map((d) => {
+    const table = extractTable(d.column_ref)
+    const label = getFieldLabel(d.name, d.label, mode)
+    return {
+      value: d.name,
+      label: table ? `[${table}] ${label}` : label,
+      hint: d.type,
+      disabled: true,
+    }
+  })
 
   return [...selectedOptions, ...unselectedOptions]
 }

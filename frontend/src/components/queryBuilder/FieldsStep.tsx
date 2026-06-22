@@ -55,6 +55,7 @@ export function FieldsStep({
                 : metricFieldOptions(metrics)),
             ]}
             size="sm"
+            searchable
           />
           <button
             type="button"
