@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -987,25 +988,9 @@ func (c *Compiler) buildWindowExpr(
 		return "", fmt.Errorf("window select item %q missing aggregation", item.Name)
 	}
 
-	var head string
-	switch agg {
-	case "row_number", "rank", "dense_rank":
-		head = strings.ToUpper(agg) + "()"
-	case "ntile":
-		bucket := expr
-		if bucket == "" {
-			bucket = "4"
-		}
-		if !isPositiveInt(bucket) {
-			return "", fmt.Errorf("ntile bucket must be a positive integer, got: %q", bucket)
-		}
-		head = fmt.Sprintf("NTILE(%s)", bucket)
-	default:
-		if exprFromAST {
-			head = c.aggregateExpr(agg, expr)
-		} else {
-			head = c.dialect.Aggregate(agg, expr)
-		}
+	head, err := c.buildWindowHead(agg, expr, exprFromAST, w.Offset)
+	if err != nil {
+		return "", err
 	}
 
 	clauses := make([]string, 0, 4)
@@ -1026,6 +1011,75 @@ func (c *Compiler) buildWindowExpr(
 		clauses = append(clauses, frame)
 	}
 	return head + " OVER (" + strings.Join(clauses, " ") + ")", nil
+}
+
+// analyticWindowFuncs are the non-aggregate window functions whose spelling is
+// owned by the dialect (vs the aggregate family sum/avg/count/min/max, which
+// goes through Aggregate).
+var analyticWindowFuncs = map[string]bool{
+	"row_number": true, "rank": true, "dense_rank": true,
+	"percent_rank": true, "cume_dist": true, "ntile": true,
+	"lag": true, "lead": true, "first_value": true, "last_value": true,
+}
+
+// buildWindowHead renders the function call before the OVER clause. Aggregate
+// functions use the dialect's Aggregate spelling; analytic functions are routed
+// through the dialect's WindowFunc so each engine emits portable SQL (or rejects
+// what it cannot express). count_distinct is rejected outright — COUNT(DISTINCT)
+// is illegal as a window function in PostgreSQL, MySQL, and SQL Server.
+func (c *Compiler) buildWindowHead(agg, expr string, exprFromAST bool, offset int) (string, error) {
+	if agg == "count_distinct" {
+		return "", errors.New("count_distinct is not supported as a window function (no portable SQL across engines); use a plain count window or a distinct subquery instead")
+	}
+	if !analyticWindowFuncs[agg] {
+		if exprFromAST {
+			return c.aggregateExpr(agg, expr), nil
+		}
+		return c.dialect.Aggregate(agg, expr), nil
+	}
+
+	// Resolve the value expression read by value-returning functions, matching
+	// the aggregate path's quoting: AST exprs are already valid SQL; a bare
+	// column ref is quoted here exactly as Aggregate would quote it.
+	valueSQL := func() string {
+		if exprFromAST {
+			return expr
+		}
+		return c.dialect.QuoteIdent(expr)
+	}
+
+	var args []string
+	switch agg {
+	case "ntile":
+		bucket := expr
+		if bucket == "" {
+			bucket = "4"
+		}
+		if !isPositiveInt(bucket) {
+			return "", fmt.Errorf("ntile bucket must be a positive integer, got: %q", bucket)
+		}
+		args = []string{bucket}
+	case "lag", "lead":
+		if expr == "" || expr == "*" {
+			return "", fmt.Errorf("window function %q requires a metric or expression to read", agg)
+		}
+		n := offset
+		if n <= 0 {
+			n = 1
+		}
+		args = []string{valueSQL(), strconv.Itoa(n)}
+	case "first_value", "last_value":
+		if expr == "" || expr == "*" {
+			return "", fmt.Errorf("window function %q requires a metric or expression to read", agg)
+		}
+		args = []string{valueSQL()}
+	}
+
+	head, ok := c.dialect.WindowFunc(agg, args)
+	if !ok {
+		return "", fmt.Errorf("window function %q is not supported by the %s dialect", agg, c.dialect.Name())
+	}
+	return head, nil
 }
 
 func (c *Compiler) inheritWindowMetricFields(

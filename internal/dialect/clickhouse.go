@@ -60,5 +60,38 @@ func (ClickHouseDialect) ILike(column, placeholder string) string {
 	return fmt.Sprintf("lower(%s) LIKE lower(%s)", column, placeholder)
 }
 
+// WindowFunc maps analytic functions to ClickHouse spelling. ClickHouse has no
+// LAG/LEAD; lagInFrame/leadInFrame are the equivalents (they require an explicit
+// frame, which the compiler supplies). ClickHouse window-function names are
+// lower-case. percent_rank/cume_dist have no native ClickHouse equivalent, so
+// they are rejected (ok=false) rather than emitted as broken SQL.
+func (ClickHouseDialect) WindowFunc(fn string, args []string) (string, bool) {
+	switch fn {
+	case "lag":
+		if len(args) == 0 {
+			return "", false
+		}
+		return "lagInFrame(" + strings.Join(args, ", ") + ")", true
+	case "lead":
+		if len(args) == 0 {
+			return "", false
+		}
+		return "leadInFrame(" + strings.Join(args, ", ") + ")", true
+	case "row_number", "rank", "dense_rank":
+		return fn + "()", true
+	case "ntile":
+		if len(args) != 1 {
+			return "", false
+		}
+		return "ntile(" + args[0] + ")", true
+	case "first_value", "last_value":
+		if len(args) != 1 {
+			return "", false
+		}
+		return fn + "(" + args[0] + ")", true
+	}
+	return "", false
+}
+
 // Compile-time check
 var _ Dialect = ClickHouseDialect{}

@@ -644,3 +644,62 @@ func TestValidateMetricSelect_PerMeasureFilterValidated(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ghost")
 }
+
+func TestValidateWindowSelect_CountDistinctRejected(t *testing.T) {
+	v := NewValidator(100)
+	lq := &LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeWindow, Name: "w", Window: &WindowSpec{
+				Aggregation: "count_distinct", Metric: "orders",
+				OrderBy: []OrderBy{{Field: "order_date", Direction: "asc"}},
+			}},
+		},
+		Limit: 100,
+	}
+	err := v.Validate(lq, validatorTestModel())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "count_distinct")
+}
+
+func TestValidateWindowSelect_RankingRequiresOrderBy(t *testing.T) {
+	v := NewValidator(100)
+	lq := &LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeWindow, Name: "rn", Window: &WindowSpec{Aggregation: "row_number"}},
+		},
+		Limit: 100,
+	}
+	err := v.Validate(lq, validatorTestModel())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "order_by")
+}
+
+func TestValidateWindowSelect_LagRequiresValue(t *testing.T) {
+	v := NewValidator(100)
+	lq := &LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeWindow, Name: "lg", Window: &WindowSpec{
+				Aggregation: "lag",
+				OrderBy:     []OrderBy{{Field: "order_date", Direction: "asc"}},
+			}},
+		},
+		Limit: 100,
+	}
+	err := v.Validate(lq, validatorTestModel())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "lag")
+}
+
+func TestValidateWindowSelect_LagValid(t *testing.T) {
+	v := NewValidator(100)
+	lq := &LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeWindow, Name: "lg", Window: &WindowSpec{
+				Aggregation: "lag", Metric: "revenue", Offset: 1,
+				OrderBy: []OrderBy{{Field: "order_date", Direction: "asc"}},
+			}},
+		},
+		Limit: 100,
+	}
+	require.NoError(t, v.Validate(lq, validatorTestModel()))
+}

@@ -479,17 +479,45 @@ func validateWindowSelect(
 			AllowedAlternatives: suggestAlternatives(w.Metric, metricNames),
 		})
 	}
-	allowedAgg := map[string]bool{
-		"sum": true, "avg": true, "count": true, "count_distinct": true,
-		"min": true, "max": true,
-		"row_number": true, "rank": true, "dense_rank": true, "ntile": true,
-	}
-	if !allowedAgg[strings.ToLower(strings.TrimSpace(w.Aggregation))] && w.Metric == "" {
+	agg := strings.ToLower(strings.TrimSpace(w.Aggregation))
+	// Aggregate family (windowed totals/averages) plus the analytic functions.
+	// count_distinct is intentionally excluded: COUNT(DISTINCT) is not a legal
+	// window function in PostgreSQL, MySQL, or SQL Server.
+	aggregateWindow := map[string]bool{"sum": true, "avg": true, "count": true, "min": true, "max": true}
+	if agg == "count_distinct" {
 		errs = append(errs, &ValidationError{
 			Field:   "select.window",
 			Code:    "INVALID_WINDOW_AGGREGATION",
-			Message: "unsupported window aggregation: " + w.Aggregation,
+			Message: "count_distinct cannot be used as a window function; use a plain count window or a distinct subquery",
 			Value:   w.Aggregation,
+		})
+	} else if !aggregateWindow[agg] && !analyticWindowFuncs[agg] && w.Metric == "" {
+		errs = append(errs, &ValidationError{
+			Field:               "select.window",
+			Code:                "INVALID_WINDOW_AGGREGATION",
+			Message:             "unsupported window aggregation: " + w.Aggregation,
+			Value:               w.Aggregation,
+			AllowedAlternatives: []string{"sum", "avg", "count", "min", "max", "row_number", "rank", "dense_rank", "percent_rank", "cume_dist", "ntile", "lag", "lead", "first_value", "last_value"},
+		})
+	}
+	// Ranking, ntile, lag/lead and first/last value are order-sensitive and
+	// SQL Server *requires* ORDER BY for them; enforce it for deterministic,
+	// portable output.
+	if requiresWindowOrderBy(agg) && len(w.OrderBy) == 0 {
+		errs = append(errs, &ValidationError{
+			Field:   "select.window.order_by",
+			Code:    "MISSING_WINDOW_ORDER_BY",
+			Message: "window function " + agg + " requires order_by",
+			Value:   agg,
+		})
+	}
+	// lag/lead/first_value/last_value read a value: they need an expression or metric.
+	if windowReadsValue(agg) && strings.TrimSpace(w.Expression) == "" && w.Expr == nil && strings.TrimSpace(w.Metric) == "" {
+		errs = append(errs, &ValidationError{
+			Field:   "select.window",
+			Code:    "MISSING_WINDOW_VALUE",
+			Message: "window function " + agg + " requires a metric or expression to read",
+			Value:   agg,
 		})
 	}
 	for _, p := range w.PartitionBy {
@@ -505,6 +533,26 @@ func validateWindowSelect(
 	}
 	errs = append(errs, validateOrderByClauses(w.OrderBy, dimMap, metricRegistry, allFieldNames, "select.window.order_by")...)
 	return errs
+}
+
+// requiresWindowOrderBy reports whether a window function is order-sensitive and
+// must be given an ORDER BY (also a hard requirement in SQL Server).
+func requiresWindowOrderBy(agg string) bool {
+	switch agg {
+	case "row_number", "rank", "dense_rank", "percent_rank", "cume_dist", "ntile", "lag", "lead", "first_value", "last_value":
+		return true
+	}
+	return false
+}
+
+// windowReadsValue reports whether a window function reads a per-row value (so
+// it needs an expression/metric), as opposed to ranking functions that don't.
+func windowReadsValue(agg string) bool {
+	switch agg {
+	case "lag", "lead", "first_value", "last_value":
+		return true
+	}
+	return false
 }
 
 func validateCaseSelect(item SelectItem, dimMap map[string]bool, dimensionNames []string) ValidationErrors {

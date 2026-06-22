@@ -41,6 +41,15 @@ type CoreDialect interface {
 	// Aggregate formats an aggregation function call.
 	Aggregate(fn, column string) string
 
+	// WindowFunc renders the head of a pure analytic window function (everything
+	// before OVER) for fn with pre-rendered args. ok=false means the dialect has
+	// no portable spelling and the caller must reject the query rather than emit
+	// broken SQL. Plain aggregate window heads (sum/avg/count/min/max) are built
+	// via Aggregate, not here. fn is lower-case; recognised names: row_number,
+	// rank, dense_rank, percent_rank, cume_dist, ntile, lag, lead, first_value,
+	// last_value.
+	WindowFunc(fn string, args []string) (string, bool)
+
 	// ExplainSQL wraps a SELECT statement so the database parses/plans it without
 	// returning rows (e.g. "EXPLAIN <sql>"). Returning "" indicates the dialect
 	// does not support a single-statement dry-run; callers should skip the check.
