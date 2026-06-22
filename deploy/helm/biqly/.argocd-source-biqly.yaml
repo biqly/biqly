@@ -4,25 +4,25 @@ helm:
     value: ghcr.io/biqly/ai
     forcestring: true
   - name: ai.image.tag
-    value: sha-3d22367e18507ded6749b47c2efe40a43fbe47fb
+    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
     forcestring: true
   - name: auth.image.repository
     value: ghcr.io/biqly/auth
     forcestring: true
   - name: auth.image.tag
-    value: sha-3d22367e18507ded6749b47c2efe40a43fbe47fb
+    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
     forcestring: true
   - name: auth.migrate.image.repository
     value: ghcr.io/biqly/auth
     forcestring: true
   - name: auth.migrate.image.tag
-    value: sha-3d22367e18507ded6749b47c2efe40a43fbe47fb
+    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
     forcestring: true
   - name: catalog.image.repository
     value: ghcr.io/biqly/catalog
     forcestring: true
   - name: catalog.image.tag
-    value: sha-3d22367e18507ded6749b47c2efe40a43fbe47fb
+    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
     forcestring: true
   - name: frontend.image.repository
     value: ghcr.io/biqly/frontend
@@ -40,13 +40,13 @@ helm:
     value: ghcr.io/biqly/mail
     forcestring: true
   - name: mail.image.tag
-    value: sha-3d22367e18507ded6749b47c2efe40a43fbe47fb
+    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
     forcestring: true
   - name: mail.migrate.image.repository
     value: ghcr.io/biqly/mail
     forcestring: true
   - name: mail.migrate.image.tag
-    value: sha-3d22367e18507ded6749b47c2efe40a43fbe47fb
+    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
     forcestring: true
   - name: query.image.repository
     value: ghcr.io/biqly/query
@@ -58,5 +58,5 @@ helm:
     value: ghcr.io/biqly/worker
     forcestring: true
   - name: worker.image.tag
-    value: sha-3d22367e18507ded6749b47c2efe40a43fbe47fb
+    value: sha-1b2832db8e9a1c2b27ffad2314cdc9d86c9554e4
     forcestring: true
