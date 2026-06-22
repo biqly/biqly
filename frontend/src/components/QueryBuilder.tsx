@@ -129,7 +129,7 @@ export default function QueryBuilder() {
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>('bar')
 
   // Notebook Summarize Step Toggle State
-  const [isSummarized, setIsSummarized] = useState(false)
+  const [isSummarized, setIsSummarized] = useState(true)
   const [fieldLabelMode, setFieldLabelMode] = useState<'human' | 'technical'>('human')
 
   const dimensions = useMemo(() => modelDetail?.dimensions ?? [], [modelDetail])

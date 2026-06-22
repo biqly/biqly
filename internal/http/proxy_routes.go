@@ -32,6 +32,8 @@ func registerUpstreamProxy(r chi.Router, spec upstreamProxySpec) {
 var catalogProxyPaths = []string{
 	"/datasources",
 	"/datasources/*",
+	"/drift",
+	"/drift/*",
 	"/metadata/*",
 	"/semantic/*",
 	"/permissions",

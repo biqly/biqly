@@ -8,7 +8,6 @@ import { cn } from '../../lib/cn'
 import {
   metadataEmptyHintClass,
   metadataFilterEmptyRowClass,
-  metadataFilterFieldClass,
   metadataHintBtnClass,
   metadataLangTabClass,
   metadataLangTabsClass,
@@ -18,7 +17,6 @@ import {
   metadataTableColDescClass,
   metadataTableColNameClass,
   metadataTableColTypeClass,
-  metadataTableFiltersRowClass,
   metadataTableRowClass,
   metadataToolbarActionsClass,
   metadataToolbarClass,
@@ -31,7 +29,6 @@ import {
 } from '../../lib/tableClasses'
 import type { ColumnRow, TableRow } from '../../types/semantic'
 import { LoadingScreen } from '../ui/LoadingScreen'
-import { Select } from '../ui/Select'
 import { MetadataColumnPanel } from './MetadataColumnPanel'
 import { MetadataDescriptionCell } from './MetadataDescriptionCell'
 import type { MetadataEditingState } from './utils'
@@ -45,15 +42,9 @@ export function MetadataTablesPanel({
   filteredTables,
   tablesLoading,
   loading,
-  tableFilterSchema,
-  tableFilterType,
-  schemaOptions,
-  typeOptions,
   openTableId,
   columns,
   editing,
-  onSchemaFilterChange,
-  onTypeFilterChange,
   onBulkOpen,
   bulkRunning,
   activeDescribeBatchJob,
@@ -75,15 +66,9 @@ export function MetadataTablesPanel({
   filteredTables: TableRow[]
   tablesLoading: boolean
   loading: boolean
-  tableFilterSchema: string
-  tableFilterType: string
-  schemaOptions: string[]
-  typeOptions: string[]
   openTableId: string | null
   columns: ColumnRow[]
   editing: MetadataEditingState | null
-  onSchemaFilterChange: (v: string) => void
-  onTypeFilterChange: (v: string) => void
   onBulkOpen: () => void
   bulkRunning: boolean
   activeDescribeBatchJob: unknown
@@ -151,36 +136,6 @@ export function MetadataTablesPanel({
             )}
           </div>
         </div>
-        {tables.length > 0 && (
-          <div className={metadataTableFiltersRowClass}>
-            <div className={metadataFilterFieldClass}>
-              <Select
-                id="metadata-filter-schema"
-                size="sm"
-                ariaLabel={t('metadata.filter_schema_aria')}
-                value={tableFilterSchema}
-                onChange={onSchemaFilterChange}
-                options={[
-                  { value: '', label: t('metadata.filter_all_schemas') },
-                  ...schemaOptions.map((s) => ({ value: s, label: s })),
-                ]}
-              />
-            </div>
-            <div className={metadataFilterFieldClass}>
-              <Select
-                id="metadata-filter-type"
-                size="sm"
-                ariaLabel={t('metadata.filter_type_aria')}
-                value={tableFilterType}
-                onChange={onTypeFilterChange}
-                options={[
-                  { value: '', label: t('metadata.filter_all_types') },
-                  ...typeOptions.map((ty) => ({ value: ty, label: ty })),
-                ]}
-              />
-            </div>
-          </div>
-        )}
       </div>
       {tablesLoading && tables.length === 0 ? (
         <LoadingScreen minHeight="150px" />
