@@ -55,10 +55,13 @@ global:
     BI_PII_AUTO_SCAN_ON_SYNC: "true"
     BI_PII_DEFAULT_MASKING_STRATEGY: partial
   observability:
+    # Disabled until a Prometheus/operator stack is deployed in the cluster.
+    # Without one, ServiceMonitors target a non-existent `monitoring` namespace
+    # and both ServiceMonitors and PrometheusRules have no consumer.
     serviceMonitor:
-      enabled: true
+      enabled: false
     prometheusRules:
-      enabled: true
+      enabled: false
     alertmanager:
       enabled: false
     logs:
