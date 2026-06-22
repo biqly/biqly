@@ -177,7 +177,18 @@ func buildAuthHandlers(cfg *biqauth.Config, db *sql.DB, redisClient *redis.Clien
 	gdprExporter := handlers.NewGDPRExporter(db, userRepo, workspaceSvc, dsAccessSvc, sharingSvc, auditSvc, webAuthnSvc)
 	authHandler.SetGDPRExporter(gdprExporter)
 	authHandler.SetAuditService(auditSvc)
-	rbacHandler := handlers.NewRBACHandler(rbacSvc, rbacRepo, userRepo, dsAccessSvc, aiModelAccessSvc, workspaceSvc, sharingSvc, auditSvc, jwtMgr, cfg)
+	rbacHandler := handlers.NewRBACHandler(handlers.RBACHandlerDeps{
+		Rbac:          rbacSvc,
+		RbacRepo:      rbacRepo,
+		UserRepo:      userRepo,
+		DsAccess:      dsAccessSvc,
+		AiModelAccess: aiModelAccessSvc,
+		Ws:            workspaceSvc,
+		Sharing:       sharingSvc,
+		Audit:         auditSvc,
+		JwtMgr:        jwtMgr,
+		Cfg:           cfg,
+	})
 	return authHandler, rbacHandler, limiter, nil
 }
 

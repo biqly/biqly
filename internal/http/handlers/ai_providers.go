@@ -296,7 +296,7 @@ func (h *AIProvidersHandler) ListProviderRemoteModels(w http.ResponseWriter, r *
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeInternalError(r.Context(), w, http.StatusBadGateway, "failed to list remote models", err)
 		return
 	}
 	if models == nil {

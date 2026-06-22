@@ -126,7 +126,7 @@ func (h *AIHandler) UserAIModels(w http.ResponseWriter, r *http.Request) {
 	userID := bimw.UserID(r.Context())
 	models, prefs, restricted, err := userSelectableModels(r.Context(), h.deps.AIProviderStore, h.authClient, userID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list user ai models", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, userAIModelsResponse{
@@ -159,7 +159,7 @@ func (h *AIHandler) PutUserAIPreferences(w http.ResponseWriter, r *http.Request)
 	}
 	models, _, _, err := userSelectableModels(r.Context(), h.deps.AIProviderStore, h.authClient, userID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to resolve user ai models", err)
 		return
 	}
 	allowed := make(map[string]struct{}, len(models))
@@ -184,13 +184,13 @@ func (h *AIHandler) PutUserAIPreferences(w http.ResponseWriter, r *http.Request)
 			continue
 		}
 		if err := h.authClient.SetUserAIPreference(r.Context(), userID, p.Purpose, p.ModelID); err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to save ai preference", err)
 			return
 		}
 	}
 	prefs, err := h.authClient.ListUserAIPreferences(r.Context(), userID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list ai preferences", err)
 		return
 	}
 	out := map[string]string{}
@@ -219,7 +219,7 @@ func (h *AIHandler) DeleteUserAIPreference(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err := h.authClient.DeleteUserAIPreference(r.Context(), userID, purpose); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to delete ai preference", err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

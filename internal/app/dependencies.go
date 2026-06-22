@@ -505,7 +505,7 @@ func newRedisResponseCache(ctx context.Context, dsn string) ai.ResponseCache {
 		slog.Warn("LLM Response Cache Redis ping failed; cache disabled", "error", pingErr)
 		return nil
 	}
-	slog.Info("LLM Response Cache initialized with Redis", "dsn", dsn)
+	slog.Info("LLM Response Cache initialized with Redis", "addr", opt.Addr)
 	return ai.NewRedisResponseCache(redisClient)
 }
 
