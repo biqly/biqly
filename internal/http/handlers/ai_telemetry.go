@@ -98,7 +98,13 @@ func (h *AIHandler) observeAIRequest(
 		llmMs = int64(resp.Metadata.LLMGenerateDurationMs)
 	}
 
-	h.recordMetricsAndState(ctx, req, resp, pc, latencyMs, llmMs, promptBuildMs, success, needsClarification, retryCount, promptTokens, completionTokens, repairAttempts, repairErrorCodes)
+	h.recordMetricsAndState(observeAIRequestParams{
+		ctx: ctx, req: req, resp: resp, pc: pc,
+		latencyMs: latencyMs, llmMs: llmMs, promptBuildMs: promptBuildMs,
+		success: success, needsClarification: needsClarification,
+		retryCount: retryCount, promptTokens: promptTokens, completionTokens: completionTokens,
+		repairAttempts: repairAttempts, repairErrorCodes: repairErrorCodes,
+	})
 
 	logArgs := []any{
 		"datasource_id", req.DatasourceID,
@@ -123,36 +129,44 @@ func (h *AIHandler) observeAIRequest(
 	return resp
 }
 
-func (h *AIHandler) recordMetricsAndState(
-	ctx context.Context,
-	req aiQueryRequest,
-	resp *ai.Response,
-	pc *ProcessContext,
-	latencyMs, llmMs, promptBuildMs int64,
-	success, needsClarification bool,
-	retryCount, promptTokens, completionTokens, repairAttempts int,
-	repairErrorCodes []string,
-) {
+type observeAIRequestParams struct {
+	ctx                context.Context
+	req                aiQueryRequest
+	resp               *ai.Response
+	pc                 *ProcessContext
+	latencyMs          int64
+	llmMs              int64
+	promptBuildMs      int64
+	success            bool
+	needsClarification bool
+	retryCount         int
+	promptTokens       int
+	completionTokens   int
+	repairAttempts     int
+	repairErrorCodes   []string
+}
+
+func (h *AIHandler) recordMetricsAndState(p observeAIRequestParams) {
 	if h.metrics == nil {
 		return
 	}
-	h.metrics.RecordAIRequest(latencyMs, success, retryCount, needsClarification)
-	h.metrics.RecordLLMRequest(llmMs, promptTokens, completionTokens, promptBuildMs)
-	if repairAttempts > 0 {
-		h.metrics.RecordAIRepair(success, repairAttempts, repairErrorCodes)
+	h.metrics.RecordAIRequest(p.latencyMs, p.success, p.retryCount, p.needsClarification)
+	h.metrics.RecordLLMRequest(p.llmMs, p.promptTokens, p.completionTokens, p.promptBuildMs)
+	if p.repairAttempts > 0 {
+		h.metrics.RecordAIRepair(p.success, p.repairAttempts, p.repairErrorCodes)
 	}
-	if isAmbiguityAnalyzerClarification(resp) {
-		h.metrics.RecordAmbiguityClarificationRound(pc.nextAmbiguityClarificationRound())
-		userID := bimw.UserID(ctx)
+	if isAmbiguityAnalyzerClarification(p.resp) {
+		h.metrics.RecordAmbiguityClarificationRound(p.pc.nextAmbiguityClarificationRound())
+		userID := bimw.UserID(p.ctx)
 		if userID != "" {
 			h.activeClarifications.Store(userID, clarificationState{
-				Question: req.Question,
-				Round:    pc.nextAmbiguityClarificationRound(),
+				Question: p.req.Question,
+				Round:    p.pc.nextAmbiguityClarificationRound(),
 			})
 		}
-	} else if req.ClarificationChoice != "" && !needsClarification {
+	} else if p.req.ClarificationChoice != "" && !p.needsClarification {
 		h.metrics.RecordAmbiguityResolution("resolved")
-		userID := bimw.UserID(ctx)
+		userID := bimw.UserID(p.ctx)
 		if userID != "" {
 			h.activeClarifications.Delete(userID)
 		}

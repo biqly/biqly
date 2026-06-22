@@ -43,7 +43,7 @@ func (h *RBACHandler) registerAIModelAccessInternalRoutes(r chi.Router) {
 }
 
 func (h *RBACHandler) handleAdminListAIModelAccess(w http.ResponseWriter, r *http.Request) {
-	grants, err := h.aiModelAccess.ListAllGrants(r.Context())
+	grants, err := h.deps.AiModelAccess.ListAllGrants(r.Context())
 	if err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -86,7 +86,7 @@ func (h *RBACHandler) handleAdminGrantProviderWorkspace(w http.ResponseWriter, r
 		return
 	}
 	h.handleAdminGrant(w, r, func(ctx context.Context, userID string) error {
-		return h.aiModelAccess.GrantProviderWorkspace(ctx, req.WorkspaceID, req.ProviderID, userID)
+		return h.deps.AiModelAccess.GrantProviderWorkspace(ctx, req.WorkspaceID, req.ProviderID, userID)
 	})
 }
 
@@ -96,7 +96,7 @@ func (h *RBACHandler) handleAdminRevokeProviderWorkspace(w http.ResponseWriter, 
 		return
 	}
 	h.handleAdminRevoke(w, r, func(ctx context.Context) error {
-		return h.aiModelAccess.RevokeProviderWorkspace(ctx, req.WorkspaceID, req.ProviderID)
+		return h.deps.AiModelAccess.RevokeProviderWorkspace(ctx, req.WorkspaceID, req.ProviderID)
 	})
 }
 
@@ -111,7 +111,7 @@ func (h *RBACHandler) handleAdminGrantModelWorkspace(w http.ResponseWriter, r *h
 		return
 	}
 	h.handleAdminGrant(w, r, func(ctx context.Context, userID string) error {
-		return h.aiModelAccess.GrantModelWorkspace(ctx, req.WorkspaceID, req.ModelID, userID)
+		return h.deps.AiModelAccess.GrantModelWorkspace(ctx, req.WorkspaceID, req.ModelID, userID)
 	})
 }
 
@@ -121,7 +121,7 @@ func (h *RBACHandler) handleAdminRevokeModelWorkspace(w http.ResponseWriter, r *
 		return
 	}
 	h.handleAdminRevoke(w, r, func(ctx context.Context) error {
-		return h.aiModelAccess.RevokeModelWorkspace(ctx, req.WorkspaceID, req.ModelID)
+		return h.deps.AiModelAccess.RevokeModelWorkspace(ctx, req.WorkspaceID, req.ModelID)
 	})
 }
 
@@ -136,7 +136,7 @@ func (h *RBACHandler) handleAdminGrantProviderRole(w http.ResponseWriter, r *htt
 		return
 	}
 	h.handleAdminGrant(w, r, func(ctx context.Context, userID string) error {
-		return h.aiModelAccess.GrantProviderRole(ctx, req.RoleID, req.ProviderID, userID)
+		return h.deps.AiModelAccess.GrantProviderRole(ctx, req.RoleID, req.ProviderID, userID)
 	})
 }
 
@@ -146,7 +146,7 @@ func (h *RBACHandler) handleAdminRevokeProviderRole(w http.ResponseWriter, r *ht
 		return
 	}
 	h.handleAdminRevoke(w, r, func(ctx context.Context) error {
-		return h.aiModelAccess.RevokeProviderRole(ctx, req.RoleID, req.ProviderID)
+		return h.deps.AiModelAccess.RevokeProviderRole(ctx, req.RoleID, req.ProviderID)
 	})
 }
 
@@ -161,7 +161,7 @@ func (h *RBACHandler) handleAdminGrantModelRole(w http.ResponseWriter, r *http.R
 		return
 	}
 	h.handleAdminGrant(w, r, func(ctx context.Context, userID string) error {
-		return h.aiModelAccess.GrantModelRole(ctx, req.RoleID, req.ModelID, userID)
+		return h.deps.AiModelAccess.GrantModelRole(ctx, req.RoleID, req.ModelID, userID)
 	})
 }
 
@@ -171,7 +171,7 @@ func (h *RBACHandler) handleAdminRevokeModelRole(w http.ResponseWriter, r *http.
 		return
 	}
 	h.handleAdminRevoke(w, r, func(ctx context.Context) error {
-		return h.aiModelAccess.RevokeModelRole(ctx, req.RoleID, req.ModelID)
+		return h.deps.AiModelAccess.RevokeModelRole(ctx, req.RoleID, req.ModelID)
 	})
 }
 
@@ -181,7 +181,7 @@ func (h *RBACHandler) handleGetMyAIPreferences(w http.ResponseWriter, r *http.Re
 		response.WriteError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	prefs, err := h.aiModelAccess.ListUserPreferences(r.Context(), userID)
+	prefs, err := h.deps.AiModelAccess.ListUserPreferences(r.Context(), userID)
 	if err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -211,7 +211,7 @@ func (h *RBACHandler) handlePutMyAIPreferences(w http.ResponseWriter, r *http.Re
 			response.WriteError(w, http.StatusBadRequest, "purpose not user-selectable: "+p.Purpose)
 			return
 		}
-		ok, err := h.aiModelAccess.CanUseModel(r.Context(), userID, p.ModelID)
+		ok, err := h.deps.AiModelAccess.CanUseModel(r.Context(), userID, p.ModelID)
 		if err != nil {
 			response.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -220,12 +220,12 @@ func (h *RBACHandler) handlePutMyAIPreferences(w http.ResponseWriter, r *http.Re
 			response.WriteError(w, http.StatusForbidden, "model not allowed for this user")
 			return
 		}
-		if err := h.aiModelAccess.SetUserPreference(r.Context(), userID, p.Purpose, p.ModelID); err != nil {
+		if err := h.deps.AiModelAccess.SetUserPreference(r.Context(), userID, p.Purpose, p.ModelID); err != nil {
 			response.WriteError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 	}
-	prefs, err := h.aiModelAccess.ListUserPreferences(r.Context(), userID)
+	prefs, err := h.deps.AiModelAccess.ListUserPreferences(r.Context(), userID)
 	if err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -240,7 +240,7 @@ func (h *RBACHandler) handleDeleteMyAIPreference(w http.ResponseWriter, r *http.
 		return
 	}
 	purpose := chi.URLParam(r, "purpose")
-	if err := h.aiModelAccess.DeleteUserPreference(r.Context(), userID, purpose); err != nil {
+	if err := h.deps.AiModelAccess.DeleteUserPreference(r.Context(), userID, purpose); err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -249,7 +249,7 @@ func (h *RBACHandler) handleDeleteMyAIPreference(w http.ResponseWriter, r *http.
 
 func (h *RBACHandler) handleInternalUserAIAccess(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
-	access, err := h.aiModelAccess.UserAIAccess(r.Context(), userID)
+	access, err := h.deps.AiModelAccess.UserAIAccess(r.Context(), userID)
 	if err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -259,7 +259,7 @@ func (h *RBACHandler) handleInternalUserAIAccess(w http.ResponseWriter, r *http.
 
 func (h *RBACHandler) handleInternalListUserAIPreferences(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
-	prefs, err := h.aiModelAccess.ListUserPreferences(r.Context(), userID)
+	prefs, err := h.deps.AiModelAccess.ListUserPreferences(r.Context(), userID)
 	if err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -286,7 +286,7 @@ func (h *RBACHandler) handleInternalPutUserAIPreference(w http.ResponseWriter, r
 		response.WriteError(w, http.StatusBadRequest, "purpose not user-selectable: "+req.Purpose)
 		return
 	}
-	if err := h.aiModelAccess.SetUserPreference(r.Context(), userID, req.Purpose, req.ModelID); err != nil {
+	if err := h.deps.AiModelAccess.SetUserPreference(r.Context(), userID, req.Purpose, req.ModelID); err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -296,7 +296,7 @@ func (h *RBACHandler) handleInternalPutUserAIPreference(w http.ResponseWriter, r
 func (h *RBACHandler) handleInternalDeleteUserAIPreference(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 	purpose := chi.URLParam(r, "purpose")
-	if err := h.aiModelAccess.DeleteUserPreference(r.Context(), userID, purpose); err != nil {
+	if err := h.deps.AiModelAccess.DeleteUserPreference(r.Context(), userID, purpose); err != nil {
 		response.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

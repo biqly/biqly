@@ -36,7 +36,7 @@ func TestCheckDatasourceAccessDenialReasonOnlyForDenied(t *testing.T) {
 	ctx := context.Background()
 	testutil.ResetAuthIntegrationTables(ctx, t, db)
 	handler := &RBACHandler{
-		dsAccess: rbac.NewDatasourceAccessService(db, nil, nil),
+		deps: RBACHandlerDeps{DsAccess: rbac.NewDatasourceAccessService(db, nil, nil)},
 	}
 
 	const (
@@ -61,7 +61,7 @@ func TestInternalCheckDatasourceAccessDoesNotLeakInternalError(t *testing.T) {
 	db := testutil.OpenAuthDB(t)
 	require.NoError(t, db.Close())
 	handler := &RBACHandler{
-		dsAccess: rbac.NewDatasourceAccessService(db, nil, nil),
+		deps: RBACHandlerDeps{DsAccess: rbac.NewDatasourceAccessService(db, nil, nil)},
 	}
 
 	body := bytes.NewBufferString(`{"user_id":"user-1","datasource_id":"ds-1","level":"read"}`)
@@ -109,7 +109,7 @@ func TestHandleAdminAssignRoleRejectsSuperAdminGrantFromNonSuperAdmin(t *testing
 
 	rbacRepo := rbac.NewRBACRepository(db)
 	require.NoError(t, rbacRepo.AssignRole(ctx, callerID, viewerRoleID, nil, nil))
-	handler := NewRBACHandler(rbac.NewRBACService(rbacRepo), rbacRepo, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewRBACHandler(RBACHandlerDeps{Rbac: rbac.NewRBACService(rbacRepo), RbacRepo: rbacRepo})
 
 	body := bytes.NewBufferString(`{"role_id":"` + superRoleID + `"}`)
 	req := httptest.NewRequestWithContext(bimw.WithUserID(ctx, callerID), http.MethodPost, "/admin/users/"+targetID+"/roles", body)
