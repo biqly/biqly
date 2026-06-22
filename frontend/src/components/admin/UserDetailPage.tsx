@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import {
   assignRole,
-  generateMFABypassCode,
   getUserDetail,
   getUserRoles,
   listRoles,
@@ -19,11 +18,7 @@ import { errorMessage } from '../../utils/error'
 import { useAuth } from '../auth/AuthProvider'
 import { AdminPanelShell } from './AdminPanelShell'
 import { roleSelectOptions } from './adminSelectOptions'
-import {
-  UserDetailMfaSupportCard,
-  UserDetailProfileCard,
-  UserDetailRolesPanel,
-} from './UserDetailSections'
+import { UserDetailProfileCard, UserDetailRolesPanel } from './UserDetailSections'
 
 interface UserDetailPageProps {
   token: string
@@ -35,7 +30,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   const [locale] = useLocale()
   const confirm = useConfirm()
   const confirmMutation = useConfirmedMutation()
-  const { user: currentUser, roles: currentUserRoles, hasPermission } = useAuth()
+  const { user: currentUser, roles: _currentUserRoles, hasPermission } = useAuth()
   // User activation/update needs admin:users; role assignment/revocation needs admin:roles.
   const canManageUsers = hasPermission('admin:users')
   const canManageRoles = hasPermission('admin:roles')
@@ -49,9 +44,6 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   const [selectedRoleID, setSelectedRoleID] = useState('')
   const [scopeType, setScopeType] = useState('global')
   const [scopeID, setScopeID] = useState('')
-
-  // MFA bypass code (super_admin support flow)
-  const [bypassCode, setBypassCode] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -77,7 +69,6 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
   }, [loadData])
 
   const isSelf = currentUser?.id === userID
-  const isSuperAdmin = currentUserRoles.includes('super_admin')
 
   const assignableRoleOptions = useMemo(() => roleSelectOptions(availableRoles), [availableRoles])
   const scopeTypeOptions = useMemo(
@@ -87,19 +78,6 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
     ],
     [],
   )
-
-  async function handleGenerateBypassCode() {
-    await confirmMutation(
-      async () => {
-        const resp = await generateMFABypassCode(token, userID)
-        setBypassCode(resp.bypass_code)
-      },
-      {
-        title: t('admin.user_detail.mfa_generate_bypass_confirm'),
-        variant: 'default',
-      },
-    )
-  }
 
   async function handleResendVerification() {
     await confirmMutation(
@@ -195,7 +173,7 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
 
   return (
     <AdminPanelShell title={t('admin.user_detail.title')} description={user.email}>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <UserDetailProfileCard
           t={t}
           locale={locale}
@@ -207,15 +185,6 @@ export function UserDetailPage({ token, userID }: UserDetailPageProps) {
           onToggleActive={() => void handleToggleActive()}
           onResendVerification={() => void handleResendVerification()}
         />
-        {isSuperAdmin && (
-          <UserDetailMfaSupportCard
-            t={t}
-            bypassGenerating={false}
-            bypassCode={bypassCode}
-            bypassError={null}
-            onGenerate={() => void handleGenerateBypassCode()}
-          />
-        )}
         <UserDetailRolesPanel
           t={t}
           userRoles={userRoles}

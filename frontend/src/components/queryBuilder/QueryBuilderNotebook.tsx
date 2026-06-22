@@ -40,7 +40,6 @@ export function QueryBuilderNotebook({
   addGroupByRow,
   setIsSummarized,
   setGroupBy,
-  setSelectItems,
   orderBy,
   orderDir,
   orderByOpts,
@@ -94,7 +93,6 @@ export function QueryBuilderNotebook({
   addGroupByRow: () => void
   setIsSummarized: (value: boolean) => void
   setGroupBy: (items: string[]) => void
-  setSelectItems: (items: SelectItem[]) => void
   orderBy: string
   orderDir: string
   orderByOpts: { value: string; label: string; hint?: string }[]
@@ -152,27 +150,28 @@ export function QueryBuilderNotebook({
           dimFieldOptions={(dims) => dimFieldOptions(dims, fieldLabelMode)}
           metricFieldOptions={(mets) => metricFieldOptions(mets, fieldLabelMode)}
         />
-        <SummarizeStep
-          selectItems={selectItems}
-          groupBy={groupBy}
-          dimensions={dimensions ?? []}
-          metrics={metrics ?? []}
-          updateSelectItem={updateSelectItem}
-          removeSelectItem={removeSelectItem}
-          addMetricSelectItem={addMetricSelectItem}
-          updateGroupByRow={updateGroupByRow}
-          removeGroupByRow={removeGroupByRow}
-          addGroupByRow={addGroupByRow}
-          onClear={() => {
-            setIsSummarized(false)
-            setGroupBy([])
-            setSelectItems([])
-          }}
-          metricFieldOptions={(mets) => metricFieldOptions(mets, fieldLabelMode)}
-          dimOptionsForGroupRow={(dims, gb, index) =>
-            dimOptionsForGroupRow(dims, gb, index, selectItems, fieldLabelMode)
-          }
-        />
+        {isSummarized && (
+          <SummarizeStep
+            selectItems={selectItems}
+            groupBy={groupBy}
+            dimensions={dimensions ?? []}
+            metrics={metrics ?? []}
+            updateSelectItem={updateSelectItem}
+            removeSelectItem={removeSelectItem}
+            addMetricSelectItem={addMetricSelectItem}
+            updateGroupByRow={updateGroupByRow}
+            removeGroupByRow={removeGroupByRow}
+            addGroupByRow={addGroupByRow}
+            onClear={() => {
+              setIsSummarized(false)
+              setGroupBy([])
+            }}
+            metricFieldOptions={(mets) => metricFieldOptions(mets, fieldLabelMode)}
+            dimOptionsForGroupRow={(dims, gb, index) =>
+              dimOptionsForGroupRow(dims, gb, index, selectItems, fieldLabelMode)
+            }
+          />
+        )}
         <SortStep
           orderBy={orderBy}
           orderDir={orderDir}
@@ -181,12 +180,7 @@ export function QueryBuilderNotebook({
           setOrderDir={setOrderDir}
           onClear={() => setOrderBy('')}
         />
-        <NotebookStep
-          label="Row limit"
-          themeClass="limit"
-          onClose={() => setLimit(100)}
-          closeTitle={t('common.cancel')}
-        >
+        <NotebookStep label="Row limit" themeClass="limit">
           <input
             type="number"
             min={1}

@@ -23,7 +23,6 @@ import {
   adminSubtextClass,
   adminTableContainerClass,
   adminTableRowHoverClass,
-  adminUserSecurityClass,
   adminVerifiedBadgeClass,
 } from '../adminClasses'
 
@@ -142,23 +141,27 @@ export function ActiveUsersTab({
       ),
     },
     {
-      key: 'security',
-      header: t('admin.users.col_security'),
+      key: 'mfa',
+      header: t('admin.users.col_2fa'),
       cell: (u) => (
-        <div className={adminUserSecurityClass}>
-          <span className={adminMfaStatusBadgeClass(u.mfaEnabled, u.mfaPending)}>
-            {u.mfaEnabled
-              ? t('admin.users.mfa_active')
-              : u.mfaPending
-                ? t('admin.users.mfa_pending')
-                : t('admin.users.mfa_off')}
-          </span>
-          <span className={adminPasskeyBadgeClass(u.passkeyCount ?? 0)}>
-            {(u.passkeyCount ?? 0) > 0
-              ? t('admin.users.passkeys_count', { count: u.passkeyCount ?? 0 })
-              : t('admin.users.passkeys_none')}
-          </span>
-        </div>
+        <span className={adminMfaStatusBadgeClass(u.mfaEnabled, u.mfaPending)}>
+          {u.mfaEnabled
+            ? t('admin.users.mfa_active')
+            : u.mfaPending
+              ? t('admin.users.mfa_pending')
+              : t('admin.users.mfa_off')}
+        </span>
+      ),
+    },
+    {
+      key: 'passkey',
+      header: t('admin.users.col_passkey'),
+      cell: (u) => (
+        <span className={adminPasskeyBadgeClass(u.passkeyCount ?? 0)}>
+          {(u.passkeyCount ?? 0) > 0
+            ? t('admin.users.passkeys_count', { count: u.passkeyCount ?? 0 })
+            : t('admin.users.passkeys_none')}
+        </span>
       ),
     },
     {

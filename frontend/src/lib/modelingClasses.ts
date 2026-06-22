@@ -16,8 +16,8 @@ export const modelingToolbarModelRowClass = cn(
 export const modelingToolbarActionsClass = cn(
   'flex w-full min-w-0 items-center justify-end gap-2 self-end flex-nowrap max-[1024px]:flex-wrap',
   'max-[1024px]:justify-start max-[1024px]:self-auto',
-  '[&_.btn]:mt-0 [&_.btn]:min-h-[2.1rem] [&_.btn]:px-4 [&_.btn]:whitespace-nowrap',
-  '[&_.btn]:inline-flex [&_.btn]:items-center [&_.btn]:justify-center [&_.btn]:leading-none',
+  '[&_button]:mt-0 [&_button]:min-h-[2.1rem] [&_button]:py-[0.35rem] [&_button]:px-4 [&_button]:whitespace-nowrap',
+  '[&_button]:inline-flex [&_button]:items-center [&_button]:justify-center [&_button]:leading-none',
 )
 
 export function modelingShellClass(opts: { paletteOpen: boolean; editorOpen: boolean }): string {
@@ -138,7 +138,7 @@ export const modelingKickerClass =
 
 export function modelingStatusPillClass(published?: boolean): string {
   return cn(
-    'inline-flex shrink-0 items-center gap-[0.3rem] rounded-full px-[0.2rem_0.6rem]',
+    'inline-flex shrink-0 items-center gap-[0.3rem] min-h-[2.1rem] rounded-full px-[0.55rem_0.7rem]',
     'border border-border bg-card-raised text-[0.72rem] font-semibold whitespace-nowrap text-foreground-muted',
     'before:h-[0.45rem] before:w-[0.45rem] before:rounded-full before:bg-warning before:content-[""]',
     published &&

@@ -1049,6 +1049,7 @@ export const core = {
     model_placeholder: '— choose model —',
     model_header: 'Semantic models',
     create_from_metadata: 'Create from metadata',
+    actions_label: 'Actions',
     creating: 'Creating…',
     publishing: 'Publishing…',
     published: 'Published',

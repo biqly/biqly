@@ -1,7 +1,6 @@
 import type { SubmitEvent } from 'react'
 
 import { type Locale, localeLanguageTag, type useT } from '../../i18n'
-import { legacyLayoutClass } from '../../lib/layoutClasses'
 import type { AuthUser, UserRoleInfo } from '../../types/auth'
 import { formatDateTime } from '../../utils/formatters'
 import { Select } from '../ui/Select'
@@ -11,11 +10,9 @@ import {
   adminAvatarCircleClass,
   adminBtnResendClass,
   adminBtnRevokeClass,
-  adminBtnSecondaryClass,
   adminBtnSubmitClass,
-  adminBypassCodeBoxClass,
   adminCardClass,
-  adminErrTextClass,
+  adminCountBadgeClass,
   adminFormLabelClass,
   adminGridClass,
   adminGridItemClass,
@@ -24,11 +21,12 @@ import {
   adminRolesGridClass,
   adminScopeBadgeClass,
   adminTableClass,
+  adminTableRowHoverClass,
   adminTdClass,
+  adminTdMonoClass,
   adminTextMutedClass,
   adminThClass,
   adminTheadRowClass,
-  adminTrClass,
   adminValClass,
   adminVerifiedBadgeClass,
 } from './adminClasses'
@@ -57,7 +55,7 @@ export function UserDetailProfileCard({
 }) {
   return (
     <div className={adminCardClass}>
-      <div className="flex flex-wrap items-center gap-6">
+      <div className="flex flex-wrap items-center gap-4">
         <div className={`${adminAvatarCircleClass} overflow-hidden`}>
           {user.avatarUrl ? (
             <img src={user.avatarUrl} alt="" className="size-full object-cover" />
@@ -66,17 +64,6 @@ export function UserDetailProfileCard({
           ) : (
             user.email.slice(0, 2).toUpperCase()
           )}
-        </div>
-        <div className="flex flex-1 flex-col gap-1">
-          <h2 className="m-0 text-[22px]">
-            {user.displayName ?? t('admin.user_detail.unnamed_user')}
-          </h2>
-          <span className="text-foreground-muted text-[14px] leading-none font-medium">
-            {user.email}
-          </span>
-          <span className="text-foreground-faint font-mono text-xs leading-none">
-            UUID: {user.id}
-          </span>
         </div>
         {!(isSelf && user.isActive) && (
           <div className="flex items-center gap-3">
@@ -91,6 +78,17 @@ export function UserDetailProfileCard({
             </button>
           </div>
         )}
+        <div className="flex flex-1 flex-col gap-1">
+          <h2 className="m-0 text-[22px]">
+            {user.displayName ?? t('admin.user_detail.unnamed_user')}
+          </h2>
+          <span className="text-foreground-muted text-[14px] leading-none font-medium">
+            {user.email}
+          </span>
+          <span className="text-foreground-faint font-mono text-xs leading-none">
+            UUID: {user.id}
+          </span>
+        </div>
       </div>
 
       <div className={adminGridClass}>
@@ -149,53 +147,6 @@ export function UserDetailProfileCard({
   )
 }
 
-export function UserDetailMfaSupportCard({
-  t,
-  bypassGenerating,
-  bypassCode,
-  bypassError,
-  onGenerate,
-}: {
-  t: ReturnType<typeof useT>
-  bypassGenerating: boolean
-  bypassCode: string | null
-  bypassError: string | null
-  onGenerate: () => void
-}) {
-  return (
-    <AdminFormSection title={t('admin.user_detail.mfa_support_title')}>
-      <p className={`${adminTextMutedClass} m-0 p-0`}>{t('admin.user_detail.mfa_support_desc')}</p>
-      <button
-        type="button"
-        onClick={onGenerate}
-        disabled={bypassGenerating}
-        className={adminBtnResendClass}
-      >
-        {bypassGenerating ? '...' : t('admin.user_detail.mfa_generate_bypass')}
-      </button>
-      {bypassError && <div className={`${adminErrTextClass} p-0 pt-3`}>{bypassError}</div>}
-      {bypassCode && (
-        <div className="mt-4 flex flex-col gap-2">
-          <span className={adminLabelClass}>{t('admin.user_detail.mfa_bypass_generated')}</span>
-          <div className="flex flex-wrap items-center gap-2">
-            <code className={adminBypassCodeBoxClass}>{bypassCode}</code>
-            <button
-              type="button"
-              className={adminBtnSecondaryClass}
-              onClick={() => {
-                void navigator.clipboard.writeText(bypassCode)
-                alert(t('admin.user_detail.mfa_bypass_copied'))
-              }}
-            >
-              {t('admin.user_detail.copy')}
-            </button>
-          </div>
-        </div>
-      )}
-    </AdminFormSection>
-  )
-}
-
 export function UserDetailRolesPanel({
   t,
   userRoles,
@@ -228,8 +179,9 @@ export function UserDetailRolesPanel({
   return (
     <div className={adminRolesGridClass}>
       <div className={`${adminCardClass} min-w-0 overflow-hidden`}>
-        <h3 className="m-0 mb-4">
+        <h3 className="m-0 mb-4 flex items-center gap-2">
           {t('admin.user_detail.assigned_roles', { count: userRoles.length })}
+          <span className={adminCountBadgeClass}>{userRoles.length}</span>
         </h3>
         {userRoles.length === 0 ? (
           <div className={adminTextMutedClass}>{t('admin.user_detail.no_roles')}</div>
@@ -245,15 +197,15 @@ export function UserDetailRolesPanel({
             </thead>
             <tbody>
               {userRoles.map((ur) => (
-                <tr key={`${ur.role_id}-${ur.scope_type}-${ur.scope_id}`} className={adminTrClass}>
+                <tr
+                  key={`${ur.role_id}-${ur.scope_type}-${ur.scope_id}`}
+                  className={adminTableRowHoverClass}
+                >
                   <td className={`${adminTdClass} font-semibold`}>{ur.role_name}</td>
                   <td className={adminTdClass}>
                     <span className={adminScopeBadgeClass(ur.scope_type)}>{ur.scope_type}</span>
                   </td>
-                  <td
-                    className={adminTdClass}
-                    style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}
-                  >
+                  <td className={adminTdMonoClass}>
                     {ur.scope_id === '00000000-0000-0000-0000-000000000000'
                       ? t('admin.user_detail.all_or_none')
                       : ur.scope_id}
@@ -275,11 +227,7 @@ export function UserDetailRolesPanel({
       </div>
 
       <AdminFormSection title={t('admin.user_detail.assign_new_role')}>
-        <form
-          onSubmit={(e) => void onAssignRole(e)}
-          className={legacyLayoutClass('page-stack')}
-          style={{ gap: 12 }}
-        >
+        <form onSubmit={(e) => void onAssignRole(e)} className="flex flex-col gap-3">
           <label className={adminFormLabelClass}>
             <span>{t('admin.user_detail.select_role')}</span>
             <Select
@@ -287,25 +235,28 @@ export function UserDetailRolesPanel({
               options={assignableRoleOptions}
               onChange={onRoleChange}
               disabled={!canManageRoles || assignableRoleOptions.length === 0}
+              placeholder={t('admin.user_detail.select_role_placeholder')}
             />
           </label>
-          <label className={adminFormLabelClass}>
-            <span>{t('admin.user_detail.scope_type')}</span>
-            <Select value={scopeType} options={scopeTypeOptions} onChange={onScopeTypeChange} />
-          </label>
-          {scopeType === 'workspace' && (
-            <label className={adminFormLabelClass}>
-              <span>{t('admin.user_detail.workspace_uuid')}</span>
-              <input
-                type="text"
-                placeholder={t('admin.user_detail.workspace_uuid_placeholder')}
-                value={scopeID}
-                onChange={(e) => onScopeIdChange(e.target.value)}
-                className={adminInputClass}
-                required
-              />
+          <div className="flex items-end gap-3">
+            <label className={`${adminFormLabelClass} flex-1`}>
+              <span>{t('admin.user_detail.scope_type')}</span>
+              <Select value={scopeType} options={scopeTypeOptions} onChange={onScopeTypeChange} />
             </label>
-          )}
+            {scopeType === 'workspace' && (
+              <label className={`${adminFormLabelClass} flex-2`}>
+                <span>{t('admin.user_detail.workspace_uuid')}</span>
+                <input
+                  type="text"
+                  placeholder={t('admin.user_detail.workspace_uuid_placeholder')}
+                  value={scopeID}
+                  onChange={(e) => onScopeIdChange(e.target.value)}
+                  className={adminInputClass}
+                  required
+                />
+              </label>
+            )}
+          </div>
           <button type="submit" className={adminBtnSubmitClass} disabled={!canManageRoles}>
             {t('admin.user_detail.assign_role')}
           </button>

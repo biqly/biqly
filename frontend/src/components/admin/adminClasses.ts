@@ -161,7 +161,7 @@ export const adminAvatarCircleClass =
   'flex size-14 items-center justify-center rounded-full bg-[var(--bg-avatar,#e0e7ff)] text-lg font-bold text-[var(--text-avatar,#4f46e5)]'
 
 export const adminGridClass =
-  'mt-6 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 border-t border-border pt-6 max-[680px]:mt-4 max-[680px]:grid-cols-1 max-[680px]:gap-3 max-[680px]:pt-4'
+  'mt-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 border-t border-border pt-4 max-[680px]:mt-3 max-[680px]:grid-cols-1 max-[680px]:gap-3 max-[680px]:pt-3'
 
 export const adminGridItemClass = 'flex flex-col gap-1'
 
@@ -225,9 +225,6 @@ export const adminErrBoxClass = 'rounded-md bg-red-500/12 p-3 text-sm text-error
 export function adminMessageBoxClass(type: 'success' | 'error'): string {
   return type === 'success' ? adminSuccessBoxClass : adminErrBoxClass
 }
-
-export const adminBypassCodeBoxClass =
-  'select-all rounded-md border border-border bg-[var(--table-header-bg,#f9fafb)] px-3 py-2 font-mono text-base font-bold tracking-[0.05em] text-foreground'
 
 export const adminTabContainerClass = 'mb-2 flex gap-4 border-b border-border'
 
