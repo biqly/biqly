@@ -4,25 +4,25 @@ helm:
     value: ghcr.io/biqly/ai
     forcestring: true
   - name: ai.image.tag
-    value: sha-0b1cdc0cce335a7002f66364f0b76e2e0f670d2f
+    value: sha-e6bd117f7f9e2c1cf384d920446811fe88071288
     forcestring: true
   - name: auth.image.repository
     value: ghcr.io/biqly/auth
     forcestring: true
   - name: auth.image.tag
-    value: sha-0b1cdc0cce335a7002f66364f0b76e2e0f670d2f
+    value: sha-e6bd117f7f9e2c1cf384d920446811fe88071288
     forcestring: true
   - name: auth.migrate.image.repository
     value: ghcr.io/biqly/auth
     forcestring: true
   - name: auth.migrate.image.tag
-    value: sha-0b1cdc0cce335a7002f66364f0b76e2e0f670d2f
+    value: sha-e6bd117f7f9e2c1cf384d920446811fe88071288
     forcestring: true
   - name: catalog.image.repository
     value: ghcr.io/biqly/catalog
     forcestring: true
   - name: catalog.image.tag
-    value: sha-0b1cdc0cce335a7002f66364f0b76e2e0f670d2f
+    value: sha-e6bd117f7f9e2c1cf384d920446811fe88071288
     forcestring: true
   - name: frontend.image.repository
     value: ghcr.io/biqly/frontend
@@ -40,23 +40,23 @@ helm:
     value: ghcr.io/biqly/mail
     forcestring: true
   - name: mail.image.tag
-    value: sha-0b1cdc0cce335a7002f66364f0b76e2e0f670d2f
+    value: sha-e6bd117f7f9e2c1cf384d920446811fe88071288
     forcestring: true
   - name: mail.migrate.image.repository
     value: ghcr.io/biqly/mail
     forcestring: true
   - name: mail.migrate.image.tag
-    value: sha-0b1cdc0cce335a7002f66364f0b76e2e0f670d2f
+    value: sha-e6bd117f7f9e2c1cf384d920446811fe88071288
     forcestring: true
   - name: query.image.repository
     value: ghcr.io/biqly/query
     forcestring: true
   - name: query.image.tag
-    value: sha-0b1cdc0cce335a7002f66364f0b76e2e0f670d2f
+    value: sha-e6bd117f7f9e2c1cf384d920446811fe88071288
     forcestring: true
   - name: worker.image.repository
     value: ghcr.io/biqly/worker
     forcestring: true
   - name: worker.image.tag
-    value: sha-0b1cdc0cce335a7002f66364f0b76e2e0f670d2f
+    value: sha-e6bd117f7f9e2c1cf384d920446811fe88071288
     forcestring: true
