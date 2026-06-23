@@ -434,6 +434,11 @@ export const core: CoreDictionary = {
     preview_btn: 'SQL Önizle',
     execute_btn: 'Önizle & çalıştır',
     cancel: 'İptal',
+    mention_aria: 'Şema alan önerileri',
+    mention_type_dimension: 'boyut',
+    mention_type_metric: 'metrik',
+    mention_type_table: 'tablo',
+    mention_hint: 'Semantik modelden alan eklemek için @ yazın',
     elapsed_label: 'Geçen süre:',
     wait_hint:
       'Token ve gecikme özeti yanıt gelince gösterilir. Zaman aşımı en fazla {{minutes}} dk.',

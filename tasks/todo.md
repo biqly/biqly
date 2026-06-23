@@ -1,5 +1,23 @@
 # Todo list
 
+## Feature: schema-aware @-mention autosuggest in AI Query prompt (2026-06-23)
+
+### Goal
+Like sqlai.ai: `@`-mention real semantic-model objects (dimensions, metrics, tables) while
+composing a prompt so generated SQL matches the actual schema with higher consistency.
+
+### Decisions
+- Trigger: explicit `@`-mention popup; scope: dims + metrics + base/joined tables (no raw columns).
+- Insert canonical field `name` (LLM matches it against schema already in the backend prompt).
+- Frontend-only: backend prompt already embeds the full model schema (`internal/ai/prompt/prompt.go`).
+
+### Done
+- [x] `hooks/useSemanticCatalog.ts` — catalog from `GET /api/semantic/models/{id}`; composite → components merged; auto-detect → datasource tables.
+- [x] `components/aiQuery/mentionUtils.ts` — pure `findActiveMention` + `score` (+ 10 tests).
+- [x] `components/aiQuery/PromptTextarea.tsx` — textarea + `@`-mention overlay (filter, ↑/↓/Enter/Tab/Esc, click).
+- [x] Wired into `ChatPanel.tsx` + `AIQuery.tsx` (passing `semanticModelId` + `tables`).
+- [x] i18n (en + tr) + popup styling classes. `make check-frontend` green.
+
 ## Feature: time-windowed ratio / share-of-total in logical query (2026-06-22)
 
 ### Problem (diagnosed, live-evidence backed)

@@ -95,6 +95,8 @@ export interface ChatPanelProps {
   activeConversation: Conversation | null | undefined
   activeConversationId: string | null | undefined
   datasourceId: string
+  semanticModelId: string
+  tables: TableOption[]
   aiRuntime: AIRuntimeSettings | null
   question: string
   setQuestion: (q: string | ((prev: string) => string)) => void
