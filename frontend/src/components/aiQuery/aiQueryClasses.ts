@@ -154,6 +154,29 @@ export const chatComposerSendClass = 'inline-flex items-center gap-[0.4rem]'
 
 export const chatComposerSendIconClass = 'text-[0.75rem] leading-none'
 
+// ─── @-mention autosuggest (schema-aware prompt) ────────────────────
+export const mentionWrapClass = 'relative'
+
+export const mentionListClass =
+  'absolute bottom-full left-0 right-0 mb-2 z-30 max-h-64 overflow-y-auto rounded-xl border border-border bg-card-raised shadow-card animate-[popoverFadeIn_0.14s_cubic-bezier(0.16,1,0.3,1)]'
+
+export const mentionGroupClass = 'flex flex-col'
+
+export const mentionGroupLabelClass =
+  'px-3 pt-2 pb-1 text-[0.66rem] font-semibold uppercase tracking-wide text-foreground-faint'
+
+export const mentionItemBaseClass =
+  'w-full text-left flex items-center gap-2 px-3 py-[0.4rem] cursor-pointer transition-colors duration-100 border-0 bg-transparent'
+
+export const mentionItemActiveClass = 'bg-accent text-white'
+
+export const mentionItemTypeClass =
+  'shrink-0 rounded-full border border-border bg-card px-[0.4rem] py-[0.05rem] text-[0.62rem] font-semibold text-foreground-muted'
+
+export const mentionItemLabelClass = 'block truncate text-[0.84rem] font-medium'
+
+export const mentionItemHintClass = 'block truncate text-[0.7rem] opacity-80'
+
 export const pastQueriesToggleClass =
   'inline-flex items-center gap-[0.4rem] text-[0.78rem] text-foreground-muted cursor-pointer select-none'
 

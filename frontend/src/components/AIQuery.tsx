@@ -628,6 +628,8 @@ export default function AIQuery() {
           activeConversation={activeConversation}
           activeConversationId={activeConversationId}
           datasourceId={datasourceId}
+          semanticModelId={semanticModelId}
+          tables={tables}
           aiRuntime={aiRuntime}
           question={question}
           setQuestion={setQuestion}

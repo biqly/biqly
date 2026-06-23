@@ -426,6 +426,11 @@ export const core = {
     preview_btn: 'Preview SQL',
     execute_btn: 'Preview & run',
     cancel: 'Cancel',
+    mention_aria: 'Schema field suggestions',
+    mention_type_dimension: 'dim',
+    mention_type_metric: 'metric',
+    mention_type_table: 'table',
+    mention_hint: 'Type @ to insert a field from the semantic model',
     elapsed_label: 'Elapsed:',
     wait_hint:
       'Token and latency summary appear when the response arrives. Timeout at most {{minutes}} min.',

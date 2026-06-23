@@ -1,6 +1,6 @@
-import type { KeyboardEvent } from 'react'
 import { useEffect, useMemo, useRef } from 'react'
 
+import { useSemanticCatalog } from '../../hooks/useSemanticCatalog'
 import type { TranslationKey } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
@@ -14,7 +14,6 @@ import {
   chatComposerBarClass,
   chatComposerClass,
   chatComposerHintClass,
-  chatComposerInputClass,
   chatComposerOptionsClass,
   chatComposerSendClass,
   chatComposerSendIconClass,
@@ -46,6 +45,7 @@ import {
   userBubbleTimeClass,
 } from './aiQueryClasses'
 import { AssistantMessageCard } from './AssistantMessageCard'
+import { PromptTextarea } from './PromptTextarea'
 import { formatAiWaitElapsed } from './routingViz'
 import type { ChatPanelProps } from './types'
 import { AI_QUERY_TIMEOUT_MS } from './types'
@@ -125,6 +125,8 @@ export function ChatPanel({
   activeConversation,
   activeConversationId,
   datasourceId,
+  semanticModelId,
+  tables,
   aiRuntime,
   question,
   setQuestion,
@@ -146,6 +148,8 @@ export function ChatPanel({
   const prevMsgCountRef = useRef<number>(0)
 
   const messages = useMemo(() => activeConversation?.messages ?? [], [activeConversation])
+
+  const { items: catalogItems } = useSemanticCatalog(semanticModelId, tables)
 
   useEffect(() => {
     const feed = chatFeedRef.current
@@ -268,23 +272,16 @@ export function ChatPanel({
 
       <footer className={chatInputAreaClass}>
         <div className={chatComposerClass}>
-          <textarea
-            id="ai-question"
-            className={chatComposerInputClass}
+          <PromptTextarea
             value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                if (!loading && question && datasourceId) {
-                  onSendQuery(question, true)
-                }
-              }
-            }}
-            placeholder={t('ai_query.placeholder')}
-            rows={2}
-            autoComplete="off"
+            onChange={(v) => setQuestion(v)}
+            onSubmit={() => onSendQuery(question, true)}
+            onAbort={onAbort}
             disabled={queryAction !== null}
+            loading={loading}
+            placeholder={t('ai_query.placeholder')}
+            items={catalogItems}
+            t={t}
           />
           <div className={chatComposerBarClass}>
             <div className={chatComposerOptionsClass}>
@@ -303,7 +300,7 @@ export function ChatPanel({
                   </label>
                 </div>
               )}
-              <span className={chatComposerHintClass}>{t('ai_query.enter_hint')}</span>
+              <span className={chatComposerHintClass}>{t('ai_query.mention_hint')}</span>
             </div>
             <div className={chatComposerActionsClass}>
               {loading && queryAction !== null && (
