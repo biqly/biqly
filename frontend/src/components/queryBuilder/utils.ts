@@ -38,9 +38,12 @@ export function getFieldLabel(
 }
 
 function extractTable(columnRef: string): string | null {
-  const dot = columnRef.indexOf('.')
-  if (dot > 0) {
-    return columnRef.slice(0, dot)
+  const parts = columnRef.split('.').filter(Boolean)
+  if (parts.length >= 3) {
+    return `${parts[0]!}.${parts[1]!}`
+  }
+  if (parts.length >= 2) {
+    return parts[0]!
   }
   return null
 }
@@ -62,7 +65,7 @@ export function metricFieldOptions(
   mode: 'technical' | 'human' = 'human',
 ) {
   return metrics
-    .filter((m) => m.name !== 'count' && m.aggregation !== 'count')
+    .filter((m) => m.name !== 'count')
     .map((m) => {
       const table = extractTable(m.expression)
       const label = getFieldLabel(m.name, m.label, mode)
@@ -97,7 +100,7 @@ export function orderByFieldOptions(
     })
   }
   for (const m of metrics) {
-    if (m.name !== 'count' && m.aggregation !== 'count') {
+    if (m.name !== 'count') {
       out.push({
         value: m.name,
         label: getFieldLabel(m.name, m.label, mode),
@@ -154,6 +157,7 @@ export function dimOptionsForGroupRow(
     }
   })
 
+  const hasSelectedDims = selectedDimNames.length > 0
   const unselectedOptions = unselectedList.map((d) => {
     const table = extractTable(d.column_ref)
     const label = getFieldLabel(d.name, d.label, mode)
@@ -161,7 +165,9 @@ export function dimOptionsForGroupRow(
       value: d.name,
       label: table ? `[${table}] ${label}` : label,
       hint: d.type,
-      disabled: true,
+      // In "Basit" mode, FieldsStep is hidden so selectItems will be empty;
+      // disabling all dimensions makes the group-by dropdown unusable.
+      disabled: hasSelectedDims,
     }
   })
 

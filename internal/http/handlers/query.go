@@ -7,6 +7,8 @@ import (
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/query"
+	"github.com/biqly/biqly/internal/semantic"
+	"github.com/bytedance/sonic"
 )
 
 // QueryHandler handles query operations.
@@ -14,6 +16,11 @@ type QueryHandler struct {
 	deps    *app.QueryDeps
 	query   internalQueryRunner
 	metrics QueryMetricsRecorder
+}
+
+type queryPayload struct {
+	LogicalQuery query.LogicalQuery      `json:"logical_query"`
+	Model        *semantic.SemanticModel `json:"model,omitempty"`
 }
 
 // NewQueryHandler creates a new query handler.
@@ -28,13 +35,13 @@ func (h *QueryHandler) SetQueryMetricsRecorder(m QueryMetricsRecorder) {
 
 // Compile validates and compiles a LogicalQuery into SQL.
 func (h *QueryHandler) Compile(w http.ResponseWriter, r *http.Request) {
-	lq, ok := decodeJSON[query.LogicalQuery](w, r)
+	payload, ok := decodeQueryPayload(w, r)
 	if !ok {
 		return
 	}
 
 	start := time.Now()
-	compiled, se := h.query.Compile(r.Context(), lq)
+	compiled, se := h.query.CompileWithModel(r.Context(), &payload.LogicalQuery, payload.Model)
 	if h.metrics != nil {
 		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
 	}
@@ -51,13 +58,13 @@ func (h *QueryHandler) Compile(w http.ResponseWriter, r *http.Request) {
 
 // Run validates, compiles, and executes a LogicalQuery.
 func (h *QueryHandler) Run(w http.ResponseWriter, r *http.Request) {
-	lq, ok := decodeJSON[query.LogicalQuery](w, r)
+	payload, ok := decodeQueryPayload(w, r)
 	if !ok {
 		return
 	}
 
 	start := time.Now()
-	result, se := h.query.Run(r.Context(), lq)
+	result, se := h.query.RunWithModel(r.Context(), &payload.LogicalQuery, payload.Model)
 	rows := 0
 	if result != nil && result.Result != nil {
 		rows = result.Result.Stats.RowCount
@@ -75,13 +82,13 @@ func (h *QueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 
 // Explain returns the compiled SQL and metadata for debugging.
 func (h *QueryHandler) Explain(w http.ResponseWriter, r *http.Request) {
-	lq, ok := decodeJSON[query.LogicalQuery](w, r)
+	payload, ok := decodeQueryPayload(w, r)
 	if !ok {
 		return
 	}
 
 	start := time.Now()
-	compiled, se := h.query.Compile(r.Context(), lq)
+	compiled, se := h.query.CompileWithModel(r.Context(), &payload.LogicalQuery, payload.Model)
 	if h.metrics != nil {
 		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
 	}
@@ -91,11 +98,32 @@ func (h *QueryHandler) Explain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"logical_query":  *lq,
+		"logical_query":  payload.LogicalQuery,
 		"semantic_model": compiled.Model,
 		"compiled_sql":   compiled.Compiled.SQL,
 		"args":           compiled.Compiled.Args,
 	})
+}
+
+func decodeQueryPayload(w http.ResponseWriter, r *http.Request) (*queryPayload, bool) {
+	body, ok := readRequestBody(w, r)
+	if !ok {
+		return nil, false
+	}
+	var wrapped queryPayload
+	if err := sonic.ConfigStd.Unmarshal(body, &wrapped); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON")
+		return nil, false
+	}
+	if wrapped.LogicalQuery.DatasourceID != "" || wrapped.Model != nil {
+		return &wrapped, true
+	}
+	var legacy query.LogicalQuery
+	if err := sonic.ConfigStd.Unmarshal(body, &legacy); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON")
+		return nil, false
+	}
+	return &queryPayload{LogicalQuery: legacy}, true
 }
 
 // History returns query history. When auth is enabled and the caller is not

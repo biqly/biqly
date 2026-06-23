@@ -3,6 +3,7 @@ import type { QueryBuilderFormState, SelectItem } from './types'
 import { parseCTEBody } from './utils'
 
 export type QueryRunPayload = ReturnType<typeof buildQueryPayload>
+export type QueryRequestPayload = ReturnType<typeof buildQueryRequestPayload>
 
 export function initializeSummarizeGroupBy(
   selectItems: SelectItem[],
@@ -130,4 +131,15 @@ export function buildQueryPayload(state: QueryBuilderFormState) {
             )
         : undefined,
   }
+}
+
+export function buildQueryRequestPayload(state: QueryBuilderFormState) {
+  const logicalQuery = buildQueryPayload(state)
+  if (state.inlineModel) {
+    return {
+      logical_query: logicalQuery,
+      model: state.inlineModel,
+    }
+  }
+  return logicalQuery
 }

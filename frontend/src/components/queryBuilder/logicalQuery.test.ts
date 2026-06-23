@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import type { SemanticDimension } from '../../types/semantic'
-import { buildQueryPayload, initializeSummarizeGroupBy } from './logicalQuery'
+import {
+  buildQueryPayload,
+  buildQueryRequestPayload,
+  initializeSummarizeGroupBy,
+} from './logicalQuery'
 import {
   addFilterRow,
   addGroupByRow,
@@ -226,6 +230,28 @@ describe('buildQueryPayload', () => {
 
     expect(payload.filters).toEqual([{ field: 'region', operator: 'eq', value: 'APAC' }])
     expect(payload.group_by).toEqual([{ field: 'region' }])
+  })
+
+  it('wraps inline metadata models for query requests', () => {
+    const inlineModel = {
+      id: 'metadata:ds-1:public.orders',
+      datasource_id: 'ds-1',
+      name: 'metadata_public_orders',
+      base_schema: 'public',
+      base_table: 'orders',
+      status: 'published',
+    }
+
+    const payload = buildQueryRequestPayload({
+      ...baseState(),
+      modelId: inlineModel.id,
+      inlineModel,
+    })
+
+    expect(payload).toEqual({
+      logical_query: buildQueryPayload({ ...baseState(), modelId: inlineModel.id }),
+      model: inlineModel,
+    })
   })
 })
 

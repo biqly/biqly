@@ -73,3 +73,39 @@ func TestQueryHandlerIntegration_CompileAndRun(t *testing.T) {
 		t.Fatalf("run columns: got %#v", result.Columns)
 	}
 }
+
+func TestQueryHandlerIntegration_CompileInlineModelPayload(t *testing.T) {
+	t.Parallel()
+
+	handler := &QueryHandler{query: integrationQueryRunner{}}
+	router := chi.NewRouter()
+	router.Post("/api/query/compile", handler.Compile)
+
+	model := integrationSemanticModel()
+	model.ID = "auto:metadata"
+	lq := integrationLogicalQuery()
+	lq.ModelID = model.ID
+	body, err := sonic.ConfigStd.Marshal(queryPayload{
+		LogicalQuery: lq,
+		Model:        model,
+	})
+	if err != nil {
+		t.Fatalf("marshal inline query payload: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/query/compile", bytes.NewReader(body))
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("compile status: got %d, body %s", rec.Code, rec.Body.String())
+	}
+	var compiled struct {
+		SQL string `json:"sql"`
+	}
+	if err := sonic.ConfigStd.Unmarshal(rec.Body.Bytes(), &compiled); err != nil {
+		t.Fatalf("decode compile response: %v", err)
+	}
+	if !strings.Contains(compiled.SQL, `"public"."orders"`) {
+		t.Fatalf("compile sql missing inline model base table: %s", compiled.SQL)
+	}
+}
