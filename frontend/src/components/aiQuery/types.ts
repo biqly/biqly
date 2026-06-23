@@ -68,17 +68,6 @@ export interface RoutingPanelProps {
   semanticModelId: string
   setSemanticModelId: (id: string) => void
   composites?: { id: string; name: string; label?: string | null; status: string }[]
-  tables: TableOption[]
-  selectedTables: string[]
-  setSelectedTables: (tables: string[]) => void
-  tableSearch: string
-  setTableSearch: (s: string) => void
-  includeBaseTables: boolean
-  setIncludeBaseTables: (v: boolean) => void
-  includeViews: boolean
-  setIncludeViews: (v: boolean) => void
-  autoTableRouting: boolean
-  setAutoTableRouting: (v: boolean) => void
   embeddingStatus: string | null
   embeddingError: string | null
   embeddingLoading: boolean

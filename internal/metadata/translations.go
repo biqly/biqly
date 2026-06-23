@@ -108,6 +108,37 @@ func (r *Repository) GetEntityTranslations(
 	return out, nil
 }
 
+// EntitiesWithTranslation returns the subset of entityIDs that already have at
+// least one stored translation row in exactly `lang` (no English fallback).
+// Used to skip entities already translated for a locale before calling the LLM.
+func (r *Repository) EntitiesWithTranslation(ctx context.Context, entityType string, entityIDs []string, lang i18n.Locale) (map[string]bool, error) {
+	out := make(map[string]bool, len(entityIDs))
+	if len(entityIDs) == 0 {
+		return out, nil
+	}
+	const q = `
+		SELECT DISTINCT entity_id::text
+		FROM entity_translations
+		WHERE entity_type = $1 AND entity_id = ANY($2::uuid[]) AND lang = $3
+	`
+	rows, err := r.db.QueryContext(ctx, q, entityType, pgarray.Strings(entityIDs), string(lang))
+	if err != nil {
+		return nil, fmt.Errorf("query translated entities: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan translated entity id: %w", err)
+		}
+		out[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("translated entity rows: %w", err)
+	}
+	return out, nil
+}
+
 // UpsertTranslation writes a single (entity_type, entity_id, lang, field)
 // localized value. An empty value deletes the row.
 func (r *Repository) UpsertTranslation(ctx context.Context, t Translation) error {

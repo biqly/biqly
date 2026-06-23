@@ -68,6 +68,50 @@ func TestTranslationServiceTranslateDescribeResult(t *testing.T) {
 	}
 }
 
+func TestTranslationServiceTranslateFields(t *testing.T) {
+	provider := &fakeTranslationProvider{
+		response: `{
+			"fields": [
+				{"key": "ignored-by-model", "label": "Yer İmi Sayısı", "description": "Kaç kez kaydedildiği."},
+				{"key": "x", "label": "Yazar Adı", "description": ""}
+			]
+		}`,
+	}
+	service := NewTranslationService(provider, "m", "Turkish", "tr")
+
+	in := []TranslatableField{
+		{Key: "dim-1", Label: "Bookmark Count", Description: "How many times bookmarked."},
+		{Key: "dim-2", Label: "Author Name", Description: ""},
+	}
+	out, err := service.TranslateFields(context.Background(), in)
+	if err != nil {
+		t.Fatalf("translate fields: %v", err)
+	}
+	if len(out) != 2 {
+		t.Fatalf("want 2 fields, got %d", len(out))
+	}
+	// Keys are re-applied by index regardless of what the model echoed back.
+	if out[0].Key != "dim-1" || out[1].Key != "dim-2" {
+		t.Fatalf("keys not preserved by index: %+v", out)
+	}
+	if out[0].Label != "Yer İmi Sayısı" || out[0].Description != "Kaç kez kaydedildiği." {
+		t.Fatalf("first field translation mismatch: %+v", out[0])
+	}
+	if !strings.Contains(provider.prompt, "Do not change \"key\" values") {
+		t.Fatalf("prompt should instruct key preservation, got: %s", provider.prompt)
+	}
+}
+
+func TestTranslationServiceTranslateFieldsEmpty(t *testing.T) {
+	out, err := (*TranslationService)(nil).TranslateFields(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("nil service should be a no-op, got: %v", err)
+	}
+	if out != nil {
+		t.Fatalf("want nil passthrough, got %+v", out)
+	}
+}
+
 func TestNewTranslationServiceFromConfig_DefaultMaxTokens(t *testing.T) {
 	var gotMaxTokens int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

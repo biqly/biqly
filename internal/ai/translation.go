@@ -156,6 +156,65 @@ func (s *TranslationService) TranslateDescribeResult(ctx context.Context, result
 	return nil
 }
 
+// TranslatableField is one entity's localizable text for batch translation.
+// Key is an opaque caller token (e.g. "dim:<id>") echoed back unchanged.
+type TranslatableField struct {
+	Key         string `json:"key"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+}
+
+type fieldsTranslationPayload struct {
+	Fields []TranslatableField `json:"fields"`
+}
+
+// TranslateFields translates each field's label/description into the configured
+// target language in a single request, preserving keys and order. Returns the
+// input unchanged when the service is nil or there is nothing to translate.
+func (s *TranslationService) TranslateFields(ctx context.Context, fields []TranslatableField) ([]TranslatableField, error) {
+	if s == nil || len(fields) == 0 {
+		return fields, nil
+	}
+	raw, err := sonic.ConfigStd.MarshalIndent(fieldsTranslationPayload{Fields: fields}, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal fields translation payload: %w", err)
+	}
+	gen, err := s.provider.GenerateAt(ctx, buildFieldsTranslationPrompt(string(raw), s.targetLanguage, s.targetCode), 0)
+	if err != nil {
+		return nil, fmt.Errorf("translate semantic fields: %w", err)
+	}
+	var out fieldsTranslationPayload
+	if err := sonic.ConfigStd.Unmarshal([]byte(jsonextract.TrimToJSONObject(gen.Content)), &out); err != nil {
+		return nil, fmt.Errorf("parse translated semantic fields: %w", err)
+	}
+	if len(out.Fields) != len(fields) {
+		return nil, fmt.Errorf("translated semantic fields changed count: want %d, got %d", len(fields), len(out.Fields))
+	}
+	// The model must not reorder or rename; re-key by index to be safe.
+	for i := range out.Fields {
+		out.Fields[i].Key = fields[i].Key
+	}
+	return out.Fields, nil
+}
+
+func buildFieldsTranslationPrompt(payload, targetLanguage, targetCode string) string {
+	return fmt.Sprintf(`You are a professional metadata translation layer for a Turkish-first BI application.
+
+Task:
+- Return only valid JSON with exactly the same shape as the input (an object with a "fields" array).
+- Translate each field's "label" and "description" to natural %[1]s.
+- If a value is already %[1]s, keep its meaning and lightly normalize wording.
+- Keep the same number of fields, in the same order.
+- Do not change "key" values.
+- Preserve SQL identifiers, table/column names, codes, IDs, enums, abbreviations, and common technical words such as ID, email, URL, SKU, status, key, timestamp.
+- Empty values must stay empty.
+- Target language code: %[2]s.
+
+Input JSON:
+
+%[3]s`, targetLanguage, targetCode, payload)
+}
+
 type describeTranslationPayload struct {
 	TableDescription string              `json:"table_description"`
 	Columns          []ColumnDescription `json:"columns"`

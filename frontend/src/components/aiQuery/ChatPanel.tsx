@@ -149,7 +149,12 @@ export function ChatPanel({
 
   const messages = useMemo(() => activeConversation?.messages ?? [], [activeConversation])
 
-  const { items: catalogItems } = useSemanticCatalog(semanticModelId, tables)
+  const {
+    items: catalogItems,
+    canRetranslate,
+    retranslate,
+    retranslating,
+  } = useSemanticCatalog(semanticModelId, tables)
 
   useEffect(() => {
     const feed = chatFeedRef.current
@@ -301,6 +306,17 @@ export function ChatPanel({
                 </div>
               )}
               <span className={chatComposerHintClass}>{t('ai_query.mention_hint')}</span>
+              {canRetranslate && (
+                <button
+                  type="button"
+                  className="text-foreground-muted hover:text-foreground inline-flex items-center gap-1 text-[0.72rem] underline decoration-dotted underline-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => void retranslate()}
+                  disabled={retranslating}
+                  title={t('ai_query.retranslate_title')}
+                >
+                  {retranslating ? t('ai_query.retranslating') : `↻ ${t('ai_query.retranslate')}`}
+                </button>
+              )}
             </div>
             <div className={chatComposerActionsClass}>
               {loading && queryAction !== null && (

@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment } from 'react'
 
 import type { Locale } from '../../i18n'
 import { FALLBACK_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, type useT } from '../../i18n'
@@ -32,53 +32,6 @@ import { LoadingScreen } from '../ui/LoadingScreen'
 import { MetadataColumnPanel } from './MetadataColumnPanel'
 import { MetadataDescriptionCell } from './MetadataDescriptionCell'
 import type { MetadataEditingState } from './utils'
-
-function DisplayExpressionInline({
-  table,
-  onSave,
-  t,
-}: {
-  table: TableRow
-  onSave: (tab: TableRow, expr: string) => Promise<boolean>
-  t: ReturnType<typeof useT>
-}) {
-  const original = table.display_expression ?? ''
-  const [value, setValue] = useState(original)
-  const [saving, setSaving] = useState(false)
-  const dirty = value.trim() !== original.trim()
-
-  const save = async () => {
-    setSaving(true)
-    await onSave(table, value.trim())
-    setSaving(false)
-  }
-
-  return (
-    <div className="mt-2 flex items-center gap-1.5">
-      <input
-        type="text"
-        className="border-border bg-canvas text-foreground focus-visible:border-accent/55 min-h-[1.7rem] w-28 rounded-[0.35rem] border px-2 py-[0.2rem] font-mono text-[0.72rem] outline-none"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && dirty && !saving) {
-            void save()
-          }
-        }}
-        placeholder={t('metadata.display_expr_placeholder')}
-        spellCheck={false}
-      />
-      <button
-        type="button"
-        className={buttonClass('secondary', { size: 'sm' })}
-        disabled={!dirty || saving}
-        onClick={() => void save()}
-      >
-        {saving ? t('common.saving') : t('common.save')}
-      </button>
-    </div>
-  )
-}
 
 export function MetadataTablesPanel({
   t,
@@ -293,13 +246,6 @@ export function MetadataTablesPanel({
                           {t('metadata.btn_ai_describe')}
                         </span>
                       </button>
-                      {openTableId === tab.id && (
-                        <DisplayExpressionInline
-                          table={tab}
-                          onSave={onSaveDisplayExpression}
-                          t={t}
-                        />
-                      )}
                     </td>
                   </tr>
                   {openTableId === tab.id && columns.length > 0 && (
@@ -313,6 +259,7 @@ export function MetadataTablesPanel({
                       onSave={onSaveDescription}
                       onCancelEdit={onCancelEdit}
                       onSaveDisplayExpression={onSaveDisplayExpression}
+                      t={t}
                     />
                   )}
                 </Fragment>

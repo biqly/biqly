@@ -32,6 +32,41 @@ export function findActiveMention(value: string, cursor: number): ActiveMention 
   return { at: atIdx, query }
 }
 
+export interface MentionSegment {
+  text: string
+  /** Catalog name when this run is a recognized `@mention` token, else undefined. */
+  name?: string
+}
+
+/**
+ * Splits composer text into plain runs and recognized `@name` mention tokens so
+ * the highlight overlay can color the tokens. A token is `@` followed by a run
+ * of non-whitespace whose remainder exactly matches a known catalog name; an
+ * unrecognized `@foo` stays plain text.
+ */
+export function splitMentionTokens(value: string, names: Set<string>): MentionSegment[] {
+  const segments: MentionSegment[] = []
+  const re = /@\S+/g
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(value)) !== null) {
+    const tokenText = m[0]
+    const name = tokenText.slice(1)
+    if (!names.has(name)) {
+      continue
+    }
+    if (m.index > last) {
+      segments.push({ text: value.slice(last, m.index) })
+    }
+    segments.push({ text: tokenText, name })
+    last = m.index + tokenText.length
+  }
+  if (last < value.length) {
+    segments.push({ text: value.slice(last) })
+  }
+  return segments
+}
+
 /** Ranks a catalog entry against a typed mention query. 0 means no match. */
 export function score(entry: CatalogEntry, q: string): number {
   if (!q) {

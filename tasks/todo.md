@@ -1,5 +1,66 @@
 # Todo list
 
+## Feature: @-mention follow-ups + AI Query screen cleanup (2026-06-23)
+
+### Asks (from user)
+1. Arrow-key nav in the @ popup doesn't move the highlight.
+2. Selected item shows as plain text; show `schema.table.field` richly in the dropdown and insert a `@name` token (LLM matches canonical name; dialect quoting like SQL Server `[]` stays in the SQL-generation layer).
+3. Backend prompt must clearly instruct: when the user references a field/table, you MUST use it when building the LogicalQuery.
+4. Remove the Otomatik/Manuel toggle and the manual table/view scope panel entirely (@ replaces manual scoping).
+5. Turkish descriptions don't appear in the @ popup when locale=tr.
+6. Table/view rows look "weird" (duplicate text) on search.
+
+### Decisions (confirmed with user)
+- Insert format: rich display + canonical `@name` token + backend directive.
+- UI: remove both auto/manual toggle and manual scope panel; routing always auto.
+- Turkish: solve this round (locale overlay).
+
+### Plan
+- [x] A1. Fix arrow-key nav: ref-based highlight reset (no longer resets on every keyup); scroll active item into view. (`PromptTextarea.tsx`)
+- [x] A2. Rich dropdown row: show `schema.table.column` reference; fix table rows (no duplicate label/name). Insert `@<name> ` token. (`useSemanticCatalog.ts`, `PromptTextarea.tsx`)
+- [x] A3. Backend directive: always-included Go-generated "explicitly referenced fields (highest priority)" rule in planning steps — DB templates can't drop it. (`prompt_examples.go`)
+- [x] A4. RoutingPanel: removed auto/manual toggle + RoutingPanelManualScope; cleaned dead state/props/i18n/utils/classes; routing always auto (`tables: undefined`). (`AIQuery.tsx`, `RoutingPanel.tsx`, `types.ts`, `routingPanelUtils.ts`, i18n; deleted `RoutingPanelManualScope.tsx`, `aiScopeClasses.ts`)
+- [x] A5. Turkish overlay: model-detail read path overlays `entity_translations` for `semantic_model`/`dimension`/`metric` (label+description) by request locale. (`semantic_translations.go`, `semantic.go`) + unit test.
+- [x] A7. Composer token highlight: `@field` tokens colored via a synced backdrop overlay; native `title` tooltip on hover shows label/ref/description. (`PromptTextarea.tsx`, `mentionUtils.ts`, `aiQueryClasses.ts`) + tokenizer unit tests.
+
+### A7b. Rich hover tooltip (done)
+Replaced the native `title` with a styled hover card (type chip + label + mono ref + description), positioned under the token. (`PromptTextarea.tsx`, `aiQueryClasses.ts`)
+
+### A6. Turkish DATA generation — DONE (auto lazy-backfill, AI service)
+Decision: auto-on-TR-load. Implemented:
+- `ai.TranslationService.TranslateFields` — batched label+description translation, key-preserving (+ tests).
+- `metadata.Repository.EntitiesWithTranslation` — which entity ids already have a row in a locale (skip already-translated).
+- AI endpoint `POST /api/ai/semantic/models/{id}/translate` (`ai_semantic_translate.go`) — loads model, translates only MISSING model/dim/metric label+desc, upserts to `entity_translations`; LLM skipped when nothing missing. Wired translator through `Dependencies`→`AIDeps`.
+- Frontend: `useSemanticCatalog` calls the translate endpoint (via `X-Locale`) before reading the model when locale≠en; catalog overlay (A5) then serves TR.
+- Verified: `make lint-go` 0 issues, go test (ai/handlers/metadata), build, vet, module deadcode all clean; `make check-frontend` green.
+
+### A8. Re-translate trigger (stale source text) — DONE
+- Backend: `?force=true` on the translate endpoint re-translates every entry, overwriting cache (`translatedSet` returns empty set under force). For when the English source label/description later changes.
+- Frontend: `useSemanticCatalog` exposes `retranslate()` / `retranslating` / `canRetranslate`; "↻ Yeniden çevir" button in the composer bar (shown when locale≠en and a model is selected) → force-translate → reload catalog.
+- i18n: `ai_query.retranslate` / `retranslate_title` / `retranslating` (en+tr).
+
+### Security review (automated) — addressed
+Finding: new route missing sibling middleware. Added `aiUserMW` for route-family consistency (the `/api` group's `authMW` already authenticates it). Per-model datasource ACL intentionally not added: mirrors the existing unguarded `GetModel` read, discloses no model data (returns only a count), and writes are an idempotent, bounded TR rendering of the model's own text — documented inline in `ai_router.go`.
+
+### (superseded) earlier open decision — A6: Turkish DATA generation (architecture-constrained)
+NEW finding: `/semantic/*` is proxied to the **catalog** pod, `/ai/*` to the **AI** pod (`proxy_routes.go`). Only the AI pod has LLM egress (Cilium). So translate-on-read **cannot** live in the catalog `GetModel` — it must run in the **AI service** and cache into `entity_translations`; the catalog overlay (A5) then serves it. `AIDeps` has `SemanticRepo` + `MetaRepo` + provider store; translator built at `dependencies.go:435`.
+Corrected option-1 shape: AI endpoint `POST /api/ai/semantic/models/{id}/translate` (loads model, translates only MISSING dim/metric label+desc, upserts, LLM-skipped when nothing missing) + frontend lazy trigger on TR load. Sub-decision: auto-on-load vs explicit "Türkçeye çevir" button (cost/UX). → confirm trigger, then build.
+
+### ⚠ Open decision — A6 (original)
+The overlay (A5) is wired and correct, but it overlays nothing yet: there is **no Turkish data** stored for dimensions/metrics. `entity_translations` only holds `table`/`column` rows (written by the `describe` flow); `semantic_dimension`/`semantic_metric` rows are never produced. Options to actually populate Turkish text:
+1. Translate-on-read with cache (reuse existing `TranslationService`, store into `entity_translations`) — self-contained, covers metrics, first-load cost.
+2. Reuse existing column translations → overlay onto dimensions via `column_ref` — cheap, but only dims, only where `describe` ran in TR.
+3. Admin "translate model" action / manual entry.
+→ Needs user pick before building (avoids speculative work).
+
+### Verification
+- Frontend: `make check-frontend` green (eslint, tailwind, format, knip, vitest, tsc build).
+- Backend: `go build` + `go vet` clean; `internal/ai/prompt` + `internal/http/handlers` tests pass; module-wide `deadcode` shows no new dead funcs (overlay actually wires the previously-dead `GetEntityTranslations`).
+
+### Findings
+- Arrow bug root cause: `PromptTextarea` `onKeyUp={recomputeMention}` calls `setActiveIdx(0)` every keystroke, including the Arrow keyup, so the highlight snaps back to index 0.
+- `entity_translations` table + `metadata.Repository` translate helpers exist; `EntityTypeSemanticDimension/Metric` constants exist but have ZERO writers/appliers. `applyDescriptionTranslations` overlays description only (not label).
+
 ## Feature: schema-aware @-mention autosuggest in AI Query prompt (2026-06-23)
 
 ### Goal
@@ -5126,7 +5187,7 @@ Success criteria:
 - [x] Move detail-level resend and activate/suspend controls into a responsive top-right action group.
 - [x] Keep verification status/message in the details grid without a duplicate action.
 - [~] Run frontend formatting, focused/static verification, `make check-frontend`, and visual QA where authentication permits.
-- [ ] Commit the scoped changes, push `dev`, merge/push `main`, and return to `dev`.
+- [x] Commit the scoped changes, push `dev`, merge/push `main`, and return to `dev`.
 
 Review:
 
@@ -5143,9 +5204,9 @@ Success criteria:
 - Workspace/role defaults and provider fallbacks are used only when the request does not include a model override.
 - AI job metadata and token usage labels reflect the actually selected model, not an unrelated fallback such as `mimo-v2.5`.
 
-- [ ] Reproduce the mismatch with a focused backend test around AI run model resolution.
-- [ ] Fix the model resolver path so explicit request `model_id` wins over defaults/fallbacks.
-- [ ] Verify focused Go tests and the relevant frontend/static gates.
+- [x] Reproduce the mismatch with a focused backend test around AI run model resolution.
+- [x] Fix the model resolver path so explicit request `model_id` wins over defaults/fallbacks.
+- [x] Verify focused Go tests and the relevant frontend/static gates.
 
 Review:
 

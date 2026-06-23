@@ -276,6 +276,11 @@ func (h *SemanticHandler) GetModel(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Overlay localized label/description text for the active request locale so
+	// the modeling UI and the AI Query @-mention catalog render in the user's
+	// language. No-op for English / when no translations are stored.
+	h.applyModelTranslations(ctx, model)
+
 	writeJSON(w, http.StatusOK, model)
 }
 

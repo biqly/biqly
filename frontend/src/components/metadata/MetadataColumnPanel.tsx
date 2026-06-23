@@ -1,4 +1,5 @@
-import { useT } from '../../i18n'
+import type { TFunction } from '../../i18n'
+import { cn } from '../../lib/cn'
 import {
   metadataColNameBaseClass,
   metadataColNameCellClass,
@@ -13,6 +14,7 @@ import {
   resultsTableNestedClass,
 } from '../../lib/tableClasses'
 import type { ColumnRow, TableRow } from '../../types/semantic'
+import { DisplayExpressionInline } from './DisplayExpressionInline'
 import { MetadataDescriptionCell } from './MetadataDescriptionCell'
 import type { MetadataEditingState } from './utils'
 import { columnKeySuffix } from './utils'
@@ -27,6 +29,7 @@ interface MetadataColumnPanelProps {
   onSave: () => void
   onCancelEdit: () => void
   onSaveDisplayExpression?: (tab: TableRow, expr: string) => Promise<boolean>
+  t: TFunction
 }
 
 export function MetadataColumnPanel({
@@ -38,20 +41,26 @@ export function MetadataColumnPanel({
   onEditChange,
   onSave,
   onCancelEdit,
-  onSaveDisplayExpression: _onSaveDisplayExpression,
+  onSaveDisplayExpression,
+  t,
 }: MetadataColumnPanelProps) {
-  const t = useT()
-
   return (
     <tr className={metadataNestedRowClass}>
       <td colSpan={4} className={metadataNestedCellClass}>
         <div className={metadataNestedPanelClass}>
-          <table className={resultsTableNestedClass()} lang={locale}>
-            <caption className={metadataNestedCaptionClass}>
+          <div
+            className={cn(metadataNestedCaptionClass, 'flex items-center justify-between gap-3')}
+          >
+            <span>
               {t('metadata.nested_columns_caption', {
                 fqn: `${table.schema_name}.${table.table_name}`,
               })}
-            </caption>
+            </span>
+            {onSaveDisplayExpression && (
+              <DisplayExpressionInline table={table} onSave={onSaveDisplayExpression} t={t} />
+            )}
+          </div>
+          <table className={resultsTableNestedClass()} lang={locale}>
             <colgroup>
               <col className={metadataNestedColNameClass} />
               <col className={metadataNestedColTypeClass} />

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { CatalogEntry } from '../../hooks/useSemanticCatalog'
-import { findActiveMention, score } from './mentionUtils'
+import { findActiveMention, score, splitMentionTokens } from './mentionUtils'
 
 const dim = (name: string, label = name): CatalogEntry => ({
   type: 'dimension',
@@ -52,5 +52,31 @@ describe('score', () => {
 
   it('returns 0 when nothing matches', () => {
     expect(score(dim('revenue'), 'zzz')).toBe(0)
+  })
+})
+
+describe('splitMentionTokens', () => {
+  const names = new Set(['bookmark_count', 'public.orders'])
+
+  it('marks a recognized @token and leaves surrounding text plain', () => {
+    expect(splitMentionTokens('show @bookmark_count please', names)).toEqual([
+      { text: 'show ' },
+      { text: '@bookmark_count', name: 'bookmark_count' },
+      { text: ' please' },
+    ])
+  })
+
+  it('recognizes dotted table names', () => {
+    expect(splitMentionTokens('@public.orders', names)).toEqual([
+      { text: '@public.orders', name: 'public.orders' },
+    ])
+  })
+
+  it('leaves an unknown @word as plain text', () => {
+    expect(splitMentionTokens('hi @nope there', names)).toEqual([{ text: 'hi @nope there' }])
+  })
+
+  it('returns a single plain run when there are no tokens', () => {
+    expect(splitMentionTokens('plain text', names)).toEqual([{ text: 'plain text' }])
   })
 })

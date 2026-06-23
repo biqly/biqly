@@ -194,6 +194,8 @@ func (*Builder) writePlanningSteps(sb *bytes.Buffer) {
 	sb.WriteString("Work through every step below using **only** the semantic catalog above, then produce the LogicalQuery JSON.\n")
 	sb.WriteString("You may echo these steps in an optional `## Reasoning` block immediately before the JSON (see Output Format).\n\n")
 
+	sb.WriteString("**Explicitly referenced fields (highest priority).** When the user names a catalog object directly — often as an `@`-mention such as `@bookmark_count`, `@author_name`, or a table like `@public.orders` — you MUST use that exact dimension, metric, or table in the LogicalQuery and route to its table. Treat such a reference as a hard constraint: do not substitute a different field, drop it, or pick a similarly-named one. Match the `@name` to the dimension/metric `name` (or `schema.table`) in the catalog above; if a referenced name is not in the catalog, surface that rather than silently swapping it.\n\n")
+
 	steps := []struct {
 		title string
 		body  string
