@@ -31,6 +31,11 @@ export const qbHeaderClass =
 export const qbPickersClass =
   'flex min-w-0 flex-1 flex-nowrap items-center gap-[0.65rem] max-[720px]:w-full max-[720px]:flex-wrap [&_.ui-select]:min-w-36 [&_.ui-select]:max-w-64 [&_.ui-select]:flex-[0_1_auto] max-[720px]:[&_.ui-select]:max-w-none max-[720px]:[&_.ui-select]:min-w-48 max-[720px]:[&_.ui-select]:flex-[1_1_12rem]'
 
+export const qbHeaderActionsClass =
+  'flex shrink-0 items-center gap-2 max-[720px]:w-full max-[720px]:justify-between'
+
+export const qbSavedDraftActionsClass = 'flex shrink-0 items-center gap-2'
+
 export const qbModeToggleClass = 'shrink-0'
 
 export const qbNotebookClass = 'relative mb-6 flex flex-col gap-3'

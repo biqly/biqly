@@ -1,9 +1,11 @@
 import type { SemanticModelDetail } from '../../types/semantic'
 import type { MetadataTFunction } from '../metadata/utils'
+import { Select } from '../ui/Select'
 import { CteStep } from './CteStep'
 import { FieldsStep } from './FieldsStep'
 import { FilterStep } from './FilterStep'
 import { HavingStep } from './HavingStep'
+import type { TableOption } from './metadataModel'
 import { NotebookStep } from './NotebookStep'
 import { qbNotebookClass, qbTagBase, qbTagBlueClass } from './queryBuilderClasses'
 import { QueryBuilderNotebookJoins } from './QueryBuilderNotebookJoins'
@@ -20,6 +22,16 @@ import { WindowFuncStep } from './WindowFuncStep'
 
 export function QueryBuilderNotebook({
   modelDetail,
+  sourceMode,
+  baseTableKey,
+  tableOptions,
+  includedTableOptions,
+  columnOptionsByTable,
+  metadataJoinsEditable,
+  onBaseTableChange,
+  onAddMetadataJoin,
+  onUpdateMetadataJoin,
+  onRemoveMetadataJoin,
   filters,
   filterFieldOpts,
   updateFilter,
@@ -73,6 +85,19 @@ export function QueryBuilderNotebook({
   t,
 }: {
   modelDetail: SemanticModelDetail
+  sourceMode: 'semantic' | 'metadata'
+  baseTableKey: string
+  tableOptions: TableOption[]
+  includedTableOptions: TableOption[]
+  columnOptionsByTable: Record<string, { value: string; label: string; hint?: string }[]>
+  metadataJoinsEditable: boolean
+  onBaseTableChange: (value: string) => void
+  onAddMetadataJoin: () => void
+  onUpdateMetadataJoin: (
+    index: number,
+    join: NonNullable<SemanticModelDetail['joins']>[number],
+  ) => void
+  onRemoveMetadataJoin: (index: number) => void
   filters: FilterRow[]
   filterFieldOpts: ReturnType<typeof filterFieldOptions>
   updateFilter: (i: number, field: keyof FilterRow, v: string) => void
@@ -129,9 +154,31 @@ export function QueryBuilderNotebook({
     <>
       <div className={qbNotebookClass}>
         <NotebookStep label="Data" themeClass="data">
-          <span className={`${qbTagBase} ${qbTagBlueClass}`}>{modelDetail.base_table}</span>
+          {sourceMode === 'metadata' ? (
+            <span className={`${qbTagBase} ${qbTagBlueClass}`}>
+              <Select
+                value={baseTableKey}
+                onChange={onBaseTableChange}
+                options={tableOptions}
+                size="sm"
+                searchable
+              />
+            </span>
+          ) : (
+            <span className={`${qbTagBase} ${qbTagBlueClass}`}>{modelDetail.base_table}</span>
+          )}
         </NotebookStep>
-        <QueryBuilderNotebookJoins joins={modelDetail.joins ?? []} t={t} />
+        <QueryBuilderNotebookJoins
+          joins={modelDetail.joins ?? []}
+          editable={metadataJoinsEditable}
+          tableOptions={tableOptions}
+          includedTableOptions={includedTableOptions}
+          columnOptionsByTable={columnOptionsByTable}
+          onAddJoin={onAddMetadataJoin}
+          onUpdateJoin={onUpdateMetadataJoin}
+          onRemoveJoin={onRemoveMetadataJoin}
+          t={t}
+        />
         <FilterStep
           filters={filters}
           filterFieldOpts={filterFieldOpts}

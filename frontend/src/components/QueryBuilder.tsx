@@ -11,18 +11,37 @@ import { buttonClass } from '../lib/buttonClasses'
 import { cardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { legacyFeedbackClass } from '../lib/feedbackClasses'
+import { formControlClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
 import { toggleBtnClass, toggleGroupClass } from '../lib/toggleClasses'
-import type { GenerateSemanticModelResponse } from '../types/semantic'
+import type {
+  ColumnRow,
+  GenerateSemanticModelResponse,
+  SemanticJoin,
+  SemanticModelDetail,
+  TableRow,
+} from '../types/semantic'
 import { modelListHint, modelListLabel } from '../types/semantic'
 import { rowsToChartData } from '../utils/chartData'
 import { pickPublishedModelId, pickValidIdOrFirst } from '../utils/effectiveSelection'
-import { buildQueryPayload, initializeSummarizeGroupBy } from './queryBuilder/logicalQuery'
+import { buildQueryRequestPayload, initializeSummarizeGroupBy } from './queryBuilder/logicalQuery'
+import {
+  buildMetadataModel,
+  type ColumnsByTable,
+  metadataJoinTableKeys,
+  metadataModelId,
+  metadataTableOptions,
+  newMetadataJoin,
+  normalizeMetadataJoin,
+  splitMetadataTableKey,
+} from './queryBuilder/metadataModel'
 import {
   qbCardClass,
+  qbHeaderActionsClass,
   qbHeaderClass,
   qbModeToggleClass,
   qbPickersClass,
+  qbSavedDraftActionsClass,
   qbSqlCardHeadClass,
 } from './queryBuilder/queryBuilderClasses'
 import {
@@ -43,7 +62,22 @@ import {
   removeHavingRow,
   updateGroupByRow as patchGroupByRow,
 } from './queryBuilder/rowState'
-import type { CTERow, FilterRow, HavingRow, SelectItem, WindowFuncRow } from './queryBuilder/types'
+import {
+  deleteSavedQueryDraft,
+  newSavedQueryDraftId,
+  readSavedQueryDrafts,
+  type SavedQueryBuilderDraft,
+  upsertSavedQueryDraft,
+  writeSavedQueryDrafts,
+} from './queryBuilder/savedQueries'
+import type {
+  CTERow,
+  FilterRow,
+  HavingRow,
+  QueryBuilderSourceMode,
+  SelectItem,
+  WindowFuncRow,
+} from './queryBuilder/types'
 import { newRowId } from './queryBuilder/types'
 import { filterFieldOptions, metricFieldOptions, orderByFieldOptions } from './queryBuilder/utils'
 import { ErrorAlert } from './ui/ErrorAlert'
@@ -67,12 +101,19 @@ interface QueryExplainResponse {
 // eslint-disable-next-line complexity
 export default function QueryBuilder() {
   const t = useT()
-  const { postData, loading, error } = useApi()
+  const { get, postData, loading, error } = useApi()
   const [dsParam, setDsParam] = useQueryParam('ds')
   const { datasources, loading: dsLoading } = useDatasources()
   const loadedDatasources = !dsLoading
   const [selectedDatasourceId, setSelectedDatasourceId] = useState(dsParam)
   const [selectedModelId, setSelectedModelId] = useState('')
+  const [querySource, setQuerySource] = useState<QueryBuilderSourceMode>('semantic')
+  const [metadataTables, setMetadataTables] = useState<TableRow[]>([])
+  const [metadataTablesLoading, setMetadataTablesLoading] = useState(false)
+  const [metadataBaseTableKey, setMetadataBaseTableKey] = useState('')
+  const [metadataJoins, setMetadataJoins] = useState<SemanticJoin[]>([])
+  const [columnsByTable, setColumnsByTable] = useState<ColumnsByTable>({})
+  const [metadataColumnsLoading, setMetadataColumnsLoading] = useState(false)
   const datasourceId = useMemo(
     () => pickValidIdOrFirst(selectedDatasourceId, datasources),
     [selectedDatasourceId, datasources],
@@ -81,8 +122,12 @@ export default function QueryBuilder() {
     (id: string) => {
       setSelectedDatasourceId(id)
       setDsParam(id)
+      setMetadataTables([])
+      setMetadataBaseTableKey('')
+      setMetadataJoins([])
+      setColumnsByTable({})
     },
-    [setDsParam],
+    [setColumnsByTable, setDsParam, setMetadataBaseTableKey, setMetadataJoins, setMetadataTables],
   )
   const { models, loading: modelsLoading, setModels } = useSemanticModels(datasourceId)
   const modelId = useMemo(
@@ -123,8 +168,8 @@ export default function QueryBuilder() {
   const windowFunctionState = useArrayState<WindowFuncRow>([])
   const cteState = useArrayState<CTERow>([])
   const { items: having, setItems: setHaving } = havingState
-  const { items: windowFunctions } = windowFunctionState
-  const { items: ctes } = cteState
+  const { items: windowFunctions, setItems: setWindowFunctions } = windowFunctionState
+  const { items: ctes, setItems: setCtes } = cteState
   const [result, setResult] = useState<QueryBuilderResult | null>(null)
   const [sql, setSql] = useState('')
   const [sqlVisible, setSqlVisible] = useState(false)
@@ -133,9 +178,57 @@ export default function QueryBuilder() {
   // Notebook Summarize Step Toggle State
   const [isSummarized, setIsSummarized] = useState(true)
   const [fieldLabelMode, setFieldLabelMode] = useState<'human' | 'technical'>('human')
+  const [savedDrafts, setSavedDrafts] = useState<SavedQueryBuilderDraft[]>(() =>
+    readSavedQueryDrafts(),
+  )
+  const [selectedSavedDraftId, setSelectedSavedDraftId] = useState('')
+  const [savedDraftName, setSavedDraftName] = useState('')
+  const [savedDraftNotice, setSavedDraftNotice] = useState('')
 
-  const dimensions = useMemo(() => modelDetail?.dimensions ?? [], [modelDetail])
-  const metrics = useMemo(() => modelDetail?.metrics ?? [], [modelDetail])
+  const metadataTableOpts = useMemo(() => metadataTableOptions(metadataTables), [metadataTables])
+  const resolvedMetadataBaseTableKey = useMemo(() => {
+    if (
+      metadataBaseTableKey &&
+      metadataTableOpts.some((option) => option.value === metadataBaseTableKey)
+    ) {
+      return metadataBaseTableKey
+    }
+    return metadataTableOpts[0]?.value ?? ''
+  }, [metadataBaseTableKey, metadataTableOpts])
+  const completeMetadataJoins = useMemo(
+    () =>
+      metadataJoins
+        .filter((join) => join.from_table && join.from_column && join.to_table && join.to_column)
+        .map(normalizeMetadataJoin),
+    [metadataJoins],
+  )
+  const metadataModel = useMemo(
+    () =>
+      buildMetadataModel({
+        datasourceId,
+        baseTableKey: resolvedMetadataBaseTableKey,
+        tables: metadataTables,
+        columnsByTable,
+        joins: metadataJoins,
+      }),
+    [columnsByTable, datasourceId, metadataJoins, metadataTables, resolvedMetadataBaseTableKey],
+  )
+  const metadataRunnableModel = useMemo(() => {
+    if (!metadataModel) {
+      return null
+    }
+    return { ...metadataModel, joins: completeMetadataJoins }
+  }, [completeMetadataJoins, metadataModel])
+  const activeModelDetail: SemanticModelDetail | null =
+    querySource === 'metadata' ? metadataModel : modelDetail
+  const activeModelId =
+    querySource === 'metadata'
+      ? resolvedMetadataBaseTableKey
+        ? metadataModelId(datasourceId, resolvedMetadataBaseTableKey)
+        : ''
+      : modelId
+  const dimensions = useMemo(() => activeModelDetail?.dimensions ?? [], [activeModelDetail])
+  const metrics = useMemo(() => activeModelDetail?.metrics ?? [], [activeModelDetail])
   const filterFieldOpts = useMemo(
     () => filterFieldOptions(dimensions, metrics, t, fieldLabelMode),
     [dimensions, metrics, t, fieldLabelMode],
@@ -153,6 +246,25 @@ export default function QueryBuilder() {
     () => metricFieldOptions(metrics, fieldLabelMode),
     [metrics, fieldLabelMode],
   )
+  const savedDraftOptions = useMemo(
+    () => savedDrafts.map((draft) => ({ value: draft.id, label: draft.name })),
+    [savedDrafts],
+  )
+  const defaultSavedDraftName = useMemo(() => {
+    if (querySource === 'metadata') {
+      return resolvedMetadataBaseTableKey
+        ? resolvedMetadataBaseTableKey
+        : t('query_builder.saved_query_default_name')
+    }
+    const modelName = models.find((model) => model.id === modelId)
+    return (
+      modelName?.label ??
+      modelName?.name ??
+      modelDetail?.label ??
+      modelDetail?.name ??
+      t('query_builder.saved_query_default_name')
+    )
+  }, [modelDetail, modelId, models, querySource, resolvedMetadataBaseTableKey, t])
 
   const createSemanticModel = async () => {
     if (!datasourceId || generatingModel) {
@@ -178,6 +290,253 @@ export default function QueryBuilder() {
     } finally {
       setGeneratingModel(false)
     }
+  }
+
+  const resetQueryDraft = useCallback(() => {
+    _setSelectItems([])
+    setFilters([])
+    setGroupBy([])
+    setOrderBy('')
+    setOrderDir('asc')
+    setPage(1)
+    setHaving([])
+    setWindowFunctions([])
+    setCtes([])
+    setResult(null)
+    setSql('')
+    setSqlVisible(false)
+  }, [_setSelectItems, setCtes, setFilters, setGroupBy, setHaving, setWindowFunctions])
+
+  const clearQueryOutputs = useCallback(() => {
+    setPage(1)
+    setResult(null)
+    setSql('')
+    setSqlVisible(false)
+  }, [])
+
+  const setQuerySourceMode = useCallback(
+    (source: QueryBuilderSourceMode) => {
+      setQuerySource((prev) => {
+        if (prev !== source) {
+          resetQueryDraft()
+        }
+        return source
+      })
+    },
+    [resetQueryDraft, setQuerySource],
+  )
+
+  const setMetadataBaseTable = useCallback(
+    (key: string) => {
+      setMetadataBaseTableKey(key)
+      setMetadataJoins([])
+      resetQueryDraft()
+    },
+    [resetQueryDraft, setMetadataBaseTableKey, setMetadataJoins],
+  )
+
+  useEffect(() => {
+    if (!datasourceId || querySource !== 'metadata') {
+      return
+    }
+    let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMetadataTablesLoading(true)
+    void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`)
+      .then((data) => {
+        if (cancelled) {
+          return
+        }
+        setMetadataTables(data ?? [])
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setMetadataTablesLoading(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [datasourceId, get, querySource])
+
+  useEffect(() => {
+    if (!resolvedMetadataBaseTableKey || metadataBaseTableKey === resolvedMetadataBaseTableKey) {
+      return
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMetadataBaseTableKey(resolvedMetadataBaseTableKey)
+  }, [metadataBaseTableKey, resolvedMetadataBaseTableKey])
+
+  const metadataIncludedTableKeys = useMemo(
+    () => metadataJoinTableKeys(resolvedMetadataBaseTableKey, metadataJoins),
+    [metadataJoins, resolvedMetadataBaseTableKey],
+  )
+
+  useEffect(() => {
+    if (querySource !== 'metadata' || !datasourceId || metadataIncludedTableKeys.length === 0) {
+      return
+    }
+    const missingKeys = metadataIncludedTableKeys.filter((key) => !columnsByTable[key])
+    if (missingKeys.length === 0) {
+      return
+    }
+    let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMetadataColumnsLoading(true)
+    void Promise.all(
+      missingKeys.map(async (key) => {
+        const { schema, table } = splitMetadataTableKey(key)
+        const columns = await get<ColumnRow[]>(
+          `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(table)}`,
+        )
+        return { key, columns: columns ?? [] }
+      }),
+    )
+      .then((entries) => {
+        if (cancelled) {
+          return
+        }
+        setColumnsByTable((prev) => {
+          const next = { ...prev }
+          for (const entry of entries) {
+            next[entry.key] = entry.columns
+          }
+          return next
+        })
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setMetadataColumnsLoading(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [columnsByTable, datasourceId, get, metadataIncludedTableKeys, querySource])
+
+  const metadataColumnOptionsByTable = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(columnsByTable).map(([key, columns]) => [
+          key,
+          columns.map((column) => ({
+            value: column.column_name,
+            label: column.column_name,
+            hint: column.data_type,
+          })),
+        ]),
+      ),
+    [columnsByTable],
+  )
+
+  const includedTableOptions = useMemo(
+    () => metadataTableOpts.filter((option) => metadataIncludedTableKeys.includes(option.value)),
+    [metadataIncludedTableKeys, metadataTableOpts],
+  )
+
+  const addMetadataJoin = useCallback(() => {
+    if (!resolvedMetadataBaseTableKey) {
+      return
+    }
+    setMetadataJoins((prev) => [...prev, newMetadataJoin(resolvedMetadataBaseTableKey)])
+  }, [resolvedMetadataBaseTableKey, setMetadataJoins])
+
+  const updateMetadataJoin = useCallback(
+    (index: number, join: SemanticJoin) => {
+      setMetadataJoins((prev) => prev.map((item, i) => (i === index ? join : item)))
+    },
+    [setMetadataJoins],
+  )
+
+  const removeMetadataJoin = useCallback(
+    (index: number) => {
+      setMetadataJoins((prev) => prev.filter((_, i) => i !== index))
+    },
+    [setMetadataJoins],
+  )
+
+  const buildSavedDraft = (name: string, id = newSavedQueryDraftId()): SavedQueryBuilderDraft => ({
+    id,
+    name,
+    datasourceId,
+    source: querySource,
+    modelId,
+    metadataBaseTableKey: resolvedMetadataBaseTableKey,
+    metadataJoins,
+    fieldLabelMode,
+    mode,
+    selectItems,
+    filters,
+    groupBy,
+    having,
+    orderBy,
+    orderDir,
+    limit,
+    isSummarized,
+    windowFunctions,
+    ctes,
+    updatedAt: new Date().toISOString(),
+  })
+
+  const saveCurrentDraft = () => {
+    if (!datasourceId) {
+      return
+    }
+    const existing = savedDrafts.find((draft) => draft.id === selectedSavedDraftId)
+    const typedName = savedDraftName.trim()
+    const name = typedName ? typedName : (existing?.name ?? defaultSavedDraftName).trim()
+    if (!name) {
+      return
+    }
+    const draft = buildSavedDraft(name, existing?.id)
+    const next = upsertSavedQueryDraft(savedDrafts, draft)
+    setSavedDrafts(next)
+    writeSavedQueryDrafts(next)
+    setSelectedSavedDraftId(draft.id)
+    setSavedDraftName(draft.name)
+    setSavedDraftNotice(t('query_builder.saved_query_saved'))
+  }
+
+  const openSavedDraft = (id: string) => {
+    const draft = savedDrafts.find((item) => item.id === id)
+    if (!draft) {
+      setSelectedSavedDraftId('')
+      setSavedDraftName('')
+      return
+    }
+    setSelectedSavedDraftId(id)
+    setSavedDraftName(draft.name)
+    setDatasourceId(draft.datasourceId)
+    setQuerySource(draft.source)
+    setSelectedModelId(draft.modelId)
+    setFieldLabelMode(draft.fieldLabelMode)
+    setMode(draft.mode)
+    _setSelectItems(draft.selectItems)
+    setFilters(draft.filters)
+    setGroupBy(draft.groupBy)
+    setHaving(draft.having)
+    setOrderBy(draft.orderBy)
+    setOrderDir(draft.orderDir)
+    setLimit(draft.limit)
+    setIsSummarized(draft.isSummarized)
+    setWindowFunctions(draft.windowFunctions)
+    setCtes(draft.ctes)
+    setMetadataBaseTableKey(draft.metadataBaseTableKey)
+    setMetadataJoins(draft.metadataJoins)
+    clearQueryOutputs()
+    setSavedDraftNotice(t('query_builder.saved_query_opened'))
+  }
+
+  const deleteSelectedDraft = () => {
+    if (!selectedSavedDraftId) {
+      return
+    }
+    const next = deleteSavedQueryDraft(savedDrafts, selectedSavedDraftId)
+    setSavedDrafts(next)
+    writeSavedQueryDrafts(next)
+    setSelectedSavedDraftId('')
+    setSavedDraftName('')
+    setSavedDraftNotice(t('query_builder.saved_query_deleted'))
   }
 
   const toggleSummarize = () => {
@@ -262,9 +621,10 @@ export default function QueryBuilder() {
         ]
       : selectItems
 
-    return buildQueryPayload({
+    return buildQueryRequestPayload({
       datasourceId,
-      modelId,
+      modelId: activeModelId,
+      inlineModel: querySource === 'metadata' ? (metadataRunnableModel ?? undefined) : undefined,
       mode,
       selectItems: querySelectItems,
       filters,
@@ -318,7 +678,7 @@ export default function QueryBuilder() {
 
   // Auto-compile SQL when inputs change and SQL preview is visible
   useEffect(() => {
-    if (!sqlVisible || !datasourceId || !modelId) {
+    if (!sqlVisible || !datasourceId || !activeModelId) {
       return
     }
     const payload = buildPayload()
@@ -330,7 +690,9 @@ export default function QueryBuilder() {
   }, [
     sqlVisible,
     datasourceId,
-    modelId,
+    activeModelId,
+    metadataRunnableModel,
+    querySource,
     selectItems,
     filters,
     groupBy,
@@ -346,7 +708,12 @@ export default function QueryBuilder() {
 
   const chartData = useMemo(() => rowsToChartData(result?.rows), [result?.rows])
 
-  if (dsLoading || modelsLoading || (modelId ? modelDetailLoading : false)) {
+  if (
+    dsLoading ||
+    modelsLoading ||
+    (querySource === 'semantic' && modelId ? modelDetailLoading : false) ||
+    (querySource === 'metadata' && metadataTablesLoading)
+  ) {
     return <LoadingScreen minHeight="300px" />
   }
 
@@ -363,7 +730,7 @@ export default function QueryBuilder() {
               options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
               size="sm"
             />
-            {datasourceId && models.length > 0 && (
+            {datasourceId && querySource === 'semantic' && models.length > 0 && (
               <Select
                 value={modelId}
                 onChange={setSelectedModelId}
@@ -377,7 +744,7 @@ export default function QueryBuilder() {
                 size="sm"
               />
             )}
-            {datasourceId && modelId && (
+            {datasourceId && activeModelDetail && (
               <Select
                 value={fieldLabelMode}
                 onChange={setFieldLabelMode}
@@ -391,26 +758,93 @@ export default function QueryBuilder() {
                 size="sm"
               />
             )}
+            {datasourceId && (
+              <Select
+                value={selectedSavedDraftId}
+                onChange={openSavedDraft}
+                placeholder={t('query_builder.saved_query_placeholder')}
+                options={savedDraftOptions}
+                disabled={savedDraftOptions.length === 0}
+                size="sm"
+              />
+            )}
+            {datasourceId && (
+              <div className={qbSavedDraftActionsClass} aria-live="polite">
+                <input
+                  className={cn(
+                    formControlClass,
+                    'min-h-[1.85rem] w-44 max-w-56 rounded-[0.4rem] px-3 py-[0.3rem] text-[0.76rem]',
+                  )}
+                  value={savedDraftName}
+                  onChange={(event) => setSavedDraftName(event.target.value)}
+                  aria-label={t('query_builder.saved_query_name_aria')}
+                  placeholder={t('query_builder.saved_query_name_placeholder')}
+                />
+                <button
+                  type="button"
+                  className={buttonClass('secondary', { size: 'sm', autoWidth: true })}
+                  onClick={saveCurrentDraft}
+                >
+                  {t('query_builder.saved_query_save')}
+                </button>
+                {selectedSavedDraftId && (
+                  <button
+                    type="button"
+                    className={buttonClass('ghost', { size: 'sm', autoWidth: true })}
+                    onClick={deleteSelectedDraft}
+                  >
+                    {t('query_builder.saved_query_delete')}
+                  </button>
+                )}
+                {savedDraftNotice && (
+                  <span className="text-foreground-muted text-xs">{savedDraftNotice}</span>
+                )}
+              </div>
+            )}
           </div>
-          <div
-            className={toggleGroupClass(qbModeToggleClass)}
-            role="group"
-            aria-label={t('query_builder.mode_toggle_aria')}
-          >
-            <button
-              type="button"
-              className={toggleBtnClass(mode === 'simple')}
-              onClick={() => setMode('simple')}
+          <div className={qbHeaderActionsClass}>
+            {datasourceId && (
+              <div
+                className={toggleGroupClass(qbModeToggleClass)}
+                role="group"
+                aria-label={t('query_builder.source_toggle_aria')}
+              >
+                <button
+                  type="button"
+                  className={toggleBtnClass(querySource === 'semantic')}
+                  onClick={() => setQuerySourceMode('semantic')}
+                >
+                  {t('query_builder.source_semantic')}
+                </button>
+                <button
+                  type="button"
+                  className={toggleBtnClass(querySource === 'metadata')}
+                  onClick={() => setQuerySourceMode('metadata')}
+                >
+                  {t('query_builder.source_metadata')}
+                </button>
+              </div>
+            )}
+            <div
+              className={toggleGroupClass(qbModeToggleClass)}
+              role="group"
+              aria-label={t('query_builder.mode_toggle_aria')}
             >
-              {t('query_builder.mode_simple')}
-            </button>
-            <button
-              type="button"
-              className={toggleBtnClass(mode === 'advanced')}
-              onClick={() => setMode('advanced')}
-            >
-              {t('query_builder.mode_advanced')}
-            </button>
+              <button
+                type="button"
+                className={toggleBtnClass(mode === 'simple')}
+                onClick={() => setMode('simple')}
+              >
+                {t('query_builder.mode_simple')}
+              </button>
+              <button
+                type="button"
+                className={toggleBtnClass(mode === 'advanced')}
+                onClick={() => setMode('advanced')}
+              >
+                {t('query_builder.mode_advanced')}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -423,12 +857,14 @@ export default function QueryBuilder() {
           <>
             <QueryBuilderDraftModelWarning
               show={Boolean(
-                modelId && models.find((m) => m.id === modelId)?.status !== 'published',
+                querySource === 'semantic' &&
+                modelId &&
+                models.find((m) => m.id === modelId)?.status !== 'published',
               )}
               t={t}
             />
             <QueryBuilderEmptyModelSetup
-              show={Boolean(datasourceId && models.length === 0)}
+              show={Boolean(querySource === 'semantic' && datasourceId && models.length === 0)}
               generatingModel={generatingModel}
               onCreate={() => {
                 void createSemanticModel()
@@ -436,9 +872,26 @@ export default function QueryBuilder() {
               t={t}
             />
             <QueryBuilderGeneratedModelBanner generatedModel={generatedModel} t={t} />
-            {modelDetail && (
+            {querySource === 'metadata' && datasourceId && !activeModelDetail && (
+              <div className="text-foreground-muted border-border rounded-lg border border-dashed px-4 py-3 text-sm">
+                {metadataColumnsLoading
+                  ? t('query_builder.metadata_loading_columns')
+                  : t('query_builder.metadata_pick_base_table')}
+              </div>
+            )}
+            {activeModelDetail && (
               <QueryBuilderNotebook
-                modelDetail={modelDetail}
+                modelDetail={activeModelDetail}
+                sourceMode={querySource}
+                baseTableKey={resolvedMetadataBaseTableKey}
+                tableOptions={metadataTableOpts}
+                includedTableOptions={includedTableOptions}
+                columnOptionsByTable={metadataColumnOptionsByTable}
+                metadataJoinsEditable={querySource === 'metadata'}
+                onBaseTableChange={setMetadataBaseTable}
+                onAddMetadataJoin={addMetadataJoin}
+                onUpdateMetadataJoin={updateMetadataJoin}
+                onRemoveMetadataJoin={removeMetadataJoin}
                 filters={filters}
                 filterFieldOpts={filterFieldOpts}
                 updateFilter={updateFilter}

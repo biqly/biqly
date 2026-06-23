@@ -1,3 +1,5 @@
+import type { SemanticModelDetail } from '../../types/semantic'
+
 export interface FilterRow {
   id: string
   field: string
@@ -31,10 +33,12 @@ export interface CTERow {
 }
 
 export type QueryBuilderMode = 'simple' | 'advanced'
+export type QueryBuilderSourceMode = 'semantic' | 'metadata'
 
 export interface QueryBuilderFormState {
   datasourceId: string
   modelId: string
+  inlineModel?: SemanticModelDetail
   mode: QueryBuilderMode
   selectItems: SelectItem[]
   filters: FilterRow[]
