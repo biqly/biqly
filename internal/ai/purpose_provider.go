@@ -82,7 +82,7 @@ func (p *PurposeProvider) current(ctx context.Context) providerpkg.Provider {
 	version := p.store.CacheVersion()
 	userKey := ""
 	if resolver != nil {
-		userKey = userConfigCacheKey(ctx)
+		userKey = userConfigCacheKey(ctx, cfg)
 	}
 
 	p.mu.Lock()
@@ -125,8 +125,20 @@ func (p *PurposeProvider) current(ctx context.Context) providerpkg.Provider {
 	return prov
 }
 
-func userConfigCacheKey(ctx context.Context) string {
-	return UserIDFromContext(ctx)
+func userConfigCacheKey(ctx context.Context, cfg config.AIConfig) string {
+	return fmt.Sprintf(
+		"%s\x00%s\x00%s\x00%s\x00%d\x00%d\x00%g\x00%g\x00%d\x00%d",
+		UserIDFromContext(ctx),
+		cfg.Connection.Provider,
+		cfg.Connection.BaseURL,
+		cfg.Connection.Model,
+		cfg.Connection.HTTPTimeoutSeconds,
+		cfg.Generation.MaxTokens,
+		cfg.Generation.Temperature,
+		cfg.Generation.TopP,
+		cfg.Generation.NumCtx,
+		cfg.Generation.MaxPromptInputRunes,
+	)
 }
 
 // notConfiguredProvider is returned when no model is configured in the database
