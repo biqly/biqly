@@ -106,7 +106,43 @@ func NewAIHandler(deps *app.AIDeps) *AIHandler {
 	}
 }
 
-func (h *AIHandler) queryModelUsedLabel() string {
+func queryModelLabelFromUserPreference(
+	ctx context.Context,
+	store *ai.ProviderStore,
+	authClient *bimw.AuthClient,
+	userID string,
+) string {
+	models, prefs, _, err := userSelectableModels(ctx, store, authClient, userID)
+	if err != nil {
+		slog.WarnContext(ctx, "resolve user ai model label failed", "user_id", userID, "error", err)
+		return ""
+	}
+	prefID := strings.TrimSpace(prefs[string(ai.PurposeQuery)])
+	if prefID == "" {
+		return ""
+	}
+	for _, m := range models {
+		if m.ID != prefID {
+			continue
+		}
+		if display := strings.TrimSpace(m.DisplayName); display != "" {
+			return display
+		}
+		if modelID := strings.TrimSpace(m.ModelID); modelID != "" {
+			return modelID
+		}
+	}
+	return ""
+}
+
+func (h *AIHandler) queryModelUsedLabel(ctx context.Context) string {
+	if h.deps.AIProviderStore != nil && h.authClient != nil {
+		if userID := ai.UserIDFromContext(ctx); userID != "" {
+			if label := queryModelLabelFromUserPreference(ctx, h.deps.AIProviderStore, h.authClient, userID); label != "" {
+				return label
+			}
+		}
+	}
 	if h.deps.AIProviderStore != nil {
 		return h.deps.AIProviderStore.ModelLabelForPurpose(ai.PurposeQuery)
 	}
@@ -311,7 +347,7 @@ func (h *AIHandler) processAIQuestion(
 		if resp.Metadata == nil {
 			resp.Metadata = &ai.AIMetadata{}
 		}
-		resp.Metadata.ModelUsed = h.queryModelUsedLabel()
+		resp.Metadata.ModelUsed = h.queryModelUsedLabel(ctx)
 		resp.Metadata.TableRouting = routeResult
 
 		// Populate resolved A/B experiment metadata if tracked

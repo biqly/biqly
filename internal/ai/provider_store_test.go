@@ -224,6 +224,43 @@ func TestPurposeProviderFallsBackWhenUnresolved(t *testing.T) {
 	}
 }
 
+type mutableConfigResolver struct {
+	cfg config.AIConfig
+}
+
+func (r *mutableConfigResolver) ChatConfigForPurpose(context.Context, Purpose) (config.AIConfig, bool) {
+	return r.cfg, true
+}
+
+func TestPurposeProviderRebuildsWhenResolvedUserConfigChanges(t *testing.T) {
+	store := NewProviderStore(nil, nil, &config.AIConfig{})
+	resolver := &mutableConfigResolver{cfg: config.AIConfig{
+		Connection: config.AIConnectionConfig{
+			Provider: "openai",
+			BaseURL:  "https://mimo.example/v1",
+			APIKey:   "test-key",
+			Model:    "mimo-v2.5",
+		},
+	}}
+	pp := NewPurposeProvider(store, PurposeQuery, nil, resolver)
+	ctx := WithUserID(context.Background(), "user-1")
+
+	first := pp.current(ctx)
+	firstKey := pp.builtUserKey
+
+	resolver.cfg.Connection.BaseURL = "https://api.deepseek.com"
+	resolver.cfg.Connection.Model = "deepseek-v4-flash"
+	second := pp.current(ctx)
+	secondKey := pp.builtUserKey
+
+	if first == second {
+		t.Fatal("expected provider to rebuild after resolved user config changed")
+	}
+	if firstKey == secondKey {
+		t.Fatalf("expected cache key to change after model preference update, got %q", secondKey)
+	}
+}
+
 func TestEffectiveConfigForEmbeddings_ClearsEnvWhenUnresolved(t *testing.T) {
 	fallback := config.AIConfig{
 		Connection: config.AIConnectionConfig{BaseURL: "https://api.openai.com/v1"},

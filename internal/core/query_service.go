@@ -349,9 +349,10 @@ func computeTotalCount(ctx context.Context, db *sql.DB, cq *query.CompiledQuery)
 		// No LIMIT clause — no pagination needed.
 		return 0, nil
 	}
-	countSQL := "SELECT COUNT(*) FROM (" + querySQL + ") AS _cnt"
+	// Wraps compiler output; values stay in cq.Args (parameterized).
+	countSQL := "SELECT COUNT(*) FROM (" + querySQL + ") AS _cnt" // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
 	var count int
-	err := db.QueryRowContext(ctx, countSQL, cq.Args...).Scan(&count)
+	err := db.QueryRowContext(ctx, countSQL, cq.Args...).Scan(&count) // nosemgrep: go.lang.security.audit.database.string-formatted-query.string-formatted-query
 	if err != nil {
 		return 0, fmt.Errorf("count query: %w", err)
 	}

@@ -5134,3 +5134,19 @@ Review:
 - DONE 2026-06-22: User Detail now groups “Resend Verification Email” and activate/suspend at the profile card’s top-right, with the account-state action at the far right and a stacked mobile fallback.
 - Verification: `make check-frontend` ✓ (ESLint, Tailwind diagnostics, Prettier, knip, 42 test files / 217 tests, typecheck, production build).
 - Visual QA PARTIAL: the supplied authenticated screenshots guided the layout, but the isolated local browser still lacks an authenticated admin session.
+
+## AI Run Model Selection Bugfix Plan (2026-06-23)
+
+Success criteria:
+
+- AI run requests that include a selectable `model_id` execute with that exact model's provider configuration.
+- Workspace/role defaults and provider fallbacks are used only when the request does not include a model override.
+- AI job metadata and token usage labels reflect the actually selected model, not an unrelated fallback such as `mimo-v2.5`.
+
+- [ ] Reproduce the mismatch with a focused backend test around AI run model resolution.
+- [ ] Fix the model resolver path so explicit request `model_id` wins over defaults/fallbacks.
+- [ ] Verify focused Go tests and the relevant frontend/static gates.
+
+Review:
+
+- Pending.
