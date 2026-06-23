@@ -1,44 +1,6 @@
 import type { AIRuntimeSettings } from '../../types/ai'
 import type { RoutingPanelProps } from './types'
 
-type RoutingTable = RoutingPanelProps['tables'][number]
-
-export function routingTableLabel(table: RoutingTable): string {
-  return table.label ?? `${table.schema_name}.${table.table_name}`
-}
-
-export function filterRoutingTables(
-  tables: RoutingTable[],
-  options: {
-    includeBaseTables: boolean
-    includeViews: boolean
-    tableSearch: string
-  },
-): RoutingTable[] {
-  const tablesInTypeScope = tables.filter((table) => {
-    const typ = (table.table_type ?? '').toUpperCase()
-    if (typ === 'VIEW') {
-      return options.includeViews
-    }
-    if (typ === 'BASE TABLE') {
-      return options.includeBaseTables
-    }
-    return options.includeBaseTables
-  })
-
-  const search = options.tableSearch.trim().toLowerCase()
-  if (!search) {
-    return tablesInTypeScope
-  }
-  return tablesInTypeScope.filter((table) => {
-    const label = routingTableLabel(table)
-    return (
-      label.toLowerCase().includes(search) ||
-      (table.description ?? '').toLowerCase().includes(search)
-    )
-  })
-}
-
 export function routingEmbedButtonLabel(
   t: RoutingPanelProps['t'],
   embeddingLoading: boolean,

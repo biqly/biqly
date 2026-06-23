@@ -157,6 +157,30 @@ export const chatComposerSendIconClass = 'text-[0.75rem] leading-none'
 // ─── @-mention autosuggest (schema-aware prompt) ────────────────────
 export const mentionWrapClass = 'relative'
 
+// Highlight overlay: a mirror layer painted over the textarea that colors the
+// inserted `@field` tokens. The container ignores pointer events (so typing,
+// caret, and selection pass through to the textarea underneath); only the
+// token chips opt back in so their hover tooltip works. Typography MUST match
+// chatComposerInputClass exactly or the colored text drifts from the caret.
+export const mentionHighlightBackdropClass =
+  'pointer-events-none absolute inset-0 z-[1] overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] p-[0.15rem_0.1rem] text-[0.92rem] leading-normal text-foreground select-none'
+
+export const mentionTokenChipClass =
+  'pointer-events-auto cursor-help rounded-[0.25rem] bg-accent/20 text-accent font-medium [box-decoration-break:clone]'
+
+// Rich hover card for an inserted `@field` token (replaces the native title).
+export const mentionTokenTooltipClass =
+  'pointer-events-none absolute z-40 max-w-[22rem] min-w-[12rem] flex flex-col gap-1 rounded-lg border border-border bg-card-raised p-2.5 shadow-card animate-[popoverFadeIn_0.12s_cubic-bezier(0.16,1,0.3,1)]'
+
+export const mentionTokenTooltipHeadClass = 'flex items-center gap-2'
+
+export const mentionTokenTooltipLabelClass = 'text-[0.84rem] font-semibold text-foreground'
+
+export const mentionTokenTooltipRefClass =
+  'font-mono text-[0.72rem] text-accent [overflow-wrap:anywhere]'
+
+export const mentionTokenTooltipDescClass = 'text-[0.74rem] leading-snug text-foreground-muted'
+
 export const mentionListClass =
   'absolute bottom-full left-0 right-0 mb-2 z-30 max-h-64 overflow-y-auto rounded-xl border border-border bg-card-raised shadow-card animate-[popoverFadeIn_0.14s_cubic-bezier(0.16,1,0.3,1)]'
 
@@ -175,7 +199,9 @@ export const mentionItemTypeClass =
 
 export const mentionItemLabelClass = 'block truncate text-[0.84rem] font-medium'
 
-export const mentionItemHintClass = 'block truncate text-[0.7rem] opacity-80'
+export const mentionItemRefClass = 'block truncate font-mono text-[0.7rem] opacity-90'
+
+export const mentionItemHintClass = 'block truncate text-[0.7rem] opacity-70'
 
 export const pastQueriesToggleClass =
   'inline-flex items-center gap-[0.4rem] text-[0.78rem] text-foreground-muted cursor-pointer select-none'

@@ -72,11 +72,6 @@ export default function AIQuery() {
   const { models: semanticModels } = useSemanticModels(datasourceId)
   const [semanticModelId, setSemanticModelId] = useState<string>('')
   const [composites, setComposites] = useState<CompositeModelSummary[]>([])
-  const [selectedTables, setSelectedTables] = useState<string[]>([])
-  const [tableSearch, setTableSearch] = useState('')
-  const [includeBaseTables, setIncludeBaseTables] = useState(true)
-  const [includeViews, setIncludeViews] = useState(true)
-  const [autoTableRouting, setAutoTableRouting] = useState(true)
   const [question, setQuestion] = useState(
     () => (location.state as { question?: string } | null)?.question ?? '',
   )
@@ -150,10 +145,6 @@ export default function AIQuery() {
     (id: string) => {
       setSelectedDatasourceId(id)
       setDsParam(id)
-      setSelectedTables([])
-      setTableSearch('')
-      setIncludeBaseTables(true)
-      setIncludeViews(true)
       setTables([])
       setEmbeddingStatus(null)
       setSemanticModelId('')
@@ -204,33 +195,6 @@ export default function AIQuery() {
       controller.abort()
     }
   }, [datasourceId, get])
-
-  const tableLabel = (table: TableOption) =>
-    table.label ?? `${table.schema_name}.${table.table_name}`
-
-  const tablesInTypeScope = useMemo(
-    () =>
-      tables.filter((table) => {
-        const typ = (table.table_type ?? '').toUpperCase()
-        if (typ === 'VIEW') {
-          return includeViews
-        }
-        if (typ === 'BASE TABLE') {
-          return includeBaseTables
-        }
-        return includeBaseTables
-      }),
-    [tables, includeBaseTables, includeViews],
-  )
-
-  const allowedLabels = useMemo(
-    () => new Set(tablesInTypeScope.map((t) => tableLabel(t))),
-    [tablesInTypeScope],
-  )
-  const effectiveSelectedTables = useMemo(
-    () => selectedTables.filter((label) => allowedLabels.has(label)),
-    [selectedTables, allowedLabels],
-  )
 
   const recentPriorTurns = useMemo(() => {
     if (!activeConversation) {
@@ -356,9 +320,10 @@ export default function AIQuery() {
       question: q,
       clarification_choice: clarificationChoice,
       clarification_round: clarificationRound > 0 ? clarificationRound : undefined,
-      tables: autoTableRouting ? undefined : effectiveSelectedTables,
-      include_base_tables: includeBaseTables,
-      include_views: includeViews,
+      // Table routing is always automatic now; @-mentions pin specific fields.
+      tables: undefined,
+      include_base_tables: true,
+      include_views: true,
       conversation_id: conversationId,
       prior_turns: activeConversation?.context_enabled !== false ? recentPriorTurns : undefined,
     }
@@ -599,17 +564,6 @@ export default function AIQuery() {
           semanticModelId={semanticModelId}
           setSemanticModelId={setSemanticModelId}
           composites={composites}
-          tables={tables}
-          selectedTables={effectiveSelectedTables}
-          setSelectedTables={setSelectedTables}
-          tableSearch={tableSearch}
-          setTableSearch={setTableSearch}
-          includeBaseTables={includeBaseTables}
-          setIncludeBaseTables={setIncludeBaseTables}
-          includeViews={includeViews}
-          setIncludeViews={setIncludeViews}
-          autoTableRouting={autoTableRouting}
-          setAutoTableRouting={setAutoTableRouting}
           embeddingStatus={embeddingStatus}
           embeddingError={embeddingError}
           embeddingLoading={embeddingLoading}

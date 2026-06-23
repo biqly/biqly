@@ -2,7 +2,6 @@ import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { legacyFormClass } from '../../lib/formClasses'
-import { toggleBtnClass, toggleGroupClass } from '../../lib/toggleClasses'
 import { ModelBadgeRow } from '../ui/ModelBadgeRow'
 import { Select } from '../ui/Select'
 import {
@@ -13,15 +12,8 @@ import {
   queryConfigHeaderClass,
   queryConfigTopClass,
   queryControlsClass,
-  routingToggleRowBtnClass,
-  routingToggleRowGroupClass,
 } from './aiQueryClasses'
-import { RoutingPanelManualScope } from './RoutingPanelManualScope'
-import {
-  filterRoutingTables,
-  resolveRoutingModelBadges,
-  routingEmbedButtonLabel,
-} from './routingPanelUtils'
+import { resolveRoutingModelBadges, routingEmbedButtonLabel } from './routingPanelUtils'
 import type { RoutingPanelProps } from './types'
 export function RoutingPanel({
   t,
@@ -34,17 +26,6 @@ export function RoutingPanel({
   semanticModelId,
   setSemanticModelId,
   composites,
-  tables,
-  selectedTables,
-  setSelectedTables,
-  tableSearch,
-  setTableSearch,
-  includeBaseTables,
-  setIncludeBaseTables,
-  includeViews,
-  setIncludeViews,
-  autoTableRouting,
-  setAutoTableRouting,
   embeddingStatus,
   embeddingError,
   embeddingLoading,
@@ -53,12 +34,6 @@ export function RoutingPanel({
   semanticModelName,
   onRefreshEmbeddings,
 }: RoutingPanelProps) {
-  const filteredTables = filterRoutingTables(tables, {
-    includeBaseTables,
-    includeViews,
-    tableSearch,
-  })
-
   const embedButtonLabel = routingEmbedButtonLabel(
     t,
     embeddingLoading,
@@ -129,69 +104,28 @@ export function RoutingPanel({
         </div>
         <div className={legacyFormClass('form-group')}>
           <label htmlFor="ai-semantic-model">{t('ai_query.semantic_model_label')}</label>
-          <div className="flex items-stretch gap-3">
-            <Select
-              id="ai-semantic-model"
-              value={semanticModelId}
-              onChange={setSemanticModelId}
-              placeholder={t('ai_query.semantic_model_auto')}
-              header={t('ai_query.semantic_model_header')}
-              options={[
-                { value: '', label: t('ai_query.semantic_model_auto') },
-                ...semanticModels.map((m) => ({
-                  value: m.id,
-                  label: m.label ?? m.name,
-                  hint: m.status,
-                })),
-                ...(composites ?? []).map((c) => ({
-                  value: `composite:${c.id}`,
-                  label: `⧉ ${c.label ?? c.name}`,
-                  hint: c.status,
-                })),
-              ]}
-            />
-            <div className="flex items-center self-stretch">
-              <div
-                className={toggleGroupClass(routingToggleRowGroupClass)}
-                role="group"
-                aria-label={t('ai_query.table_routing_label')}
-              >
-                <button
-                  type="button"
-                  className={toggleBtnClass(autoTableRouting, routingToggleRowBtnClass)}
-                  onClick={() => setAutoTableRouting(true)}
-                >
-                  {t('ai_query.table_routing_auto')}
-                </button>
-                <button
-                  type="button"
-                  className={toggleBtnClass(!autoTableRouting, routingToggleRowBtnClass)}
-                  onClick={() => setAutoTableRouting(false)}
-                >
-                  {t('ai_query.table_routing_manual')}
-                </button>
-              </div>
-            </div>
-          </div>
+          <Select
+            id="ai-semantic-model"
+            value={semanticModelId}
+            onChange={setSemanticModelId}
+            placeholder={t('ai_query.semantic_model_auto')}
+            header={t('ai_query.semantic_model_header')}
+            options={[
+              { value: '', label: t('ai_query.semantic_model_auto') },
+              ...semanticModels.map((m) => ({
+                value: m.id,
+                label: m.label ?? m.name,
+                hint: m.status,
+              })),
+              ...(composites ?? []).map((c) => ({
+                value: `composite:${c.id}`,
+                label: `⧉ ${c.label ?? c.name}`,
+                hint: c.status,
+              })),
+            ]}
+          />
         </div>
       </div>
-
-      {!autoTableRouting && (
-        <RoutingPanelManualScope
-          t={t}
-          datasourceId={datasourceId}
-          tables={tables}
-          includeBaseTables={includeBaseTables}
-          setIncludeBaseTables={setIncludeBaseTables}
-          includeViews={includeViews}
-          setIncludeViews={setIncludeViews}
-          tableSearch={tableSearch}
-          setTableSearch={setTableSearch}
-          selectedTables={selectedTables}
-          setSelectedTables={setSelectedTables}
-          filteredTables={filteredTables}
-        />
-      )}
     </header>
   )
 }

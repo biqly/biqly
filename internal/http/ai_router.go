@@ -102,6 +102,14 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	r.With(aiUserMW, dsAccess).Post("/ai/query/run", aiHandler.Run)
 	r.With(aiUserMW, dsAccess).Post("/ai/metadata/describe", aiHandler.Describe)
 	r.With(aiUserMW, dsAccess).Post("/ai/metadata/embed", aiHandler.EmbedMetadata)
+	// Backfills locale translations for a semantic model's label/description and
+	// those of its dimensions/metrics into entity_translations (LLM only when
+	// missing); the catalog model-read overlays them. Authenticated via the
+	// /api group's authMW; aiUserMW keeps it consistent with the AI-user route
+	// family. No per-model datasource ACL — matches the unguarded GetModel read
+	// posture, and the endpoint discloses no model data (returns only a count)
+	// while writes are an idempotent, bounded TR rendering of the model's own text.
+	r.With(aiUserMW).Post("/ai/semantic/models/{id}/translate", aiHandler.TranslateSemanticModel)
 	r.Get("/ai/settings", aiHandler.RuntimeSettings)
 	r.Get("/ai/user-models", aiHandler.UserAIModels)
 	r.Put("/ai/user-preferences", aiHandler.PutUserAIPreferences)

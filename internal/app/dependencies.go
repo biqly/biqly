@@ -62,10 +62,13 @@ type Dependencies struct {
 	// cheaper local model on AIClient.
 	AIQueryClient providerpkg.Provider
 	AIDescriber   *ai.DescribeService
-	Encryptor     *security.Encryption
-	EvalRepo      *evalpkg.EvalRepository
-	AuditLogger   *audit.Logger
-	PIIPolicies   *core.PIIPolicyService
+	// Translator localizes metadata/semantic free-text into the configured
+	// target language. nil when the translation layer is not configured.
+	Translator  *ai.TranslationService
+	Encryptor   *security.Encryption
+	EvalRepo    *evalpkg.EvalRepository
+	AuditLogger *audit.Logger
+	PIIPolicies *core.PIIPolicyService
 	// Embedder is the embeddings provider used for vector-based table
 	// retrieval. nil when no API key is configured — callers MUST tolerate
 	// nil (the table router falls back to keyword scoring).
@@ -145,6 +148,7 @@ type AIDeps struct {
 	AIClient        providerpkg.Provider
 	AIQueryClient   providerpkg.Provider
 	AIDescriber     *ai.DescribeService
+	Translator      *ai.TranslationService
 	Encryptor       *security.Encryption
 	EvalRepo        *evalpkg.EvalRepository
 	AuditLogger     *audit.Logger
@@ -177,6 +181,7 @@ func (d *Dependencies) AIDeps() *AIDeps {
 		AIClient:        d.AIClient,
 		AIQueryClient:   d.AIQueryClient,
 		AIDescriber:     d.AIDescriber,
+		Translator:      d.Translator,
 		Encryptor:       d.Encryptor,
 		EvalRepo:        d.EvalRepo,
 		AuditLogger:     d.AuditLogger,
@@ -320,6 +325,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		AIClient:        aiBits.client,
 		AIQueryClient:   aiBits.queryClient,
 		AIDescriber:     aiBits.describer,
+		Translator:      aiBits.translator,
 		Encryptor:       encryptor,
 		EvalRepo:        aiBits.evalRepo,
 		AuditLogger:     auditLogger,
@@ -381,6 +387,7 @@ type aiBundle struct {
 	describePP    *ai.PurposeProvider
 	queryPP       *ai.PurposeProvider
 	describer     *ai.DescribeService
+	translator    *ai.TranslationService
 	embedder      ai.Embedder
 	embedMeta     *ai.EmbedMetadataService
 	evalRepo      *evalpkg.EvalRepository
@@ -478,6 +485,7 @@ func setupAI(
 		describePP:    describePP,
 		queryPP:       queryPP,
 		describer:     describer,
+		translator:    translator,
 		embedder:      embedder,
 		embedMeta:     embedMeta,
 		evalRepo:      evalRepo,
