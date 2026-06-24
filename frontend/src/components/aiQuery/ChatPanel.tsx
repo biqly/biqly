@@ -49,6 +49,45 @@ import { PromptTextarea } from './PromptTextarea'
 import { formatAiWaitElapsed } from './routingViz'
 import type { ChatPanelProps } from './types'
 import { AI_QUERY_TIMEOUT_MS } from './types'
+
+function scrollChatFeed({
+  feed,
+  messages,
+  currentCount,
+  prevConversationId,
+  currentConversationId,
+  prevMessageCount,
+}: {
+  feed: HTMLDivElement
+  messages: {
+    role?: string
+    ai_response?: { needs_clarification?: boolean | null } | null
+  }[]
+  currentCount: number
+  prevConversationId: string | undefined
+  currentConversationId: string | undefined
+  prevMessageCount: number
+}) {
+  const isSameConv = prevConversationId === currentConversationId
+  const behavior: ScrollBehavior = isSameConv && currentCount > prevMessageCount ? 'smooth' : 'auto'
+  const lastMessage = messages[currentCount - 1]
+  const lastNeedsClarification =
+    lastMessage?.role === 'assistant' && Boolean(lastMessage.ai_response?.needs_clarification)
+  const target = lastNeedsClarification
+    ? feed.querySelector<HTMLElement>(`[data-message-index="${currentCount - 1}"]`)
+    : null
+  if (target) {
+    const feedRect = feed.getBoundingClientRect()
+    const targetRect = target.getBoundingClientRect()
+    feed.scrollTo({
+      top: feed.scrollTop + (targetRect.top - feedRect.top) - 8,
+      behavior,
+    })
+  } else {
+    feed.scrollTo({ top: feed.scrollHeight, behavior })
+  }
+}
+
 interface TypingIndicatorProps {
   queryAction: string | null
   aiElapsedMs: number
@@ -162,27 +201,14 @@ export function ChatPanel({
     const currentCount = messages.length
 
     if (feed) {
-      const isSameConv = prevConvIdRef.current === currentId
-      const behavior: ScrollBehavior =
-        isSameConv && currentCount > prevMsgCountRef.current ? 'smooth' : 'auto'
-
-      const lastMessage = messages[currentCount - 1]
-      const lastNeedsClarification =
-        lastMessage?.role === 'assistant' && Boolean(lastMessage.ai_response?.needs_clarification)
-      const target = lastNeedsClarification
-        ? feed.querySelector<HTMLElement>(`[data-message-index="${currentCount - 1}"]`)
-        : null
-
-      if (target) {
-        const feedRect = feed.getBoundingClientRect()
-        const targetRect = target.getBoundingClientRect()
-        feed.scrollTo({
-          top: feed.scrollTop + (targetRect.top - feedRect.top) - 8,
-          behavior,
-        })
-      } else {
-        feed.scrollTo({ top: feed.scrollHeight, behavior })
-      }
+      scrollChatFeed({
+        feed,
+        messages,
+        currentCount,
+        prevConversationId: prevConvIdRef.current,
+        currentConversationId: currentId,
+        prevMessageCount: prevMsgCountRef.current,
+      })
     }
 
     prevConvIdRef.current = currentId
