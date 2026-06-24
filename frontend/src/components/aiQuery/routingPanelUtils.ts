@@ -16,19 +16,18 @@ export function routingEmbedButtonLabel(
   return t('ai_query.embed_refresh')
 }
 
-function activeModelFor(
-  aiRuntime: AIRuntimeSettings | null | undefined,
-  purpose: 'query' | 'embedding' | 'translation',
-) {
-  return aiRuntime?.active_models?.find((m) => m.purpose === purpose)
+function activeModelsByPurpose(aiRuntime: AIRuntimeSettings | null | undefined) {
+  const models = aiRuntime?.active_models ?? []
+  return new Map(models.map((m) => [m.purpose, m] as const))
 }
 
 function resolveQueryBadge(
-  aiRuntime: AIRuntimeSettings | null | undefined,
+  activeModels: Map<string, NonNullable<AIRuntimeSettings['active_models']>[number]>,
   t: RoutingPanelProps['t'],
   dbManaged: boolean,
+  aiRuntime: AIRuntimeSettings | null | undefined,
 ) {
-  const activeQuery = activeModelFor(aiRuntime, 'query')
+  const activeQuery = activeModels.get('query')
   const queryModel =
     dbManaged && activeQuery
       ? activeQuery.display_name
@@ -46,10 +45,11 @@ function resolveQueryBadge(
 }
 
 function resolveEmbeddingBadge(
-  aiRuntime: AIRuntimeSettings | null | undefined,
+  activeModels: Map<string, NonNullable<AIRuntimeSettings['active_models']>[number]>,
   dbManaged: boolean,
+  aiRuntime: AIRuntimeSettings | null | undefined,
 ) {
-  const activeEmbedding = activeModelFor(aiRuntime, 'embedding')
+  const activeEmbedding = activeModels.get('embedding')
   const embeddingsAvailable = dbManaged
     ? Boolean(activeEmbedding?.model_id.trim())
     : aiRuntime?.embeddings_enabled === true
@@ -63,10 +63,11 @@ function resolveEmbeddingBadge(
 }
 
 function resolveTranslationBadge(
-  aiRuntime: AIRuntimeSettings | null | undefined,
+  activeModels: Map<string, NonNullable<AIRuntimeSettings['active_models']>[number]>,
   dbManaged: boolean,
+  aiRuntime: AIRuntimeSettings | null | undefined,
 ) {
-  const activeTranslation = activeModelFor(aiRuntime, 'translation')
+  const activeTranslation = activeModels.get('translation')
   const translationBadge = dbManaged
     ? activeTranslation?.display_name
     : aiRuntime?.translation_enabled
@@ -81,9 +82,10 @@ export function resolveRoutingModelBadges(
   t: RoutingPanelProps['t'],
 ) {
   const dbManaged = aiRuntime?.db_managed === true
+  const activeModels = activeModelsByPurpose(aiRuntime)
   return {
-    ...resolveQueryBadge(aiRuntime, t, dbManaged),
-    ...resolveEmbeddingBadge(aiRuntime, dbManaged),
-    ...resolveTranslationBadge(aiRuntime, dbManaged),
+    ...resolveQueryBadge(activeModels, t, dbManaged, aiRuntime),
+    ...resolveEmbeddingBadge(activeModels, dbManaged, aiRuntime),
+    ...resolveTranslationBadge(activeModels, dbManaged, aiRuntime),
   }
 }

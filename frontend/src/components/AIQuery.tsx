@@ -38,6 +38,33 @@ import type { TableOption } from './aiQuery/types'
 import { AI_METADATA_EMBED_TIMEOUT_MS, AI_QUERY_TIMEOUT_MS } from './aiQuery/types'
 import { useAuth } from './auth/AuthProvider'
 
+function buildAIQueryRequest(args: {
+  datasourceId: string
+  semanticModelId: string
+  clarificationRound: number
+  contextEnabled: boolean
+  recentPriorTurns: PriorTurn[] | undefined
+  question: string
+  conversationId: string
+  clarificationChoice?: string
+}): AIQueryRequest {
+  const isComposite = args.semanticModelId.startsWith('composite:')
+  return {
+    datasource_id: args.datasourceId,
+    model_id: isComposite ? undefined : args.semanticModelId || undefined,
+    composite_id: isComposite ? args.semanticModelId.slice('composite:'.length) : undefined,
+    question: args.question,
+    clarification_choice: args.clarificationChoice,
+    clarification_round: args.clarificationRound > 0 ? args.clarificationRound : undefined,
+    // Table routing is always automatic now; @-mentions pin specific fields.
+    tables: undefined,
+    include_base_tables: true,
+    include_views: true,
+    conversation_id: args.conversationId,
+    prior_turns: args.contextEnabled ? args.recentPriorTurns : undefined,
+  }
+}
+
 export default function AIQuery() {
   const t = useT()
   const [locale] = useLocale()
@@ -311,23 +338,17 @@ export default function AIQuery() {
     q: string,
     conversationId: string,
     clarificationChoice?: string,
-  ): AIQueryRequest => {
-    const isComposite = semanticModelId.startsWith('composite:')
-    return {
-      datasource_id: datasourceId,
-      model_id: isComposite ? undefined : semanticModelId || undefined,
-      composite_id: isComposite ? semanticModelId.slice('composite:'.length) : undefined,
+  ): AIQueryRequest =>
+    buildAIQueryRequest({
+      datasourceId,
+      semanticModelId,
+      clarificationRound,
+      contextEnabled: activeConversation?.context_enabled !== false,
+      recentPriorTurns,
       question: q,
-      clarification_choice: clarificationChoice,
-      clarification_round: clarificationRound > 0 ? clarificationRound : undefined,
-      // Table routing is always automatic now; @-mentions pin specific fields.
-      tables: undefined,
-      include_base_tables: true,
-      include_views: true,
-      conversation_id: conversationId,
-      prior_turns: activeConversation?.context_enabled !== false ? recentPriorTurns : undefined,
-    }
-  }
+      conversationId,
+      clarificationChoice,
+    })
 
   const assistantContentFor = useCallback(
     (flat: AIQueryResponse): string => {

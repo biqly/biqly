@@ -22,9 +22,10 @@ import (
 )
 
 const (
-	integrationToken = "integration-secret"
-	integrationDSID  = "ds_1"
-	integrationModel = "orders"
+	integrationToken                  = "integration-secret"
+	integrationDSID                   = "ds_1"
+	integrationModel                  = "orders"
+	integrationLogicalQueryFilterDate = "2026-01-01"
 	//nolint:gosec // test fixture DSN, not a real credential
 	plaintextProbeDSN = "postgres://user:supersecret@localhost:5432/db"
 )
@@ -226,7 +227,7 @@ func integrationLogicalQuery() query.LogicalQuery {
 			{Type: query.SelectTypeDimension, Name: "country"},
 			{Type: query.SelectTypeMetric, Name: "order_count"},
 		},
-		Filters: []query.Filter{{Field: "created_at", Operator: query.OpGte, Value: "2026-01-01"}},
+		Filters: []query.Filter{{Field: "created_at", Operator: query.OpGte, Value: integrationLogicalQueryFilterDate}},
 		GroupBy: []query.GroupBy{{Field: "country"}},
 		OrderBy: []query.OrderBy{{Field: "order_count", Direction: query.OrderDesc}},
 		Limit:   100,

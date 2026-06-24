@@ -15,11 +15,13 @@ import (
 func TestQueryHandlerIntegration_CompileAndRun(t *testing.T) {
 	t.Parallel()
 
+	const expectedCountryCode = "TR"
 	handler := &QueryHandler{query: integrationQueryRunner{}}
 	router := chi.NewRouter()
 	router.Post("/api/query/compile", handler.Compile)
 	router.Post("/api/query/run", handler.Run)
 
+	expectedDate := integrationLogicalQueryFilterDate
 	body, err := sonic.ConfigStd.Marshal(integrationLogicalQuery())
 	if err != nil {
 		t.Fatalf("marshal logical query: %v", err)
@@ -44,8 +46,8 @@ func TestQueryHandlerIntegration_CompileAndRun(t *testing.T) {
 	if !strings.Contains(compiled.SQL, `LEFT JOIN "public"."customers"`) {
 		t.Fatalf("compile sql missing customer join: %s", compiled.SQL)
 	}
-	if len(compiled.Args) != 1 || compiled.Args[0] != "2026-01-01" {
-		t.Fatalf("compile args: got %#v, want [2026-01-01]", compiled.Args)
+	if len(compiled.Args) != 1 || compiled.Args[0] != expectedDate {
+		t.Fatalf("compile args: got %#v, want [%s]", compiled.Args, expectedDate)
 	}
 
 	runRec := httptest.NewRecorder()
@@ -66,8 +68,8 @@ func TestQueryHandlerIntegration_CompileAndRun(t *testing.T) {
 	if err := sonic.ConfigStd.Unmarshal(runRec.Body.Bytes(), &result); err != nil {
 		t.Fatalf("decode run response: %v", err)
 	}
-	if result.Stats.RowCount != 1 || len(result.Rows) != 1 || result.Rows[0][0] != "TR" {
-		t.Fatalf("run result: got row_count=%d rows=%#v", result.Stats.RowCount, result.Rows)
+	if result.Stats.RowCount != 1 || len(result.Rows) != 1 || result.Rows[0][0] != expectedCountryCode {
+		t.Fatalf("run result: got row_count=%d rows=%#v, want first country code=%s", result.Stats.RowCount, result.Rows, expectedCountryCode)
 	}
 	if len(result.Columns) != 1 || result.Columns[0].Name != "country" {
 		t.Fatalf("run columns: got %#v", result.Columns)
