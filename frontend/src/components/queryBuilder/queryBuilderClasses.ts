@@ -25,16 +25,26 @@ const qbStepCardTheme: Record<string, string> = {
 
 export const qbCardClass = 'rounded-2xl border border-border bg-card p-5 pb-[1.6rem] shadow-card'
 
-export const qbHeaderClass =
-  'mb-6 flex flex-nowrap items-center justify-between gap-4 border-b border-border pb-4 max-[720px]:flex-wrap'
+// Header is now a vertical stack of two labeled-group rows (data/saved, then
+// options). Each row groups controls with a shared visual rhythm.
+export const qbHeaderClass = 'mb-6 flex flex-col gap-[1.1rem] border-b border-border pb-5'
 
-export const qbPickersClass =
-  'flex min-w-0 flex-1 flex-nowrap items-center gap-[0.65rem] max-[720px]:w-full max-[720px]:flex-wrap [&_.ui-select]:min-w-36 [&_.ui-select]:max-w-64 [&_.ui-select]:flex-[0_1_auto] max-[720px]:[&_.ui-select]:max-w-none max-[720px]:[&_.ui-select]:min-w-48 max-[720px]:[&_.ui-select]:flex-[1_1_12rem]'
+// A row that lays several labeled groups side by side, wrapping on small screens.
+export const qbHeaderRowClass =
+  'flex min-w-0 flex-wrap items-end gap-x-6 gap-y-3 max-[720px]:flex-col max-[720px]:items-stretch'
 
-export const qbHeaderActionsClass =
-  'flex shrink-0 items-center gap-2 max-[720px]:w-full max-[720px]:justify-between'
+// A labeled group shell: uppercase caption label above the control(s).
+export const qbHeaderGroupClass =
+  'flex min-w-0 flex-col gap-[0.4rem] [&_.ui-select]:min-w-36 [&_.ui-select]:max-w-64 [&_.ui-select]:flex-[0_1_auto] max-[720px]:[&_.ui-select]:max-w-none max-[720px]:[&_.ui-select]:flex-[1_1_12rem]'
 
-export const qbSavedDraftActionsClass = 'flex shrink-0 items-center gap-2'
+export const qbHeaderLabelClass =
+  'text-foreground-muted font-[family-name:var(--font-display,"Plus_Jakarta_Sans",sans-serif)] text-[0.66rem] font-bold tracking-[0.08em] uppercase'
+
+// Inline cluster of controls inside a group (datasource+model, save actions, ...).
+export const qbHeaderControlsClass =
+  'flex min-w-0 flex-wrap items-center gap-[0.55rem] max-[720px]:w-full'
+
+export const qbSavedDraftActionsClass = 'flex min-w-0 flex-wrap items-center gap-2'
 
 export const qbModeToggleClass = 'shrink-0'
 

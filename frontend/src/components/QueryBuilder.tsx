@@ -37,10 +37,12 @@ import {
 } from './queryBuilder/metadataModel'
 import {
   qbCardClass,
-  qbHeaderActionsClass,
   qbHeaderClass,
+  qbHeaderControlsClass,
+  qbHeaderGroupClass,
+  qbHeaderLabelClass,
+  qbHeaderRowClass,
   qbModeToggleClass,
-  qbPickersClass,
   qbSavedDraftActionsClass,
   qbSqlCardHeadClass,
 } from './queryBuilder/queryBuilderClasses'
@@ -720,132 +722,159 @@ export default function QueryBuilder() {
   return (
     <div className={legacyLayoutClass('page-stack')}>
       <div className={cn(cardClass(), qbCardClass)}>
-        {/* Header Breadcrumbs and Mode selector */}
+        {/* Header — labeled groups split across two rows: data/saved, then options */}
         <div className={qbHeaderClass}>
-          <div className={qbPickersClass}>
-            <Select
-              value={datasourceId}
-              onChange={setDatasourceId}
-              placeholder={t('query_builder.placeholder_pick_datasource')}
-              options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
-              size="sm"
-            />
-            {datasourceId && querySource === 'semantic' && models.length > 0 && (
-              <Select
-                value={modelId}
-                onChange={setSelectedModelId}
-                placeholder={t('query_builder.placeholder_pick_model')}
-                disabled={models.length === 0}
-                options={models.map((m) => ({
-                  value: m.id,
-                  label: modelListLabel(m),
-                  hint: modelListHint(m),
-                }))}
-                size="sm"
-              />
-            )}
-            {datasourceId && activeModelDetail && (
-              <Select
-                value={fieldLabelMode}
-                onChange={setFieldLabelMode}
-                options={[
-                  { value: 'human', label: t('query_builder.label_mode_human') || 'Display Names' },
-                  {
-                    value: 'technical',
-                    label: t('query_builder.label_mode_technical') || 'Technical Names',
-                  },
-                ]}
-                size="sm"
-              />
-            )}
-            {datasourceId && (
-              <Select
-                value={selectedSavedDraftId}
-                onChange={openSavedDraft}
-                placeholder={t('query_builder.saved_query_placeholder')}
-                options={savedDraftOptions}
-                disabled={savedDraftOptions.length === 0}
-                size="sm"
-              />
-            )}
-            {datasourceId && (
-              <div className={qbSavedDraftActionsClass} aria-live="polite">
-                <input
-                  className={cn(
-                    formControlClass,
-                    'min-h-[1.85rem] w-44 max-w-56 rounded-[0.4rem] px-3 py-[0.3rem] text-[0.76rem]',
-                  )}
-                  value={savedDraftName}
-                  onChange={(event) => setSavedDraftName(event.target.value)}
-                  aria-label={t('query_builder.saved_query_name_aria')}
-                  placeholder={t('query_builder.saved_query_name_placeholder')}
+          {/* Row 1 — data source + saved queries */}
+          <div className={qbHeaderRowClass}>
+            <div className={qbHeaderGroupClass}>
+              <span className={qbHeaderLabelClass}>{t('query_builder.group_data_source')}</span>
+              <div className={qbHeaderControlsClass}>
+                <Select
+                  value={datasourceId}
+                  onChange={setDatasourceId}
+                  placeholder={t('query_builder.placeholder_pick_datasource')}
+                  options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+                  size="sm"
                 />
-                <button
-                  type="button"
-                  className={buttonClass('secondary', { size: 'sm', autoWidth: true })}
-                  onClick={saveCurrentDraft}
-                >
-                  {t('query_builder.saved_query_save')}
-                </button>
-                {selectedSavedDraftId && (
+                {datasourceId && querySource === 'semantic' && models.length > 0 && (
+                  <Select
+                    value={modelId}
+                    onChange={setSelectedModelId}
+                    placeholder={t('query_builder.placeholder_pick_model')}
+                    disabled={models.length === 0}
+                    options={models.map((m) => ({
+                      value: m.id,
+                      label: modelListLabel(m),
+                      hint: modelListHint(m),
+                    }))}
+                    size="sm"
+                  />
+                )}
+              </div>
+            </div>
+            {datasourceId && (
+              <div className={qbHeaderGroupClass}>
+                <span className={qbHeaderLabelClass}>{t('query_builder.group_saved_queries')}</span>
+                <div className={qbSavedDraftActionsClass} aria-live="polite">
+                  <Select
+                    value={selectedSavedDraftId}
+                    onChange={openSavedDraft}
+                    placeholder={t('query_builder.saved_query_placeholder')}
+                    options={savedDraftOptions}
+                    disabled={savedDraftOptions.length === 0}
+                    size="sm"
+                  />
+                  <input
+                    className={cn(
+                      formControlClass,
+                      'min-h-[1.85rem] w-44 max-w-56 rounded-[0.4rem] px-3 py-[0.3rem] text-[0.76rem]',
+                    )}
+                    value={savedDraftName}
+                    onChange={(event) => setSavedDraftName(event.target.value)}
+                    aria-label={t('query_builder.saved_query_name_aria')}
+                    placeholder={t('query_builder.saved_query_name_placeholder')}
+                  />
                   <button
                     type="button"
-                    className={buttonClass('ghost', { size: 'sm', autoWidth: true })}
-                    onClick={deleteSelectedDraft}
+                    className={buttonClass('secondary', { size: 'sm', autoWidth: true })}
+                    onClick={saveCurrentDraft}
                   >
-                    {t('query_builder.saved_query_delete')}
+                    {t('query_builder.saved_query_save')}
                   </button>
-                )}
-                {savedDraftNotice && (
-                  <span className="text-foreground-muted text-xs">{savedDraftNotice}</span>
-                )}
+                  {selectedSavedDraftId && (
+                    <button
+                      type="button"
+                      className={buttonClass('ghost', { size: 'sm', autoWidth: true })}
+                      onClick={deleteSelectedDraft}
+                    >
+                      {t('query_builder.saved_query_delete')}
+                    </button>
+                  )}
+                  {savedDraftNotice && (
+                    <span className="text-foreground-muted ml-auto text-xs">
+                      {savedDraftNotice}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
-          <div className={qbHeaderActionsClass}>
-            {datasourceId && (
-              <div
-                className={toggleGroupClass(qbModeToggleClass)}
-                role="group"
-                aria-label={t('query_builder.source_toggle_aria')}
-              >
-                <button
-                  type="button"
-                  className={toggleBtnClass(querySource === 'semantic')}
-                  onClick={() => setQuerySourceMode('semantic')}
+
+          {/* Row 2 — options: source / mode / field labels */}
+          {(datasourceId || activeModelDetail) && (
+            <div className={qbHeaderRowClass}>
+              {datasourceId && (
+                <div className={qbHeaderGroupClass}>
+                  <span className={qbHeaderLabelClass}>
+                    {t('query_builder.source_toggle_aria')}
+                  </span>
+                  <div
+                    className={toggleGroupClass(qbModeToggleClass)}
+                    role="group"
+                    aria-label={t('query_builder.source_toggle_aria')}
+                  >
+                    <button
+                      type="button"
+                      className={toggleBtnClass(querySource === 'semantic')}
+                      onClick={() => setQuerySourceMode('semantic')}
+                    >
+                      {t('query_builder.source_semantic')}
+                    </button>
+                    <button
+                      type="button"
+                      className={toggleBtnClass(querySource === 'metadata')}
+                      onClick={() => setQuerySourceMode('metadata')}
+                    >
+                      {t('query_builder.source_metadata')}
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className={qbHeaderGroupClass}>
+                <span className={qbHeaderLabelClass}>{t('query_builder.mode_toggle_aria')}</span>
+                <div
+                  className={toggleGroupClass(qbModeToggleClass)}
+                  role="group"
+                  aria-label={t('query_builder.mode_toggle_aria')}
                 >
-                  {t('query_builder.source_semantic')}
-                </button>
-                <button
-                  type="button"
-                  className={toggleBtnClass(querySource === 'metadata')}
-                  onClick={() => setQuerySourceMode('metadata')}
-                >
-                  {t('query_builder.source_metadata')}
-                </button>
+                  <button
+                    type="button"
+                    className={toggleBtnClass(mode === 'simple')}
+                    onClick={() => setMode('simple')}
+                  >
+                    {t('query_builder.mode_simple')}
+                  </button>
+                  <button
+                    type="button"
+                    className={toggleBtnClass(mode === 'advanced')}
+                    onClick={() => setMode('advanced')}
+                  >
+                    {t('query_builder.mode_advanced')}
+                  </button>
+                </div>
               </div>
-            )}
-            <div
-              className={toggleGroupClass(qbModeToggleClass)}
-              role="group"
-              aria-label={t('query_builder.mode_toggle_aria')}
-            >
-              <button
-                type="button"
-                className={toggleBtnClass(mode === 'simple')}
-                onClick={() => setMode('simple')}
-              >
-                {t('query_builder.mode_simple')}
-              </button>
-              <button
-                type="button"
-                className={toggleBtnClass(mode === 'advanced')}
-                onClick={() => setMode('advanced')}
-              >
-                {t('query_builder.mode_advanced')}
-              </button>
+              {datasourceId && activeModelDetail && (
+                <div className={qbHeaderGroupClass}>
+                  <span className={qbHeaderLabelClass}>{t('query_builder.label_mode_group')}</span>
+                  <Select
+                    value={fieldLabelMode}
+                    onChange={setFieldLabelMode}
+                    options={[
+                      {
+                        value: 'human',
+                        label: t('query_builder.label_mode_human') || 'Display Names',
+                      },
+                      {
+                        value: 'technical',
+                        label: t('query_builder.label_mode_technical') || 'Technical Names',
+                      },
+                    ]}
+                    size="sm"
+                  />
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
 
         {isLocked ? (
