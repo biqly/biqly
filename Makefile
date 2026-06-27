@@ -3,7 +3,7 @@ ifndef .FEATURES
 $(error This Makefile requires GNU Make. On macOS: brew install make && gmake <target>)
 endif
 
-.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai watch debug-watch dev-frontend test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit setup-githooks semgrep-scan vet govulncheck verify-main helm-deps helm-lint helm-template clean migrate-up migrate-test-up migrate-down docker-up docker-down dev-up dev-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai watch debug-watch dev-frontend test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit setup-githooks semgrep-scan vet govulncheck verify-main helm-deps helm-lint helm-template helm-upgrade-prod helm-upgrade-prag helm-status helm-history clean migrate-up migrate-test-up migrate-down docker-up docker-down dev-up dev-down seed-adventureworks
 
 # air provides Go live-reload (rebuild + restart on .go save). Pinned via
 # `go run` so no global install is required (first run downloads it).
@@ -44,6 +44,8 @@ RUN_WITH_TEST_ENV = env \
 	BI_AUTH_REDIS_DSN='$(TEST_REDIS_DSN)' \
 	BI_REDIS_DSN='$(TEST_REDIS_DSN)'
 HELM_CHART=deploy/helm/biqly
+KUBE_CONTEXT ?= prag
+KUBECONFIG_FILE := $(if $(KUBECONFIG),$(if $(wildcard $(KUBECONFIG)),$(KUBECONFIG),$(HOME)/.kube/config),$(HOME)/.kube/config)
 SEMGREP_SARIF?=semgrep.sarif
 SEMGREP_CONFIGS=\
 	p/security-audit \
@@ -201,6 +203,25 @@ helm-template: helm-deps
 		--set global.secrets.BI_METADATA_DB_DSN='$(HELM_TEST_METADATA_DSN)' \
 		--set global.secrets.BI_ENCRYPTION_KEY='$(HELM_TEST_ENCRYPTION_KEY)' \
 		$(HELM_AUTH_SECRET_SET) $(HELM_MAIL_SECRET_SET) >/tmp/biqly-helm-template.yaml
+
+helm-upgrade-prod: helm-deps
+	@PASSWORD=$$(kubectl get secret --namespace "biqly" biqly-postgresql-auth -o jsonpath="{.data.password}" --kubeconfig $(KUBECONFIG_FILE) --context $(KUBE_CONTEXT) | base64 -d); \
+	helm upgrade --install biqly $(HELM_CHART) \
+		--namespace biqly \
+		--create-namespace \
+		--kubeconfig $(KUBECONFIG_FILE) \
+		--kube-context $(KUBE_CONTEXT) \
+		-f $(HELM_CHART)/values-prod.yaml \
+		--set global.postgresql.auth.password=$$PASSWORD \
+		--set postgresql.auth.password=$$PASSWORD
+
+helm-upgrade-prag: helm-upgrade-prod
+
+helm-status:
+	helm status biqly -n biqly --kubeconfig $(KUBECONFIG_FILE) --kube-context $(KUBE_CONTEXT)
+
+helm-history:
+	helm history biqly -n biqly --kubeconfig $(KUBECONFIG_FILE) --kube-context $(KUBE_CONTEXT)
 
 clean:
 	@rm -rf bin/ coverage.out
