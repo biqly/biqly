@@ -352,19 +352,6 @@ func (s *appState) handleReady(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Migration status: a dirty schema_migrations row means a migration failed
-	// midway and the schema is in an inconsistent state — not safe to serve.
-	// A missing table / no row (fresh DB or external migrator) is not treated
-	// as a failure here; we only act on a definitive dirty=true reading.
-	var dirty bool
-	if err := s.db.QueryRowContext(ctx, `SELECT dirty FROM schema_migrations LIMIT 1`).Scan(&dirty); err == nil && dirty {
-		response.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{
-			"status": "unavailable",
-			"error":  "migrations dirty",
-		})
-		return
-	}
-
 	response.WriteJSON(w, http.StatusOK, map[string]any{
 		"status":  "ok",
 		"uptime":  time.Since(s.startedAt).Round(time.Second).String(),
