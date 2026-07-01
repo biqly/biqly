@@ -256,6 +256,11 @@ ai:
     maxLLMTierPerQuestion: 1
 
 postgresql:
+  # Migrated to the shared prag-postgresql instance (see
+  # docs/superpowers/specs/2026-06-28-prag-shared-postgresql-design.md).
+  # Disable the embedded subchart so the old biqly-postgresql StatefulSet is
+  # no longer rendered/managed by this release.
+  enabled: false
   primary:
     resources:
       requests:
