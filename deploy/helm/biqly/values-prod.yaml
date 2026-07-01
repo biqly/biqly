@@ -75,6 +75,15 @@ global:
         limits:
           cpu: 500m
           memory: 256Mi
+      # Now on the shared prag-postgresql instance (see
+      # docs/superpowers/specs/2026-06-28-prag-shared-postgresql-design.md);
+      # that CNPG instance exposes its own Prometheus metrics
+      # (prag-postgresql-metrics:9187), so this per-app scraper -- which also
+      # pointed at the deleted biqly-postgresql host/secret -- is redundant.
+      # Disabled rather than repointed to avoid handing app-level credentials
+      # to a shared instance's monitoring surface.
+      postgresql:
+        enabled: false
     tracing:
       enabled: true
       serviceName: biqly
