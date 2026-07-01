@@ -4,6 +4,6 @@
 #     --namespace envoy-gateway-system --create-namespace \
 #     --version v1.8.1 -f deploy/infra/envoy-gateway/helm-values.yaml
 #
-# GatewayClass + Gateway are applied from this directory (kubectl or ArgoCD).
+# GatewayClass + Gateway are applied from this directory with kubectl.
 # TLS secret wildcard-il1-nl-tls must exist in envoy-gateway-system
 # (copy or reflect from the gateway namespace).

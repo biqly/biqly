@@ -298,21 +298,18 @@ deploy/
 │   ├── Chart.yaml
 │   ├── values.yaml        # base values (namespace: biqly, image registry, gateway)
 │   ├── values-dev.yaml    # dev overrides
-│   ├── values-prod.yaml   # prod overrides (used by argocd)
+│   ├── values-prod.yaml   # prod overrides (applied manually with helm upgrade)
 │   ├── templates/         # namespace, postgresql (cnp), nats, dragonfly, otel, alertmanager, etc.
 │   └── charts/            # sub-charts: api, auth, ai, query, catalog, frontend, mail
-└── argocd/                # argocd application, project, and image-updater config
-    ├── application.yaml   # deploys deploy/helm/biqly → namespace biqly, values-prod.yaml
-    ├── project.yaml
-    └── image-updater.yaml # argocd image updater annotation config
+└── infra/                 # cluster infra (envoy-gateway, etc.), applied with kubectl/helm
 ```
 
 key points:
 
 - namespace is declared in `values.yaml` (`global.namespace.name: biqly`) and created by the chart.
-- argocd syncs from `main` branch, helm path `deploy/helm/biqly`, with `values-prod.yaml`.
-- image tags are bumped automatically by argocd image updater (commits like `chore(deploy): bump image tags`).
-- to apply changes locally: `helm upgrade --install biqly deploy/helm/biqly -n biqly -f deploy/helm/biqly/values-dev.yaml`
+- there is no ArgoCD (or other GitOps controller) in the `prag` cluster; deploys are manual/CI-triggered `helm upgrade`, not auto-synced from git.
+- image tags for `main`-pushed commits are bumped in `values-prod.yaml` with `scripts/helm-bump-tags.sh` (checks `ghcr.io/biqly/<svc>:sha-<commit>` exists per service, then rewrites the pinned tag paths), followed by a manual `helm upgrade --install biqly deploy/helm/biqly -n biqly -f deploy/helm/biqly/values-prod.yaml`.
+- to apply changes locally (dev): `helm upgrade --install biqly deploy/helm/biqly -n biqly -f deploy/helm/biqly/values-dev.yaml`
 - to inspect the cluster: `kubectl -n biqly get pods`
 
 ### ci / github actions (`.github/workflows/`)
