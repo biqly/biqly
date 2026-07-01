@@ -4,7 +4,7 @@
 */}}
 {{- define "biqly.waitForOtelCollectorInitContainer" -}}
 {{- $tracing := .Values.global.observability.tracing -}}
-{{- if and $tracing.enabled $tracing.useInClusterCollector }}
+{{- if and $tracing.enabled $tracing.useInClusterCollector (not $tracing.skipCollectorWait) }}
 {{- $ep := required "global.observability.tracing.collectorEndpoint" $tracing.collectorEndpoint -}}
 {{- $hostPort := trimPrefix "http://" (trimPrefix "https://" $ep) -}}
 {{- $parts := splitList ":" $hostPort -}}

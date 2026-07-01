@@ -83,6 +83,12 @@ global:
       # (https://otel.il1.nl), removing the public round-trip. Apps still export
       # to the in-cluster collector; only the collector forwards here.
       otlpEndpoint: http://100.84.49.60:4318
+      # In-cluster collector connectivity from app pods has been unreliable
+      # (e.g. biqly-worker stuck at wait-for-otel-collector init step even
+      # though the collector itself is healthy). Skip the pre-flight wait so
+      # app startup is never blocked by it; the OTel SDK retries exports on
+      # its own once the collector is reachable.
+      skipCollectorWait: true
       # Export every span while Jaeger / OTLP path is being validated. Revert to
       # parentbased_traceidratio (e.g. 0.1) once volume is acceptable on the cluster.
       sampler: parentbased_traceidratio
@@ -103,6 +109,10 @@ global:
         - 100.84.49.60/32
       ports:
         - 4318
+    sharedPostgresql:
+      enabled: true
+      namespace: postgresql
+      instanceName: prag-postgresql
     aiExternal:
       allowWorldHTTPS: true
       cidrs:

@@ -78,6 +78,21 @@ global:
       cidrs: []
       ports:
         - 4318
+    sharedPostgresql:
+      # Egress for components talking to an out-of-chart shared PostgreSQL
+      # instance (e.g. the prag-postgresql migration). Disabled by default;
+      # enable + set instanceName/namespace once a shared instance is in use.
+      enabled: false
+      namespace: postgresql
+      instanceName: prag-postgresql
+      components:
+        - ai
+        - auth
+        - catalog
+        - mail
+        - migrate
+        - query
+        - worker
     aiExternal:
       enabled: true
       # HTTPS to any host (OpenAI-compatible gateways, CDNs with rotating IPs).
@@ -223,6 +238,9 @@ global:
       # path. The collector absorbs remote latency with its queue + retry.
       useInClusterCollector: true
       collectorEndpoint: http://biqly-otel-infra-collector:4318
+      # Set true to skip the wait-for-otel-collector init container (e.g. if the
+      # in-cluster collector is unreliable/unreachable and shouldn't block app startup).
+      skipCollectorWait: false
       sampler: parentbased_traceidratio
       samplerArg: "0.25"
       otlpHeadersSecret:
