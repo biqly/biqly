@@ -27,8 +27,12 @@ global:
       maxUnavailable: 1
   imagePullSecrets:
     - name: ghcr-registry
+  # Selects app.kubernetes.io/name: postgresql pods (the embedded Bitnami
+  # subchart, disabled below in favor of the shared prag-postgresql
+  # instance) -- keep disabled to match the base default, otherwise this
+  # LoadBalancer allocates an external IP with no matching endpoints.
   postgresqlVIP:
-    enabled: true
+    enabled: false
   gateway:
     parentRef:
       name: eg-gw
@@ -129,7 +133,6 @@ global:
   migrate:
     enabled: true
     backoffLimit: 3
-
 auth:
   enabled: true
   replicaCount: 1
@@ -150,7 +153,6 @@ auth:
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
-
 # mail image is now published by CI (ghcr.io/biqly/mail). Prod
 # requires the bi_mail database and the BI_MAIL_DB_DSN / BI_MAIL_INTERNAL_TOKEN
 # secret values to be provisioned, and (optionally) the ArgoCD image-updater
@@ -179,7 +181,6 @@ mail:
     image:
       repository: mail
       tag: latest
-
 frontend:
   replicaCount: 1
   resources:
@@ -190,9 +191,7 @@ frontend:
       cpu: 200m
       memory: 64Mi
   image:
-    tag: sha-b9542b829249379d09aad1530f22454db702f3bc
-
-
+    tag: sha-0afd4dd5dd3fd1b7f466b65a2314a68301e1a6fa
 catalog:
   replicaCount: 1
   resources:
@@ -207,7 +206,6 @@ catalog:
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
-
 query:
   replicaCount: 1
   resources:
@@ -222,7 +220,6 @@ query:
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
-
 ai:
   replicaCount: 1
   resources:
@@ -263,7 +260,6 @@ ai:
   ambiguity:
     tieredEnabled: true
     maxLLMTierPerQuestion: 1
-
 postgresql:
   # Migrated to the shared prag-postgresql instance (see
   # docs/superpowers/specs/2026-06-28-prag-shared-postgresql-design.md).

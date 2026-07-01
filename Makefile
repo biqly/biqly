@@ -209,16 +209,13 @@ helm-bump-tags:
 	@scripts/helm-bump-tags.sh
 
 helm-upgrade-prod: helm-deps helm-bump-tags
-	@PASSWORD=$$(kubectl get secret --namespace "biqly" biqly-postgresql-auth -o jsonpath="{.data.password}" --kubeconfig $(KUBECONFIG_FILE) --context $(KUBE_CONTEXT) | base64 -d); \
-	helm upgrade --install biqly $(HELM_CHART) \
+	@helm upgrade --install biqly $(HELM_CHART) \
 		--namespace biqly \
 		--create-namespace \
 		--kubeconfig $(KUBECONFIG_FILE) \
 		--kube-context $(KUBE_CONTEXT) \
 		-f $(HELM_CHART)/values-prod.yaml \
-		--force-conflicts \
-		--set global.postgresql.auth.password=$$PASSWORD \
-		--set postgresql.auth.password=$$PASSWORD
+		--force-conflicts
 
 helm-upgrade-prag: helm-upgrade-prod
 
