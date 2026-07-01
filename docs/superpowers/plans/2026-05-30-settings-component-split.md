@@ -18,30 +18,30 @@ shared OTP normalization rule with Vitest.
 
 ## Task 1: Extract OTP behavior
 
-- [ ] Add a failing unit test for numeric-only, six-character OTP
+- [x] Add a failing unit test for numeric-only, six-character OTP
   normalization.
-- [ ] Add `settings/otp.ts` and make the focused test pass.
-- [ ] Add the controlled `settings/OTPCodeInput.tsx` component.
+- [x] Add `settings/otp.ts` and make the focused test pass.
+- [x] Add the controlled `settings/OTPCodeInput.tsx` component.
 
 ## Task 2: Extract recovery-code presentation
 
-- [ ] Add `settings/RecoveryCodesDisplay.tsx`.
-- [ ] Preserve clipboard copy and existing translated alerts.
+- [x] Add `settings/RecoveryCodesDisplay.tsx`.
+- [x] Preserve clipboard copy and existing translated alerts.
 
 ## Task 3: Extract passkey presentation
 
-- [ ] Add `settings/PasskeyTable.tsx`.
-- [ ] Move loading, empty, and table rendering from the parent.
+- [x] Add `settings/PasskeyTable.tsx`.
+- [x] Move loading, empty, and table rendering from the parent.
 
 ## Task 4: Extract MFA presentation
 
-- [ ] Add `settings/MFASection.tsx`.
-- [ ] Move status and regenerated recovery-code rendering from the parent.
+- [x] Add `settings/MFASection.tsx`.
+- [x] Move status and regenerated recovery-code rendering from the parent.
 
 ## Task 5: Integrate and verify
 
-- [ ] Wire the extracted components into `Settings.tsx`.
+- [x] Wire the extracted components into `Settings.tsx`.
 - [ ] Mark the Settings Phase 3 TODO item complete with the resulting parent
   line count.
-- [ ] Run focused tests, the full frontend test suite, the production build,
+- [x] Run focused tests, the full frontend test suite, the production build,
   and `git diff --check`.

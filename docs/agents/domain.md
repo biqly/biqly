@@ -18,7 +18,9 @@ Single-context repo:
 ├── CONTEXT.md
 ├── docs/adr/
 │   └── (ADRs added as decisions are recorded)
-└── src/
+├── cmd/
+├── internal/
+└── frontend/
 ```
 
 ## Use the glossary's vocabulary

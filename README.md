@@ -128,7 +128,7 @@ Unset a service URL to fall back to in-process monolith handler for that domain.
 
 ### Frontend
 
-- React 19 + TypeScript + Vite 6
+- React 19 + TypeScript 6 + Vite 8
 - Visual semantic model editor (canvas with join lines)
 - Notebook-style query builder (fields, filters, summarize, sort, having, CTE, window functions)
 - AI chat panel with routing visualization
@@ -141,9 +141,9 @@ Unset a service URL to fall back to in-process monolith handler for that domain.
 
 ### Deployment
 
-- Docker Compose for local development (14 services)
-- Helm umbrella chart with 7 sub-charts
-- Argo CD GitOps with image updater
+- Docker Compose for local development (11 services)
+- Helm umbrella chart with 8 dependencies (7 first-party charts + Bitnami PostgreSQL)
+- Manual / CI-triggered Helm upgrades
 - Prometheus / Grafana monitoring
 - Distributed tracing (Jaeger / OTEL)
 - CloudNativePG support
@@ -230,6 +230,7 @@ cmd/
   auth/                 Auth microservice (:8889)
   mail/                 Mail worker (:8890)
   worker/               AI job worker (NATS consumer)
+  biqly/                Admin CLI (`enrich-context`)
   migrate/              Metadata DB migration CLI
   auth-migrate/         Auth DB migration CLI
   mail-migrate/         Mail DB migration CLI
@@ -269,9 +270,8 @@ internal/
   emailaddr/            Email validation utilities
   errmsg/               Structured error messages
   http/                 HTTP layer
-    handlers/           47 handler files for all endpoints
-    middleware/          JWT, RBAC, API key, security headers, locale
-    response/           Standardized response helpers
+    handlers/           51 non-test handler files for API/internal endpoints
+    middleware/         JWT, RBAC, API key, security headers, locale
   i18n/                 Internationalization (en + tr)
   mail/                 Transactional email (SMTP, templates, block-list)
   metadata/             Metadata repository (PostgreSQL CRUD)
@@ -304,11 +304,11 @@ pkg/
   security/             Canonical security type definitions
   semantic/             Canonical semantic model type definitions
 
-frontend/               React 19 + TypeScript + Vite 6
+frontend/               React 19 + TypeScript 6 + Vite 8
   src/
     api/                API client modules
     components/
-      admin/            Admin panel (22 components)
+      admin/            Admin panel (37 non-test components)
       aiQuery/          AI chat panel + routing visualization
       auth/             Sign in, sign up, MFA, OAuth, magic link
       datasources/      Datasource management
@@ -322,7 +322,7 @@ frontend/               React 19 + TypeScript + Vite 6
       sharing/          Resource sharing
       ui/               Reusable UI component library
       workspaces/       Workspace selector + settings
-    hooks/              18 custom React hooks
+    hooks/              29 custom React hooks
     i18n/               English + Turkish translations
     styles/             CSS modules
     theme/              Light/dark theme provider
@@ -330,18 +330,19 @@ frontend/               React 19 + TypeScript + Vite 6
     utils/              Utility functions
 
 deploy/
-  helm/biqly/           Helm umbrella chart (7 sub-charts)
-    charts/             catalog, query, ai, auth, mail, frontend, postgresql
-    templates/          28 templates (configmaps, secrets, monitoring, etc.)
-  argocd/               Argo CD Application + Image Updater config
+  helm/biqly/           Helm umbrella chart (8 dependencies)
+    charts/             ai, auth, catalog, frontend, mail, query, worker + Bitnami postgresql
+    templates/          32 templates (configmaps, shared-PostgreSQL CNP, secrets, monitoring, etc.)
+  infra/                Shared cluster infra manifests (envoy-gateway)
+  monitoring/           Grafana / Prometheus support files
 
 migrations/
-  001-036               Metadata DB (36 migrations)
-  auth/001-035          Auth DB (35 migrations)
-  mail/001              Mail DB (1 migration)
+  *.sql                 Metadata DB (54 migration IDs)
+  auth/*.sql            Auth DB (36 migration IDs)
+  mail/*.sql            Mail DB (1 migration ID)
 
 scripts/                Operational scripts (seed data, keygen, env sync)
-docs/                   Architecture docs, design specs, runbooks (28 files)
+docs/                   Architecture docs, design specs, runbooks (19 files)
 examples/               AdventureWorks sample queries, NL test sets
 testdata/               Golden SQL test files
 ```
@@ -376,6 +377,8 @@ testdata/               Golden SQL test files
 | Method | Path | Description |
 | -------- | ------ | ------------- |
 | `GET` | `/api/datasources/{id}/tables` | List synced tables |
+| `GET` | `/api/datasources/{id}/tables/{schema}/{table}/sample` | Preview sample rows for a table |
+| `POST` | `/api/datasources/{id}/tables/{schema}/{table}/rows` | Browse paginated rows for a table |
 | `GET` | `/api/datasources/{id}/columns` | List synced columns |
 | `GET` | `/api/metadata/columns/search` | Search columns |
 | `GET` | `/api/metadata/tables/search` | Search tables |
@@ -401,19 +404,22 @@ testdata/               Golden SQL test files
 | `PUT` | `/api/semantic/models/{id}` | Update model |
 | `DELETE` | `/api/semantic/models/{id}` | Delete model |
 | `POST` | `/api/semantic/models/{id}/validate` | Validate model |
+| `POST` | `/api/semantic/models/{id}/sync-dimensions` | Backfill dimensions from synced metadata |
 | `POST` | `/api/semantic/models/{id}/publish` | Publish model |
 | `POST` | `/api/semantic/models/{id}/rollback` | Rollback model |
 | `POST` | `/api/semantic/models/{id}/dimensions` | Add dimension |
-| `PUT` | `/api/semantic/models/{id}/dimensions/{did}` | Update dimension |
-| `DELETE` | `/api/semantic/models/{id}/dimensions/{did}` | Remove dimension |
-| `GET` | `/api/semantic/models/{id}/dimensions/{did}/enums` | Get dimension enums |
-| `PUT` | `/api/semantic/models/{id}/dimensions/{did}/enums` | Replace dimension enums |
+| `PUT` | `/api/semantic/models/{id}/dimensions/{dimension_id}` | Update dimension |
+| `DELETE` | `/api/semantic/models/{id}/dimensions/{dimension_id}` | Remove dimension |
+| `GET` | `/api/semantic/models/{id}/dimensions/{dimension_id}/enums` | Get dimension enums |
+| `PUT` | `/api/semantic/models/{id}/dimensions/{dimension_id}/enums` | Replace dimension enums |
 | `POST` | `/api/semantic/models/{id}/metrics` | Add metric |
-| `PUT` | `/api/semantic/models/{id}/metrics/{mid}` | Update metric |
-| `DELETE` | `/api/semantic/models/{id}/metrics/{mid}` | Remove metric |
+| `PUT` | `/api/semantic/models/{id}/metrics/{metric_id}` | Update metric |
+| `DELETE` | `/api/semantic/models/{id}/metrics/{metric_id}` | Remove metric |
+| `POST` | `/api/semantic/models/{id}/tables/remove` | Remove a source table from the model |
+| `POST` | `/api/semantic/models/{id}/schemas/remove` | Remove a source schema from the model |
 | `POST` | `/api/semantic/models/{id}/joins` | Add join |
-| `PUT` | `/api/semantic/models/{id}/joins/{jid}` | Update join |
-| `DELETE` | `/api/semantic/models/{id}/joins/{jid}` | Remove join |
+| `PUT` | `/api/semantic/models/{id}/joins/{join_id}` | Update join |
+| `DELETE` | `/api/semantic/models/{id}/joins/{join_id}` | Remove join |
 | `GET` | `/api/semantic/models/{id}/suggested-joins` | AI-suggested joins |
 | `GET` | `/api/semantic/models/{id}/lineage` | Expression lineage graph (nodes + edges) |
 | `POST` | `/api/semantic/models/{id}/compile-expression` | Validate and compile expression AST/string to SQL |
@@ -478,6 +484,14 @@ testdata/               Golden SQL test files
 | `PUT` | `/api/ai/user-preferences` | Set per-user AI model preference |
 | `DELETE` | `/api/ai/user-preferences/{purpose}` | Remove model preference |
 
+### AI — Conversations
+
+| Method | Path | Description |
+| -------- | ------ | ------------- |
+| `GET` | `/api/ai/conversations` | List saved conversations |
+| `POST` | `/api/ai/conversations` | Create conversation |
+| `DELETE` | `/api/ai/conversations/{id}` | Delete conversation |
+
 ### AI — Examples & Feedback
 
 | Method | Path | Description |
@@ -539,6 +553,7 @@ testdata/               Golden SQL test files
 | `DELETE` | `/api/ai/eval/cases/{id}` | Delete eval case |
 | `GET` | `/api/ai/providers` | List AI providers |
 | `POST` | `/api/ai/providers` | Create provider |
+| `GET` | `/api/ai/providers/active-models` | List active routed models |
 | `GET` | `/api/ai/providers/{id}` | Get provider |
 | `PUT` | `/api/ai/providers/{id}` | Update provider |
 | `DELETE` | `/api/ai/providers/{id}` | Delete provider |
@@ -581,6 +596,7 @@ testdata/               Golden SQL test files
 | `GET` | `/api/permissions/` | List policies |
 | `GET` | `/api/permissions/keys` | Get by user + datasource |
 | `PUT` | `/api/permissions/` | Upsert policy |
+| `DELETE` | `/api/permissions/keys` | Delete by user + datasource |
 | `DELETE` | `/api/permissions/{id}` | Delete policy |
 
 ### Dashboards
@@ -608,10 +624,10 @@ testdata/               Golden SQL test files
 | Metrics | Prometheus (`prometheus/client_golang`) |
 | Linting | golangci-lint v2 |
 | Testing | `stretchr/testify` + Go standard |
-| Frontend | React 19, TypeScript 5, Vite 6, Recharts |
+| Frontend | React 19, TypeScript 6, Vite 8, Recharts |
 | AI Providers | OpenAI-compatible, Anthropic |
 | Supported DBs | PostgreSQL, MySQL, SQL Server, ClickHouse |
-| Deployment | Docker, Helm, Argo CD |
+| Deployment | Docker, Helm (manual / CI-triggered upgrades) |
 
 ## Configuration
 
@@ -668,10 +684,10 @@ make run-catalog        # Run catalog service
 make run-query          # Run query service
 make run-ai             # Run AI service
 make dev                # Run API with go run
-make test               # Run tests with race detection + coverage
+make test               # Run Go (race+coverage) + frontend tests
 make eval               # Run golden eval tests
 make eval-regression    # Run eval regression gate
-make lint               # Run golangci-lint
+make lint               # Run Go + frontend linters
 make semgrep-scan       # Run Semgrep security scan
 make migrate-up         # Run metadata DB migrations
 make migrate-down       # Rollback last migration
@@ -687,36 +703,37 @@ make clean              # Remove bin/ and coverage.out
 
 ## Database Schema
 
-Metadata DB: PostgreSQL `bi_metadata`, 42 migrations.
+Metadata DB: PostgreSQL `bi_metadata`, 54 migration IDs.
 
 | Table | Purpose |
 | ------- | --------- |
 | `datasources` | Database connections (DSN AES-encrypted) |
 | `schemas`, `tables`, `columns` | Synced schema metadata |
 | `relations` | Foreign key relationships |
-| `semantic_models` | Semantic models (draft/published, versioned) |
-| `semantic_dimensions` | Dimensions with type, synonyms, calculated expressions (string + AST JSON) |
-| `semantic_metrics` | Metrics with aggregation, expression, synonyms (string + AST JSON) |
-| `semantic_joins` | Join definitions with cardinality |
-| `query_history` | Compiled SQL, status, duration, fingerprint |
+| `semantic_models`, `semantic_dimensions`, `semantic_metrics`, `semantic_joins` | Semantic layer definitions (draft/published, versioned, AST-backed expressions) |
+| `semantic_context_snapshots` | Published semantic context snapshots |
+| `query_history` / `query_saved` | Query history, saved queries, compiled SQL, status, duration, fingerprint |
 | `ai_query_history` | AI prompts, responses, confidence, token usage |
-| `few_shot_examples` | Curated NL → LogicalQuery pairs |
-| `ai_feedback` | User feedback (correct/wrong/unsafe/ambiguous) |
+| `few_shot_examples` / `ai_feedback` | Curated NL → LogicalQuery pairs and user feedback |
 | `permissions` | Allowed models, denied fields, row filters |
-| `business_glossary` | Business term definitions |
+| `business_glossary_terms`, `entity_translations`, `enum_mappings` | Business glossary, localized text, enum labels |
+| `eval_runs` / `eval_results` | Eval suite persistence |
 | `ai_jobs` | Async AI job tracking |
-| `ai_prompt_templates` | Versioned prompt template storage |
-| `time_grain_synonyms` | Customizable time grain definitions |
-| `ai_providers` / `ai_models` | Runtime AI provider/model registry |
+| `ai_prompt_templates`, `ai_time_grains` | Versioned prompt templates and time-grain settings |
+| `ai_providers` / `ai_models` / `ai_runtime_config` | Runtime AI provider/model/config registry |
+| `ai_confirmed_queries`, `ai_nl_lexicon` | Confirmed-query memory and NL routing lexicon |
+| `i18n_locales` / `i18n_bundles` | Runtime locale registry and message overrides |
+| `ai_conversations` / `ai_conversation_messages` | Saved AI conversations and turns |
 | `audit_events` | Audit trail |
 | `dashboards` | Dashboard persistence |
+| `composite_*` | Composite semantic model definitions, joins, resolutions, publish snapshots |
 | `ab_experiments` | Prompt A/B testing experiments config |
 | `ab_variants` | A/B testing experiment variants and traffic splits |
 | `drift_reports` | Schema drift detection reports (per model, per sync) |
 
-Auth DB: PostgreSQL `bi_auth`, 35 migrations (users, sessions, OAuth, MFA, RBAC, workspaces, invitations, LDAP).
+Auth DB: PostgreSQL `bi_auth`, 36 migration IDs (users, sessions, OAuth, MFA, RBAC, workspaces, invitations, LDAP).
 
-Mail DB: PostgreSQL `bi_mail`, 1 migration (block list).
+Mail DB: PostgreSQL `bi_mail`, 1 migration ID (block list).
 
 ## LogicalQuery Reference
 
@@ -752,7 +769,7 @@ Mail DB: PostgreSQL `bi_mail`, 1 migration (block list).
 
 **Time grains:** `day`, `week`, `month`, `quarter`, `year`
 
-**SelectItem types:** `dimension`, `metric`, `window`, `case`
+**SelectItem types:** `dimension`, `metric`, `window`, `case`, `formula`
 
 ## Security Model
 
@@ -806,7 +823,7 @@ INSERT, UPDATE, DELETE, MERGE, DROP, ALTER, TRUNCATE, CREATE, GRANT, REVOKE, EXE
 - [x] Prompt Template Management
 - [x] AI Provider Management (runtime, DB-backed)
 - [x] SFT Dataset Export for Fine-Tuning
-- [x] Helm Chart + Argo CD GitOps
+- [x] Helm Chart + Kubernetes deployment
 - [x] Composite Semantic Models
 - [x] Metric Expression Security (controlled AST)
 - [x] Schema Drift Detection & Alerts

@@ -1,5 +1,7 @@
 # Prag Shared PostgreSQL Design
 
+> **Status:** Implemented in the `prag` cluster; retained as the design record for the completed migration.
+
 ## Objective
 
 Replace the PostgreSQL instances embedded in the `biqly` and `zlitter` Helm
@@ -232,4 +234,3 @@ the rollback window.
 - Public or LAN database exposure
 - Off-host or cloud backup
 - Deleting the existing PostgreSQL data during this change
-

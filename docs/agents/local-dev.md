@@ -6,12 +6,14 @@ do not reinvent them.
 
 ## Topology
 
-Local infra mirrors Kubernetes: a **single Postgres container** (`postgres`)
-hosts all biqly system databases — `bi_metadata`, `bi_auth`, `bi_mail` — owned by
-role `bi_user` (password `bi_password`) on `localhost:5432`. There is no separate
-`auth-db`/`mail-db` container. `test-datasource` (AdventureWorks, `localhost:5433`)
-is a *separate* instance on purpose — it models an external customer datasource,
-not a system DB.
+Local dev keeps its own **single Postgres container** (`postgres`) hosting all
+biqly system databases — `bi_metadata`, `bi_auth`, `bi_mail` — owned by role
+`bi_user` (password `bi_password`) on `localhost:5432`. Production now points
+those databases at the shared `prag-postgresql` instance in namespace
+`postgresql`, but local dev stays self-contained. There is no separate
+`auth-db`/`mail-db` container. `test-datasource` (AdventureWorks,
+`localhost:5433`) is a *separate* instance on purpose — it models an external
+customer datasource, not a system DB.
 
 On **first init** (empty data dir) the Postgres container creates the three
 databases and applies their schemas via psql, mirroring how `bi_metadata` is
@@ -33,9 +35,9 @@ no users — **Sign Up** in the UI to create the first account.
 ## The dev loop (host-native + live-reload)
 
 Run the Go services on the host (so they rebuild on save) against Dockerized
-infra. The frontend dev server proxies `/api` → `:8888` (the api) **and**
-`/auth` → `:8889` (the auth service), so both backends must run — otherwise the
-browser/console shows `vite http proxy error … ECONNREFUSED /auth/...`.
+infra. The frontend dev server proxies `/api` → `:8888` (the api) and
+`/api/auth` → `:8889` (the auth service), so both backends must run — otherwise
+the browser/console shows `vite http proxy error … ECONNREFUSED /api/auth/...`.
 
 `make watch` runs **all** app services at once (one `air` instance each, own
 `tmp/<svc>` dir); Ctrl-C stops them all. Two terminals are enough:

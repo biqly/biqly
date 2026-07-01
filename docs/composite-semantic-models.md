@@ -2,8 +2,8 @@
 
 Composite semantic models merge two or more published `SemanticModel`s into a
 single cross-domain model. A user can then ask one natural-language question
-that spans multiple business domains (e.g. orders + customers + support
-tickets) and Biqly resolves the cross-domain joins automatically.
+against that composite (e.g. orders + customers + support tickets) and Biqly
+resolves the cross-domain joins automatically once the composite is selected.
 
 The core principle is unchanged: **AI generates `LogicalQuery` JSON — never raw
 SQL.** A composite is resolved into an ordinary `SemanticModel` before
@@ -27,11 +27,9 @@ executor apply without modification.
 ## Pipeline
 
 ```text
-NL question
-  → Composite Router (keyword overlap over component domains)
-  → Prompt Builder (cross-domain CompositeContext narrative)
-  → LLM → LogicalQuery JSON (carries composite_id)
-  → GetPublishedResolvedComposite (cache → snapshot)
+NL question + selected composite_id
+  → loadCompositeModel / GetPublishedResolvedComposite (cache → snapshot)
+  → Prompt Builder / LLM → LogicalQuery JSON (carries composite_id)
   → Validator (against resolved model)
   → Compiler (resolved model → parameterized SQL)
   → Read-only Checker → Executor
@@ -39,6 +37,12 @@ NL question
 
 The resolved model is what every downstream stage sees; nothing below the
 resolver is aware that a model is composite.
+
+The CRUD/publish/cache/query-runtime pieces are implemented today. Automatic
+composite selection inside the NL router is not yet wired end-to-end in the
+current request path: `internal/ai/routing/router.go` exposes composite fields
+on `TableRoutingResult`, but `internal/http/handlers/ai.go` currently loads a
+composite only when `composite_id` is already present on the request.
 
 ---
 
@@ -52,7 +56,9 @@ resolver is aware that a model is composite.
    - Default: prefix the secondary copy with its alias (`region` → `customers_region`).
    - `use_primary`: drop the secondary copy entirely.
 4. Flatten each active cross-model join into an ordinary `Join` on the resolved model.
-5. Attach the canonical date dimension so time-grain queries have an authoritative date field.
+5. Preserve the configured canonical date reference on the composite; the merged
+   `SemanticModel` itself is not structurally rewritten for canonical-date
+   alignment today.
 
 The output is a normal `SemanticModel` with `Dimensions`, `Metrics`, and `Joins`.
 
@@ -60,9 +66,10 @@ The output is a normal `SemanticModel` with `Dimensions`, `Metrics`, and `Joins`
 
 ## Metric Graph & Circular Dependencies
 
-`internal/semantic/metric_graph.go` builds a dependency graph across component
-metrics (`derives_from` references, including cross-model) and detects cycles
-before publish so a composite cannot define mutually recursive metrics.
+`internal/semantic/metric_graph.go` builds a dependency graph across resolved
+metrics by scanning metric expressions for references to other metric names, and
+detects cycles before publish so a composite cannot define mutually recursive
+metrics.
 
 ---
 
@@ -169,8 +176,8 @@ Migration `037a_composite_semantic_models.up.sql`:
 - Publish / rollback / validation / limits: `internal/semantic/composite_publish.go`
 - Persistence: `internal/semantic/composite_repository.go`
 - Caching: `internal/semantic/composite_cache.go`
-- Routing: `internal/ai/routing/composite_router.go`
-- Prompt context: `internal/ai/prompt/prompt.go` (`writeCompositeContext`)
+- Routing / request plumbing: `internal/ai/routing/router.go` (`TableRoutingResult.CompositeID`) and `internal/http/handlers/ai.go` (`loadCompositeModel`)
+- Prompt context type: `internal/ai/prompt/prompt.go` (`CompositeContext`, `writeCompositeContext`) — the type exists, but the current request flow does not populate it yet
 - HTTP handlers: `internal/http/handlers/composite.go`
 - Compiler integration: composite is resolved to a `SemanticModel` before
   `internal/query/compiler.go` runs — no composite-specific compiler code.

@@ -1,7 +1,7 @@
 # Mail Servisi — Ayrı DB + HTTP API Worker (Tasarım)
 
 Tarih: 2026-05-27
-Durum: Onaylandı (kullanıcı), implementasyon planı bekliyor
+Durum: Uygulandı
 
 ## Amaç
 
@@ -47,8 +47,8 @@ auth (login / register / email-change / ...)        mail-worker (cmd/mail)
 
 #### `client.go` — `APIClient`
 - `mail.EmailSender` interface'ini HTTP üzerinden implemente eder.
-- Constructor: `NewAPIClient(baseURL, internalToken string, opts...) *APIClient`.
-  Varsayılan `*http.Client` kısa timeout ile (örn. 5s).
+- Constructor: `NewAPIClient(baseURL, internalToken string, httpClient *http.Client) *APIClient`.
+  `httpClient == nil` ise varsayılan `*http.Client` kısa timeout ile (örn. 5s) oluşturulur.
 - Her tipli metod generic isteğe maplenir:
   - `SendEmailVerification(ctx, email, token)` → `send(ctx, "verification", email, {"token": token})`
   - `SendPasswordReset` → `"password_reset"`, `{"token": token}`
@@ -62,7 +62,8 @@ auth (login / register / email-change / ...)        mail-worker (cmd/mail)
 - 2xx → `nil`. 4xx/5xx → hata döner (auth tarafında loglanır, yutulur — mevcut davranış).
 
 #### `server.go` — HTTP handler (worker tarafı)
-- `Handler(sender *SMTPEmailSender, internalToken string) http.Handler` veya chi router.
+- `NewServer(sender *SMTPEmailSender, internalToken string) *Server`;
+  `Routes() http.Handler` ile chi router döner.
 - `POST /internal/mail/send`: token doğrula → JSON decode → `sender.SendTemplate(ctx, template, to, data)` → `202 Accepted`.
   - Bilinmeyen template → `400`. Token yanlış → `401`.
   - `SendTemplate` çağrısı kuyruğa atıp anında döndüğü için handler bloklanmaz.
@@ -101,7 +102,7 @@ auth (login / register / email-change / ...)        mail-worker (cmd/mail)
   artık mail tarafında kurulur, dolayısıyla `BI_MAIL_FRONTEND_BASE_URL` mail config'ine eklenir.
 - Yeni alan: `MailServiceURL` (`BI_AUTH_MAIL_SERVICE_URL`, default `http://biqly-mail:8890`).
 - `cmd/auth/main.go`: blocklist + SMTP sender wiring kaldırılır →
-  `emailSender = mail.NewAPIClient(cfg.MailServiceURL, cfg.InternalToken)`.
+  `emailSender = mail.NewAPIClient(cfg.MailServiceURL, cfg.MailInternalToken, nil)`.
 
 ### E. Migrations / DB
 - `migrations/auth/030a_drop_email_block_list.up.sql`: `DROP TABLE IF EXISTS email_block_list;`

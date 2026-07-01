@@ -300,7 +300,7 @@ deploy/
 │   ├── values-dev.yaml    # dev overrides
 │   ├── values-prod.yaml   # prod overrides (applied manually with helm upgrade)
 │   ├── templates/         # namespace, postgresql (cnp), nats, dragonfly, otel, alertmanager, etc.
-│   └── charts/            # sub-charts: api, auth, ai, query, catalog, frontend, mail
+│   └── charts/            # sub-charts: catalog, query, ai, worker, auth, mail, frontend
 └── infra/                 # cluster infra (envoy-gateway, etc.), applied with kubectl/helm
 ```
 
@@ -318,7 +318,9 @@ key points:
 | --- | --- | --- |
 | `ci.yml` | push/pr to `main` | backend (go test + lint + build) + frontend quality gate + docker build & push |
 | `test.yml` | push/pr to `main` | go test only (lighter gate, also runs on prs) |
-| `build-*.yml` | push/pr to `main` | per-service docker builds (auth, ai, query, catalog, mail, migrate) |
+| `build-*.yml` | push/pr to `main` | per-service docker builds (auth, ai, query, catalog, mail, migrate, worker) |
+| `codeql.yml` | push/pr to `main` | CodeQL security analysis |
+| `eval-nightly.yml` | nightly schedule + manual dispatch | AI eval regression suite (real LLM) |
 | `semgrep.yml` | push/pr to `main` | sast security scan |
 
 notes:

@@ -1,6 +1,6 @@
 # Triage Labels
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+The skills speak in terms of five canonical triage roles. This file maps those roles to the label strings this repo intends to use in GitHub.
 
 | Label in mattpocock/skills | Label in our tracker | Meaning                                  |
 | -------------------------- | -------------------- | ---------------------------------------- |
@@ -12,4 +12,4 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
-These labels are not yet created in GitHub — create them in the repo when triage workflow starts.
+As of 2026-07-01, GitHub already has `wontfix`; `needs-triage`, `needs-info`, `ready-for-agent`, and `ready-for-human` are not present yet and must be created before use.

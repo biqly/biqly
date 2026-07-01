@@ -1,7 +1,7 @@
 # Design Spec: Frontend Phase 1 — Quick Wins Refactoring
 
 **Date:** 2026-05-19
-**Status:** Draft
+**Status:** In Progress
 **Topic:** Reducing code duplication and improving maintainability in the Biqly frontend.
 
 ## 1. Overview

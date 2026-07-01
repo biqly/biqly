@@ -28,14 +28,13 @@ User Question
      ▼
  parseAndRouteAIQuery (sync) / executeAIQueryPhase (async job)
      │
-     ├── Table Routing → NeedsClarification? → Return clarification options
+     ├── buildProcessContext() + resolveProcessContext()
      │
-     ├── ClarificationChoice present?
-     │   └── resolveClarificationChoice() → Rewrites question, sets clarificationResolved=true
+     ├── Table Routing → tierZeroClarificationIfNeeded() → Return clarification options
      │
      └── standardProcessOptions()
-          └── If CheckEnabled && !clarificationResolved → Add WithAmbiguityCheck(true)
-               └── ProcessQuestion() → LLM ambiguity pass (pre-LLM deterministic + optional LLM-backed)
+          └── ambiguityProcessOptions()
+               └── Tier 1/2/3 ambiguity pass (deterministic + optional LLM-backed)
                     └── Returns clarification response OR proceeds to SQL generation
 ```
 
@@ -43,19 +42,24 @@ User Question
 
 | Component | File | Role |
 |---|---|---|
-| `AmbiguityConfig` | `internal/config/config.go` | Feature flags + thresholds (CheckEnabled, ConfidenceThreshold, MaxOptions, LLMEnabled) |
-| `resolveClarificationChoice()` | `internal/http/handlers/ai.go:163` | Free function: resolves user choice → rewrites question |
-| `h.resolveClarificationChoice()` | `internal/http/handlers/ai.go:176` | Method: wraps free function + sets `clarificationResolved` flag + metrics |
-| `standardProcessOptions()` | `internal/http/handlers/ai.go:229` | Builds options slice; includes ambiguity check only when flag is unset |
-| `WithAmbiguityCheck()` | `internal/ai/service.go:227` | ProcessOption that enables deterministic semantic clarification |
-| `executeAIQueryPhase()` | `internal/http/handlers/ai_job_exec.go:48` | Async job path; calls method via `&req` pointer |
-| Prometheus metrics | `internal/platform/observability/metrics.go` | `biqly_ambiguity_detected_total`, `biqly_ambiguity_clarified_total`, latency histogram |
+| `AmbiguityConfig` | `internal/config/config.go` | Feature flags + thresholds (`CheckEnabled`, `ConfidenceThreshold`, `MaxOptions`, `LLMEnabled`, tier settings) |
+| `ProcessContext` | `internal/http/handlers/ai_context.go` | Shared sync/async clarification state (`Question`, `ClarificationChoice`, `ClarificationResolved`, round counter) |
+| `resolveProcessContext()` | `internal/http/handlers/ai_context.go` | Applies clarification choice through the shared resolution path and records metrics |
+| `standardProcessOptions()` | `internal/http/handlers/ai.go` | Builds the AI processing option set for the current request |
+| `ambiguityProcessOptions()` | `internal/http/handlers/ai_ambiguity_tier.go` | Selects Tier 1/2/3 ambiguity behavior, including LLM and interactive escalation |
+| `executeAIQueryPhase()` | `internal/http/handlers/ai_job_exec.go` | Async job path; uses the same `buildProcessContext` + `resolveProcessContext` flow as sync |
+| Prometheus metrics | `internal/platform/observability/metrics.go` | `biqly_ambiguity_detected_total`, `biqly_ambiguity_clarified_total`, tier counters |
 
 ### 2.3 What Went Wrong (Bug 2)
 
-The async job path (`ai_job_exec.go`) was calling the **free function** `resolveClarificationChoice()` instead of the **method** `h.resolveClarificationChoice()`. The free function rewrites the question but never sets `clarificationResolved=true`. On the next iteration, the guard at `ai.go:238` still evaluated to true, injecting `WithAmbiguityCheck(true)` again, creating an infinite clarification loop.
+Historically, sync and async clarification handling diverged: one path could
+rewrite the question without carrying the resolved-state flag forward, so the
+next iteration re-entered ambiguity checking and could loop indefinitely.
 
-**Fix**: Move the flag-setting logic into the shared method; ensure both sync and async paths call the method via pointer receiver.
+**Fix (now implemented)**: both paths construct the same `ProcessContext` via
+`buildProcessContext()` and resolve choices through
+`resolveProcessContext()`/`ProcessContext.Resolve()` in
+`internal/http/handlers/ai_context.go`.
 
 ### 2.4 Strengths
 
@@ -148,7 +152,7 @@ Store confirmed NL-SQL pair (learn from success)
 ### Where Agent-First Patterns Are Stronger
 
 1. **Context richness**: A full semantic layer can carry more business semantics than a flat glossary — relationships, calculated fields, views, instructions, structured `ai_context`.
-2. **Learning loop**: A confirmed-query memory store grows a corpus of NL-SQL pairs that improve future queries. Biqly is still building this (P3).
+2. **Learning loop**: A confirmed-query memory store grows a corpus of NL-SQL pairs that improve future queries. Biqly now has `ai_confirmed_queries`, but the broader agent-driven feedback loop is still less mature than fully agent-first stacks.
 3. **Agent flexibility**: The agent decides when and how to clarify without a fixed server-side flow.
 4. **Context enrichment tooling**: Systematic gap-filling (enums, units, NULL semantics, synonyms) beyond manual glossary edits.
 
@@ -157,6 +161,15 @@ Store confirmed NL-SQL pair (learn from success)
 ## 5. Best Practices for Biqly
 
 Based on the comparative analysis and industry patterns (AWS, academic surveys, Google Cloud):
+
+> **Current implementation note:** Several recommendations below are now live in
+> the current codebase: `ProcessContext` and `maxClarificationRounds` in
+> `internal/http/handlers/ai_context.go`, tiered clarification in
+> `internal/http/handlers/ai_ambiguity_tier.go`, generation trace in
+> `internal/ai/trace.go`, ambiguity golden eval coverage in
+> `internal/ai/eval/ambiguity_golden*.go`, confirmed-query memory storage via
+> `ai_confirmed_queries` (migration `044a`), and structured glossary
+> `ai_context` support via migration `043a_add_ai_context_to_glossary_entries`.
 
 ### 5.1 Immediate (Fix Architecture Gaps)
 
@@ -211,7 +224,8 @@ func (pc *ProcessContext) ShouldCheckAmbiguity() bool {
 
 #### P2: Enrich Glossary with Structured ai_context
 
-Current glossary entries are flat key-value pairs. Add structured context:
+Current glossary entries can already carry `ai_context`; continue expanding the
+coverage and quality of that structured context:
 
 ```sql
 ALTER TABLE glossary_entries ADD COLUMN ai_context JSONB;
@@ -225,7 +239,7 @@ Feed this into both ambiguity detection and the LLM prompt.
 
 #### P3: NL-SQL Memory Store (Learn from Success)
 
-When a user accepts a generated query, store the NL-SQL pair:
+Keep growing the confirmed-query memory store when a user accepts a generated query:
 
 ```
 User question: "Ciro göster"
@@ -251,7 +265,8 @@ This mirrors the industry enrich-context pattern, adapted to Biqly's backend-orc
 
 #### P5: Multi-Tier Clarification Strategy
 
-Replace the single `WithAmbiguityCheck(bool)` with a tiered approach:
+Build on the existing tiered approach so the tiers stay explicit in both code
+and product behavior:
 
 | Tier | When | How | Cost |
 |---|---|---|---|
@@ -260,11 +275,14 @@ Replace the single `WithAmbiguityCheck(bool)` with a tiered approach:
 | **Tier 2: Semantic** | Low-confidence interpretation | LLM-backed analysis | ~$0.01 |
 | **Tier 3: Interactive** | User picks wrong option twice | Agent-driven multi-turn clarification | ~$0.05 |
 
-Each tier escalates only if the previous tier couldn't resolve. The current code has Tier 0 + Tier 2 conflated.
+Each tier escalates only if the previous tier couldn't resolve. The current code
+already separates Tier 0 routing and supports tiered escalation; the remaining
+gap is making Tier 1/2 behavior more explicit and observable at the product
+level.
 
 #### P6: Generation Trace (Dry-Plan Pattern)
 
-Add a `trace` field to AI responses showing:
+Expand the existing `trace` field in AI responses so it shows:
 
 ```
 1. Routed to: orders (confidence: 0.92)
@@ -278,7 +296,7 @@ This helps users understand *why* an ambiguity was detected and *what* the syste
 
 #### P7: Eval Regression Suite for Ambiguity
 
-Extend `make eval-regression` with golden cases specifically for ambiguity:
+Keep extending `make eval-regression` with golden cases specifically for ambiguity:
 
 ```yaml
 - question: "Satışları göster"

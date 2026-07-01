@@ -15,7 +15,7 @@ Agent skills: use the terms below consistently in issues, refactors, tests, and 
 | **Query layer** | LogicalQuery validation, join planning, dialect-aware SQL compile, safe execution |
 | **Frontend** | React 19 + Vite — chat, modeling UI, charts (Recharts), i18n via `useT()` |
 
-Deployed as microservices in Kubernetes namespace `biqly` (api, auth, ai, query, catalog, frontend, mail).
+Production deploys `catalog`, `query`, `ai`, `worker`, `auth`, `frontend`, and `mail` into Kubernetes namespace `biqly`; the biqly system databases now live on the shared `prag-postgresql` instance in namespace `postgresql`.
 
 ## Glossary
 
@@ -34,7 +34,7 @@ Deployed as microservices in Kubernetes namespace `biqly` (api, auth, ai, query,
 | **Glossary** | Business term → semantic field mappings fed to prompts and ambiguity | Free-text synonyms not in glossary tables |
 | **Compile** | LogicalQuery + SemanticModel → parameterized SQL (`CompiledQuery`) | "generate SQL" when you mean the compiler path |
 | **Publish** | Promote semantic model draft → published version | "save" for model lifecycle |
-| **Composite model** | (Deferred) Combining multiple base models — see `docs/composite-semantic-models.md` | Treating as shipped feature |
+| **Composite model** | Multi-model semantic model exposed via `/api/semantic/composites/*`, resolved to a `SemanticModel` at query time — see `docs/composite-semantic-models.md` | Treating it as deferred or purely speculative |
 | **Eval / golden** | Regression suite for NL→LogicalQuery (`make eval-regression`) | Live LLM eval in pre-commit (`make eval-live`) |
 | **AI job** | Async NATS-backed query/preview/run/describe/embed job | Sync HTTP handler path |
 
@@ -54,7 +54,7 @@ Deployed as microservices in Kubernetes namespace `biqly` (api, auth, ai, query,
 | Concern | Location |
 | --- | --- |
 | HTTP AI handlers | `internal/http/handlers/ai.go`, `ai_job_exec.go`, `ai_context.go` |
-| AI orchestration | `internal/ai/service.go`, `prompt.go`, `table_router.go` |
+| AI orchestration | `internal/ai/service.go`, `internal/ai/prompt/`, `internal/ai/routing/` |
 | Ambiguity | `internal/ai/ambiguity/` |
 | Compiler | `internal/query/compiler.go` |
 | Semantic CRUD | `internal/semantic/` |
@@ -63,7 +63,7 @@ Deployed as microservices in Kubernetes namespace `biqly` (api, auth, ai, query,
 ## Related docs
 
 - `docs/research/ambiguity-clarification-best-practices.md` — clarification architecture and roadmap
-- `docs/composite-semantic-models.md` — composite models (planned)
+- `docs/composite-semantic-models.md` — composite model architecture and APIs
 - `docs/openapi.yaml` — HTTP API
 - `tasks/todo.md` — active implementation plans
 - `docs/adr/` — architectural decision records (create as decisions land)

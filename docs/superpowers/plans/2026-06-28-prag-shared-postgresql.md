@@ -78,7 +78,7 @@
 - Create: `/Users/baris.dogu/src/prag-postgresql/templates/_helpers.tpl`
 - Create: `/Users/baris.dogu/src/prag-postgresql/tests/render.sh`
 
-- [ ] **Step 1: Create the repository and failing render test**
+- [x] **Step 1: Create the repository and failing render test**
 
 Create `.gitignore`:
 
@@ -111,7 +111,7 @@ Run: `bash tests/render.sh`
 
 Expected: FAIL because `Chart.yaml` does not exist.
 
-- [ ] **Step 2: Create the chart metadata and pinned values**
+- [x] **Step 2: Create the chart metadata and pinned values**
 
 Create `Chart.yaml`:
 
@@ -201,7 +201,7 @@ Create helpers that emit `app.kubernetes.io/name: prag-postgresql`,
 `app.kubernetes.io/instance: {{ .Release.Name }}`, and
 `app.kubernetes.io/part-of: prag-postgresql`.
 
-- [ ] **Step 3: Vendor and verify the dependency**
+- [x] **Step 3: Vendor and verify the dependency**
 
 Run: `helm dependency update /Users/baris.dogu/src/prag-postgresql`
 
@@ -211,7 +211,7 @@ Run: `bash tests/render.sh`
 
 Expected: FAIL only on resources not implemented by later tasks.
 
-- [ ] **Step 4: Initialize Git and commit**
+- [x] **Step 4: Initialize Git and commit**
 
 ```bash
 git init
@@ -225,7 +225,7 @@ git commit -m "feat: scaffold shared prag postgresql chart"
 - Create: `/Users/baris.dogu/src/prag-postgresql/templates/persistence.yaml`
 - Modify: `/Users/baris.dogu/src/prag-postgresql/tests/render.sh`
 
-- [ ] **Step 1: Add failing PV/PVC assertions**
+- [x] **Step 1: Add failing PV/PVC assertions**
 
 Append assertions for:
 
@@ -239,7 +239,7 @@ test "$(grep -c 'persistentVolumeReclaimPolicy: Retain' "$rendered")" -eq 2
 
 Run and expect FAIL.
 
-- [ ] **Step 2: Implement static PVs and bound PVCs**
+- [x] **Step 2: Implement static PVs and bound PVCs**
 
 Create two `PersistentVolume` resources with `hostPath.type: Directory`,
 `ReadWriteOnce`, `hitachi-local`, `Retain`, and node affinity for hostname
@@ -260,7 +260,7 @@ spec:
       storage: 50Gi
 ```
 
-- [ ] **Step 3: Render, lint, and commit**
+- [x] **Step 3: Render, lint, and commit**
 
 Run: `helm lint . && bash tests/render.sh`
 
@@ -277,12 +277,12 @@ git commit -m "feat: add retained hitachi persistence"
 - Create: `/Users/baris.dogu/src/prag-postgresql/templates/initdb-configmap.yaml`
 - Modify: `/Users/baris.dogu/src/prag-postgresql/tests/render.sh`
 
-- [ ] **Step 1: Add failing initialization assertions**
+- [x] **Step 1: Add failing initialization assertions**
 
 Assert rendered output contains all database names, `pg_trgm`, `citext`,
 `pgcrypto`, `pg_read_all_data`, and `ON_ERROR_STOP`.
 
-- [ ] **Step 2: Implement deterministic first-boot initialization**
+- [x] **Step 2: Implement deterministic first-boot initialization**
 
 The ConfigMap must provide `00-shared-databases.sh`:
 
@@ -316,7 +316,7 @@ done
 
 Do not put any literal password in the ConfigMap.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 Run: `helm lint . && bash tests/render.sh`
 
@@ -336,7 +336,7 @@ git commit -m "feat: initialize isolated application databases"
 - Create: `/Users/baris.dogu/src/prag-postgresql/templates/tests/test-connection.yaml`
 - Modify: `/Users/baris.dogu/src/prag-postgresql/tests/render.sh`
 
-- [ ] **Step 1: Add failing security and backup assertions**
+- [x] **Step 1: Add failing security and backup assertions**
 
 Assert:
 
@@ -354,7 +354,7 @@ grep -q 'find .* -mtime +7 .* -delete' "$rendered"
 
 Run and expect FAIL.
 
-- [ ] **Step 2: Implement database ingress**
+- [x] **Step 2: Implement database ingress**
 
 Select the PostgreSQL primary by Bitnami labels. Permit 5432 from:
 
@@ -366,7 +366,7 @@ Select the PostgreSQL primary by Bitnami labels. Permit 5432 from:
 Use `k8s:io.kubernetes.pod.namespace` in every cross-namespace endpoint
 selector. Do not use `fromEntities: cluster`.
 
-- [ ] **Step 3: Implement backup-job egress**
+- [x] **Step 3: Implement backup-job egress**
 
 Add a second `CiliumNetworkPolicy` that selects
 `app.kubernetes.io/component: backup`. Permit DNS to kube-dns on TCP/UDP 53
@@ -374,7 +374,7 @@ and TCP/5432 only to the Bitnami primary endpoint in the `postgresql`
 namespace. Set the backup pod's node selector to
 `kubernetes.io/hostname: prag` so its RWO local PVC is always mountable.
 
-- [ ] **Step 4: Implement the backup CronJob**
+- [x] **Step 4: Implement the backup CronJob**
 
 The job mounts only `prag-postgresql-backups`, reads `BACKUP_PASSWORD` from
 `prag-postgresql-auth`, sets `PGHOST=prag-postgresql`,
@@ -401,7 +401,7 @@ Set `concurrencyPolicy: Forbid`, `backoffLimit: 2`,
 `activeDeadlineSeconds: 3600`, and explicit 25m/128Mi requests and
 500m/512Mi limits.
 
-- [ ] **Step 5: Add a Helm connection test and verify**
+- [x] **Step 5: Add a Helm connection test and verify**
 
 The test pod uses the backup role, runs `pg_isready`, and executes
 `SELECT current_setting('server_version_num')::int >= 180000`.
@@ -410,7 +410,7 @@ Run: `helm lint . && bash tests/render.sh`
 
 Expected: all render assertions PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add templates tests/render.sh
@@ -427,7 +427,7 @@ git commit -m "feat: secure and back up shared postgresql"
 - Create: `/Users/baris.dogu/src/prag-postgresql/scripts/validate.sh`
 - Create: `/Users/baris.dogu/src/prag-postgresql/README.md`
 
-- [ ] **Step 1: Implement the common context guard**
+- [x] **Step 1: Implement the common context guard**
 
 Every script begins with:
 
@@ -442,7 +442,7 @@ if [[ "$actual_context" != "$expected_context" ]]; then
 fi
 ```
 
-- [ ] **Step 2: Implement preflight**
+- [x] **Step 2: Implement preflight**
 
 Check the node is Ready, Cilium policy CRD exists, `hitachi-local` exists,
 existing source pods are Ready, both source PVCs are Bound, the new paths do
@@ -458,7 +458,7 @@ PASS hitachi_mount=/mnt/hitachi-1tb free_gib>=30
 PASS source_databases=2 source_pvcs=2
 ```
 
-- [ ] **Step 3: Implement Secret generation**
+- [x] **Step 3: Implement Secret generation**
 
 Use `umask 077`, a `mktemp -d` directory, and `openssl rand -hex 32`. Generate
 admin, biqly, zlitter, and backup passwords once. Apply:
@@ -475,7 +475,7 @@ All DSNs use `prag-postgresql.postgresql.svc.cluster.local:5432` and
 -o yaml`, then apply the generated file. Never print Secret data. Before
 replacing an existing Secret, assert its key set contains no unrelated keys.
 
-- [ ] **Step 4: Implement baseline capture**
+- [x] **Step 4: Implement baseline capture**
 
 For every database, output deterministic TSV files containing:
 
@@ -490,7 +490,7 @@ FROM pg_sequences ORDER BY 1, 2;
 Also calculate exact `count(*)` for every ordinary user table after writers
 are stopped. Store outputs under `.generated/baselines/<source|target>/`.
 
-- [ ] **Step 5: Implement migration**
+- [x] **Step 5: Implement migration**
 
 `migrate.sh dump` must:
 
@@ -521,7 +521,7 @@ pg_restore --clean --if-exists --no-owner --no-acl --exit-on-error \
   --role="$target_role" --dbname="$target_dsn" "$database.dump"
 ```
 
-- [ ] **Step 6: Implement validation and README**
+- [x] **Step 6: Implement validation and README**
 
 `validate.sh` compares source/target exact counts, sequences, extensions, and
 migration versions; proves cross-role access is denied; checks pods, Services,
@@ -531,7 +531,7 @@ README must contain exact commands for preflight, install, maintenance entry,
 dump, restore, target validation, application cutover, rollback before traffic,
 rollback after traffic, and the seven-day delayed cleanup rule.
 
-- [ ] **Step 7: Shell-check, dry-run, and commit**
+- [x] **Step 7: Shell-check, dry-run, and commit**
 
 Run:
 
@@ -614,7 +614,7 @@ toPorts:
         protocol: TCP
 ```
 
-- [ ] **Step 4: Update PostgreSQL observability**
+- [x] **Step 4: Update PostgreSQL observability**
 
 When `global.postgresqlExternal.enabled`, do not render the biqly
 OpenTelemetry PostgreSQL receiver or reference `biqly-postgresql-auth`. The
@@ -735,7 +735,7 @@ git add zlitter
 git commit -m "feat: support external shared postgresql"
 ```
 
-- [ ] **Step 6: Commit the meta-repository submodule pointer**
+- [x] **Step 6: Commit the meta-repository submodule pointer**
 
 ```bash
 cd /Users/baris.dogu/zlitter
@@ -760,14 +760,14 @@ Run: `./scripts/preflight.sh`
 Expected: all PASS lines, context `prag`, at least 30 GiB free, and no existing
 target database directory.
 
-- [ ] **Step 3: Create directories and credentials**
+- [x] **Step 3: Create directories and credentials**
 
 Create `/mnt/hitachi-1tb/postgresql/data` and `backups` on the prag node with
 UID/GID 1001 and mode 0700. Run `./scripts/create-secrets.sh`.
 
 Expected: four Secret names reported, no Secret data printed.
 
-- [ ] **Step 4: Install the shared release**
+- [x] **Step 4: Install the shared release**
 
 Run:
 
@@ -798,7 +798,7 @@ Stop immediately if any denied path succeeds.
 Run `capture-baseline.sh source --estimated` and save the output under the
 timestamped migration directory.
 
-- [ ] **Step 2: Stop all database writers**
+- [x] **Step 2: Stop all database writers**
 
 Scale or pause biqly database clients, zlitter Rollouts/Deployments, worker,
 scheduler, and browser worker. Leave old PostgreSQL pods running.
@@ -806,20 +806,20 @@ scheduler, and browser worker. Leave old PostgreSQL pods running.
 Expected: no non-monitoring sessions in `pg_stat_activity` for five consecutive
 checks.
 
-- [ ] **Step 3: Capture exact source baseline**
+- [x] **Step 3: Capture exact source baseline**
 
 Run: `capture-baseline.sh source --exact`
 
 Expected: four complete baseline sets and no query errors.
 
-- [ ] **Step 4: Dump and verify**
+- [x] **Step 4: Dump and verify**
 
 Run: `migrate.sh dump`
 
 Expected: four verified `.dump` files, matching SHA-256 files, and a `SUCCESS`
 marker on the external backup PV.
 
-- [ ] **Step 5: Restore and validate**
+- [x] **Step 5: Restore and validate**
 
 Run:
 

@@ -8,6 +8,7 @@ Bu runbook, Biqly'ye yeni bir kullanıcı dili eklemek için operasyonel adımla
 - Dil aktif edilmeden önce staging/prod benzeri ortamda test edilir.
 - Çıkış kriteri:
   - `GET /api/ai/admin/i18n/locales` yeni locale satırını döner.
+  - `GET /api/ai/admin/i18n/bundles/{locale}` yeni locale için effective bundle'ı döner (`source=database` veya `embedded`).
   - `GET /api/ai/admin/i18n/coverage/{locale}` i18n coverage raporunu döner.
   - `GET /api/ai/admin/lexicon?locale={locale}` domain lexicon kayıtlarını döner.
   - `GET /api/ai/prompt-templates?locale={locale}` prompt template listesini döner.
@@ -50,7 +51,7 @@ Doğrulama:
 
 ```bash
 curl "$API_URL/api/ai/admin/i18n/locales" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.[] | select(.locale == "de")'
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.locales[] | select(.locale == "de")'
 ```
 
 Beklenen: `locale=de`, `enabled=false`, `uses_metadata_translations=true`.
@@ -106,6 +107,39 @@ npm --prefix frontend run lint
 npm --prefix frontend run build
 ```
 
+### 2.1 Backend i18n bundle overlay'ini doldur
+
+Locale registry satırı tek başına yeterli değildir; backend kullanıcı mesajları
+(`clarification.*`, `admin.*` vb.) için `i18n_bundles` overlay'ini de ekleyin.
+
+Örnek:
+
+```bash
+curl -X PUT "$API_URL/api/ai/admin/i18n/bundles/de" \
+  -H "Authorization: ******" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "clarification": {
+      "ambiguity_reason": "Soru birden fazla şekilde yorumlanabiliyor.",
+      "needs_clarification_warning": "Devam etmeden önce lütfen ne demek istediğinizi seçin."
+    }
+  }'
+```
+
+Doğrulama:
+
+```bash
+curl "$API_URL/api/ai/admin/i18n/bundles/de" \
+  -H "Authorization: ******" | jq
+
+curl "$API_URL/api/ai/admin/i18n/coverage/de" \
+  -H "Authorization: ******" | jq
+```
+
+Beklenen: bundle endpoint'i `source=database` döner; coverage endpoint'i
+eksik anahtarları `missing_keys` altında listeler. Locale'i prod'da
+enable etmeden önce ideal durum `missing_keys=[]` olmasıdır.
+
 ## 3. Prompt template alanını hazırla
 
 Yeni locale prompt template'leri için iki yol var:
@@ -117,10 +151,12 @@ DB prompt template'leri için:
 
 ```bash
 curl "$API_URL/api/ai/prompt-templates?locale=de" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
+  -H "Authorization: ******" | jq '.[] | select(.locale == "de")'
 ```
 
-Eğer locale henüz enabled değilse ve API `unsupported locale` dönerse, staging/prod benzeri ortamda locale'i geçici olarak enable edin:
+Eğer locale henüz enabled değilse, `PUT /api/ai/prompt-templates/{name}/{locale}`
+çağrısı `unsupported locale` döner. Bu durumda staging/prod benzeri ortamda
+locale'i geçici olarak enable edin:
 
 ```bash
 curl -X PUT "$API_URL/api/ai/admin/i18n/locales" \
@@ -156,7 +192,7 @@ Doğrulama:
 
 ```bash
 curl "$API_URL/api/ai/prompt-templates?locale=de" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.templates'
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.[] | select(.locale == "de")'
 ```
 
 ## 4. AI domain lexicon satırlarını ekle
@@ -207,13 +243,14 @@ curl "$API_URL/api/ai/admin/i18n/coverage/de" \
   -H "Authorization: Bearer $ADMIN_TOKEN" | jq
 ```
 
-Beklenen: Coverage endpoint'i yeni locale için boş domainleri raporlar.
+Beklenen: Coverage endpoint'i yeni locale'in effective bundle'ında eksik kalan
+anahtarları `missing_keys` altında raporlar; prod enable öncesi hedef bu listenin boş olmasıdır.
 
 ### 5.2 Prompt template coverage
 
 ```bash
 curl "$API_URL/api/ai/prompt-templates?locale=de" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.templates'
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.[] | select(.locale == "de")'
 ```
 
 Beklenen: Yeni locale için prompt template listesi döner.
@@ -231,6 +268,7 @@ Beklenen: Yeni locale için prompt template listesi döner.
 1. Yeni locale ile basit bir query çalıştırın.
 2. Query'nin locale-aware prompt template kullandığını doğrulayın.
 3. Eğer query İngilizce yanıt dönerse:
+   - `GET /api/ai/admin/i18n/bundles/{locale}` ile locale bundle'ını kontrol edin.
    - `GET /api/ai/prompt-templates?locale={locale}` ile locale template'lerini kontrol edin.
    - `GET /api/ai/admin/lexicon?locale={locale}` ile domain lexicon'u kontrol edin.
    - `GET /api/ai/admin/i18n/locales` ile locale'in enabled olduğunu doğrulayın.
@@ -247,9 +285,10 @@ Prod'da yeni dili açmadan önce:
 
 1. Staging/prod benzeri ortamda smoke testleri geçirin.
 2. Frontend build'ini geçirin.
-3. Prompt template'lerin locale-specific olduğunu doğrulayın.
-4. Lexicon'da en az bir `temporal_phrase` entry'si olduğunu doğrulayın.
-5. Coverage endpoint'i boş domainleri raporladığını doğrulayın.
+3. `GET /api/ai/admin/i18n/bundles/{locale}` ile DB bundle overlay'inin yüklü olduğunu doğrulayın.
+4. Coverage endpoint'inde `missing_keys` listesinin boş olduğunu doğrulayın.
+5. Prompt template'lerin locale-specific olduğunu doğrulayın.
+6. Lexicon'da en az bir `temporal_phrase` entry'si olduğunu doğrulayın.
 
 Sonrasında:
 
@@ -300,6 +339,7 @@ Frontend'de sorun varsa `SUPPORTED_LOCALES` listesinden çıkarıp build'i tekra
 ## 8. Notlar
 
 - Locale registry'ye ekleme yaparken `enabled=false` ile başlayın.
+- Backend kullanıcı mesajları için `PUT /api/ai/admin/i18n/bundles/{locale}` ile DB bundle overlay'ini doldurun; coverage raporu bu bundle'ı ölçer.
 - Prompt template'leri DB üzerinden yönetilebilir; embedded fallback sadece release zamanlı alternatif.
 - Lexicon'da en az bir `temporal_phrase` domain'i olmadan yeni locale'i açmayın.
 - Frontend locale'leri lazy-loaded section'lar halinde gelir; `admin` ve `auth` section'larını unutmayın.

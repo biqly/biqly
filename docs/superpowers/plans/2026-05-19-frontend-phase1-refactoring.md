@@ -35,9 +35,9 @@
 - Modify: `internal/ai/ai.ts` (Remove dead types)
 - Delete: `frontend/src/hooks/useStreamingApi.ts`
 
-- [ ] **Step 1: Add `clsx` dependency**
+- [x] **Step 1: Add `clsx` dependency**
   - Run: `npm install clsx` in `frontend/`
-- [ ] **Step 2: Verify `useStreamingApi.ts` is unused and delete it**
+- [x] **Step 2: Verify `useStreamingApi.ts` is unused and delete it**
   - Run: `grep -r "useStreamingApi" frontend/src` (should return no imports)
   - Action: Delete the file.
 - [ ] **Step 3: Remove dead types from `internal/ai/ai.ts`**
@@ -53,7 +53,7 @@
 - Create: `frontend/src/utils/chartData.ts`
 - Create: `frontend/src/utils/chartData.test.ts`
 
-- [ ] **Step 1: Write tests for `rowsToChartData`**
+- [x] **Step 1: Write tests for `rowsToChartData`**
 ```typescript
 import { expect, test } from 'vitest'
 import { rowsToChartData } from './chartData'
@@ -69,7 +69,7 @@ test('converts rows to chart objects', () => {
 ```
 - [ ] **Step 2: Run test (Verify failure)**
   - Run: `npm test src/utils/chartData.test.ts`
-- [ ] **Step 3: Implement `rowsToChartData`**
+- [x] **Step 3: Implement `rowsToChartData`**
 ```typescript
 export function rowsToChartData(rows: any[][] | undefined) {
   return rows?.map((row) => {
@@ -79,7 +79,7 @@ export function rowsToChartData(rows: any[][] | undefined) {
   }) || []
 }
 ```
-- [ ] **Step 4: Verify test passes**
+- [x] **Step 4: Verify test passes**
 - [ ] **Step 5: Commit**
   - Command: `git commit -m "feat: add rowsToChartData utility"`
 
@@ -106,9 +106,9 @@ export function rowsToChartData(rows: any[][] | undefined) {
 **Files:**
 - Create: `frontend/src/hooks/useSemanticModels.ts`
 
-- [ ] **Step 1: Implement the hook**
+- [x] **Step 1: Implement the hook**
   - Logic: Fetch `/api/semantic/models?datasource_id=...` whenever `datasourceId` changes.
-- [ ] **Step 2: Refactor `AIQuery.tsx` to use `useSemanticModels`**
+- [x] **Step 2: Refactor `AIQuery.tsx` to use `useSemanticModels`**
   - Remove local fetching logic.
 - [ ] **Step 3: Verify AIQuery still loads models correctly**
 - [ ] **Step 4: Commit**
@@ -121,7 +121,7 @@ export function rowsToChartData(rows: any[][] | undefined) {
 **Files:**
 - Create: `frontend/src/components/ui/ToggleButtonGroup.tsx`
 
-- [ ] **Step 1: Implement component**
+- [x] **Step 1: Implement component**
   - Props: `options`, `value`, `onChange`, `getLabel`, `ariaLabel`.
 - [ ] **Step 2: Replace `LanguageSwitcher.tsx` logic with `ToggleButtonGroup`**
 - [ ] **Step 3: Replace `ThemeToggle.tsx` logic with `ToggleButtonGroup`**
@@ -136,8 +136,8 @@ export function rowsToChartData(rows: any[][] | undefined) {
 - Modify: `frontend/src/pages/Modeling.tsx`
 - Modify: `frontend/src/pages/Metadata.tsx`
 
-- [ ] **Step 1: Replace custom backdrops in `Modeling.tsx` with `<Modal>`**
-- [ ] **Step 2: Replace custom backdrops in `Metadata.tsx` with `<Modal>`**
+- [x] **Step 1: Replace custom backdrops in `Modeling.tsx` with `<Modal>`**
+- [x] **Step 2: Replace custom backdrops in `Metadata.tsx` with `<Modal>`**
 - [ ] **Step 3: Verify modal functionality (close on ESC / backdrop click)**
 - [ ] **Step 4: Commit**
   - Command: `git commit -m "refactor: standardize modal usage across pages"`
