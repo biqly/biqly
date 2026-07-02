@@ -23,6 +23,7 @@ import {
   modelingPaletteClass,
   modelingPaletteSideBodyClass,
   modelingPillActionsClass,
+  modelingRailLabelClass,
   modelingRenameBtnClass,
   modelingSchemaTagClass,
   modelingSchemaTagListClass,
@@ -240,6 +241,19 @@ export function ModelingPalette({
     return table?.table_name ?? fallback
   }
 
+  // Meta repeats the physical name only when the displayed title is a custom
+  // label; otherwise the schema alone is enough and leaves room for the title.
+  const tableGroupMeta = (table: TableRow | undefined): string | undefined => {
+    if (!table) {
+      return undefined
+    }
+    const label = table.label?.trim()
+    if (label && label.length > 0 && label !== table.table_name) {
+      return `${table.schema_name}.${table.table_name}`
+    }
+    return table.schema_name
+  }
+
   const groupByTable = <T,>(items: T[], resolveKey: (item: T) => string | null) => {
     const grouped = new Map<string, T[]>()
     items.forEach((item) => {
@@ -297,6 +311,11 @@ export function ModelingPalette({
       >
         {open ? '‹' : '›'}
       </button>
+      {!open && (
+        <button type="button" className={modelingRailLabelClass} onClick={onToggle}>
+          {t('modeling.semantic_layer')}
+        </button>
+      )}
       <div className={modelingPaletteSideBodyClass}>
         <div>
           <span className={modelingKickerClass}>{t('modeling.semantic_layer')}</span>
@@ -574,7 +593,7 @@ export function ModelingPalette({
                     <CollapsibleGroup
                       key={group.key}
                       title={tableLabel}
-                      meta={table ? `${table.schema_name}.${table.table_name}` : undefined}
+                      meta={tableGroupMeta(table)}
                       count={group.values.length}
                       defaultOpen={dimGroups.length === 1}
                     >
@@ -667,7 +686,7 @@ export function ModelingPalette({
                     <CollapsibleGroup
                       key={group.key}
                       title={tableLabel}
-                      meta={table ? `${table.schema_name}.${table.table_name}` : undefined}
+                      meta={tableGroupMeta(table)}
                       count={group.values.length}
                       defaultOpen={metricGroups.length === 1}
                     >

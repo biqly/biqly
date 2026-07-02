@@ -31,6 +31,14 @@ func NormalizeDriverType(t string) string {
 		return "sqlserver"
 	case "clickhouse", "ch":
 		return "clickhouse"
+	case "sqlite", "sqlite3":
+		return "sqlite"
+	case "snowflake":
+		return "snowflake"
+	case "databricks", "spark", "dbx":
+		return "databricks"
+	case "oracle", "ora":
+		return "oracle"
 	default:
 		return strings.ToLower(strings.TrimSpace(t))
 	}
@@ -47,6 +55,10 @@ func DefaultPort(driver string) int {
 		return 1433
 	case "clickhouse":
 		return 9000
+	case "oracle":
+		return 1521
+	case "databricks":
+		return 443
 	default:
 		return 0
 	}
@@ -66,6 +78,8 @@ func DriverConnectionDefaults(driver string) ConnectionFields {
 		ssl = "disable"
 	case "clickhouse":
 		ssl = "false"
+	case "oracle":
+		ssl = "disable"
 	}
 	return ConnectionFields{Port: port, SSLMode: ssl}
 }
@@ -128,6 +142,92 @@ func mergeExtraQuery(q url.Values, extra map[string]string) {
 			q.Set(k, v)
 		}
 	}
+}
+
+func composeSQLiteDSN(f ConnectionFields) (string, error) {
+	path := strings.TrimSpace(f.DatabaseName)
+	if path == "" {
+		return "", errors.New("database file path is required for sqlite")
+	}
+	q := url.Values{}
+	q.Set("mode", "ro")
+	for k, v := range f.Extra {
+		if k = strings.TrimSpace(k); k != "" && strings.ToLower(k) != "mode" {
+			q.Set(k, v)
+		}
+	}
+	return "file:" + path + "?" + q.Encode(), nil
+}
+
+func composeSnowflakeDSN(f ConnectionFields) (string, error) {
+	account := strings.TrimSpace(f.Host)
+	if account == "" {
+		return "", errors.New("account identifier is required for snowflake")
+	}
+	user := strings.TrimSpace(f.Username)
+	if user == "" {
+		return "", errors.New("username is required for snowflake")
+	}
+	db := strings.TrimSpace(f.DatabaseName)
+	if db == "" {
+		return "", errors.New("database name is required for snowflake")
+	}
+	extra := make(map[string]string, len(f.Extra))
+	for k, v := range f.Extra {
+		if k = strings.ToLower(strings.TrimSpace(k)); k != "" {
+			extra[k] = strings.TrimSpace(v)
+		}
+	}
+	path := db
+	if schema := extra["schema"]; schema != "" {
+		path += "/" + schema
+	}
+	delete(extra, "schema")
+	q := url.Values{}
+	mergeExtraQuery(q, extra)
+	dsn := fmt.Sprintf("%s:%s@%s/%s", url.QueryEscape(user), url.QueryEscape(f.Password), account, path)
+	if enc := q.Encode(); enc != "" {
+		dsn += "?" + enc
+	}
+	return dsn, nil
+}
+
+func composeDatabricksDSN(f ConnectionFields) (string, error) {
+	host := strings.TrimSpace(f.Host)
+	if host == "" {
+		return "", errors.New("host is required for databricks")
+	}
+	if f.Password == "" {
+		return "", errors.New("access token is required for databricks")
+	}
+	extra := make(map[string]string, len(f.Extra))
+	for k, v := range f.Extra {
+		if k = strings.ToLower(strings.TrimSpace(k)); k != "" {
+			extra[k] = strings.TrimSpace(v)
+		}
+	}
+	httpPath := extra["http_path"]
+	if httpPath == "" {
+		return "", errors.New("http_path is required for databricks")
+	}
+	delete(extra, "http_path")
+	if !strings.HasPrefix(httpPath, "/") {
+		httpPath = "/" + httpPath
+	}
+	port := f.Port
+	if port <= 0 {
+		port = 443
+	}
+	q := url.Values{}
+	if catalog := strings.TrimSpace(f.DatabaseName); catalog != "" {
+		q.Set("catalog", catalog)
+	}
+	mergeExtraQuery(q, extra)
+	dsn := fmt.Sprintf("token:%s@%s:%d%s", url.QueryEscape(f.Password), host, port, httpPath)
+	if enc := q.Encode(); enc != "" {
+		dsn += "?" + enc
+	}
+	return dsn, nil
 }
 
 func composePostgresDSN(p dsnParts) (string, error) {
@@ -224,8 +324,36 @@ func composeClickHouseDSN(p dsnParts) (string, error) {
 	return u.String(), nil
 }
 
+func composeOracleDSN(p dsnParts) (string, error) {
+	if p.db == "" {
+		return "", errors.New("service name is required for oracle")
+	}
+	u := url.URL{
+		Scheme: "oracle",
+		User:   url.UserPassword(p.user, p.pass),
+		Host:   fmt.Sprintf("%s:%d", p.host, p.port),
+		Path:   "/" + p.db,
+	}
+	q := url.Values{}
+	switch strings.ToLower(p.ssl) {
+	case "true", "require", "required":
+		q.Set("ssl", "true")
+	}
+	mergeExtraQuery(q, p.extra)
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}
+
 // ComposeDSN builds a single connection string for Open/Ping.
 func ComposeDSN(driver string, f ConnectionFields) (string, error) {
+	switch NormalizeDriverType(driver) {
+	case "sqlite":
+		return composeSQLiteDSN(f)
+	case "snowflake":
+		return composeSnowflakeDSN(f)
+	case "databricks":
+		return composeDatabricksDSN(f)
+	}
 	p, err := prepareDSNParts(driver, f)
 	if err != nil {
 		return "", err
@@ -239,6 +367,8 @@ func ComposeDSN(driver string, f ConnectionFields) (string, error) {
 		return composeSQLServerDSN(p)
 	case "clickhouse":
 		return composeClickHouseDSN(p)
+	case "oracle":
+		return composeOracleDSN(p)
 	default:
 		return "", fmt.Errorf("compose DSN: unsupported driver %q", driver)
 	}

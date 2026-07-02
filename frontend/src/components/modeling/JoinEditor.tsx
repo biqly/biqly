@@ -6,6 +6,7 @@ import {
   modelingEditorClass,
   modelingEditorSideBodyClass,
   modelingKickerClass,
+  modelingRailLabelClass,
   modelingSideToggleClass,
   modelingTypeHintClass,
 } from '../../lib/modelingClasses'
@@ -84,6 +85,11 @@ export function JoinEditor({
       >
         {open ? '›' : '‹'}
       </button>
+      {!open && (
+        <button type="button" className={modelingRailLabelClass} onClick={onToggle}>
+          {t('modeling.manual_relationship')}
+        </button>
+      )}
       <div className={modelingEditorSideBodyClass}>
         <div>
           <span className={modelingKickerClass}>{t('modeling.manual_relationship')}</span>

@@ -5,7 +5,6 @@ import { localeLanguageTag, type TranslationKey, useLocale, useT } from '../../i
 import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { formatDateTime } from '../../utils/formatters'
-import { AdminPanelShell } from './AdminPanelShell'
 
 /* ------------------------------------------------------------------ */
 /*  Types matching the backend drift_types.go API response             */
@@ -225,12 +224,7 @@ export function DriftPanel({ modelId, defaultOpen = false }: DriftPanelProps) {
   const totalDrifts = reports.reduce((n, r) => n + r.drifts.length, 0)
 
   return (
-    <AdminPanelShell
-      title={t('modeling.drift_panel_title')}
-      description={t('modeling.drift_panel_hint')}
-      maxWidth="100%"
-      className="animate-drift-panel-enter m-0 overflow-hidden p-0"
-    >
+    <section className="animate-drift-panel-enter border-border bg-card w-full overflow-hidden rounded-lg border">
       <button
         type="button"
         className="font-inherit color-inherit bg-card-raised focus-visible:outline-accent flex w-full cursor-pointer items-center justify-between gap-2.5 border-0 p-[10px_14px] text-left select-none hover:bg-(--control-hover-bg) focus-visible:outline-2 focus-visible:-outline-offset-2"
@@ -253,7 +247,10 @@ export function DriftPanel({ modelId, defaultOpen = false }: DriftPanelProps) {
       </button>
 
       {open && (
-        <div className="px-3.5 pt-0 pb-3.5" id="drift-panel-body">
+        <div className="max-h-[45vh] overflow-y-auto px-3.5 pt-0 pb-3.5" id="drift-panel-body">
+          <p className="text-foreground-muted m-0 mt-2.5 text-xs leading-normal">
+            {t('modeling.drift_panel_hint')}
+          </p>
           {reports.map((report) => (
             <div key={report.id}>
               <div className="text-foreground-faint mx-0 mt-2.5 mb-0.5 flex items-center gap-2 text-[0.8rem] [&_time]:italic">
@@ -332,6 +329,6 @@ export function DriftPanel({ modelId, defaultOpen = false }: DriftPanelProps) {
           ))}
         </div>
       )}
-    </AdminPanelShell>
+    </section>
   )
 }

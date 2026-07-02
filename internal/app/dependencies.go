@@ -22,8 +22,12 @@ import (
 	"github.com/biqly/biqly/internal/dashboard"
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/datasource/clickhouse"
+	"github.com/biqly/biqly/internal/datasource/databricks"
 	"github.com/biqly/biqly/internal/datasource/mysql"
+	"github.com/biqly/biqly/internal/datasource/oracle"
 	"github.com/biqly/biqly/internal/datasource/postgres"
+	"github.com/biqly/biqly/internal/datasource/snowflake"
+	"github.com/biqly/biqly/internal/datasource/sqlite"
 	"github.com/biqly/biqly/internal/datasource/sqlserver"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/mail"
@@ -376,6 +380,10 @@ func newDriverRegistry() *datasource.Registry {
 	reg.Register(mysql.NewDriver())
 	reg.Register(sqlserver.NewDriver())
 	reg.Register(clickhouse.NewDriver())
+	reg.Register(sqlite.NewDriver())
+	reg.Register(snowflake.NewDriver())
+	reg.Register(databricks.NewDriver())
+	reg.Register(oracle.NewDriver())
 	return reg
 }
 

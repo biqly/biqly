@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { getMyDatasources } from '../api/admin'
-import { driverLabelKey, driverLogoUrl, driverStructuredDefaults } from '../dbDrivers'
+import {
+  driverFormSpec,
+  driverLabelKey,
+  driverLogoUrl,
+  driverStructuredDefaults,
+} from '../dbDrivers'
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import { localeLanguageTag, useLocale, useT } from '../i18n'
@@ -53,6 +58,7 @@ interface StructuredForm {
   password: string
   database_name: string
   ssl_mode: string
+  extras: Record<string, string>
 }
 
 interface DatasourceForm {
@@ -69,6 +75,7 @@ function emptyStructured(): StructuredForm {
     password: '',
     database_name: '',
     ssl_mode: '',
+    extras: {},
   }
 }
 
@@ -82,9 +89,68 @@ function connectionSummary(ds: Datasource): { line1: string; line2?: string } {
     if (host) {
       return { line1: host }
     }
+    if (db) {
+      return { line1: db }
+    }
     return { line1: '' }
   }
   return { line1: '' }
+}
+
+function buildStructuredConnectionPayload(
+  type: string,
+  structured: StructuredForm,
+): Record<string, unknown> | null {
+  const spec = driverFormSpec(type)
+  if (spec.host && !structured.host.trim()) {
+    return null
+  }
+  if (spec.databaseRequired && !structured.database_name.trim()) {
+    return null
+  }
+  if (spec.extras.some((f) => f.required && !(structured.extras[f.key] ?? '').trim())) {
+    return null
+  }
+  const portStr = spec.port ? structured.port.trim() : ''
+  let port: number | undefined
+  if (portStr !== '') {
+    const n = parseInt(portStr, 10)
+    if (Number.isNaN(n) || n <= 0) {
+      return null
+    }
+    port = n
+  }
+
+  const connection: Record<string, unknown> = {}
+  if (spec.host) {
+    connection.host = structured.host.trim()
+  }
+  if (spec.username) {
+    connection.username = structured.username
+  }
+  if (spec.password) {
+    connection.password = structured.password
+  }
+  if (spec.database) {
+    connection.database_name = structured.database_name
+  }
+  if (port !== undefined) {
+    connection.port = port
+  }
+  if (spec.ssl) {
+    const ssl = structured.ssl_mode.trim()
+    if (ssl) {
+      connection.ssl_mode = ssl
+    }
+  }
+  const extras = Object.fromEntries(
+    Object.entries(structured.extras).filter(([, v]) => v.trim() !== ''),
+  )
+  if (Object.keys(extras).length > 0) {
+    connection.connection_params = extras
+  }
+
+  return connection
 }
 
 export default function Datasources() {
@@ -180,31 +246,9 @@ export default function Datasources() {
       }
     }
 
-    if (!structured.host.trim()) {
+    const connection = buildStructuredConnectionPayload(form.type, structured)
+    if (!connection) {
       return null
-    }
-    const portStr = structured.port.trim()
-    let port: number | undefined
-    if (portStr !== '') {
-      const n = parseInt(portStr, 10)
-      if (Number.isNaN(n) || n <= 0) {
-        return null
-      }
-      port = n
-    }
-
-    const connection: Record<string, unknown> = {
-      host: structured.host.trim(),
-      username: structured.username,
-      password: structured.password,
-      database_name: structured.database_name,
-    }
-    if (port !== undefined) {
-      connection.port = port
-    }
-    const ssl = structured.ssl_mode.trim()
-    if (ssl) {
-      connection.ssl_mode = ssl
     }
 
     return {
@@ -261,6 +305,7 @@ export default function Datasources() {
       password: '',
       database_name: ds.database_name ?? '',
       ssl_mode: ds.ssl_mode ?? driverStructuredDefaults(ds.type).ssl_mode,
+      extras: {},
     })
     setDraftTestResult(null)
     setShowForm(true)
@@ -269,7 +314,7 @@ export default function Datasources() {
   const setDriver = (type: string) => {
     setForm({ ...form, type })
     const defaults = driverStructuredDefaults(type)
-    setStructured({ ...structured, port: defaults.port, ssl_mode: defaults.ssl_mode })
+    setStructured({ ...structured, port: defaults.port, ssl_mode: defaults.ssl_mode, extras: {} })
   }
 
   const del = async (id: string) => {
@@ -351,11 +396,14 @@ export default function Datasources() {
     }
   }
 
+  const spec = driverFormSpec(form.type)
   const canSubmit =
     form.name.trim() !== '' &&
     (connMode === 'raw'
       ? editingId !== null || form.dsn.trim() !== ''
-      : structured.host.trim() !== '' &&
+      : (!spec.host || structured.host.trim() !== '') &&
+        (!spec.databaseRequired || structured.database_name.trim() !== '') &&
+        spec.extras.every((f) => !f.required || (structured.extras[f.key] ?? '').trim() !== '') &&
         (structured.port.trim() === '' ||
           (!Number.isNaN(parseInt(structured.port, 10)) && parseInt(structured.port, 10) > 0)))
   const datasourceRows = buildDatasourceAccessView(items, accessibleDatasourceIDs)

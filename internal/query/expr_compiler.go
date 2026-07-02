@@ -28,6 +28,7 @@ var dialectFunctions = map[string]map[string]string{
 	},
 	"SUBSTRING": {
 		"clickhouse": "substring",
+		"oracle":     "SUBSTR",
 	},
 	"REPLACE": {
 		"clickhouse": "replace",
@@ -75,6 +76,22 @@ func normalizeExprDialect(d dialect.Dialect) dialect.Dialect {
 	case dialect.ClickHouseDialect:
 		if concrete.QuoteLeft == "" {
 			return dialect.ClickHouse
+		}
+	case dialect.SQLiteDialect:
+		if concrete.QuoteLeft == "" {
+			return dialect.SQLite
+		}
+	case dialect.SnowflakeDialect:
+		if concrete.QuoteLeft == "" {
+			return dialect.Snowflake
+		}
+	case dialect.DatabricksDialect:
+		if concrete.QuoteLeft == "" {
+			return dialect.Databricks
+		}
+	case dialect.OracleDialect:
+		if concrete.QuoteLeft == "" {
+			return dialect.Oracle
 		}
 	}
 	return d

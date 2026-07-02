@@ -60,7 +60,7 @@ func resolveCreateDatasourceMode(req *createDatasourceRequest) string {
 	if mode != "" {
 		return mode
 	}
-	hasConn := req.Connection != nil && strings.TrimSpace(req.Connection.Host) != ""
+	hasConn := req.Connection != nil && connectionHasPayload(req.Connection)
 	hasDSN := strings.TrimSpace(req.DSN) != ""
 	if hasConn && hasDSN {
 		return ""
@@ -227,16 +227,17 @@ func (h *DatasourceHandler) buildStructuredModeDraft(req createDatasourceRequest
 	}
 	c := req.Connection
 	host := strings.TrimSpace(c.Host)
-	if host == "" {
-		return nil, "", http.StatusBadRequest, "connection.host is required", nil
+	if host != "" {
+		ds.Host = new(host)
 	}
-	ds.Host = new(host)
 
 	port := datasource.DefaultPort(driverType)
 	if c.Port != nil && *c.Port > 0 {
 		port = *c.Port
 	}
-	ds.Port = new(port)
+	if port > 0 {
+		ds.Port = new(port)
+	}
 
 	if u := optionalStringPtr(c.Username); u != nil {
 		ds.Username = u
