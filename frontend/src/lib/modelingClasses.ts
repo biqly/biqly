@@ -36,7 +36,7 @@ export function modelingShellClass(opts: { paletteOpen: boolean; editorOpen: boo
     cols = 'grid-cols-[minmax(18.5rem,20rem)_minmax(0,1fr)_2rem]'
   }
   return cn(
-    'relative grid h-[calc(100vh-17rem)] min-h-[32rem] grid-rows-1 overflow-hidden',
+    'relative grid h-[calc(100vh-22rem)] min-h-[32rem] grid-rows-1 overflow-hidden',
     'rounded-lg border border-border bg-card shadow-[var(--shadow)]',
     'ease transition-[grid-template-columns] duration-180',
     cols,
@@ -141,6 +141,16 @@ export function modelingSideToggleClass(side: 'left' | 'right'): string {
 export const modelingKickerClass =
   'block mb-1 text-accent text-[0.72rem] font-extrabold tracking-[0.04em] uppercase'
 
+// Vertical label shown on the 2rem collapsed side rail so the hidden panel
+// stays discoverable; clicking it re-opens the panel.
+export const modelingRailLabelClass = cn(
+  'absolute inset-x-0 top-12 mx-auto flex cursor-pointer items-center justify-center',
+  'border-0 bg-transparent p-0 text-[0.68rem] font-bold tracking-[0.08em] uppercase',
+  'text-foreground-muted [writing-mode:vertical-rl] hover:text-accent',
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+  'max-[1180px]:hidden',
+)
+
 export function modelingStatusPillClass(published?: boolean): string {
   return cn(
     'inline-flex shrink-0 items-center gap-[0.3rem] min-h-[2.1rem] rounded-full px-[0.55rem_0.7rem]',
@@ -178,7 +188,7 @@ export function modelingTabCountClass(zero?: boolean, active?: boolean): string 
     'modeling-tab__count inline-flex min-w-[1.15rem] shrink-0 items-center justify-center',
     'rounded-full px-[0.35rem] py-[0.05rem] text-[0.68rem] leading-none font-bold tabular-nums',
     active
-      ? 'bg-white/25 text-white'
+      ? 'bg-accent text-white'
       : zero
         ? 'bg-card-raised text-foreground-muted'
         : 'bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-accent',
