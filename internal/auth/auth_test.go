@@ -560,7 +560,7 @@ func TestCSRF(t *testing.T) {
 	}
 	require.NotNil(t, csrfCookie)
 	assert.NotEmpty(t, csrfCookie.Value)
-	assert.False(t, csrfCookie.HttpOnly)
+	assert.True(t, csrfCookie.HttpOnly)
 	assert.False(t, csrfCookie.Secure)
 
 	headerToken := rrGET.Header().Get("X-CSRF-Token")

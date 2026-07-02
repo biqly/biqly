@@ -121,8 +121,8 @@ func TestCSRFCookieSecureInProduction(t *testing.T) {
 	if !csrfCookie.Secure {
 		t.Fatal("expected Secure CSRF cookie outside local dev port")
 	}
-	if csrfCookie.HttpOnly {
-		t.Fatal("double-submit CSRF cookie must be readable by the SPA")
+	if !csrfCookie.HttpOnly {
+		t.Fatal("CSRF cookie must be HttpOnly; the SPA reads the token from the X-CSRF-Token header")
 	}
 	if csrfCookie.Path != "/" {
 		t.Fatalf("expected CSRF cookie path /, got %q", csrfCookie.Path)
