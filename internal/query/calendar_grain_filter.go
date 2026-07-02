@@ -253,6 +253,8 @@ func (c *Compiler) castColumnAsDate(columnRef string) string {
 		return fmt.Sprintf("DATE(%s)", quoted)
 	case "clickhouse":
 		return fmt.Sprintf("toDate(%s)", quoted)
+	case "sqlite":
+		return fmt.Sprintf("date(%s)", quoted)
 	default:
 		return fmt.Sprintf("CAST(%s AS %s)", quoted, c.dialect.CastType("date"))
 	}

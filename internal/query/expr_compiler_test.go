@@ -283,3 +283,33 @@ func TestCompileExprPIIMasking(t *testing.T) {
 		t.Errorf("expected hidden literal, got %q", gotHidden)
 	}
 }
+
+func TestNormalizeExprDialect_newDrivers(t *testing.T) {
+	cases := []struct {
+		zero dialect.Dialect
+		want string
+	}{
+		{dialect.SQLiteDialect{}, "sqlite"},
+		{dialect.SnowflakeDialect{}, "snowflake"},
+		{dialect.DatabricksDialect{}, "databricks"},
+		{dialect.OracleDialect{}, "oracle"},
+	}
+	for _, tc := range cases {
+		got := normalizeExprDialect(tc.zero)
+		if got.Name() != tc.want {
+			t.Errorf("normalizeExprDialect(%T).Name() = %q, want %q", tc.zero, got.Name(), tc.want)
+		}
+		// Zero-value structs must be replaced by the canonical instance so
+		// QuoteIdent works; verify a quote round-trip does not produce "".
+		if q := got.QuoteIdent("x"); q == "x" || q == "" {
+			t.Errorf("%T: QuoteIdent broken after normalize: %q", tc.zero, q)
+		}
+	}
+}
+
+func TestDialectFunctions_oracleSubstr(t *testing.T) {
+	m, ok := dialectFunctions["SUBSTRING"]
+	if !ok || m["oracle"] != "SUBSTR" {
+		t.Errorf("SUBSTRING oracle mapping = %v", m)
+	}
+}
