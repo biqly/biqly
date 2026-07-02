@@ -136,3 +136,62 @@ func TestEffectiveColumnAccess_UnknownAccessFailsClosed(t *testing.T) {
 	assert.Equal(t, AccessHidden, EffectiveColumnAccess("bogus", ""))
 	assert.Equal(t, AccessHidden, EffectiveColumnAccess("", ""))
 }
+
+func TestCastText_newDrivers(t *testing.T) {
+	cases := []struct {
+		d    dialect.Dialect
+		want string
+	}{
+		{dialect.Oracle, "CAST(x AS VARCHAR2(256))"},
+		{dialect.Databricks, "CAST(x AS STRING)"},
+		{dialect.SQLite, "CAST(x AS TEXT)"},
+		{dialect.Snowflake, "CAST(x AS TEXT)"},
+	}
+	for _, tc := range cases {
+		if got := castText("x", tc.d); got != tc.want {
+			t.Errorf("castText(%s) = %q, want %q", tc.d.Name(), got, tc.want)
+		}
+	}
+}
+
+func TestLeftRight_substrDialects(t *testing.T) {
+	for _, d := range []dialect.Dialect{dialect.Oracle, dialect.SQLite} {
+		if got := left(d, "x", 3); got != "SUBSTR(x, 1, 3)" {
+			t.Errorf("left(%s) = %q", d.Name(), got)
+		}
+		if got := right(d, "x", 2); got != "SUBSTR(x, -2, 2)" {
+			t.Errorf("right(%s) = %q", d.Name(), got)
+		}
+	}
+}
+
+func TestFromChar_newDrivers(t *testing.T) {
+	cases := []struct {
+		d    dialect.Dialect
+		want string
+	}{
+		{dialect.SQLite, "SUBSTR(x, INSTR(x, '@'))"},
+		{dialect.Oracle, "SUBSTR(x, INSTR(x, '@'))"},
+		{dialect.Snowflake, "SUBSTR(x, POSITION('@', x))"},
+		{dialect.Databricks, "substring(x, instr(x, '@'))"},
+	}
+	for _, tc := range cases {
+		if got := fromChar(tc.d, "x", "@"); got != tc.want {
+			t.Errorf("fromChar(%s) = %q, want %q", tc.d.Name(), got, tc.want)
+		}
+	}
+}
+
+func TestMaskIPExpr_newDrivers(t *testing.T) {
+	const pattern = "'[0-9a-fA-F]+'"
+	for _, d := range []dialect.Dialect{dialect.Snowflake, dialect.Databricks, dialect.Oracle} {
+		want := "REGEXP_REPLACE(x, " + pattern + ", '*')"
+		if got := maskIPExpr(d, "x"); got != want {
+			t.Errorf("maskIPExpr(%s) = %q, want %q", d.Name(), got, want)
+		}
+	}
+	// SQLite has no native regex: must fail closed to the hidden literal.
+	if got := maskIPExpr(dialect.SQLite, "x"); got != HiddenLiteral {
+		t.Errorf("maskIPExpr(sqlite) = %q, want %q", got, HiddenLiteral)
+	}
+}

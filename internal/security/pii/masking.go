@@ -106,6 +106,10 @@ func castText(col string, d dialect.Dialect) string {
 		return "CAST(" + col + " AS NVARCHAR(256))"
 	case "clickhouse":
 		return "toString(" + col + ")"
+	case "oracle":
+		return "CAST(" + col + " AS VARCHAR2(256))"
+	case "databricks":
+		return "CAST(" + col + " AS STRING)"
 	default: // postgres and ANSI-compatible dialects
 		return "CAST(" + col + " AS TEXT)"
 	}
@@ -128,18 +132,26 @@ func concat(d dialect.Dialect, parts ...string) string {
 
 // left returns the first n characters of expr.
 func left(d dialect.Dialect, expr string, n int) string {
-	if d.Name() == "clickhouse" {
+	switch d.Name() {
+	case "clickhouse":
 		return "substring(" + expr + ", 1, " + strconv.Itoa(n) + ")"
+	case "oracle", "sqlite":
+		return "SUBSTR(" + expr + ", 1, " + strconv.Itoa(n) + ")"
+	default:
+		return "LEFT(" + expr + ", " + strconv.Itoa(n) + ")"
 	}
-	return "LEFT(" + expr + ", " + strconv.Itoa(n) + ")"
 }
 
 // right returns the last n characters of expr.
 func right(d dialect.Dialect, expr string, n int) string {
-	if d.Name() == "clickhouse" {
+	switch d.Name() {
+	case "clickhouse":
 		return "substring(" + expr + ", length(" + expr + ") - " + strconv.Itoa(n-1) + ", " + strconv.Itoa(n) + ")"
+	case "oracle", "sqlite":
+		return "SUBSTR(" + expr + ", -" + strconv.Itoa(n) + ", " + strconv.Itoa(n) + ")"
+	default:
+		return "RIGHT(" + expr + ", " + strconv.Itoa(n) + ")"
 	}
-	return "RIGHT(" + expr + ", " + strconv.Itoa(n) + ")"
 }
 
 // fromChar returns the substring of expr starting at the first occurrence of
@@ -153,6 +165,12 @@ func fromChar(d dialect.Dialect, expr, marker string) string {
 		return "SUBSTRING(" + expr + ", CHARINDEX(" + lit + ", " + expr + "), LEN(" + expr + "))"
 	case "clickhouse":
 		return "substring(" + expr + ", position(" + expr + ", " + lit + "))"
+	case "sqlite", "oracle":
+		return "SUBSTR(" + expr + ", INSTR(" + expr + ", " + lit + "))"
+	case "snowflake":
+		return "SUBSTR(" + expr + ", POSITION(" + lit + ", " + expr + "))"
+	case "databricks":
+		return "substring(" + expr + ", instr(" + expr + ", " + lit + "))"
 	default: // postgres
 		return "SUBSTRING(" + expr + " FROM POSITION(" + lit + " IN " + expr + "))"
 	}
@@ -164,7 +182,7 @@ func maskIPExpr(d dialect.Dialect, expr string) string {
 	switch d.Name() {
 	case "postgres":
 		return "REGEXP_REPLACE(" + expr + ", " + pattern + ", '*', 'g')"
-	case "mysql":
+	case "mysql", "snowflake", "databricks", "oracle":
 		return "REGEXP_REPLACE(" + expr + ", " + pattern + ", '*')"
 	case "clickhouse":
 		return "replaceRegexpAll(" + expr + ", " + pattern + ", '*')"
