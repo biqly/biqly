@@ -2,6 +2,8 @@ import {
   DRIVER_IDS,
   driverDefaultPort,
   driverDsnPlaceholder,
+  type DriverFormSpec,
+  driverFormSpec,
   driverStructuredDefaults,
   isInsecureSslMode,
 } from '../../dbDrivers'
@@ -32,6 +34,7 @@ interface StructuredForm {
   password: string
   database_name: string
   ssl_mode: string
+  extras: Record<string, string>
 }
 
 interface DatasourceForm {
@@ -58,6 +61,239 @@ export interface DatasourceFormModalProps {
   onSave: () => void
 }
 
+interface StructuredConnectionFieldsProps {
+  editingId: string | null
+  formType: string
+  structured: StructuredForm
+  onStructuredChange: (structured: StructuredForm) => void
+}
+
+interface StructuredFieldGroupProps {
+  spec: DriverFormSpec
+  structured: StructuredForm
+  onStructuredChange: (structured: StructuredForm) => void
+}
+
+interface HostPortFieldsProps extends StructuredFieldGroupProps {
+  portPlaceholder: string
+}
+
+interface SslFieldProps extends StructuredFieldGroupProps {
+  sslPlaceholder: string
+}
+
+function HostPortFields({
+  spec,
+  structured,
+  onStructuredChange,
+  portPlaceholder,
+}: HostPortFieldsProps) {
+  const t = useT()
+
+  if (!spec.host && !spec.port) {
+    return null
+  }
+
+  return (
+    <div className={modalFormRowClass()}>
+      {spec.host && (
+        <div className={legacyFormClass('form-group')}>
+          <label htmlFor="ds-host">{t(spec.hostLabelKey ?? 'datasources.fields.host')}</label>
+          <input
+            id="ds-host"
+            value={structured.host}
+            onChange={(e) => onStructuredChange({ ...structured, host: e.target.value })}
+            placeholder="localhost"
+            autoComplete="off"
+          />
+        </div>
+      )}
+      {spec.port && (
+        <div className={legacyFormClass('form-group')}>
+          <label htmlFor="ds-port">{t('datasources.fields.port')}</label>
+          <input
+            id="ds-port"
+            value={structured.port}
+            onChange={(e) => onStructuredChange({ ...structured, port: e.target.value })}
+            placeholder={portPlaceholder}
+            inputMode="numeric"
+            autoComplete="off"
+          />
+          <small className="text-foreground-muted mt-1 block text-[0.75rem] leading-[1.35]">
+            {t('common.optional')}
+          </small>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DatabaseUsernameFields({
+  spec,
+  structured,
+  onStructuredChange,
+}: StructuredFieldGroupProps) {
+  const t = useT()
+
+  if (!spec.database && !spec.username) {
+    return null
+  }
+
+  return (
+    <div className={modalFormRowClass()}>
+      {spec.database && (
+        <div className={legacyFormClass('form-group')}>
+          <label htmlFor="ds-db">{t(spec.databaseLabelKey ?? 'datasources.fields.database')}</label>
+          <input
+            id="ds-db"
+            value={structured.database_name}
+            onChange={(e) => onStructuredChange({ ...structured, database_name: e.target.value })}
+            autoComplete="off"
+          />
+        </div>
+      )}
+      {spec.username && (
+        <div className={legacyFormClass('form-group')}>
+          <label htmlFor="ds-user">{t('datasources.fields.username')}</label>
+          <input
+            id="ds-user"
+            value={structured.username}
+            onChange={(e) => onStructuredChange({ ...structured, username: e.target.value })}
+            autoComplete="off"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PasswordField({
+  editingId,
+  spec,
+  structured,
+  onStructuredChange,
+}: StructuredFieldGroupProps & Pick<StructuredConnectionFieldsProps, 'editingId'>) {
+  const t = useT()
+
+  if (!spec.password) {
+    return null
+  }
+
+  return (
+    <div className={legacyFormClass('form-group')}>
+      <label htmlFor="ds-pass">{t(spec.passwordLabelKey ?? 'datasources.fields.password')}</label>
+      <input
+        id="ds-pass"
+        type="password"
+        value={structured.password}
+        onChange={(e) => onStructuredChange({ ...structured, password: e.target.value })}
+        autoComplete="off"
+      />
+      <small className="text-foreground-muted mt-1 block text-[0.75rem] leading-[1.35]">
+        {editingId ? t('datasources.password_keep_hint') : t('datasources.dsn_hint')}
+      </small>
+    </div>
+  )
+}
+
+function SslField({ spec, structured, onStructuredChange, sslPlaceholder }: SslFieldProps) {
+  const t = useT()
+
+  if (!spec.ssl) {
+    return null
+  }
+
+  return (
+    <div className={legacyFormClass('form-group')}>
+      <label htmlFor="ds-ssl">{t('datasources.fields.ssl_mode')}</label>
+      <input
+        id="ds-ssl"
+        value={structured.ssl_mode}
+        onChange={(e) => onStructuredChange({ ...structured, ssl_mode: e.target.value })}
+        placeholder={sslPlaceholder}
+        autoComplete="off"
+      />
+      <small className="text-foreground-muted mt-1 block text-[0.75rem] leading-[1.35]">
+        {t('common.optional')}
+      </small>
+      {isInsecureSslMode(structured.ssl_mode) && (
+        <small className="text-warning mt-1 block text-[0.75rem] leading-[1.35]">
+          ⚠ {t('datasources.ssl_insecure_warning')}
+        </small>
+      )}
+    </div>
+  )
+}
+
+function ExtraFields({ spec, structured, onStructuredChange }: StructuredFieldGroupProps) {
+  const t = useT()
+
+  return spec.extras.map((f) => (
+    <div key={f.key} className={legacyFormClass('form-group')}>
+      <label htmlFor={`ds-extra-${f.key}`}>{t(f.labelKey)}</label>
+      <input
+        id={`ds-extra-${f.key}`}
+        value={structured.extras[f.key] ?? ''}
+        onChange={(e) =>
+          onStructuredChange({
+            ...structured,
+            extras: { ...structured.extras, [f.key]: e.target.value },
+          })
+        }
+        placeholder={f.placeholder}
+        autoComplete="off"
+      />
+      {!f.required && (
+        <small className="text-foreground-muted mt-1 block text-[0.75rem] leading-[1.35]">
+          {t('common.optional')}
+        </small>
+      )}
+    </div>
+  ))
+}
+
+function StructuredConnectionFields({
+  editingId,
+  formType,
+  structured,
+  onStructuredChange,
+}: StructuredConnectionFieldsProps) {
+  const spec = driverFormSpec(formType)
+  const defaultPortHint = driverDefaultPort(formType)
+  const driverConnHints = driverStructuredDefaults(formType)
+  const portPlaceholder = defaultPortHint > 0 ? String(defaultPortHint) : ''
+  const sslPlaceholder = driverConnHints.ssl_mode || 'disable'
+
+  return (
+    <>
+      <HostPortFields
+        spec={spec}
+        structured={structured}
+        onStructuredChange={onStructuredChange}
+        portPlaceholder={portPlaceholder}
+      />
+      <DatabaseUsernameFields
+        spec={spec}
+        structured={structured}
+        onStructuredChange={onStructuredChange}
+      />
+      <PasswordField
+        editingId={editingId}
+        spec={spec}
+        structured={structured}
+        onStructuredChange={onStructuredChange}
+      />
+      <SslField
+        spec={spec}
+        structured={structured}
+        onStructuredChange={onStructuredChange}
+        sslPlaceholder={sslPlaceholder}
+      />
+      <ExtraFields spec={spec} structured={structured} onStructuredChange={onStructuredChange} />
+    </>
+  )
+}
+
 export function DatasourceFormModal({
   open,
   editingId,
@@ -77,8 +313,6 @@ export function DatasourceFormModal({
 }: DatasourceFormModalProps) {
   const t = useT()
   const datasourceNameInputRef = useAutofocus<HTMLInputElement>(open)
-  const driverConnHints = driverStructuredDefaults(form.type)
-  const defaultPortHint = driverDefaultPort(form.type)
 
   return (
     <Modal
@@ -186,87 +420,12 @@ export function DatasourceFormModal({
             </small>
           </div>
         ) : (
-          <>
-            <div className={modalFormRowClass()}>
-              <div className={legacyFormClass('form-group')}>
-                <label htmlFor="ds-host">{t('datasources.fields.host')}</label>
-                <input
-                  id="ds-host"
-                  value={structured.host}
-                  onChange={(e) => onStructuredChange({ ...structured, host: e.target.value })}
-                  placeholder="localhost"
-                  autoComplete="off"
-                />
-              </div>
-              <div className={legacyFormClass('form-group')}>
-                <label htmlFor="ds-port">{t('datasources.fields.port')}</label>
-                <input
-                  id="ds-port"
-                  value={structured.port}
-                  onChange={(e) => onStructuredChange({ ...structured, port: e.target.value })}
-                  placeholder={defaultPortHint > 0 ? String(defaultPortHint) : ''}
-                  inputMode="numeric"
-                  autoComplete="off"
-                />
-                <small className="text-foreground-muted mt-1 block text-[0.75rem] leading-[1.35]">
-                  {t('common.optional')}
-                </small>
-              </div>
-            </div>
-            <div className={modalFormRowClass()}>
-              <div className={legacyFormClass('form-group')}>
-                <label htmlFor="ds-db">{t('datasources.fields.database')}</label>
-                <input
-                  id="ds-db"
-                  value={structured.database_name}
-                  onChange={(e) =>
-                    onStructuredChange({ ...structured, database_name: e.target.value })
-                  }
-                  autoComplete="off"
-                />
-              </div>
-              <div className={legacyFormClass('form-group')}>
-                <label htmlFor="ds-user">{t('datasources.fields.username')}</label>
-                <input
-                  id="ds-user"
-                  value={structured.username}
-                  onChange={(e) => onStructuredChange({ ...structured, username: e.target.value })}
-                  autoComplete="off"
-                />
-              </div>
-            </div>
-            <div className={legacyFormClass('form-group')}>
-              <label htmlFor="ds-pass">{t('datasources.fields.password')}</label>
-              <input
-                id="ds-pass"
-                type="password"
-                value={structured.password}
-                onChange={(e) => onStructuredChange({ ...structured, password: e.target.value })}
-                autoComplete="off"
-              />
-              <small className="text-foreground-muted mt-1 block text-[0.75rem] leading-[1.35]">
-                {editingId ? t('datasources.password_keep_hint') : t('datasources.dsn_hint')}
-              </small>
-            </div>
-            <div className={legacyFormClass('form-group')}>
-              <label htmlFor="ds-ssl">{t('datasources.fields.ssl_mode')}</label>
-              <input
-                id="ds-ssl"
-                value={structured.ssl_mode}
-                onChange={(e) => onStructuredChange({ ...structured, ssl_mode: e.target.value })}
-                placeholder={driverConnHints.ssl_mode || 'disable'}
-                autoComplete="off"
-              />
-              <small className="text-foreground-muted mt-1 block text-[0.75rem] leading-[1.35]">
-                {t('common.optional')}
-              </small>
-              {isInsecureSslMode(structured.ssl_mode) && (
-                <small className="text-warning mt-1 block text-[0.75rem] leading-[1.35]">
-                  ⚠ {t('datasources.ssl_insecure_warning')}
-                </small>
-              )}
-            </div>
-          </>
+          <StructuredConnectionFields
+            editingId={editingId}
+            formType={form.type}
+            structured={structured}
+            onStructuredChange={onStructuredChange}
+          />
         )}
 
         {draftTestResult && (
