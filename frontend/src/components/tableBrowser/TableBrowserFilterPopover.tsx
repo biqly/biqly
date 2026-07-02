@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef } from 'react'
 
 import type { useT } from '../../i18n'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { Select } from '../ui/Select'
 import {
@@ -9,18 +10,21 @@ import {
   chipTagClass,
   chipTagCloseClass,
   filterPopoverAnchoredClass,
-  filterPopoverBackClass,
   filterPopoverBtnClass,
   filterPopoverCheckboxInputClass,
   filterPopoverCheckboxLabelClass,
   filterPopoverCheckboxRowClass,
   filterPopoverClass,
+  filterPopoverCloseClass,
+  filterPopoverFooterClass,
   filterPopoverHeaderClass,
+  filterPopoverHintClass,
   filterPopoverRowClass,
   filterPopoverRowLabelClass,
+  filterPopoverTitleClass,
 } from './tableBrowserClasses'
 
-const POPOVER_WIDTH_PX = 288
+const POPOVER_WIDTH_PX = 320
 
 function getPopoverPosition(anchorEl: HTMLElement) {
   const rect = anchorEl.getBoundingClientRect()
@@ -40,7 +44,6 @@ export function TableBrowserFilterPopover({
   editingFilterId,
   operatorOptions,
   filterFieldOpts,
-  getDimensionLabel,
   anchorEl,
   onClose,
   onOperatorChange,
@@ -60,7 +63,6 @@ export function TableBrowserFilterPopover({
   editingFilterId: string | null
   operatorOptions: { value: string; label: string }[]
   filterFieldOpts: { value: string; label: string }[]
-  getDimensionLabel: (name: string) => string
   anchorEl?: HTMLElement | null
   onClose: () => void
   onOperatorChange: (op: string) => void
@@ -72,9 +74,14 @@ export function TableBrowserFilterPopover({
   onSave: () => void
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
+  const valueInputRef = useRef<HTMLInputElement>(null)
   const [, rerenderAnchor] = useReducer((count: number) => count + 1, 0)
   const position = anchorEl ? getPopoverPosition(anchorEl) : null
   const isAnchored = Boolean(anchorEl && position)
+
+  useEffect(() => {
+    valueInputRef.current?.focus()
+  }, [])
 
   useEffect(() => {
     if (!anchorEl) {
@@ -113,32 +120,54 @@ export function TableBrowserFilterPopover({
   return (
     <div
       ref={rootRef}
+      role="dialog"
+      aria-label={
+        editingFilterId
+          ? t('table_browser.popover_title_edit')
+          : t('table_browser.popover_title_add')
+      }
       className={cn(isAnchored ? filterPopoverAnchoredClass : filterPopoverClass)}
       style={
         isAnchored && position
-          ? { top: position.top, left: position.left, width: '18rem' }
-          : { width: '18rem' }
+          ? { top: position.top, left: position.left, width: '20rem' }
+          : { width: '20rem' }
       }
     >
-      <div
-        className={filterPopoverHeaderClass}
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderBottom: 'none',
-          paddingBottom: '0.2rem',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <button type="button" className={filterPopoverBackClass} onClick={onClose}>
-            ‹
-          </button>
-          <span style={{ fontSize: '0.86rem', fontWeight: 700 }}>
-            {getDimensionLabel(popoverField)}
-          </span>
-        </div>
+      <div className={filterPopoverHeaderClass}>
+        <span className={filterPopoverTitleClass}>
+          {editingFilterId
+            ? t('table_browser.popover_title_edit')
+            : t('table_browser.popover_title_add')}
+        </span>
+        <button
+          type="button"
+          className={filterPopoverCloseClass}
+          onClick={onClose}
+          aria-label={t('common.close')}
+        >
+          ×
+        </button>
+      </div>
+
+      <div className={filterPopoverRowClass}>
+        <label className={filterPopoverRowLabelClass} htmlFor="filter-popover-column">
+          {t('table_browser.column')}
+        </label>
         <Select
+          id="filter-popover-column"
+          value={popoverField}
+          onChange={onFieldChange}
+          options={filterFieldOpts}
+          size="sm"
+        />
+      </div>
+
+      <div className={filterPopoverRowClass}>
+        <label className={filterPopoverRowLabelClass} htmlFor="filter-popover-operator">
+          {t('table_browser.operator')}
+        </label>
+        <Select
+          id="filter-popover-operator"
           value={popoverOperator}
           onChange={onOperatorChange}
           options={operatorOptions}
@@ -146,30 +175,18 @@ export function TableBrowserFilterPopover({
         />
       </div>
 
-      {!editingFilterId && (
-        <div className={filterPopoverRowClass} style={{ marginTop: '0.1rem' }}>
-          <label className={filterPopoverRowLabelClass}>{t('table_browser.column')}</label>
-          <Select
-            value={popoverField}
-            onChange={onFieldChange}
-            options={filterFieldOpts}
-            size="sm"
-          />
-        </div>
-      )}
-
       <div className={filterPopoverRowClass}>
-        <label className={filterPopoverRowLabelClass}>{t('table_browser.value')}</label>
-        <div
-          className={chipInputContainerClass}
-          onClick={() => document.getElementById('chip-input-el')?.focus()}
-        >
+        <label className={filterPopoverRowLabelClass} htmlFor="chip-input-el">
+          {t('table_browser.value')}
+        </label>
+        <div className={chipInputContainerClass} onClick={() => valueInputRef.current?.focus()}>
           {popoverChips.map((chip, idx) => (
             <span key={idx} className={chipTagClass}>
               {chip}
               <button
                 type="button"
                 className={chipTagCloseClass}
+                aria-label={t('table_browser.remove_filter')}
                 onClick={(e) => {
                   e.stopPropagation()
                   onRemoveChip(idx)
@@ -181,12 +198,17 @@ export function TableBrowserFilterPopover({
           ))}
           <input
             id="chip-input-el"
+            ref={valueInputRef}
             type="text"
             value={chipInputText}
             onChange={(e) => onChipInputChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ',') {
                 e.preventDefault()
+                if (e.key === 'Enter' && !chipInputText.trim() && popoverChips.length > 0) {
+                  onSave()
+                  return
+                }
                 onAddChip(chipInputText)
               } else if (e.key === 'Backspace' && !chipInputText && popoverChips.length > 0) {
                 onRemoveChip(popoverChips.length - 1)
@@ -196,16 +218,10 @@ export function TableBrowserFilterPopover({
             className={chipInputFieldClass}
           />
         </div>
+        <span className={filterPopoverHintClass}>{t('table_browser.value_hint')}</span>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: '0.2rem',
-        }}
-      >
+      <div className={filterPopoverFooterClass}>
         <div className={filterPopoverCheckboxRowClass}>
           <input
             type="checkbox"
@@ -218,14 +234,18 @@ export function TableBrowserFilterPopover({
             {t('table_browser.case_sensitive')}
           </label>
         </div>
-        <button
-          type="button"
-          className={filterPopoverBtnClass}
-          style={{ width: 'auto', padding: '0.35rem 0.85rem' }}
-          onClick={onSave}
-        >
-          {editingFilterId ? t('table_browser.update_filter') : t('table_browser.add_filter')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={buttonClass('ghost', { size: 'sm', autoWidth: true })}
+            onClick={onClose}
+          >
+            {t('common.cancel')}
+          </button>
+          <button type="button" className={filterPopoverBtnClass} onClick={onSave}>
+            {editingFilterId ? t('table_browser.update_filter') : t('table_browser.add_filter')}
+          </button>
+        </div>
       </div>
     </div>
   )

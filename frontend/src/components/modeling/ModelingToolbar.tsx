@@ -2,12 +2,16 @@ import { useState } from 'react'
 
 import type { useT } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
 import { formLabelClass, modelingFormGroupClass } from '../../lib/formClasses'
 import {
   modelingMenuModelNameClass,
   modelingStatusPillClass,
   modelingToolbarActionsClass,
   modelingToolbarClass,
+  modelingToolbarGroupActionsClass,
+  modelingToolbarGroupDatasourceClass,
+  modelingToolbarGroupModelClass,
   modelingToolbarModelRowClass,
 } from '../../lib/modelingClasses'
 import type { Datasource } from '../../types/metadata'
@@ -51,7 +55,7 @@ export function ModelingToolbar({
 
   return (
     <section className={modelingToolbarClass}>
-      <div className={modelingFormGroupClass}>
+      <div className={cn(modelingFormGroupClass, modelingToolbarGroupDatasourceClass)}>
         <label htmlFor="modeling-datasource">{t('modeling.datasource_label')}</label>
         <Select
           id="modeling-datasource"
@@ -63,7 +67,7 @@ export function ModelingToolbar({
           options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
         />
       </div>
-      <div className={modelingFormGroupClass}>
+      <div className={cn(modelingFormGroupClass, modelingToolbarGroupModelClass)}>
         <label htmlFor="modeling-model">{t('modeling.model_label')}</label>
         <div className={modelingToolbarModelRowClass}>
           <Select
@@ -84,7 +88,7 @@ export function ModelingToolbar({
           )}
         </div>
       </div>
-      <div className={modelingFormGroupClass}>
+      <div className={cn(modelingFormGroupClass, modelingToolbarGroupActionsClass)}>
         <label className={formLabelClass}>{t('modeling.actions_label')}</label>
         <div className={modelingToolbarActionsClass}>
           <button

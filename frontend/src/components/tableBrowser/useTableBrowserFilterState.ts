@@ -36,10 +36,9 @@ export function useTableBrowserFilterState({
   selectedTableKey: string
 }) {
   const scopeKey = `${modelId}:${selectedTableKey}:${dimensionNamesKey}`
-  const defaultColumnOrder = useMemo(
-    () => activeDimensions.map((d) => d.name).sort((a, b) => a.localeCompare(b)),
-    [activeDimensions],
-  )
+  // Preserve the model's own dimension order — alphabetical sorting pushed
+  // rarely-populated columns (e.g. CHARACTER_MAXIMUM_LENGTH) to the front.
+  const defaultColumnOrder = useMemo(() => activeDimensions.map((d) => d.name), [activeDimensions])
   const [filtersState, setFiltersState] = useState<{
     key: string
     filters: TableBrowserFilter[]

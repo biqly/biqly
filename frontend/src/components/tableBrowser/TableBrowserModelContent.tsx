@@ -15,6 +15,7 @@ import {
   tableBrowserAddFilterBtnClass,
   tableBrowserDataRowClass,
   tableBrowserDataRowTdClass,
+  tableBrowserEmptyCellClass,
   tableBrowserFilterBarClass,
   tableBrowserFilterTagClass,
   tableBrowserFilterTagCloseClass,
@@ -35,6 +36,7 @@ import {
   tableBrowserThInnerClass,
   tableBrowserThLabelClass,
   tableBrowserThSortClass,
+  tableBrowserThSortHintClass,
   validationErrorBannerRowClass,
   validationErrorBannerTitleClass,
 } from './tableBrowserClasses'
@@ -270,7 +272,6 @@ export function TableBrowserModelContent({
           editingFilterId={editingFilterId}
           operatorOptions={operatorOptions}
           filterFieldOpts={filterFieldOpts}
-          getDimensionLabel={getDimensionLabel}
           anchorEl={popoverAnchorEl}
           onClose={onClosePopover}
           onOperatorChange={onOperatorChange}
@@ -342,9 +343,13 @@ export function TableBrowserModelContent({
                             <span className={tableBrowserThLabelClass}>
                               {getDimensionLabel(colName)}
                             </span>
-                            {sorted && (
+                            {sorted ? (
                               <span className={tableBrowserThSortClass} aria-hidden="true">
                                 {sorted === 'asc' ? '↑' : '↓'}
+                              </span>
+                            ) : (
+                              <span className={tableBrowserThSortHintClass} aria-hidden="true">
+                                ↕
                               </span>
                             )}
                             <button
@@ -400,7 +405,13 @@ export function TableBrowserModelContent({
                         const display = formatResultCell(cell, colName, {})
                         return (
                           <td key={colName} className={tableBrowserDataRowTdClass}>
-                            <TableBrowserCellValue value={display} />
+                            {display ? (
+                              <TableBrowserCellValue value={display} />
+                            ) : (
+                              <span className={tableBrowserEmptyCellClass} aria-hidden="true">
+                                —
+                              </span>
+                            )}
                           </td>
                         )
                       })}

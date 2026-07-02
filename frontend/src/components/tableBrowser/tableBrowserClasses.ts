@@ -38,17 +38,24 @@ export const filterPopoverClass = `${filterPopoverBaseClass} absolute top-[calc(
 
 export const filterPopoverAnchoredClass = `${filterPopoverBaseClass} fixed`
 
-export const filterPopoverHeaderClass = 'flex items-center justify-between gap-3 pb-[0.2rem]'
+export const filterPopoverHeaderClass = 'flex items-center justify-between gap-3'
 
-export const filterPopoverBackClass =
-  'bg-transparent border-0 cursor-pointer text-foreground-muted text-[0.9rem] font-semibold p-[0_0.2rem] leading-none hover:text-foreground'
+export const filterPopoverTitleClass = 'text-[0.84rem] font-bold text-foreground'
+
+export const filterPopoverCloseClass =
+  'inline-flex items-center justify-center w-6 h-6 shrink-0 border-0 rounded-[0.3rem] bg-transparent text-foreground-muted cursor-pointer text-[1rem] leading-none transition-colors duration-150 hover:text-foreground hover:bg-card'
 
 export const filterPopoverRowClass = 'flex flex-col gap-[0.35rem]'
 
 export const filterPopoverRowLabelClass = 'text-[0.74rem] font-semibold text-foreground-muted'
 
+export const filterPopoverHintClass = 'text-[0.68rem] text-foreground-faint'
+
+export const filterPopoverFooterClass =
+  'flex items-center justify-between gap-3 pt-3 border-t border-border'
+
 export const filterPopoverBtnClass =
-  'bg-gradient-to-br from-accent to-accent-strong text-white border border-accent-strong p-[0.35rem] text-[0.78rem] font-[650] rounded-[0.35rem] cursor-pointer w-full text-center hover:from-accent-hover hover:to-accent-strong hover:border-accent-hover'
+  'bg-gradient-to-br from-accent to-accent-strong text-white border border-accent-strong p-[0.35rem_0.85rem] text-[0.78rem] font-[650] rounded-[0.35rem] cursor-pointer text-center hover:from-accent-hover hover:to-accent-strong hover:border-accent-hover'
 
 export const chipInputContainerClass =
   'flex flex-wrap items-center gap-[0.3rem] border border-border rounded-[0.35rem] p-[0.25rem_0.4rem] bg-card min-h-[2.1rem] cursor-text focus-within:border-accent focus-within:ring-1 focus-within:ring-accent'
@@ -82,14 +89,14 @@ export const rowIndexNumberClass =
   'text-foreground-muted text-[0.76rem] font-medium select-none inline-flex items-center justify-center w-full'
 
 export const tableBrowserThClass =
-  'group cursor-pointer sticky top-0 z-[2] bg-card-raised px-[0.55rem] py-2 text-[0.7rem] font-bold uppercase tracking-wider text-foreground-muted border-b-2 border-border transition-colors duration-150 select-none whitespace-nowrap leading-[1.15] align-middle max-w-none h-auto shadow-[0_1px_0_var(--border)]'
+  'group cursor-pointer sticky top-0 z-[2] bg-card-raised px-[0.65rem] py-[0.55rem] text-[0.74rem] font-semibold text-foreground-muted border-b-2 border-border transition-colors duration-150 select-none whitespace-nowrap leading-[1.15] align-middle max-w-none h-auto shadow-[0_1px_0_var(--border)] hover:text-foreground'
 
 export const tableBrowserThInnerClass = 'inline-flex items-center gap-[0.2rem] max-w-full'
 
 export const tableBrowserThLabelClass = 'overflow-hidden text-ellipsis whitespace-nowrap'
 
 export const tableBrowserThGripClass =
-  'shrink-0 w-[0.45rem] text-foreground-faint opacity-55 text-[0.62rem] leading-none cursor-grab active:cursor-grabbing tracking-[-0.12em]'
+  'shrink-0 w-[0.45rem] text-foreground-faint opacity-0 group-hover:opacity-60 transition-opacity duration-150 text-[0.62rem] leading-none cursor-grab active:cursor-grabbing tracking-[-0.12em]'
 
 export const tableBrowserTablePlaceholderClass =
   'flex flex-col items-center justify-center gap-[0.65rem] min-h-[min(28rem,55vh)] border border-border rounded-lg bg-card text-foreground-muted text-[0.85rem] font-semibold'
@@ -148,6 +155,11 @@ export const tableBrowserPageSizeLabelClass =
   'text-[0.78rem] font-semibold text-foreground-muted whitespace-nowrap shrink-0'
 
 export const tableBrowserThSortClass = 'shrink-0 text-accent font-bold text-[0.62rem] leading-none'
+
+export const tableBrowserThSortHintClass =
+  'shrink-0 text-foreground-faint text-[0.62rem] leading-none opacity-0 group-hover:opacity-70 transition-opacity duration-150'
+
+export const tableBrowserEmptyCellClass = 'text-foreground-faint select-none'
 
 export const tableBrowserThFilterClass =
   'shrink-0 inline-flex items-center justify-center w-[1.15rem] h-[1.15rem] border-0 bg-transparent text-foreground-muted rounded-[0.25rem] cursor-pointer opacity-60 hover:text-accent hover:bg-accent/10 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 transition-[opacity,color,background-color] duration-150'

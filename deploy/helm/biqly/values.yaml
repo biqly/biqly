@@ -350,6 +350,7 @@ catalog:
       - /api/datasources
       - /api/metadata
       - /api/semantic
+      - /api/drift
       - /api/permissions
       - /api/dashboards
       - /health

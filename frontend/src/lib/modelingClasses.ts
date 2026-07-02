@@ -3,10 +3,16 @@ import { cn } from './cn'
 export const modelingPageClass = 'flex flex-col gap-4 min-h-0'
 
 export const modelingToolbarClass = cn(
-  'grid items-end gap-4 rounded-[10px] border border-border bg-card p-4 px-[1.15rem] shadow-[var(--shadow)]',
-  'grid-cols-[minmax(13rem,16rem)_minmax(15rem,26rem)_minmax(max-content,1fr)]',
-  'max-[1024px]:grid-cols-1 max-[1024px]:items-stretch',
+  'flex flex-wrap items-end gap-x-5 gap-y-4 rounded-[10px] border border-border bg-card p-4 px-[1.15rem] shadow-[var(--shadow)]',
 )
+
+export const modelingToolbarGroupDatasourceClass =
+  'min-w-[min(13rem,100%)] max-w-[18rem] flex-[1_1_13rem]'
+
+export const modelingToolbarGroupModelClass =
+  'min-w-[min(15rem,100%)] max-w-[28rem] flex-[2_1_15rem]'
+
+export const modelingToolbarGroupActionsClass = 'ml-auto min-w-0 flex-[0_1_auto] max-[680px]:ml-0'
 
 export const modelingToolbarModelRowClass = cn(
   'flex min-w-0 flex-wrap items-center gap-2',
@@ -14,8 +20,7 @@ export const modelingToolbarModelRowClass = cn(
 )
 
 export const modelingToolbarActionsClass = cn(
-  'flex w-full min-w-0 items-center justify-end gap-2 self-end flex-nowrap max-[1024px]:flex-wrap',
-  'max-[1024px]:justify-start max-[1024px]:self-auto',
+  'flex w-full min-w-0 flex-wrap items-center justify-end gap-2 self-end max-[680px]:justify-start',
   '[&_button]:mt-0 [&_button]:min-h-[2.1rem] [&_button]:py-[0.35rem] [&_button]:px-4 [&_button]:whitespace-nowrap',
   '[&_button]:inline-flex [&_button]:items-center [&_button]:justify-center [&_button]:leading-none',
 )
