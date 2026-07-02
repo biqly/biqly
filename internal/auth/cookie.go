@@ -24,34 +24,25 @@ func CookieSecure(r *http.Request, listenPort int) bool {
 
 // WriteResponseCookie sets cookie on w with Secure when the request is served over
 // HTTPS (or production). Only the local auth dev port over plain HTTP omits Secure.
+// All cookies are HttpOnly; client-visible tokens travel via response headers instead.
 func WriteResponseCookie(w http.ResponseWriter, r *http.Request, listenPort int, cookie *http.Cookie) {
-	writeResponseCookie(w, r, listenPort, cookie, true)
-}
-
-// WriteReadableResponseCookie sets a cookie that client-side code may read.
-// Use only for double-submit style tokens, never for bearer/session secrets.
-func WriteReadableResponseCookie(w http.ResponseWriter, r *http.Request, listenPort int, cookie *http.Cookie) {
-	writeResponseCookie(w, r, listenPort, cookie, false)
-}
-
-func writeResponseCookie(w http.ResponseWriter, r *http.Request, listenPort int, cookie *http.Cookie, httpOnly bool) {
 	if CookieSecure(r, listenPort) {
-		setSecureResponseCookie(w, cookie, httpOnly)
+		setSecureResponseCookie(w, cookie)
 		return
 	}
-	writePlainHTTPDevCookie(w, cookie, httpOnly)
+	writePlainHTTPDevCookie(w, cookie)
 }
 
-// setSecureResponseCookie copies src into a new cookie with Secure and SameSite.
+// setSecureResponseCookie copies src into a new cookie with Secure, HttpOnly, and SameSite.
 //
-//nolint:gosec // G124: Secure, HttpOnly, and SameSite (default Lax) are enforced below.
-func setSecureResponseCookie(w http.ResponseWriter, src *http.Cookie, httpOnly bool) {
+//nolint:gosec // G124: Secure and HttpOnly are literal true; SameSite defaults to Lax above.
+func setSecureResponseCookie(w http.ResponseWriter, src *http.Cookie) {
 	c := *src
 	sameSite := c.SameSite
 	if sameSite == 0 {
 		sameSite = http.SameSiteLaxMode
 	}
-	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-httponly.cookie-missing-httponly
+	http.SetCookie(w, &http.Cookie{
 		Name:       c.Name,
 		Value:      c.Value,
 		Path:       c.Path,
@@ -60,7 +51,7 @@ func setSecureResponseCookie(w http.ResponseWriter, src *http.Cookie, httpOnly b
 		RawExpires: c.RawExpires,
 		MaxAge:     c.MaxAge,
 		Secure:     true,
-		HttpOnly:   httpOnly,
+		HttpOnly:   true,
 		SameSite:   sameSite,
 		Raw:        c.Raw,
 		Unparsed:   c.Unparsed,
@@ -70,12 +61,12 @@ func setSecureResponseCookie(w http.ResponseWriter, src *http.Cookie, httpOnly b
 // writePlainHTTPDevCookie sets a cookie without Secure for plain-HTTP local auth dev only.
 //
 //nolint:gosec // G124: intentional plain-HTTP local dev exception on port 8889 only.
-func writePlainHTTPDevCookie(w http.ResponseWriter, src *http.Cookie, httpOnly bool) {
+func writePlainHTTPDevCookie(w http.ResponseWriter, src *http.Cookie) {
 	c := *src
 	// Plain HTTP on local auth dev port 8889 requires Secure=false so browsers accept the cookie.
 	// codeql[go/cookie-secure-not-set]
 	// lgtm[go/cookie-secure-not-set]
-	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure, go.lang.security.audit.net.cookie-missing-httponly.cookie-missing-httponly
+	http.SetCookie(w, &http.Cookie{ // nosemgrep: go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
 		Name:       c.Name,
 		Value:      c.Value,
 		Path:       c.Path,
@@ -86,7 +77,7 @@ func writePlainHTTPDevCookie(w http.ResponseWriter, src *http.Cookie, httpOnly b
 		// codeql[go/cookie-secure-not-set]
 		// lgtm[go/cookie-secure-not-set]
 		Secure:   false,
-		HttpOnly: httpOnly,
+		HttpOnly: true,
 		SameSite: c.SameSite,
 		Raw:      c.Raw,
 		Unparsed: c.Unparsed,
