@@ -736,7 +736,14 @@ export default function QueryBuilder() {
                   options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
                   size="sm"
                 />
-                {datasourceId && querySource === 'semantic' && models.length > 0 && (
+              </div>
+            </div>
+            {datasourceId && querySource === 'semantic' && models.length > 0 && (
+              <div className={qbHeaderGroupClass}>
+                <span className={qbHeaderLabelClass}>
+                  {t('query_builder.semantic_model_label')}
+                </span>
+                <div className={qbHeaderControlsClass}>
                   <Select
                     value={modelId}
                     onChange={setSelectedModelId}
@@ -749,9 +756,9 @@ export default function QueryBuilder() {
                     }))}
                     size="sm"
                   />
-                )}
+                </div>
               </div>
-            </div>
+            )}
             {datasourceId && (
               <div className={qbHeaderGroupClass}>
                 <span className={qbHeaderLabelClass}>{t('query_builder.group_saved_queries')}</span>

@@ -41,7 +41,13 @@ export function QueryBuilderNotebookJoins({
     return null
   }
   return (
-    <NotebookStep label="Join data" themeClass="join">
+    <NotebookStep
+      label="Join data"
+      themeClass="join"
+      collapsible={!editable}
+      defaultCollapsed={!editable && joins.length > 4}
+      summary={t('query_builder.join_definitions', { count: joins.length })}
+    >
       {editable && (
         <div className="flex w-full items-center justify-between gap-3">
           <span className="text-caption text-foreground-muted">
@@ -57,7 +63,7 @@ export function QueryBuilderNotebookJoins({
           </button>
         </div>
       )}
-      <div className="border-border max-h-72 overflow-y-auto rounded-md border">
+      <div className="border-border max-h-72 w-full min-w-0 overflow-auto rounded-md border">
         <table className="text-caption w-full border-collapse">
           <thead>
             <tr>
