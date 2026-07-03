@@ -3,14 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import type { Locale, TranslationKey } from '../i18n'
-import {
-  DEFAULT_LOCALE,
-  LOCALE_OPTIONS,
-  localeLanguageTag,
-  SUPPORTED_LOCALES,
-  useLocale,
-  useT,
-} from '../i18n'
+import { LOCALE_OPTIONS, localeLanguageTag, SUPPORTED_LOCALES, useLocale, useT } from '../i18n'
 import { buttonClass } from '../lib/buttonClasses'
 import {
   cardClass,
@@ -146,7 +139,9 @@ export default function PromptTemplates() {
   const confirm = useConfirm()
   const [initLoading, setInitLoading] = useState(true)
   const [rows, setRows] = useState<PromptTemplateRow[]>([])
-  const [editLocale, setEditLocale] = useState<EditLocale>(DEFAULT_LOCALE)
+  // Default the editor to the locale the user is browsing in, not the app's
+  // fallback locale.
+  const [editLocale, setEditLocale] = useState<EditLocale>(locale)
   const [selectedName, setSelectedName] = useState<TemplateName>('system_rules')
   const [draft, setDraft] = useState('')
   const [dirty, setDirty] = useState(false)

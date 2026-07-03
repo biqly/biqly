@@ -3,6 +3,10 @@ const AUTH_CSRF_BOOTSTRAP_PATH = '/api/auth/csrf'
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE'])
 
 let cachedCSRFToken: string | null = null
+// Single-flight guard: concurrent unsafe requests during app boot must share
+// one bootstrap fetch instead of each firing their own /api/auth/csrf call
+// (the duplicates counted against the auth rate limit).
+let inflightCSRFBootstrap: Promise<string> | null = null
 
 function captureCSRFTokenFromResponse(response: Response): void {
   const token = response.headers.get(CSRF_HEADER_NAME)
@@ -15,18 +19,27 @@ async function ensureCSRFToken(): Promise<string> {
   if (cachedCSRFToken) {
     return cachedCSRFToken
   }
-
-  const response = await fetch(AUTH_CSRF_BOOTSTRAP_PATH, {
-    method: 'GET',
-    credentials: 'same-origin',
-  })
-  captureCSRFTokenFromResponse(response)
-
-  if (!cachedCSRFToken) {
-    throw new Error('Unable to initialize CSRF token')
+  if (inflightCSRFBootstrap) {
+    return inflightCSRFBootstrap
   }
 
-  return cachedCSRFToken
+  inflightCSRFBootstrap = (async () => {
+    const response = await fetch(AUTH_CSRF_BOOTSTRAP_PATH, {
+      method: 'GET',
+      credentials: 'same-origin',
+    })
+    captureCSRFTokenFromResponse(response)
+
+    if (!cachedCSRFToken) {
+      throw new Error('Unable to initialize CSRF token')
+    }
+
+    return cachedCSRFToken
+  })().finally(() => {
+    inflightCSRFBootstrap = null
+  })
+
+  return inflightCSRFBootstrap
 }
 
 function mergeHeaders(headers: HeadersInit | undefined, csrfToken: string): Headers {

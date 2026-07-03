@@ -19,6 +19,7 @@ import { cardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { settingsFootnoteClass, settingsPrefsCardClass } from '../lib/layoutClasses'
 import type { PasskeyInfo } from '../types/auth'
+import { friendlyErrorMessage } from '../utils/error'
 import { formatDateOnly } from '../utils/formatters'
 import {
   adminAlertCloseBtnClass,
@@ -39,7 +40,11 @@ export default function Settings() {
   const navigate = useNavigate()
   const t = useT()
   const [locale] = useLocale()
-  const { accessToken } = useAuth()
+  const { accessToken, hasPermission } = useAuth()
+  // The prompt-template / time-grain / AI-provider editors are admin surface;
+  // the backend enforces the same permissions on their routes.
+  const canManageAISettings = hasPermission('ai:settings')
+  const canManageProviders = hasPermission('admin:settings')
 
   const [passkeys, setPasskeys] = useState<PasskeyInfo[]>([])
   const [loading, setLoading] = useState(false)
@@ -106,11 +111,11 @@ export default function Settings() {
       const data = await apiGetPasskeys(accessToken)
       setPasskeys(data)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load passkeys')
+      setError(friendlyErrorMessage(t, err))
     } finally {
       setLoading(false)
     }
-  }, [accessToken])
+  }, [accessToken, t])
 
   const fetchMFAStatus = useCallback(async () => {
     if (!accessToken) {
@@ -143,7 +148,7 @@ export default function Settings() {
       setDeleteTarget(null)
       await fetchPasskeys()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to delete passkey')
+      setError(friendlyErrorMessage(t, err))
     } finally {
       setDeleting(false)
     }
@@ -192,7 +197,7 @@ export default function Settings() {
       setRenameTarget(null)
       await fetchPasskeys()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to rename passkey')
+      setError(friendlyErrorMessage(t, err))
     } finally {
       setRenaming(false)
     }
@@ -216,7 +221,7 @@ export default function Settings() {
 
       setMfaEnrollOpen(true)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'MFA enrollment failed')
+      setError(friendlyErrorMessage(t, err))
     }
   }
 
@@ -233,7 +238,7 @@ export default function Settings() {
       setMfaShowRecovery(true)
       await fetchMFAStatus()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'MFA verification failed')
+      setError(friendlyErrorMessage(t, err))
     } finally {
       setMfaVerifying(false)
     }
@@ -255,7 +260,7 @@ export default function Settings() {
       setMfaNewRecoveryCodes(null)
       await fetchMFAStatus()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to disable MFA')
+      setError(friendlyErrorMessage(t, err))
     } finally {
       setMfaDisabling(false)
     }
@@ -276,7 +281,7 @@ export default function Settings() {
       setMfaRegenOpen(false)
       setMfaRegenCode('')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to regenerate recovery codes')
+      setError(friendlyErrorMessage(t, err))
     } finally {
       setMfaRegening(false)
     }
@@ -421,120 +426,137 @@ export default function Settings() {
               {t('settings.configuration_group')}
             </h2>
             <AIModelPreferencesSection />
-            <div className="grid grid-cols-1 gap-[0.85rem] min-[1500px]:grid-cols-3 sm:grid-cols-2">
-              <SettingsLinkCard
-                title={t('settings.prompt_templates_section')}
-                description={t('settings.prompt_templates_hint')}
-                icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-file-text"
-                    style={{ color: 'var(--accent)' }}
-                  >
-                    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                    <path d="M10 9H8" />
-                    <path d="M16 13H8" />
-                    <path d="M16 17H8" />
-                  </svg>
-                }
-                action={
-                  <button
-                    type="button"
-                    className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
-                    onClick={() => goTo('/prompt-templates')}
-                  >
-                    {t('settings.prompt_templates_open')}
-                  </button>
-                }
-              />
-              <SettingsLinkCard
-                title={t('settings.time_grains_section')}
-                description={t('settings.time_grains_hint')}
-                icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-calendar-days"
-                    style={{ color: 'var(--success)' }}
-                  >
-                    <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                    <line x1="16" x2="16" y1="2" y2="6" />
-                    <line x1="8" x2="8" y1="2" y2="6" />
-                    <line x1="3" x2="21" y1="10" y2="10" />
-                    <path d="M8 14h.01" />
-                    <path d="M12 14h.01" />
-                    <path d="M16 14h.01" />
-                    <path d="M8 18h.01" />
-                    <path d="M12 18h.01" />
-                    <path d="M16 18h.01" />
-                  </svg>
-                }
-                action={
-                  <button
-                    type="button"
-                    className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
-                    onClick={() => goTo('/time-grains')}
-                  >
-                    {t('settings.time_grains_open')}
-                  </button>
-                }
-              />
-              <SettingsLinkCard
-                title={t('settings.ai_config_section')}
-                description={t('settings.ai_config_hint')}
-                icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-cpu"
-                    style={{ color: 'var(--warning)' }}
-                  >
-                    <rect width="16" height="16" x="4" y="4" rx="2" />
-                    <rect width="6" height="6" x="9" y="9" rx="1" />
-                    <path d="M9 1v3" />
-                    <path d="M15 1v3" />
-                    <path d="M9 20v3" />
-                    <path d="M15 20v3" />
-                    <path d="M20 9h3" />
-                    <path d="M20 15h3" />
-                    <path d="M1 9h3" />
-                    <path d="M1 15h3" />
-                  </svg>
-                }
-                action={
-                  <button
-                    type="button"
-                    className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
-                    onClick={() => goTo('/admin?tab=ai_providers')}
-                  >
-                    {t('settings.ai_config_open')}
-                  </button>
-                }
-              />
-            </div>
+            {(canManageAISettings || canManageProviders) && (
+              <div className="grid grid-cols-1 gap-[0.85rem] min-[1500px]:grid-cols-3 sm:grid-cols-2">
+                {canManageAISettings && (
+                  <SettingsLinkCard
+                    title={t('settings.prompt_templates_section')}
+                    description={t('settings.prompt_templates_hint')}
+                    icon={
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="22"
+                        height="22"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="lucide lucide-file-text"
+                        style={{ color: 'var(--accent)' }}
+                      >
+                        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                        <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                        <path d="M10 9H8" />
+                        <path d="M16 13H8" />
+                        <path d="M16 17H8" />
+                      </svg>
+                    }
+                    action={
+                      <button
+                        type="button"
+                        className={cn(
+                          buttonClass('primary', { size: 'sm' }),
+                          adminBtnAutoWidthClass,
+                        )}
+                        onClick={() => goTo('/prompt-templates')}
+                      >
+                        {t('settings.prompt_templates_open')}
+                      </button>
+                    }
+                  />
+                )}
+                {canManageAISettings && (
+                  <SettingsLinkCard
+                    title={t('settings.time_grains_section')}
+                    description={t('settings.time_grains_hint')}
+                    icon={
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="22"
+                        height="22"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="lucide lucide-calendar-days"
+                        style={{ color: 'var(--success)' }}
+                      >
+                        <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                        <line x1="16" x2="16" y1="2" y2="6" />
+                        <line x1="8" x2="8" y1="2" y2="6" />
+                        <line x1="3" x2="21" y1="10" y2="10" />
+                        <path d="M8 14h.01" />
+                        <path d="M12 14h.01" />
+                        <path d="M16 14h.01" />
+                        <path d="M8 18h.01" />
+                        <path d="M12 18h.01" />
+                        <path d="M16 18h.01" />
+                      </svg>
+                    }
+                    action={
+                      <button
+                        type="button"
+                        className={cn(
+                          buttonClass('primary', { size: 'sm' }),
+                          adminBtnAutoWidthClass,
+                        )}
+                        onClick={() => goTo('/time-grains')}
+                      >
+                        {t('settings.time_grains_open')}
+                      </button>
+                    }
+                  />
+                )}
+                {canManageProviders && (
+                  <SettingsLinkCard
+                    title={t('settings.ai_config_section')}
+                    description={t('settings.ai_config_hint')}
+                    icon={
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="22"
+                        height="22"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="lucide lucide-cpu"
+                        style={{ color: 'var(--warning)' }}
+                      >
+                        <rect width="16" height="16" x="4" y="4" rx="2" />
+                        <rect width="6" height="6" x="9" y="9" rx="1" />
+                        <path d="M9 1v3" />
+                        <path d="M15 1v3" />
+                        <path d="M9 20v3" />
+                        <path d="M15 20v3" />
+                        <path d="M20 9h3" />
+                        <path d="M20 15h3" />
+                        <path d="M1 9h3" />
+                        <path d="M1 15h3" />
+                      </svg>
+                    }
+                    action={
+                      <button
+                        type="button"
+                        className={cn(
+                          buttonClass('primary', { size: 'sm' }),
+                          adminBtnAutoWidthClass,
+                        )}
+                        onClick={() => goTo('/admin?tab=ai_providers')}
+                      >
+                        {t('settings.ai_config_open')}
+                      </button>
+                    }
+                  />
+                )}
+              </div>
+            )}
           </section>
 
           <p className={settingsFootnoteClass}>{t('settings.persist_hint')}</p>

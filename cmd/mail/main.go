@@ -26,13 +26,10 @@ import (
 
 func main() {
 	ctx := context.Background()
-	shutdownTracing, tracErr := observability.SetupTracing(ctx, "mail")
-	if tracErr != nil {
-		slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)
-	}
+	shutdownObservability := setupMailObservability(ctx)
 	defer func() {
-		if err := shutdownTracing(context.Background()); err != nil {
-			slog.Warn("trace provider shutdown error", "error", err)
+		if err := shutdownObservability(context.Background()); err != nil {
+			slog.Warn("observability shutdown error", "error", err)
 		}
 	}()
 
@@ -143,4 +140,20 @@ func main() {
 	}
 	// Drain the in-flight email queue before exit.
 	sender.Close()
+}
+
+// setupMailObservability wires tracing and OTLP log export, returning a
+// combined shutdown that flushes both providers.
+func setupMailObservability(ctx context.Context) func(context.Context) error {
+	shutdownTracing, tracErr := observability.SetupTracing(ctx, "mail")
+	if tracErr != nil {
+		slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)
+	}
+	shutdownLogExport, logExpErr := observability.SetupLogExport(ctx, "mail")
+	if logExpErr != nil {
+		slog.Warn("log export setup failed, continuing with stdout only", "error", logExpErr)
+	}
+	return func(c context.Context) error {
+		return errors.Join(shutdownTracing(c), shutdownLogExport(c))
+	}
 }

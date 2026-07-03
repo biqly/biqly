@@ -38,6 +38,16 @@ func main() {
 			slog.Warn("trace provider shutdown error", "error", err)
 		}
 	}()
+	shutdownLogExport, logExpErr := observability.SetupLogExport(ctx, "catalog")
+	if logExpErr != nil {
+		slog.Warn("log export setup failed, continuing with stdout only", "error", logExpErr)
+	}
+	defer func() {
+		if err := shutdownLogExport(context.Background()); err != nil {
+			slog.Warn("log provider shutdown error", "error", err)
+		}
+	}()
+
 	deps, err := app.NewCatalogDependencies(ctx, cfg)
 	if err != nil {
 		slog.Error("failed to initialize catalog dependencies", "error", err)

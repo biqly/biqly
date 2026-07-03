@@ -1,11 +1,13 @@
 import { useState } from 'react'
 
+import { useT } from '../i18n'
 import { cn } from '../lib/cn'
 import AIUsageDashboard from './AIUsageDashboard'
 import DashboardBuilder from './DashboardBuilder'
 import DashboardList from './DashboardList'
 
 export default function Dashboard() {
+  const t = useT()
   const [activeTab, setActiveTab] = useState<'custom' | 'ai_usage'>('custom')
   const [selectedDashboardId, setSelectedDashboardId] = useState<string | null>(null)
 
@@ -25,7 +27,7 @@ export default function Dashboard() {
             )}
             onClick={() => setActiveTab('custom')}
           >
-            📊 Custom Dashboards
+            {t('dashboard.tab_custom')}
           </button>
           <button
             type="button"
@@ -37,7 +39,7 @@ export default function Dashboard() {
             )}
             onClick={() => setActiveTab('ai_usage')}
           >
-            🤖 AI Analytics
+            {t('dashboard.tab_ai_usage')}
           </button>
         </div>
       )}

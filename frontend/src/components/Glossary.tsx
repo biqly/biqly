@@ -105,6 +105,9 @@ export default function Glossary() {
   // Load Glossary Terms
   const loadTerms = useCallback(async () => {
     if (!selectedDatasourceId) {
+      // No datasource to load from (e.g. fresh workspace) — leaving
+      // initLoading on would keep the page on the loading screen forever.
+      setInitLoading(false)
       return
     }
     setInitLoading(true)

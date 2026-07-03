@@ -46,8 +46,8 @@ func main() {
 		slog.Error("load config", "err", err)
 		os.Exit(1)
 	}
-	shutdownTracing := setupAuthObservability()
-	defer func() { _ = shutdownTracing(context.Background()) }()
+	shutdownObservability := setupAuthObservability()
+	defer func() { _ = shutdownObservability(context.Background()) }()
 	runtime, err := newAuthRuntime(cfg)
 	if err != nil {
 		slog.Error("initialize auth runtime", "err", err)
@@ -63,7 +63,13 @@ func setupAuthObservability() func(context.Context) error {
 	if tracErr != nil {
 		slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)
 	}
-	return shutdownTracing
+	shutdownLogExport, logExpErr := observability.SetupLogExport(context.Background(), "auth")
+	if logExpErr != nil {
+		slog.Warn("log export setup failed, continuing with stdout only", "error", logExpErr)
+	}
+	return func(ctx context.Context) error {
+		return errors.Join(shutdownTracing(ctx), shutdownLogExport(ctx))
+	}
 }
 
 type authRuntime struct {
@@ -299,8 +305,16 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 		},
 	})
 
-	if limiter != nil {
-		r.Use(limiter.Limit(cfg.RateLimitPerMin, time.Minute, "general"))
+	// Rate-limit only the public auth surface. The limiter is keyed by client
+	// IP, so applying it at the router root also throttled /internal/auth
+	// service-to-service calls: every api-service request shares one source IP
+	// (one pod), which collapsed all users into a single 60/min bucket and
+	// cascaded into 500s across the app. Internal routes are authenticated by
+	// the internal token, not exposed publicly, and must not be rate-limited.
+	publicLimit := func(r chi.Router) {
+		if limiter != nil {
+			r.Use(limiter.Limit(cfg.RateLimitPerMin, time.Minute, "general"))
+		}
 	}
 
 	r.Get("/health", state.handleHealth)
@@ -308,6 +322,7 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.Route("/api/auth", func(r chi.Router) {
+		publicLimit(r)
 		r.Use(biqauth.CSRF(cfg.Port))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
@@ -315,6 +330,7 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 	})
 
 	r.Route("/auth", func(r chi.Router) {
+		publicLimit(r)
 		r.Use(biqauth.CSRF(cfg.Port))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())

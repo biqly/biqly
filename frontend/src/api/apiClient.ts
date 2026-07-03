@@ -118,6 +118,19 @@ export interface FetchJSONResult<T> {
   error: string | null
 }
 
+// ApiError carries the HTTP status so callers can tell auth failures (401/403)
+// apart from transient conditions (429, 5xx, network=0) instead of parsing
+// the message string.
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 export async function fetchJSON<T>(
   url: string,
   init?: RequestInit & RequestOptions,
@@ -184,13 +197,13 @@ export async function apiFetch<T>(
   }
   const { data, status, error } = await fetchJSON<T>(url, init)
   if (error) {
-    throw new Error(error)
+    throw new ApiError(error, status)
   }
   if (data === null) {
     if (status >= 200 && status < 300) {
       return null as T
     }
-    throw new Error(`Expected response data from ${url}`)
+    throw new ApiError(`Expected response data from ${url}`, status)
   }
   return data
 }

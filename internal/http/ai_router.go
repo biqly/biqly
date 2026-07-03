@@ -200,15 +200,19 @@ func registerAIExamplesGlossaryAndTemplatesRoutes(
 	r.Put("/ai/glossary/{id}", glossaryHandler.UpdateGlossary)
 	r.Delete("/ai/glossary/{id}", glossaryHandler.DeleteGlossary)
 
+	// System prompt templates and time grains steer text-to-SQL for every
+	// user, and reseed/restore are destructive — admin surface only.
+	requireAISettings := bimw.RequirePermission(authClient, "ai:settings")
+
 	promptTemplatesHandler := handlers.NewAIPromptTemplatesHandler(deps)
-	r.Get("/ai/prompt-templates", promptTemplatesHandler.ListPromptTemplates)
-	r.Put("/ai/prompt-templates/{name}/{locale}", promptTemplatesHandler.UpdatePromptTemplate)
-	r.Post("/ai/prompt-templates/restore", promptTemplatesHandler.RestorePromptTemplate)
-	r.Post("/ai/prompt-templates/reseed", promptTemplatesHandler.ReseedPromptTemplates)
+	r.With(requireAISettings).Get("/ai/prompt-templates", promptTemplatesHandler.ListPromptTemplates)
+	r.With(requireAISettings).Put("/ai/prompt-templates/{name}/{locale}", promptTemplatesHandler.UpdatePromptTemplate)
+	r.With(requireAISettings).Post("/ai/prompt-templates/restore", promptTemplatesHandler.RestorePromptTemplate)
+	r.With(requireAISettings).Post("/ai/prompt-templates/reseed", promptTemplatesHandler.ReseedPromptTemplates)
 
 	timeGrainsHandler := handlers.NewAITimeGrainsHandler(deps)
-	r.Get("/ai/settings/time-grains", timeGrainsHandler.ListTimeGrains)
-	r.Put("/ai/settings/time-grains/{grain}", timeGrainsHandler.UpdateTimeGrain)
+	r.With(requireAISettings).Get("/ai/settings/time-grains", timeGrainsHandler.ListTimeGrains)
+	r.With(requireAISettings).Put("/ai/settings/time-grains/{grain}", timeGrainsHandler.UpdateTimeGrain)
 }
 
 func registerAIConversationRoutes(

@@ -12,7 +12,7 @@ import { useT } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
 import { cardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
-import { errorMessage } from '../../utils/error'
+import { friendlyErrorMessage } from '../../utils/error'
 import { adminBtnAutoWidthClass } from '../admin/adminClasses'
 import { useAuth } from '../auth/AuthProvider'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
@@ -149,11 +149,11 @@ export function AIModelPreferencesSection() {
       setModels(data.models)
       setChoices(data.preferences)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(friendlyErrorMessage(t, e))
     } finally {
       setLoading(false)
     }
-  }, [toast, accessToken])
+  }, [toast, accessToken, t])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -187,7 +187,7 @@ export function AIModelPreferencesSection() {
       setChoices(res.preferences)
       toast.success(t('settings.ai_models.saved'))
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(friendlyErrorMessage(t, e))
     } finally {
       setSaving(false)
     }
@@ -204,7 +204,7 @@ export function AIModelPreferencesSection() {
       })
       toast.success(t('settings.ai_models.cleared'))
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(friendlyErrorMessage(t, e))
     } finally {
       setSaving(false)
     }

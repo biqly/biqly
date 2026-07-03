@@ -11,7 +11,7 @@ import {
 } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { setGlobalAccessToken } from '../../api/apiClient'
+import { ApiError, setGlobalAccessToken } from '../../api/apiClient'
 import {
   apiGetMe,
   apiGetMyPermissions,
@@ -25,6 +25,40 @@ import {
 import type { AuthUser } from '../../types/auth'
 
 const LEGACY_REFRESH_TOKEN_KEY = 'biqly_refresh_token'
+// Set while a cookie session may exist. Lets initAuth skip the cookie-refresh
+// attempt on plainly signed-out visits, which otherwise logs a guaranteed 400
+// to the console on every anonymous page view.
+const HAS_SESSION_KEY = 'biqly_has_session'
+
+// isAuthRejection reports whether the error is a definitive credential
+// rejection from the server. Transient failures (429 rate limit, 5xx,
+// network errors with status 0) must NOT end the session: the token may
+// still be perfectly valid.
+function isAuthRejection(err: unknown): boolean {
+  return err instanceof ApiError && (err.status === 400 || err.status === 401 || err.status === 403)
+}
+
+const TRANSIENT_RETRY_DELAYS_MS = [1000, 2000]
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// withTransientRetry retries fn on transient failures (429/5xx/network) with
+// a short backoff, but rethrows credential rejections immediately.
+async function withTransientRetry<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      const delay = TRANSIENT_RETRY_DELAYS_MS[attempt]
+      if (isAuthRejection(err) || delay === undefined) {
+        throw err
+      }
+      await sleep(delay)
+    }
+  }
+}
 
 // classifySessionExpiry inspects the server-returned error message and maps it
 // to one of the i18n reasons so the signin page can show the right banner.
@@ -109,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPermissions([])
     setIsSuperAdmin(false)
     localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY)
+    localStorage.removeItem(HAS_SESSION_KEY)
   }, [setAccessToken])
 
   // loadPermissions fetches the caller's effective permissions so the UI can
@@ -132,8 +167,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccessToken(accToken)
       setRoles(nextRoles)
       localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY)
+      localStorage.setItem(HAS_SESSION_KEY, '1')
       try {
-        const profile = await apiGetMe(accToken)
+        // The token was just issued, so a /me failure here is almost always
+        // transient (rate limit, blip). Retry briefly before giving up —
+        // otherwise a single 429 bounces a valid session to the signin page.
+        const profile = await withTransientRetry(() => apiGetMe(accToken))
         setUser(profile)
       } catch (err) {
         clearAuth()
@@ -213,8 +252,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initAuth = async () => {
       const legacyRefresh = localStorage.getItem(LEGACY_REFRESH_TOKEN_KEY)
 
+      // No sign of a prior session — don't fire a refresh that is guaranteed
+      // to 400. If a valid cookie somehow exists without the marker (cleared
+      // localStorage), the user just signs in again.
+      if (!legacyRefresh && !localStorage.getItem(HAS_SESSION_KEY)) {
+        clearAuth()
+        setLoading(false)
+        return
+      }
+
       try {
-        const resp = legacyRefresh ? await apiRefresh(legacyRefresh) : await apiRefresh()
+        const resp = await withTransientRetry(() =>
+          legacyRefresh ? apiRefresh(legacyRefresh) : apiRefresh(),
+        )
         await handleAuthSuccess(resp.access_token, resp.roles)
       } catch {
         clearAuth()
@@ -248,9 +298,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRoles(resp.roles)
         await loadPermissions(resp.access_token)
       } catch (err: unknown) {
-        // Refresh failed — classify the server-side reason so the next sign-in
-        // screen can render an explanatory banner (idle/absolute/revoked) and
-        // not just bounce the user to a blank login form.
+        // Transient failure (rate limit, backend blip, network) — keep the
+        // session; the current access token may still be valid and the next
+        // interval tick retries the refresh.
+        if (!isAuthRejection(err)) {
+          return
+        }
+        // Refresh rejected — classify the server-side reason so the next
+        // sign-in screen can render an explanatory banner
+        // (idle/absolute/revoked) and not just bounce the user to a blank
+        // login form.
         const reason = classifySessionExpiry(err)
         sessionStorage.setItem('biqly_session_expired_reason', reason)
         clearAuth()

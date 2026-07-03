@@ -148,6 +148,8 @@ interface AppRouteDef {
   icon: ReactNode
   component: LazyExoticComponent<ComponentType<RouteComponentProps>> & Preloadable
   hidden?: boolean
+  /** Permission required to see this route in the nav and render it. */
+  requiredPermission?: string
 }
 
 interface AppRoute extends AppRouteDef {
@@ -411,6 +413,7 @@ const routeDefs: AppRouteDef[] = [
     descriptionKey: 'app.nav.prompt_templates_desc',
     icon: IconPromptTemplates,
     component: PromptTemplates,
+    requiredPermission: 'ai:settings',
   },
   {
     path: '/evaluation',
@@ -448,6 +451,7 @@ const routeDefs: AppRouteDef[] = [
     icon: IconSettings,
     component: TimeGrains,
     hidden: true,
+    requiredPermission: 'ai:settings',
   },
   {
     path: '/admin',
@@ -563,7 +567,7 @@ function App() {
   const location = useLocation()
   const urlSearch = useUrlSearch()
   const navigate = useNavigate()
-  const { user, accessToken, logout, roles } = useAuth()
+  const { user, accessToken, logout, roles, hasPermission } = useAuth()
   const isAdmin = roles.some((role) => role === 'super_admin' || role === 'admin')
   const roleLabel = computeRoleLabel(roles)
 
@@ -583,6 +587,9 @@ function App() {
       if (route.hidden && !(route.path === '/admin' && isAdmin)) {
         continue
       }
+      if (route.requiredPermission && !hasPermission(route.requiredPermission)) {
+        continue
+      }
       const prev = buckets.get(route.sectionKey) ?? []
       prev.push(route)
       buckets.set(route.sectionKey, prev)
@@ -595,7 +602,7 @@ function App() {
       }
     }
     return out
-  }, [routes, t, isAdmin])
+  }, [routes, t, isAdmin, hasPermission])
 
   const homeRoute = useMemo(() => routes.find((r) => r.path === '/'), [routes])
 
@@ -983,6 +990,30 @@ function App() {
                   <Routes>
                     {routeDefs.map((route) => {
                       const Component = route.component
+                      if (route.requiredPermission && !hasPermission(route.requiredPermission)) {
+                        return (
+                          <Route
+                            key={route.path}
+                            path={route.path}
+                            element={
+                              <section className={cardClass({ elevated: true })}>
+                                <EmptyState
+                                  title={t('common.module_not_found')}
+                                  description={t('common.module_not_found_desc')}
+                                >
+                                  <a
+                                    className={buttonClass('secondary')}
+                                    href={DEFAULT_PATH}
+                                    onClick={(event) => handleNavClick(event, DEFAULT_PATH)}
+                                  >
+                                    {t('common.go_to_datasources')}
+                                  </a>
+                                </EmptyState>
+                              </section>
+                            }
+                          />
+                        )
+                      }
                       return (
                         <Route
                           key={route.path}

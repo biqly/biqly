@@ -108,6 +108,12 @@ data:
           receivers: [otlp]
           processors: [memory_limiter, resource/namespace, batch]
           exporters: [otlphttp]
+        # App slog records arrive over the same OTLP hop (SetupLogExport) and
+        # follow the traces path to the remote backend (SigNoz).
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, resource/namespace, batch]
+          exporters: [otlphttp]
         {{- end }}
         metrics:
           receivers: [{{ join ", " $recv }}]
