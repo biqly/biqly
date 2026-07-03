@@ -376,6 +376,12 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 	}
 	ctx := r.Context()
 
+	workspaceID := bimw.WorkspaceID(ctx)
+	if err := h.deps.SpendLimiter.Check(ctx, workspaceID); err != nil {
+		writeError(w, http.StatusTooManyRequests, "workspace AI token budget exceeded for today")
+		return
+	}
+
 	var resolved *app.ResolvedDatasource
 	var processOpts []ai.ProcessOption
 	if phase == aiPhaseRun {
@@ -397,6 +403,9 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 			"datasource_id", req.DatasourceID,
 		)
 		return
+	}
+	if resp != nil && resp.Metadata != nil && resp.Metadata.TokenUsage != nil {
+		h.deps.SpendLimiter.Record(ctx, workspaceID, resp.Metadata.TokenUsage.Total)
 	}
 
 	switch phase {
@@ -607,7 +616,7 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 		ctx = observability.WithQueryFingerprint(ctx, fp)
 	}
 	execStart := time.Now()
-	result, err := h.deps.Executor.Execute(ctx, db, cq)
+	result, err := h.deps.Executor.Execute(ctx, db, cq, driver != nil && driver.SupportsReadOnlyTx())
 	if h.metrics != nil {
 		h.metrics.RecordAIStep("query_execute", time.Since(execStart).Milliseconds())
 	}
@@ -1188,6 +1197,13 @@ func (h *AIHandler) loadSampleData(ctx context.Context, db *sql.DB, d dialect.Di
 		return nil
 	}
 	if len(cols) == 0 || len(cols) > sampleColumnsMax {
+		return nil
+	}
+	// Withhold PII column values from the NL→SQL prompt sent to the external LLM
+	// (same rule as the describe path). Names/types still reach the model via the
+	// schema context; only raw PII values are excluded.
+	cols = ai.ExcludePIIColumns(cols)
+	if len(cols) == 0 {
 		return nil
 	}
 	rows, err := ai.FetchTableSample(ctx, db, d, cols, model.BaseSchema, model.BaseTable, sampleRowLimit, sampleCellRunes)

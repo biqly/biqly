@@ -204,7 +204,8 @@ func (s *QueryService) RunWithModel(ctx context.Context, lq *query.LogicalQuery,
 	if compiled.Driver != nil {
 		ctx = observability.WithDBSystem(ctx, compiled.Driver.Type())
 	}
-	result, err := s.executor.Execute(ctx, db, compiled.Compiled)
+	readOnlyTx := compiled.Driver != nil && compiled.Driver.SupportsReadOnlyTx()
+	result, err := s.executor.Execute(ctx, db, compiled.Compiled, readOnlyTx)
 	if err != nil {
 		s.recordHistory(ctx, &compiled.LogicalQuery, compiled.Model, compiled.Compiled, nil, QueryStatusFailed, err)
 		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrQueryExecution, err))

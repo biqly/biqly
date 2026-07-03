@@ -32,6 +32,7 @@ type stubDriver struct {
 
 func (*stubDriver) Type() string             { return "stub" }
 func (*stubDriver) Dialect() dialect.Dialect { return dialect.PostgresDialect{} }
+func (*stubDriver) SupportsReadOnlyTx() bool { return false }
 func (*stubDriver) Ping(_ context.Context, _ string) error {
 	return nil
 }

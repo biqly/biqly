@@ -25,6 +25,21 @@ func TestReadOnlyCheckerRejectsDangerousKeyword(t *testing.T) {
 	}
 }
 
+func TestReadOnlyCheckerRejectsSelectInto(t *testing.T) {
+	checker := NewReadOnlyChecker()
+	// SELECT ... INTO writes a new table (Postgres/SQL Server) and INTO OUTFILE
+	// writes a file (MySQL) — both start with SELECT but are not read-only.
+	for _, q := range []string{
+		`SELECT * INTO shadow_table FROM "customers"`,
+		`SELECT "email" FROM "users" INTO OUTFILE '/tmp/dump.csv'`,
+		`SELECT * FROM "t" INTO DUMPFILE '/tmp/x'`,
+	} {
+		if err := checker.Check(q); err == nil {
+			t.Fatalf("expected INTO query to be rejected: %q", q)
+		}
+	}
+}
+
 func TestReadOnlyCheckerRejectsTrailingMultiStatement(t *testing.T) {
 	checker := NewReadOnlyChecker()
 	query := `SELECT 1; DROP TABLE x;`

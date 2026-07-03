@@ -152,3 +152,4 @@ func (fakeDriver) Introspect(context.Context, *sql.DB) (*datasource.Introspectio
 	return nil, nil //nolint:nilnil // optional result
 }
 func (f fakeDriver) Dialect() dialect.Dialect { return f.dialect }
+func (fakeDriver) SupportsReadOnlyTx() bool   { return false }

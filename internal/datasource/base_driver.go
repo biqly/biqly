@@ -41,6 +41,12 @@ func (b *BaseDriver) Dialect() dialect.Dialect {
 	return b.dialectVal
 }
 
+// SupportsReadOnlyTx defaults to false: only drivers that have been verified to
+// enforce sql.TxOptions{ReadOnly: true} at the database opt in by overriding.
+func (*BaseDriver) SupportsReadOnlyTx() bool {
+	return false
+}
+
 // Ping verifies connectivity.
 func (b *BaseDriver) Ping(ctx context.Context, dsn string) (err error) {
 	ctx, span := otel.Tracer("biqly/datasource").Start(ctx, "datasource.Ping")

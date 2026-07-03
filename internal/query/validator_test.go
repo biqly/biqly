@@ -269,6 +269,48 @@ func TestValidateLimitOffset_ExceedsMaxRows(t *testing.T) {
 	}
 }
 
+func TestValidateSchemaOverrides(t *testing.T) {
+	model := &semantic.SemanticModel{
+		BaseSchema: "public",
+		BaseTable:  "orders",
+		Joins: []semantic.Join{
+			{Name: "j", FromTable: "orders", ToSchema: "analytics", ToTable: "events"},
+		},
+	}
+
+	// A schema the model declares (base or join) is accepted.
+	if errs := validateSchemaOverrides(&LogicalQuery{
+		DefaultSchema: "public",
+		TableSchemas:  map[string]string{"events": "analytics"},
+	}, model); len(errs) != 0 {
+		t.Fatalf("declared schemas must be accepted, got %v", errs)
+	}
+
+	// An undeclared schema (cross-tenant redirection) is rejected.
+	errs := validateSchemaOverrides(&LogicalQuery{
+		TableSchemas: map[string]string{"customers": "tenant_b_prod"},
+	}, model)
+	if len(errs) == 0 {
+		t.Fatal("undeclared schema override must be rejected")
+	}
+	if errs[0].Code != "DISALLOWED_SCHEMA" {
+		t.Errorf("code = %q, want DISALLOWED_SCHEMA", errs[0].Code)
+	}
+
+	// A bad DefaultSchema is rejected too.
+	if errs := validateSchemaOverrides(&LogicalQuery{DefaultSchema: "evil"}, model); len(errs) == 0 {
+		t.Fatal("undeclared default_schema must be rejected")
+	}
+
+	// No overrides and/or nil model → no error (feature is opt-in per request).
+	if errs := validateSchemaOverrides(&LogicalQuery{}, model); len(errs) != 0 {
+		t.Fatalf("no overrides must produce no error, got %v", errs)
+	}
+	if errs := validateSchemaOverrides(&LogicalQuery{DefaultSchema: "anything"}, nil); len(errs) != 0 {
+		t.Fatalf("nil model must produce no error, got %v", errs)
+	}
+}
+
 func TestValidateWindowSelect_MissingSpec(t *testing.T) {
 	lq := &LogicalQuery{
 		Select: []SelectItem{

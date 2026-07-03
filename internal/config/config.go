@@ -293,6 +293,9 @@ type AIGenerationConfig struct {
 	MaxPromptInputRunes int
 	MaxRetries          int
 	MultiCandidateCount int
+	// WorkspaceDailyTokenBudget caps total LLM tokens (prompt+completion) a
+	// single workspace may spend per UTC day. 0 disables the cap.
+	WorkspaceDailyTokenBudget int
 }
 
 // AIDescribeConfig groups sampling limits for the AI Describe metadata path.
@@ -473,9 +476,10 @@ func loadAIConfigFromEnv() AIConfig {
 			RateLimitPerMinute: getEnvAsInt("BI_AI_RATE_LIMIT_PER_MINUTE", 20),
 		},
 		Generation: AIGenerationConfig{
-			MaxPromptInputRunes: getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
-			MaxRetries:          getEnvAsInt("BI_AI_MAX_RETRIES", 2),
-			MultiCandidateCount: getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
+			MaxPromptInputRunes:       getEnvAsInt("BI_AI_MAX_PROMPT_RUNES", 80000),
+			MaxRetries:                getEnvAsInt("BI_AI_MAX_RETRIES", 2),
+			MultiCandidateCount:       getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
+			WorkspaceDailyTokenBudget: getEnvAsInt("BI_AI_WORKSPACE_DAILY_TOKEN_BUDGET", 0),
 		},
 		Describe: AIDescribeConfig{
 			MaxCellRunes:  getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),

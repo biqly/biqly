@@ -83,6 +83,7 @@ type Dependencies struct {
 	// non-nil; it falls back to the env config when no DB rows are configured.
 	AIProviderStore *ai.ProviderStore
 	ResponseCache   ai.ResponseCache
+	SpendLimiter    *ai.SpendLimiter
 	Jobs            config.JobsConfig
 	AIJobQueue      queue.AIJobPublisher
 	AIJobService    AIJobRunner
@@ -161,6 +162,7 @@ type AIDeps struct {
 	TimeGrains      routing.TimeGrainStore
 	AIProviderStore *ai.ProviderStore
 	ResponseCache   ai.ResponseCache
+	SpendLimiter    *ai.SpendLimiter
 	Jobs            config.JobsConfig
 	AIJobQueue      queue.AIJobPublisher
 	AIJobService    AIJobRunner
@@ -194,6 +196,7 @@ func (d *Dependencies) AIDeps() *AIDeps {
 		TimeGrains:      d.TimeGrains,
 		AIProviderStore: d.AIProviderStore,
 		ResponseCache:   d.ResponseCache,
+		SpendLimiter:    d.SpendLimiter,
 		Jobs:            d.Jobs,
 		AIJobQueue:      d.AIJobQueue,
 		AIJobService:    d.AIJobService,
@@ -339,6 +342,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		TimeGrains:      aiBits.timeGrains,
 		AIProviderStore: aiBits.providerStore,
 		ResponseCache:   aiBits.responseCache,
+		SpendLimiter:    aiBits.spendLimiter,
 		PoolCache:       poolCache,
 		Jobs:            cfg.Jobs,
 		DashboardRepo:   dashboardRepo,
@@ -402,6 +406,7 @@ type aiBundle struct {
 	timeGrains    routing.TimeGrainStore
 	providerStore *ai.ProviderStore
 	responseCache ai.ResponseCache
+	spendLimiter  *ai.SpendLimiter
 	abRouter      *abtest.TrafficRouter
 }
 
@@ -485,7 +490,12 @@ func setupAI(
 		return aiBundle{}, err
 	}
 
-	responseCache := newRedisResponseCache(ctx, cfg.Redis.DSN)
+	aiRedis := newAIRedisClient(ctx, cfg.Redis.DSN)
+	var responseCache ai.ResponseCache
+	if aiRedis != nil {
+		responseCache = ai.NewRedisResponseCache(aiRedis)
+	}
+	spendLimiter := ai.NewSpendLimiter(aiRedis, cfg.AI.Generation.WorkspaceDailyTokenBudget)
 
 	return aiBundle{
 		client:        client,
@@ -500,29 +510,33 @@ func setupAI(
 		timeGrains:    timeGrains,
 		providerStore: providerStore,
 		responseCache: responseCache,
+		spendLimiter:  spendLimiter,
 		abRouter:      abRouter,
 	}, nil
 }
 
-func newRedisResponseCache(ctx context.Context, dsn string) ai.ResponseCache {
+// newAIRedisClient builds the shared Redis client for AI-side stores (LLM
+// response cache and the per-workspace spend limiter). Returns nil when the DSN
+// is empty/invalid or the server is unreachable, so callers degrade gracefully.
+func newAIRedisClient(ctx context.Context, dsn string) *redis.Client {
 	if dsn == "" {
 		return nil
 	}
 	opt, err := redis.ParseURL(dsn)
 	if err != nil {
-		slog.Warn("LLM Response Cache Redis DSN parse failed; cache disabled", "error", err)
+		slog.Warn("AI Redis DSN parse failed; response cache and spend limiter disabled", "error", err)
 		return nil
 	}
 	redisClient := redis.NewClient(opt)
 	if instrErr := observability.InstrumentRedis(redisClient, "biqly-dragonfly"); instrErr != nil {
-		slog.Warn("LLM Response Cache Redis tracing instrumentation failed", "error", instrErr)
+		slog.Warn("AI Redis tracing instrumentation failed", "error", instrErr)
 	}
 	if pingErr := redisClient.Ping(ctx).Err(); pingErr != nil {
-		slog.Warn("LLM Response Cache Redis ping failed; cache disabled", "error", pingErr)
+		slog.Warn("AI Redis ping failed; response cache and spend limiter disabled", "error", pingErr)
 		return nil
 	}
-	slog.Info("LLM Response Cache initialized with Redis", "addr", opt.Addr)
-	return ai.NewRedisResponseCache(redisClient)
+	slog.Info("AI Redis initialized", "addr", opt.Addr)
+	return redisClient
 }
 
 // WireAIUserResolver attaches per-user model selection when auth is enabled.

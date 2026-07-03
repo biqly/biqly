@@ -943,6 +943,42 @@ func TestCompiler_WindowFunctionUsesASTExpression(t *testing.T) {
 	}
 }
 
+// A window expression carrying a function name outside the shared whitelist must
+// be rejected at compile time — the name is emitted verbatim into SQL, so an
+// unchecked name is a direct injection sink.
+func TestCompiler_WindowFunctionExprRejectsDisallowedFunction(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{
+			{Name: "country", ColumnRef: "orders.country", Type: "text"},
+			{Name: "created_at", ColumnRef: "orders.created_at", Type: "date"},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "country"},
+			{
+				Type:  SelectTypeWindow,
+				Name:  "evil",
+				Alias: "evil",
+				Window: &WindowSpec{
+					Aggregation: "sum",
+					Expr: &pkgsemantic.FunctionCallExpr{
+						// Not in pkgsemantic.AllowedFunctions — an injection attempt.
+						Name: "0) FROM secrets_table --",
+						Args: []pkgsemantic.ExprNode{},
+					},
+					PartitionBy: []string{"country"},
+					OrderBy:     []OrderBy{{Field: "created_at", Direction: "asc"}},
+				},
+			},
+		},
+	}
+	if _, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model); err == nil {
+		t.Fatal("expected compile to reject a disallowed window function name")
+	}
+}
+
 func TestCompiler_WindowRanking(t *testing.T) {
 	model := &semantic.SemanticModel{
 		Name: "orders", BaseSchema: "public", BaseTable: "orders",

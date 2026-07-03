@@ -190,6 +190,7 @@ func (integrationDriver) Introspect(context.Context, *sql.DB) (*datasource.Intro
 	return nil, nil //nolint:nilnil // integration test stub never introspects
 }
 func (d integrationDriver) Dialect() dialect.Dialect { return d.dialect }
+func (integrationDriver) SupportsReadOnlyTx() bool   { return false }
 
 func integrationDriverRegistry() *datasource.Registry {
 	reg := datasource.NewRegistry()

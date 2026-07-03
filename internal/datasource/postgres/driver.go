@@ -23,6 +23,12 @@ func NewDriver() *Driver {
 	}
 }
 
+// SupportsReadOnlyTx: pgx issues BEGIN READ ONLY for sql.TxOptions{ReadOnly:true},
+// so a write inside the transaction is rejected by PostgreSQL itself.
+func (*Driver) SupportsReadOnlyTx() bool {
+	return true
+}
+
 // Introspect discovers the schema of a PostgreSQL database.
 func (d *Driver) Introspect(ctx context.Context, db *sql.DB) (*datasource.IntrospectionResult, error) {
 	return datasource.ComposeIntrospection(ctx, db, d.Type(), datasource.IntrospectSteps{
