@@ -6,6 +6,8 @@
 {{- $tracing := .Values.global.observability.tracing -}}
 {{- $endpoint := $it.otlpEndpoint | default $tracing.otlpEndpoint -}}
 {{- $gateway := $tracing.useInClusterCollector -}}
+{{- $k8s := and $it.k8sAttributes $it.k8sAttributes.enabled -}}
+{{- $env := $it.deploymentEnvironment | default "production" -}}
 {{- $recv := list -}}
 {{- if $it.postgresql.enabled }}{{- $recv = append $recv "postgresql" -}}{{- end }}
 {{- if or $it.dragonfly.enabled $it.nats.enabled }}{{- $recv = append $recv "prometheus" -}}{{- end }}
@@ -63,6 +65,27 @@ processors:
       - key: service.namespace
         value: biqly
         action: upsert
+      - key: deployment.environment
+        value: {{ $env | quote }}
+        action: upsert
+  {{- if $k8s }}
+  # Enrich app traces/logs with Kubernetes metadata (namespace/pod/deployment/
+  # node) so they are filterable in the backend. The source is the OTLP
+  # connection's pod IP; requires the ClusterRole below (pods/replicasets read).
+  k8sattributes:
+    auth_type: serviceAccount
+    passthrough: false
+    extract:
+      metadata:
+        - k8s.namespace.name
+        - k8s.pod.name
+        - k8s.pod.uid
+        - k8s.deployment.name
+        - k8s.node.name
+    pod_association:
+      - sources:
+          - from: connection
+  {{- end }}
   resource/infra:
     attributes:
       - key: service.namespace
@@ -93,13 +116,13 @@ service:
     {{- if $gateway }}
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, resource/namespace, batch]
+      processors: [memory_limiter, {{ if $k8s }}k8sattributes, {{ end }}resource/namespace, batch]
       exporters: [otlphttp]
     # App slog records arrive over the same OTLP hop (SetupLogExport) and
     # follow the traces path to the remote backend (SigNoz).
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, resource/namespace, batch]
+      processors: [memory_limiter, {{ if $k8s }}k8sattributes, {{ end }}resource/namespace, batch]
       exporters: [otlphttp]
     {{- end }}
     metrics:
@@ -116,6 +139,7 @@ service:
 {{- /* Gateway role: receive OTLP from the apps and forward to the remote backend
        so the slow internet round-trip never touches the request path. */ -}}
 {{- $gateway := $tracing.useInClusterCollector -}}
+{{- $k8s := and $it.k8sAttributes $it.k8sAttributes.enabled -}}
 {{- $recv := list -}}
 {{- if $it.postgresql.enabled }}{{- $recv = append $recv "postgresql" -}}{{- end }}
 {{- if or $it.dragonfly.enabled $it.nats.enabled }}{{- $recv = append $recv "prometheus" -}}{{- end }}
@@ -169,7 +193,12 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if $k8s }}
+      serviceAccountName: biqly-otel-infra-collector
+      automountServiceAccountToken: true
+      {{- else }}
       automountServiceAccountToken: false
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -292,5 +321,48 @@ spec:
     - name: otlp-http
       port: 4318
       targetPort: otlp-http
+{{- end }}
+{{- if $k8s }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: biqly-otel-infra-collector
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-infra-collector
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-otel-infra-collector-k8sattributes
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-infra-collector
+rules:
+  # Read-only, cluster-wide access the k8sattributes processor needs to map a
+  # source pod IP to its namespace/pod/deployment/node metadata.
+  - apiGroups: [""]
+    resources: [pods, namespaces, nodes]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-otel-infra-collector-k8sattributes
+  labels:
+    {{- include "biqly.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-infra-collector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-otel-infra-collector-k8sattributes
+subjects:
+  - kind: ServiceAccount
+    name: biqly-otel-infra-collector
+    namespace: {{ .Release.Namespace }}
 {{- end }}
 {{- end }}
