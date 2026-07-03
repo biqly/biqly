@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"fmt"
 )
 
 func (s *Service) UpdateProfile(ctx context.Context, userID string, req UpdateProfileRequest) (*UserResponse, error) {
@@ -56,6 +57,11 @@ func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, n
 	}
 	if err := s.userRepo.UpdateUserPassword(ctx, userID, hash); err != nil {
 		return err
+	}
+	// Revoke every session so a stolen refresh token can't outlive the password
+	// change — the primary self-remediation for a compromised account.
+	if err := s.sessionMgr.RevokeAllUserSessions(ctx, userID); err != nil {
+		return fmt.Errorf("revoke user sessions on password change: %w", err)
 	}
 	s.auditEvent(ctx, userID, AuditPasswordChanged, nil)
 	return nil

@@ -77,6 +77,7 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 	errs = append(errs, validateHavingClause(lq, lk)...)
 	errs = append(errs, validateFilterClauses(lq, model, lk)...)
 	errs = append(errs, validateFromAndCTEs(lq)...)
+	errs = append(errs, validateSchemaOverrides(lq, model)...)
 	if err := validateCalendarGrainYearCoverage(lq, model); err != nil {
 		errs = append(errs, err)
 	}
@@ -88,6 +89,47 @@ func (v *Validator) Validate(lq *LogicalQuery, model *semantic.SemanticModel) er
 		return errs
 	}
 	return nil
+}
+
+// validateSchemaOverrides rejects request-supplied DefaultSchema/TableSchemas
+// values that name a schema the semantic model does not declare (its base
+// schema or a join schema). Without this, a caller can redirect a joined table
+// to another tenant's schema and read data through a model they were only
+// authorized to query against their own schema.
+func validateSchemaOverrides(lq *LogicalQuery, model *semantic.SemanticModel) ValidationErrors {
+	if model == nil {
+		return nil
+	}
+	if strings.TrimSpace(lq.DefaultSchema) == "" && len(lq.TableSchemas) == 0 {
+		return nil
+	}
+	allowed := make(map[string]bool)
+	add := func(s string) {
+		if s = strings.TrimSpace(s); s != "" {
+			allowed[strings.ToLower(s)] = true
+		}
+	}
+	add(model.BaseSchema)
+	for _, j := range model.Joins {
+		add(j.FromSchema)
+		add(j.ToSchema)
+	}
+	var errs ValidationErrors
+	check := func(field, schema string) {
+		if s := strings.TrimSpace(schema); s != "" && !allowed[strings.ToLower(s)] {
+			errs = append(errs, &ValidationError{
+				Field:   field,
+				Code:    "DISALLOWED_SCHEMA",
+				Message: "schema not declared by the semantic model: " + schema,
+				Value:   schema,
+			})
+		}
+	}
+	check("default_schema", lq.DefaultSchema)
+	for tbl, schema := range lq.TableSchemas {
+		check("table_schemas."+tbl, schema)
+	}
+	return errs
 }
 
 // validateSelectItems checks each SELECT item against the model.

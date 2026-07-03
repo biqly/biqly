@@ -66,6 +66,20 @@ func (r *Repository) ListUnresolvedByDatasource(ctx context.Context, dsID string
 	return platformdb.QuerySliceErr(ctx, r.db, "list unresolved by datasource", query, []any{dsID}, scanDriftReport)
 }
 
+// DatasourceForReport returns the datasource id owning a drift report, used to
+// authorize access to a report by its id.
+func (r *Repository) DatasourceForReport(ctx context.Context, id string) (string, error) {
+	var datasourceID string
+	err := r.db.QueryRowContext(ctx, `SELECT datasource_id::text FROM drift_reports WHERE id = $1::uuid`, id).Scan(&datasourceID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNoDriftReport
+	}
+	if err != nil {
+		return "", fmt.Errorf("datasource for drift report: %w", err)
+	}
+	return datasourceID, nil
+}
+
 // ResolveReport marks a drift report as resolved by a user.
 func (r *Repository) ResolveReport(ctx context.Context, id, resolvedBy string) error {
 	query := `

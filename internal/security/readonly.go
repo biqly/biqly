@@ -20,6 +20,10 @@ func init() {
 		"XP_CMDSHELL", "OPENROWSET", "PG_READ_FILE",
 		"LOAD_FILE", "DBLINK", "LO_IMPORT",
 		"SET", "RESET", "COPY", "DO", "LOCK", "VACUUM", "REINDEX",
+		// SELECT ... INTO (Postgres/SQL Server table create) and MySQL's
+		// INTO OUTFILE / INTO DUMPFILE turn a "SELECT" into a data-modifying /
+		// file-write statement that the SELECT-prefix check would otherwise pass.
+		"INTO",
 	}
 	dangerousKeywords = dangerous
 	dangerousKeywordPatterns = make([]*regexp.Regexp, 0, len(dangerous)+1)

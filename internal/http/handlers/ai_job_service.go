@@ -263,15 +263,27 @@ func (s *AIJobService) Process(ctx context.Context, jobID string) error {
 	ctx = consumerContextForAIJob(ctx, job)
 	raw, err := s.processJob(ctx, job, report)
 	if err != nil {
-		job, getErr := s.repo.GetAIJob(ctx, jobID)
+		// The failure-bookkeeping reads/writes must not ride the job context: on
+		// worker shutdown that context is already cancelled, so reusing it would
+		// silently fail and leave the job stuck in "running" forever.
+		bgCtx := context.WithoutCancel(ctx)
+		job, getErr := s.repo.GetAIJob(bgCtx, jobID)
 		if getErr == nil && job.Status == metadata.AIJobStatusCancelled {
 			return nil
 		}
 		if strings.Contains(strings.ToLower(err.Error()), "cancelled") {
 			return nil
 		}
-		if failErr := s.repo.FailAIJob(ctx, jobID, err.Error()); failErr != nil {
-			slog.WarnContext(ctx, "mark async AI job failed", "job_id", jobID, "err", failErr)
+		// A cancelled/expired job context means worker shutdown or deadline, not a
+		// genuine job failure — return the error so the message redelivers and the
+		// job can resume, without recording a spurious permanent failure.
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		failCtx, cancel := context.WithTimeout(bgCtx, 10*time.Second)
+		defer cancel()
+		if failErr := s.repo.FailAIJob(failCtx, jobID, err.Error()); failErr != nil {
+			slog.WarnContext(bgCtx, "mark async AI job failed", "job_id", jobID, "err", failErr)
 		}
 		return err
 	}

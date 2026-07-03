@@ -69,6 +69,35 @@ func (h *RBACHandler) requirePermission(perms ...string) func(http.Handler) http
 // of the given permissions, evaluated with the workspace scope taken from the
 // {id} URL param (so a global grant OR a workspace-scoped grant both satisfy
 // it). Super admins always pass (handled inside RBACService.Check).
+// requireWorkspaceMembership gates read routes on the caller being a member of
+// the workspace named by the {id} URL param. Reads don't need a specific
+// permission, but they must not be readable across tenants by any authenticated
+// user (super admins bypass via workspace membership not being required).
+func (h *RBACHandler) requireWorkspaceMembership(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := contextUserID(r)
+		if !ok {
+			writeError(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+			return
+		}
+		if isSuper, err := h.deps.Rbac.IsSuperAdmin(r.Context(), userID); err == nil && isSuper {
+			next.ServeHTTP(w, r)
+			return
+		}
+		wsID := chi.URLParam(r, "id")
+		member, err := h.deps.Ws.IsMember(r.Context(), wsID, userID)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		if !member {
+			writeError(w, r, http.StatusForbidden, errors.New("insufficient permissions"))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (h *RBACHandler) requireWorkspacePermission(perms ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -107,16 +136,16 @@ func (h *RBACHandler) RegisterAuthRoutes(r chi.Router, authMW func(http.Handler)
 
 		r.With(slicePagination).Get("/workspaces", h.handleListWorkspaces)
 		r.With(h.requirePermission("workspace:create")).Post("/workspaces", h.handleCreateWorkspace)
-		r.Get("/workspaces/{id}", h.handleGetWorkspace)
+		r.With(h.requireWorkspaceMembership).Get("/workspaces/{id}", h.handleGetWorkspace)
 		r.With(h.requireWorkspacePermission("admin:workspaces")).Put("/workspaces/{id}", h.handleUpdateWorkspace)
 		r.With(h.requireWorkspacePermission("admin:workspaces")).Delete("/workspaces/{id}", h.handleDeleteWorkspace)
 
-		r.With(slicePagination).Get("/workspaces/{id}/members", h.handleListMembers)
+		r.With(h.requireWorkspaceMembership, slicePagination).Get("/workspaces/{id}/members", h.handleListMembers)
 		r.With(h.requireWorkspacePermission("workspace:invite", "admin:workspaces")).Post("/workspaces/{id}/members", h.handleAddMember)
 		r.With(h.requireWorkspacePermission("workspace:invite", "admin:workspaces")).Put("/workspaces/{id}/members/{userId}", h.handleUpdateMemberRole)
 		r.With(h.requireWorkspacePermission("workspace:invite", "admin:workspaces")).Delete("/workspaces/{id}/members/{userId}", h.handleRemoveMember)
 
-		r.With(slicePagination).Get("/workspaces/{id}/datasources", h.handleListWorkspaceDatasources)
+		r.With(h.requireWorkspaceMembership, slicePagination).Get("/workspaces/{id}/datasources", h.handleListWorkspaceDatasources)
 		r.With(h.requireWorkspacePermission("workspace:manage_datasources", "admin:workspaces")).Post("/workspaces/{id}/datasources", h.handleAttachDatasource)
 		r.With(h.requireWorkspacePermission("workspace:manage_datasources", "admin:workspaces")).Delete("/workspaces/{id}/datasources/{dsId}", h.handleDetachDatasource)
 

@@ -40,7 +40,7 @@ func QueryRouter(deps *app.Dependencies) http.Handler {
 	r.Route("/api", func(r chi.Router) {
 		r.Use(authMW)
 		r.Use(bimw.RequirePermission(authClient, "query:execute"))
-		registerQueryAPIRoutes(r, deps.QueryDeps())
+		registerQueryAPIRoutes(r, deps.QueryDeps(), bimw.RequireDatasourceAccess(authClient, "read"))
 	})
 
 	r.Route("/internal", func(r chi.Router) {
@@ -52,12 +52,15 @@ func QueryRouter(deps *app.Dependencies) http.Handler {
 	return OTELHTTPHandler("biqly-query", r)
 }
 
-func registerQueryAPIRoutes(r chi.Router, deps *app.QueryDeps) {
+func registerQueryAPIRoutes(r chi.Router, deps *app.QueryDeps, dsAccess func(http.Handler) http.Handler) {
 	queryHandler := handlers.NewQueryHandler(deps)
 	queryHandler.SetQueryMetricsRecorder(GetMetrics())
-	r.Post("/query/compile", queryHandler.Compile)
-	r.Post("/query/run", queryHandler.Run)
-	r.Post("/query/explain", queryHandler.Explain)
+	// compile/run/explain carry a client-supplied datasource_id in the body and
+	// must be gated on per-datasource access, not just the generic query:execute
+	// permission — otherwise any user could target another tenant's datasource.
+	r.With(dsAccess).Post("/query/compile", queryHandler.Compile)
+	r.With(dsAccess).Post("/query/run", queryHandler.Run)
+	r.With(dsAccess).Post("/query/explain", queryHandler.Explain)
 	r.Get("/query/history", queryHandler.History)
 	r.Get("/query/history/{id}", queryHandler.GetHistory)
 }

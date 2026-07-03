@@ -607,13 +607,14 @@ func (s *Service) VerifyOAuthState(ctx context.Context, provider, bindToken, exp
 		}
 		return constantTimeEqualString(storedState, expectedState), nil
 	}
-	storedState, err := s.redisClient.Get(ctx, key).Result()
+	// GETDEL keeps the state single-use: concurrent duplicate callbacks
+	// cannot both pass verification the way a separate GET+DEL pair could.
+	storedState, err := s.redisClient.GetDel(ctx, key).Result()
 	if errors.Is(err, redis.Nil) {
 		return false, nil
 	} else if err != nil {
 		return false, err
 	}
-	s.redisClient.Del(ctx, key)
 	return constantTimeEqualString(storedState, expectedState), nil
 }
 

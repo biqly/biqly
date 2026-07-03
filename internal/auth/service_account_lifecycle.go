@@ -48,8 +48,18 @@ func (s *Service) DeleteAccount(ctx context.Context, userID, password string) (t
 	return purgeAt, nil
 }
 
-func (s *Service) RestoreAccount(ctx context.Context, userID string) error {
-	return s.userRepo.RestoreAccount(ctx, userID)
+// RestoreAccount reactivates a soft-deleted account. Only a super admin may
+// invoke it — the route is behind JWT auth only, so the privilege check lives
+// here (mirrors AdminForceLogout / GenerateMFABypassCode).
+func (s *Service) RestoreAccount(ctx context.Context, actorUserID, targetUserID string) error {
+	isSuper, err := s.IsSuperAdmin(ctx, actorUserID)
+	if err != nil {
+		return err
+	}
+	if !isSuper {
+		return ErrSuperAdminRequired
+	}
+	return s.userRepo.RestoreAccount(ctx, targetUserID)
 }
 
 // UnlockAccount consumes an unlock token and clears the rate-limit counter for

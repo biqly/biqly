@@ -99,7 +99,7 @@ func Router(deps *app.Dependencies) http.Handler {
 				registerQueryProxyRoutes(r, deps.Config.Services.QueryURL)
 			} else {
 				r.With(bimw.RequirePermission(authClient, "query:execute")).Group(func(r chi.Router) {
-					registerQueryAPIRoutes(r, deps.QueryDeps())
+					registerQueryAPIRoutes(r, deps.QueryDeps(), bimw.RequireDatasourceAccess(authClient, "read"))
 				})
 			}
 		})

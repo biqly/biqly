@@ -160,11 +160,17 @@ func (q *NATSQueue) handleAIJobFailure(ctx context.Context, msg jetstream.Msg, j
 		return
 	}
 	if _, dlqErr := q.js.Publish(ctx, AIJobDLQSubject, msg.Data()); dlqErr != nil {
-		slog.Error("publish ai job to dlq", "job_id", jobID, "error", dlqErr)
-	} else {
-		slog.Warn("ai job moved to dlq after max deliveries", "job_id", jobID, "deliveries", meta.NumDelivered)
-		observability.Default().RecordNATSDLQMove()
+		// Do NOT Term() when the DLQ write failed — that would drop the message
+		// with no dead-letter copy anywhere. Nak so JetStream redelivers and we
+		// get another chance to DLQ it.
+		slog.Error("publish ai job to dlq, will retry", "job_id", jobID, "error", dlqErr)
+		if nakErr := msg.Nak(); nakErr != nil {
+			slog.Warn("nack ai job message after failed dlq publish", "job_id", jobID, "error", nakErr)
+		}
+		return
 	}
+	slog.Warn("ai job moved to dlq after max deliveries", "job_id", jobID, "deliveries", meta.NumDelivered)
+	observability.Default().RecordNATSDLQMove()
 	if termErr := msg.Term(); termErr != nil {
 		slog.Warn("term ai job message after dlq", "job_id", jobID, "error", termErr)
 	}

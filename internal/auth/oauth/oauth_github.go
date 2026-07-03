@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bytedance/sonic"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -84,7 +85,9 @@ func fetchGitHubUserProfile(ctx context.Context, client *http.Client) (githubUse
 		}
 	}()
 	if respProfile.StatusCode != http.StatusOK {
-		return githubUserProfile{}, fmt.Errorf("github API profile returned status: %d", respProfile.StatusCode)
+		body, _ := io.ReadAll(io.LimitReader(respProfile.Body, 512))
+		return githubUserProfile{}, fmt.Errorf("github API profile returned status: %d (request-id=%s, body=%q)",
+			respProfile.StatusCode, respProfile.Header.Get("X-GitHub-Request-Id"), body)
 	}
 
 	var raw struct {

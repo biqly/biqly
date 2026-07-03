@@ -210,7 +210,9 @@ func unaryExprSQL(expr *pkgsemantic.UnaryExpr, d dialect.Dialect, resolver *Sche
 	case pkgsemantic.OpNegate:
 		return "(-" + inner + ")", nil
 	default:
-		return "(" + strings.ToUpper(string(expr.Op)) + " " + inner + ")", nil
+		// Fail closed: the operator is emitted verbatim into SQL, so an unknown
+		// request-supplied op is an injection sink.
+		return "", fmt.Errorf("disallowed unary operator in expression: %s", expr.Op)
 	}
 }
 
@@ -220,6 +222,13 @@ func functionCallSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, reso
 			return "", err
 		}
 		return sql, nil
+	}
+
+	// Fail closed on any function not in the shared whitelist. The name is
+	// emitted verbatim into SQL below, so an unchecked name (e.g. from a
+	// request-supplied window expression) is a direct SQL-injection sink.
+	if _, ok := pkgsemantic.AllowedFunctions[strings.ToUpper(expr.Name)]; !ok {
+		return "", fmt.Errorf("disallowed function in expression: %s", expr.Name)
 	}
 
 	funcArgs := make([]string, 0, len(expr.Args))

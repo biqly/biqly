@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 )
@@ -142,6 +143,11 @@ func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) 
 
 	if err := s.userRepo.ConsumePasswordResetAndUpdatePassword(ctx, token, hash); err != nil {
 		return err
+	}
+	// Revoke every session so an attacker holding a stolen refresh token is
+	// evicted when the legitimate user completes a "forgot password" reset.
+	if err := s.sessionMgr.RevokeAllUserSessions(ctx, userID); err != nil {
+		return fmt.Errorf("revoke user sessions on password reset: %w", err)
 	}
 	s.auditEvent(ctx, userID, AuditPasswordReset, nil)
 	return nil

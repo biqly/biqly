@@ -534,6 +534,50 @@ func RequireDatasourceAccess(client *AuthClient, requiredLevel string) func(http
 	}
 }
 
+// RequireResolvedDatasourceAccess gates a route whose URL {id} identifies an
+// entity (semantic model, composite, drift record) rather than a datasource
+// directly. resolve maps that id to the owning datasource id; access is then
+// checked exactly like RequireDatasourceAccess. super_admin bypasses; a nil
+// client is a pass-through (dev mode).
+func RequireResolvedDatasourceAccess(client *AuthClient, requiredLevel string, resolve func(context.Context, string) (string, error)) func(http.Handler) http.Handler {
+	if client == nil {
+		return passThrough
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if HasRole(r.Context(), RoleSuperAdmin) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			userID := UserID(r.Context())
+			if userID == "" {
+				writeAuthError(w, http.StatusUnauthorized, "no user in context")
+				return
+			}
+			id := chi.URLParam(r, "id")
+			if id == "" {
+				writeAuthError(w, http.StatusBadRequest, "resource id required")
+				return
+			}
+			datasourceID, err := resolve(r.Context(), id)
+			if err != nil {
+				writeAuthError(w, http.StatusNotFound, "resource not found")
+				return
+			}
+			allowed, err := client.CheckDatasourceAccess(r.Context(), userID, datasourceID, requiredLevel)
+			if err != nil {
+				writeAuthError(w, http.StatusServiceUnavailable, "datasource access check failed")
+				return
+			}
+			if !allowed {
+				writeAuthError(w, http.StatusForbidden, "datasource access denied")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func extractDatasourceID(r *http.Request) string {
 	if id := chi.URLParam(r, "datasourceID"); id != "" {
 		return id
@@ -572,9 +616,17 @@ func extractDatasourceIDFromBody(r *http.Request) string {
 	r.Body = io.NopCloser(bytes.NewReader(buf))
 	var probe struct {
 		DatasourceID string `json:"datasource_id"`
+		// Query-engine payloads nest the id under logical_query rather than at
+		// the top level: {"logical_query": {"datasource_id": "..."}}.
+		LogicalQuery struct {
+			DatasourceID string `json:"datasource_id"`
+		} `json:"logical_query"`
 	}
 	if err := sonic.ConfigStd.Unmarshal(buf, &probe); err != nil {
 		return ""
 	}
-	return probe.DatasourceID
+	if probe.DatasourceID != "" {
+		return probe.DatasourceID
+	}
+	return probe.LogicalQuery.DatasourceID
 }
