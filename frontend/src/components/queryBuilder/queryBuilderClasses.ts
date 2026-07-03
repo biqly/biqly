@@ -39,7 +39,7 @@ export const qbHeaderGroupClass =
   'flex min-w-0 flex-col gap-[0.4rem] [&_.ui-select]:min-w-36 [&_.ui-select]:max-w-64 [&_.ui-select]:flex-[0_1_auto] max-[720px]:[&_.ui-select]:max-w-none max-[720px]:[&_.ui-select]:flex-[1_1_12rem]'
 
 export const qbHeaderLabelClass =
-  'text-foreground-muted font-[family-name:var(--font-display,"Plus_Jakarta_Sans",sans-serif)] text-[0.66rem] font-bold tracking-[0.08em] uppercase'
+  'text-foreground-muted font-display text-[0.66rem] font-bold tracking-[0.08em] uppercase'
 
 // Inline cluster of controls inside a group (datasource+model, save actions, ...).
 export const qbHeaderControlsClass =

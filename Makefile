@@ -7,7 +7,7 @@ endif
 
 # air provides Go live-reload (rebuild + restart on .go save). Pinned via
 # `go run` so no global install is required (first run downloads it).
-AIR = go run github.com/air-verse/air@latest
+AIR = go run github.com/air-verse/air@v1.65.3
 
 # Services `make watch` starts when SVC is unset (the host-native app services;
 # catalog/query/ai are embedded in cmd/api locally). Override with a space- or
@@ -178,7 +178,7 @@ vet:
 
 # Dependency vulnerability scan, same as the CI govulncheck step.
 govulncheck:
-	@go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+	@go run golang.org/x/vuln/cmd/govulncheck@v1.5.0 ./...
 
 # Local mirror of the gate `main`'s CI runs (ci.yml + test.yml + semgrep.yml).
 # Run this before merging dev -> main so you know main will stay green,
@@ -217,6 +217,9 @@ helm-upgrade-prod: helm-deps helm-bump-tags
 		-f $(HELM_CHART)/values-prod.yaml \
 		--force-conflicts
 
+# Intentionally kept as an alias: prag currently uses the same Helm
+# release/values as prod, and existing docs/scripts invoke this target name.
+# Add prag-specific flags/values here if the environments diverge.
 helm-upgrade-prag: helm-upgrade-prod
 
 helm-status:

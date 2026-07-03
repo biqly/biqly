@@ -18,7 +18,11 @@ func CSRF(listenPort int) func(http.Handler) http.Handler {
 			if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions || r.Method == http.MethodTrace {
 				cookie, err := readCSRFCookie(r, listenPort)
 				if err != nil || cookie.Value == "" {
-					token := setCSRFCookie(w, r, listenPort)
+					token, err := setCSRFCookie(w, r, listenPort)
+					if err != nil {
+						http.Error(w, "Failed to generate CSRF token", http.StatusInternalServerError)
+						return
+					}
 					w.Header().Set(csrfHeaderName, token)
 				} else {
 					w.Header().Set(csrfHeaderName, cookie.Value)
@@ -49,11 +53,11 @@ func CSRF(listenPort int) func(http.Handler) http.Handler {
 	}
 }
 
-func setCSRFCookie(w http.ResponseWriter, r *http.Request, listenPort int) string {
+func setCSRFCookie(w http.ResponseWriter, r *http.Request, listenPort int) (string, error) {
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
 		log.Printf("csrf: failed to generate random token: %v", err)
-		return ""
+		return "", err
 	}
 	token := base64.URLEncoding.EncodeToString(tokenBytes)
 
@@ -68,16 +72,19 @@ func setCSRFCookie(w http.ResponseWriter, r *http.Request, listenPort int) strin
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	})
-	return token
+	return token, nil
 }
 
 func readCSRFCookie(r *http.Request, listenPort int) (*http.Cookie, error) {
 	name := csrfCookieName(r, listenPort)
 	cookie, err := r.Cookie(name)
-	if err == nil || name == csrfLegacyCookieName {
-		return cookie, err
+	if err == nil {
+		return cookie, nil
 	}
-	return r.Cookie(csrfLegacyCookieName)
+	if name == csrfSecureCookieName {
+		return r.Cookie(csrfLegacyCookieName)
+	}
+	return nil, err
 }
 
 func csrfCookieName(r *http.Request, listenPort int) string {
