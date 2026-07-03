@@ -38,6 +38,19 @@ export function Modal({
   const t = useT()
   const dialogRef = useRef<HTMLElement>(null)
 
+  // Lock body scroll while any modal is open so the page behind the overlay
+  // can't scroll (and, on mobile, can't visually detach from the backdrop).
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open])
+
   useEffect(() => {
     if (!open) {
       return

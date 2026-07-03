@@ -36,6 +36,10 @@ export type { FetchJSONResult }
 
 const POLL_MS = 1200
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled'])
+// A single poll request failing (network blip, or a 5xx/429 from a rolling
+// deploy) must not kill a job that is still running server-side. Tolerate this
+// many consecutive transient failures before giving up on the poll.
+const MAX_POLL_FAILURES = 5
 
 function isValidJobId(id: unknown): id is string {
   if (typeof id !== 'string') {
@@ -219,6 +223,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const [bulkRunning, setBulkRunning] = useState(false)
   const [bulkSummary, setBulkSummary] = useState<BulkDescribeSummary | null>(null)
   const callbacksRef = useRef<Map<string, JobWaiterHandle>>(new Map())
+  const pollFailuresRef = useRef<Map<string, number>>(new Map())
   const pollingIdsRef = useRef<Set<string>>(new Set())
   const pollLoopRef = useRef<number | null>(null)
   const bulkCancelRef = useRef(false)
@@ -301,6 +306,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   const stopPolling = useCallback(
     (jobId: string) => {
       pollingIdsRef.current.delete(jobId)
+      pollFailuresRef.current.delete(jobId)
       if (pollingIdsRef.current.size === 0) {
         stopPollLoop()
       }
@@ -341,6 +347,19 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         `/api/ai/jobs/${encodeURIComponent(jobId)}`,
       )
       if (error) {
+        // Distinguish a transient request failure (network blip, timeout,
+        // 429/5xx from a rolling deploy) from a definitive error. The job is
+        // still running server-side; retry on the next tick until we exhaust
+        // the budget rather than reporting a spurious failure.
+        const transient = status === 0 || status === 429 || status >= 500
+        if (transient) {
+          const failures = (pollFailuresRef.current.get(jobId) ?? 0) + 1
+          if (failures < MAX_POLL_FAILURES) {
+            pollFailuresRef.current.set(jobId, failures)
+            return
+          }
+        }
+        pollFailuresRef.current.delete(jobId)
         stopPolling(jobId)
         const waiter = callbacksRef.current.get(jobId)
         if (waiter) {
@@ -350,6 +369,7 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
         setMinimized(false)
         return
       }
+      pollFailuresRef.current.delete(jobId)
       if (status === 404 || !data) {
         stopPolling(jobId)
         const waiter = callbacksRef.current.get(jobId)

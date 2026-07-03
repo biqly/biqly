@@ -68,6 +68,10 @@ export function useModelingCanvas(
   )
 
   const savedViewportRef = useRef<Viewport | null>(null)
+  // Ends whatever drag/pan is currently active. Tracked so a mid-drag unmount
+  // can force-end it (otherwise the window listeners leak and the card keeps
+  // following the cursor).
+  const activeDragCleanupRef = useRef<(() => void) | null>(null)
 
   const onCardDragStart = useCallback(
     (key: string) => (event: React.MouseEvent) => {
@@ -95,11 +99,17 @@ export function useModelingCanvas(
       const onUp = () => {
         window.removeEventListener('mousemove', onMove)
         window.removeEventListener('mouseup', onUp)
+        // Also end on window blur so releasing the button outside the OS window
+        // (multi-monitor / fast drag) doesn't leave the drag stuck.
+        window.removeEventListener('blur', onUp)
         document.body.classList.remove('modeling-grabbing')
+        activeDragCleanupRef.current = null
       }
+      activeDragCleanupRef.current = onUp
       document.body.classList.add('modeling-grabbing')
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
+      window.addEventListener('blur', onUp)
     },
     [positions],
   )
@@ -140,11 +150,22 @@ export function useModelingCanvas(
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('blur', onUp)
       document.body.classList.remove('modeling-panning')
+      activeDragCleanupRef.current = null
     }
+    activeDragCleanupRef.current = onUp
     document.body.classList.add('modeling-panning')
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
+    window.addEventListener('blur', onUp)
+  }, [])
+
+  // Force-end any in-flight drag/pan if the hook unmounts mid-drag.
+  useEffect(() => {
+    return () => {
+      activeDragCleanupRef.current?.()
+    }
   }, [])
 
   useLayoutEffect(() => {

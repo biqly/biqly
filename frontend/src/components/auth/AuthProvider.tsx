@@ -22,6 +22,7 @@ import {
   apiSetActiveWorkspace,
   registerResponseHasSession,
 } from '../../api/auth'
+import { clearStoredConversations } from '../../hooks/useConversation'
 import type { AuthUser } from '../../types/auth'
 
 const LEGACY_REFRESH_TOKEN_KEY = 'biqly_refresh_token'
@@ -144,6 +145,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsSuperAdmin(false)
     localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY)
     localStorage.removeItem(HAS_SESSION_KEY)
+    // Wipe the (non-user-scoped) conversation cache so the next user on this
+    // browser can't read or re-upload the previous user's conversations.
+    clearStoredConversations()
   }, [setAccessToken])
 
   // loadPermissions fetches the caller's effective permissions so the UI can
@@ -246,6 +250,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const resp = await apiSetActiveWorkspace(accessToken, workspaceID)
     setAccessToken(resp.access_token)
     setUser((prev) => (prev ? { ...prev, active_workspace_id: resp.active_workspace_id } : prev))
+    // Roles/permissions are workspace-scoped; reload them for the new workspace
+    // so hasPermission()-gated admin UI reflects the switch immediately instead
+    // of staying stale until the next silent refresh.
+    await loadPermissions(resp.access_token)
   }
 
   useEffect(() => {

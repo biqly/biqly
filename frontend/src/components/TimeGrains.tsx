@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { useApi } from '../hooks/useApi'
+import { request, useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
 import { buttonClass } from '../lib/buttonClasses'
 import {
@@ -30,7 +30,7 @@ interface TimeGrain {
 export default function TimeGrains() {
   const navigate = useNavigate()
   const t = useT()
-  const { get, putData, loading, error } = useApi()
+  const { get, loading, error } = useApi()
   const [grains, setGrains] = useState<TimeGrain[]>([])
   const [initLoading, setInitLoading] = useState(true)
   const [editingGrain, setEditingGrain] = useState<TimeGrain | null>(null)
@@ -94,7 +94,11 @@ export default function TimeGrains() {
       synonyms: cleanedSynonyms,
     }
 
-    const res = await putData<{ status: string }>(
+    // Use request() directly so we read the error from this call's own result,
+    // not the useApi hook's error state (which only updates on the next render
+    // and would leave formError showing a stale/generic message).
+    const { data: res, error: saveErr } = await request<{ status: string }>(
+      'PUT',
       `/api/ai/settings/time-grains/${editingGrain.grain}`,
       payload,
     )
@@ -103,8 +107,8 @@ export default function TimeGrains() {
       setSuccessMessage(t('time_grains.success_save') || 'Time grain updated successfully.')
       setEditingGrain(null)
       fetchGrains()
-    } else if (error) {
-      setFormError(error)
+    } else if (saveErr) {
+      setFormError(saveErr)
     } else {
       setFormError(t('time_grains.error_save') || 'Failed to save time grain.')
     }
