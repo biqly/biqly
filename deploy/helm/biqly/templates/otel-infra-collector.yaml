@@ -1,3 +1,112 @@
+{{- /* Rendered collector config. Referenced by the ConfigMap AND hashed into
+       the pod annotation so any config change (values OR template) rolls the
+       collector — otelcol does not hot-reload its config file. */ -}}
+{{- define "biqly.otelInfraCollectorConfig" -}}
+{{- $it := .Values.global.observability.infraTelemetry -}}
+{{- $tracing := .Values.global.observability.tracing -}}
+{{- $endpoint := $it.otlpEndpoint | default $tracing.otlpEndpoint -}}
+{{- $gateway := $tracing.useInClusterCollector -}}
+{{- $recv := list -}}
+{{- if $it.postgresql.enabled }}{{- $recv = append $recv "postgresql" -}}{{- end }}
+{{- if or $it.dragonfly.enabled $it.nats.enabled }}{{- $recv = append $recv "prometheus" -}}{{- end }}
+{{- if $gateway }}{{- $recv = append $recv "otlp" -}}{{- end }}
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  # Token is extracted (Authorization=Bearer <t> -> <t>) by the init
+  # container from the shared app OTLP secret; the extension re-adds Bearer.
+  bearertokenauth:
+    scheme: Bearer
+    filename: /etc/otel/auth/token
+receivers:
+  {{- if $gateway }}
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  {{- end }}
+  {{- if $it.postgresql.enabled }}
+  postgresql:
+    endpoint: {{ printf "%s:%v" $it.postgresql.service $it.postgresql.port | quote }}
+    username: {{ $it.postgresql.username | quote }}
+    password: ${env:POSTGRES_PASSWORD}
+    collection_interval: {{ $it.collectionInterval }}
+    tls:
+      insecure: true
+  {{- end }}
+  {{- if or $it.dragonfly.enabled $it.nats.enabled }}
+  prometheus:
+    config:
+      scrape_configs:
+        {{- if $it.dragonfly.enabled }}
+        - job_name: biqly-dragonfly
+          scrape_interval: {{ $it.collectionInterval }}
+          static_configs:
+            - targets: [{{ $it.dragonfly.target | quote }}]
+        {{- end }}
+        {{- if $it.nats.enabled }}
+        - job_name: biqly-nats
+          scrape_interval: {{ $it.collectionInterval }}
+          static_configs:
+            - targets: [{{ printf "biqly-nats-exporter:%v" $it.nats.exporterPort | quote }}]
+        {{- end }}
+  {{- end }}
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 192
+  # App traces keep OTEL_SERVICE_NAME (biqly); infra scrapes get biqly-infra.
+  resource/namespace:
+    attributes:
+      - key: service.namespace
+        value: biqly
+        action: upsert
+  resource/infra:
+    attributes:
+      - key: service.namespace
+        value: biqly
+        action: upsert
+      - key: service.name
+        value: biqly-infra
+        action: upsert
+  batch: {}
+exporters:
+  otlphttp:
+    endpoint: {{ $endpoint | quote }}
+    auth:
+      authenticator: bearertokenauth
+    # The queue + retry absorb remote (Cloudflare) slowness here, in a
+    # separate pod, so the app exporters never block on the internet link.
+    sending_queue:
+      enabled: true
+      queue_size: 10000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+service:
+  extensions: [health_check, bearertokenauth]
+  pipelines:
+    {{- if $gateway }}
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/namespace, batch]
+      exporters: [otlphttp]
+    # App slog records arrive over the same OTLP hop (SetupLogExport) and
+    # follow the traces path to the remote backend (SigNoz).
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/namespace, batch]
+      exporters: [otlphttp]
+    {{- end }}
+    metrics:
+      receivers: [{{ join ", " $recv }}]
+      processors: [memory_limiter, resource/infra, batch]
+      exporters: [otlphttp]
+{{- end -}}
 {{- $it := .Values.global.observability.infraTelemetry -}}
 {{- if and $it $it.enabled -}}
 {{- $tracing := .Values.global.observability.tracing -}}
@@ -23,102 +132,7 @@ metadata:
     app.kubernetes.io/component: otel-infra-collector
 data:
   config.yaml: |
-    extensions:
-      health_check:
-        endpoint: 0.0.0.0:13133
-      # Token is extracted (Authorization=Bearer <t> -> <t>) by the init
-      # container from the shared app OTLP secret; the extension re-adds Bearer.
-      bearertokenauth:
-        scheme: Bearer
-        filename: /etc/otel/auth/token
-    receivers:
-      {{- if $gateway }}
-      otlp:
-        protocols:
-          grpc:
-            endpoint: 0.0.0.0:4317
-          http:
-            endpoint: 0.0.0.0:4318
-      {{- end }}
-      {{- if $it.postgresql.enabled }}
-      postgresql:
-        endpoint: {{ printf "%s:%v" $it.postgresql.service $it.postgresql.port | quote }}
-        username: {{ $it.postgresql.username | quote }}
-        password: ${env:POSTGRES_PASSWORD}
-        collection_interval: {{ $it.collectionInterval }}
-        tls:
-          insecure: true
-      {{- end }}
-      {{- if or $it.dragonfly.enabled $it.nats.enabled }}
-      prometheus:
-        config:
-          scrape_configs:
-            {{- if $it.dragonfly.enabled }}
-            - job_name: biqly-dragonfly
-              scrape_interval: {{ $it.collectionInterval }}
-              static_configs:
-                - targets: [{{ $it.dragonfly.target | quote }}]
-            {{- end }}
-            {{- if $it.nats.enabled }}
-            - job_name: biqly-nats
-              scrape_interval: {{ $it.collectionInterval }}
-              static_configs:
-                - targets: [{{ printf "biqly-nats-exporter:%v" $it.nats.exporterPort | quote }}]
-            {{- end }}
-      {{- end }}
-    processors:
-      memory_limiter:
-        check_interval: 1s
-        limit_mib: 192
-      # App traces keep OTEL_SERVICE_NAME (biqly); infra scrapes get biqly-infra.
-      resource/namespace:
-        attributes:
-          - key: service.namespace
-            value: biqly
-            action: upsert
-      resource/infra:
-        attributes:
-          - key: service.namespace
-            value: biqly
-            action: upsert
-          - key: service.name
-            value: biqly-infra
-            action: upsert
-      batch: {}
-    exporters:
-      otlphttp:
-        endpoint: {{ $endpoint | quote }}
-        auth:
-          authenticator: bearertokenauth
-        # The queue + retry absorb remote (Cloudflare) slowness here, in a
-        # separate pod, so the app exporters never block on the internet link.
-        sending_queue:
-          enabled: true
-          queue_size: 10000
-        retry_on_failure:
-          enabled: true
-          initial_interval: 5s
-          max_interval: 30s
-          max_elapsed_time: 300s
-    service:
-      extensions: [health_check, bearertokenauth]
-      pipelines:
-        {{- if $gateway }}
-        traces:
-          receivers: [otlp]
-          processors: [memory_limiter, resource/namespace, batch]
-          exporters: [otlphttp]
-        # App slog records arrive over the same OTLP hop (SetupLogExport) and
-        # follow the traces path to the remote backend (SigNoz).
-        logs:
-          receivers: [otlp]
-          processors: [memory_limiter, resource/namespace, batch]
-          exporters: [otlphttp]
-        {{- end }}
-        metrics:
-          receivers: [{{ join ", " $recv }}]
-          processors: [memory_limiter, resource/infra, batch]
-          exporters: [otlphttp]
+{{ include "biqly.otelInfraCollectorConfig" . | trim | indent 4 }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -149,7 +163,7 @@ spec:
         app.kubernetes.io/managed-by: {{ .Release.Service }}
         app.kubernetes.io/component: otel-infra-collector
       annotations:
-        checksum/config: {{ $it | toYaml | sha256sum }}
+        checksum/config: {{ include "biqly.otelInfraCollectorConfig" . | sha256sum }}
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
