@@ -70,6 +70,12 @@ function scrollChatFeed({
 }) {
   const isSameConv = prevConversationId === currentConversationId
   const behavior: ScrollBehavior = isSameConv && currentCount > prevMessageCount ? 'smooth' : 'auto'
+  // Welcome/empty state: scrolling to the bottom would clip the intro text at
+  // the top of the feed; keep it anchored to the top instead.
+  if (currentCount === 0) {
+    feed.scrollTo({ top: 0, behavior })
+    return
+  }
   const lastMessage = messages[currentCount - 1]
   const lastNeedsClarification =
     lastMessage?.role === 'assistant' && Boolean(lastMessage.ai_response?.needs_clarification)
