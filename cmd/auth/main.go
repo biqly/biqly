@@ -299,8 +299,16 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 		},
 	})
 
-	if limiter != nil {
-		r.Use(limiter.Limit(cfg.RateLimitPerMin, time.Minute, "general"))
+	// Rate-limit only the public auth surface. The limiter is keyed by client
+	// IP, so applying it at the router root also throttled /internal/auth
+	// service-to-service calls: every api-service request shares one source IP
+	// (one pod), which collapsed all users into a single 60/min bucket and
+	// cascaded into 500s across the app. Internal routes are authenticated by
+	// the internal token, not exposed publicly, and must not be rate-limited.
+	publicLimit := func(r chi.Router) {
+		if limiter != nil {
+			r.Use(limiter.Limit(cfg.RateLimitPerMin, time.Minute, "general"))
+		}
 	}
 
 	r.Get("/health", state.handleHealth)
@@ -308,6 +316,7 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.Route("/api/auth", func(r chi.Router) {
+		publicLimit(r)
 		r.Use(biqauth.CSRF(cfg.Port))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
@@ -315,6 +324,7 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 	})
 
 	r.Route("/auth", func(r chi.Router) {
+		publicLimit(r)
 		r.Use(biqauth.CSRF(cfg.Port))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())

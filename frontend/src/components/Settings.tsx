@@ -19,6 +19,7 @@ import { cardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { settingsFootnoteClass, settingsPrefsCardClass } from '../lib/layoutClasses'
 import type { PasskeyInfo } from '../types/auth'
+import { friendlyErrorMessage } from '../utils/error'
 import { formatDateOnly } from '../utils/formatters'
 import {
   adminAlertCloseBtnClass,
@@ -106,11 +107,11 @@ export default function Settings() {
       const data = await apiGetPasskeys(accessToken)
       setPasskeys(data)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load passkeys')
+      setError(friendlyErrorMessage(t, err))
     } finally {
       setLoading(false)
     }
-  }, [accessToken])
+  }, [accessToken, t])
 
   const fetchMFAStatus = useCallback(async () => {
     if (!accessToken) {
@@ -143,7 +144,7 @@ export default function Settings() {
       setDeleteTarget(null)
       await fetchPasskeys()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to delete passkey')
+      setError(friendlyErrorMessage(t, err))
     } finally {
       setDeleting(false)
     }
@@ -192,7 +193,7 @@ export default function Settings() {
       setRenameTarget(null)
       await fetchPasskeys()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to rename passkey')
+      setError(friendlyErrorMessage(t, err))
     } finally {
       setRenaming(false)
     }
@@ -216,7 +217,7 @@ export default function Settings() {
 
       setMfaEnrollOpen(true)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'MFA enrollment failed')
+      setError(friendlyErrorMessage(t, err))
     }
   }
 
@@ -233,7 +234,7 @@ export default function Settings() {
       setMfaShowRecovery(true)
       await fetchMFAStatus()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'MFA verification failed')
+      setError(friendlyErrorMessage(t, err))
     } finally {
       setMfaVerifying(false)
     }
@@ -255,7 +256,7 @@ export default function Settings() {
       setMfaNewRecoveryCodes(null)
       await fetchMFAStatus()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to disable MFA')
+      setError(friendlyErrorMessage(t, err))
     } finally {
       setMfaDisabling(false)
     }
@@ -276,7 +277,7 @@ export default function Settings() {
       setMfaRegenOpen(false)
       setMfaRegenCode('')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to regenerate recovery codes')
+      setError(friendlyErrorMessage(t, err))
     } finally {
       setMfaRegening(false)
     }
