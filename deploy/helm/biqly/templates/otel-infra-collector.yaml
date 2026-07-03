@@ -85,6 +85,19 @@ processors:
     pod_association:
       - sources:
           - from: connection
+  # SigNoz's "Host Name" fast filter keys on host.name; k8sattributes only sets
+  # k8s.node.name, so copy it across. error_mode: ignore keeps records flowing
+  # if the attribute is absent (e.g. mapping missed).
+  transform/hostname:
+    error_mode: ignore
+    trace_statements:
+      - context: resource
+        statements:
+          - set(attributes["host.name"], attributes["k8s.node.name"]) where attributes["k8s.node.name"] != nil
+    log_statements:
+      - context: resource
+        statements:
+          - set(attributes["host.name"], attributes["k8s.node.name"]) where attributes["k8s.node.name"] != nil
   {{- end }}
   resource/infra:
     attributes:
@@ -116,13 +129,13 @@ service:
     {{- if $gateway }}
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, {{ if $k8s }}k8sattributes, {{ end }}resource/namespace, batch]
+      processors: [memory_limiter, {{ if $k8s }}k8sattributes, transform/hostname, {{ end }}resource/namespace, batch]
       exporters: [otlphttp]
     # App slog records arrive over the same OTLP hop (SetupLogExport) and
     # follow the traces path to the remote backend (SigNoz).
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, {{ if $k8s }}k8sattributes, {{ end }}resource/namespace, batch]
+      processors: [memory_limiter, {{ if $k8s }}k8sattributes, transform/hostname, {{ end }}resource/namespace, batch]
       exporters: [otlphttp]
     {{- end }}
     metrics:
