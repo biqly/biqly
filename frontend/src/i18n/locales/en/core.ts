@@ -1004,6 +1004,7 @@ export const core = {
   },
   table_browser: {
     title: 'Table Browser',
+    open_row_details: 'Open row details',
     filter: 'Filter',
     add_filter: 'Add filter',
     update_filter: 'Update filter',

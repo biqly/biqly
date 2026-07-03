@@ -8,26 +8,26 @@ TAG="sha-$COMMIT_SHA"
 
 echo "Checking registry for tag: $TAG"
 
-# Services that are pinned in values-prod.yaml
+# Services and their yq update paths (parallel arrays: no declare -A,
+# which is bash 4+ and not available on macOS 3.2).
 SERVICES=("auth" "frontend" "catalog" "query" "ai")
-
-# Mapping of service name to yq update paths
-declare -A PATHS=(
-  ["auth"]="auth.image.tag auth.migrate.image.tag"
-  ["frontend"]="frontend.image.tag"
-  ["catalog"]="catalog.image.tag"
-  ["query"]="query.image.tag"
-  ["ai"]="ai.image.tag"
+PATHS=(
+  "auth.image.tag auth.migrate.image.tag"
+  "frontend.image.tag"
+  "catalog.image.tag"
+  "query.image.tag"
+  "ai.image.tag"
 )
 
 UPDATED=0
 
-for svc in "${SERVICES[@]}"; do
+for i in "${!SERVICES[@]}"; do
+  svc="${SERVICES[$i]}"
   image="ghcr.io/biqly/$svc:$TAG"
   echo -n "Checking $image... "
   if docker manifest inspect "$image" >/dev/null 2>&1; then
     echo "FOUND!"
-    for path in ${PATHS[$svc]}; do
+    for path in ${PATHS[$i]}; do
       /opt/homebrew/bin/yq eval ".${path} = \"$TAG\"" -i "$VALUES_FILE"
     done
     UPDATED=1

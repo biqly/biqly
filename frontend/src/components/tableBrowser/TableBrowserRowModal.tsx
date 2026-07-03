@@ -370,6 +370,9 @@ function RelatedListView({
               <tr
                 key={i}
                 className="table-browser-data-row hover:[&>td]:bg-canvas-subtle h-[2.15rem] cursor-pointer"
+                role="button"
+                tabIndex={0}
+                aria-label={t('table_browser.open_row_details') || 'Open row details'}
                 onClick={() =>
                   onOpenRow({
                     kind: 'row',
@@ -379,6 +382,18 @@ function RelatedListView({
                     row,
                   })
                 }
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onOpenRow({
+                      kind: 'row',
+                      schema: frame.schema,
+                      table: frame.table,
+                      columns,
+                      row,
+                    })
+                  }
+                }}
               >
                 {columns.map((c, j) => {
                   const display = formatResultCell(row[j], c, {})

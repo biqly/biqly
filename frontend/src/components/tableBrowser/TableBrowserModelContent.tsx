@@ -390,8 +390,17 @@ export function TableBrowserModelContent({
                     <tr
                       key={i}
                       className={cn(tableBrowserDataRowClass, fetching && 'pointer-events-none')}
+                      role="button"
+                      tabIndex={fetching ? -1 : 0}
+                      aria-label={t('table_browser.open_row_details') || 'Open row details'}
                       onClick={() => {
                         if (!fetching) {
+                          onRowClick(i, row)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (!fetching && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault()
                           onRowClick(i, row)
                         }
                       }}

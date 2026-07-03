@@ -50,6 +50,20 @@ export function loadConversations(
   }
 }
 
+// clearStoredConversations wipes the locally cached conversation list. Called on
+// logout so a subsequent user on the same browser never inherits (or has the app
+// re-upload) the previous user's conversations. The key is not user-scoped, so
+// this is the isolation boundary.
+export function clearStoredConversations(): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY)
+    }
+  } catch {
+    // Ignore private-mode/SSR storage failures.
+  }
+}
+
 export function saveConversations(
   conversations: Conversation[],
   storage: ConversationStorage | null = defaultConversationStorage(),
@@ -142,16 +156,12 @@ export async function loadConversationSnapshot(
   try {
     const loaded = await (options.api ?? defaultLoadConversationsAPI)(options.token)
     const remote = loaded.map(normalizeConversation)
-    const merged = mergeConversationSnapshots(localConversations, remote)
-    if (options.token) {
-      const remoteIDs = new Set(remote.map((conv) => conv.id))
-      for (const conv of merged) {
-        if (!remoteIDs.has(conv.id) && conv.datasource_id) {
-          void saveConversationSnapshot(conv, { token: options.token })
-        }
-      }
-    }
-    return merged
+    // Do NOT re-upload local-only conversations under options.token. The local
+    // cache is not user-scoped, so on a shared browser it may hold a previous
+    // user's conversations; pushing those up would create rows under the newly
+    // authenticated user (cross-account write). Conversations created/edited
+    // while online are already persisted via createConversation/addMessage.
+    return mergeConversationSnapshots(localConversations, remote)
   } catch {
     return localConversations
   }

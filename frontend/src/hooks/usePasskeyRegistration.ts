@@ -13,6 +13,7 @@ export function usePasskeyRegistration(accessToken: string) {
 
   const registerPasskey = async (name: string): Promise<boolean> => {
     const isSupported =
+      typeof window.PublicKeyCredential !== 'undefined' &&
       typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function'
 
     if (!isSupported) {

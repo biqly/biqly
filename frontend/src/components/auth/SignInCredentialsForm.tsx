@@ -120,15 +120,7 @@ export function SignInCredentialsForm({
           />
         </div>
 
-        <div className="text-caption flex items-center justify-between">
-          <label className="text-foreground-muted flex cursor-pointer items-center gap-1.5">
-            <input
-              type="checkbox"
-              disabled={loading || passkeyLoading}
-              className="cursor-pointer"
-            />
-            {t('auth.remember_me')}
-          </label>
+        <div className="text-caption flex items-center justify-end">
           <a
             href="/auth/forgot-password"
             className={authInlineLinkClass}

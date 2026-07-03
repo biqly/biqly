@@ -52,6 +52,9 @@ export default function Metadata() {
     cancel: cancelBulkDescribe,
   } = bulkDescribe
   const skipBlurSaveRef = useRef(false)
+  // Guards the async columns fetch in toggleTable against out-of-order
+  // responses when the user switches tables quickly.
+  const openTableReqRef = useRef(0)
   const [tableFilterSchema, setTableFilterSchema] = useState(schemaParam)
   const [tableFilterType, setTableFilterType] = useState(typeParam)
   const [aiRuntime, setAiRuntime] = useState<AIRuntimeSettings | null>(null)
@@ -265,16 +268,21 @@ export default function Metadata() {
 
   const toggleTable = async (tab: TableRow) => {
     if (openTableId === tab.id) {
+      openTableReqRef.current++
       setOpenTableId(null)
       setColumns([])
       return
     }
+    const reqId = ++openTableReqRef.current
     setOpenTableId(tab.id)
     const data = await get<ColumnRow[]>(
       `/api/datasources/${datasourceId}/columns?schema=${encodeURIComponent(tab.schema_name)}&table=${encodeURIComponent(tab.table_name)}`,
       descriptionLocaleOpts,
     )
-    setColumns(data ?? [])
+    // Ignore a stale response if the user has since opened/closed another table.
+    if (reqId === openTableReqRef.current) {
+      setColumns(data ?? [])
+    }
   }
 
   const saveDescription = async () => {

@@ -257,16 +257,20 @@ export function UserListPage({ token, onSelectUser }: UserListPageProps) {
         />
       )}
 
-      <InviteUserModal
-        open={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
-        token={token}
-        onSuccess={() => {
-          if (subTab === 'invitations') {
-            reloadInvitations()
-          }
-        }}
-      />
+      {/* Conditionally mount so local form state (email/role/success) resets on
+          each open instead of retaining the previous invite's success screen. */}
+      {showInviteModal && (
+        <InviteUserModal
+          open={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+          token={token}
+          onSuccess={() => {
+            if (subTab === 'invitations') {
+              reloadInvitations()
+            }
+          }}
+        />
+      )}
     </AdminPanelShell>
   )
 }
