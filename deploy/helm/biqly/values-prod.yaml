@@ -145,11 +145,11 @@ auth:
       memory: 128Mi
   image:
     repository: auth
-    tag: sha-b2634acea5c5a487fa7dd412914bc3078e70b42f
+    tag: sha-4e42f9158872a9a1e0f74b02c05b9110ac1415f4
   migrate:
     image:
       repository: auth
-      tag: sha-b2634acea5c5a487fa7dd412914bc3078e70b42f
+      tag: sha-4e42f9158872a9a1e0f74b02c05b9110ac1415f4
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -191,7 +191,7 @@ frontend:
       cpu: 200m
       memory: 64Mi
   image:
-    tag: sha-b2634acea5c5a487fa7dd412914bc3078e70b42f
+    tag: sha-4e42f9158872a9a1e0f74b02c05b9110ac1415f4
 catalog:
   replicaCount: 1
   resources:
@@ -202,7 +202,7 @@ catalog:
       cpu: 500m
       memory: 256Mi
   image:
-    tag: sha-b2634acea5c5a487fa7dd412914bc3078e70b42f
+    tag: sha-4e42f9158872a9a1e0f74b02c05b9110ac1415f4
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -216,7 +216,7 @@ query:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-b2634acea5c5a487fa7dd412914bc3078e70b42f
+    tag: sha-4e42f9158872a9a1e0f74b02c05b9110ac1415f4
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -230,7 +230,7 @@ ai:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-b2634acea5c5a487fa7dd412914bc3078e70b42f
+    tag: sha-4e42f9158872a9a1e0f74b02c05b9110ac1415f4
   rollout:
     enabled: false
   autoscaling:
