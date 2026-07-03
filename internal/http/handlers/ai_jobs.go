@@ -215,7 +215,14 @@ func staleJobOlderThan(r *http.Request) time.Duration {
 }
 
 func (h *AIJobsHandler) ListStale(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.URL.Query().Get("client_session_id")
+	sessionID := strings.TrimSpace(r.URL.Query().Get("client_session_id"))
+	// Without a session scope the repository query returns every user's stale
+	// jobs (request/result payloads included). Require the caller's own session
+	// id here; the unscoped, system-wide view is the admin-gated AdminListStale.
+	if sessionID == "" {
+		writeError(w, http.StatusBadRequest, "client_session_id is required")
+		return
+	}
 	limit := bimw.PaginationFromContext(r.Context()).Limit
 	if limit <= 0 {
 		limit = 100

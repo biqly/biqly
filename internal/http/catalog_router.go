@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -57,8 +58,8 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 
 func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
 	registerCatalogDatasourceRoutes(r, deps, authClient)
-	registerCatalogSemanticRoutes(r, deps)
-	registerCatalogCompositeRoutes(r, deps)
+	registerCatalogSemanticRoutes(r, deps, authClient)
+	registerCatalogCompositeRoutes(r, deps, authClient)
 	registerCatalogMetadataRoutes(r, deps, authClient)
 	registerCatalogPermissionRoutes(r, deps, authClient)
 	registerCatalogDashboardRoutes(r, deps)
@@ -66,9 +67,12 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 
 func registerCatalogDatasourceRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
 	dsHandler := handlers.NewDatasourceHandler(deps)
-	r.Post("/datasources", dsHandler.Create)
+	// Create and test-connection are gated on datasource:create — otherwise any
+	// authenticated user could create datasources and, via test-connection, make
+	// the server open a connection to an arbitrary attacker-supplied host:port.
+	r.With(bimw.RequirePermission(authClient, "datasource:create")).Post("/datasources", dsHandler.Create)
 	r.Get("/datasources", dsHandler.List)
-	r.Post("/datasources/test-connection", dsHandler.TestDraft)
+	r.With(bimw.RequirePermission(authClient, "datasource:create")).Post("/datasources/test-connection", dsHandler.TestDraft)
 	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Get("/datasources/{id}", dsHandler.Get)
 	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Put("/datasources/{id}", dsHandler.Update)
 	r.With(bimw.RequireDatasourceAccess(authClient, "admin")).Delete("/datasources/{id}", dsHandler.Delete)
@@ -80,61 +84,91 @@ func registerCatalogDatasourceRoutes(r chi.Router, deps *app.CatalogDeps, authCl
 	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Get("/datasources/{id}/pii-columns", piiHandler.ListColumns)
 }
 
-func registerCatalogSemanticRoutes(r chi.Router, deps *app.CatalogDeps) {
+func registerCatalogSemanticRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
 	semHandler := handlers.NewSemanticHandler(deps)
 	semHandler.SetCatalogMetricsRecorder(GetMetrics())
-	r.Post("/semantic/models", semHandler.CreateModel)
-	r.Post("/semantic/models/generate", semHandler.GenerateModel)
+
+	// Model routes carry a model {id}; resolve it to the owning datasource and
+	// check per-datasource access so a user can't read/mutate another tenant's
+	// model. Create/generate carry datasource_id in the body instead.
+	modelDS := func(ctx context.Context, id string) (string, error) {
+		m, err := deps.SemanticRepo.GetModel(ctx, id)
+		if err != nil {
+			return "", err
+		}
+		return m.DatasourceID, nil
+	}
+	modelRead := bimw.RequireResolvedDatasourceAccess(authClient, "read", modelDS)
+	modelWrite := bimw.RequireResolvedDatasourceAccess(authClient, "write", modelDS)
+	dsWrite := bimw.RequireDatasourceAccess(authClient, "write")
+	dsRead := bimw.RequireDatasourceAccess(authClient, "read")
+
+	r.With(dsWrite).Post("/semantic/models", semHandler.CreateModel)
+	r.With(dsWrite).Post("/semantic/models/generate", semHandler.GenerateModel)
 	r.Get("/semantic/models", semHandler.ListModels)
-	r.Get("/semantic/models/{id}", semHandler.GetModel)
-	r.Get("/semantic/models/{id}/fields", semHandler.ListModelFields)
-	r.Get("/semantic/models/{id}/lineage", semHandler.GetModelLineage)
-	r.Put("/semantic/models/{id}", semHandler.UpdateModel)
-	r.Delete("/semantic/models/{id}", semHandler.DeleteModel)
-	r.Post("/semantic/models/{id}/validate", semHandler.ValidateModel)
-	r.Post("/semantic/models/{id}/compile-expression", semHandler.CompileExpression)
-	r.Post("/semantic/models/{id}/publish", semHandler.PublishModel)
-	r.Post("/semantic/models/{id}/rollback", semHandler.RollbackModel)
-	r.Post("/semantic/models/{id}/sync-dimensions", semHandler.SyncDimensions)
-	r.Post("/semantic/models/{id}/dimensions", semHandler.CreateDimension)
-	r.Delete("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.DeleteDimension)
-	r.Put("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.UpdateDimension)
-	r.Get("/semantic/models/{id}/dimensions/{dimension_id}/enums", semHandler.GetDimensionEnums)
-	r.Put("/semantic/models/{id}/dimensions/{dimension_id}/enums", semHandler.ReplaceDimensionEnums)
-	r.Post("/semantic/models/{id}/metrics", semHandler.CreateMetric)
-	r.Delete("/semantic/models/{id}/metrics/{metric_id}", semHandler.DeleteMetric)
-	r.Put("/semantic/models/{id}/metrics/{metric_id}", semHandler.UpdateMetric)
-	r.Post("/semantic/models/{id}/tables/remove", semHandler.RemoveTable)
-	r.Post("/semantic/models/{id}/schemas/remove", semHandler.RemoveSchema)
-	r.Post("/semantic/models/{id}/joins", semHandler.CreateJoin)
-	r.Delete("/semantic/models/{id}/joins/{join_id}", semHandler.DeleteJoin)
-	r.Put("/semantic/models/{id}/joins/{join_id}", semHandler.UpdateJoin)
-	r.Get("/semantic/models/{id}/suggested-joins", semHandler.SuggestedJoins)
+	r.With(modelRead).Get("/semantic/models/{id}", semHandler.GetModel)
+	r.With(modelRead).Get("/semantic/models/{id}/fields", semHandler.ListModelFields)
+	r.With(modelRead).Get("/semantic/models/{id}/lineage", semHandler.GetModelLineage)
+	r.With(modelWrite).Put("/semantic/models/{id}", semHandler.UpdateModel)
+	r.With(modelWrite).Delete("/semantic/models/{id}", semHandler.DeleteModel)
+	r.With(modelRead).Post("/semantic/models/{id}/validate", semHandler.ValidateModel)
+	r.With(modelRead).Post("/semantic/models/{id}/compile-expression", semHandler.CompileExpression)
+	r.With(modelWrite).Post("/semantic/models/{id}/publish", semHandler.PublishModel)
+	r.With(modelWrite).Post("/semantic/models/{id}/rollback", semHandler.RollbackModel)
+	r.With(modelWrite).Post("/semantic/models/{id}/sync-dimensions", semHandler.SyncDimensions)
+	r.With(modelWrite).Post("/semantic/models/{id}/dimensions", semHandler.CreateDimension)
+	r.With(modelWrite).Delete("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.DeleteDimension)
+	r.With(modelWrite).Put("/semantic/models/{id}/dimensions/{dimension_id}", semHandler.UpdateDimension)
+	r.With(modelRead).Get("/semantic/models/{id}/dimensions/{dimension_id}/enums", semHandler.GetDimensionEnums)
+	r.With(modelWrite).Put("/semantic/models/{id}/dimensions/{dimension_id}/enums", semHandler.ReplaceDimensionEnums)
+	r.With(modelWrite).Post("/semantic/models/{id}/metrics", semHandler.CreateMetric)
+	r.With(modelWrite).Delete("/semantic/models/{id}/metrics/{metric_id}", semHandler.DeleteMetric)
+	r.With(modelWrite).Put("/semantic/models/{id}/metrics/{metric_id}", semHandler.UpdateMetric)
+	r.With(modelWrite).Post("/semantic/models/{id}/tables/remove", semHandler.RemoveTable)
+	r.With(modelWrite).Post("/semantic/models/{id}/schemas/remove", semHandler.RemoveSchema)
+	r.With(modelWrite).Post("/semantic/models/{id}/joins", semHandler.CreateJoin)
+	r.With(modelWrite).Delete("/semantic/models/{id}/joins/{join_id}", semHandler.DeleteJoin)
+	r.With(modelWrite).Put("/semantic/models/{id}/joins/{join_id}", semHandler.UpdateJoin)
+	r.With(modelRead).Get("/semantic/models/{id}/suggested-joins", semHandler.SuggestedJoins)
 
 	driftHandler := handlers.NewDriftHandler(deps)
-	r.Get("/semantic/models/{id}/drift", driftHandler.ListForModel)
-	r.Get("/datasources/{id}/drift", driftHandler.ListForDatasource)
-	r.Post("/drift/{id}/resolve", driftHandler.Resolve)
+	driftDS := func(ctx context.Context, id string) (string, error) {
+		return deps.DriftRepo.DatasourceForReport(ctx, id)
+	}
+	r.With(modelRead).Get("/semantic/models/{id}/drift", driftHandler.ListForModel)
+	r.With(dsRead).Get("/datasources/{id}/drift", driftHandler.ListForDatasource)
+	r.With(bimw.RequireResolvedDatasourceAccess(authClient, "write", driftDS)).Post("/drift/{id}/resolve", driftHandler.Resolve)
 }
 
-func registerCatalogCompositeRoutes(r chi.Router, deps *app.CatalogDeps) {
+func registerCatalogCompositeRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
 	compHandler := handlers.NewCompositeHandler(deps)
-	r.Post("/semantic/composites", compHandler.CreateComposite)
+
+	compDS := func(ctx context.Context, id string) (string, error) {
+		c, err := deps.CompositeRepo.GetComposite(ctx, id)
+		if err != nil {
+			return "", err
+		}
+		return c.DatasourceID, nil
+	}
+	compRead := bimw.RequireResolvedDatasourceAccess(authClient, "read", compDS)
+	compWrite := bimw.RequireResolvedDatasourceAccess(authClient, "write", compDS)
+
+	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Post("/semantic/composites", compHandler.CreateComposite)
 	r.Get("/semantic/composites", compHandler.ListComposites)
-	r.Get("/semantic/composites/{id}", compHandler.GetComposite)
-	r.Put("/semantic/composites/{id}", compHandler.UpdateComposite)
-	r.Delete("/semantic/composites/{id}", compHandler.DeleteComposite)
-	r.Post("/semantic/composites/{id}/components", compHandler.AddComponent)
-	r.Delete("/semantic/composites/{id}/components/{model_id}", compHandler.RemoveComponent)
-	r.Post("/semantic/composites/{id}/cross-joins", compHandler.AddCrossJoin)
-	r.Put("/semantic/composites/{id}/cross-joins/{join_id}", compHandler.UpdateCrossJoin)
-	r.Delete("/semantic/composites/{id}/cross-joins/{join_id}", compHandler.RemoveCrossJoin)
-	r.Put("/semantic/composites/{id}/canonical-date", compHandler.SetCanonicalDate)
-	r.Put("/semantic/composites/{id}/dimension-resolutions", compHandler.SetDimensionResolutions)
-	r.Post("/semantic/composites/{id}/validate", compHandler.ValidateComposite)
-	r.Post("/semantic/composites/{id}/publish", compHandler.PublishComposite)
-	r.Post("/semantic/composites/{id}/rollback", compHandler.RollbackComposite)
-	r.Get("/semantic/composites/{id}/suggested-joins", compHandler.SuggestedJoins)
+	r.With(compRead).Get("/semantic/composites/{id}", compHandler.GetComposite)
+	r.With(compWrite).Put("/semantic/composites/{id}", compHandler.UpdateComposite)
+	r.With(compWrite).Delete("/semantic/composites/{id}", compHandler.DeleteComposite)
+	r.With(compWrite).Post("/semantic/composites/{id}/components", compHandler.AddComponent)
+	r.With(compWrite).Delete("/semantic/composites/{id}/components/{model_id}", compHandler.RemoveComponent)
+	r.With(compWrite).Post("/semantic/composites/{id}/cross-joins", compHandler.AddCrossJoin)
+	r.With(compWrite).Put("/semantic/composites/{id}/cross-joins/{join_id}", compHandler.UpdateCrossJoin)
+	r.With(compWrite).Delete("/semantic/composites/{id}/cross-joins/{join_id}", compHandler.RemoveCrossJoin)
+	r.With(compWrite).Put("/semantic/composites/{id}/canonical-date", compHandler.SetCanonicalDate)
+	r.With(compWrite).Put("/semantic/composites/{id}/dimension-resolutions", compHandler.SetDimensionResolutions)
+	r.With(compRead).Post("/semantic/composites/{id}/validate", compHandler.ValidateComposite)
+	r.With(compWrite).Post("/semantic/composites/{id}/publish", compHandler.PublishComposite)
+	r.With(compWrite).Post("/semantic/composites/{id}/rollback", compHandler.RollbackComposite)
+	r.With(compRead).Get("/semantic/composites/{id}/suggested-joins", compHandler.SuggestedJoins)
 }
 
 func registerCatalogMetadataRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {

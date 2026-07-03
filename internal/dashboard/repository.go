@@ -131,7 +131,10 @@ func (r *Repository) Update(ctx context.Context, d *Dashboard, workspaceID strin
 	`
 	args := []any{d.ID, d.Name, d.Description, d.Widgets}
 	if workspaceID != "" {
-		query += ` AND (workspace_id = $5 OR workspace_id IS NULL)`
+		// Scope strictly to the caller's workspace. Global (workspace_id IS NULL)
+		// dashboards are only mutable by callers acting without a workspace scope
+		// (super_admin), never by a regular member of some other workspace.
+		query += ` AND workspace_id = $5`
 		args = append(args, workspaceID)
 	}
 	res, err := r.db.ExecContext(ctx, query, args...)
@@ -154,7 +157,9 @@ func (r *Repository) Delete(ctx context.Context, id string, workspaceID string) 
 	query := `DELETE FROM dashboards WHERE id = $1`
 	args := []any{id}
 	if workspaceID != "" {
-		query += ` AND (workspace_id = $2 OR workspace_id IS NULL)`
+		// See Update: global dashboards are not deletable by a member of another
+		// workspace; only an unscoped (super_admin) caller may remove them.
+		query += ` AND workspace_id = $2`
 		args = append(args, workspaceID)
 	}
 	res, err := r.db.ExecContext(ctx, query, args...)

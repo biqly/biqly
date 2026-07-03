@@ -156,8 +156,11 @@ func TestHandleAIJobFailureDLQPublishError(t *testing.T) {
 	}
 	msg := &mockMsgAtMaxDeliver{mockMsg: mockMsg{meta: &jetstream.MsgMetadata{NumDelivered: 3}}}
 	q.handleAIJobFailure(context.Background(), msg, "job-1")
-	assert.Equal(t, 0, msg.nakCalls)
-	assert.Equal(t, 1, msg.termCalls)
+	// When the DLQ publish fails, the message must NOT be Term'd (that would drop
+	// it with no dead-letter copy anywhere). It is Nak'd so JetStream redelivers
+	// and we get another chance to DLQ it.
+	assert.Equal(t, 1, msg.nakCalls)
+	assert.Equal(t, 0, msg.termCalls)
 }
 
 func TestHandleAIJobFailureNakError(t *testing.T) {

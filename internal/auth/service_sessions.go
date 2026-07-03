@@ -35,8 +35,17 @@ func (s *Service) CreateTokenResponseForUser(ctx context.Context, user *User, us
 	}, nil
 }
 
-// AdminForceLogout revokes every active session for the target user.
-func (s *Service) AdminForceLogout(ctx context.Context, targetUserID string) error {
+// AdminForceLogout revokes every active session for the target user. Only a
+// super admin may invoke it — the route is behind JWT auth only, so the
+// privilege check lives here.
+func (s *Service) AdminForceLogout(ctx context.Context, actorUserID, targetUserID string) error {
+	isSuper, err := s.IsSuperAdmin(ctx, actorUserID)
+	if err != nil {
+		return err
+	}
+	if !isSuper {
+		return ErrSuperAdminRequired
+	}
 	return s.sessionMgr.RevokeAllUserSessions(ctx, targetUserID)
 }
 

@@ -90,6 +90,18 @@ func (r *Repository) InsertBusinessGlossary(ctx context.Context, in BusinessGlos
 }
 
 // UpdateBusinessGlossary updates a row by id.
+// DatasourceForBusinessGlossary returns the datasource id owning a glossary
+// term, used to authorize update/delete of a term by its id (which otherwise
+// carries no datasource scope).
+func (r *Repository) DatasourceForBusinessGlossary(ctx context.Context, id string) (string, error) {
+	var datasourceID string
+	err := r.db.QueryRowContext(ctx, `SELECT datasource_id::text FROM business_glossary_terms WHERE id = $1::uuid`, id).Scan(&datasourceID)
+	if err != nil {
+		return "", fmt.Errorf("datasource for glossary term: %w", err)
+	}
+	return datasourceID, nil
+}
+
 func (r *Repository) UpdateBusinessGlossary(ctx context.Context, id string, in BusinessGlossaryUpdate) error {
 	active := true
 	if in.IsActive != nil {

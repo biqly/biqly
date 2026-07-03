@@ -130,12 +130,27 @@ func baseMIMEHeaders(contentType string, headers map[string]string) map[string]s
 func writeMIMEHeaders(b *strings.Builder, hdr map[string]string) error {
 	for _, k := range mimeHeaderOrder {
 		if v, ok := hdr[k]; ok && v != "" {
-			if err := writeBuilderf(b, "%s: %s\r\n", k, v); err != nil {
+			if err := writeBuilderf(b, "%s: %s\r\n", k, sanitizeHeaderValue(v)); err != nil {
 				return err
 			}
 		}
 	}
 	return writeBuilderString(b, "\r\n")
+}
+
+// sanitizeHeaderValue strips CR, LF, and other control characters from a header
+// value so server-side data interpolated into a header (e.g. a semantic model
+// name in the Subject) cannot inject additional MIME headers (header injection).
+func sanitizeHeaderValue(v string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\r' || r == '\n' || r == 0 {
+			return ' '
+		}
+		if r < 0x20 && r != '\t' {
+			return ' '
+		}
+		return r
+	}, v)
 }
 
 func writeAlternativePart(b *strings.Builder, boundary, contentType, body string) error {

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -195,10 +196,17 @@ func registerAIExamplesGlossaryAndTemplatesRoutes(
 	r.Get("/ai/stats/models", examplesHandler.GetModelSuccessRates)
 
 	glossaryHandler := handlers.NewAIGlossaryHandler(deps)
+	// Glossary terms are datasource-scoped content. Create carries datasource_id
+	// in the body; update/delete carry only the term {id}, so resolve it to the
+	// owning datasource and check access — otherwise any ai:query user could edit
+	// another tenant's glossary.
+	glossaryDS := func(ctx context.Context, id string) (string, error) {
+		return deps.MetaRepo.DatasourceForBusinessGlossary(ctx, id)
+	}
 	r.Get("/ai/glossary", glossaryHandler.ListGlossary)
-	r.Post("/ai/glossary", glossaryHandler.CreateGlossary)
-	r.Put("/ai/glossary/{id}", glossaryHandler.UpdateGlossary)
-	r.Delete("/ai/glossary/{id}", glossaryHandler.DeleteGlossary)
+	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Post("/ai/glossary", glossaryHandler.CreateGlossary)
+	r.With(bimw.RequireResolvedDatasourceAccess(authClient, "write", glossaryDS)).Put("/ai/glossary/{id}", glossaryHandler.UpdateGlossary)
+	r.With(bimw.RequireResolvedDatasourceAccess(authClient, "write", glossaryDS)).Delete("/ai/glossary/{id}", glossaryHandler.DeleteGlossary)
 
 	// System prompt templates and time grains steer text-to-SQL for every
 	// user, and reseed/restore are destructive — admin surface only.

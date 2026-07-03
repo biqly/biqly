@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -87,6 +88,13 @@ func LoadConfig() (*Config, error) {
 	}
 
 	if cfg.InternalToken == "" {
+		// The internal token gates every /internal/auth route. A well-known
+		// fallback in production would let anyone who can reach those routes
+		// impersonate a trusted internal service, so fail closed there (mirrors
+		// the JWT key handling in jwt.go).
+		if env.IsProduction() {
+			return nil, errors.New("BI_AUTH_INTERNAL_TOKEN is unconfigured under production environment")
+		}
 		cfg.InternalToken = "dev-internal-token"
 	}
 

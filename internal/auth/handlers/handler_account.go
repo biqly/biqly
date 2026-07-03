@@ -150,7 +150,11 @@ func (h *AuthHandler) handleAdminForceLogout(w http.ResponseWriter, r *http.Requ
 		h.respondError(w, http.StatusBadRequest, "user id required")
 		return
 	}
-	if err := h.service.AdminForceLogout(r.Context(), targetID); err != nil {
+	if err := h.service.AdminForceLogout(r.Context(), actor, targetID); err != nil {
+		if errors.Is(err, auth.ErrSuperAdminRequired) {
+			h.respondError(w, http.StatusForbidden, err.Error())
+			return
+		}
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -168,7 +172,11 @@ func (h *AuthHandler) handleAdminRestoreAccount(w http.ResponseWriter, r *http.R
 		h.respondError(w, http.StatusBadRequest, "user id required")
 		return
 	}
-	if err := h.service.RestoreAccount(r.Context(), targetID); err != nil {
+	if err := h.service.RestoreAccount(r.Context(), actor, targetID); err != nil {
+		if errors.Is(err, auth.ErrSuperAdminRequired) {
+			h.respondError(w, http.StatusForbidden, err.Error())
+			return
+		}
 		if errors.Is(err, auth.ErrUserNotFound) {
 			h.respondError(w, http.StatusNotFound, err.Error())
 			return
