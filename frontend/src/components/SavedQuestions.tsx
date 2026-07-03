@@ -159,6 +159,9 @@ export default function SavedQuestions() {
   const fetchQuestions = useCallback(
     async (dsId: string, mId: string) => {
       if (!dsId) {
+        // No datasource to load from (e.g. fresh workspace) — leaving
+        // initLoading on would keep the page on the loading screen forever.
+        setInitLoading(false)
         return
       }
       setInitLoading(true)
@@ -211,10 +214,8 @@ export default function SavedQuestions() {
 
   // Reload questions when selected DS or Model changes
   useEffect(() => {
-    if (datasourceId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      void fetchQuestions(datasourceId, semanticModelId)
-    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchQuestions(datasourceId, semanticModelId)
   }, [datasourceId, semanticModelId, fetchQuestions])
 
   // Filter list by search term
