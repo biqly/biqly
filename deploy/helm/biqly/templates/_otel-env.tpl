@@ -1,12 +1,18 @@
 {{/*
   OTLP export env for workloads that call SetupTracing (auth, mail; api/worker
   when deployed). Headers come from a Secret — never from ConfigMap.
+  Call with (dict "root" $ "component" "auth") to get a per-service
+  OTEL_SERVICE_NAME (biqly-auth) so each service shows up separately in the
+  SigNoz Services view; calling with the bare context keeps the shared name.
 */}}
 {{- define "biqly.otelEnv" -}}
-{{- $tracing := .Values.global.observability.tracing -}}
+{{- $root := .root | default . -}}
+{{- $component := .component | default "" -}}
+{{- $tracing := $root.Values.global.observability.tracing -}}
 {{- if $tracing.enabled }}
+{{- $base := $tracing.serviceName | default "biqly" -}}
 - name: OTEL_SERVICE_NAME
-  value: {{ $tracing.serviceName | default "biqly" | quote }}
+  value: {{ ternary (printf "%s-%s" $base $component) $base (ne $component "") | quote }}
 {{- if $tracing.useInClusterCollector }}
 - name: OTEL_EXPORTER_OTLP_ENDPOINT
   value: {{ $tracing.collectorEndpoint | required "tracing.collectorEndpoint is required when useInClusterCollector is true" | quote }}

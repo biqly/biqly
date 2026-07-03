@@ -91,10 +91,9 @@ global:
     tracing:
       enabled: true
       serviceName: biqly
-      # Collector upstream. Direct to kibrit's OTLP receiver over Tailscale
-      # (token-gated, encrypted by Tailscale) instead of the Cloudflare path
-      # (https://otel.il1.nl), removing the public round-trip. Apps still export
-      # to the in-cluster collector; only the collector forwards here.
+      # Collector upstream: SigNoz OTLP ingest on kibrit, direct over Tailscale
+      # (encrypted by Tailscale, no public exposure). Apps still export to the
+      # in-cluster collector; only the collector forwards here.
       otlpEndpoint: http://100.84.49.60:4318
       # In-cluster collector connectivity from app pods has been unreliable
       # (e.g. biqly-worker stuck at wait-for-otel-collector init step even
@@ -109,10 +108,6 @@ global:
       otlpHeadersSecret:
         name: biqly-otel-secrets
         key: OTEL_EXPORTER_OTLP_HEADERS
-      otelCollector:
-        enabled: false
-      jaeger:
-        enabled: false
     dashboards:
       enabled: true
   networkPolicy:

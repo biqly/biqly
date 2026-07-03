@@ -98,6 +98,10 @@ spec:
             - secretRef:
                 name: {{ .Values.global.secretNames.security }}
           env:
+            # Explicit env wins over the biqly-config envFrom, giving each
+            # service its own OTEL service.name in SigNoz.
+            - name: OTEL_SERVICE_NAME
+              value: "biqly-ai"
             # Shared internal token so the AI service can call the auth service's
             # /internal/auth/* endpoints (user AI model access & preferences) and
             # fetch the JWT public key for optional identity resolution.

@@ -21,7 +21,7 @@ data:
   {{- if $tracing.useInClusterCollector }}
   OTEL_EXPORTER_OTLP_ENDPOINT: {{ $tracing.collectorEndpoint | required "tracing.collectorEndpoint is required when useInClusterCollector is true" | quote }}
   {{- else }}
-  OTEL_EXPORTER_OTLP_ENDPOINT: {{ $tracing.otlpEndpoint | default "http://biqly-otel-collector:4318" | quote }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ $tracing.otlpEndpoint | required "global.observability.tracing.otlpEndpoint is required when tracing.enabled" | quote }}
   {{- end }}
   OTEL_TRACES_SAMPLER: {{ $tracing.sampler | default "parentbased_traceidratio" | quote }}
   OTEL_TRACES_SAMPLER_ARG: {{ $tracing.samplerArg | default "0.25" | quote }}

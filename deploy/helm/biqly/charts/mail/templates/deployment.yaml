@@ -106,7 +106,7 @@ spec:
                   key: BI_MAIL_SMTP_PASS
                   optional: false
             {{- end }}
-            {{- include "biqly.otelEnv" . | nindent 12 }}
+            {{- include "biqly.otelEnv" (dict "root" $ "component" "mail") | nindent 12 }}
           livenessProbe:
             httpGet:
               path: /healthz

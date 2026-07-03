@@ -230,9 +230,10 @@ global:
       # App-side OTLP export (biqly-config + biqly.otelEnv).
       enabled: true
       serviceName: biqly
-      # Remote backend. With useInClusterCollector the apps DO NOT export here
-      # directly — the in-cluster collector forwards to it with the bearer token.
-      otlpEndpoint: http://biqly-otel-collector:4318
+      # Remote backend (SigNoz OTLP ingest on kibrit, reachable over Tailscale).
+      # With useInClusterCollector the apps DO NOT export here directly — the
+      # in-cluster collector forwards to it.
+      otlpEndpoint: http://100.84.49.60:4318
       # Apps export to the in-cluster collector (gateway) over a fast in-cluster
       # hop, so the remote (Cloudflare) round-trip never touches the request
       # path. The collector absorbs remote latency with its queue + retry.
@@ -250,12 +251,6 @@ global:
       otelSecret:
         create: false
         OTEL_EXPORTER_OTLP_HEADERS: ""
-      otelCollector:
-        enabled: true
-        image: otel/opentelemetry-collector-contrib:0.153.0
-      jaeger:
-        enabled: true
-        image: jaegertracing/all-in-one:1.76.0
     # Infra telemetry: an in-namespace OTel Collector that forwards METRICS from
     # the bundled data stores (PostgreSQL, Dragonfly, NATS) to the same OTLP
     # backend the apps export traces to (reuses tracing.otlpEndpoint and the

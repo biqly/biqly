@@ -98,6 +98,10 @@ spec:
             - secretRef:
                 name: {{ .Values.global.secretNames.security }}
           env:
+            # Explicit env wins over the biqly-config envFrom, giving each
+            # service its own OTEL service.name in SigNoz.
+            - name: OTEL_SERVICE_NAME
+              value: "biqly-worker"
             - name: BI_AUTH_INTERNAL_TOKEN
               valueFrom:
                 secretKeyRef:

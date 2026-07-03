@@ -98,6 +98,10 @@ spec:
             - secretRef:
                 name: {{ .Values.global.secretNames.security }}
           env:
+            # Explicit env wins over the biqly-config envFrom, giving each
+            # service its own OTEL service.name in SigNoz.
+            - name: OTEL_SERVICE_NAME
+              value: "biqly-query"
             # Shared internal token so the query service can authenticate to the
             # auth service's /internal/auth/public-key endpoint for JWT
             # verification (BI_AUTH_ENABLED=true).
