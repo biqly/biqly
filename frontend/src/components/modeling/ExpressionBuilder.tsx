@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
+import { request } from '../../hooks/useApi'
 import type { LooseTFunction } from '../../i18n'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { ColumnRow, SemanticExprNode, SemanticModelDetail } from '../../types/semantic'
@@ -156,13 +157,12 @@ export function ExpressionBuilder({
     async (payload: { expression?: string; expr?: SemanticExprNode }) => {
       setLoading(true)
       try {
-        const res = await fetch(`/api/semantic/models/${model.id}/compile-expression`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-        const data: unknown = await res.json()
-        if (res.ok && isRecord(data)) {
+        const { data, error } = await request<unknown>(
+          'POST',
+          `/api/semantic/models/${model.id}/compile-expression`,
+          payload,
+        )
+        if (data !== null && isRecord(data)) {
           const sql = typeof data.sql === 'string' ? data.sql : ''
           const expr = data.expr as SemanticExprNode | undefined
           setCompiledSQL(sql)
@@ -172,11 +172,7 @@ export function ExpressionBuilder({
           }
           onChange(expr ?? astNode, payload.expression ?? sql)
         } else {
-          const errMsg =
-            isRecord(data) && typeof data.error === 'string'
-              ? data.error
-              : 'Failed to compile expression'
-          setErrorMsg(errMsg)
+          setErrorMsg(error ?? 'Failed to compile expression')
           setCompiledSQL('')
         }
       } catch (err: unknown) {

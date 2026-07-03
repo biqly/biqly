@@ -7,14 +7,20 @@
 {{- if and $tracing.enabled $tracing.useInClusterCollector (not $tracing.skipCollectorWait) }}
 {{- $ep := required "global.observability.tracing.collectorEndpoint" $tracing.collectorEndpoint -}}
 {{- $hostPort := trimPrefix "http://" (trimPrefix "https://" $ep) -}}
-{{- $parts := splitList ":" $hostPort -}}
+{{- $authority := first (splitList "/" $hostPort) -}}
+{{- $parts := splitList ":" $authority -}}
+{{- $host := index $parts 0 -}}
+{{- $port := "4318" -}}
+{{- if gt (len $parts) 1 -}}
+{{- $port = default "4318" (index $parts 1) -}}
+{{- end -}}
 - name: wait-for-otel-collector
   image: busybox:1.37
   command: ["sh", "-c"]
   args:
     - |
-      until nc -z {{ index $parts 0 }} {{ default "4318" (index $parts 1) }} 2>/dev/null; do
-        echo "waiting for OTLP collector at {{ index $parts 0 }}:{{ default "4318" (index $parts 1) }}..."
+      until nc -z {{ $host }} {{ $port }} 2>/dev/null; do
+        echo "waiting for OTLP collector at {{ $host }}:{{ $port }}..."
         sleep 1
       done
   resources:
