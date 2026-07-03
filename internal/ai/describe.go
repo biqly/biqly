@@ -176,13 +176,7 @@ func (s *DescribeService) Describe(ctx context.Context, req DescribeRequest) (*D
 	// provider — the rest of the platform masks these (see query/pii_masking.go
 	// and metadata_rows.go). Exclude them from the sampled rows; their names and
 	// types still reach the prompt via cols so descriptions can be generated.
-	sampleCols := make([]metadata.Column, 0, len(cols))
-	for _, c := range cols {
-		if c.PIIType != nil {
-			continue
-		}
-		sampleCols = append(sampleCols, c)
-	}
+	sampleCols := ExcludePIIColumns(cols)
 	var sample []map[string]any
 	if len(sampleCols) > 0 {
 		sample, err = FetchTableSample(ctx, db, driver.Dialect(), sampleCols, req.Schema, req.Table, limit, s.maxCellRunes)

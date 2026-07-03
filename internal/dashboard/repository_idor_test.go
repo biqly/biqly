@@ -100,6 +100,65 @@ func TestDashboardRepository_WorkspaceIsolation(t *testing.T) {
 	})
 }
 
+// TestDashboardRepository_GlobalDashboardNotMutableByMember pins the fix for the
+// global-dashboard IDOR: a NULL-workspace ("global") dashboard must not be
+// updatable or deletable by a regular member of some workspace — only an
+// unscoped (super_admin, empty workspaceID) caller may mutate it.
+func TestDashboardRepository_GlobalDashboardNotMutableByMember(t *testing.T) {
+	db := testutil.OpenMetadataDB(t)
+	ctx := context.Background()
+
+	_, err := db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS dashboards (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			workspace_id UUID,
+			name TEXT NOT NULL,
+			description TEXT,
+			widgets JSONB NOT NULL DEFAULT '[]'::jsonb,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		)
+	`)
+	require.NoError(t, err)
+
+	repo := NewRepository(db)
+	wsMember := "33333333-3333-3333-3333-333333333333"
+
+	// A global dashboard is created with no workspace scope (as a super_admin would).
+	global := &Dashboard{
+		Name:        "Org-wide Dashboard",
+		Description: new("global"),
+		Widgets:     json.RawMessage(`[]`),
+	}
+	require.NoError(t, repo.Create(ctx, global))
+	require.NotEmpty(t, global.ID)
+
+	t.Run("workspace member cannot update a global dashboard", func(t *testing.T) {
+		err := repo.Update(ctx, &Dashboard{
+			ID:          global.ID,
+			Name:        "hijacked",
+			Description: new("taken over"),
+			Widgets:     json.RawMessage(`[]`),
+		}, wsMember)
+		assert.ErrorIs(t, err, sql.ErrNoRows, "a workspace member must not mutate a global dashboard")
+	})
+
+	t.Run("workspace member cannot delete a global dashboard", func(t *testing.T) {
+		err := repo.Delete(ctx, global.ID, wsMember)
+		assert.ErrorIs(t, err, sql.ErrNoRows, "a workspace member must not delete a global dashboard")
+	})
+
+	t.Run("unscoped (super_admin) caller can still mutate the global dashboard", func(t *testing.T) {
+		require.NoError(t, repo.Update(ctx, &Dashboard{
+			ID:          global.ID,
+			Name:        "renamed globally",
+			Description: new("ok"),
+			Widgets:     json.RawMessage(`[]`),
+		}, ""))
+		require.NoError(t, repo.Delete(ctx, global.ID, ""))
+	})
+}
+
 // TestDashboardRepository_ListIsolation confirms List only returns dashboards
 // for the caller's workspace (plus global NULL-workspace dashboards).
 func TestDashboardRepository_ListIsolation(t *testing.T) {

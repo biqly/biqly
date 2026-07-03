@@ -186,7 +186,7 @@ func (h *AIHandler) finishAIRunResult(ctx context.Context, req aiQueryRequest, m
 	if fp, fpErr := query.LogicalQueryFingerprint(logicalQuery, model); fpErr == nil {
 		ctx = observability.WithQueryFingerprint(ctx, fp)
 	}
-	result, err := h.deps.Executor.Execute(ctx, db, cq)
+	result, err := h.deps.Executor.Execute(ctx, db, cq, driver != nil && driver.SupportsReadOnlyTx())
 	if err != nil {
 		persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, nil, queryStatusFailed, err)
 		return nil, err

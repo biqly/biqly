@@ -165,8 +165,11 @@ export const mentionWrapClass = 'relative'
 export const mentionHighlightBackdropClass =
   'pointer-events-none absolute inset-0 z-[1] overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] p-[0.15rem_0.1rem] text-[0.92rem] leading-normal text-foreground select-none'
 
+// No font-weight change here: heavier glyphs are wider, which drifts the
+// backdrop text ahead of the textarea's (invisible) text and strands the
+// caret behind the last glyphs. Emphasis comes from color + background only.
 export const mentionTokenChipClass =
-  'pointer-events-auto cursor-help rounded-[0.25rem] bg-accent/20 text-accent font-medium [box-decoration-break:clone]'
+  'pointer-events-auto cursor-help rounded-[0.25rem] bg-accent/20 text-accent [box-decoration-break:clone]'
 
 // Rich hover card for an inserted `@field` token (replaces the native title).
 export const mentionTokenTooltipClass =

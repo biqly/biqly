@@ -89,7 +89,7 @@ func TestExecute_WithFakeDB(t *testing.T) {
 
 	executor := NewExecutor(100, time.Second)
 	cq := &CompiledQuery{SQL: "SELECT count(*) FROM orders", Args: nil}
-	result, err := executor.Execute(context.Background(), db, cq)
+	result, err := executor.Execute(context.Background(), db, cq, false)
 	if err != nil {
 		t.Fatalf("Execute() error: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestExecute_EmptyTimeout(t *testing.T) {
 	// Zero timeout = no timeout applied
 	executor := NewExecutor(10, 0)
 	cq := &CompiledQuery{SQL: "SELECT 1 UNION SELECT 2", Args: nil}
-	result, err := executor.Execute(context.Background(), db, cq)
+	result, err := executor.Execute(context.Background(), db, cq, false)
 	if err != nil {
 		t.Fatalf("Execute() error: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestExecute_MaxRowsTruncates(t *testing.T) {
 
 	executor := NewExecutor(3, time.Second)
 	cq := &CompiledQuery{SQL: "SELECT generate_series(1,5)", Args: nil}
-	result, err := executor.Execute(context.Background(), db, cq)
+	result, err := executor.Execute(context.Background(), db, cq, false)
 	if err != nil {
 		t.Fatalf("Execute() error: %v", err)
 	}

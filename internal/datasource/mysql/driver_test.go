@@ -94,6 +94,7 @@ func TestMySQLDriver_Metadata(t *testing.T) {
 	assert.NotNil(t, d)
 	assert.Equal(t, "mysql", d.Type())
 	assert.Equal(t, dialect.MySQL, d.Dialect())
+	assert.True(t, d.SupportsReadOnlyTx())
 }
 
 func TestMySQLDriver_Introspect(t *testing.T) {

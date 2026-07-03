@@ -3,7 +3,7 @@ package middleware
 import (
 	"bytes"
 	"context"
-	"github.com/bytedance/sonic"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/bytedance/sonic"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 )
@@ -259,6 +260,78 @@ func TestRequireDatasourceAccess_MissingDatasourceID(t *testing.T) {
 	mw(okHandler()).ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 when no datasource id, got %d", w.Code)
+	}
+}
+
+func TestExtractDatasourceIDFromNestedLogicalQuery(t *testing.T) {
+	body := `{"logical_query":{"datasource_id":"ds9"}}`
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/x", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if got := extractDatasourceID(req); got != "ds9" {
+		t.Fatalf("extractDatasourceID nested = %q, want ds9", got)
+	}
+	// The probe must restore the body for the downstream handler.
+	rest, _ := io.ReadAll(req.Body)
+	if string(rest) != body {
+		t.Fatalf("body not restored: %q", string(rest))
+	}
+}
+
+func TestRequireResolvedDatasourceAccess_AllowedThenDenied(t *testing.T) {
+	stub := newAuthStub(t)
+	defer stub.Close()
+	client := NewAuthClient(stub.server.URL, "tok")
+	resolve := func(_ context.Context, id string) (string, error) { return "ds-for-" + id, nil }
+
+	r := chi.NewRouter()
+	r.With(RequireResolvedDatasourceAccess(client, "write", resolve)).Get("/models/{id}", okHandler().ServeHTTP)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/models/m1", nil)
+	req = req.WithContext(ctxWithUser([]string{"analyst"}))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 when access allowed, got %d", w.Code)
+	}
+
+	// Use a distinct model id so the auth client's per-datasource cache doesn't
+	// serve the earlier "allowed" result.
+	stub.dsAllowed = false
+	req2 := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/models/m2", nil)
+	req2 = req2.WithContext(ctxWithUser([]string{"analyst"}))
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req2)
+	if w2.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 when access denied, got %d", w2.Code)
+	}
+}
+
+func TestRequireResolvedDatasourceAccess_ResolverErrorIsNotFound(t *testing.T) {
+	stub := newAuthStub(t)
+	defer stub.Close()
+	client := NewAuthClient(stub.server.URL, "tok")
+	resolve := func(context.Context, string) (string, error) { return "", errors.New("no such model") }
+
+	r := chi.NewRouter()
+	r.With(RequireResolvedDatasourceAccess(client, "read", resolve)).Get("/models/{id}", okHandler().ServeHTTP)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/models/x", nil)
+	req = req.WithContext(ctxWithUser([]string{"analyst"}))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 on resolver error, got %d", w.Code)
+	}
+}
+
+func TestRequireResolvedDatasourceAccess_NilClientPassThrough(t *testing.T) {
+	mw := RequireResolvedDatasourceAccess(nil, "read", func(context.Context, string) (string, error) {
+		return "", nil
+	})
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	w := httptest.NewRecorder()
+	mw(okHandler()).ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("nil client should pass through, got %d", w.Code)
 	}
 }
 

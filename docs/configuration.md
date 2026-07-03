@@ -53,6 +53,7 @@ This document catalogs the BI_* variables loaded through the shared `internal/co
 | `BI_AI_MAX_PROMPT_RUNES` | `80000` | `40000` | No | `internal/config/config.go`, `internal/http/handlers/ai_settings.go` | No | Env fallback for prompt-size budgeting; exposed read-only in `/api/ai/settings`. Helm override is smaller. |
 | `BI_AI_MAX_RETRIES` | `2` | `1` | No | `internal/config/config.go`, `internal/ai/service.go` | No | LLM error recovery retry count. Helm override is smaller. |
 | `BI_AI_MULTI_CANDIDATE_COUNT`| `1` | `1` | No | `internal/ai/service.go` | No | Chat completion alternatives count. |
+| `BI_AI_WORKSPACE_DAILY_TOKEN_BUDGET` | `0` | `0` | No | `internal/config/config.go`, `internal/ai/spend_limit.go` | No | Per-workspace daily LLM token cap (prompt+completion). `0` disables. On exceed, AI query endpoints return HTTP 429. Counters are stored in Redis (fails open if Redis is down). |
 | `BI_AI_RESPONSE_CACHE_TTL` | `3600` | `3600` | No | `internal/ai/service.go` | No | TTL for cached LLM query responses. |
 | `BI_AI_DESCRIBE_MAX_CELL_RUNES`| `500` | `500` | No | `internal/config/config.go`, `internal/app/ai_dependencies.go` | No | String cell truncation length for database schema description. |
 | `BI_AI_DESCRIBE_MAX_SAMPLE_ROWS`| `12` | `12` | No | `internal/config/config.go`, `internal/app/ai_dependencies.go` | No | Max database rows fetched for schema sampling. |

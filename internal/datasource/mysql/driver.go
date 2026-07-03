@@ -22,6 +22,12 @@ func NewDriver() *Driver {
 	}
 }
 
+// SupportsReadOnlyTx reports whether go-sql-driver/mysql issues START TRANSACTION READ ONLY for
+// sql.TxOptions{ReadOnly:true}, so writes inside the transaction are rejected.
+func (*Driver) SupportsReadOnlyTx() bool {
+	return true
+}
+
 // Introspect extracts schema metadata from the database.
 func (d *Driver) Introspect(ctx context.Context, db *sql.DB) (*datasource.IntrospectionResult, error) {
 	return datasource.ComposeIntrospection(ctx, db, d.Type(), datasource.IntrospectSteps{

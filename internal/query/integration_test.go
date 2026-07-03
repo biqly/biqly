@@ -168,7 +168,7 @@ func TestIntegration_CompileAndExecute(t *testing.T) {
 	t.Logf("compiled SQL: %s", cq.SQL)
 
 	executor := NewExecutor(1000, 0)
-	result, err := executor.Execute(ctx, db, cq)
+	result, err := executor.Execute(ctx, db, cq, false)
 	if err != nil {
 		t.Fatalf("execution failed: %v", err)
 	}
@@ -311,7 +311,7 @@ func TestIntegration_ReadOnlyProtection(t *testing.T) {
 	}
 
 	executor := NewExecutor(1000, 0)
-	_, err := executor.Execute(context.Background(), nil, cq)
+	_, err := executor.Execute(context.Background(), nil, cq, false)
 	if err == nil {
 		t.Fatal("expected error for DROP TABLE query")
 	}
@@ -320,7 +320,7 @@ func TestIntegration_ReadOnlyProtection(t *testing.T) {
 		SQL:  "INSERT INTO users VALUES (1, 'test')",
 		Args: nil,
 	}
-	_, err = executor.Execute(context.Background(), nil, cq2)
+	_, err = executor.Execute(context.Background(), nil, cq2, false)
 	if err == nil {
 		t.Fatal("expected error for INSERT query")
 	}

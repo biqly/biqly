@@ -147,4 +147,36 @@ spec:
           annotations:
             summary: "Biqly NATS consumer has pending messages"
             description: "NATS AI job consumer pending count has stayed above zero for more than 5 minutes."
+        - alert: BiqlyServiceDown
+          expr: |
+            up{job=~"biqly-.*"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            service: platform
+          annotations:
+            summary: "Biqly service {{`{{ $labels.job }}`}} is down"
+            description: "Prometheus cannot scrape {{`{{ $labels.job }}`}} ({{`{{ $labels.instance }}`}}) — the target has been down for 2 minutes. Rate-based alerts go blind while a target is down, so this is the backstop."
+    - name: biqly.security
+      rules:
+        - alert: BiqlyAuthFailedLoginSpike
+          expr: |
+            sum(rate(auth_failed_login_total[5m])) > 1
+          for: 10m
+          labels:
+            severity: warning
+            service: auth
+          annotations:
+            summary: "Biqly failed-login rate is elevated (possible brute force / credential stuffing)"
+            description: "auth_failed_login_total is averaging more than 1/s over 5m for 10 minutes. Check the reason breakdown (bad_password vs user_not_found) for the attack shape."
+        - alert: BiqlyAISpendLimitRejections
+          expr: |
+            sum(rate(biqly_ai_spend_limit_rejections_total[15m])) > 0
+          for: 15m
+          labels:
+            severity: warning
+            service: ai
+          annotations:
+            summary: "Biqly workspaces are hitting the daily AI token budget"
+            description: "AI requests are being rejected by the per-workspace spend limiter. Either a workspace budget (BI_AI_WORKSPACE_DAILY_TOKEN_BUDGET) is set too low, or a workspace is consuming abnormally — investigate before raising the cap."
 {{- end }}

@@ -95,6 +95,9 @@ func TestPostgresDriver_Metadata(t *testing.T) {
 	assert.NotNil(t, d)
 	assert.Equal(t, "postgres", d.Type())
 	assert.Equal(t, dialect.Postgres, d.Dialect())
+	// The executor gates DB-enforced read-only transactions on this; pgx honours
+	// sql.TxOptions{ReadOnly: true}, so it must be true for Postgres.
+	assert.True(t, d.SupportsReadOnlyTx())
 }
 
 func TestPostgresDriver_Introspect(t *testing.T) {

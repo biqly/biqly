@@ -48,8 +48,15 @@ func NewExecutor(maxRows int, timeout time.Duration) *Executor {
 	}
 }
 
-// Execute runs a compiled query and returns results.
-func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (result *Result, err error) {
+// queryRunner is the read subset of *sql.DB / *sql.Tx used by Execute.
+type queryRunner interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+}
+
+// Execute runs a compiled query and returns results. When readOnly is true the
+// query runs inside a database-enforced read-only transaction so a write that
+// slips past the SQL keyword checker is still rejected by the database.
+func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery, readOnly bool) (result *Result, err error) {
 	ctx, span := otel.Tracer("biqly/query").Start(ctx, "query.Execute")
 	observability.SetDBSystemAttributes(span, observability.DBSystem(ctx))
 	defer func() {
@@ -74,7 +81,19 @@ func (e *Executor) Execute(ctx context.Context, db *sql.DB, cq *CompiledQuery) (
 
 	start := time.Now()
 
-	rows, queryErr := db.QueryContext(ctx, cq.SQL, cq.Args...)
+	var runner queryRunner = db
+	if readOnly {
+		tx, txErr := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+		if txErr != nil {
+			return nil, fmt.Errorf("begin read-only transaction: %w", txErr)
+		}
+		// Read-only: always roll back — there is nothing to commit, and rollback
+		// releases the connection whether or not the query succeeded.
+		defer func() { _ = tx.Rollback() }()
+		runner = tx
+	}
+
+	rows, queryErr := runner.QueryContext(ctx, cq.SQL, cq.Args...)
 	if queryErr != nil {
 		return nil, fmt.Errorf("query execution failed: %w", queryErr)
 	}

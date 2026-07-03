@@ -9,6 +9,23 @@ import (
 	"github.com/biqly/biqly/internal/metadata"
 )
 
+// ExcludePIIColumns drops every column carrying a PII annotation. It is the
+// single choke point for the rule "raw values of PII-flagged columns never
+// leave the cluster in an LLM prompt" — used by every sample path that feeds
+// an external provider (table describe, NL→SQL sample rows). Column names and
+// types can still reach the prompt via the metadata list; only the sampled
+// *values* of PII columns are withheld.
+func ExcludePIIColumns(cols []metadata.Column) []metadata.Column {
+	out := make([]metadata.Column, 0, len(cols))
+	for _, c := range cols {
+		if c.PIIType != nil {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
 // FetchTableSample reads up to `limit` rows from schema.table, projecting only
 // the listed columns, and returns them as map[col]value. Identifiers must pass
 // the project's allowlist regex (validIdent) — we do not bind identifiers, so

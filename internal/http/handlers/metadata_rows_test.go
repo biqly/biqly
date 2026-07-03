@@ -146,6 +146,7 @@ func (failingRowsDriver) Introspect(context.Context, *sql.DB) (*datasource.Intro
 	return &datasource.IntrospectionResult{}, nil
 }
 func (failingRowsDriver) Dialect() dialect.Dialect { return dialect.Postgres }
+func (failingRowsDriver) SupportsReadOnlyTx() bool { return false }
 
 type failingRowsSQLDriver struct{}
 
@@ -174,6 +175,7 @@ func (failingCountDriver) Introspect(context.Context, *sql.DB) (*datasource.Intr
 	return &datasource.IntrospectionResult{}, nil
 }
 func (failingCountDriver) Dialect() dialect.Dialect { return dialect.Postgres }
+func (failingCountDriver) SupportsReadOnlyTx() bool { return false }
 
 type failingCountSQLDriver struct{}
 

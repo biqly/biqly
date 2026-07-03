@@ -80,4 +80,10 @@ type Driver interface {
 
 	// Dialect returns the SQL dialect for this datasource.
 	Dialect() dialect.Dialect
+
+	// SupportsReadOnlyTx reports whether the driver honours a read-only
+	// transaction (sql.TxOptions{ReadOnly: true}) as a hard, DB-enforced
+	// guarantee. When true, the executor runs queries inside one so a write
+	// that slips past the SQL keyword checker still fails at the database.
+	SupportsReadOnlyTx() bool
 }
