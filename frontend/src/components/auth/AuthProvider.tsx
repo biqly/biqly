@@ -25,6 +25,10 @@ import {
 import type { AuthUser } from '../../types/auth'
 
 const LEGACY_REFRESH_TOKEN_KEY = 'biqly_refresh_token'
+// Set while a cookie session may exist. Lets initAuth skip the cookie-refresh
+// attempt on plainly signed-out visits, which otherwise logs a guaranteed 400
+// to the console on every anonymous page view.
+const HAS_SESSION_KEY = 'biqly_has_session'
 
 // isAuthRejection reports whether the error is a definitive credential
 // rejection from the server. Transient failures (429 rate limit, 5xx,
@@ -139,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPermissions([])
     setIsSuperAdmin(false)
     localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY)
+    localStorage.removeItem(HAS_SESSION_KEY)
   }, [setAccessToken])
 
   // loadPermissions fetches the caller's effective permissions so the UI can
@@ -162,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccessToken(accToken)
       setRoles(nextRoles)
       localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY)
+      localStorage.setItem(HAS_SESSION_KEY, '1')
       try {
         // The token was just issued, so a /me failure here is almost always
         // transient (rate limit, blip). Retry briefly before giving up —
@@ -245,6 +251,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       const legacyRefresh = localStorage.getItem(LEGACY_REFRESH_TOKEN_KEY)
+
+      // No sign of a prior session — don't fire a refresh that is guaranteed
+      // to 400. If a valid cookie somehow exists without the marker (cleared
+      // localStorage), the user just signs in again.
+      if (!legacyRefresh && !localStorage.getItem(HAS_SESSION_KEY)) {
+        clearAuth()
+        setLoading(false)
+        return
+      }
 
       try {
         const resp = await withTransientRetry(() =>
