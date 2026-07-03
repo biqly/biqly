@@ -371,8 +371,8 @@ export default function Glossary() {
     return terms.filter((term) => {
       return (
         term.term.toLowerCase().includes(q) ||
-        (term.definition?.toLowerCase().includes(q) ??
-          term.maps_to_name.toLowerCase().includes(q)) ||
+        (term.definition?.toLowerCase().includes(q) ?? false) ||
+        term.maps_to_name.toLowerCase().includes(q) ||
         term.maps_to_type.toLowerCase().includes(q) ||
         term.aliases?.some((a) => a.toLowerCase().includes(q))
       )

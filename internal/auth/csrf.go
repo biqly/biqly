@@ -11,11 +11,12 @@ import (
 const csrfHeaderName = "X-CSRF-Token"
 const csrfSecureCookieName = "__Host-csrf_token"
 const csrfLegacyCookieName = "csrf_token"
+const csrfCookieMaxAge = 7 * 24 * 60 * 60 // 7 days in seconds
 
 func CSRF(listenPort int) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions || r.Method == http.MethodTrace {
+			if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
 				cookie, err := readCSRFCookie(r, listenPort)
 				if err != nil || cookie.Value == "" {
 					token, err := setCSRFCookie(w, r, listenPort)
@@ -67,7 +68,7 @@ func setCSRFCookie(w http.ResponseWriter, r *http.Request, listenPort int) (stri
 		Name:     csrfCookieName(r, listenPort),
 		Value:    token,
 		Path:     "/",
-		MaxAge:   86400 * 7,
+		MaxAge:   csrfCookieMaxAge,
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
