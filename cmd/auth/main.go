@@ -46,8 +46,8 @@ func main() {
 		slog.Error("load config", "err", err)
 		os.Exit(1)
 	}
-	shutdownTracing := setupAuthObservability()
-	defer func() { _ = shutdownTracing(context.Background()) }()
+	shutdownObservability := setupAuthObservability()
+	defer func() { _ = shutdownObservability(context.Background()) }()
 	runtime, err := newAuthRuntime(cfg)
 	if err != nil {
 		slog.Error("initialize auth runtime", "err", err)
@@ -63,7 +63,13 @@ func setupAuthObservability() func(context.Context) error {
 	if tracErr != nil {
 		slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)
 	}
-	return shutdownTracing
+	shutdownLogExport, logExpErr := observability.SetupLogExport(context.Background(), "auth")
+	if logExpErr != nil {
+		slog.Warn("log export setup failed, continuing with stdout only", "error", logExpErr)
+	}
+	return func(ctx context.Context) error {
+		return errors.Join(shutdownTracing(ctx), shutdownLogExport(ctx))
+	}
 }
 
 type authRuntime struct {
