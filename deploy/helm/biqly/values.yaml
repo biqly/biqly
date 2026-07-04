@@ -389,6 +389,37 @@ query:
     pathPrefixes:
       - /api/query
 
+mcp:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: mcp
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8083
+  config:
+    BI_HTTP_PORT: "8083"
+    # Set to the API gateway base URL (must carry the gateway hostname so the
+    # HTTPRoutes match) — see values-prod.yaml.
+    BI_API_SERVICE_URL: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  route:
+    enabled: true
+    pathPrefixes:
+      - /mcp
+
 auth:
   enabled: true
   replicaCount: 1

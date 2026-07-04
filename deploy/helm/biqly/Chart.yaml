@@ -15,6 +15,10 @@ dependencies:
   - name: query
     version: 0.1.0
     repository: file://charts/query
+  - name: mcp
+    version: 0.1.0
+    repository: file://charts/mcp
+    condition: mcp.enabled
   - name: ai
     version: 0.1.0
     repository: file://charts/ai

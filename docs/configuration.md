@@ -18,6 +18,7 @@ This document catalogs the BI_* variables loaded through the shared `internal/co
 | `BI_CATALOG_SERVICE_URL` | `""` | `http://biqly-catalog:8080` | No | `internal/config/config.go`, `internal/http/router.go` | No | URL of the catalog service. |
 | `BI_QUERY_SERVICE_URL` | `""` | `http://biqly-query:8081` | No | `internal/config/config.go`, `internal/http/router.go` | No | URL of the query service. |
 | `BI_AI_SERVICE_URL` | `""` | `http://biqly-ai:8082` | No | `internal/config/config.go`, `internal/http/router.go` | No | URL of the AI service. |
+| `BI_API_SERVICE_URL` | `""` | `https://abi.il1.nl` | No | `internal/config/config.go`, `internal/http/mcp_router.go` | No | Base URL of the API gateway the standalone MCP service forwards governed tool calls to. Must carry the gateway hostname so HTTPRoutes match. Empty in the monolith. |
 | **Databases, Queue & Query Engine** | | | | | | |
 | `BI_METADATA_DB_DSN` | `postgres://localhost:5432/...` | Required (Secret) | No | `internal/platform/db` | No | Connection string for Metadata Postgres DB. |
 | `BI_REDIS_DSN` | `redis://localhost:6379` | `redis://biqly-dragonfly:6379` | No | `internal/config/config.go` | No | Connection string for Dragonfly (Redis). |
