@@ -362,6 +362,12 @@ export const admin: AdminDictionary = {
     status_success: 'Başarılı',
     status_error: 'Hata',
     status_clarification: 'Açıklama Gerekli',
+    replay: 'Yeniden Çalıştır',
+    replay_running: 'Yeniden çalıştırılıyor…',
+    replay_hint:
+      'Üretimi aynı girdilerle yeniden çalıştırır. AI token harcar ve yeni bir geçmiş kaydı oluşturur.',
+    replay_done: 'Yeniden çalıştırma tamamlandı — yeni bir geçmiş kaydı oluşturuldu.',
+    replay_error: 'Yeniden çalıştırma başarısız oldu.',
   },
   ai_providers: {
     title: 'AI Sağlayıcılar',

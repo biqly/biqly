@@ -359,6 +359,12 @@ export const admin = {
     status_success: 'Success',
     status_error: 'Error',
     status_clarification: 'Needs Clarification',
+    replay: 'Replay',
+    replay_running: 'Replaying…',
+    replay_hint:
+      'Re-runs the generation with the same inputs. Spends AI tokens and records a new history row.',
+    replay_done: 'Replay completed — a new history entry was recorded.',
+    replay_error: 'Replay failed.',
   },
   ai_providers: {
     title: 'AI Providers',

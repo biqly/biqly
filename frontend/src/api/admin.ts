@@ -543,6 +543,13 @@ export async function getAIHistoryDetail(token: string, id: string): Promise<AIH
   )
 }
 
+/** Re-runs NL→LogicalQuery generation for a stored history entry. Spends AI tokens and records a fresh history row. */
+export async function replayAIHistory(token: string, id: string): Promise<unknown> {
+  return apiFetch<unknown>('POST', `/api/ai/history/${encodeURIComponent(id)}/replay`, undefined, {
+    token,
+  })
+}
+
 // === AI jobs (admin) ===
 
 export async function listAdminAIJobs(

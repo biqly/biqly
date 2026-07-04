@@ -27,6 +27,8 @@ type ProcessContext struct {
 	DatasourceID          string
 	clarificationRound    int
 	memoryRecallHitCount  int
+	routeDurationMs       int64
+	contextResolveMs      int64
 }
 
 func (pc *ProcessContext) SetMemoryRecallHitCount(count int) {

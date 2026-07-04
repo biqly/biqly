@@ -1,14 +1,16 @@
 import { Fragment, useCallback, useState } from 'react'
 
-import { getAIHistoryDetail, listAIHistory } from '../../api/admin'
+import { getAIHistoryDetail, listAIHistory, replayAIHistory } from '../../api/admin'
 import { useFetch } from '../../hooks/useFetch'
 import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useQueryParam } from '../../hooks/useQueryParam'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
+import type { RunStep } from '../../types/ai'
 import type { AIHistoryEntry } from '../../types/auth'
 import type { PageQuery } from '../../types/pagination'
 import { formatDateTime, formatDurationMs } from '../../utils/formatters'
 import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
+import { RunTracePanel } from '../aiQuery/RunTrace'
 import { useAuth } from '../auth/AuthProvider'
 import { ShareButton } from '../sharing/ShareButton'
 import { DataState } from '../ui/DataState'
@@ -81,6 +83,7 @@ export function AIHistoryPanel() {
     setPageSize,
     totalPages,
     total: totalItems,
+    reload,
   } = usePaginatedList<AIHistoryEntry>({
     fetcher,
     initialPageSize: 10,
@@ -100,6 +103,19 @@ export function AIHistoryPanel() {
       setHistoryIdParam('')
     } else {
       setHistoryIdParam(id)
+    }
+  }
+
+  const [replayState, setReplayState] = useState<ReplayState | null>(null)
+
+  async function handleReplay(id: string) {
+    setReplayState({ id, status: 'loading' })
+    try {
+      await replayAIHistory(accessToken ?? '', id)
+      setReplayState({ id, status: 'done' })
+      reload()
+    } catch (e) {
+      setReplayState({ id, status: 'error', message: e instanceof Error ? e.message : String(e) })
     }
   }
 
@@ -218,38 +234,13 @@ export function AIHistoryPanel() {
                                   <LoadingOverlay loading={true} />
                                 </div>
                               ) : detail ? (
-                                <div className={aiHistoryDetailContentClass}>
-                                  <div className={aiHistoryDetailHeaderClass}>
-                                    <span className="text-foreground-muted text-2xs font-semibold tracking-wide uppercase">
-                                      {t('admin.ai_history.detail')}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      className={aiHistoryDetailCloseBtnClass}
-                                      onClick={() => toggleDetail(entry.id)}
-                                    >
-                                      {t('common.close')}
-                                    </button>
-                                  </div>
-                                  {detail.prompt_context != null && (
-                                    <div className={aiHistoryDetailBlockClass}>
-                                      <h4>{t('admin.ai_history.prompt')}</h4>
-                                      <pre>{formatDetail(detail.prompt_context)}</pre>
-                                    </div>
-                                  )}
-                                  {detail.ai_response != null && (
-                                    <div className={aiHistoryDetailBlockClass}>
-                                      <h4>{t('admin.ai_history.generated_sql')}</h4>
-                                      <pre>{formatDetail(detail.ai_response)}</pre>
-                                    </div>
-                                  )}
-                                  {detail.logical_query != null && (
-                                    <div className={aiHistoryDetailBlockClass}>
-                                      <h4>{t('admin.ai_history.logical_query')}</h4>
-                                      <pre>{formatDetail(detail.logical_query)}</pre>
-                                    </div>
-                                  )}
-                                </div>
+                                <HistoryDetailContent
+                                  detail={detail}
+                                  entryId={entry.id}
+                                  replayState={replayState}
+                                  onReplay={(id) => void handleReplay(id)}
+                                  onClose={toggleDetail}
+                                />
                               ) : (
                                 <p className="px-4 py-3">—</p>
                               )}
@@ -286,6 +277,107 @@ function formatDetail(value: unknown): string {
     return value
   }
   return JSON.stringify(value, null, 2)
+}
+
+interface ReplayState {
+  id: string
+  status: 'loading' | 'done' | 'error'
+  message?: string
+}
+
+function HistoryDetailContent({
+  detail,
+  entryId,
+  replayState,
+  onReplay,
+  onClose,
+}: {
+  detail: AIHistoryEntry
+  entryId: string
+  replayState: ReplayState | null
+  onReplay: (id: string) => void
+  onClose: (id: string) => void
+}) {
+  const t = useT()
+  const isReplaying = replayState?.id === entryId && replayState.status === 'loading'
+  const replayResult = replayState?.id === entryId && replayState.status !== 'loading'
+  const runSteps = extractRunSteps(detail.ai_response)
+  return (
+    <div className={aiHistoryDetailContentClass}>
+      <div className={aiHistoryDetailHeaderClass}>
+        <span className="text-foreground-muted text-2xs font-semibold tracking-wide uppercase">
+          {t('admin.ai_history.detail')}
+        </span>
+        <button
+          type="button"
+          className={aiHistoryDetailBtnClass}
+          onClick={() => onReplay(entryId)}
+          disabled={isReplaying}
+          title={t('admin.ai_history.replay_hint')}
+        >
+          {isReplaying ? t('admin.ai_history.replay_running') : t('admin.ai_history.replay')}
+        </button>
+        <button
+          type="button"
+          className={aiHistoryDetailCloseBtnClass}
+          onClick={() => onClose(entryId)}
+        >
+          {t('common.close')}
+        </button>
+      </div>
+      {replayResult ? (
+        <p
+          className={`px-1 text-[0.8rem] ${
+            replayState.status === 'error' ? 'text-error' : 'text-success'
+          }`}
+          role="status"
+        >
+          {replayState.status === 'error'
+            ? (replayState.message ?? t('admin.ai_history.replay_error'))
+            : t('admin.ai_history.replay_done')}
+        </p>
+      ) : null}
+      {runSteps.length > 0 && (
+        <div className={aiHistoryDetailBlockClass}>
+          <RunTracePanel steps={runSteps} defaultOpen />
+        </div>
+      )}
+      {detail.prompt_context != null && (
+        <div className={aiHistoryDetailBlockClass}>
+          <h4>{t('admin.ai_history.prompt')}</h4>
+          <pre>{formatDetail(detail.prompt_context)}</pre>
+        </div>
+      )}
+      {detail.ai_response != null && (
+        <div className={aiHistoryDetailBlockClass}>
+          <h4>{t('admin.ai_history.generated_sql')}</h4>
+          <pre>{formatDetail(detail.ai_response)}</pre>
+        </div>
+      )}
+      {detail.logical_query != null && (
+        <div className={aiHistoryDetailBlockClass}>
+          <h4>{t('admin.ai_history.logical_query')}</h4>
+          <pre>{formatDetail(detail.logical_query)}</pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function isPlainRecord(v: unknown): v is Record<string, unknown> {
+  return v != null && typeof v === 'object' && !Array.isArray(v)
+}
+
+/** Pulls the persisted run step timeline out of a history row's ai_response ({ response: { metadata: { run_steps } } }). */
+function extractRunSteps(aiResponse: unknown): RunStep[] {
+  if (!isPlainRecord(aiResponse) || !isPlainRecord(aiResponse.response)) {
+    return []
+  }
+  const metadata = aiResponse.response.metadata
+  if (!isPlainRecord(metadata) || !Array.isArray(metadata.run_steps)) {
+    return []
+  }
+  return metadata.run_steps.filter(isPlainRecord) as unknown as RunStep[]
 }
 
 const containerStyle: React.CSSProperties = {

@@ -96,6 +96,18 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	}
 	r.With(aiHistoryPagination).Get("/ai/history", aiHandler.AIHistory)
 	r.Get("/ai/history/detail", aiHandler.AIHistoryDetail)
+	// Replay resolves the history entry to its owning datasource before the
+	// access check (the {id} is a history row, not a datasource). Enforced
+	// unconditionally like the glossary routes: the monolith proxy cannot
+	// resolve history ids, so the check must live here.
+	historyDS := func(ctx context.Context, id string) (string, error) {
+		row, err := deps.MetaRepo.GetAIQueryHistoryByID(ctx, id)
+		if err != nil {
+			return "", err
+		}
+		return row.DatasourceID, nil
+	}
+	r.With(aiUserMW, bimw.RequireResolvedDatasourceAccess(authClient, "read", historyDS)).Post("/ai/history/{id}/replay", aiHandler.ReplayAIHistory)
 	r.With(queryHistoryPagination).Get("/ai/query/history", aiHandler.QueryHistory)
 	registerAIConversationRoutes(r, aiHandler, aiUserMW, dsAccess)
 	r.With(aiUserMW, dsAccess).Post("/ai/query", aiHandler.Query)

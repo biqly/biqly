@@ -218,43 +218,54 @@ func (h *AIHandler) parseAndRouteAIQuery(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return aiQueryRequest{}, nil, nil, nil, false
 	}
+	return h.routeAIQueryRequest(r.Context(), w, *req)
+}
+
+// routeAIQueryRequest validates required fields, loads the semantic model (and
+// table routing) and resolves the process context for an already-decoded
+// request. Shared by the HTTP query phases and history replay. If it writes a
+// response to w (bad request, model load error, or clarification-only
+// response), ok is false.
+func (h *AIHandler) routeAIQueryRequest(ctx context.Context, w http.ResponseWriter, req aiQueryRequest) (aiQueryRequest, *ProcessContext, *semantic.SemanticModel, *routing.TableRoutingResult, bool) {
 	if req.Question == "" {
 		writeError(w, http.StatusBadRequest, "question is required")
-		return *req, nil, nil, nil, false
+		return req, nil, nil, nil, false
 	}
 	if req.DatasourceID == "" {
 		writeError(w, http.StatusBadRequest, core.MsgDatasourceIDRequired)
-		return *req, nil, nil, nil, false
+		return req, nil, nil, nil, false
 	}
 
-	ctx := r.Context()
 	if req.ClarificationChoice == "" {
 		h.checkAndRecordAbandon(ctx)
 	}
 	routeStart := time.Now()
-	model, routeResult, err := h.loadQueryModel(ctx, *req)
+	model, routeResult, err := h.loadQueryModel(ctx, req)
+	routeMs := time.Since(routeStart).Milliseconds()
 	if h.metrics != nil {
-		h.metrics.RecordAIStep("table_route", time.Since(routeStart).Milliseconds())
+		h.metrics.RecordAIStep("table_route", routeMs)
 	}
 	if err != nil {
-		h.writeModelLoadError(ctx, w, *req, err)
-		return *req, nil, nil, nil, false
+		h.writeModelLoadError(ctx, w, req, err)
+		return req, nil, nil, nil, false
 	}
-	if resp, ok := h.tierZeroClarificationIfNeeded(ctx, *req, model, routeResult); ok {
+	if resp, ok := h.tierZeroClarificationIfNeeded(ctx, req, model, routeResult); ok {
 		writeJSON(w, http.StatusOK, resp)
-		return *req, nil, nil, nil, false
+		return req, nil, nil, nil, false
 	}
-	pc := buildProcessContext(*req)
+	pc := buildProcessContext(req)
+	pc.routeDurationMs = routeMs
 	ctxStart := time.Now()
 	if err := h.resolveProcessContext(ctx, pc, model); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
-		return *req, pc, nil, nil, false
+		return req, pc, nil, nil, false
 	}
+	pc.contextResolveMs = time.Since(ctxStart).Milliseconds()
 	if h.metrics != nil {
-		h.metrics.RecordAIStep("context_resolve", time.Since(ctxStart).Milliseconds())
+		h.metrics.RecordAIStep("context_resolve", pc.contextResolveMs)
 	}
-	pc.ApplyToRequest(req)
-	return *req, pc, model, routeResult, true
+	pc.ApplyToRequest(&req)
+	return req, pc, model, routeResult, true
 }
 
 func (h *AIHandler) checkAndRecordAbandon(ctx context.Context) {
@@ -340,7 +351,13 @@ func (h *AIHandler) processAIQuestion(
 	if pc != nil && pc.Question != "" {
 		question = pc.Question
 	}
+	rec := ai.NewRunRecorder()
+	if pc != nil {
+		rec.Record("table_route", ai.RunStepStatusOK, 0, pc.routeDurationMs, "")
+		rec.Record("context_resolve", ai.RunStepStatusOK, 0, pc.contextResolveMs, "")
+	}
 	opts := h.standardProcessOptions(ctx, pc, req, model)
+	opts = append(opts, ai.WithRunRecorder(rec))
 	opts = append(opts, extra...)
 	resp, err := h.service.ProcessQuestion(ctx, question, model, opts...)
 	if resp != nil {
@@ -349,6 +366,7 @@ func (h *AIHandler) processAIQuestion(
 		}
 		resp.Metadata.ModelUsed = h.queryModelUsedLabel(ctx)
 		resp.Metadata.TableRouting = routeResult
+		resp.Metadata.RunSteps = rec.Steps()
 
 		// Populate resolved A/B experiment metadata if tracked
 		if tracked := tracker.GetVariants(); len(tracked) > 0 {
@@ -357,7 +375,9 @@ func (h *AIHandler) processAIQuestion(
 		}
 	}
 	if err != nil {
-		h.observeAIRequest(ctx, req, model, routeResult, failedAIResponse(err), time.Since(start).Milliseconds(), pc)
+		failed := failedAIResponse(err)
+		failed.Metadata = &ai.AIMetadata{RunSteps: rec.Steps()}
+		h.observeAIRequest(ctx, req, model, routeResult, failed, time.Since(start).Milliseconds(), pc)
 		return nil, err
 	}
 	if resp == nil {
