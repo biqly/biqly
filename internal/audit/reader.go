@@ -54,8 +54,12 @@ func (r *Reader) ListQueryExecutionEvents(ctx context.Context, limit int) ([]Eve
 	if r == nil {
 		return nil, nil
 	}
-	if limit <= 0 || limit > 500 {
-		limit = 100
+	const (
+		maxListLimit     = 500
+		defaultListLimit = 100
+	)
+	if limit <= 0 || limit > maxListLimit {
+		limit = defaultListLimit
 	}
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT `+queryEventColumns+`
@@ -68,7 +72,9 @@ func (r *Reader) ListQueryExecutionEvents(ctx context.Context, limit int) ([]Eve
 		return nil, fmt.Errorf("list query audit events: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	events := make([]Event, 0, min(limit, 500))
+	// Capacity is a constant so the allocation never depends on user input
+	// (CodeQL go/uncontrolled-allocation-size).
+	events := make([]Event, 0, defaultListLimit)
 	for rows.Next() {
 		event, err := scanEvent(rows)
 		if err != nil {
