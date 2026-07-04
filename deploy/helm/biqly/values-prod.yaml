@@ -215,6 +215,24 @@ query:
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
+mcp:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 300m
+      memory: 192Mi
+  image:
+    tag: sha-4e42f9158872a9a1e0f74b02c05b9110ac1415f4
+  config:
+    # MCP proxies tool calls to the API gateway; the hostname must match the
+    # gateway HTTPRoutes (see global.gateway.hostnames).
+    BI_API_SERVICE_URL: https://abi.il1.nl
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 2
 ai:
   replicaCount: 1
   resources:

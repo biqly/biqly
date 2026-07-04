@@ -1,0 +1,43 @@
+global:
+  biqlyImageRegistry: ghcr.io/biqly
+  imagePullSecrets: []
+  registrySecret:
+    create: false
+    name: ghcr-registry
+  serviceAccount:
+    name: biqly
+    automountServiceAccountToken: false
+  secretNames:
+    config: biqly-config
+    db: biqly-db
+    security: biqly-security
+  config: {}
+
+replicaCount: 2
+image:
+  repository: mcp
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  port: 8083
+config:
+  BI_HTTP_PORT: "8083"
+  # Internal base URL of the API gateway the MCP tools proxy through. Must carry
+  # the gateway hostname so the HTTPRoutes match; set per environment.
+  BI_API_SERVICE_URL: ""
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+route:
+  enabled: true
+  pathPrefixes:
+    - /mcp

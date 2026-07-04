@@ -171,6 +171,10 @@ type ServicesConfig struct {
 	CatalogURL string
 	QueryURL   string
 	AIURL      string
+	// APIURL is the internal base URL of the API gateway/monolith that the
+	// standalone MCP service forwards governed tool calls to. Empty in the
+	// monolith (MCP dispatches to its own in-process router instead).
+	APIURL string
 }
 
 // QueryLLMConfig overrides the connection used by the NL-to-LogicalQuery path
@@ -443,6 +447,7 @@ func loadConfigFromEnv() *Config {
 			CatalogURL: strings.TrimRight(getEnv("BI_CATALOG_SERVICE_URL", ""), "/"),
 			QueryURL:   strings.TrimRight(getEnv("BI_QUERY_SERVICE_URL", ""), "/"),
 			AIURL:      strings.TrimRight(getEnv("BI_AI_SERVICE_URL", ""), "/"),
+			APIURL:     strings.TrimRight(getEnv("BI_API_SERVICE_URL", ""), "/"),
 		},
 		AI: loadAIConfigFromEnv(),
 		NATS: NATSConfig{
