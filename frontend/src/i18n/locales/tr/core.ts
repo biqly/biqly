@@ -877,6 +877,8 @@ export const core: CoreDictionary = {
     confirm_reseed:
       'TÜM prompt şablonları (TR + EN) gömülü varsayılanlarla değiştirilsin mi? Diğer bölümlerdeki kaydedilmemiş değişiklikler silinir.',
     available_params: 'Kullanılabilir Parametreler',
+    param_drag_hint: 'Düzenleyiciye sürükleyin veya tıklayıp imlece ekleyin',
+    param_drop_hint: 'Eklemek için bırakın',
     intellisense_hint: 'Otomatik tamamlama için {{ yazın',
   },
   few_shot: {

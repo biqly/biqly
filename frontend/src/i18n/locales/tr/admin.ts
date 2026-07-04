@@ -374,6 +374,11 @@ export const admin: AdminDictionary = {
     add_model: 'Model Ekle',
     edit_model: 'Modeli Düzenle',
     providers_title: 'Sağlayıcılar',
+    providers_select_hint: 'Modellerini görüntülemek ve yönetmek için bir sağlayıcı seçin.',
+    manage_models: 'Modelleri yönet',
+    managing_models: 'Modeller yönetiliyor',
+    select_provider_prompt:
+      'Modelleri görüntülemek ve yönetmek için yukarıdan bir sağlayıcı seçin.',
     no_providers: 'Henüz sağlayıcı yok. Başlamak için bir tane ekleyin.',
     active_models_title: 'Göreve Göre Aktif Modeller',
     active_models_hint:
