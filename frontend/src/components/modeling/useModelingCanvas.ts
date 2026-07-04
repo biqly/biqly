@@ -5,6 +5,7 @@ import {
   applyDragDelta,
   applyKeyboardMove,
   buildCardLayouts,
+  buildCardSections,
   computeCanvasBounds,
   computeJoinPath,
   continuousZoomScale,
@@ -49,7 +50,8 @@ export function useModelingCanvas(
       joinColumns.get(fromKey)!.add(join.from_column)
       joinColumns.get(toKey)!.add(join.to_column)
     }
-    return buildCardLayouts(tableCards, columns, joinColumns, COL_LIMIT)
+    const sections = buildCardSections(tableCards, model)
+    return buildCardLayouts(tableCards, columns, joinColumns, COL_LIMIT, sections)
   }, [tableCards, columns, model])
 
   useEffect(() => {

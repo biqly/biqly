@@ -250,7 +250,7 @@ export function columnTypeIcon(dataType: string): ColumnTypeIcon {
 Run: `npm --prefix frontend run test -- columnTypeIcon`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/components/modeling/columnTypeIcon.ts frontend/src/components/modeling/columnTypeIcon.test.ts
@@ -279,7 +279,7 @@ Compute, for each table card, the count of calculated fields (dimensions/metrics
   - `cardHeight(colRowCount: number, section?: CardSection): number`
   - `buildCardLayouts(tableCards, columns, joinColumns, colLimit, sections: Map<string, CardSection>): Map<string, CardLayout>`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `frontend/src/components/modeling/canvasMath.test.ts`:
 
@@ -347,12 +347,12 @@ describe('cardHeight with sections', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm --prefix frontend run test -- canvasMath`
 Expected: FAIL — `buildCardSections` not exported / constants missing.
 
-- [ ] **Step 3: Add section-height constants**
+- [x] **Step 3: Add section-height constants**
 
 In `frontend/src/components/modeling/constants.ts`, append:
 
@@ -363,7 +363,7 @@ export const CALC_SECTION_HEIGHT = 26
 export const REL_SECTION_LABEL_HEIGHT = 22
 ```
 
-- [ ] **Step 4: Extend `CardLayout` + add `CardSection`**
+- [x] **Step 4: Extend `CardLayout` + add `CardSection`**
 
 In `frontend/src/components/modeling/types.ts`, replace the `CardLayout` interface (lines 55-60) with:
 
@@ -383,7 +383,7 @@ export interface CardLayout {
 }
 ```
 
-- [ ] **Step 5: Implement `buildCardSections`, extend `cardHeight` + `buildCardLayouts`**
+- [x] **Step 5: Implement `buildCardSections`, extend `cardHeight` + `buildCardLayouts`**
 
 In `frontend/src/components/modeling/canvasMath.ts`:
 
@@ -510,7 +510,7 @@ export function buildCardLayouts(
 
 > Note: `columnRefMatchesTable` matching a metric's full `expression` (e.g. `sum(orders.amount)`) is a substring-free prefix check today; it matches when the expression *starts with* `table.` or `schema.table.`. For metrics whose expression wraps the ref in a function, count may under-report — acceptable for a section badge (it is a hint, not a guarantee). Do not add new matching logic in this task.
 
-- [ ] **Step 6: Update the `buildCardLayouts` caller**
+- [x] **Step 6: Update the `buildCardLayouts` caller**
 
 In `frontend/src/components/modeling/useModelingCanvas.ts`, update the import from `./canvasMath` to add `buildCardSections`, then change the `cardLayouts` memo (lines 37-52) to build sections and pass them:
 
@@ -534,7 +534,7 @@ In `frontend/src/components/modeling/useModelingCanvas.ts`, update the import fr
   }, [tableCards, columns, model])
 ```
 
-- [ ] **Step 7: Run tests + gate**
+- [x] **Step 7: Run tests + gate**
 
 Run: `npm --prefix frontend run test -- canvasMath`
 Expected: PASS (new section/height tests + existing layout/bounds/join-path tests still green — heights grew but Columns geometry unchanged).
