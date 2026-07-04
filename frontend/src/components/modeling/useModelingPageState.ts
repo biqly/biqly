@@ -458,7 +458,7 @@ export function useModelingPageState() {
     if (!model) {
       return
     }
-    const yaml = await get<string>(`/semantic/models/${model.id}/export`)
+    const yaml = await get<string>(`/api/semantic/models/${model.id}/export`)
     if (yaml != null) {
       downloadTextFile(`${model.name}.yaml`, yaml)
     }
@@ -472,7 +472,7 @@ export function useModelingPageState() {
     setMessage(null)
     try {
       const content = await file.text()
-      const res = await postData<{ model: { id: string } }>('/semantic/models/import', {
+      const res = await postData<{ model: { id: string } }>('/api/semantic/models/import', {
         datasource_id: datasourceId,
         content,
       })

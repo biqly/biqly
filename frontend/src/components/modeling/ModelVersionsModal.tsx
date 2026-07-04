@@ -60,7 +60,7 @@ export function ModelVersionsModal({
     if (!open) {
       return
     }
-    void get<{ versions: SnapshotInfo[] | null }>(`/semantic/models/${modelId}/versions`).then(
+    void get<{ versions: SnapshotInfo[] | null }>(`/api/semantic/models/${modelId}/versions`).then(
       (res) => {
         setVersions(res?.versions ?? [])
       },
@@ -75,7 +75,7 @@ export function ModelVersionsModal({
   }, [onClose])
 
   const fetchVersionYaml = useCallback(
-    (version: string) => get<string>(`/semantic/models/${modelId}/versions/${version}/export`),
+    (version: string) => get<string>(`/api/semantic/models/${modelId}/versions/${version}/export`),
     [get, modelId],
   )
 
