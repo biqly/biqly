@@ -45,9 +45,9 @@ export const chatFeedClass =
 
 export const chatMsgClass = 'flex w-full animate-bubble-appear'
 
-export const chatMsgUserClass = 'justify-start'
+export const chatMsgUserClass = 'justify-end'
 
-export const chatMsgAssistantClass = 'items-start flex-row-reverse gap-[0.65rem]'
+export const chatMsgAssistantClass = 'items-start gap-[0.65rem]'
 
 export const chatMsgAvatarClass =
   'shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-accent to-accent-strong text-white text-[0.85rem] shadow-[0_2px_8px_var(--accent-glow)] mt-[0.1rem]'
@@ -86,12 +86,12 @@ export const chatTypingHintLabelClass = 'm-0 text-[0.72rem] text-foreground-fain
 export const chatBubbleClass = 'flex flex-col max-w-[85%]'
 
 export const userBubbleClass =
-  'self-start bg-gradient-to-br from-accent to-accent-strong text-white rounded-[1rem_1rem_1rem_0.15rem] p-[0.85rem_1.25rem] shadow-[0_4px_14px_var(--accent-glow)]'
+  'self-end bg-gradient-to-br from-accent to-accent-strong text-white rounded-[1rem_1rem_0.15rem_1rem] p-[0.85rem_1.25rem] shadow-[0_4px_14px_var(--accent-glow)]'
 
 export const userBubbleContentClass =
   'text-[0.92rem] leading-normal font-medium whitespace-pre-wrap'
 
-export const userBubbleTimeClass = 'text-[0.68rem] opacity-85 self-start mt-[0.35rem]'
+export const userBubbleTimeClass = 'text-[0.68rem] opacity-85 self-end mt-[0.35rem]'
 
 export const assistantCardClass =
   'bg-card border border-border rounded-[1rem_0.35rem_1rem_1rem] p-5 shadow-card flex flex-col gap-4 w-full transition-all duration-200 backdrop-blur-md hover:border-border-strong'
@@ -416,7 +416,13 @@ export const clarificationQuestionClass =
 export const clarificationOptionsClass = 'flex flex-col gap-2 mb-[0.85rem]'
 
 export const btnClarificationClass =
-  'flex flex-col items-start gap-[0.15rem] w-full text-left bg-card-raised border border-border-strong text-foreground p-[0.6rem_0.85rem] rounded-lg cursor-pointer font-semibold text-[0.85rem] transition-all duration-150 hover:bg-card hover:border-accent hover:shadow-[0_2px_8px_var(--accent-glow)] hover:-translate-y-[1px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-1 active:scale-[0.995]'
+  'flex items-start gap-3 w-full text-left bg-card-raised border border-border-strong text-foreground p-[0.6rem_0.85rem] rounded-lg cursor-pointer font-semibold text-[0.85rem] transition-all duration-150 hover:bg-card hover:border-accent hover:shadow-[0_2px_8px_var(--accent-glow)] hover:-translate-y-[1px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-1 active:scale-[0.995]'
+
+// Numbered index badge shown before each clarification option (1 / 2 / 3 …).
+export const clarificationOptionNumberClass =
+  'shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-accent/12 text-accent border border-accent/25 text-[0.72rem] font-bold leading-none mt-[0.05rem]'
+
+export const clarificationOptionBodyClass = 'flex min-w-0 flex-col items-start gap-[0.15rem]'
 
 export const btnSkipClass =
   'block mx-auto bg-transparent border-0 text-foreground-faint cursor-pointer text-[0.8rem] underline transition-colors duration-150 hover:text-foreground-muted'
