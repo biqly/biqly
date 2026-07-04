@@ -127,3 +127,14 @@ func (c *APIClient) SendDriftAlert(ctx context.Context, email string, modelName 
 		"ModelURL":   modelURL,
 	})
 }
+
+// SendReportDigest delivers a scheduled report digest. Each section carries
+// Name, Question, Columns, Rows, RowCount, Truncated, and Error keys.
+func (c *APIClient) SendReportDigest(ctx context.Context, email, reportName, sectionsText string, sections []map[string]any, generatedAt time.Time) error {
+	return c.send(ctx, "report_digest", email, map[string]any{
+		"ReportName":   reportName,
+		"GeneratedAt":  generatedAt.UTC().Format(time.RFC3339),
+		"SectionsText": sectionsText,
+		"Sections":     sections,
+	})
+}

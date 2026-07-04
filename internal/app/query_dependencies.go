@@ -54,6 +54,8 @@ func NewQueryDependencies(ctx context.Context, cfg *config.Config) (*Dependencie
 		History:     history,
 		Encryptor:   encryptor,
 		PIIPolicies: providePIIPolicyService(cfg, metaRepo, auditLogger),
+		Audit:       auditLogger,
+		Identity:    jwtIdentity,
 	})
 
 	return &Dependencies{

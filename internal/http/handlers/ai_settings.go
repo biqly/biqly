@@ -11,6 +11,10 @@ import (
 
 // aiRuntimeSettingsResponse is safe to expose in the browser: no secrets.
 type aiRuntimeSettingsResponse struct {
+	// DeploymentMode is the deployment posture (cloud, private, airgapped);
+	// airgapped fails closed on external LLM/embedding egress.
+	DeploymentMode string `json:"deployment_mode"`
+
 	Provider         string `json:"provider"`
 	LLMModel         string `json:"llm_model"`
 	BaseURL          string `json:"base_url"`
@@ -139,6 +143,7 @@ func (h *AIHandler) RuntimeSettings(w http.ResponseWriter, r *http.Request) {
 	queryCfg := queryView.Config
 	profile := prompt.LookupModelContextProfile(queryCfg.Connection.Model, queryCfg.Generation.NumCtx)
 	out := aiRuntimeSettingsResponse{
+		DeploymentMode:   h.deps.Config.DeploymentMode,
 		Provider:         cfg.Connection.Provider,
 		LLMModel:         cfg.Connection.Model,
 		BaseURL:          cfg.Connection.BaseURL,

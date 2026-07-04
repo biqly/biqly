@@ -384,9 +384,11 @@ func maskColumnRef(colPath, physicalPath string, d dialect.Dialect, piiConfig *P
 		return "", false
 	}
 	if access != pii.AccessRaw && access != pii.AccessMasked {
+		piiConfig.Applied.recordHidden(physicalPath)
 		return pii.HiddenLiteral, true
 	}
 	if access == pii.AccessMasked {
+		piiConfig.Applied.recordMasked(physicalPath)
 		colSQL := d.QuoteIdent(physicalPath)
 		return piiConfig.strategy().MaskExpression(colSQL, piiType, d), true
 	}

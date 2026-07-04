@@ -173,6 +173,13 @@ func (s *SMTPEmailSender) buildTemplateData(template string, data map[string]any
 			"ModelURL":   str("ModelURL"),
 			"Drifts":     data["Drifts"],
 		}, nil
+	case "report_digest":
+		return map[string]any{
+			"ReportName":   str("ReportName"),
+			"GeneratedAt":  displayTime("GeneratedAt"),
+			"SectionsText": str("SectionsText"),
+			"Sections":     data["Sections"],
+		}, nil
 	default:
 		return nil, fmt.Errorf("%w: %q", ErrUnknownTemplate, template)
 	}

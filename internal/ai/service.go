@@ -151,6 +151,7 @@ type processOptions struct {
 	targetDialect                string
 	glossary                     []promptpkg.GlossaryEntry
 	ambiguityGlossary            []promptpkg.GlossaryEntry
+	memories                     []string
 	ambiguityCheck               bool
 	ambiguitySynonymOnly         bool
 	ambiguityInteractiveTier     bool
@@ -160,6 +161,7 @@ type processOptions struct {
 	ambiguityObserver            AmbiguityAnalysisObserver
 	ambiguityTierObserver        func(tier string)
 	stepObserver                 AIStepObserver
+	runRecorder                  *RunRecorder
 }
 
 type tieredProcessOptions struct {
@@ -220,6 +222,11 @@ func WithTargetDialect(dialectName string) ProcessOption {
 // WithGlossary injects business-term → field mappings into the prompt.
 func WithGlossary(entries []promptpkg.GlossaryEntry) ProcessOption {
 	return func(o *processOptions) { o.glossary = entries }
+}
+
+// WithMemories injects the user's durable remembered facts into the prompt.
+func WithMemories(memories []string) ProcessOption {
+	return func(o *processOptions) { o.memories = memories }
 }
 
 // WithAmbiguityGlossary preserves unmerged terms so collision checks see every mapping.
@@ -305,6 +312,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		if cachedResp, err := s.cache.Get(ctx, cacheKey); err == nil && cachedResp != nil {
 			slog.InfoContext(ctx, "LLM Response Cache hit", "question", question, "key", cacheKey)
 			observability.Default().RecordLLMResponseCacheHit()
+			options.runRecorder.Record("llm_cache_hit", RunStepStatusOK, 0, 0, "")
 			return cachedResp, nil
 		}
 		observability.Default().RecordLLMResponseCacheMiss()
@@ -381,11 +389,6 @@ func (s *Service) analyzeAmbiguity(ctx context.Context, question string, model *
 	}
 
 	ambiguityStart := time.Now()
-	defer func() {
-		if options.stepObserver != nil {
-			options.stepObserver("ambiguity", time.Since(ambiguityStart).Milliseconds())
-		}
-	}()
 
 	source := "rule_based"
 	start := time.Now()
@@ -440,6 +443,8 @@ func (s *Service) analyzeAmbiguity(ctx context.Context, question string, model *
 		attribute.String("ai.ambiguity.source", source),
 		attribute.Bool("ai.ambiguity.detected", result.IsAmbiguous),
 	)
+	options.observeStep("ambiguity", time.Since(ambiguityStart).Milliseconds(), RunStepStatusOK, 0,
+		fmt.Sprintf("source=%s detected=%t", source, result.IsAmbiguous))
 	return result
 }
 
@@ -471,9 +476,7 @@ func (s *Service) generateAtWithSpan(ctx context.Context, prompt string, tempera
 	start := time.Now()
 	gen, err := s.client.GenerateAt(ctx, prompt, temperature)
 	llmMs := time.Since(start).Milliseconds()
-	if options != nil && options.stepObserver != nil {
-		options.stepObserver("llm_generate", llmMs)
-	}
+	options.observeStep("llm_generate", llmMs, runStepStatus(err), attempt, runStepDetail(err))
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -495,9 +498,7 @@ func (s *Service) generateWithSpan(ctx context.Context, prompt string, attempt i
 	start := time.Now()
 	gen, err := s.client.Generate(ctx, prompt)
 	llmMs := time.Since(start).Milliseconds()
-	if options != nil && options.stepObserver != nil {
-		options.stepObserver("llm_generate", llmMs)
-	}
+	options.observeStep("llm_generate", llmMs, runStepStatus(err), attempt, runStepDetail(err))
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -543,9 +544,14 @@ func (s *Service) generateWithRetries(
 		if st.parseErr != nil && gen.FinishReason == "length" {
 			st.parseErr = fmt.Errorf("%w (completion truncated by max_tokens, finish_reason=length)", st.parseErr)
 		}
-		if options.stepObserver != nil {
-			options.stepObserver("parse_validate", time.Since(parseStart).Milliseconds())
+		parseStatus, parseDetail := RunStepStatusOK, ""
+		switch {
+		case st.parseErr != nil:
+			parseStatus, parseDetail = RunStepStatusFailed, st.parseErr.Error()
+		case st.validationErrCount > 0:
+			parseStatus, parseDetail = RunStepStatusFailed, fmt.Sprintf("%d validation error(s)", st.validationErrCount)
 		}
+		options.observeStep("parse_validate", time.Since(parseStart).Milliseconds(), parseStatus, attempt, parseDetail)
 
 		// Dry-run check (e.g. EXPLAIN) only when the query parsed and passed
 		// semantic validation; otherwise the SQL would not be compilable anyway.
@@ -553,9 +559,7 @@ func (s *Service) generateWithRetries(
 		if st.parseErr == nil && st.validationErrCount == 0 && options.sqlValidator != nil {
 			sqlStart := time.Now()
 			sqlErr = options.sqlValidator(ctx, st.lq)
-			if options.stepObserver != nil {
-				options.stepObserver("sql_dry_run", time.Since(sqlStart).Milliseconds())
-			}
+			options.observeStep("sql_dry_run", time.Since(sqlStart).Milliseconds(), runStepStatus(sqlErr), attempt, runStepDetail(sqlErr))
 			if sqlErr != nil {
 				st.warnings = append(st.warnings, "dry-run failed: "+sqlErr.Error())
 			}
@@ -836,6 +840,7 @@ func (s *Service) buildPrompt(
 			PriorTurns:   tiered.priorTurns,
 			DeniedFields: tiered.deniedFields,
 			Glossary:     tiered.glossary,
+			Memories:     options.memories,
 		},
 	)
 	if block := ActiveFilterInstructions(filterSess, followIntent); block != "" {
@@ -845,9 +850,7 @@ func (s *Service) buildPrompt(
 		prompt += block
 	}
 	buildDurationMs := time.Since(start).Milliseconds()
-	if options.stepObserver != nil {
-		options.stepObserver("prompt_build", buildDurationMs)
-	}
+	options.observeStep("prompt_build", buildDurationMs, RunStepStatusOK, 0, "tier="+promptpkg.ContextTierLabel(tier))
 	stats := promptpkg.MeasurePrompt(prompt, s.queryModel, tier, s.aiCfg)
 	stats.PromptBuildDurationMs = buildDurationMs
 	slog.InfoContext(ctx, "ai prompt context",
@@ -901,7 +904,7 @@ func (s *Service) tryMultiCandidate(
 	stats *promptpkg.Stats,
 	filterSess *FilterSessionState,
 	followIntent FollowUpIntent,
-) (*AIResponse, bool) {
+) (resp *AIResponse, won bool) {
 	n := s.multiCandidateCount
 	if n < 2 {
 		return nil, false
@@ -909,9 +912,11 @@ func (s *Service) tryMultiCandidate(
 
 	multiStart := time.Now()
 	defer func() {
-		if options.stepObserver != nil {
-			options.stepObserver("multi_candidate", time.Since(multiStart).Milliseconds())
+		detail := "no majority; falling back to retry loop"
+		if won {
+			detail = "majority winner selected"
 		}
+		options.observeStep("multi_candidate", time.Since(multiStart).Milliseconds(), RunStepStatusOK, 0, detail)
 	}()
 
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.MultiCandidate")

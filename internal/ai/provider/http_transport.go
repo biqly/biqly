@@ -26,6 +26,9 @@ type httpPostSpec struct {
 }
 
 func execHTTPPost(ctx context.Context, client *http.Client, spec httpPostSpec) (status int, body []byte, err error) {
+	if err := CheckEgress(spec.URL); err != nil {
+		return 0, nil, err
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, spec.URL, bytes.NewReader(spec.Body))
 	if err != nil {
 		return 0, nil, fmt.Errorf("create request: %w", err)

@@ -1,6 +1,8 @@
 // ─── AI runtime (server env) ───────────────────────────────────────
 
 export interface AIRuntimeSettings {
+  /** Deployment profile: cloud, private, or airgapped (read-only, env-set). */
+  deployment_mode?: string
   provider: string
   llm_model: string
   base_url: string
@@ -261,6 +263,8 @@ export interface AIQueryResponse {
   cost_usd?: number
   // Transparency (how the system interpreted the question)
   generation_trace?: GenerationTrace
+  // Ordered pipeline step timeline (routing, prompt, LLM attempts, validation)
+  run_steps?: RunStep[]
 }
 
 export interface ConversationMessage {
@@ -476,6 +480,15 @@ export interface GenerationTrace {
   columns_resolved?: ColumnResolution[]
   ambiguity_result?: string
   ambiguity_detail?: string
+}
+
+export interface RunStep {
+  seq: number
+  kind: string
+  status: 'ok' | 'failed'
+  attempt?: number
+  duration_ms: number
+  detail?: string
 }
 
 export type QueryColumnSemanticType = 'dimension' | 'metric'

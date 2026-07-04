@@ -96,6 +96,18 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	}
 	r.With(aiHistoryPagination).Get("/ai/history", aiHandler.AIHistory)
 	r.Get("/ai/history/detail", aiHandler.AIHistoryDetail)
+	// Replay resolves the history entry to its owning datasource before the
+	// access check (the {id} is a history row, not a datasource). Enforced
+	// unconditionally like the glossary routes: the monolith proxy cannot
+	// resolve history ids, so the check must live here.
+	historyDS := func(ctx context.Context, id string) (string, error) {
+		row, err := deps.MetaRepo.GetAIQueryHistoryByID(ctx, id)
+		if err != nil {
+			return "", err
+		}
+		return row.DatasourceID, nil
+	}
+	r.With(aiUserMW, bimw.RequireResolvedDatasourceAccess(authClient, "read", historyDS)).Post("/ai/history/{id}/replay", aiHandler.ReplayAIHistory)
 	r.With(queryHistoryPagination).Get("/ai/query/history", aiHandler.QueryHistory)
 	registerAIConversationRoutes(r, aiHandler, aiUserMW, dsAccess)
 	r.With(aiUserMW, dsAccess).Post("/ai/query", aiHandler.Query)
@@ -173,6 +185,45 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	})
 
 	registerAIExamplesGlossaryAndTemplatesRoutes(r, deps, authClient, usageBreakdownPagination)
+	registerAISkillsRoutes(r, deps, authClient)
+}
+
+// registerAISkillsRoutes wires the skills library: saved parameterized
+// LogicalQuery templates re-run through the governed query path. Mutating and
+// run routes resolve the skill {id} to its owning datasource before the
+// access check, like the glossary and replay routes: the monolith proxy
+// cannot resolve skill ids, so the check must live here.
+func registerAISkillsRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthClient) {
+	skillsHandler := handlers.NewAISkillsHandler(deps)
+	skillDS := func(ctx context.Context, id string) (string, error) {
+		return deps.MetaRepo.DatasourceForSkill(ctx, id)
+	}
+	skillAccess := bimw.RequireResolvedDatasourceAccess(authClient, "read", skillDS)
+	aiUserMW := bimw.InjectAIUserContext
+	r.Get("/ai/skills", skillsHandler.List)
+	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Post("/ai/skills", skillsHandler.Create)
+	r.With(skillAccess).Get("/ai/skills/{id}", skillsHandler.Get)
+	r.With(skillAccess).Put("/ai/skills/{id}", skillsHandler.Update)
+	r.With(skillAccess).Delete("/ai/skills/{id}", skillsHandler.Delete)
+	r.With(aiUserMW, skillAccess).Post("/ai/skills/{id}/run", skillsHandler.Run)
+
+	// Report schedules run skills unattended and mail results to arbitrary
+	// recipients — admin surface only.
+	reportsHandler := handlers.NewReportSchedulesHandler(deps)
+	requireReportAdmin := bimw.RequirePermission(authClient, "ai:settings")
+	r.With(requireReportAdmin).Get("/ai/reports/schedules", reportsHandler.List)
+	r.With(requireReportAdmin).Post("/ai/reports/schedules", reportsHandler.Create)
+	r.With(requireReportAdmin).Get("/ai/reports/schedules/{id}", reportsHandler.Get)
+	r.With(requireReportAdmin).Put("/ai/reports/schedules/{id}", reportsHandler.Update)
+	r.With(requireReportAdmin).Delete("/ai/reports/schedules/{id}", reportsHandler.Delete)
+
+	// Memory entries are owner-scoped (workspace + user from JWT); no admin
+	// permission — every user manages only their own remembered facts.
+	memoryHandler := handlers.NewMemoryEntriesHandler(deps)
+	r.Get("/ai/memory/entries", memoryHandler.List)
+	r.Post("/ai/memory/entries", memoryHandler.Create)
+	r.Put("/ai/memory/entries/{id}", memoryHandler.Update)
+	r.Delete("/ai/memory/entries/{id}", memoryHandler.Delete)
 }
 
 func registerAIExamplesGlossaryAndTemplatesRoutes(

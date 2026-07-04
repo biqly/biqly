@@ -16,6 +16,7 @@ import type {
   SemanticModelSummary,
   TableRow,
 } from '../../types/semantic'
+import { downloadTextFile } from '../../utils/downloadFile'
 import { pickPublishedModelId, pickValidIdOrFirst } from '../../utils/effectiveSelection'
 import { activeEntities, inactiveEntities } from './entityActions'
 import { tableImpact } from './modelingImpact'
@@ -124,6 +125,7 @@ export function useModelingPageState() {
   const [activeTab, setActiveTab] = useState<Tab>('joins')
   const [suggestedJoins, setSuggestedJoins] = useState<SuggestedJoin[]>([])
   const [publishing, setPublishing] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [highlightJoinId, setHighlightJoinId] = useState<string | null>(null)
   const highlightJoinIdRef = useRef<string | null>(null)
   // Keep ref in sync so handleJoinClick can compare
@@ -452,6 +454,38 @@ export function useModelingPageState() {
     }
   }
 
+  const exportModel = async () => {
+    if (!model) {
+      return
+    }
+    const yaml = await get<string>(`/api/semantic/models/${model.id}/export`)
+    if (yaml != null) {
+      downloadTextFile(`${model.name}.yaml`, yaml)
+    }
+  }
+
+  const importModel = async (file: File) => {
+    if (!datasourceId || importing) {
+      return
+    }
+    setImporting(true)
+    setMessage(null)
+    try {
+      const content = await file.text()
+      const res = await postData<{ model: { id: string } }>('/api/semantic/models/import', {
+        datasource_id: datasourceId,
+        content,
+      })
+      if (res?.model) {
+        await refreshModels(res.model.id)
+        setModelId(res.model.id)
+        setMessage(t('modeling.model_imported'))
+      }
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const saveJoin = () =>
     runSaveJoin({
       model,
@@ -743,6 +777,9 @@ export function useModelingPageState() {
     removeModel,
     renameModel,
     publishModel,
+    exportModel,
+    importModel,
+    importing,
     syncDimensions,
     renameTarget,
     renameValue,

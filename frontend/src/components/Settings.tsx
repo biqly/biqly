@@ -29,6 +29,7 @@ import {
 } from './admin/adminClasses'
 import { useAuth } from './auth/AuthProvider'
 import { AccountProfileSection } from './settings/AccountProfileSection'
+import { AIMemorySection } from './settings/AIMemorySection'
 import { AIModelPreferencesSection } from './settings/AIModelPreferencesSection'
 import { MFASection, type MFAStatus } from './settings/MFASection'
 import { PasskeyTable } from './settings/PasskeyTable'
@@ -426,6 +427,7 @@ export default function Settings() {
               {t('settings.configuration_group')}
             </h2>
             <AIModelPreferencesSection />
+            <AIMemorySection />
             {(canManageAISettings || canManageProviders) && (
               <div className="grid grid-cols-1 gap-[0.85rem] min-[1500px]:grid-cols-3 sm:grid-cols-2">
                 {canManageAISettings && (

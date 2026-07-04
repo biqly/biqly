@@ -216,6 +216,7 @@ type QueryDeps struct {
 	Executor     *query.Executor
 	QueryService *core.QueryService
 	AuditLogger  *audit.Logger
+	AuditReader  *audit.Reader
 }
 
 // QueryDeps returns a structured copy of dependencies for the Query subsystem.
@@ -227,6 +228,7 @@ func (d *Dependencies) QueryDeps() *QueryDeps {
 		Executor:     d.Executor,
 		QueryService: d.QueryService,
 		AuditLogger:  d.AuditLogger,
+		AuditReader:  audit.NewReader(d.MetadataDB),
 	}
 }
 
@@ -302,6 +304,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		Encryptor:   encryptor,
 		Pools:       poolCache,
 		PIIPolicies: piiPolicies,
+		Audit:       auditLogger,
+		Identity:    jwtIdentity,
 	})
 
 	aiBits, err := setupAI(ctx, cfg, db, metaRepo, reg, encryptor, poolCache)

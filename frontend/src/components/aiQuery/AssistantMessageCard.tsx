@@ -94,6 +94,7 @@ function AssistantMessageFeedbackRow({
   hasLogicalQuery,
   submitFeedback,
   handleSaveToLibrary,
+  handleSaveAsSkill,
   t,
 }: {
   userQuestion: string
@@ -103,6 +104,7 @@ function AssistantMessageFeedbackRow({
     body: Record<string, unknown>,
   ) => Promise<{ status: string; learned?: boolean } | null>
   handleSaveToLibrary: () => void
+  handleSaveAsSkill: () => void
   t: AssistantMessageCardProps['t']
 }) {
   return (
@@ -127,20 +129,35 @@ function AssistantMessageFeedbackRow({
         }}
       />
       {hasLogicalQuery && (
-        <button
-          type="button"
-          className={buttonClass('ghost', { size: 'sm' })}
-          style={{
-            marginLeft: 'auto',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.25rem',
-          }}
-          onClick={handleSaveToLibrary}
-          title={t('saved_questions.new')}
-        >
-          💾 {t('saved_questions.new')}
-        </button>
+        <>
+          <button
+            type="button"
+            className={buttonClass('ghost', { size: 'sm' })}
+            style={{
+              marginLeft: 'auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+            }}
+            onClick={handleSaveToLibrary}
+            title={t('saved_questions.new')}
+          >
+            💾 {t('saved_questions.new')}
+          </button>
+          <button
+            type="button"
+            className={buttonClass('ghost', { size: 'sm' })}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+            }}
+            onClick={handleSaveAsSkill}
+            title={t('skills.new')}
+          >
+            ⚡ {t('skills.new')}
+          </button>
+        </>
       )}
     </div>
   )
@@ -307,18 +324,27 @@ export function AssistantMessageCard({
     }
   }
 
-  const handleSaveToLibrary = () => {
-    if (!result.logical_query) {
-      return
-    }
-    const params = new URLSearchParams({
+  const buildSavePrefillParams = () =>
+    new URLSearchParams({
       prefill: '1',
       question: userQuestion,
       logical_query: JSON.stringify(result.logical_query),
       datasource_id: datasourceId,
-      model_id: String(result.logical_query.model_id || ''),
+      model_id: String(result.logical_query?.model_id ?? ''),
     })
-    void navigate(`/saved?${params.toString()}`)
+
+  const handleSaveToLibrary = () => {
+    if (!result.logical_query) {
+      return
+    }
+    void navigate(`/saved?${buildSavePrefillParams().toString()}`)
+  }
+
+  const handleSaveAsSkill = () => {
+    if (!result.logical_query) {
+      return
+    }
+    void navigate(`/skills?${buildSavePrefillParams().toString()}`)
   }
 
   const resultWithPayload = result.result
@@ -381,6 +407,7 @@ export function AssistantMessageCard({
         hasLogicalQuery={!!result.logical_query}
         submitFeedback={submitFeedback}
         handleSaveToLibrary={handleSaveToLibrary}
+        handleSaveAsSkill={handleSaveAsSkill}
         t={t}
       />
       <SampleDataModal

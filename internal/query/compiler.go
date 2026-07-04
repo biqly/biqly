@@ -146,6 +146,9 @@ func (c *Compiler) CompileWithPermissions(
 	if len(rowFilters) == 0 && piiConfig == nil {
 		return c.Compile(ctx, lq, model)
 	}
+	if piiConfig != nil && piiConfig.Applied == nil {
+		piiConfig.Applied = &AppliedPII{}
+	}
 	comp := c.withCompileCtx(ctx)
 	if comp.err != nil {
 		return nil, comp.err
@@ -166,7 +169,48 @@ func (c *Compiler) CompileWithPermissions(
 	if comp.err != nil {
 		return nil, comp.err
 	}
+	cq.Policy = buildPolicyDecisions(rowFilters, model, piiConfig)
 	return cq, nil
+}
+
+// buildPolicyDecisions summarizes the policy actually applied during one
+// compilation: row filters that matched a model field (mirrors the
+// omitUnknownFields behavior of BuildRowFilterPredicates) plus the PII
+// masking decisions collected by the compiler. Returns nil when no policy
+// was applied.
+func buildPolicyDecisions(rowFilters []security.RowFilter, model *semantic.SemanticModel, piiConfig *PIIMaskingConfig) *PolicyDecisions {
+	var decisions PolicyDecisions
+	if len(rowFilters) > 0 && model != nil {
+		fields := make(map[string]struct{}, len(model.Dimensions)+len(model.Metrics))
+		for i := range model.Dimensions {
+			fields[model.Dimensions[i].Name] = struct{}{}
+		}
+		for i := range model.Metrics {
+			fields[model.Metrics[i].Name] = struct{}{}
+		}
+		for _, rf := range rowFilters {
+			if _, ok := fields[rf.Field]; !ok {
+				continue
+			}
+			op := strings.ToLower(strings.TrimSpace(rf.Operator))
+			if op == "" {
+				op = "eq"
+			}
+			decisions.RowFilters = append(decisions.RowFilters, AppliedRowFilter{
+				Field:    rf.Field,
+				Operator: op,
+				Value:    rf.Value,
+			})
+		}
+	}
+	if piiConfig != nil && piiConfig.Applied != nil {
+		decisions.MaskedColumns = piiConfig.Applied.Masked
+		decisions.HiddenColumns = piiConfig.Applied.Hidden
+	}
+	if len(decisions.RowFilters) == 0 && len(decisions.MaskedColumns) == 0 && len(decisions.HiddenColumns) == 0 {
+		return nil
+	}
+	return &decisions
 }
 
 func (c *Compiler) withCompileCtx(ctx context.Context) *Compiler {

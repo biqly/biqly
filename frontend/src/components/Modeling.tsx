@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import { cn } from '../lib/cn'
 import { semanticModelSetupStatusClass } from '../lib/feedbackClasses'
 import {
@@ -13,6 +15,7 @@ import { ModelingCanvas } from './modeling/ModelingCanvas'
 import { ModelingModals } from './modeling/ModelingModals'
 import { ModelingPalette } from './modeling/ModelingPalette'
 import { ModelingToolbar } from './modeling/ModelingToolbar'
+import { ModelVersionsModal } from './modeling/ModelVersionsModal'
 import { useModelingPageState } from './modeling/useModelingPageState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
@@ -20,6 +23,7 @@ import { LockedState } from './ui/LockedState'
 
 export default function Modeling() {
   const s = useModelingPageState()
+  const [versionsOpen, setVersionsOpen] = useState(false)
 
   if (s.pageLoading) {
     return <LoadingScreen minHeight="300px" />
@@ -42,6 +46,10 @@ export default function Modeling() {
         onRenameModel={s.renameModel}
         onPublishModel={() => void s.publishModel()}
         onRemoveModel={() => void s.removeModel()}
+        onExportModel={() => void s.exportModel()}
+        onImportModel={(file) => void s.importModel(file)}
+        importing={s.importing}
+        onOpenVersions={() => setVersionsOpen(true)}
       />
 
       {s.isLocked ? (
@@ -189,6 +197,14 @@ export default function Modeling() {
             />
           </section>
         </>
+      )}
+      {s.model && (
+        <ModelVersionsModal
+          open={versionsOpen}
+          modelId={s.model.id}
+          modelName={s.model.name}
+          onClose={() => setVersionsOpen(false)}
+        />
       )}
       {s.model && (
         <ModelingModals

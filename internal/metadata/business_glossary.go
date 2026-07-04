@@ -89,7 +89,6 @@ func (r *Repository) InsertBusinessGlossary(ctx context.Context, in BusinessGlos
 	return id, err
 }
 
-// UpdateBusinessGlossary updates a row by id.
 // DatasourceForBusinessGlossary returns the datasource id owning a glossary
 // term, used to authorize update/delete of a term by its id (which otherwise
 // carries no datasource scope).

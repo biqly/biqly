@@ -21,6 +21,8 @@ import (
 
 // NewAIDependencies wires the standalone AI Service dependency graph.
 func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, error) {
+	providerpkg.SetAirgapped(cfg.DeploymentMode == config.DeploymentModeAirgapped)
+
 	db, err := openMetadataDB(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -45,6 +47,8 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		History:     metaRepo,
 		Encryptor:   encryptor,
 		PIIPolicies: piiPolicies,
+		Audit:       auditLogger,
+		Identity:    jwtIdentity,
 	})
 
 	providerStore := provideProviderStore(ctx, cfg, db, encryptor)
@@ -98,25 +102,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		return nil, err
 	}
 
-	var catalogHTTPClient *catalogclient.Client
-	if cfg.Services.CatalogURL != "" {
-		catalogHTTPClient = catalogclient.New(
-			cfg.Services.CatalogURL,
-			catalogclient.WithAuthToken(cfg.Security.InternalAPIToken),
-			catalogclient.WithCaller("ai"),
-		)
-		slog.Info("ai service using Catalog Service for metadata/history", "catalog_url", catalogHTTPClient.BaseURL())
-	}
-
-	var queryHTTPClient *queryclient.Client
-	if cfg.Services.QueryURL != "" {
-		queryHTTPClient = queryclient.New(
-			cfg.Services.QueryURL,
-			queryclient.WithAuthToken(cfg.Security.InternalAPIToken),
-			queryclient.WithCaller("ai"),
-		)
-		slog.Info("ai service using Query Engine for compile/run/dry-run", "query_url", queryHTTPClient.BaseURL())
-	}
+	catalogHTTPClient, queryHTTPClient := provideServiceClients(cfg)
 
 	return &Dependencies{
 		Config:          cfg,
@@ -144,4 +130,29 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		TimeGrains:      timeGrainsStore,
 		AIProviderStore: providerStore,
 	}, nil
+}
+
+// provideServiceClients builds the optional Catalog and Query Engine HTTP
+// clients when their service URLs are configured.
+func provideServiceClients(cfg *config.Config) (*catalogclient.Client, *queryclient.Client) {
+	var catalogHTTPClient *catalogclient.Client
+	if cfg.Services.CatalogURL != "" {
+		catalogHTTPClient = catalogclient.New(
+			cfg.Services.CatalogURL,
+			catalogclient.WithAuthToken(cfg.Security.InternalAPIToken),
+			catalogclient.WithCaller("ai"),
+		)
+		slog.Info("ai service using Catalog Service for metadata/history", "catalog_url", catalogHTTPClient.BaseURL())
+	}
+
+	var queryHTTPClient *queryclient.Client
+	if cfg.Services.QueryURL != "" {
+		queryHTTPClient = queryclient.New(
+			cfg.Services.QueryURL,
+			queryclient.WithAuthToken(cfg.Security.InternalAPIToken),
+			queryclient.WithCaller("ai"),
+		)
+		slog.Info("ai service using Query Engine for compile/run/dry-run", "query_url", queryHTTPClient.BaseURL())
+	}
+	return catalogHTTPClient, queryHTTPClient
 }

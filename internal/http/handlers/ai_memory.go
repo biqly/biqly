@@ -11,6 +11,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai/memory"
 	"github.com/biqly/biqly/internal/ai/prompt"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -53,6 +54,29 @@ func (h *AIHandler) appendConfirmedFewShot(
 		h.metrics.RecordMemoryStoreRecall(hitCount)
 	}
 	return append(out, recalled...), hitCount
+}
+
+// loadMemoryFacts returns the caller's durable remembered facts for prompt
+// injection, newest first, capped so they cannot crowd out schema context.
+func (h *AIHandler) loadMemoryFacts(ctx context.Context) []string {
+	if h.deps == nil || h.deps.MetaRepo == nil {
+		return nil
+	}
+	userID := bimw.UserID(ctx)
+	if userID == "" {
+		return nil
+	}
+	rows, err := h.deps.MetaRepo.ListMemoryEntries(ctx, bimw.WorkspaceID(ctx), userID)
+	if err != nil {
+		slog.WarnContext(ctx, "load memory entries failed", "error", err)
+		return nil
+	}
+	limit := min(len(rows), 20)
+	facts := make([]string, 0, limit)
+	for _, row := range rows[:limit] {
+		facts = append(facts, row.Content)
+	}
+	return facts
 }
 
 // storeConfirmedQueryOnPositiveFeedback persists the NL→SQL pair behind a

@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/biqly/biqly/internal/ai/provider"
 )
 
 const defaultRemoteModelsTimeout = 20 * time.Second
@@ -91,6 +93,9 @@ func listAnthropicModels(ctx context.Context, baseURL, apiKey string, timeout ti
 }
 
 func doRemoteModelsRequest(req *http.Request, timeout time.Duration) ([]RemoteModelOption, error) {
+	if err := provider.CheckEgress(req.URL.String()); err != nil {
+		return nil, err
+	}
 	if timeout <= 0 {
 		timeout = defaultRemoteModelsTimeout
 	}

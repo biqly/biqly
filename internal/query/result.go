@@ -17,6 +17,8 @@ type (
 	Anomaly          = pkgquery.Anomaly
 	Stats            = pkgquery.Stats
 	CompiledQuery    = pkgquery.CompiledQuery
+	AppliedRowFilter = pkgquery.AppliedRowFilter
+	PolicyDecisions  = pkgquery.PolicyDecisions
 	HistoryEntry     = pkgquery.HistoryEntry
 	ValidationError  = pkgquery.ValidationError
 	ValidationErrors = pkgquery.ValidationErrors //nolint:errname // re-export of pkg/query.ValidationErrors

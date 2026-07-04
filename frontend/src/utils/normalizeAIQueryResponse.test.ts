@@ -72,6 +72,34 @@ describe('normalizeAIQueryResponse', () => {
     expect(flat?.generation_trace?.columns_resolved?.[0]?.resolved).toBe('sum(orders.total_amount)')
   })
 
+  it('unwraps run_steps from metadata', () => {
+    const nested = {
+      result: {
+        sql: 'SELECT 1',
+        confidence: 0.8,
+      },
+      metadata: {
+        run_steps: [
+          { seq: 1, kind: 'table_route', status: 'ok', duration_ms: 12 },
+          {
+            seq: 2,
+            kind: 'llm_generate',
+            status: 'failed',
+            attempt: 1,
+            duration_ms: 850,
+            detail: 'provider timeout',
+          },
+          'not-a-step',
+        ],
+      },
+    }
+    const flat = normalizeAIQueryResponse(nested)
+    expect(flat?.run_steps).toHaveLength(2)
+    expect(flat?.run_steps?.[0]?.kind).toBe('table_route')
+    expect(flat?.run_steps?.[1]?.status).toBe('failed')
+    expect(flat?.run_steps?.[1]?.detail).toBe('provider timeout')
+  })
+
   it('filters non-string clarification_options entries', () => {
     const nested = {
       result: { confidence: 0 },

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -30,7 +31,14 @@ type Config struct {
 	PII       PIIConfig
 	Drift     DriftConfig
 	Mail      MailConfig
+	// DeploymentMode is the deployment posture: "cloud" (default), "private",
+	// or "airgapped". Airgapped fails closed on external LLM/embedding egress:
+	// provider endpoints must resolve to private, in-cluster hosts.
+	DeploymentMode string
 }
+
+// DeploymentModeAirgapped is the fail-closed, no-external-egress posture.
+const DeploymentModeAirgapped = "airgapped"
 
 // DriftConfig controls the background schema drift check.
 type DriftConfig struct {
@@ -392,6 +400,7 @@ func Load() (*Config, error) {
 
 func loadConfigFromEnv() *Config {
 	return &Config{
+		DeploymentMode: strings.ToLower(strings.TrimSpace(getEnv("BI_DEPLOYMENT_MODE", "cloud"))),
 		Drift: DriftConfig{
 			CheckInterval: getEnvAsDuration("BI_DRIFT_CHECK_INTERVAL", 6*time.Hour),
 		},
@@ -533,6 +542,9 @@ func loadAIConfigFromEnv() AIConfig {
 }
 
 func validateLoadedConfig(cfg *Config) error {
+	if !slices.Contains([]string{"cloud", "private", DeploymentModeAirgapped}, cfg.DeploymentMode) {
+		return fmt.Errorf("BI_DEPLOYMENT_MODE must be one of cloud, private, airgapped; got %q", cfg.DeploymentMode)
+	}
 	if cfg.Metadata.DSN == "" {
 		return errors.New("BI_METADATA_DB_DSN is required")
 	}

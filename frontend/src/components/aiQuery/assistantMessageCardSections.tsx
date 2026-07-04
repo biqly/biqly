@@ -41,6 +41,7 @@ import {
   TableRoutingViz,
 } from './routingViz'
 import { warningBodyKey } from './routingVizUtils'
+import { RunTracePanel } from './RunTrace'
 import type { AssistantMessageCardProps } from './types'
 
 type AssistantT = AssistantMessageCardProps['t']
@@ -338,6 +339,9 @@ export function AssistantMessageQueryDetails({
     <>
       {result.generation_trace && !result.needs_clarification ? (
         <GenerationTracePanel trace={result.generation_trace} />
+      ) : null}
+      {result.run_steps?.length && !result.needs_clarification ? (
+        <RunTracePanel steps={result.run_steps} />
       ) : null}
       <AssistantTableRoutingSection result={result} onSampleData={onSampleData} t={t} />
       <ValidationPlanSection result={result} t={t} />

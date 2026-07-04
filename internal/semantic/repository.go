@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 	"github.com/bytedance/sonic"
@@ -662,6 +663,35 @@ func (r *Repository) MarkModelDraft(ctx context.Context, id string) error {
 		return fmt.Errorf("mark model draft: %w", err)
 	}
 	return nil
+}
+
+// SnapshotInfo summarizes one published version of a semantic model.
+type SnapshotInfo struct {
+	Version   int       `json:"version"`
+	CreatedBy *string   `json:"created_by,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// ListModelSnapshots returns published version metadata for a model, newest first.
+func (r *Repository) ListModelSnapshots(ctx context.Context, modelID string) ([]SnapshotInfo, error) {
+	query := `
+		SELECT version, created_by, created_at
+		FROM semantic_context_snapshots
+		WHERE model_id = $1::uuid
+		ORDER BY version DESC
+	`
+	return platformdb.QuerySliceErr(ctx, r.db, "list model snapshots", query, []any{modelID}, func(s platformdb.Scanner) (SnapshotInfo, error) {
+		var info SnapshotInfo
+		if err := s.Scan(&info.Version, &info.CreatedBy, &info.CreatedAt); err != nil {
+			return info, fmt.Errorf("scan snapshot info: %w", err)
+		}
+		return info, nil
+	})
+}
+
+// GetModelSnapshot returns the full model as captured at a published version.
+func (r *Repository) GetModelSnapshot(ctx context.Context, modelID string, version int) (*SemanticModel, error) {
+	return r.snapshotByVersion(ctx, modelID, version)
 }
 
 func (r *Repository) latestPublishedSnapshot(ctx context.Context, modelID string) (*SemanticModel, error) {

@@ -120,6 +120,9 @@ function assignMetadataFields(flat: AIQueryResponse, metadata: Record<string, un
   if (isRecord(metadata.generation_trace)) {
     flat.generation_trace = metadata.generation_trace
   }
+  if (Array.isArray(metadata.run_steps)) {
+    flat.run_steps = metadata.run_steps.filter(isRecord) as unknown as AIQueryResponse['run_steps']
+  }
 }
 
 /** Unwraps backend `ai.Response` ({ result, metadata, clarification }) into flat `AIQueryResponse`. */

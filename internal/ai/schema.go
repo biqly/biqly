@@ -55,6 +55,7 @@ type AIMetadata struct {
 	CandidatesCount             int                         `json:"candidates_count,omitempty"`
 	RepairDetails               []RepairDetail              `json:"repair_details,omitempty"`
 	GenerationTrace             *GenerationTrace            `json:"generation_trace,omitempty"`
+	RunSteps                    []RunStep                   `json:"run_steps,omitempty"`
 }
 
 type RepairDetail struct {

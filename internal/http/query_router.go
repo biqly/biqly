@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/http/handlers"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/go-chi/chi/v5"
@@ -39,20 +40,22 @@ func QueryRouter(deps *app.Dependencies) http.Handler {
 	authClient := NewAuthClient(deps)
 	r.Route("/api", func(r chi.Router) {
 		r.Use(authMW)
+		r.Use(bimw.ChannelTag())
 		r.Use(bimw.RequirePermission(authClient, "query:execute"))
-		registerQueryAPIRoutes(r, deps.QueryDeps(), bimw.RequireDatasourceAccess(authClient, "read"))
+		registerQueryAPIRoutes(r, deps.QueryDeps(), authClient, bimw.RequireDatasourceAccess(authClient, "read"))
 	})
 
 	r.Route("/internal", func(r chi.Router) {
 		r.Use(handlers.InternalAuditMiddleware(deps.AuditLogger))
 		r.Use(handlers.InternalTokenMiddleware(deps.Config.Security.InternalAPIToken))
+		r.Use(bimw.ChannelStatic(audit.ChannelInternal))
 		registerQueryInternalRoutes(r, deps.QueryDeps())
 	})
 
 	return OTELHTTPHandler("biqly-query", r)
 }
 
-func registerQueryAPIRoutes(r chi.Router, deps *app.QueryDeps, dsAccess func(http.Handler) http.Handler) {
+func registerQueryAPIRoutes(r chi.Router, deps *app.QueryDeps, authClient *bimw.AuthClient, dsAccess func(http.Handler) http.Handler) {
 	queryHandler := handlers.NewQueryHandler(deps)
 	queryHandler.SetQueryMetricsRecorder(GetMetrics())
 	// compile/run/explain carry a client-supplied datasource_id in the body and
@@ -63,6 +66,12 @@ func registerQueryAPIRoutes(r chi.Router, deps *app.QueryDeps, dsAccess func(htt
 	r.With(dsAccess).Post("/query/explain", queryHandler.Explain)
 	r.Get("/query/history", queryHandler.History)
 	r.Get("/query/history/{id}", queryHandler.GetHistory)
+
+	// Query-audit prove-ability endpoints: admin-only view of which policy
+	// decisions were applied to which executed query.
+	auditHandler := handlers.NewAuditQueryHandler(deps)
+	r.With(bimw.RequirePermission(authClient, "admin:audit")).Get("/audit/query", auditHandler.List)
+	r.With(bimw.RequirePermission(authClient, "admin:audit")).Get("/audit/query/{id}", auditHandler.Detail)
 }
 
 func registerQueryInternalRoutes(r chi.Router, deps *app.QueryDeps) {

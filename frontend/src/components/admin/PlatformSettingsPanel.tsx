@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState } from 'react'
 
 import { getPlatformSettings, updatePlatformSettings } from '../../api/admin'
 import type { AIAdminRuntimeConfig, RuntimeConfigSource } from '../../api/aiAdmin'
+import { apiFetch } from '../../api/apiClient'
 import { clearPasswordPolicyCache } from '../../api/auth'
 import {
   buildRuntimeConfigUpdate,
@@ -278,6 +279,41 @@ function GeneralSettingsCard({
   )
 }
 
+// DeploymentModeCard is a read-only indicator of the BI_DEPLOYMENT_MODE
+// profile (cloud / private / airgapped). Airgapped fails closed on external
+// AI egress, so admins need visibility into which profile is active.
+function DeploymentModeCard({ mode }: { mode: string }) {
+  const t = useT()
+  const airgapped = mode === 'airgapped'
+  const modeLabel = t(
+    `admin.platform_settings.deployment_mode_values.${mode}` as Parameters<typeof t>[0],
+  )
+  return (
+    <AdminFormSection title={t('admin.platform_settings.deployment_mode_title')}>
+      <div className="border-border bg-card-raised flex items-start gap-3 rounded-lg border p-4">
+        <span>
+          <strong className="mb-1 block">
+            {t('admin.platform_settings.deployment_mode_label')}
+            <span
+              className={cn(
+                airgapped ? adminActiveBadgeClass(true) : adminBadgePendingClass,
+                'ml-2 align-middle',
+              )}
+            >
+              {modeLabel}
+            </span>
+          </strong>
+          <span className={cn(formHintClass, 'm-0')}>
+            {airgapped
+              ? t('admin.platform_settings.deployment_mode_airgapped_hint')
+              : t('admin.platform_settings.deployment_mode_hint')}
+          </span>
+        </span>
+      </div>
+    </AdminFormSection>
+  )
+}
+
 interface AmbiguitySettingsCardProps {
   draft: RuntimeConfigDraft
   canEditRuntime: boolean
@@ -529,6 +565,7 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
   const [saving, setSaving] = useState(false)
   const [selfSignupEnabled, setSelfSignupEnabled] = useState(true)
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
+  const [deploymentMode, setDeploymentMode] = useState('')
 
   const {
     config,
@@ -560,6 +597,19 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
       const data = await getPlatformSettings(token)
       setSelfSignupEnabled(data.self_signup_enabled)
       setUpdatedAt(data.updated_at ?? null)
+      try {
+        const ai = await apiFetch<{ deployment_mode?: string }>(
+          'GET',
+          '/api/ai/settings',
+          undefined,
+          {
+            token,
+          },
+        )
+        setDeploymentMode(ai.deployment_mode ?? '')
+      } catch {
+        // deployment mode is informational only — ignore fetch failures
+      }
     } catch (e) {
       toast.error(errorMessage(e))
     } finally {
@@ -636,6 +686,7 @@ export function PlatformSettingsPanel({ token }: { token: string }) {
             updatedAt={updatedAt}
             onSave={() => void save()}
           />
+          {deploymentMode && <DeploymentModeCard mode={deploymentMode} />}
           {config && draft && (
             <AmbiguitySettingsCard
               draft={draft}
