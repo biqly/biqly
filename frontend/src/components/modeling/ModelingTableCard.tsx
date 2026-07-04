@@ -101,11 +101,22 @@ export function ModelingTableCard({
               <span className={modelingColumnNameClass}>
                 <span className={modelingTypeIconClass} aria-hidden="true">
                   {icon.kind === 'timestamp' ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="size-[0.65rem]">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-[0.65rem]"
+                    >
                       <circle cx="6" cy="6" r="5" />
                       <polyline points="6,2.5 6,6 8.5,7.5" />
                     </svg>
-                  ) : icon.glyph}
+                  ) : (
+                    icon.glyph
+                  )}
                 </span>
                 {column.is_primary_key && <b>{t('modeling.pk_badge')}</b>}
                 {column.is_foreign_key && <b>{t('modeling.fk_badge')}</b>}

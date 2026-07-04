@@ -134,11 +134,22 @@ export function TableDetailModal({
                 <li key={column.id} className={modelingDetailRowClass}>
                   <span className={modelingTypeIconClass} aria-hidden="true">
                     {icon.kind === 'timestamp' ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="size-[0.65rem]">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="size-[0.65rem]"
+                      >
                         <circle cx="6" cy="6" r="5" />
                         <polyline points="6,2.5 6,6 8.5,7.5" />
                       </svg>
-                    ) : icon.glyph}
+                    ) : (
+                      icon.glyph
+                    )}
                   </span>
                   <span className={modelingDetailFieldNameClass}>{column.column_name}</span>
                   <span className={modelingDetailMutedClass}>{column.data_type}</span>
