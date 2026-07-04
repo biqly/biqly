@@ -33,7 +33,7 @@ Replace discrete ladder stepping on the wheel path with continuous multiplicativ
 - Produces: `continuousZoomScale(scale: number, deltaY: number): number` — clamped to `[MIN_SCALE, MAX_SCALE]`, `deltaY < 0` (scroll up) zooms in, `deltaY > 0` zooms out.
 - Consumes: existing `clampScale`, `zoomViewportAtPoint` from `canvasMath.ts`; `MIN_SCALE`/`MAX_SCALE` from `constants.ts`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `frontend/src/components/modeling/canvasMath.test.ts`:
 
@@ -64,12 +64,12 @@ describe('continuousZoomScale', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm --prefix frontend run test -- canvasMath`
 Expected: FAIL — `continuousZoomScale is not a function` / not exported.
 
-- [ ] **Step 3: Implement the pure helper**
+- [x] **Step 3: Implement the pure helper**
 
 In `frontend/src/components/modeling/canvasMath.ts`, add after `zoomStep` (around line 41):
 
@@ -86,12 +86,12 @@ export function continuousZoomScale(scale: number, deltaY: number): number {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm --prefix frontend run test -- canvasMath`
 Expected: PASS (existing canvasMath tests + the 4 new ones).
 
-- [ ] **Step 5: Wire the wheel handler to the continuous helper**
+- [x] **Step 5: Wire the wheel handler to the continuous helper**
 
 In `frontend/src/components/modeling/useModelingCanvas.ts`:
 
@@ -108,7 +108,7 @@ Replace the `setViewport` body inside `onWheel` (lines 184-188) with:
 
 (Delete the now-unused `direction` line. Leave the horizontal-scroll guard at lines 177-179 unchanged so pinch-zoom still routes here.)
 
-- [ ] **Step 6: Stop the browser from stealing the gesture**
+- [x] **Step 6: Stop the browser from stealing the gesture**
 
 In `frontend/src/index.css`, inside the `.modeling-canvas-wrap` rule (line 418), add `touch-action: none;` next to the existing `overscroll-behavior: contain;` (line 425):
 
@@ -117,13 +117,13 @@ In `frontend/src/index.css`, inside the `.modeling-canvas-wrap` rule (line 418),
   touch-action: none;
 ```
 
-- [ ] **Step 7: Verify gate + manual check**
+- [x] **Step 7: Verify gate + manual check**
 
 Run: `make check-frontend`
 Expected: PASS.
 Manual: over the canvas, mouse-wheel and trackpad two-finger scroll zoom smoothly toward the cursor; the page never scrolls; `+ / − / ⤢ / 1:1` still work; `%` readout updates.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add frontend/src/components/modeling/canvasMath.ts frontend/src/components/modeling/canvasMath.test.ts frontend/src/components/modeling/useModelingCanvas.ts frontend/src/index.css
@@ -147,7 +147,7 @@ A pure map from a Postgres data type to a compact glyph + kind, reusing the exis
   - `interface ColumnTypeIcon { kind: ColumnTypeKind; glyph: string }`
   - `columnTypeIcon(dataType: string): ColumnTypeIcon`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `frontend/src/components/modeling/columnTypeIcon.test.ts`:
 
@@ -181,12 +181,12 @@ describe('columnTypeIcon', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm --prefix frontend run test -- columnTypeIcon`
 Expected: FAIL — cannot resolve `./columnTypeIcon`.
 
-- [ ] **Step 3: Implement the map**
+- [x] **Step 3: Implement the map**
 
 Create `frontend/src/components/modeling/columnTypeIcon.ts`:
 
@@ -245,12 +245,12 @@ export function columnTypeIcon(dataType: string): ColumnTypeIcon {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm --prefix frontend run test -- columnTypeIcon`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/components/modeling/columnTypeIcon.ts frontend/src/components/modeling/columnTypeIcon.test.ts
@@ -279,7 +279,7 @@ Compute, for each table card, the count of calculated fields (dimensions/metrics
   - `cardHeight(colRowCount: number, section?: CardSection): number`
   - `buildCardLayouts(tableCards, columns, joinColumns, colLimit, sections: Map<string, CardSection>): Map<string, CardLayout>`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `frontend/src/components/modeling/canvasMath.test.ts`:
 
@@ -347,12 +347,12 @@ describe('cardHeight with sections', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm --prefix frontend run test -- canvasMath`
 Expected: FAIL — `buildCardSections` not exported / constants missing.
 
-- [ ] **Step 3: Add section-height constants**
+- [x] **Step 3: Add section-height constants**
 
 In `frontend/src/components/modeling/constants.ts`, append:
 
@@ -363,7 +363,7 @@ export const CALC_SECTION_HEIGHT = 26
 export const REL_SECTION_LABEL_HEIGHT = 22
 ```
 
-- [ ] **Step 4: Extend `CardLayout` + add `CardSection`**
+- [x] **Step 4: Extend `CardLayout` + add `CardSection`**
 
 In `frontend/src/components/modeling/types.ts`, replace the `CardLayout` interface (lines 55-60) with:
 
@@ -383,7 +383,7 @@ export interface CardLayout {
 }
 ```
 
-- [ ] **Step 5: Implement `buildCardSections`, extend `cardHeight` + `buildCardLayouts`**
+- [x] **Step 5: Implement `buildCardSections`, extend `cardHeight` + `buildCardLayouts`**
 
 In `frontend/src/components/modeling/canvasMath.ts`:
 
@@ -510,7 +510,7 @@ export function buildCardLayouts(
 
 > Note: `columnRefMatchesTable` matching a metric's full `expression` (e.g. `sum(orders.amount)`) is a substring-free prefix check today; it matches when the expression *starts with* `table.` or `schema.table.`. For metrics whose expression wraps the ref in a function, count may under-report — acceptable for a section badge (it is a hint, not a guarantee). Do not add new matching logic in this task.
 
-- [ ] **Step 6: Update the `buildCardLayouts` caller**
+- [x] **Step 6: Update the `buildCardLayouts` caller**
 
 In `frontend/src/components/modeling/useModelingCanvas.ts`, update the import from `./canvasMath` to add `buildCardSections`, then change the `cardLayouts` memo (lines 37-52) to build sections and pass them:
 
@@ -534,14 +534,14 @@ In `frontend/src/components/modeling/useModelingCanvas.ts`, update the import fr
   }, [tableCards, columns, model])
 ```
 
-- [ ] **Step 7: Run tests + gate**
+- [x] **Step 7: Run tests + gate**
 
 Run: `npm --prefix frontend run test -- canvasMath`
 Expected: PASS (new section/height tests + existing layout/bounds/join-path tests still green — heights grew but Columns geometry unchanged).
 Run: `make check-frontend`
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add frontend/src/components/modeling/constants.ts frontend/src/components/modeling/types.ts frontend/src/components/modeling/canvasMath.ts frontend/src/components/modeling/canvasMath.test.ts frontend/src/components/modeling/useModelingCanvas.ts
@@ -582,7 +582,7 @@ interface ModelingTableCardProps {
 }
 ```
 
-- [ ] **Step 1: Add class helpers**
+- [x] **Step 1: Add class helpers**
 
 In `frontend/src/lib/modelingClasses.ts`, after `modelingColumnNameClass` (line 345), add:
 
@@ -616,7 +616,7 @@ export const modelingKebabClass = cn(
 export const modelingCardHeaderRowClass = 'flex items-center gap-[0.4rem]'
 ```
 
-- [ ] **Step 2: Create the component**
+- [x] **Step 2: Create the component**
 
 Create `frontend/src/components/modeling/ModelingTableCard.tsx`:
 
@@ -781,7 +781,7 @@ export function ModelingTableCard({
 }
 ```
 
-- [ ] **Step 3: Add i18n keys**
+- [x] **Step 3: Add i18n keys**
 
 Add these keys to the i18n catalog (search for where `modeling.more_columns` / `modeling.table_card_aria` are defined and add alongside, for every locale):
 
@@ -795,7 +795,7 @@ modeling.add_relationship: "Add relationship"           // TR: "İlişki ekle"
 
 (Match the existing catalog format; if keys are typed in `frontend/src/i18n`, add them to the `TranslationKey` union / message maps so `tsc` passes.)
 
-- [ ] **Step 4: Render `ModelingTableCard` from `ModelingCanvas`**
+- [x] **Step 4: Render `ModelingTableCard` from `ModelingCanvas`**
 
 In `frontend/src/components/modeling/ModelingCanvas.tsx`:
 
@@ -850,7 +850,7 @@ Destructure them in the component signature, and replace the `tableCards.map(...
 
 Now-unused imports in `ModelingCanvas.tsx` (`modelingColumnNameClass`, `modelingTableCardClass`, `modelingTableRowClass`, `formatDataType`, `CARD_WIDTH` if no longer referenced) must be removed to keep eslint/knip green — verify against remaining usage (the SVG block still uses `CARD_WIDTH`? it does not; edges use `getJoinPath`. Remove whatever the linter flags).
 
-- [ ] **Step 5: Wire temporary no-op props so the app compiles**
+- [x] **Step 5: Wire temporary no-op props so the app compiles**
 
 In `frontend/src/components/Modeling.tsx`, pass temporary handlers to `<ModelingCanvas>` (replaced with real ones in Task 5) so the build passes in isolation:
 
@@ -860,13 +860,13 @@ In `frontend/src/components/Modeling.tsx`, pass temporary handlers to `<Modeling
               onAddRelationship={() => {}}
 ```
 
-- [ ] **Step 6: Run gate + manual check**
+- [x] **Step 6: Run gate + manual check**
 
 Run: `make check-frontend`
 Expected: PASS.
 Manual: cards show a kebab, per-column type-icon badges, and Calculated Fields / Relationships sections with counts and ＋ buttons; related-table rows render; drag still works from the header; join edges still land on the right column rows.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/components/modeling/ModelingTableCard.tsx frontend/src/lib/modelingClasses.ts frontend/src/components/modeling/ModelingCanvas.tsx frontend/src/components/Modeling.tsx frontend/src/i18n
@@ -905,7 +905,7 @@ interface TableDetailModalProps {
 }
 ```
 
-- [ ] **Step 1: Add the drag-vs-click threshold to `onCardDragStart`**
+- [x] **Step 1: Add the drag-vs-click threshold to `onCardDragStart`**
 
 In `frontend/src/components/modeling/useModelingCanvas.ts`, the hook must accept an `onCardClick` callback and only fire it when the pointer barely moved. Change the hook signature to accept a fifth arg:
 
@@ -950,7 +950,7 @@ In `onCardDragStart`, track movement and invoke `onCardClick` on mouseup if unde
 
 Add `onCardClick` to the `onCardDragStart` `useCallback` dependency array (`[positions, onCardClick]`).
 
-- [ ] **Step 2: Write the failing modal test**
+- [x] **Step 2: Write the failing modal test**
 
 Create `frontend/src/components/modeling/TableDetailModal.test.tsx`:
 
@@ -1018,12 +1018,12 @@ describe('TableDetailModal', () => {
 })
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `npm --prefix frontend run test -- TableDetailModal`
 Expected: FAIL — cannot resolve `./TableDetailModal`.
 
-- [ ] **Step 4: Implement `TableDetailModal`**
+- [x] **Step 4: Implement `TableDetailModal`**
 
 Create `frontend/src/components/modeling/TableDetailModal.tsx`:
 
@@ -1214,7 +1214,7 @@ export function TableDetailModal({
 
 > The preview renders a plain scrollable table (not `DataTable`) because the rows endpoint returns positional `unknown[][]` + a `columns` header list, which matches this simple render; `DataTable` expects typed row objects. Keep it minimal.
 
-- [ ] **Step 5: Add i18n keys**
+- [x] **Step 5: Add i18n keys**
 
 Add to the catalog (all locales), alongside the Task 4 keys:
 
@@ -1228,12 +1228,12 @@ modeling.detail_preview_btn: "Preview data"        // TR: "Veriyi önizle"
 modeling.detail_preview_loading: "Loading…"        // TR: "Yükleniyor…"
 ```
 
-- [ ] **Step 6: Run modal test**
+- [x] **Step 6: Run modal test**
 
 Run: `npm --prefix frontend run test -- TableDetailModal`
 Expected: PASS.
 
-- [ ] **Step 7: Wire real handlers in `Modeling.tsx`**
+- [x] **Step 7: Wire real handlers in `Modeling.tsx`**
 
 In `frontend/src/components/Modeling.tsx`:
 
@@ -1278,7 +1278,7 @@ Render the modal near `ModelVersionsModal` (inside the `s.model &&` region is fi
 
 > Verify `s.renameTable`'s exact signature (from `useModelingPageState` / passed to `ModelingPalette` as `onRenameTable`). In `Modeling.tsx` it is already used as `onRenameTable={s.renameTable}`. If it takes `(schema, table)` rather than a `TableRow`, adapt the call accordingly (`s.renameTable(table.schema_name, table.table_name)`).
 
-- [ ] **Step 8: Pass `onCardClick` into the canvas hook**
+- [x] **Step 8: Pass `onCardClick` into the canvas hook**
 
 The `useModelingCanvas` call lives inside `useModelingPageState`. Find it (search `useModelingCanvas(`) and pass a click handler that stores the clicked table so `Modeling.tsx` can open the modal. Simplest wiring that avoids a second state source: have `useModelingPageState` expose `detailTable`/`setDetailTable` itself and pass `(key) => setDetailTableByKey(key)` where it resolves the key to a `TableRow` via `splitTableKey` + `tableCards`. Concretely, in `useModelingPageState`:
 
@@ -1301,13 +1301,13 @@ Return `detailTable` and `setDetailTable` from the hook, and in `Modeling.tsx` u
 
 > Import `splitTableKey` from `./utils` and `useState`/`useCallback` in `useModelingPageState` if not already imported.
 
-- [ ] **Step 9: Run gate + manual check**
+- [x] **Step 9: Run gate + manual check**
 
 Run: `make check-frontend`
 Expected: PASS.
 Manual: single-clicking a card header (or its kebab) opens the modal with columns, relationships, and a working "Preview data" (100 rows); dragging a card does NOT open the modal; Edit opens the rename flow; ＋ on Calculated Fields opens the add-metric modal; ＋ on Relationships opens the JoinEditor; Esc / backdrop closes; keyboard focus is trapped in the modal.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add frontend/src/components/modeling/TableDetailModal.tsx frontend/src/components/modeling/TableDetailModal.test.tsx frontend/src/components/modeling/useModelingCanvas.ts frontend/src/components/modeling/useModelingPageState.ts frontend/src/components/Modeling.tsx frontend/src/i18n

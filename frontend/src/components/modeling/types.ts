@@ -52,11 +52,18 @@ export interface JoinPath {
   d: string
 }
 
+export interface CardSection {
+  calcFieldCount: number
+  relatedTables: string[]
+}
+
 export interface CardLayout {
   columnsShown: ColumnRow[]
   columnIndex: Map<string, number>
   height: number
   hiddenCount: number
+  calcFieldCount: number
+  relatedTables: string[]
 }
 
 export interface JoinPayload {

@@ -5,8 +5,11 @@ import {
   applyDragDelta,
   applyKeyboardMove,
   buildCardLayouts,
+  buildCardSections,
   computeCanvasBounds,
   computeJoinPath,
+  continuousZoomScale,
+  exceedsDragThreshold,
   keyboardDeltaFromKey,
   layoutInitialPositions,
   panViewport,
@@ -23,6 +26,7 @@ export function useModelingCanvas(
   tableCards: TableRow[],
   columns: ColumnRow[],
   model: SemanticModelDetail | null,
+  onCardClick?: (key: string) => void,
 ) {
   const [positions, setPositions] = useState<Record<string, Pt>>({})
   const [viewport, setViewport] = useState<Viewport>({ scale: 1, tx: 0, ty: 0 })
@@ -48,7 +52,8 @@ export function useModelingCanvas(
       joinColumns.get(fromKey)!.add(join.from_column)
       joinColumns.get(toKey)!.add(join.to_column)
     }
-    return buildCardLayouts(tableCards, columns, joinColumns, COL_LIMIT)
+    const sections = buildCardSections(tableCards, model)
+    return buildCardLayouts(tableCards, columns, joinColumns, COL_LIMIT, sections)
   }, [tableCards, columns, model])
 
   useEffect(() => {
@@ -87,10 +92,14 @@ export function useModelingCanvas(
       const startX = event.clientX
       const startY = event.clientY
       const startPos = positions[key] ?? { x: 0, y: 0 }
+      let moved = false
       const onMove = (ev: MouseEvent) => {
         const scale = viewportRef.current.scale
         const dx = ev.clientX - startX
         const dy = ev.clientY - startY
+        if (exceedsDragThreshold(dx, dy)) {
+          moved = true
+        }
         setPositions((prev) => ({
           ...prev,
           [key]: applyDragDelta(startPos, dx, dy, scale),
@@ -104,6 +113,9 @@ export function useModelingCanvas(
         window.removeEventListener('blur', onUp)
         document.body.classList.remove('modeling-grabbing')
         activeDragCleanupRef.current = null
+        if (!moved) {
+          onCardClick?.(key)
+        }
       }
       activeDragCleanupRef.current = onUp
       document.body.classList.add('modeling-grabbing')
@@ -111,7 +123,7 @@ export function useModelingCanvas(
       window.addEventListener('mouseup', onUp)
       window.addEventListener('blur', onUp)
     },
-    [positions],
+    [positions, onCardClick],
   )
 
   const onCardKeyDown = useCallback(
@@ -182,8 +194,7 @@ export function useModelingCanvas(
       const cx = ev.clientX - rect.left
       const cy = ev.clientY - rect.top
       setViewport((vp) => {
-        const direction: 1 | -1 = ev.deltaY < 0 ? 1 : -1
-        const newScale = zoomStep(vp.scale, direction)
+        const newScale = continuousZoomScale(vp.scale, ev.deltaY)
         return zoomViewportAtPoint(vp, cx, cy, newScale)
       })
     }

@@ -344,6 +344,55 @@ export const modelingColumnNameClass = cn(
   '[&_b]:px-[0.2rem] [&_b]:py-[0.05rem] [&_b]:text-[0.58rem] [&_b]:text-accent',
 )
 
+export const modelingTypeIconClass = cn(
+  'inline-flex h-[1.05rem] min-w-[1.5rem] shrink-0 items-center justify-center rounded',
+  'bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-[0.25rem]',
+  'text-[0.58rem] font-bold text-foreground-muted tabular-nums',
+)
+
+export const modelingCardSectionClass = cn(
+  'flex items-center justify-between border-t border-border px-3 py-[0.28rem]',
+  'text-[0.66rem] font-semibold tracking-wide text-foreground-muted uppercase',
+)
+
+export const modelingCardSectionAddClass = cn(
+  'flex h-[1.15rem] w-[1.15rem] cursor-pointer items-center justify-center rounded border-0',
+  'bg-transparent text-[0.85rem] leading-none text-foreground-muted',
+  'hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] hover:text-accent',
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+)
+
+export const modelingRelRowClass =
+  'flex items-center gap-[0.4rem] px-3 py-[0.18rem] text-[0.72rem] text-foreground-muted'
+
+export const modelingKebabClass = cn(
+  'absolute top-2 right-2 flex h-[1.3rem] w-[1.3rem] cursor-pointer items-center justify-center rounded border-0',
+  'bg-transparent text-[0.95rem] leading-none text-white/80',
+  'hover:bg-white/15 hover:text-white',
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
+)
+
+export const modelingCardHeaderRowClass = 'flex items-center gap-[0.4rem] pr-6'
+
+export const modelingDetailRootClass = 'flex flex-col gap-4 text-sm'
+export const modelingDetailHeaderClass = 'flex items-start justify-between gap-3'
+export const modelingDetailAliasClass = 'flex flex-col gap-1'
+export const modelingDetailMutedClass = 'text-xs text-foreground-muted'
+export const modelingDetailDescriptionClass = 'text-foreground-muted'
+export const modelingDetailTitleClass = 'mb-2 font-semibold'
+export const modelingDetailListClass = 'flex flex-col gap-1'
+export const modelingDetailRowClass = 'flex items-center gap-2'
+export const modelingDetailFieldNameClass = 'font-medium'
+export const modelingDetailFieldDescriptionClass = 'ml-auto truncate text-xs text-foreground-muted'
+export const modelingDetailRelationshipClass =
+  'flex items-center gap-2 text-xs text-foreground-muted'
+export const modelingDetailPreviewHeaderClass = 'mb-2 flex items-center gap-2'
+export const modelingDetailTableWrapClass = 'overflow-x-auto'
+export const modelingDetailTableClass = 'w-full text-xs'
+export const modelingDetailTableHeaderClass =
+  'border-b border-border px-2 py-1 text-left font-semibold'
+export const modelingDetailTableCellClass = 'border-b border-border/50 px-2 py-1'
+
 export const modelingTypeHintClass = 'block text-foreground-muted text-[0.72rem] leading-[1.35]'
 
 export const modelingEditorGridClass = cn('grid grid-cols-2 gap-[0.7rem] max-[760px]:grid-cols-1')

@@ -13,3 +13,5 @@ export const ZOOM_STEPS = [0.3, 0.4, 0.5, 0.6, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.7
 export const LAYOUT_COLS = 4
 export const KEYBOARD_MOVE_STEP = 8
 export const KEYBOARD_MOVE_STEP_SHIFT = 40
+export const CALC_SECTION_HEIGHT = 26
+export const REL_SECTION_LABEL_HEIGHT = 22
