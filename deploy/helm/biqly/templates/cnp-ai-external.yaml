@@ -8,8 +8,15 @@ metadata:
 spec:
   endpointSelector:
     matchLabels:
-      app.kubernetes.io/component: ai
       app.kubernetes.io/part-of: biqly
+    matchExpressions:
+      # The worker executes AI jobs (LLM calls), so it needs the same external
+      # egress (world HTTPS, Ollama CIDRs, auth service) as the AI service.
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - ai
+          - worker
   egress:
     {{- $aiExt := .Values.global.networkPolicy.aiExternal }}
     {{- if $aiExt.allowWorldHTTPS }}

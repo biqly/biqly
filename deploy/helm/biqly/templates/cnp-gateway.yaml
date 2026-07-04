@@ -14,6 +14,9 @@ spec:
           - ai
           - query
           - catalog
+          # The worker runs the AI job consumer, so it needs the same in-cluster
+          # egress (catalog/query/ai/NATS) as the HTTP services.
+          - worker
   ingress:
     - fromEntities:
         - ingress
@@ -27,6 +30,9 @@ spec:
             - port: "8081"
               protocol: TCP
             - port: "8082"
+              protocol: TCP
+            # Worker metrics endpoint (host-network Prometheus scrapes).
+            - port: "8083"
               protocol: TCP
     - fromEndpoints:
         - matchLabels:
