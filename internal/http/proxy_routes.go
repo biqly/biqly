@@ -47,6 +47,8 @@ var catalogProxyPaths = []string{
 var queryProxyPaths = []string{
 	"/query",
 	"/query/*",
+	"/audit/query",
+	"/audit/query/*",
 }
 
 func registerCatalogProxyRoutes(r chi.Router, catalogURL string) {

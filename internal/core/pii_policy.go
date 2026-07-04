@@ -9,6 +9,7 @@ import (
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/query"
+	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/security/pii"
 )
 
@@ -48,14 +49,62 @@ func (s *PIIPolicyService) WithAudit(logger *audit.Logger) *PIIPolicyService {
 // Storage errors are returned so the query fails closed rather than running
 // unmasked.
 func (s *PIIPolicyService) MaskingConfig(ctx context.Context, datasourceID string) (*query.PIIMaskingConfig, error) {
+	cfg, _, err := s.QueryPolicy(ctx, datasourceID)
+	return cfg, err
+}
+
+// QueryPolicy resolves the per-user compile-time policy for a datasource:
+// the PII masking config plus the row-level security filters to merge into
+// the WHERE clause. Both are nil/empty when the caller is unauthenticated.
+// Storage errors are returned so the query fails closed.
+func (s *PIIPolicyService) QueryPolicy(ctx context.Context, datasourceID string) (*query.PIIMaskingConfig, []security.RowFilter, error) {
 	if s == nil || s.store == nil || s.identity == nil || datasourceID == "" {
-		return nil, nil //nolint:nilnil // optional result
+		return nil, nil, nil
 	}
 	userID, roles := s.identity(ctx)
 	if userID == "" {
-		return nil, nil //nolint:nilnil // optional result
+		return nil, nil, nil
 	}
 
+	policy, err := s.store.GetSecurityPolicyByKeys(ctx, userID, datasourceID)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		// No explicit policy: role defaults apply, no row filters.
+		policy = nil
+	case err != nil:
+		return nil, nil, fmt.Errorf("load permission policy: %w", err)
+	}
+
+	cfg, err := s.maskingConfig(ctx, datasourceID, userID, roles, policy)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cfg, policyRowFilters(policy), nil
+}
+
+// policyRowFilters converts the stored policy row filters into the compiler's
+// row-filter type.
+func policyRowFilters(policy *metadata.SecurityPolicy) []security.RowFilter {
+	if policy == nil || len(policy.RowFilters) == 0 {
+		return nil
+	}
+	filters := make([]security.RowFilter, 0, len(policy.RowFilters))
+	for _, rf := range policy.RowFilters {
+		filters = append(filters, security.RowFilter{
+			Field:    rf.Field,
+			Operator: rf.Operator,
+			Value:    rf.Value,
+		})
+	}
+	return filters
+}
+
+func (s *PIIPolicyService) maskingConfig(
+	ctx context.Context,
+	datasourceID, userID string,
+	roles []string,
+	policy *metadata.SecurityPolicy,
+) (*query.PIIMaskingConfig, error) {
 	cols, err := s.store.ListPIIColumns(ctx, datasourceID)
 	if err != nil {
 		return nil, fmt.Errorf("load pii columns: %w", err)
@@ -65,16 +114,10 @@ func (s *PIIPolicyService) MaskingConfig(ctx context.Context, datasourceID strin
 	}
 
 	overrides := map[string]string{}
-	policy, err := s.store.GetSecurityPolicyByKeys(ctx, userID, datasourceID)
-	switch {
-	case err == nil && policy != nil:
+	if policy != nil {
 		for col, entry := range policy.PIIPolicy {
 			overrides[col] = entry.Access
 		}
-	case errors.Is(err, sql.ErrNoRows):
-		// No explicit policy: role defaults apply.
-	case err != nil:
-		return nil, fmt.Errorf("load permission policy: %w", err)
 	}
 
 	access, types := pii.BuildColumnAccessMaps(pii.PrimaryRole(roles), cols, overrides)

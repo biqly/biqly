@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/datasource"
 	"github.com/biqly/biqly/internal/metadata"
 	"github.com/biqly/biqly/internal/platform/observability"
@@ -60,8 +61,14 @@ type QueryServiceDeps struct {
 	// Pools caches *sql.DB handles across query executions. When nil the
 	// service falls back to opening a fresh pool per query (legacy behavior).
 	Pools *datasource.PoolCache
-	// PIIPolicies resolves per-user PII masking configs. Nil disables masking.
+	// PIIPolicies resolves per-user PII masking configs and RLS row filters.
+	// Nil disables both.
 	PIIPolicies *PIIPolicyService
+	// Audit records query execution events with the applied policy decisions.
+	// Nil disables audit.
+	Audit *audit.Logger
+	// Identity resolves the calling user for history and audit attribution.
+	Identity IdentityResolver
 }
 
 type QueryService struct {
@@ -76,6 +83,8 @@ type QueryService struct {
 	encryptor   *security.Encryption
 	pools       *datasource.PoolCache
 	piiPolicies *PIIPolicyService
+	audit       *audit.Logger
+	identity    IdentityResolver
 }
 
 type CompileResult struct {
@@ -104,6 +113,8 @@ func NewQueryService(deps *QueryServiceDeps) *QueryService {
 		encryptor:   deps.Encryptor,
 		pools:       deps.Pools,
 		piiPolicies: deps.PIIPolicies,
+		audit:       deps.Audit,
+		identity:    deps.Identity,
 	}
 }
 
@@ -161,12 +172,13 @@ func (s *QueryService) CompileWithContext(ctx context.Context, lq *query.Logical
 	if err := s.validator.Validate(lq, model); err != nil {
 		return nil, ToServiceError(err)
 	}
-	// Per-user PII masking; errors fail the query rather than run unmasked.
-	piiConfig, err := s.piiPolicies.MaskingConfig(ctx, lq.DatasourceID)
+	// Per-user PII masking + RLS row filters; errors fail the query rather
+	// than run unmasked/unfiltered.
+	piiConfig, rowFilters, err := s.piiPolicies.QueryPolicy(ctx, lq.DatasourceID)
 	if err != nil {
-		return nil, ToServiceError(fmt.Errorf("resolve pii policy: %w", err))
+		return nil, ToServiceError(fmt.Errorf("resolve security policy: %w", err))
 	}
-	compiled, err := query.NewCompiler(driver.Dialect()).CompileWithPermissions(ctx, lq, model, nil, piiConfig)
+	compiled, err := query.NewCompiler(driver.Dialect()).CompileWithPermissions(ctx, lq, model, rowFilters, piiConfig)
 	if err != nil {
 		if _, ok := errors.AsType[query.ValidationErrors](err); ok {
 			return nil, ToServiceError(err)
@@ -207,7 +219,8 @@ func (s *QueryService) RunWithModel(ctx context.Context, lq *query.LogicalQuery,
 	readOnlyTx := compiled.Driver != nil && compiled.Driver.SupportsReadOnlyTx()
 	result, err := s.executor.Execute(ctx, db, compiled.Compiled, readOnlyTx)
 	if err != nil {
-		s.recordHistory(ctx, &compiled.LogicalQuery, compiled.Model, compiled.Compiled, nil, QueryStatusFailed, err)
+		entry := s.recordHistory(ctx, &compiled.LogicalQuery, compiled.Model, compiled.Compiled, nil, QueryStatusFailed, err)
+		s.auditQueryExecution(ctx, compiled, nil, entry, err)
 		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrQueryExecution, err))
 	}
 	// Compute total count for pagination when the query has a LIMIT.
@@ -220,7 +233,8 @@ func (s *QueryService) RunWithModel(ctx context.Context, lq *query.LogicalQuery,
 		}
 	}
 	query.EnrichResult(result, lq, compiled.Model)
-	s.recordHistory(ctx, &compiled.LogicalQuery, compiled.Model, compiled.Compiled, result, QueryStatusSuccess, nil)
+	entry := s.recordHistory(ctx, &compiled.LogicalQuery, compiled.Model, compiled.Compiled, result, QueryStatusSuccess, nil)
+	s.auditQueryExecution(ctx, compiled, result, entry, nil)
 	return &RunResult{CompileResult: *compiled, Result: result}, nil
 }
 
@@ -310,6 +324,8 @@ func (s *QueryService) loadContext(ctx context.Context, lq *query.LogicalQuery, 
 	}, nil
 }
 
+// recordHistory persists the query history entry and returns it (with the
+// generated ID) for audit linkage; nil when persistence is disabled or failed.
 func (s *QueryService) recordHistory(
 	ctx context.Context,
 	lq *query.LogicalQuery,
@@ -318,18 +334,85 @@ func (s *QueryService) recordHistory(
 	result *query.Result,
 	status string,
 	queryErr error,
-) {
+) *query.HistoryEntry {
 	if s.history == nil {
-		return
+		return nil
 	}
 	entry, err := query.BuildQueryHistoryEntry(lq, model, cq, result, status, queryErr)
 	if err != nil {
 		s.logError(ctx, "build query history failed", err)
-		return
+		return nil
+	}
+	if uid := s.callerID(ctx); uid != "" {
+		entry.UserID = new(uid)
 	}
 	if err := s.history.CreateQueryHistory(ctx, entry); err != nil {
 		s.logError(ctx, "create query history failed", err)
+		return nil
 	}
+	return entry
+}
+
+func (s *QueryService) callerID(ctx context.Context) string {
+	if s.identity == nil {
+		return ""
+	}
+	uid, _ := s.identity(ctx)
+	return uid
+}
+
+// auditQueryExecution records the query execution audit event carrying the
+// policy decisions applied at compile time, so enforcement is provable per
+// request. The write context is non-cancelable: the event must land even
+// when the caller disconnects right after execution.
+func (s *QueryService) auditQueryExecution(
+	ctx context.Context,
+	cr *CompileResult,
+	result *query.Result,
+	entry *query.HistoryEntry,
+	queryErr error,
+) {
+	if s.audit == nil || cr == nil {
+		return
+	}
+	details := map[string]any{
+		"channel": audit.ChannelFromContext(ctx),
+	}
+	if entry != nil {
+		details["history_id"] = entry.ID
+		details["fingerprint"] = entry.Fingerprint
+	}
+	if result != nil {
+		details["row_count"] = result.Stats.RowCount
+		details["duration_ms"] = result.Stats.DurationMs
+	}
+	if cq := cr.Compiled; cq != nil && cq.Policy != nil {
+		if len(cq.Policy.RowFilters) > 0 {
+			details["row_filters"] = cq.Policy.RowFilters
+		}
+		if len(cq.Policy.MaskedColumns) > 0 {
+			details["masked_columns"] = cq.Policy.MaskedColumns
+		}
+		if len(cq.Policy.HiddenColumns) > 0 {
+			details["hidden_columns"] = cq.Policy.HiddenColumns
+		}
+	}
+	eventType := audit.EventQueryExecuted
+	if queryErr != nil {
+		eventType = audit.EventQueryFailed
+		details["error"] = queryErr.Error()
+	}
+	var modelID string
+	if id := query.HistoryModelID(cr.Model); id != nil {
+		modelID = *id
+	}
+	s.audit.Log(context.WithoutCancel(ctx), audit.Event{
+		UserID:       s.callerID(ctx),
+		EventType:    eventType,
+		DatasourceID: cr.LogicalQuery.DatasourceID,
+		ModelID:      modelID,
+		Details:      details,
+	})
 }
 
 func (s *QueryService) logError(ctx context.Context, msg string, err error) {

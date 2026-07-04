@@ -97,6 +97,24 @@ type Stats struct {
 type CompiledQuery struct {
 	SQL  string
 	Args []any
+	// Policy records the security policy decisions applied during
+	// compilation (RLS predicates, PII masking). Nil when no policy applied.
+	Policy *PolicyDecisions `json:"policy,omitempty"`
+}
+
+// AppliedRowFilter is one row-level security predicate merged into the query.
+type AppliedRowFilter struct {
+	Field    string `json:"field"`
+	Operator string `json:"operator"`
+	Value    any    `json:"value,omitempty"`
+}
+
+// PolicyDecisions records which security policies were applied at compile
+// time, so audit can prove enforcement rather than infer it.
+type PolicyDecisions struct {
+	RowFilters    []AppliedRowFilter `json:"row_filters,omitempty"`
+	MaskedColumns []string           `json:"masked_columns,omitempty"`
+	HiddenColumns []string           `json:"hidden_columns,omitempty"`
 }
 
 // HistoryEntry represents a stored query in history.

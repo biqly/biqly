@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/biqly/biqly/internal/app"
+	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/http/handlers"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/go-chi/chi/v5"
@@ -40,7 +41,7 @@ func Router(deps *app.Dependencies) http.Handler {
 		CORS: cors.Handler(cors.Options{
 			AllowedOrigins:   corsOrigins,
 			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-			AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-API-Key", "X-CSRF-Token", "X-Locale"},
+			AllowedHeaders:   []string{"Accept", "Accept-Language", "Authorization", "Content-Type", "X-API-Key", "X-Biqly-Channel", "X-CSRF-Token", "X-Locale"},
 			ExposedHeaders:   []string{"Link"},
 			AllowCredentials: true,
 			MaxAge:           300,
@@ -80,6 +81,7 @@ func Router(deps *app.Dependencies) http.Handler {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(authMW)
+		r.Use(bimw.ChannelTag())
 
 		// Default API timeout for CRUD / metadata / history endpoints. AI
 		// sub-routes opt into the longer AIRequestTimeout below; query exec
@@ -99,7 +101,7 @@ func Router(deps *app.Dependencies) http.Handler {
 				registerQueryProxyRoutes(r, deps.Config.Services.QueryURL)
 			} else {
 				r.With(bimw.RequirePermission(authClient, "query:execute")).Group(func(r chi.Router) {
-					registerQueryAPIRoutes(r, deps.QueryDeps(), bimw.RequireDatasourceAccess(authClient, "read"))
+					registerQueryAPIRoutes(r, deps.QueryDeps(), authClient, bimw.RequireDatasourceAccess(authClient, "read"))
 				})
 			}
 		})
@@ -134,6 +136,7 @@ func Router(deps *app.Dependencies) http.Handler {
 	r.Route("/internal", func(r chi.Router) {
 		r.Use(handlers.InternalAuditMiddleware(deps.AuditLogger))
 		r.Use(handlers.InternalTokenMiddleware(deps.Config.Security.InternalAPIToken))
+		r.Use(bimw.ChannelStatic(audit.ChannelInternal))
 
 		registerCatalogInternalRoutes(r, deps.CatalogDeps(), "biqly-monolith")
 

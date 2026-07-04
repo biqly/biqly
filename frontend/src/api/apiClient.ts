@@ -71,6 +71,9 @@ function buildFetchHeaders(
   if (!headers.has('X-Locale')) {
     headers.set('X-Locale', getLocale())
   }
+  if (!headers.has('X-Biqly-Channel')) {
+    headers.set('X-Biqly-Channel', 'ui')
+  }
   const bearer = init?.token ?? globalAccessToken
   if (bearer) {
     headers.set('Authorization', `Bearer ${bearer}`)

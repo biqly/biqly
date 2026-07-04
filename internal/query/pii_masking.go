@@ -1,6 +1,7 @@
 package query
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/biqly/biqly/internal/security/pii"
@@ -26,6 +27,30 @@ type PIIMaskingConfig struct {
 	ColumnStrategies map[string]string
 	// Strategy generates masking SQL. Nil uses pii.DefaultMaskingStrategy.
 	Strategy pii.MaskingStrategy
+	// Applied collects the columns actually masked or hidden during one
+	// compilation for audit prove-ability. Nil disables collection.
+	Applied *AppliedPII
+}
+
+// AppliedPII accumulates the PII policy decisions made while compiling a
+// single query. Not safe for concurrent use; compilation is single-goroutine.
+type AppliedPII struct {
+	Masked []string
+	Hidden []string
+}
+
+func (a *AppliedPII) recordMasked(ref string) {
+	if a == nil || slices.Contains(a.Masked, ref) {
+		return
+	}
+	a.Masked = append(a.Masked, ref)
+}
+
+func (a *AppliedPII) recordHidden(ref string) {
+	if a == nil || slices.Contains(a.Hidden, ref) {
+		return
+	}
+	a.Hidden = append(a.Hidden, ref)
 }
 
 // PIIColumnInfo is the resolved PII policy metadata for one column reference.
@@ -103,9 +128,11 @@ func (c *Compiler) piiSQLForColumnRef(ref string, resolver *SchemaResolver) (str
 		return "", false
 	}
 	if access == pii.AccessMasked {
+		c.pii.Applied.recordMasked(physicalRef)
 		colRef := c.dialect.QuoteIdent(physicalRef)
 		return c.pii.strategy().MaskExpression(colRef, piiType, c.dialect), true
 	}
+	c.pii.Applied.recordHidden(physicalRef)
 	return pii.HiddenLiteral, true
 }
 
@@ -124,9 +151,12 @@ func (c *Compiler) dimensionOutputSQL(dim *semantic.Dimension, resolver *SchemaR
 		return sql
 	}
 	if access == pii.AccessMasked {
-		colRef := c.dialect.QuoteIdent(resolver.PhysicalColumnRef(dim.ColumnRef))
+		physicalRef := resolver.PhysicalColumnRef(dim.ColumnRef)
+		c.pii.Applied.recordMasked(physicalRef)
+		colRef := c.dialect.QuoteIdent(physicalRef)
 		return c.pii.strategy().MaskExpression(colRef, piiType, c.dialect)
 	}
+	c.pii.Applied.recordHidden(resolver.PhysicalColumnRef(dim.ColumnRef))
 	return pii.HiddenLiteral
 }
 

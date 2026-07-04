@@ -86,6 +86,9 @@ const ABExperimentPanel = lazyWithPreload(() =>
 const ConfirmedQueriesPanel = lazyWithPreload(() =>
   import('./ConfirmedQueriesPanel').then((m) => ({ default: m.ConfirmedQueriesPanel })),
 )
+const QueryAuditPanel = lazyWithPreload(() =>
+  import('./QueryAuditPanel').then((m) => ({ default: m.QueryAuditPanel })),
+)
 
 const pendingStyle: React.CSSProperties = { padding: 24 }
 
@@ -119,6 +122,7 @@ const TAB_COMPONENTS: Record<AdminTab, AdminLazyPanel> = {
   platform_settings: PlatformSettingsPanel,
   ai_ab_experiments: ABExperimentPanel,
   ai_confirmed: ConfirmedQueriesPanel,
+  query_audit: QueryAuditPanel,
 }
 
 export default function Admin() {
@@ -189,6 +193,7 @@ export default function Admin() {
           {tab === 'datasource_access' && <DatasourceAccessPanel token={accessToken} />}
           {tab === 'workspaces' && <WorkspacesPanel token={accessToken} />}
           {tab === 'audit_log' && <AuditLogPanel token={accessToken} />}
+          {tab === 'query_audit' && <QueryAuditPanel token={accessToken} />}
           {tab === 'row_level_security' && <RowLevelSecurityPanel token={accessToken} />}
           {tab === 'field_permissions' && <FieldPermissionPanel token={accessToken} />}
           {tab === 'pii_detection' && <PIIDetectionPanel token={accessToken} />}
