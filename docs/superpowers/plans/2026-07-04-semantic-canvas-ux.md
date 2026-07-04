@@ -123,7 +123,7 @@ Run: `make check-frontend`
 Expected: PASS.
 Manual: over the canvas, mouse-wheel and trackpad two-finger scroll zoom smoothly toward the cursor; the page never scrolls; `+ / − / ⤢ / 1:1` still work; `%` readout updates.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add frontend/src/components/modeling/canvasMath.ts frontend/src/components/modeling/canvasMath.test.ts frontend/src/components/modeling/useModelingCanvas.ts frontend/src/index.css
@@ -147,7 +147,7 @@ A pure map from a Postgres data type to a compact glyph + kind, reusing the exis
   - `interface ColumnTypeIcon { kind: ColumnTypeKind; glyph: string }`
   - `columnTypeIcon(dataType: string): ColumnTypeIcon`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `frontend/src/components/modeling/columnTypeIcon.test.ts`:
 
@@ -181,12 +181,12 @@ describe('columnTypeIcon', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm --prefix frontend run test -- columnTypeIcon`
 Expected: FAIL — cannot resolve `./columnTypeIcon`.
 
-- [ ] **Step 3: Implement the map**
+- [x] **Step 3: Implement the map**
 
 Create `frontend/src/components/modeling/columnTypeIcon.ts`:
 
@@ -245,7 +245,7 @@ export function columnTypeIcon(dataType: string): ColumnTypeIcon {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm --prefix frontend run test -- columnTypeIcon`
 Expected: PASS.
