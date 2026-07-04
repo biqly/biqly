@@ -171,11 +171,11 @@ mail:
     BI_MAIL_SMTP_SENDER_NAME: "ABI"
   image:
     repository: mail
-    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
+    tag: sha-5f39e9dfa5d809787e697f8a4517f99814f7b7b7
   migrate:
     image:
       repository: mail
-      tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
+      tag: sha-5f39e9dfa5d809787e697f8a4517f99814f7b7b7
 frontend:
   replicaCount: 1
   resources:
