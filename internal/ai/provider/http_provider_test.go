@@ -1,12 +1,31 @@
 package provider
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/biqly/biqly/internal/config"
 )
+
+func TestHTTPProviderBoundedDialTimeout(t *testing.T) {
+	t.Parallel()
+	p := newHTTPProvider(20*time.Minute, "https://api.example.com", "sk-test")
+	tr, ok := p.client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("transport = %T, want *http.Transport", p.client.Transport)
+	}
+	// A short TLS-handshake timeout locks in the bounded-connect behaviour so a
+	// dead CDN edge IP fails fast (and the retry stack can reach a healthy one)
+	// even though the overall client timeout is long.
+	if tr.TLSHandshakeTimeout != dialTimeout {
+		t.Fatalf("TLSHandshakeTimeout = %v, want %v", tr.TLSHandshakeTimeout, dialTimeout)
+	}
+	if tr.DialContext == nil {
+		t.Fatal("expected a custom DialContext with a bounded connect timeout")
+	}
+}
 
 func TestHTTPProviderNew(t *testing.T) {
 	t.Parallel()

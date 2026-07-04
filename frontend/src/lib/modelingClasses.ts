@@ -374,24 +374,26 @@ export const modelingKebabClass = cn(
 
 export const modelingCardHeaderRowClass = 'flex items-center gap-[0.4rem] pr-6'
 
-export const modelingDetailRootClass = 'flex flex-col gap-4 text-sm'
+export const modelingDetailRootClass = 'flex min-w-0 flex-col gap-4 text-sm'
 export const modelingDetailHeaderClass = 'flex items-start justify-between gap-3'
 export const modelingDetailAliasClass = 'flex flex-col gap-1'
 export const modelingDetailMutedClass = 'text-xs text-foreground-muted'
 export const modelingDetailDescriptionClass = 'text-foreground-muted'
 export const modelingDetailTitleClass = 'mb-2 font-semibold'
 export const modelingDetailListClass = 'flex flex-col gap-1'
-export const modelingDetailRowClass = 'flex items-center gap-2'
+export const modelingDetailRowClass = 'flex min-w-0 items-start gap-2'
 export const modelingDetailFieldNameClass = 'font-medium'
-export const modelingDetailFieldDescriptionClass = 'ml-auto truncate text-xs text-foreground-muted'
+export const modelingDetailFieldDescriptionClass =
+  'min-w-0 flex-1 wrap-anywhere text-xs text-foreground-muted'
 export const modelingDetailRelationshipClass =
-  'flex items-center gap-2 text-xs text-foreground-muted'
+  'flex min-w-0 flex-wrap items-start gap-x-2 gap-y-0.5 text-xs text-foreground-muted'
 export const modelingDetailPreviewHeaderClass = 'mb-2 flex items-center gap-2'
-export const modelingDetailTableWrapClass = 'overflow-x-auto'
-export const modelingDetailTableClass = 'w-full text-xs'
+export const modelingDetailTableWrapClass =
+  'max-h-[24rem] max-w-full overflow-auto rounded-md border border-border'
+export const modelingDetailTableClass = 'min-w-full text-xs'
 export const modelingDetailTableHeaderClass =
-  'border-b border-border px-2 py-1 text-left font-semibold'
-export const modelingDetailTableCellClass = 'border-b border-border/50 px-2 py-1'
+  'sticky top-0 border-b border-border bg-card px-2 py-1 text-left font-semibold whitespace-nowrap'
+export const modelingDetailTableCellClass = 'border-b border-border/50 px-2 py-1 whitespace-nowrap'
 
 export const modelingTypeHintClass = 'block text-foreground-muted text-[0.72rem] leading-[1.35]'
 
