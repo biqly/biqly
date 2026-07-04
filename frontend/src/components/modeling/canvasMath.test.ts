@@ -10,6 +10,7 @@ import {
   computeCanvasBounds,
   computeJoinPath,
   continuousZoomScale,
+  exceedsDragThreshold,
   keyboardDeltaFromKey,
   layoutInitialPositions,
   panViewport,
@@ -126,6 +127,11 @@ describe('canvas drag-and-drop math', () => {
 
   it('clamps card positions at zero', () => {
     expect(applyDragDelta({ x: 4, y: 2 }, -40, -20, 1)).toEqual({ x: 0, y: 0 })
+  })
+
+  it('distinguishes clicks from card drags', () => {
+    expect(exceedsDragThreshold(4, 4)).toBe(false)
+    expect(exceedsDragThreshold(5, 0)).toBe(true)
   })
 
   it('moves cards with arrow keys and shift step', () => {

@@ -42,6 +42,7 @@ import {
   defaultJoinForm,
   findColumn,
   patchJoinForm,
+  splitTableKey,
   tableKey,
 } from './utils'
 
@@ -255,6 +256,7 @@ export function useModelingPageState() {
     () => buildModelingTableCards(model, includedTables, manualShown, manualHidden),
     [model, includedTables, manualShown, manualHidden],
   )
+  const [detailTable, setDetailTable] = useState<TableRow | null>(null)
 
   const [baseSwapOpen, setBaseSwapOpen] = useState(false)
   const [savingBaseSwap, setSavingBaseSwap] = useState(false)
@@ -359,7 +361,19 @@ export function useModelingPageState() {
     [model, postData, refreshModels, t],
   )
 
-  const canvas = useModelingCanvas(modelId, tableCards, columns, model)
+  const openDetailByKey = useCallback(
+    (key: string) => {
+      const { schema, table } = splitTableKey(key)
+      const found = tableCards.find(
+        (candidate) => candidate.schema_name === schema && candidate.table_name === table,
+      )
+      if (found) {
+        setDetailTable(found)
+      }
+    },
+    [tableCards],
+  )
+  const canvas = useModelingCanvas(modelId, tableCards, columns, model, openDetailByKey)
 
   const highlightedColumns = useMemo(() => {
     const out = new Map<string, Set<string>>()
@@ -732,6 +746,8 @@ export function useModelingPageState() {
     includedTables,
     excludedSchemas,
     tableCards,
+    detailTable,
+    setDetailTable,
     usedTableCount,
     suggestedJoins,
     highlightJoinId,

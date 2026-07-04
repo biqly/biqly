@@ -16,6 +16,7 @@ import { ModelingModals } from './modeling/ModelingModals'
 import { ModelingPalette } from './modeling/ModelingPalette'
 import { ModelingToolbar } from './modeling/ModelingToolbar'
 import { ModelVersionsModal } from './modeling/ModelVersionsModal'
+import { TableDetailModal } from './modeling/TableDetailModal'
 import { useModelingPageState } from './modeling/useModelingPageState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
@@ -172,9 +173,9 @@ export default function Modeling() {
               highlightedTables={s.highlightedTables}
               highlightedColumns={s.highlightedColumns}
               highlightedJoinColumns={s.highlightedJoinColumns}
-              onOpenTableDetail={() => undefined}
-              onAddCalcField={() => undefined}
-              onAddRelationship={() => undefined}
+              onOpenTableDetail={s.setDetailTable}
+              onAddCalcField={() => s.setAddMetricOpen(true)}
+              onAddRelationship={() => s.setEditorOpen(true)}
               t={s.t}
             />
             <JoinEditor
@@ -207,6 +208,22 @@ export default function Modeling() {
           modelId={s.model.id}
           modelName={s.model.name}
           onClose={() => setVersionsOpen(false)}
+        />
+      )}
+      {s.model && (
+        <TableDetailModal
+          open={s.detailTable !== null}
+          table={s.detailTable}
+          model={s.model}
+          columns={s.columns}
+          datasourceId={s.datasourceId}
+          postData={s.postData}
+          onClose={() => s.setDetailTable(null)}
+          onEdit={(table) => {
+            s.setDetailTable(null)
+            s.renameTable(table)
+          }}
+          t={s.t}
         />
       )}
       {s.model && (

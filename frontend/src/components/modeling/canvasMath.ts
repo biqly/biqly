@@ -84,6 +84,10 @@ export function applyDragDelta(startPos: Pt, dx: number, dy: number, scale: numb
   }
 }
 
+export function exceedsDragThreshold(dx: number, dy: number, threshold = 4): boolean {
+  return Math.abs(dx) > threshold || Math.abs(dy) > threshold
+}
+
 export function applyKeyboardMove(cur: Pt, dx: number, dy: number, shiftKey: boolean): Pt {
   const step = shiftKey ? KEYBOARD_MOVE_STEP_SHIFT : KEYBOARD_MOVE_STEP
   return {

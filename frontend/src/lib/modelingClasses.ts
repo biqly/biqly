@@ -374,6 +374,25 @@ export const modelingKebabClass = cn(
 
 export const modelingCardHeaderRowClass = 'flex items-center gap-[0.4rem] pr-6'
 
+export const modelingDetailRootClass = 'flex flex-col gap-4 text-sm'
+export const modelingDetailHeaderClass = 'flex items-start justify-between gap-3'
+export const modelingDetailAliasClass = 'flex flex-col gap-1'
+export const modelingDetailMutedClass = 'text-xs text-foreground-muted'
+export const modelingDetailDescriptionClass = 'text-foreground-muted'
+export const modelingDetailTitleClass = 'mb-2 font-semibold'
+export const modelingDetailListClass = 'flex flex-col gap-1'
+export const modelingDetailRowClass = 'flex items-center gap-2'
+export const modelingDetailFieldNameClass = 'font-medium'
+export const modelingDetailFieldDescriptionClass = 'ml-auto truncate text-xs text-foreground-muted'
+export const modelingDetailRelationshipClass =
+  'flex items-center gap-2 text-xs text-foreground-muted'
+export const modelingDetailPreviewHeaderClass = 'mb-2 flex items-center gap-2'
+export const modelingDetailTableWrapClass = 'overflow-x-auto'
+export const modelingDetailTableClass = 'w-full text-xs'
+export const modelingDetailTableHeaderClass =
+  'border-b border-border px-2 py-1 text-left font-semibold'
+export const modelingDetailTableCellClass = 'border-b border-border/50 px-2 py-1'
+
 export const modelingTypeHintClass = 'block text-foreground-muted text-[0.72rem] leading-[1.35]'
 
 export const modelingEditorGridClass = cn('grid grid-cols-2 gap-[0.7rem] max-[760px]:grid-cols-1')

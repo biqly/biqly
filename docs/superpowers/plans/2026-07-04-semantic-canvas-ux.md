@@ -117,7 +117,7 @@ In `frontend/src/index.css`, inside the `.modeling-canvas-wrap` rule (line 418),
   touch-action: none;
 ```
 
-- [ ] **Step 7: Verify gate + manual check**
+- [x] **Step 7: Verify gate + manual check**
 
 Run: `make check-frontend`
 Expected: PASS.
@@ -860,13 +860,13 @@ In `frontend/src/components/Modeling.tsx`, pass temporary handlers to `<Modeling
               onAddRelationship={() => {}}
 ```
 
-- [ ] **Step 6: Run gate + manual check**
+- [x] **Step 6: Run gate + manual check**
 
 Run: `make check-frontend`
 Expected: PASS.
 Manual: cards show a kebab, per-column type-icon badges, and Calculated Fields / Relationships sections with counts and ＋ buttons; related-table rows render; drag still works from the header; join edges still land on the right column rows.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/components/modeling/ModelingTableCard.tsx frontend/src/lib/modelingClasses.ts frontend/src/components/modeling/ModelingCanvas.tsx frontend/src/components/Modeling.tsx frontend/src/i18n
@@ -905,7 +905,7 @@ interface TableDetailModalProps {
 }
 ```
 
-- [ ] **Step 1: Add the drag-vs-click threshold to `onCardDragStart`**
+- [x] **Step 1: Add the drag-vs-click threshold to `onCardDragStart`**
 
 In `frontend/src/components/modeling/useModelingCanvas.ts`, the hook must accept an `onCardClick` callback and only fire it when the pointer barely moved. Change the hook signature to accept a fifth arg:
 
@@ -950,7 +950,7 @@ In `onCardDragStart`, track movement and invoke `onCardClick` on mouseup if unde
 
 Add `onCardClick` to the `onCardDragStart` `useCallback` dependency array (`[positions, onCardClick]`).
 
-- [ ] **Step 2: Write the failing modal test**
+- [x] **Step 2: Write the failing modal test**
 
 Create `frontend/src/components/modeling/TableDetailModal.test.tsx`:
 
@@ -1018,12 +1018,12 @@ describe('TableDetailModal', () => {
 })
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `npm --prefix frontend run test -- TableDetailModal`
 Expected: FAIL — cannot resolve `./TableDetailModal`.
 
-- [ ] **Step 4: Implement `TableDetailModal`**
+- [x] **Step 4: Implement `TableDetailModal`**
 
 Create `frontend/src/components/modeling/TableDetailModal.tsx`:
 
@@ -1214,7 +1214,7 @@ export function TableDetailModal({
 
 > The preview renders a plain scrollable table (not `DataTable`) because the rows endpoint returns positional `unknown[][]` + a `columns` header list, which matches this simple render; `DataTable` expects typed row objects. Keep it minimal.
 
-- [ ] **Step 5: Add i18n keys**
+- [x] **Step 5: Add i18n keys**
 
 Add to the catalog (all locales), alongside the Task 4 keys:
 
@@ -1228,12 +1228,12 @@ modeling.detail_preview_btn: "Preview data"        // TR: "Veriyi önizle"
 modeling.detail_preview_loading: "Loading…"        // TR: "Yükleniyor…"
 ```
 
-- [ ] **Step 6: Run modal test**
+- [x] **Step 6: Run modal test**
 
 Run: `npm --prefix frontend run test -- TableDetailModal`
 Expected: PASS.
 
-- [ ] **Step 7: Wire real handlers in `Modeling.tsx`**
+- [x] **Step 7: Wire real handlers in `Modeling.tsx`**
 
 In `frontend/src/components/Modeling.tsx`:
 
@@ -1278,7 +1278,7 @@ Render the modal near `ModelVersionsModal` (inside the `s.model &&` region is fi
 
 > Verify `s.renameTable`'s exact signature (from `useModelingPageState` / passed to `ModelingPalette` as `onRenameTable`). In `Modeling.tsx` it is already used as `onRenameTable={s.renameTable}`. If it takes `(schema, table)` rather than a `TableRow`, adapt the call accordingly (`s.renameTable(table.schema_name, table.table_name)`).
 
-- [ ] **Step 8: Pass `onCardClick` into the canvas hook**
+- [x] **Step 8: Pass `onCardClick` into the canvas hook**
 
 The `useModelingCanvas` call lives inside `useModelingPageState`. Find it (search `useModelingCanvas(`) and pass a click handler that stores the clicked table so `Modeling.tsx` can open the modal. Simplest wiring that avoids a second state source: have `useModelingPageState` expose `detailTable`/`setDetailTable` itself and pass `(key) => setDetailTableByKey(key)` where it resolves the key to a `TableRow` via `splitTableKey` + `tableCards`. Concretely, in `useModelingPageState`:
 
@@ -1301,13 +1301,13 @@ Return `detailTable` and `setDetailTable` from the hook, and in `Modeling.tsx` u
 
 > Import `splitTableKey` from `./utils` and `useState`/`useCallback` in `useModelingPageState` if not already imported.
 
-- [ ] **Step 9: Run gate + manual check**
+- [x] **Step 9: Run gate + manual check**
 
 Run: `make check-frontend`
 Expected: PASS.
 Manual: single-clicking a card header (or its kebab) opens the modal with columns, relationships, and a working "Preview data" (100 rows); dragging a card does NOT open the modal; Edit opens the rename flow; ＋ on Calculated Fields opens the add-metric modal; ＋ on Relationships opens the JoinEditor; Esc / backdrop closes; keyboard focus is trapped in the modal.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add frontend/src/components/modeling/TableDetailModal.tsx frontend/src/components/modeling/TableDetailModal.test.tsx frontend/src/components/modeling/useModelingCanvas.ts frontend/src/components/modeling/useModelingPageState.ts frontend/src/components/Modeling.tsx frontend/src/i18n
