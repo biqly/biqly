@@ -40,6 +40,15 @@ export function zoomStep(scale: number, direction: 1 | -1) {
   return ZOOM_STEPS[next] ?? clampScale(scale)
 }
 
+// Wheel and trackpad gestures emit different delta magnitudes and event rates.
+// Scaling multiplicatively keeps both inputs smooth instead of stepping through
+// the discrete button-zoom ladder.
+const ZOOM_WHEEL_SENSITIVITY = 0.0015
+
+export function continuousZoomScale(scale: number, deltaY: number): number {
+  return clampScale(scale * Math.exp(-deltaY * ZOOM_WHEEL_SENSITIVITY))
+}
+
 export function snapScaleNearest(scale: number) {
   const clamped = clampScale(scale)
   let best = ZOOM_STEPS[0] ?? MIN_SCALE

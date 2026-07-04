@@ -7,6 +7,7 @@ import {
   buildCardLayouts,
   computeCanvasBounds,
   computeJoinPath,
+  continuousZoomScale,
   keyboardDeltaFromKey,
   layoutInitialPositions,
   panViewport,
@@ -182,8 +183,7 @@ export function useModelingCanvas(
       const cx = ev.clientX - rect.left
       const cy = ev.clientY - rect.top
       setViewport((vp) => {
-        const direction: 1 | -1 = ev.deltaY < 0 ? 1 : -1
-        const newScale = zoomStep(vp.scale, direction)
+        const newScale = continuousZoomScale(vp.scale, ev.deltaY)
         return zoomViewportAtPoint(vp, cx, cy, newScale)
       })
     }

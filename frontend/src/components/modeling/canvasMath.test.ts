@@ -7,12 +7,14 @@ import {
   buildCardLayouts,
   computeCanvasBounds,
   computeJoinPath,
+  continuousZoomScale,
   keyboardDeltaFromKey,
   layoutInitialPositions,
   panViewport,
   zoomStep,
   zoomViewportAtPoint,
 } from './canvasMath'
+import { MAX_SCALE, MIN_SCALE } from './constants'
 import type { CardLayout } from './types'
 import { tableKey } from './utils'
 
@@ -66,6 +68,28 @@ describe('canvas drag-and-drop math', () => {
 
   it('pans the viewport with canvas drag', () => {
     expect(panViewport({ scale: 1, tx: 0, ty: 0 }, 12, -8)).toEqual({ scale: 1, tx: 12, ty: -8 })
+  })
+})
+
+describe('continuousZoomScale', () => {
+  it('zooms in when deltaY is negative and out when positive', () => {
+    expect(continuousZoomScale(1, -100)).toBeGreaterThan(1)
+    expect(continuousZoomScale(1, 100)).toBeLessThan(1)
+  })
+
+  it('clamps to the configured min and max', () => {
+    expect(continuousZoomScale(MIN_SCALE, 5000)).toBe(MIN_SCALE)
+    expect(continuousZoomScale(MAX_SCALE, -5000)).toBe(MAX_SCALE)
+  })
+
+  it('is a no-op for zero delta', () => {
+    expect(continuousZoomScale(1, 0)).toBeCloseTo(1, 10)
+  })
+
+  it('scales more for a larger delta magnitude', () => {
+    const small = continuousZoomScale(1, -50)
+    const large = continuousZoomScale(1, -200)
+    expect(large).toBeGreaterThan(small)
   })
 })
 

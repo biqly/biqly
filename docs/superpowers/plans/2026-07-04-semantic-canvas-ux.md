@@ -33,7 +33,7 @@ Replace discrete ladder stepping on the wheel path with continuous multiplicativ
 - Produces: `continuousZoomScale(scale: number, deltaY: number): number` — clamped to `[MIN_SCALE, MAX_SCALE]`, `deltaY < 0` (scroll up) zooms in, `deltaY > 0` zooms out.
 - Consumes: existing `clampScale`, `zoomViewportAtPoint` from `canvasMath.ts`; `MIN_SCALE`/`MAX_SCALE` from `constants.ts`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `frontend/src/components/modeling/canvasMath.test.ts`:
 
@@ -64,12 +64,12 @@ describe('continuousZoomScale', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm --prefix frontend run test -- canvasMath`
 Expected: FAIL — `continuousZoomScale is not a function` / not exported.
 
-- [ ] **Step 3: Implement the pure helper**
+- [x] **Step 3: Implement the pure helper**
 
 In `frontend/src/components/modeling/canvasMath.ts`, add after `zoomStep` (around line 41):
 
@@ -86,12 +86,12 @@ export function continuousZoomScale(scale: number, deltaY: number): number {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npm --prefix frontend run test -- canvasMath`
 Expected: PASS (existing canvasMath tests + the 4 new ones).
 
-- [ ] **Step 5: Wire the wheel handler to the continuous helper**
+- [x] **Step 5: Wire the wheel handler to the continuous helper**
 
 In `frontend/src/components/modeling/useModelingCanvas.ts`:
 
@@ -108,7 +108,7 @@ Replace the `setViewport` body inside `onWheel` (lines 184-188) with:
 
 (Delete the now-unused `direction` line. Leave the horizontal-scroll guard at lines 177-179 unchanged so pinch-zoom still routes here.)
 
-- [ ] **Step 6: Stop the browser from stealing the gesture**
+- [x] **Step 6: Stop the browser from stealing the gesture**
 
 In `frontend/src/index.css`, inside the `.modeling-canvas-wrap` rule (line 418), add `touch-action: none;` next to the existing `overscroll-behavior: contain;` (line 425):
 
