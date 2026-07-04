@@ -423,6 +423,7 @@
   height: 100%;
   overflow: hidden;
   overscroll-behavior: contain;
+  touch-action: none;
   cursor: grab;
   background:
     linear-gradient(var(--border) 1px, transparent 1px),

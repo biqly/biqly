@@ -1,5 +1,6 @@
-import type { ColumnRow, SemanticJoin, TableRow } from '../../types/semantic'
+import type { ColumnRow, SemanticJoin, SemanticModelDetail, TableRow } from '../../types/semantic'
 import {
+  CALC_SECTION_HEIGHT,
   CARD_PAD_Y,
   CARD_WIDTH,
   GRID_X,
@@ -12,11 +13,12 @@ import {
   MIN_SCALE,
   ORIGIN_X,
   ORIGIN_Y,
+  REL_SECTION_LABEL_HEIGHT,
   ROW_HEIGHT,
   ZOOM_STEPS,
 } from './constants'
-import type { CardLayout, JoinPath, Pt, Viewport } from './types'
-import { columnOptions, compareColumns, tableKey } from './utils'
+import type { CardLayout, CardSection, JoinPath, Pt, Viewport } from './types'
+import { columnOptions, columnRefMatchesTable, compareColumns, tableKey } from './utils'
 
 export function clampScale(scale: number) {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale))
@@ -40,6 +42,15 @@ export function zoomStep(scale: number, direction: 1 | -1) {
   return ZOOM_STEPS[next] ?? clampScale(scale)
 }
 
+// Wheel and trackpad gestures emit different delta magnitudes and event rates.
+// Scaling multiplicatively keeps both inputs smooth instead of stepping through
+// the discrete button-zoom ladder.
+const ZOOM_WHEEL_SENSITIVITY = 0.0015
+
+export function continuousZoomScale(scale: number, deltaY: number): number {
+  return clampScale(scale * Math.exp(-deltaY * ZOOM_WHEEL_SENSITIVITY))
+}
+
 export function snapScaleNearest(scale: number) {
   const clamped = clampScale(scale)
   let best = ZOOM_STEPS[0] ?? MIN_SCALE
@@ -51,7 +62,18 @@ export function snapScaleNearest(scale: number) {
   return best
 }
 
-export const cardHeight = (count: number) => HEADER_HEIGHT + count * ROW_HEIGHT + CARD_PAD_Y * 2
+export const cardHeight = (count: number, section?: CardSection) => {
+  const base = HEADER_HEIGHT + count * ROW_HEIGHT + CARD_PAD_Y * 2
+  if (!section) {
+    return base
+  }
+  return (
+    base +
+    CALC_SECTION_HEIGHT +
+    REL_SECTION_LABEL_HEIGHT +
+    section.relatedTables.length * ROW_HEIGHT
+  )
+}
 export const rowCenterY = (idx: number) =>
   HEADER_HEIGHT + CARD_PAD_Y + idx * ROW_HEIGHT + ROW_HEIGHT / 2
 
@@ -60,6 +82,10 @@ export function applyDragDelta(startPos: Pt, dx: number, dy: number, scale: numb
     x: Math.max(0, startPos.x + dx / scale),
     y: Math.max(0, startPos.y + dy / scale),
   }
+}
+
+export function exceedsDragThreshold(dx: number, dy: number, threshold = 4): boolean {
+  return Math.abs(dx) > threshold || Math.abs(dy) > threshold
 }
 
 export function applyKeyboardMove(cur: Pt, dx: number, dy: number, shiftKey: boolean): Pt {
@@ -145,6 +171,7 @@ export function buildCardLayouts(
   columns: ColumnRow[],
   joinColumns: Map<string, Set<string>>,
   colLimit: number,
+  sections: Map<string, CardSection>,
 ): Map<string, CardLayout> {
   const out = new Map<string, CardLayout>()
   for (const tbl of tableCards) {
@@ -156,14 +183,66 @@ export function buildCardLayouts(
     cols.forEach((c, i) => idx.set(c.column_name, i))
     const hidden = Math.max(0, allCols.length - cols.length)
     const rowCount = cols.length + (hidden > 0 ? 1 : 0)
+    const section = sections.get(key) ?? { calcFieldCount: 0, relatedTables: [] }
     out.set(key, {
       columnsShown: cols,
       columnIndex: idx,
-      height: cardHeight(rowCount),
+      height: cardHeight(rowCount, section),
       hiddenCount: hidden,
+      calcFieldCount: section.calcFieldCount,
+      relatedTables: section.relatedTables,
     })
   }
   return out
+}
+
+export function buildCardSections(
+  tableCards: TableRow[],
+  model: SemanticModelDetail | null,
+): Map<string, CardSection> {
+  const sections = new Map<string, CardSection>()
+  const baseSchema = model?.base_schema ?? ''
+  const activeJoins = (model?.joins ?? []).filter((join) => join.is_active !== false)
+  const calculatedDimensions = (model?.dimensions ?? []).filter(
+    (dimension) =>
+      dimension.is_active !== false &&
+      Boolean(dimension.calculated_expression?.trim() ?? dimension.calculated_expr),
+  )
+  const metrics = (model?.metrics ?? []).filter((metric) => metric.is_active !== false)
+
+  for (const table of tableCards) {
+    const key = tableKey(table.schema_name, table.table_name)
+    const relatedTables: string[] = []
+    for (const join of activeJoins) {
+      const fromKey = tableKey(join.from_schema ?? baseSchema, join.from_table)
+      const toKey = tableKey(join.to_schema ?? baseSchema, join.to_table)
+      if (fromKey === key) {
+        relatedTables.push(join.to_table)
+      } else if (toKey === key) {
+        relatedTables.push(join.from_table)
+      }
+    }
+
+    let calcFieldCount = 0
+    for (const dimension of calculatedDimensions) {
+      if (
+        columnRefMatchesTable(dimension.column_ref, table.schema_name, table.table_name, baseSchema)
+      ) {
+        calcFieldCount++
+      }
+    }
+    for (const metric of metrics) {
+      if (
+        columnRefMatchesTable(metric.expression, table.schema_name, table.table_name, baseSchema)
+      ) {
+        calcFieldCount++
+      }
+    }
+
+    sections.set(key, { calcFieldCount, relatedTables })
+  }
+
+  return sections
 }
 
 export function computeJoinPath(

@@ -119,7 +119,7 @@ linters:
   exclusions:
     paths:
       # Third-party JS packages can ship Go files, for example flatted/golang.
-      - ^frontend/
+      - (^|/)frontend/
       - ^migrations/
     rules:
       - path: ^cmd/

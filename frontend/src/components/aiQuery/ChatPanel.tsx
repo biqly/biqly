@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useSemanticCatalog } from '../../hooks/useSemanticCatalog'
 import type { TranslationKey } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
+import type { SemanticModelDetail } from '../../types/semantic'
 import { formatTimeOnly } from '../../utils/formatters'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import {
@@ -47,6 +48,7 @@ import {
 import { AssistantMessageCard } from './AssistantMessageCard'
 import { PromptTextarea } from './PromptTextarea'
 import { formatAiWaitElapsed } from './routingViz'
+import { buildSuggestedQuestions, type SuggestedQuestion } from './suggestedQuestions'
 import type { ChatPanelProps } from './types'
 import { AI_QUERY_TIMEOUT_MS } from './types'
 
@@ -130,9 +132,23 @@ function TypingIndicator({ queryAction, aiElapsedMs, t }: TypingIndicatorProps) 
 interface ChatEmptyStateProps {
   t: (key: TranslationKey, params?: Record<string, string | number>) => string
   setQuestion: (q: string | ((prev: string) => string)) => void
+  suggested: SuggestedQuestion[]
 }
 
-function ChatEmptyState({ t, setQuestion }: ChatEmptyStateProps) {
+const suggestionCategoryKeys: Record<string, TranslationKey> = {
+  aggregation: 'ai_query.suggest_cat_aggregation',
+  segmentation: 'ai_query.suggest_cat_segmentation',
+  trend: 'ai_query.suggest_cat_trend',
+  comparison: 'ai_query.suggest_cat_comparison',
+}
+
+function ChatEmptyState({ t, setQuestion, suggested }: ChatEmptyStateProps) {
+  const staticSuggestions = [
+    t('ai_query.suggestion_1'),
+    t('ai_query.suggestion_2'),
+    t('ai_query.suggestion_3'),
+    t('ai_query.suggestion_4'),
+  ]
   return (
     <div className={chatEmptyStateClass}>
       <h3 className={chatEmptyStateTitleClass}>✨ {t('ai_query.workspace_title')}</h3>
@@ -142,22 +158,38 @@ function ChatEmptyState({ t, setQuestion }: ChatEmptyStateProps) {
         role="list"
         aria-label={t('ai_query.suggestions_aria')}
       >
-        {[
-          t('ai_query.suggestion_1'),
-          t('ai_query.suggestion_2'),
-          t('ai_query.suggestion_3'),
-          t('ai_query.suggestion_4'),
-        ].map((s) => (
-          <button
-            key={s}
-            type="button"
-            role="listitem"
-            className={chatEmptyStateChipClass}
-            onClick={() => setQuestion(s)}
-          >
-            {s}
-          </button>
-        ))}
+        {suggested.length > 0
+          ? suggested.map((q) => {
+              const catKey = suggestionCategoryKeys[q.category]
+              const catLabel = catKey ? t(catKey) : ''
+              return (
+                <button
+                  key={`${q.category}:${q.text}`}
+                  type="button"
+                  role="listitem"
+                  className={chatEmptyStateChipClass}
+                  onClick={() => setQuestion(q.text)}
+                >
+                  {catLabel && (
+                    <span className="text-foreground-faint mr-1.5 text-[0.72rem] font-medium tracking-wide uppercase">
+                      {catLabel}
+                    </span>
+                  )}
+                  {q.text}
+                </button>
+              )
+            })
+          : staticSuggestions.map((s) => (
+              <button
+                key={s}
+                type="button"
+                role="listitem"
+                className={chatEmptyStateChipClass}
+                onClick={() => setQuestion(s)}
+              >
+                {s}
+              </button>
+            ))}
       </div>
     </div>
   )
@@ -200,6 +232,30 @@ export function ChatPanel({
     retranslate,
     retranslating,
   } = useSemanticCatalog(semanticModelId, tables)
+
+  const [model, setModel] = useState<SemanticModelDetail | null>(null)
+
+  useEffect(() => {
+    if (!semanticModelId) {
+      return
+    }
+    let cancelled = false
+    void get<SemanticModelDetail>(`/api/semantic/models/${semanticModelId}`).then((detail) => {
+      if (!cancelled) {
+        setModel(detail)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [semanticModelId, get])
+
+  // Gate on id match so a stale detail (from a previous model or after the
+  // selection is cleared) never produces suggestions for the wrong model.
+  const suggested = useMemo(
+    () => (model?.id === semanticModelId ? buildSuggestedQuestions(model, t) : []),
+    [model, semanticModelId, t],
+  )
 
   useEffect(() => {
     const feed = chatFeedRef.current
@@ -302,7 +358,7 @@ export function ChatPanel({
             }
           })
         ) : (
-          <ChatEmptyState t={t} setQuestion={setQuestion} />
+          <ChatEmptyState t={t} setQuestion={setQuestion} suggested={suggested} />
         )}
         <TypingIndicator queryAction={queryAction} aiElapsedMs={aiElapsedMs} t={t} />
       </div>
