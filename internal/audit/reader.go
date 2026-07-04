@@ -68,7 +68,7 @@ func (r *Reader) ListQueryExecutionEvents(ctx context.Context, limit int) ([]Eve
 		return nil, fmt.Errorf("list query audit events: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	events := make([]Event, 0, limit)
+	events := make([]Event, 0, min(limit, 500))
 	for rows.Next() {
 		event, err := scanEvent(rows)
 		if err != nil {
