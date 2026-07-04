@@ -40,7 +40,9 @@ import {
   clarificationCapNoticeClass,
   clarificationCardAmbiguityClass,
   clarificationCardClass,
+  clarificationOptionBodyClass,
   clarificationOptionHintClass,
+  clarificationOptionNumberClass,
   clarificationOptionsClass,
   clarificationQuestionClass,
   clarificationReasonClass,
@@ -540,7 +542,7 @@ export function ClarificationCard({
       <p className={clarificationQuestionClass}>{question}</p>
       <div className={clarificationOptionsClass}>
         {useStructured
-          ? structured.map((opt) => (
+          ? structured.map((opt, i) => (
               <button
                 key={opt.key}
                 type="button"
@@ -548,18 +550,28 @@ export function ClarificationCard({
                 title={opt.hint}
                 onClick={() => onSelect(opt.key || opt.label)}
               >
-                {opt.label}
-                {opt.hint ? <span className={clarificationOptionHintClass}>{opt.hint}</span> : null}
+                <span className={clarificationOptionNumberClass} aria-hidden>
+                  {i + 1}
+                </span>
+                <span className={clarificationOptionBodyClass}>
+                  {opt.label}
+                  {opt.hint ? (
+                    <span className={clarificationOptionHintClass}>{opt.hint}</span>
+                  ) : null}
+                </span>
               </button>
             ))
-          : options.map((opt) => (
+          : options.map((opt, i) => (
               <button
                 key={opt}
                 type="button"
                 className={btnClarificationClass}
                 onClick={() => onSelect(opt)}
               >
-                {opt}
+                <span className={clarificationOptionNumberClass} aria-hidden>
+                  {i + 1}
+                </span>
+                <span className={clarificationOptionBodyClass}>{opt}</span>
               </button>
             ))}
       </div>
