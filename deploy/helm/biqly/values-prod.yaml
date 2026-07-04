@@ -186,7 +186,7 @@ frontend:
       cpu: 200m
       memory: 64Mi
   image:
-    tag: sha-bcd7858f1501b74309a4fad782c2c1da8e8e781f
+    tag: sha-ffa9b81db94843f2b27d16edd1d214365deee02d
 catalog:
   replicaCount: 1
   resources:
