@@ -172,6 +172,9 @@ export default function Modeling() {
               highlightedTables={s.highlightedTables}
               highlightedColumns={s.highlightedColumns}
               highlightedJoinColumns={s.highlightedJoinColumns}
+              onOpenTableDetail={() => undefined}
+              onAddCalcField={() => undefined}
+              onAddRelationship={() => undefined}
               t={s.t}
             />
             <JoinEditor

@@ -541,7 +541,7 @@ Expected: PASS (new section/height tests + existing layout/bounds/join-path test
 Run: `make check-frontend`
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add frontend/src/components/modeling/constants.ts frontend/src/components/modeling/types.ts frontend/src/components/modeling/canvasMath.ts frontend/src/components/modeling/canvasMath.test.ts frontend/src/components/modeling/useModelingCanvas.ts
@@ -582,7 +582,7 @@ interface ModelingTableCardProps {
 }
 ```
 
-- [ ] **Step 1: Add class helpers**
+- [x] **Step 1: Add class helpers**
 
 In `frontend/src/lib/modelingClasses.ts`, after `modelingColumnNameClass` (line 345), add:
 
@@ -616,7 +616,7 @@ export const modelingKebabClass = cn(
 export const modelingCardHeaderRowClass = 'flex items-center gap-[0.4rem]'
 ```
 
-- [ ] **Step 2: Create the component**
+- [x] **Step 2: Create the component**
 
 Create `frontend/src/components/modeling/ModelingTableCard.tsx`:
 
@@ -781,7 +781,7 @@ export function ModelingTableCard({
 }
 ```
 
-- [ ] **Step 3: Add i18n keys**
+- [x] **Step 3: Add i18n keys**
 
 Add these keys to the i18n catalog (search for where `modeling.more_columns` / `modeling.table_card_aria` are defined and add alongside, for every locale):
 
@@ -795,7 +795,7 @@ modeling.add_relationship: "Add relationship"           // TR: "İlişki ekle"
 
 (Match the existing catalog format; if keys are typed in `frontend/src/i18n`, add them to the `TranslationKey` union / message maps so `tsc` passes.)
 
-- [ ] **Step 4: Render `ModelingTableCard` from `ModelingCanvas`**
+- [x] **Step 4: Render `ModelingTableCard` from `ModelingCanvas`**
 
 In `frontend/src/components/modeling/ModelingCanvas.tsx`:
 
@@ -850,7 +850,7 @@ Destructure them in the component signature, and replace the `tableCards.map(...
 
 Now-unused imports in `ModelingCanvas.tsx` (`modelingColumnNameClass`, `modelingTableCardClass`, `modelingTableRowClass`, `formatDataType`, `CARD_WIDTH` if no longer referenced) must be removed to keep eslint/knip green — verify against remaining usage (the SVG block still uses `CARD_WIDTH`? it does not; edges use `getJoinPath`. Remove whatever the linter flags).
 
-- [ ] **Step 5: Wire temporary no-op props so the app compiles**
+- [x] **Step 5: Wire temporary no-op props so the app compiles**
 
 In `frontend/src/components/Modeling.tsx`, pass temporary handlers to `<ModelingCanvas>` (replaced with real ones in Task 5) so the build passes in isolation:
 
