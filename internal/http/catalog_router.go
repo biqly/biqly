@@ -105,8 +105,12 @@ func registerCatalogSemanticRoutes(r chi.Router, deps *app.CatalogDeps, authClie
 
 	r.With(dsWrite).Post("/semantic/models", semHandler.CreateModel)
 	r.With(dsWrite).Post("/semantic/models/generate", semHandler.GenerateModel)
+	r.With(dsWrite).Post("/semantic/models/import", semHandler.ImportModel)
 	r.Get("/semantic/models", semHandler.ListModels)
 	r.With(modelRead).Get("/semantic/models/{id}", semHandler.GetModel)
+	r.With(modelRead).Get("/semantic/models/{id}/export", semHandler.ExportModel)
+	r.With(modelRead).Get("/semantic/models/{id}/versions", semHandler.ListModelVersions)
+	r.With(modelRead).Get("/semantic/models/{id}/versions/{version}/export", semHandler.ExportModelVersion)
 	r.With(modelRead).Get("/semantic/models/{id}/fields", semHandler.ListModelFields)
 	r.With(modelRead).Get("/semantic/models/{id}/lineage", semHandler.GetModelLineage)
 	r.With(modelWrite).Put("/semantic/models/{id}", semHandler.UpdateModel)

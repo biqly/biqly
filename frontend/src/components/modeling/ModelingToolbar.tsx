@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import type { useT } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
@@ -34,6 +34,10 @@ export function ModelingToolbar({
   onRenameModel,
   onPublishModel,
   onRemoveModel,
+  onExportModel,
+  onImportModel,
+  importing,
+  onOpenVersions,
 }: {
   t: ReturnType<typeof useT>
   datasourceId: string
@@ -49,8 +53,13 @@ export function ModelingToolbar({
   onRenameModel: () => void
   onPublishModel: () => void
   onRemoveModel: () => void
+  onExportModel: () => void
+  onImportModel: (file: File) => void
+  importing: boolean
+  onOpenVersions: () => void
 }) {
   const [shareOpen, setShareOpen] = useState(false)
+  const importInputRef = useRef<HTMLInputElement>(null)
   const isPublished = model?.status === 'published'
 
   return (
@@ -100,6 +109,29 @@ export function ModelingToolbar({
             <span aria-hidden="true">✨</span>{' '}
             {creatingModel ? t('modeling.creating') : t('modeling.create_from_metadata')}
           </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".yaml,.yml,.json"
+            className="hidden"
+            aria-label={t('modeling.import_model')}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) {
+                onImportModel(file)
+              }
+              e.target.value = ''
+            }}
+          />
+          <button
+            className={buttonClass('secondary', { className: 'mt-0! w-auto!' })}
+            type="button"
+            onClick={() => importInputRef.current?.click()}
+            disabled={!datasourceId || importing}
+          >
+            <span aria-hidden="true">📥</span>{' '}
+            {importing ? t('modeling.importing') : t('modeling.import_model')}
+          </button>
           {model && (
             <ActionMenu
               label={
@@ -131,6 +163,18 @@ export function ModelingToolbar({
                   icon: '🔗',
                   label: t('admin.sharing.share'),
                   onSelect: () => setShareOpen(true),
+                },
+                {
+                  key: 'export',
+                  icon: '📤',
+                  label: t('modeling.export_model'),
+                  onSelect: onExportModel,
+                },
+                {
+                  key: 'versions',
+                  icon: '🕘',
+                  label: t('modeling.versions_title'),
+                  onSelect: onOpenVersions,
                 },
                 {
                   key: 'delete',
