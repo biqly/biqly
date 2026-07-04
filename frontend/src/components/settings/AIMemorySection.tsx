@@ -194,7 +194,7 @@ export function AIMemorySection() {
                     </>
                   ) : (
                     <>
-                      <span className="text-foreground flex-1 text-[0.85rem] leading-[1.4] break-words">
+                      <span className="text-foreground flex-1 text-[0.85rem] leading-[1.4] wrap-break-word">
                         {entry.content}
                       </span>
                       <button
