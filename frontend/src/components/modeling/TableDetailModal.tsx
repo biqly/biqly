@@ -103,6 +103,7 @@ export function TableDetailModal({
       title={table.label ?? table.table_name}
       subtitle={`${table.schema_name}.${table.table_name}`}
       onClose={onClose}
+      className="w-[min(100%,60rem)]"
     >
       <div className={modelingDetailRootClass}>
         <div className={modelingDetailHeaderClass}>
