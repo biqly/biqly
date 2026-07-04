@@ -27,6 +27,7 @@ export const admin: AdminDictionary = {
     ai_ab_experiments: 'Prompt A/B Testleri',
     ai_confirmed: 'Onaylanmış Sorgular',
     query_audit: 'Sorgu Denetimi',
+    mcp: 'MCP Entegrasyonu',
   },
   confirmed_queries: {
     title: 'Onaylanmış Sorgular',
@@ -299,6 +300,20 @@ export const admin: AdminDictionary = {
     copied: 'Kopyalandı',
     error: 'Hata',
     empty: 'Sorgu denetim kaydı bulunamadı.',
+  },
+  mcp: {
+    title: 'MCP Entegrasyonu',
+    description:
+      'Harici yapay zeka ajanları için Model Context Protocol üzerinden yönetişimli programatik erişim. Her araç çağrısı arayüz ile aynı izin, satır seviyesi güvenlik, PII maskeleme ve denetim hattından geçer.',
+    endpoint: 'Uç nokta',
+    tools: 'Kullanılabilir araçlar',
+    governance_note:
+      'Araçlar sabit bir izin listesidir; ham SQL asla kabul edilmez. Çağrılar Sorgu Denetimi ekranında "mcp" kanalına atfedilir.',
+    snippet: 'Bağlantı örneği',
+    token_note:
+      '<token> yerine geçerli bir Biqly erişim jetonu koyun. Çağrılar o kullanıcının izinleri ve veri kaynağı erişimiyle çalışır.',
+    copy: 'Kopyala',
+    copied: 'Kopyalandı',
   },
   queue: {
     not_queued: 'Kuyrukta değilsiniz',

@@ -127,6 +127,14 @@ func Router(deps *app.Dependencies) http.Handler {
 		})
 	})
 
+	// MCP server — governed programmatic access for external agents. Mounted
+	// behind the same auth middleware as /api; every tool call loops back
+	// through the /api router with the caller's credentials, so permissions,
+	// datasource access, RLS/PII policy, spend caps and audit (channel=mcp)
+	// apply exactly as they do for UI and API callers.
+	r.With(authMW, middleware.Timeout(deps.Config.AI.RequestTimeout())).
+		Handle("/mcp", mcpHandler(r))
+
 	// Internal API routes (Phase 1 of microservice decomposition).
 	// These endpoints are NOT part of the public API and MUST NOT be reached
 	// from outside the cluster — they are the wire protocol the future AI /

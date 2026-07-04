@@ -89,6 +89,9 @@ const ConfirmedQueriesPanel = lazyWithPreload(() =>
 const QueryAuditPanel = lazyWithPreload(() =>
   import('./QueryAuditPanel').then((m) => ({ default: m.QueryAuditPanel })),
 )
+const MCPIntegrationPanel = lazyWithPreload(() =>
+  import('./MCPIntegrationPanel').then((m) => ({ default: m.MCPIntegrationPanel })),
+)
 
 const pendingStyle: React.CSSProperties = { padding: 24 }
 
@@ -102,6 +105,7 @@ const PROPLESS_TAB_PANELS: Partial<Record<AdminTab, ComponentType>> = {
   ai_providers: AIProvidersPanel,
   ai_ab_experiments: ABExperimentPanel,
   ai_confirmed: ConfirmedQueriesPanel,
+  mcp: MCPIntegrationPanel,
 }
 
 const TAB_COMPONENTS: Record<AdminTab, AdminLazyPanel> = {
@@ -123,6 +127,7 @@ const TAB_COMPONENTS: Record<AdminTab, AdminLazyPanel> = {
   ai_ab_experiments: ABExperimentPanel,
   ai_confirmed: ConfirmedQueriesPanel,
   query_audit: QueryAuditPanel,
+  mcp: MCPIntegrationPanel,
 }
 
 export default function Admin() {

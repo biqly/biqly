@@ -25,6 +25,7 @@ export const admin = {
     ai_ab_experiments: 'Prompt A/B Testing',
     ai_confirmed: 'Confirmed Queries',
     query_audit: 'Query Audit',
+    mcp: 'MCP Integration',
   },
   confirmed_queries: {
     title: 'Confirmed Queries',
@@ -296,6 +297,20 @@ export const admin = {
     copied: 'Copied',
     error: 'Error',
     empty: 'No query audit records found.',
+  },
+  mcp: {
+    title: 'MCP Integration',
+    description:
+      'Governed programmatic access for external AI agents over the Model Context Protocol. Every tool call goes through the same permission, row-level security, PII masking and audit pipeline as the UI.',
+    endpoint: 'Endpoint',
+    tools: 'Available tools',
+    governance_note:
+      'Tools are a fixed allow-list; raw SQL is never accepted. Calls are attributed to the "mcp" channel in Query Audit.',
+    snippet: 'Connection snippet',
+    token_note:
+      'Replace <token> with a valid Biqly access token. Calls run with that user\u2019s permissions and datasource access.',
+    copy: 'Copy',
+    copied: 'Copied',
   },
   queue: {
     not_queued: 'You are not queued',
