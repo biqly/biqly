@@ -98,6 +98,7 @@ const Composites = lazyWithPreload(() => import('./components/Composites'))
 const QueryBuilder = lazyWithPreload(() => import('./components/QueryBuilder'))
 const AIQuery = lazyWithPreload(() => import('./components/AIQuery'))
 const SavedQuestions = lazyWithPreload(() => import('./components/SavedQuestions'))
+const Skills = lazyWithPreload(() => import('./components/Skills'))
 const TableBrowser = lazyWithPreload(() => import('./components/TableBrowser'))
 const QueryHistory = lazyWithPreload(() => import('./components/QueryHistory'))
 const FewShotExamples = lazyWithPreload(() => import('./components/FewShotExamples'))
@@ -223,6 +224,12 @@ const IconAIQuery = (
 const IconSaved = (
   <svg {...iconProps}>
     <path d="M6 4.5h12a1 1 0 0 1 1 1v15l-7-4-7 4v-15a1 1 0 0 1 1-1z" />
+  </svg>
+)
+
+const IconSkills = (
+  <svg {...iconProps}>
+    <path d="M13 2L4.5 13.5H11l-1 8.5L18.5 10.5H12z" />
   </svg>
 )
 
@@ -368,6 +375,15 @@ const routeDefs: AppRouteDef[] = [
     descriptionKey: 'app.nav.saved_questions_desc',
     icon: IconSaved,
     component: SavedQuestions,
+  },
+  {
+    path: '/skills',
+    sectionKey: 'query',
+    labelKey: 'app.nav.skills',
+    eyebrowKey: 'app.nav.skills_eyebrow',
+    descriptionKey: 'app.nav.skills_desc',
+    icon: IconSkills,
+    component: Skills,
   },
   {
     path: '/table-browser',

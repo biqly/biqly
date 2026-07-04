@@ -185,6 +185,27 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	})
 
 	registerAIExamplesGlossaryAndTemplatesRoutes(r, deps, authClient, usageBreakdownPagination)
+	registerAISkillsRoutes(r, deps, authClient)
+}
+
+// registerAISkillsRoutes wires the skills library: saved parameterized
+// LogicalQuery templates re-run through the governed query path. Mutating and
+// run routes resolve the skill {id} to its owning datasource before the
+// access check, like the glossary and replay routes: the monolith proxy
+// cannot resolve skill ids, so the check must live here.
+func registerAISkillsRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthClient) {
+	skillsHandler := handlers.NewAISkillsHandler(deps)
+	skillDS := func(ctx context.Context, id string) (string, error) {
+		return deps.MetaRepo.DatasourceForSkill(ctx, id)
+	}
+	skillAccess := bimw.RequireResolvedDatasourceAccess(authClient, "read", skillDS)
+	aiUserMW := bimw.InjectAIUserContext
+	r.Get("/ai/skills", skillsHandler.List)
+	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Post("/ai/skills", skillsHandler.Create)
+	r.With(skillAccess).Get("/ai/skills/{id}", skillsHandler.Get)
+	r.With(skillAccess).Put("/ai/skills/{id}", skillsHandler.Update)
+	r.With(skillAccess).Delete("/ai/skills/{id}", skillsHandler.Delete)
+	r.With(aiUserMW, skillAccess).Post("/ai/skills/{id}/run", skillsHandler.Run)
 }
 
 func registerAIExamplesGlossaryAndTemplatesRoutes(

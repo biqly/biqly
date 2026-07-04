@@ -58,6 +58,20 @@ func newMCPServer(dispatch http.Handler, authorization, apiKey string) *mcp.Serv
 			"execution; raw SQL is never accepted.",
 	}, d.runLogicalQuery)
 
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_skills",
+		Description: "List saved skills: named, parameterized LogicalQuery templates " +
+			"validated by users. Prefer running a matching skill over generating a " +
+			"fresh query. Returns name, description, parameters and tags per skill.",
+	}, d.listSkills)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "run_skill",
+		Description: "Execute a saved skill by id with parameter values. The stored " +
+			"LogicalQuery template is compiled and executed through the governed " +
+			"query path with all permissions applied.",
+	}, d.runSkill)
+
 	return s
 }
 
@@ -81,6 +95,15 @@ type mcpRunQuestionInput struct {
 
 type mcpRunLogicalQueryInput struct {
 	LogicalQuery map[string]any `json:"logical_query" jsonschema:"the LogicalQuery document to compile and execute"`
+}
+
+type mcpListSkillsInput struct {
+	DatasourceID string `json:"datasource_id,omitempty" jsonschema:"optional datasource id to filter skills by"`
+}
+
+type mcpRunSkillInput struct {
+	SkillID    string         `json:"skill_id" jsonschema:"id of the skill to run"`
+	Parameters map[string]any `json:"parameters,omitempty" jsonschema:"parameter values keyed by parameter name"`
 }
 
 func (d *mcpDispatcher) listDatasources(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
@@ -108,6 +131,22 @@ func (d *mcpDispatcher) runQuestion(ctx context.Context, _ *mcp.CallToolRequest,
 
 func (d *mcpDispatcher) runLogicalQuery(ctx context.Context, _ *mcp.CallToolRequest, in mcpRunLogicalQueryInput) (*mcp.CallToolResult, any, error) {
 	return d.call(ctx, http.MethodPost, "/api/query/run", map[string]any{"logical_query": in.LogicalQuery})
+}
+
+func (d *mcpDispatcher) listSkills(ctx context.Context, _ *mcp.CallToolRequest, in mcpListSkillsInput) (*mcp.CallToolResult, any, error) {
+	path := "/api/ai/skills"
+	if ds := strings.TrimSpace(in.DatasourceID); ds != "" {
+		path += "?datasource_id=" + url.QueryEscape(ds)
+	}
+	return d.call(ctx, http.MethodGet, path, nil)
+}
+
+func (d *mcpDispatcher) runSkill(ctx context.Context, _ *mcp.CallToolRequest, in mcpRunSkillInput) (*mcp.CallToolResult, any, error) {
+	body := map[string]any{}
+	if len(in.Parameters) > 0 {
+		body["parameters"] = in.Parameters
+	}
+	return d.call(ctx, http.MethodPost, "/api/ai/skills/"+url.PathEscape(in.SkillID)+"/run", body)
 }
 
 func (d *mcpDispatcher) call(ctx context.Context, method, path string, body any) (*mcp.CallToolResult, any, error) {

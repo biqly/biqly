@@ -13,7 +13,14 @@ import { AdminPanelShell } from './AdminPanelShell'
 const codeBlockClass =
   'm-0 overflow-auto rounded-md bg-card-raised p-3 font-mono text-xs whitespace-pre-wrap wrap-break-word text-foreground'
 
-const MCP_TOOLS = ['list_datasources', 'list_models', 'run_question', 'run_logical_query'] as const
+const MCP_TOOLS = [
+  'list_datasources',
+  'list_models',
+  'run_question',
+  'run_logical_query',
+  'list_skills',
+  'run_skill',
+] as const
 
 function connectionSnippet(endpoint: string): string {
   return JSON.stringify(
