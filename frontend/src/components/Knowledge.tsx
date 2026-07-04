@@ -12,6 +12,7 @@ import {
   savedQuestionItemTitleClass,
   savedQuestionListClass,
 } from '../lib/savedQuestionClasses'
+import { toggleGroupClass } from '../lib/toggleClasses'
 import type { BusinessGlossaryTerm } from '../types/glossary'
 import type { SemanticModelDetail, SemanticModelSummary } from '../types/semantic'
 import { pickValidIdOrFirst } from '../utils/effectiveSelection'
@@ -135,6 +136,8 @@ export default function Knowledge() {
         <div className="mt-4">
           <ToggleButtonGroup
             ariaLabel={t('knowledge.category_label')}
+            className={toggleGroupClass('flex-wrap')}
+            toggleButtons
             value={category}
             onChange={(next) => {
               setCategory(next)
@@ -158,8 +161,11 @@ export default function Knowledge() {
           />
         </div>
       ) : (
-        <div className={savedQuestionListClass()}>
-          <div className={cardClass()} style={{ position: 'relative' }}>
+        <div className={cn(savedQuestionListClass(), 'items-start')}>
+          <div
+            className={cn(cardClass(), 'max-h-[70vh] overflow-y-auto')}
+            style={{ position: 'relative' }}
+          >
             <LoadingOverlay loading={loading} />
             <div className="flex flex-col gap-3">
               {filtered.map((item) => (
@@ -181,7 +187,7 @@ export default function Knowledge() {
             </div>
           </div>
 
-          <div className={cardClass()}>
+          <div className={cn(cardClass(), 'sticky top-6')}>
             <KnowledgeDetail item={selected} t={t} />
           </div>
         </div>
