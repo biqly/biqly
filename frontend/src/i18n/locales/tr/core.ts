@@ -535,6 +535,9 @@ export const core: CoreDictionary = {
     model_used: 'Sorgu modeli:',
     configured: 'yapılandırılan:',
     retry_badge: '🔄 AI kendini düzeltti (deneme {{n}}/3)',
+    insight_ranked:
+      'En yüksek {{metric}} {{top}} kaydında ({{topVal}}); değerler {{n}} {{dim}} arasında {{minVal}} ile {{maxVal}} arasında değişiyor.',
+    insight_single: '{{metric}}: {{val}}.',
     collapsible_routing: '📋 Tablo yönlendirme',
     sample_preview_btn: 'Örnek veriyi önizle',
     plan_ok_title: '✅ SQL planı',
