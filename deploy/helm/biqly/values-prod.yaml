@@ -140,11 +140,11 @@ auth:
       memory: 128Mi
   image:
     repository: auth
-    tag: sha-bb3523a18934bf8b9159ba942ddc1bc7738c76fd
+    tag: sha-404ca1545d1f2cfbbaf6baef89943dc3d9089910
   migrate:
     image:
       repository: auth
-      tag: sha-bb3523a18934bf8b9159ba942ddc1bc7738c76fd
+      tag: sha-404ca1545d1f2cfbbaf6baef89943dc3d9089910
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -186,7 +186,7 @@ frontend:
       cpu: 200m
       memory: 64Mi
   image:
-    tag: sha-bb3523a18934bf8b9159ba942ddc1bc7738c76fd
+    tag: sha-404ca1545d1f2cfbbaf6baef89943dc3d9089910
 catalog:
   replicaCount: 1
   resources:
@@ -197,7 +197,7 @@ catalog:
       cpu: 500m
       memory: 256Mi
   image:
-    tag: sha-bb3523a18934bf8b9159ba942ddc1bc7738c76fd
+    tag: sha-404ca1545d1f2cfbbaf6baef89943dc3d9089910
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -211,7 +211,7 @@ query:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-bb3523a18934bf8b9159ba942ddc1bc7738c76fd
+    tag: sha-404ca1545d1f2cfbbaf6baef89943dc3d9089910
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -225,7 +225,7 @@ mcp:
       cpu: 300m
       memory: 192Mi
   image:
-    tag: sha-4e42f9158872a9a1e0f74b02c05b9110ac1415f4
+    tag: sha-404ca1545d1f2cfbbaf6baef89943dc3d9089910
   config:
     # MCP proxies tool calls to the API gateway; the hostname must match the
     # gateway HTTPRoutes (see global.gateway.hostnames).
@@ -243,7 +243,7 @@ ai:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-bb3523a18934bf8b9159ba942ddc1bc7738c76fd
+    tag: sha-404ca1545d1f2cfbbaf6baef89943dc3d9089910
   rollout:
     enabled: false
   autoscaling:
