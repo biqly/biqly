@@ -145,6 +145,11 @@ func main() {
 // setupMailObservability wires tracing and OTLP log export, returning a
 // combined shutdown that flushes both providers.
 func setupMailObservability(ctx context.Context) func(context.Context) error {
+	// SetupLogging must run before SetupLogExport: the tee handler wraps the
+	// current default handler, and wrapping Go's built-in handler (which
+	// writes via the log package) deadlocks on the first slog call after
+	// slog.SetDefault redirects log output back into slog.
+	observability.SetupLogging(os.Getenv("BI_MAIL_LOG_LEVEL"), os.Getenv("BI_MAIL_LOG_FORMAT"))
 	shutdownTracing, tracErr := observability.SetupTracing(ctx, "mail")
 	if tracErr != nil {
 		slog.Warn("tracing setup failed, continuing without traces", "error", tracErr)

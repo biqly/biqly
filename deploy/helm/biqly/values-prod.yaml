@@ -140,11 +140,11 @@ auth:
       memory: 128Mi
   image:
     repository: auth
-    tag: sha-960177795cb5ed34f4bc0a1077809608c8be31bd
+    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
   migrate:
     image:
       repository: auth
-      tag: sha-960177795cb5ed34f4bc0a1077809608c8be31bd
+      tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -171,11 +171,11 @@ mail:
     BI_MAIL_SMTP_SENDER_NAME: "ABI"
   image:
     repository: mail
-    tag: latest
+    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
   migrate:
     image:
       repository: mail
-      tag: latest
+      tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
 frontend:
   replicaCount: 1
   resources:
@@ -186,7 +186,7 @@ frontend:
       cpu: 200m
       memory: 64Mi
   image:
-    tag: sha-960177795cb5ed34f4bc0a1077809608c8be31bd
+    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
 catalog:
   replicaCount: 1
   resources:
@@ -197,7 +197,7 @@ catalog:
       cpu: 500m
       memory: 256Mi
   image:
-    tag: sha-960177795cb5ed34f4bc0a1077809608c8be31bd
+    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -211,10 +211,13 @@ query:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-960177795cb5ed34f4bc0a1077809608c8be31bd
+    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
+worker:
+  image:
+    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
 mcp:
   replicaCount: 1
   resources:
@@ -225,7 +228,7 @@ mcp:
       cpu: 300m
       memory: 192Mi
   image:
-    tag: sha-960177795cb5ed34f4bc0a1077809608c8be31bd
+    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
   config:
     # MCP proxies tool calls to the API gateway; the hostname must match the
     # gateway HTTPRoutes (see global.gateway.hostnames).
@@ -243,7 +246,7 @@ ai:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-960177795cb5ed34f4bc0a1077809608c8be31bd
+    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
   rollout:
     enabled: false
   autoscaling:
