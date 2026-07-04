@@ -867,6 +867,8 @@ export const core = {
     confirm_reseed:
       'Replace ALL prompt templates (EN + TR) with embedded defaults? Unsaved edits in other sections will be lost.',
     available_params: 'Available Parameters',
+    param_drag_hint: 'Drag into the editor, or click to insert at the cursor',
+    param_drop_hint: 'Drop to insert',
     intellisense_hint: 'Type {{ to open autocomplete',
   },
   few_shot: {

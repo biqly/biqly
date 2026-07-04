@@ -21,7 +21,6 @@ import {
   promptEditorTextareaClass,
   promptEditorUnderlayClass,
 } from '../lib/promptEditorClasses'
-import { legacyTableClass } from '../lib/tableClasses'
 import { formatDateTime } from '../utils/formatters'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
@@ -131,6 +130,158 @@ function highlightContent(text: string) {
   })
 }
 
+// Editor drag handlers live at module scope so their branches don't inflate the
+// PromptTemplates component's cyclomatic complexity.
+function handleEditorDragOver(e: React.DragEvent<HTMLTextAreaElement>, dragging: boolean) {
+  if (!dragging) {
+    return
+  }
+  // Allow the drop and let the browser move the caret to the pointer so the
+  // parameter lands where it is dropped.
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'copy'
+}
+
+function handleEditorDrop(
+  e: React.DragEvent<HTMLTextAreaElement>,
+  insert: (param: string) => void,
+  setDragging: (dragging: boolean) => void,
+) {
+  const param = e.dataTransfer.getData('text/plain')
+  setDragging(false)
+  if (!param) {
+    return
+  }
+  e.preventDefault()
+  insert(param)
+}
+
+// EditorDropOverlay draws the drop affordance (ring + hint) while a parameter is
+// being dragged. Kept as its own component so the conditional stays out of the
+// PromptTemplates body.
+function EditorDropOverlay({ active, label }: { active: boolean; label: string }) {
+  if (!active) {
+    return null
+  }
+  return (
+    <div className="ring-accent/50 pointer-events-none absolute inset-0 z-10 rounded-lg ring-2">
+      <span className="text-caption text-accent bg-accent/10 border-accent/30 absolute top-2 right-2 rounded-full border px-2 py-0.5 font-medium backdrop-blur-sm">
+        {label}
+      </span>
+    </div>
+  )
+}
+
+function ParameterPalette({
+  params,
+  onInsert,
+  onDragStateChange,
+  t,
+}: {
+  params: string[]
+  onInsert: (param: string) => void
+  onDragStateChange: (dragging: boolean) => void
+  t: ReturnType<typeof useT>
+}) {
+  return (
+    <div className="border-border mb-4 rounded-lg border bg-white/1.5 p-3">
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <span className="text-caption text-foreground-muted font-semibold">
+          {t('prompt_templates.available_params')}
+        </span>
+        <span className="text-2xs text-foreground-faint">
+          {t('prompt_templates.param_drag_hint')}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {params.map((param) => (
+          <button
+            key={param}
+            type="button"
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData('text/plain', param)
+              e.dataTransfer.effectAllowed = 'copy'
+              onDragStateChange(true)
+            }}
+            onDragEnd={() => onDragStateChange(false)}
+            className="text-caption border-accent/20 bg-accent/5 text-accent hover:bg-accent/12 hover:border-accent/40 mt-0 inline-flex min-h-6 w-auto cursor-grab items-center justify-center gap-1 rounded border px-2 py-0.5 font-mono transition-colors active:cursor-grabbing"
+            onClick={() => onInsert(param)}
+          >
+            <span aria-hidden className="text-accent/50 select-none">
+              ⠿
+            </span>
+            {param}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function VersionHistoryTable({
+  versionHistory,
+  languageTag,
+  t,
+}: {
+  versionHistory: PromptTemplateRow[]
+  languageTag: string
+  t: ReturnType<typeof useT>
+}) {
+  return (
+    <div className="mt-6">
+      <h3 className="text-foreground mb-3 text-sm font-semibold">
+        {t('prompt_templates.version_history')}
+      </h3>
+      <div className="border-border overflow-hidden rounded-lg border">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="text-2xs text-foreground-muted bg-white/2 text-left tracking-wide uppercase">
+              <th className="px-3 py-2 font-semibold">{t('prompt_templates.col_version')}</th>
+              <th className="px-3 py-2 font-semibold">{t('prompt_templates.col_status')}</th>
+              <th className="px-3 py-2 font-semibold">{t('prompt_templates.col_updated')}</th>
+              <th className="px-3 py-2 text-right font-semibold">
+                {t('prompt_templates.col_chars')}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {versionHistory.map((row) => (
+              <tr
+                key={`${row.name}:${row.locale}:${row.version}`}
+                className={cn(
+                  'border-border border-t',
+                  row.is_active ? 'bg-accent/5' : 'hover:bg-white/2',
+                )}
+              >
+                <td className="text-foreground px-3 py-2 font-mono">v{row.version}</td>
+                <td className="px-3 py-2">
+                  {row.is_active ? (
+                    <span className="text-2xs bg-accent/10 text-accent border-accent/20 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-medium">
+                      <span className="bg-accent size-1.5 rounded-full" aria-hidden />
+                      {t('prompt_templates.status_active')}
+                    </span>
+                  ) : (
+                    <span className="text-2xs text-foreground-faint">
+                      {t('prompt_templates.status_inactive')}
+                    </span>
+                  )}
+                </td>
+                <td className="text-foreground-muted px-3 py-2">
+                  {formatDateTime(row.updated_at, languageTag)}
+                </td>
+                <td className="text-foreground-muted px-3 py-2 text-right font-mono tabular-nums">
+                  {row.content.length.toLocaleString(languageTag)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 export default function PromptTemplates() {
   const t = useT()
   const [locale] = useLocale()
@@ -153,6 +304,7 @@ export default function PromptTemplates() {
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [suggestionIndex, setSuggestionIndex] = useState(0)
   const [queryStartIdx, setQueryStartIdx] = useState(-1)
+  const [draggingParam, setDraggingParam] = useState(false)
 
   const insertParameter = useCallback(
     (param: string, customStart?: number) => {
@@ -180,48 +332,45 @@ export default function PromptTemplates() {
     [setDraft, setDirty, setSaveOk],
   )
 
-  const checkSuggestions = useCallback(
-    (val: string, cursorIndex: number) => {
-      const activeParams = TEMPLATE_PARAMS[selectedName]
-      if (activeParams.length === 0) {
-        setShowSuggestions(false)
-        return
-      }
+  const checkSuggestions = (val: string, cursorIndex: number) => {
+    const activeParams = TEMPLATE_PARAMS[selectedName]
+    if (activeParams.length === 0) {
+      setShowSuggestions(false)
+      return
+    }
 
-      const lastOpen = val.lastIndexOf('{{', cursorIndex - 1)
-      if (lastOpen === -1 || lastOpen < cursorIndex - 30) {
-        setShowSuggestions(false)
-        return
-      }
+    const lastOpen = val.lastIndexOf('{{', cursorIndex - 1)
+    if (lastOpen === -1 || lastOpen < cursorIndex - 30) {
+      setShowSuggestions(false)
+      return
+    }
 
-      const textBetween = val.substring(lastOpen, cursorIndex)
-      if (textBetween.includes('}}')) {
-        setShowSuggestions(false)
-        return
-      }
+    const textBetween = val.substring(lastOpen, cursorIndex)
+    if (textBetween.includes('}}')) {
+      setShowSuggestions(false)
+      return
+    }
 
-      const query = textBetween
-      setQueryStartIdx(lastOpen)
+    const query = textBetween
+    setQueryStartIdx(lastOpen)
 
-      const filtered = activeParams.filter((p) => {
-        const paramLower = p.toLowerCase()
-        const queryLower = query.toLowerCase()
-        return (
-          paramLower.includes(queryLower) ||
-          p.replace(/[{}.]/g, '').toLowerCase().includes(query.replace(/[{}.]/g, '').toLowerCase())
-        )
-      })
+    const filtered = activeParams.filter((p) => {
+      const paramLower = p.toLowerCase()
+      const queryLower = query.toLowerCase()
+      return (
+        paramLower.includes(queryLower) ||
+        p.replace(/[{}.]/g, '').toLowerCase().includes(query.replace(/[{}.]/g, '').toLowerCase())
+      )
+    })
 
-      if (filtered.length > 0) {
-        setSuggestions(filtered)
-        setSuggestionIndex(0)
-        setShowSuggestions(true)
-      } else {
-        setShowSuggestions(false)
-      }
-    },
-    [selectedName],
-  )
+    if (filtered.length > 0) {
+      setSuggestions(filtered)
+      setSuggestionIndex(0)
+      setShowSuggestions(true)
+    } else {
+      setShowSuggestions(false)
+    }
+  }
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value
@@ -452,28 +601,16 @@ export default function PromptTemplates() {
           </span>
         </div>
 
-        {/* Clickable parameter pills */}
         {TEMPLATE_PARAMS[selectedName].length > 0 && (
-          <div className="border-border mb-4 rounded-lg border bg-white/1.5 p-3">
-            <div className="text-caption text-foreground-muted mb-2 font-semibold">
-              {t('prompt_templates.available_params')}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {TEMPLATE_PARAMS[selectedName].map((param) => (
-                <button
-                  key={param}
-                  type="button"
-                  className="text-caption border-accent/20 bg-accent/3 text-accent mt-0 inline-flex min-h-6 w-auto items-center justify-center rounded border px-2 py-0.5 font-mono"
-                  onClick={() => insertParameter(param)}
-                >
-                  {param}
-                </button>
-              ))}
-            </div>
-          </div>
+          <ParameterPalette
+            params={TEMPLATE_PARAMS[selectedName]}
+            onInsert={insertParameter}
+            onDragStateChange={setDraggingParam}
+            t={t}
+          />
         )}
 
-        <div className={promptEditorContainerClass}>
+        <div className={cn(promptEditorContainerClass, 'rounded-lg transition-shadow')}>
           <pre className={promptEditorUnderlayClass}>{highlightContent(draft)}</pre>
           <textarea
             ref={textareaRef}
@@ -484,8 +621,11 @@ export default function PromptTemplates() {
             onSelect={handleTextareaSelect}
             onKeyDown={handleKeyDown}
             onScroll={handleTextareaScroll}
+            onDragOver={(e) => handleEditorDragOver(e, draggingParam)}
+            onDrop={(e) => handleEditorDrop(e, insertParameter, setDraggingParam)}
             spellCheck={false}
           />
+          <EditorDropOverlay active={draggingParam} label={t('prompt_templates.param_drop_hint')} />
           {showSuggestions && suggestions.length > 0 && (
             <div className="autocomplete-dropdown bg-card-raised border-border-strong absolute bottom-5 left-5 z-10 max-h-37.5 w-65 overflow-y-auto rounded-lg border p-1 shadow-lg backdrop-blur-md">
               <div className="text-2xs text-foreground-muted border-border mb-1 border-b px-1.5 py-1">
@@ -541,35 +681,7 @@ export default function PromptTemplates() {
         </div>
 
         {versionHistory.length > 0 && (
-          <div className="mt-6">
-            <h3 className="mb-2 text-sm font-semibold">{t('prompt_templates.version_history')}</h3>
-            <div className="table-wrap">
-              <table className={legacyTableClass('results-table')}>
-                <thead>
-                  <tr>
-                    <th>{t('prompt_templates.col_version')}</th>
-                    <th>{t('prompt_templates.col_status')}</th>
-                    <th>{t('prompt_templates.col_updated')}</th>
-                    <th>{t('prompt_templates.col_chars')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {versionHistory.map((row) => (
-                    <tr key={`${row.name}:${row.locale}:${row.version}`}>
-                      <td>v{row.version}</td>
-                      <td>
-                        {row.is_active
-                          ? t('prompt_templates.status_active')
-                          : t('prompt_templates.status_inactive')}
-                      </td>
-                      <td>{formatDateTime(row.updated_at, languageTag)}</td>
-                      <td>{row.content.length}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <VersionHistoryTable versionHistory={versionHistory} languageTag={languageTag} t={t} />
         )}
       </div>
     </div>

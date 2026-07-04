@@ -250,14 +250,23 @@ export function AIProvidersPanel() {
 
       {/* Providers grid */}
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-foreground m-0 text-base font-semibold">
-            {t('admin.ai_providers.providers_title')}
-          </h3>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-foreground m-0 text-base font-semibold">
+              {t('admin.ai_providers.providers_title')}
+            </h3>
+            <p className="text-foreground-muted text-caption mt-1 mb-0">
+              {t('admin.ai_providers.providers_select_hint')}
+            </p>
+          </div>
           <button
             onClick={() => providerModal.openModal()}
             disabled={!canEdit}
-            className={cn(adminBtnPrimaryClass, !canEdit && 'cursor-not-allowed opacity-50')}
+            className={cn(
+              adminBtnPrimaryClass,
+              'shrink-0',
+              !canEdit && 'cursor-not-allowed opacity-50',
+            )}
           >
             + {t('admin.ai_providers.add_provider')}
           </button>
@@ -288,6 +297,21 @@ export function AIProvidersPanel() {
       </section>
 
       {/* Models for selected provider */}
+      {!selectedProvider && !loading && providers.length > 0 && (
+        <div className="border-border/70 text-foreground-muted flex items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-sm">
+          <svg
+            aria-hidden
+            viewBox="0 0 20 20"
+            className="text-foreground-faint size-4 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <path d="M4 7l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {t('admin.ai_providers.select_provider_prompt')}
+        </div>
+      )}
       {selectedProvider && (
         <section className="bg-card border-border overflow-hidden rounded-lg border shadow-sm">
           <div className="border-border flex items-center justify-between border-b p-[12px_16px] text-sm font-semibold">
@@ -430,22 +454,54 @@ function ProviderCard({
   const t = useT()
   return (
     <div
-      className={cn(
-        'bg-card flex cursor-pointer flex-col gap-1.5 rounded-lg border p-3.5 transition-all duration-150',
-        selected ? 'border-accent' : 'border-border',
-      )}
+      role="button"
+      tabIndex={0}
+      aria-expanded={selected}
+      aria-label={`${t('admin.ai_providers.manage_models')}: ${provider.name}`}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        // Only the card itself toggles selection; keys on the Edit/Delete buttons
+        // bubble here, so ignore those.
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onSelect()
+        }
+      }}
+      className={cn(
+        'group bg-card flex cursor-pointer flex-col gap-1.5 rounded-lg border p-3.5 transition-all duration-150 outline-none',
+        'focus-visible:ring-accent/50 focus-visible:ring-2',
+        selected
+          ? 'border-accent bg-accent/5 ring-accent/40 ring-1'
+          : 'border-border hover:border-accent/50 hover:bg-white/2',
+      )}
     >
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-2">
         <strong className="text-foreground text-sm font-semibold">{provider.name}</strong>
-        <span
-          className={cn(
-            'text-xs font-semibold',
-            provider.is_active ? 'text-success' : 'text-foreground-muted',
-          )}
-        >
-          {provider.is_active ? t('admin.ai_providers.active') : t('admin.ai_providers.inactive')}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span
+            className={cn(
+              'text-2xs rounded-full border px-1.5 py-0.5 font-semibold',
+              provider.is_active
+                ? 'bg-success/12 text-success border-success/20'
+                : 'bg-foreground-muted/10 text-foreground-muted border-border',
+            )}
+          >
+            {provider.is_active ? t('admin.ai_providers.active') : t('admin.ai_providers.inactive')}
+          </span>
+          <svg
+            aria-hidden
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className={cn(
+              'size-4 shrink-0 transition-transform duration-150',
+              selected ? 'text-accent rotate-180' : 'text-foreground-faint group-hover:text-accent',
+            )}
+          >
+            <path d="M4 7l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
       </div>
       <div className="text-foreground-muted text-xs">
         {t(`admin.ai_providers.types.${provider.provider_type}`)}
@@ -457,21 +513,34 @@ function ProviderCard({
         {t('admin.ai_providers.model_count', { count: provider.model_count })}
         {provider.has_api_key && <span> · {provider.api_key_masked}</span>}
       </div>
-      <div className="mt-1 flex gap-2" onClick={(e) => e.stopPropagation()}>
-        <button
-          disabled={!canEdit}
-          onClick={onEdit}
-          className="text-accent cursor-pointer border-none bg-transparent px-2 py-1 text-xs font-semibold hover:underline disabled:opacity-50"
+      <div className="border-border/60 mt-2 flex items-center justify-between border-t pt-2">
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 text-xs font-semibold',
+            selected ? 'text-accent' : 'text-foreground-muted group-hover:text-accent',
+          )}
         >
-          {t('common.edit')}
-        </button>
-        <button
-          disabled={!canEdit}
-          onClick={onDelete}
-          className="text-error cursor-pointer border-none bg-transparent px-2 py-1 text-xs font-semibold hover:underline disabled:opacity-50"
-        >
-          {t('common.delete')}
-        </button>
+          {selected
+            ? t('admin.ai_providers.managing_models')
+            : t('admin.ai_providers.manage_models')}
+          {!selected && <span aria-hidden>→</span>}
+        </span>
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            disabled={!canEdit}
+            onClick={onEdit}
+            className="text-foreground-muted hover:text-accent cursor-pointer border-none bg-transparent px-2 py-1 text-xs font-medium disabled:opacity-50"
+          >
+            {t('common.edit')}
+          </button>
+          <button
+            disabled={!canEdit}
+            onClick={onDelete}
+            className="text-foreground-muted hover:text-error cursor-pointer border-none bg-transparent px-2 py-1 text-xs font-medium disabled:opacity-50"
+          >
+            {t('common.delete')}
+          </button>
+        </div>
       </div>
     </div>
   )
