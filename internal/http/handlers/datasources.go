@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/bytedance/sonic"
 	"log/slog"
@@ -793,6 +794,17 @@ func (h *DatasourceHandler) checkModelDrift(ctx context.Context, dsID, modelID s
 		return
 	}
 	if report == nil || len(report.Drifts) == 0 {
+		return
+	}
+
+	// A report identical to the latest one — resolved or not — is not news:
+	// re-inserting it would resurrect drifts the user already acknowledged.
+	// Fail open on lookup errors so a broken lookup never silences alerts.
+	latest, err := h.deps.DriftRepo.GetLatestByModel(ctx, modelID)
+	if err != nil && !errors.Is(err, drift.ErrNoDriftReport) {
+		slog.ErrorContext(ctx, "failed to fetch latest drift report", "model_id", modelID, "error", err)
+	}
+	if latest != nil && drift.DriftsMatch(latest.Drifts, report.Drifts) {
 		return
 	}
 

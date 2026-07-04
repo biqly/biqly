@@ -154,7 +154,10 @@ func (s *Scheduler) checkDatasourceDrift(ctx context.Context, dsID string) {
 			continue
 		}
 
-		if latest != nil && !latest.Resolved && s.driftsMatch(latest.Drifts, report.Drifts) {
+		// Skip when the latest report (resolved or not) carries the same drift
+		// set: resolving means "acknowledged until the drift set changes", so an
+		// identical re-detection must not resurrect it.
+		if latest != nil && DriftsMatch(latest.Drifts, report.Drifts) {
 			continue
 		}
 
@@ -176,7 +179,10 @@ func (s *Scheduler) checkDatasourceDrift(ctx context.Context, dsID string) {
 	}
 }
 
-func (*Scheduler) driftsMatch(a, b []DriftItem) bool {
+// DriftsMatch reports whether two drift sets contain the same items, keyed by
+// type, field, and column ref. Both the scheduler and the metadata-sync path
+// use it to avoid re-inserting a report identical to the latest one.
+func DriftsMatch(a, b []DriftItem) bool {
 	if len(a) != len(b) {
 		return false
 	}

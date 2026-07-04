@@ -51,7 +51,10 @@ func (*Driver) introspectColumns(ctx context.Context, db *sql.DB) ([]datasource.
 			c.table_schema,
 			c.table_name,
 			c.column_name,
-			c.data_type,
+			-- information_schema reports extension/enum/domain types (citext, ...)
+			-- as the literal 'USER-DEFINED'; resolve to the underlying udt_name so
+			-- drift detection can judge real type compatibility.
+			CASE WHEN c.data_type = 'USER-DEFINED' THEN c.udt_name ELSE c.data_type END AS data_type,
 			CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END as nullable,
 			c.ordinal_position,
 			c.character_maximum_length,
