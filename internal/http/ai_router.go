@@ -206,6 +206,16 @@ func registerAISkillsRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.Aut
 	r.With(skillAccess).Put("/ai/skills/{id}", skillsHandler.Update)
 	r.With(skillAccess).Delete("/ai/skills/{id}", skillsHandler.Delete)
 	r.With(aiUserMW, skillAccess).Post("/ai/skills/{id}/run", skillsHandler.Run)
+
+	// Report schedules run skills unattended and mail results to arbitrary
+	// recipients — admin surface only.
+	reportsHandler := handlers.NewReportSchedulesHandler(deps)
+	requireReportAdmin := bimw.RequirePermission(authClient, "ai:settings")
+	r.With(requireReportAdmin).Get("/ai/reports/schedules", reportsHandler.List)
+	r.With(requireReportAdmin).Post("/ai/reports/schedules", reportsHandler.Create)
+	r.With(requireReportAdmin).Get("/ai/reports/schedules/{id}", reportsHandler.Get)
+	r.With(requireReportAdmin).Put("/ai/reports/schedules/{id}", reportsHandler.Update)
+	r.With(requireReportAdmin).Delete("/ai/reports/schedules/{id}", reportsHandler.Delete)
 }
 
 func registerAIExamplesGlossaryAndTemplatesRoutes(

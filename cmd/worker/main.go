@@ -14,6 +14,7 @@ import (
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/http/handlers"
+	"github.com/biqly/biqly/internal/mail"
 	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/queue"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -76,6 +77,11 @@ func main() {
 	}
 	aiHandler := handlers.NewAIHandler(deps.AIDeps())
 	jobSvc := handlers.NewAIJobService(deps.MetaRepo, pub, aiHandler)
+
+	mailClient := mail.NewAPIClient(cfg.Mail.ServiceURL, cfg.Mail.InternalToken, nil)
+	reportRunner := handlers.NewReportScheduleRunner(deps.AIDeps(), mailClient, 0)
+	reportRunner.Start(ctx)
+	defer reportRunner.Stop()
 
 	slog.Info("worker started", "nats_url", cfg.NATS.URL, "group", cfg.NATS.ConsumerGroup)
 

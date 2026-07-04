@@ -490,6 +490,64 @@ var builtinEmailTemplates = map[string]map[string]*emailTemplate{
 </div>`,
 		},
 	},
+	"report_digest": {
+		"en": {
+			Subject: "[Biqly] {{.ReportName}}",
+			Text:    "Scheduled report \"{{.ReportName}}\" generated at {{.GeneratedAt}}.\n\n{{.SectionsText}}\n",
+			HTML: `<p>Your scheduled report <strong>{{.ReportName}}</strong> was generated at {{.GeneratedAt}}.</p>
+{{range .Sections}}
+<h3 style="margin: 24px 0 4px 0; font-size: 15px; color: #0f172a;">{{.Name}}</h3>
+{{if .Question}}<p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b;">{{.Question}}</p>{{end}}
+{{if .Error}}
+<p style="background-color: #fef2f2; color: #991b1b; padding: 8px 12px; border-radius: 6px; font-size: 13px;">{{.Error}}</p>
+{{else}}
+<table style="width: 100%; border-collapse: collapse; margin: 8px 0;">
+  <thead>
+    <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+      {{range .Columns}}<th style="padding: 8px 10px; text-align: left; font-size: 12px; font-weight: 600; color: #475569;">{{.}}</th>{{end}}
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Rows}}
+    <tr style="border-bottom: 1px solid #e2e8f0;">
+      {{range .}}<td style="padding: 8px 10px; font-size: 13px; color: #334155;">{{.}}</td>{{end}}
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{if .Truncated}}<p style="font-size: 12px; color: #94a3b8;">Showing the first {{len .Rows}} of {{.RowCount}} rows.</p>{{end}}
+{{end}}
+{{end}}`,
+		},
+		"tr": {
+			Subject: "[Biqly] {{.ReportName}}",
+			Text:    "\"{{.ReportName}}\" zamanlanmış raporu {{.GeneratedAt}} tarihinde oluşturuldu.\n\n{{.SectionsText}}\n",
+			HTML: `<p><strong>{{.ReportName}}</strong> zamanlanmış raporunuz {{.GeneratedAt}} tarihinde oluşturuldu.</p>
+{{range .Sections}}
+<h3 style="margin: 24px 0 4px 0; font-size: 15px; color: #0f172a;">{{.Name}}</h3>
+{{if .Question}}<p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b;">{{.Question}}</p>{{end}}
+{{if .Error}}
+<p style="background-color: #fef2f2; color: #991b1b; padding: 8px 12px; border-radius: 6px; font-size: 13px;">{{.Error}}</p>
+{{else}}
+<table style="width: 100%; border-collapse: collapse; margin: 8px 0;">
+  <thead>
+    <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+      {{range .Columns}}<th style="padding: 8px 10px; text-align: left; font-size: 12px; font-weight: 600; color: #475569;">{{.}}</th>{{end}}
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Rows}}
+    <tr style="border-bottom: 1px solid #e2e8f0;">
+      {{range .}}<td style="padding: 8px 10px; font-size: 13px; color: #334155;">{{.}}</td>{{end}}
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{if .Truncated}}<p style="font-size: 12px; color: #94a3b8;">Toplam {{.RowCount}} satırın ilk {{len .Rows}} satırı gösteriliyor.</p>{{end}}
+{{end}}
+{{end}}`,
+		},
+	},
 }
 
 const htmlEmailShell = `<!DOCTYPE html>
