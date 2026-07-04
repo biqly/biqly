@@ -30,6 +30,7 @@ import {
 } from './aiQueryClasses'
 import { deriveClarificationStage, MAX_CLARIFICATION_ROUNDS } from './clarificationStage'
 import { GenerationTracePanel } from './generationTrace'
+import { buildResultInsight } from './resultInsight'
 import {
   CandidateComparisonPanel,
   ClarificationCard,
@@ -473,6 +474,7 @@ export function AssistantMessageResults({
   onFilterByValue,
   onCellDrillDown,
   t,
+  localeTag,
 }: {
   result: AIQueryResponse & { result: NonNullable<AIQueryResponse['result']> }
   chartType: 'bar' | 'line' | 'pie' | 'table'
@@ -484,9 +486,11 @@ export function AssistantMessageResults({
   onFilterByValue: AssistantMessageCardProps['onFilterByValue']
   onCellDrillDown: AssistantMessageCardProps['onCellDrillDown']
   t: AssistantT
+  localeTag: string
 }) {
   const chartData = rowsToChartData(result.result.rows)
   const tableData = tableView === 'pivot' && pivotTable ? pivotTable : result.result
+  const insight = buildResultInsight(result.result, t, localeTag)
 
   return (
     <div className={resultsSectionClass}>
@@ -499,6 +503,9 @@ export function AssistantMessageResults({
         setChartType={setChartType}
         t={t}
       />
+      {insight && (
+        <p className="text-foreground-muted m-0 mb-2 text-[0.82rem] leading-normal">{insight}</p>
+      )}
       {chartType !== 'table' && chartData.length > 0 && (
         <ChartContainer data={chartData} type={chartType} />
       )}
