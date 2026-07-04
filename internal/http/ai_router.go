@@ -216,6 +216,14 @@ func registerAISkillsRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.Aut
 	r.With(requireReportAdmin).Get("/ai/reports/schedules/{id}", reportsHandler.Get)
 	r.With(requireReportAdmin).Put("/ai/reports/schedules/{id}", reportsHandler.Update)
 	r.With(requireReportAdmin).Delete("/ai/reports/schedules/{id}", reportsHandler.Delete)
+
+	// Memory entries are owner-scoped (workspace + user from JWT); no admin
+	// permission — every user manages only their own remembered facts.
+	memoryHandler := handlers.NewMemoryEntriesHandler(deps)
+	r.Get("/ai/memory/entries", memoryHandler.List)
+	r.Post("/ai/memory/entries", memoryHandler.Create)
+	r.Put("/ai/memory/entries/{id}", memoryHandler.Update)
+	r.Delete("/ai/memory/entries/{id}", memoryHandler.Delete)
 }
 
 func registerAIExamplesGlossaryAndTemplatesRoutes(

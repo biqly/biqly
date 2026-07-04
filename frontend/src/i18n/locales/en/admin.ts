@@ -567,6 +567,17 @@ export const admin = {
     description:
       'Control how new users can join the platform. Invitations always work regardless of this setting.',
     all_keys_reference: 'All parameters reference',
+    deployment_mode_title: 'Deployment profile',
+    deployment_mode_label: 'Deployment mode',
+    deployment_mode_hint:
+      'Set via BI_DEPLOYMENT_MODE at deploy time. External AI provider calls are allowed in this profile.',
+    deployment_mode_airgapped_hint:
+      'Air-gapped: all external AI egress is blocked. Only private/in-cluster provider endpoints are reachable.',
+    deployment_mode_values: {
+      cloud: 'Cloud',
+      private: 'Private',
+      airgapped: 'Air-gapped',
+    },
     self_signup_label: 'Allow self-service sign-up',
     self_signup_on_hint:
       'Anyone with the sign-up page can create an account. OAuth sign-in can also register new users.',

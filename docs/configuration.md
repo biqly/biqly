@@ -13,6 +13,7 @@ This document catalogs the BI_* variables loaded through the shared `internal/co
 | `BI_HSTS_ENABLED` | `false` | `false` | No | `internal/config/config.go`, `internal/http/router.go` | No | Enables Strict-Transport-Security. |
 | `BI_LOG_LEVEL` | `"info"` | `"info"` | No | `internal/platform/logger` | No | `debug`, `info`, `warn`, `error`. |
 | `BI_LOG_FORMAT` | `"json"` | `"json"` | No | `internal/platform/logger` | No | `json` or `text`. |
+| `BI_DEPLOYMENT_MODE` | `"cloud"` | `"cloud"` | No | `internal/config/config.go`, `internal/ai/provider/egress.go` | No | `cloud`, `private`, or `airgapped`. Airgapped fails closed on external LLM/embedding egress: provider endpoints must be private/in-cluster hosts. |
 | `BI_DRIFT_CHECK_INTERVAL` | `"6h"` | N/A | No | `internal/config/config.go`, `internal/app/dependencies.go` | No | Period for semantic metadata drift checks. |
 | `BI_CATALOG_SERVICE_URL` | `""` | `http://biqly-catalog:8080` | No | `internal/config/config.go`, `internal/http/router.go` | No | URL of the catalog service. |
 | `BI_QUERY_SERVICE_URL` | `""` | `http://biqly-query:8081` | No | `internal/config/config.go`, `internal/http/router.go` | No | URL of the query service. |

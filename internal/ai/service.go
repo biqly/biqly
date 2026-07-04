@@ -151,6 +151,7 @@ type processOptions struct {
 	targetDialect                string
 	glossary                     []promptpkg.GlossaryEntry
 	ambiguityGlossary            []promptpkg.GlossaryEntry
+	memories                     []string
 	ambiguityCheck               bool
 	ambiguitySynonymOnly         bool
 	ambiguityInteractiveTier     bool
@@ -221,6 +222,11 @@ func WithTargetDialect(dialectName string) ProcessOption {
 // WithGlossary injects business-term → field mappings into the prompt.
 func WithGlossary(entries []promptpkg.GlossaryEntry) ProcessOption {
 	return func(o *processOptions) { o.glossary = entries }
+}
+
+// WithMemories injects the user's durable remembered facts into the prompt.
+func WithMemories(memories []string) ProcessOption {
+	return func(o *processOptions) { o.memories = memories }
 }
 
 // WithAmbiguityGlossary preserves unmerged terms so collision checks see every mapping.
@@ -834,6 +840,7 @@ func (s *Service) buildPrompt(
 			PriorTurns:   tiered.priorTurns,
 			DeniedFields: tiered.deniedFields,
 			Glossary:     tiered.glossary,
+			Memories:     options.memories,
 		},
 	)
 	if block := ActiveFilterInstructions(filterSess, followIntent); block != "" {

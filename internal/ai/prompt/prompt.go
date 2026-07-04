@@ -44,7 +44,7 @@ const defaultLayout = `{{.SystemRules}}
 {{end}}
 ## Supported Filter Operators
 {{.FilterOperators}}
-{{.Glossary}}{{.DialectGuide}}{{.FailureExamples}}{{.PlanningSteps}}
+{{.Glossary}}{{.Memories}}{{.DialectGuide}}{{.FailureExamples}}{{.PlanningSteps}}
 ## User Question
 {{.Question}}
 
@@ -83,6 +83,9 @@ type Config struct {
 	PriorTurns   []ConversationTurn
 	DeniedFields []string
 	Glossary     []GlossaryEntry
+	// Memories are durable, user-curated facts (preferences, definitions,
+	// prior resolutions) injected as remembered context.
+	Memories []string
 	// Composite, when non-nil, marks this prompt as targeting a cross-domain
 	// composite model and supplies the extra context (component domains,
 	// cross-model joins, canonical date, renamed duplicate dimensions) the LLM
@@ -272,6 +275,7 @@ func (b *Builder) buildPromptTemplateData(
 	outputFmt := promptTemplate(ctx, locale, "output_format")
 
 	glossaryStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeBusinessGlossary(buf, cfg.Glossary) })
+	memoriesStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeMemories(buf, cfg.Memories) })
 	dialectStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeDialectCompilationGuide(buf, cfg.Dialect) })
 	failureStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writeFailureExamples(buf) })
 	planningStr := withPooledBuffer(func(buf *bytes.Buffer) { b.writePlanningSteps(buf) })
@@ -306,6 +310,7 @@ func (b *Builder) buildPromptTemplateData(
 		"Joins":            catalog.joins,
 		"FilterOperators":  "eq, neq, gt, gte, lt, lte, in, not_in, contains, starts_with, ends_with, between, is_null, is_not_null\n\n",
 		"Glossary":         glossaryStr,
+		"Memories":         memoriesStr,
 		"DialectGuide":     dialectStr,
 		"FailureExamples":  failureStr,
 		"PlanningSteps":    planningStr,

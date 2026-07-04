@@ -1,6 +1,8 @@
 // ─── AI runtime (server env) ───────────────────────────────────────
 
 export interface AIRuntimeSettings {
+  /** Deployment profile: cloud, private, or airgapped (read-only, env-set). */
+  deployment_mode?: string
   provider: string
   llm_model: string
   base_url: string

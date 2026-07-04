@@ -1460,6 +1460,18 @@ export const core: CoreDictionary = {
     profile_mfa_bypass_btn: 'Bypass kodu üret',
     security_group: 'Hesap güvenliği',
     configuration_group: 'Yapılandırma',
+    ai_memory: {
+      section: 'AI hafızası',
+      hint: 'AI sorularınızı yanıtlarken hatırlayacağı kalıcı bilgiler — tercihler, tanımlar, iş kuralları. Herhangi bir kaydı istediğiniz zaman düzenleyebilir veya silebilirsiniz.',
+      placeholder: 'örn. Ciro her zaman iadeler sonrası net tutarı ifade eder',
+      add_btn: 'Hatırla',
+      edit_aria: 'Hatırlanan bilgiyi düzenle',
+      empty:
+        'Henüz hatırlanan bir bilgi yok. AI’ya bir bilgi öğretin; sonraki tüm sorularda uygulanır.',
+      added: 'Bilgi hatırlandı.',
+      updated: 'Bilgi güncellendi.',
+      deleted: 'Bilgi silindi.',
+    },
     ai_models: {
       section: 'AI model tercihleri',
       hint: 'Sorgularınız ve açıklamalar için kullanmak istediğiniz modeli seçin. Boş bırakırsanız varsayılan model kullanılır.',

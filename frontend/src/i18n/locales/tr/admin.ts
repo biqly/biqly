@@ -572,6 +572,17 @@ export const admin: AdminDictionary = {
     description:
       'Yeni kullanıcıların platforma nasıl katılacağını belirleyin. Davet akışı bu ayardan bağımsız olarak çalışır.',
     all_keys_reference: 'Tüm anahtarların referansı',
+    deployment_mode_title: 'Dağıtım profili',
+    deployment_mode_label: 'Dağıtım modu',
+    deployment_mode_hint:
+      'BI_DEPLOYMENT_MODE ile dağıtım sırasında ayarlanır. Bu profilde harici AI sağlayıcı çağrılarına izin verilir.',
+    deployment_mode_airgapped_hint:
+      'Air-gapped: tüm harici AI trafiği engellenir. Yalnızca özel/küme içi sağlayıcı uç noktalarına erişilebilir.',
+    deployment_mode_values: {
+      cloud: 'Bulut',
+      private: 'Özel',
+      airgapped: 'Air-gapped',
+    },
     self_signup_label: 'Kendi kendine kayıt (self sign-up)',
     self_signup_on_hint:
       'Kayıt sayfasına erişen herkes hesap oluşturabilir. OAuth ile giriş yeni kullanıcı kaydı da açabilir.',

@@ -1449,6 +1449,18 @@ export const core = {
     profile_mfa_bypass_btn: 'Generate bypass code',
     security_group: 'Account security',
     configuration_group: 'Configuration',
+    ai_memory: {
+      section: 'AI memory',
+      hint: 'Durable facts the AI remembers when answering your questions — preferences, definitions, business rules. You can edit or delete any entry at any time.',
+      placeholder: 'e.g. Revenue always means net amount after refunds',
+      add_btn: 'Remember',
+      edit_aria: 'Edit remembered fact',
+      empty:
+        'Nothing remembered yet. Teach the AI a fact and it will be applied to every future question.',
+      added: 'Fact remembered.',
+      updated: 'Fact updated.',
+      deleted: 'Fact deleted.',
+    },
     ai_models: {
       section: 'AI model preferences',
       hint: 'Choose which managed model to use for your queries and descriptions. Leave empty to use the workspace default.',

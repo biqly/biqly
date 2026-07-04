@@ -288,7 +288,7 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessConte
 	}
 	promptCtxStart := time.Now()
 	catalog, external := h.loadGlossaryEntries(ctx, model)
-	opts := make([]ai.ProcessOption, 0, 7)
+	opts := make([]ai.ProcessOption, 0, 8)
 	fewShot, recallHits := h.loadFewShotExamples(ctx, model, question)
 	if h.metrics != nil {
 		h.metrics.RecordAIStep("prompt_context", time.Since(promptCtxStart).Milliseconds())
@@ -303,6 +303,9 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessConte
 		ai.WithGlossary(prompt.SelectGlossaryForQuestion(question, prompt.MergeGlossaryEntries(catalog, external), model)),
 		ai.WithAmbiguityGlossary(combineGlossaryEntries(catalog, external)),
 	)
+	if memories := h.loadMemoryFacts(ctx); len(memories) > 0 {
+		opts = append(opts, ai.WithMemories(memories))
+	}
 	ambiguityCfg := h.effectiveAmbiguityConfig(ctx)
 	if pc != nil && pc.ShouldUseInteractiveTier(ambiguityCfg) {
 		slog.InfoContext(ctx, "ambiguity interactive tier engaged",
