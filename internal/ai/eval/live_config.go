@@ -32,7 +32,7 @@ func LiveAIConfigFromEnv() config.AIConfig {
 			HTTPTimeoutSeconds: envIntDefault("BI_AI_HTTP_TIMEOUT_SECONDS", 300),
 		},
 		Generation: config.AIGenerationConfig{
-			MaxTokens:           envIntDefault("BI_AI_MAX_TOKENS", 2048),
+			MaxTokens:           envIntDefault("BI_AI_MAX_TOKENS", 8192),
 			Temperature:         envFloatDefault("BI_AI_TEMPERATURE", 0),
 			MaxRetries:          envIntDefault("BI_AI_MAX_RETRIES", 1),
 			MaxPromptInputRunes: envIntDefault("BI_AI_MAX_PROMPT_RUNES", 80000),
