@@ -306,6 +306,11 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessConte
 	if memories := h.loadMemoryFacts(ctx); len(memories) > 0 {
 		opts = append(opts, ai.WithMemories(memories))
 	}
+	if model != nil {
+		if instructions := h.loadInstructions(ctx, model.DatasourceID); len(instructions) > 0 {
+			opts = append(opts, ai.WithInstructions(instructions))
+		}
+	}
 	ambiguityCfg := h.effectiveAmbiguityConfig(ctx)
 	if pc != nil && pc.ShouldUseInteractiveTier(ambiguityCfg) {
 		slog.InfoContext(ctx, "ambiguity interactive tier engaged",

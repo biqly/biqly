@@ -151,8 +151,8 @@ func (r *ReportScheduleRunner) runSkillSection(ctx context.Context, skillID stri
 		"RowCount": 0,
 		"Error":    "",
 	}
-	row, err := r.deps.MetaRepo.GetSkill(ctx, skillID)
-	if err != nil {
+	row, err := r.deps.MetaRepo.GetSavedQuery(ctx, skillID)
+	if err != nil || !row.Runnable {
 		section["Error"] = "skill not found"
 		return section
 	}

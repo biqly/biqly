@@ -64,7 +64,7 @@ func TestAppendConfirmedFewShotAddsRecalledExamples(t *testing.T) {
 
 	state.queries = []queryMock{
 		{
-			Pattern: "FROM ai_confirmed_queries",
+			Pattern: "FROM ai_saved_queries",
 			Cols: []string{
 				"id", "datasource_id", "model_id", "user_id", "question_hash", "nl_query",
 				"sql_query", "semantic_model_hash", "question_embedding", "is_active",

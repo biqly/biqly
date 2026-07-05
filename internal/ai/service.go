@@ -154,6 +154,7 @@ type processOptions struct {
 	glossary                     []promptpkg.GlossaryEntry
 	ambiguityGlossary            []promptpkg.GlossaryEntry
 	memories                     []string
+	instructions                 []promptpkg.Instruction
 	ambiguityCheck               bool
 	ambiguitySynonymOnly         bool
 	ambiguityInteractiveTier     bool
@@ -229,6 +230,12 @@ func WithGlossary(entries []promptpkg.GlossaryEntry) ProcessOption {
 // WithMemories injects the user's durable remembered facts into the prompt.
 func WithMemories(memories []string) ProcessOption {
 	return func(o *processOptions) { o.memories = memories }
+}
+
+// WithInstructions injects admin-curated free-form business rules for the
+// datasource into the prompt as a "## Business Rules" block.
+func WithInstructions(instructions []promptpkg.Instruction) ProcessOption {
+	return func(o *processOptions) { o.instructions = instructions }
 }
 
 // WithAmbiguityGlossary preserves unmerged terms so collision checks see every mapping.
@@ -857,6 +864,7 @@ func (s *Service) buildPrompt(
 			DeniedFields: tiered.deniedFields,
 			Glossary:     tiered.glossary,
 			Memories:     options.memories,
+			Instructions: options.instructions,
 		},
 	)
 	if block := ActiveFilterInstructions(filterSess, followIntent); block != "" {
