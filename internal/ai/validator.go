@@ -13,6 +13,12 @@ import (
 
 const defaultSchemaValidatorMaxRows = 10_000
 
+// ErrEmptyAIResponse is returned when the provider yields a blank completion
+// (no JSON object to parse). It is a sentinel so the retry loop can special-case
+// empty responses — keeping the context tier compact and re-prompting with a
+// JSON-only emphasis instead of expanding the prompt into a length-truncation spiral.
+var ErrEmptyAIResponse = errors.New("empty AI response")
+
 // SchemaValidator parses AI JSON output and validates it against the semantic model.
 type SchemaValidator struct {
 	validator *query.Validator
@@ -34,7 +40,7 @@ func NewSchemaValidatorWith(validator *query.Validator) *SchemaValidator {
 func parseLogicalQueryFromRaw(raw string) (query.LogicalQuery, error) {
 	cleaned := jsonextract.TrimToJSONObject(raw)
 	if cleaned == "" {
-		return query.LogicalQuery{}, errors.New("empty AI response")
+		return query.LogicalQuery{}, ErrEmptyAIResponse
 	}
 	var lq query.LogicalQuery
 	if err := sonic.ConfigStd.Unmarshal([]byte(cleaned), &lq); err != nil {

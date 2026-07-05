@@ -28,6 +28,19 @@ describe('normalizeAIQueryResponse', () => {
     expect(flat?.result?.rows).toEqual([[3]])
   })
 
+  it('unwraps the server-synthesized natural-language answer', () => {
+    const nested = {
+      result: {
+        sql: 'SELECT COUNT(*) FROM tweets',
+        confidence: 0.9,
+        answer: 'Geçen hafta 5.658 tweet atılmıştır.',
+        result: { columns: [{ name: 'count', type: 'number' }], rows: [[5658]] },
+      },
+    }
+    const flat = normalizeAIQueryResponse(nested)
+    expect(flat?.answer).toBe('Geçen hafta 5.658 tweet atılmıştır.')
+  })
+
   it('passes through already-flat responses', () => {
     const flat = {
       sql: 'SELECT 1',

@@ -308,6 +308,10 @@ type AIGenerationConfig struct {
 	// WorkspaceDailyTokenBudget caps total LLM tokens (prompt+completion) a
 	// single workspace may spend per UTC day. 0 disables the cap.
 	WorkspaceDailyTokenBudget int
+	// AnswerEnabled controls the post-execution natural-language answer synthesis:
+	// a separate, lightweight LLM call that summarizes the query result in one or
+	// two sentences in the user's locale. Enabled by default.
+	AnswerEnabled bool
 }
 
 // AIDescribeConfig groups sampling limits for the AI Describe metadata path.
@@ -494,6 +498,7 @@ func loadAIConfigFromEnv() AIConfig {
 			MaxRetries:                getEnvAsInt("BI_AI_MAX_RETRIES", 2),
 			MultiCandidateCount:       getEnvAsInt("BI_AI_MULTI_CANDIDATE_COUNT", 1),
 			WorkspaceDailyTokenBudget: getEnvAsInt("BI_AI_WORKSPACE_DAILY_TOKEN_BUDGET", 0),
+			AnswerEnabled:             getEnvAsBool("BI_AI_ANSWER_ENABLED", true),
 		},
 		Describe: AIDescribeConfig{
 			MaxCellRunes:  getEnvAsInt("BI_AI_DESCRIBE_MAX_CELL_RUNES", 500),

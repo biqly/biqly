@@ -236,6 +236,8 @@ export interface AIQueryResponse {
   sql?: string
   warnings?: string[]
   result?: QueryResultPayload
+  /** Server-synthesized 1-2 sentence natural-language answer in the user's locale. */
+  answer?: string
   // Disambiguation
   needs_clarification?: boolean
   clarification_question?: string

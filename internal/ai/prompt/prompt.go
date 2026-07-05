@@ -689,6 +689,31 @@ func (*Builder) BuildRetry(ctx context.Context, locale i18n.Locale, originalProm
 	})
 }
 
+// BuildEmptyRetry constructs a corrective prompt for the specific case where the
+// previous attempt returned a blank completion. Unlike BuildRetry it does not
+// echo the (empty) last response; it reuses the original prompt as the schema
+// source of truth and appends a JSON-only emphasis so the model stops emitting
+// reasoning/prose and returns the LogicalQuery object directly.
+func (*Builder) BuildEmptyRetry(ctx context.Context, locale i18n.Locale, originalPrompt, failureReason string) string {
+	tmpl := promptTemplate(ctx, locale, "empty_retry")
+	if tmpl != "" {
+		return renderPromptTemplate(tmpl, map[string]any{
+			"OriginalPrompt": originalPrompt,
+			"FailureReason":  failureReason,
+		})
+	}
+
+	return withPooledBuffer(func(sb *bytes.Buffer) {
+		sb.WriteString(originalPrompt)
+		sb.WriteString("\n\n## Previous Attempt (empty)\n")
+		if locale == i18n.LocaleTR {
+			sb.WriteString("Önceki yanıtınız boştu. YALNIZCA LogicalQuery JSON nesnesini döndürün — hiçbir açıklama, gerekçe, düşünce veya markdown olmadan. Yanıtınıza doğrudan `{` ile başlayın ve `}` ile bitirin.\n")
+		} else {
+			sb.WriteString("Your previous response was empty. Output ONLY the LogicalQuery JSON object — no reasoning, no prose, no markdown. Start your response with `{` and end with `}`.\n")
+		}
+	})
+}
+
 // RepairStrategy returns the locale-specific repair instruction for a 1-indexed
 // repair attempt. Attempt 1 is a minimal, surgical fix; attempt 2 re-evaluates
 // structure; attempt 3+ regenerates the whole query. Shared by BuildRepairPrompt

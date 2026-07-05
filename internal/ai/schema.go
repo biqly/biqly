@@ -32,6 +32,10 @@ type AIResult struct {
 	Result            *query.Result       `json:"result,omitempty"`
 	Confidence        float64             `json:"confidence"`
 	VisualizationHint *VisualizationHint  `json:"visualization_hint,omitempty"`
+	// Answer is a 1-2 sentence natural-language answer to the user's question,
+	// synthesized from the executed result in the user's locale. Empty when
+	// answer synthesis is disabled, the result is unavailable, or synthesis failed.
+	Answer string `json:"answer,omitempty"`
 }
 
 type AIMetadata struct {
