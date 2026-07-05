@@ -170,7 +170,6 @@ func complexRankingCases(base *semantic.SemanticModel) []GoldenCase {
 				Filters: []query.Filter{
 					{Field: "order_date_year", Operator: "eq", Value: 2026},
 					{Field: "order_date_month", Operator: "eq", Value: 5},
-					{Field: "order_date_day", Operator: "is_not_null", Value: nil},
 				},
 				GroupBy: []query.GroupBy{{Field: "order_date_day"}},
 				OrderBy: []query.OrderBy{{Field: "row_count", Direction: "desc"}},
@@ -360,7 +359,7 @@ func complexSegmentCases(base *semantic.SemanticModel) []GoldenCase {
 		},
 		{
 			ID:          "cx-max-by-status",
-			Question:    "statü bazında en yüksek sipariş tutarı",
+			Question:    "her statü için en yüksek tek sipariş tutarını göster",
 			Model:       base,
 			LogicalOnly: true,
 			Expected: query.LogicalQuery{

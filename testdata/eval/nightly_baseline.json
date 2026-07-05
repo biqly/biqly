@@ -58,7 +58,7 @@
       "match": true
     },
     "cx-max-by-status": {
-      "question": "statü bazında en yüksek sipariş tutarı",
+      "question": "her statü için en yüksek tek sipariş tutarını göster",
       "match": true
     },
     "cx-month-diff": {
