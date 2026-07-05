@@ -96,6 +96,16 @@ export const userBubbleTimeClass = 'text-[0.68rem] opacity-85 self-end mt-[0.35r
 export const assistantCardClass =
   'bg-card border border-border rounded-[1rem_0.35rem_1rem_1rem] p-5 shadow-card flex flex-col gap-4 w-full transition-all duration-200 backdrop-blur-md hover:border-border-strong'
 
+// Streamed natural-language answer shown to the left of the ✦ avatar column,
+// above the bordered result card.
+export const assistantAnswerClass =
+  'm-0 text-[0.95rem] leading-relaxed text-foreground whitespace-pre-wrap'
+
+export const assistantAnswerCaptionClass =
+  'm-0 text-[0.82rem] leading-normal text-foreground-muted whitespace-pre-wrap'
+
+export const assistantAnswerCaretClass = 'ml-px inline-block text-accent animate-pulse'
+
 export const assistantCardTopClass = 'flex items-center justify-between gap-3 flex-wrap'
 
 export const assistantSummaryClass = 'flex items-center gap-[0.6rem] flex-wrap min-w-0'
