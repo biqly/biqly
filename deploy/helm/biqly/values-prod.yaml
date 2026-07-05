@@ -140,11 +140,11 @@ auth:
       memory: 128Mi
   image:
     repository: auth
-    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
+    tag: sha-5285a725e131c8b3379de26d3e91d5977cc8f1ff
   migrate:
     image:
       repository: auth
-      tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
+      tag: sha-5285a725e131c8b3379de26d3e91d5977cc8f1ff
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -171,11 +171,11 @@ mail:
     BI_MAIL_SMTP_SENDER_NAME: "ABI"
   image:
     repository: mail
-    tag: sha-5f39e9dfa5d809787e697f8a4517f99814f7b7b7
+    tag: sha-5285a725e131c8b3379de26d3e91d5977cc8f1ff
   migrate:
     image:
       repository: mail
-      tag: sha-5f39e9dfa5d809787e697f8a4517f99814f7b7b7
+      tag: sha-5285a725e131c8b3379de26d3e91d5977cc8f1ff
 frontend:
   replicaCount: 1
   resources:
@@ -186,7 +186,7 @@ frontend:
       cpu: 200m
       memory: 64Mi
   image:
-    tag: sha-ffd9d9e566352bfe7adb2c29c5bd16f9f4bdffce
+    tag: sha-5285a725e131c8b3379de26d3e91d5977cc8f1ff
 catalog:
   replicaCount: 1
   resources:
@@ -197,7 +197,7 @@ catalog:
       cpu: 500m
       memory: 256Mi
   image:
-    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
+    tag: sha-5285a725e131c8b3379de26d3e91d5977cc8f1ff
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -211,13 +211,13 @@ query:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
+    tag: sha-5285a725e131c8b3379de26d3e91d5977cc8f1ff
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
 worker:
   image:
-    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
+    tag: sha-5285a725e131c8b3379de26d3e91d5977cc8f1ff
 mcp:
   replicaCount: 1
   resources:
@@ -228,7 +228,7 @@ mcp:
       cpu: 300m
       memory: 192Mi
   image:
-    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
+    tag: sha-5285a725e131c8b3379de26d3e91d5977cc8f1ff
   config:
     # MCP proxies tool calls to the API gateway; the hostname must match the
     # gateway HTTPRoutes (see global.gateway.hostnames).
@@ -246,7 +246,7 @@ ai:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-bbe3eddc77b3fac3dd806fca028a64d2180bd712
+    tag: sha-5285a725e131c8b3379de26d3e91d5977cc8f1ff
   rollout:
     enabled: false
   autoscaling:
