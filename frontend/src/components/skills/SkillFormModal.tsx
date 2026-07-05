@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import type { TFunction } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
 import { formStackClass, legacyFormClass } from '../../lib/formClasses'
@@ -27,6 +29,11 @@ interface SkillFormModalProps {
   onClose: () => void
   onSave: () => void
   saving?: boolean
+  // onDraft, when provided (new mode), enables the "Draft with AI" affordance:
+  // an NL description that the AI turns into a prefilled draft Saved Query.
+  onDraft?: (description: string) => void
+  drafting?: boolean
+  draftError?: string | null
   t: TFunction
 }
 
@@ -42,14 +49,47 @@ export function SkillFormModal({
   onClose,
   onSave,
   saving = false,
+  onDraft,
+  drafting = false,
+  draftError = null,
   t,
 }: SkillFormModalProps) {
   const id = (field: string) => `skill-${mode}-${field}`
+  const [draftText, setDraftText] = useState('')
 
   return (
     <Modal open={open} title={title} onClose={onClose}>
       <div className={formStackClass}>
         {formError && <ErrorAlert error={formError} />}
+
+        {onDraft && (
+          <div className={legacyFormClass('form-group')}>
+            <label htmlFor={id('draft')}>{t('skills.draft_label')}</label>
+            <textarea
+              id={id('draft')}
+              value={draftText}
+              onChange={(e) => setDraftText(e.target.value)}
+              placeholder={t('skills.draft_placeholder')}
+              rows={2}
+            />
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                className={buttonClass('secondary', { size: 'sm', autoWidth: true })}
+                onClick={() => onDraft(draftText)}
+                disabled={drafting || !draftText.trim()}
+              >
+                {drafting ? t('skills.draft_generating') : t('skills.draft_generate')}
+              </button>
+              <p className={legacyFormClass('form-hint')}>{t('skills.draft_hint')}</p>
+            </div>
+            {draftError && (
+              <p className="text-danger mt-2 text-sm" role="alert">
+                {draftError}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className={legacyFormClass('form-group')}>
           <label htmlFor={id('ds')}>{t('skills.label_select_datasource')}</label>

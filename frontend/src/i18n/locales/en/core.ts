@@ -858,6 +858,15 @@ export const core = {
     placeholder_name: 'e.g. Monthly revenue by country',
     placeholder_description: 'e.g. Revenue for a given country and month',
     placeholder_question: 'e.g. what was the revenue in {{country}} last month?',
+    draft_label: 'Draft with AI',
+    draft_placeholder:
+      'Describe the query in plain language, e.g. total revenue by country last month',
+    draft_generate: 'Generate',
+    draft_generating: 'Generating…',
+    draft_hint:
+      'The AI drafts a query and fills in the fields below — review and edit before saving.',
+    draft_failed: 'Could not draft a query. Try rephrasing your description.',
+    draft_needs_datasource: 'Select a datasource first.',
   },
   knowledge_center: {
     nav_aria: 'Knowledge Center sections',

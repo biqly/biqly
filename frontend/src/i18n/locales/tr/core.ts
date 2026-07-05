@@ -867,6 +867,14 @@ export const core: CoreDictionary = {
     placeholder_name: 'örn. Ülkeye göre aylık ciro',
     placeholder_description: 'örn. Verilen ülke ve ay için ciro',
     placeholder_question: 'örn. geçen ay {{country}} cirosu neydi?',
+    draft_label: 'AI ile taslak oluştur',
+    draft_placeholder: 'Sorguyu sade bir dille tanımlayın, örn. geçen ay ülkeye göre toplam ciro',
+    draft_generate: 'Oluştur',
+    draft_generating: 'Oluşturuluyor…',
+    draft_hint:
+      'AI bir sorgu taslağı hazırlar ve aşağıdaki alanları doldurur — kaydetmeden önce inceleyip düzenleyin.',
+    draft_failed: 'Sorgu taslağı oluşturulamadı. Açıklamanızı yeniden ifade etmeyi deneyin.',
+    draft_needs_datasource: 'Önce bir veri kaynağı seçin.',
   },
   knowledge_center: {
     nav_aria: 'Bilgi Merkezi bölümleri',

@@ -185,7 +185,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	})
 
 	registerAIExamplesGlossaryAndTemplatesRoutes(r, deps, authClient, usageBreakdownPagination)
-	registerAISkillsRoutes(r, deps, authClient)
+	registerAISkillsRoutes(r, deps, aiHandler, authClient)
 }
 
 // registerAISkillsRoutes wires the skills library: saved parameterized
@@ -193,7 +193,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 // run routes resolve the skill {id} to its owning datasource before the
 // access check, like the glossary and replay routes: the monolith proxy
 // cannot resolve skill ids, so the check must live here.
-func registerAISkillsRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthClient) {
+func registerAISkillsRoutes(r chi.Router, deps *app.AIDeps, aiHandler *handlers.AIHandler, authClient *bimw.AuthClient) {
 	skillsHandler := handlers.NewAISkillsHandler(deps)
 	skillDS := func(ctx context.Context, id string) (string, error) {
 		return deps.MetaRepo.DatasourceForSavedQuery(ctx, id)
@@ -201,6 +201,10 @@ func registerAISkillsRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.Aut
 	skillAccess := bimw.RequireResolvedDatasourceAccess(authClient, "read", skillDS)
 	aiUserMW := bimw.InjectAIUserContext
 	r.Get("/ai/skills", skillsHandler.List)
+	// AI-assisted authoring: drafts a Saved Query from a natural-language
+	// description by reusing the text-to-SQL generation (no persistence). Auth
+	// and per-datasource access mirror Create — datasource_id is in the body.
+	r.With(aiUserMW, bimw.RequireDatasourceAccess(authClient, "read")).Post("/ai/skills/draft", aiHandler.DraftSavedQuery)
 	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Post("/ai/skills", skillsHandler.Create)
 	r.With(skillAccess).Get("/ai/skills/{id}", skillsHandler.Get)
 	r.With(skillAccess).Put("/ai/skills/{id}", skillsHandler.Update)
