@@ -288,6 +288,24 @@ export function modelingJoinLineClass(hi?: boolean): string {
   return cn('modeling-join-line', hi && 'modeling-join-line--hi')
 }
 
+// Invisible wide stroke laid over each join line so the thin visible path is
+// easy to hover; it opts back into pointer events while the container <svg>
+// stays pointer-events-none so empty areas pass through to canvas pan/drag.
+export const modelingJoinHitClass = 'pointer-events-[stroke] fill-none stroke-transparent'
+
+export const modelingJoinTooltipClass = cn(
+  'pointer-events-none fixed z-50 flex max-w-[18rem] flex-col gap-1 rounded-lg border border-border',
+  'bg-card-raised px-3 py-2 text-[0.72rem] text-foreground shadow-[var(--shadow)]',
+)
+
+export const modelingJoinTooltipTitleClass = 'font-semibold text-foreground'
+
+export const modelingJoinTooltipRowClass = 'flex gap-1.5'
+
+export const modelingJoinTooltipLabelClass = 'shrink-0 text-foreground-muted'
+
+export const modelingJoinTooltipValueClass = 'min-w-0 wrap-anywhere text-foreground'
+
 export const modelingZoomControlsClass = cn(
   'absolute top-3 right-3 z-5 flex items-center gap-1 p-[0.3rem]',
   'rounded-lg border border-border bg-card-raised shadow-[0_4px_14px_rgba(0,0,0,0.12)]',
@@ -380,13 +398,7 @@ export const modelingDetailAliasClass = 'flex flex-col gap-1'
 export const modelingDetailMutedClass = 'text-xs text-foreground-muted'
 export const modelingDetailDescriptionClass = 'text-foreground-muted'
 export const modelingDetailTitleClass = 'mb-2 font-semibold'
-export const modelingDetailListClass = 'flex flex-col gap-1'
-export const modelingDetailRowClass = 'flex min-w-0 items-start gap-2'
 export const modelingDetailFieldNameClass = 'font-medium'
-export const modelingDetailFieldDescriptionClass =
-  'min-w-0 flex-1 wrap-anywhere text-xs text-foreground-muted'
-export const modelingDetailRelationshipClass =
-  'flex min-w-0 flex-wrap items-start gap-x-2 gap-y-0.5 text-xs text-foreground-muted'
 export const modelingDetailPreviewHeaderClass = 'mb-2 flex items-center gap-2'
 export const modelingDetailTableWrapClass =
   'max-h-[24rem] max-w-full overflow-auto rounded-md border border-border'
@@ -394,6 +406,19 @@ export const modelingDetailTableClass = 'min-w-full text-xs'
 export const modelingDetailTableHeaderClass =
   'sticky top-0 border-b border-border bg-card px-2 py-1 text-left font-semibold whitespace-nowrap'
 export const modelingDetailTableCellClass = 'border-b border-border/50 px-2 py-1 whitespace-nowrap'
+
+// Info tables (columns / relationships) in the table-detail modal. Unlike the
+// data-preview table, description cells must WRAP rather than force horizontal
+// scroll, so cells use align-top + wrap-anywhere.
+export const modelingDetailInfoTableWrapClass =
+  'max-h-[22rem] overflow-y-auto rounded-md border border-border'
+export const modelingDetailInfoTableClass = 'w-full text-xs'
+export const modelingDetailInfoCellClass =
+  'border-b border-border/50 px-2.5 py-1.5 align-top wrap-anywhere'
+export const modelingDetailInfoNameCellClass =
+  'border-b border-border/50 px-2.5 py-1.5 align-top font-medium whitespace-nowrap'
+export const modelingDetailInfoTypeCellClass =
+  'border-b border-border/50 px-2.5 py-1.5 align-top whitespace-nowrap text-foreground-muted'
 
 export const modelingTypeHintClass = 'block text-foreground-muted text-[0.72rem] leading-[1.35]'
 
