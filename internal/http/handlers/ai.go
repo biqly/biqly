@@ -172,6 +172,15 @@ type aiQueryRequest struct {
 	// IncludePastQueries when true, attaches recent conversation turns as
 	// few-shot examples (frontend-side toggle).
 	IncludePastQueries bool `json:"include_past_queries,omitempty"`
+	// AutoFindSkills toggles the automatic embedding-RAG few-shot recall
+	// (appendConfirmedFewShot). Nil or true preserves current behavior; false
+	// skips auto-recall so only explicitly selected saved queries ground the
+	// prompt. Optional — omitted means auto-find on.
+	AutoFindSkills *bool `json:"auto_find_skills,omitempty"`
+	// SavedQueryIDs are saved queries the user explicitly selected in the
+	// composer ("/"-picker). They are injected as strong few-shot grounding for
+	// this question, datasource-scoped server-side. May be empty.
+	SavedQueryIDs []string `json:"saved_query_ids,omitempty"`
 }
 
 // priorTurnPayload is the wire shape for one entry in aiQueryRequest.PriorTurns.
@@ -187,6 +196,13 @@ type priorTurnPayload struct {
 // maxPriorTurns caps how many turns we forward to the LLM. Older turns drop
 // off so the prompt stays bounded regardless of how long the conversation runs.
 const maxPriorTurns = 5
+
+// autoFindSkills reports whether the automatic embedding-RAG few-shot recall
+// should run for this request. It defaults to true (current behavior) when the
+// client omits auto_find_skills, so existing callers are unaffected.
+func autoFindSkills(req aiQueryRequest) bool {
+	return req.AutoFindSkills == nil || *req.AutoFindSkills
+}
 
 // priorTurnsForPrompt converts wire-format turns into the AI service's
 // ConversationTurn slice, taking the most recent maxPriorTurns entries.
@@ -289,7 +305,7 @@ func (h *AIHandler) standardProcessOptions(ctx context.Context, pc *ProcessConte
 	promptCtxStart := time.Now()
 	catalog, external := h.loadGlossaryEntries(ctx, model)
 	opts := make([]ai.ProcessOption, 0, 8)
-	fewShot, recallHits := h.loadFewShotExamples(ctx, model, question)
+	fewShot, recallHits := h.loadFewShotExamples(ctx, model, question, autoFindSkills(req), req.SavedQueryIDs)
 	if h.metrics != nil {
 		h.metrics.RecordAIStep("prompt_context", time.Since(promptCtxStart).Milliseconds())
 	}
@@ -481,7 +497,7 @@ func (h *AIHandler) applyRunPhaseForHTTP(
 
 func (h *AIHandler) resolveRunPhaseProcessOptions(ctx context.Context, pc *ProcessContext, req aiQueryRequest, model *semantic.SemanticModel) (*app.ResolvedDatasource, []ai.ProcessOption, error) {
 	if h.deps.QueryClient != nil {
-		fewShot, recallHits := h.loadFewShotExamplesWithIDs(ctx, model, req.Question, req.ExampleIDs, req.IncludePastQueries)
+		fewShot, recallHits := h.loadFewShotExamplesWithIDs(ctx, model, req.Question, req.ExampleIDs, req.IncludePastQueries, autoFindSkills(req), req.SavedQueryIDs)
 		if pc != nil {
 			pc.SetMemoryRecallHitCount(recallHits)
 		}
@@ -535,7 +551,7 @@ func (h *AIHandler) localRunProcessOptions(ctx context.Context, pc *ProcessConte
 	driver := resolved.Driver
 	db := resolved.DB
 	targetDialect := driver.Dialect()
-	fewShot, recallHits := h.loadFewShotExamplesWithIDs(ctx, model, req.Question, req.ExampleIDs, req.IncludePastQueries)
+	fewShot, recallHits := h.loadFewShotExamplesWithIDs(ctx, model, req.Question, req.ExampleIDs, req.IncludePastQueries, autoFindSkills(req), req.SavedQueryIDs)
 	if pc != nil {
 		pc.SetMemoryRecallHitCount(recallHits)
 	}
@@ -1273,12 +1289,118 @@ func (h *AIHandler) loadSampleData(ctx context.Context, db *sql.DB, d dialect.Di
 	return []prompt.TableSample{{Schema: model.BaseSchema, Table: model.BaseTable, Rows: rows}}
 }
 
+// fewShotBuilder assembles few-shot examples under the fewShotLimit cap,
+// deduping by question hash so higher-priority sources (added first) win over
+// lower-priority ones (e.g. explicit selections over auto-recall).
+type fewShotBuilder struct {
+	out  []prompt.FewShotExample
+	seen map[string]bool
+}
+
+func newFewShotBuilder() *fewShotBuilder {
+	return &fewShotBuilder{
+		out:  make([]prompt.FewShotExample, 0, fewShotLimit),
+		seen: make(map[string]bool, fewShotLimit),
+	}
+}
+
+// add appends ex unless it is blank, a duplicate, or the cap is reached. It
+// returns false once the cap is full so callers can stop iterating.
+func (b *fewShotBuilder) add(ex prompt.FewShotExample) bool {
+	if len(b.out) >= fewShotLimit {
+		return false
+	}
+	q := strings.TrimSpace(ex.Question)
+	if q == "" || strings.TrimSpace(ex.LogicalQuery) == "" {
+		return true
+	}
+	key := metadata.QuestionHash(q)
+	if b.seen[key] {
+		return true
+	}
+	b.seen[key] = true
+	b.out = append(b.out, ex)
+	return len(b.out) < fewShotLimit
+}
+
+func (b *fewShotBuilder) addAll(examples []prompt.FewShotExample) {
+	for _, ex := range examples {
+		if !b.add(ex) {
+			return
+		}
+	}
+}
+
+// reset re-seats the builder around examples (used after recall, which appends
+// to and dedupes the accumulated slice), rebuilding the dedup index.
+func (b *fewShotBuilder) reset(examples []prompt.FewShotExample) {
+	b.out = examples
+	clear(b.seen)
+	for _, ex := range examples {
+		b.seen[metadata.QuestionHash(strings.TrimSpace(ex.Question))] = true
+	}
+}
+
+func (b *fewShotBuilder) remaining() int { return fewShotLimit - len(b.out) }
+
+func optionalModelID(model *semantic.SemanticModel) *string {
+	if model == nil || model.ID == "" {
+		return nil
+	}
+	return new(model.ID)
+}
+
+// listCuratedFewShot loads curated few-shot rows for the model, preferring the
+// catalog service when configured. Errors are non-fatal — logged and skipped.
+func (h *AIHandler) listCuratedFewShot(ctx context.Context, model *semantic.SemanticModel, modelID *string) []metadata.FewShotCuratedRow {
+	var curated []metadata.FewShotCuratedRow
+	var err error
+	if h.deps.CatalogClient != nil {
+		curated, err = h.deps.CatalogClient.ListFewShot(ctx, model.DatasourceID, stringValue(modelID))
+	} else {
+		curated, err = h.deps.MetaRepo.ListFewShotCurated(ctx, model.DatasourceID, stringValue(modelID))
+	}
+	if err != nil {
+		slog.WarnContext(ctx, "load curated few-shot examples failed", "error", err)
+	}
+	return curated
+}
+
+// addRecall runs the embedding-RAG few-shot recall when autoFind is set and
+// merges the deduped result into b, returning the recall hit count.
+func (h *AIHandler) addRecall(ctx context.Context, b *fewShotBuilder, model *semantic.SemanticModel, question string, autoFind bool) int {
+	if !autoFind {
+		return 0
+	}
+	recalled, hits := h.appendConfirmedFewShot(ctx, model, question, b.out)
+	b.reset(dedupeFewShot(recalled))
+	return hits
+}
+
+// addHistoryFewShot fills any remaining cap with recent successful queries.
+func (h *AIHandler) addHistoryFewShot(ctx context.Context, b *fewShotBuilder, model *semantic.SemanticModel, modelID *string) {
+	if b.remaining() <= 0 {
+		return
+	}
+	historyRows, err := h.deps.MetaRepo.ListSuccessfulAIQueries(ctx, model.DatasourceID, modelID, b.remaining())
+	if err != nil {
+		slog.WarnContext(ctx, "load history few-shot examples failed", "error", err)
+		return
+	}
+	for _, r := range historyRows {
+		if !b.add(prompt.FewShotExample{Question: r.Question, LogicalQuery: string(r.LogicalQuery)}) {
+			return
+		}
+	}
+}
+
 // loadFewShotExamplesWithIDs returns few-shot examples with optional explicit
-// example_ids and an opt-in to include recent successful queries. When both
-// inputs are empty/false this matches loadFewShotExamples — used by Run() so
-// the frontend can override which exemplars hit the prompt without breaking
-// the simpler Query/Preview paths.
-func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *semantic.SemanticModel, question string, exampleIDs []string, includePastQueries bool) ([]prompt.FewShotExample, int) {
+// example_ids and an opt-in to include recent successful queries. Used by the
+// Run phase so the frontend can override which exemplars hit the prompt. It
+// honors the same query-time grounding controls as loadFewShotExamples:
+// explicitly selected saved queries (savedQueryIDs) are injected first and
+// autoFind=false skips the embedding-RAG recall.
+func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *semantic.SemanticModel, question string, exampleIDs []string, includePastQueries, autoFind bool, savedQueryIDs []string) ([]prompt.FewShotExample, int) {
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.LoadFewShot")
 	defer span.End()
 
@@ -1286,69 +1408,38 @@ func (h *AIHandler) loadFewShotExamplesWithIDs(ctx context.Context, model *seman
 		return nil, 0
 	}
 	span.SetAttributes(attribute.String("model.id", model.ID))
-	var modelID *string
-	if model.ID != "" {
-		modelID = new(model.ID)
-	}
+	modelID := optionalModelID(model)
+	curated := h.listCuratedFewShot(ctx, model, modelID)
 
-	var curated []metadata.FewShotCuratedRow
-	var err error
-
-	if h.deps.CatalogClient != nil {
-		curated, err = h.deps.CatalogClient.ListFewShot(ctx, model.DatasourceID, stringValue(modelID))
-	} else {
-		curated, err = h.deps.MetaRepo.ListFewShotCurated(ctx, model.DatasourceID, stringValue(modelID))
-	}
-
-	if err != nil {
-		slog.WarnContext(ctx, "load curated few-shot examples failed", "error", err)
-	}
-
-	idMap := make(map[string]bool)
+	idMap := make(map[string]bool, len(exampleIDs))
 	for _, id := range exampleIDs {
 		idMap[id] = true
 	}
 
-	out := make([]prompt.FewShotExample, 0, fewShotLimit)
+	b := newFewShotBuilder()
+	// Explicit "/"-selected saved queries take priority within the cap.
+	b.addAll(h.loadSavedQueryGrounding(ctx, model, savedQueryIDs))
 	for _, r := range curated {
 		matches := r.IsFewShot
 		if len(exampleIDs) > 0 {
 			matches = idMap[r.ID]
 		}
-
-		if matches {
-			out = append(out, prompt.FewShotExample{
-				Question:     r.Question,
-				LogicalQuery: string(r.LogicalQuery),
-				Locale:       r.Locale,
-			})
-			if len(out) >= fewShotLimit {
-				break
-			}
+		if matches && !b.add(prompt.FewShotExample{
+			Question:     r.Question,
+			LogicalQuery: string(r.LogicalQuery),
+			Locale:       r.Locale,
+		}) {
+			break
 		}
 	}
 
-	out, recallHits := h.appendConfirmedFewShot(ctx, model, question, out)
-
+	recallHits := h.addRecall(ctx, b, model, question, autoFind)
 	if includePastQueries {
-		remaining := fewShotLimit - len(out)
-		if remaining > 0 {
-			historyRows, err := h.deps.MetaRepo.ListSuccessfulAIQueries(ctx, model.DatasourceID, modelID, remaining)
-			if err != nil {
-				slog.WarnContext(ctx, "load history few-shot examples failed", "error", err)
-			} else {
-				for _, r := range historyRows {
-					out = append(out, prompt.FewShotExample{
-						Question:     r.Question,
-						LogicalQuery: string(r.LogicalQuery),
-					})
-				}
-			}
-		}
+		h.addHistoryFewShot(ctx, b, model, modelID)
 	}
 
-	span.SetAttributes(attribute.Int("ai.few_shot.count", len(out)))
-	return out, recallHits
+	span.SetAttributes(attribute.Int("ai.few_shot.count", len(b.out)))
+	return b.out, recallHits
 }
 
 // datasourceDialectName returns the driver type for prompt dialect examples.
@@ -1423,60 +1514,79 @@ func (h *AIHandler) listBusinessGlossary(ctx context.Context, datasourceID, mode
 
 // loadFewShotExamples returns recent high-confidence (question, logical_query)
 // pairs for this datasource+model. Errors are non-fatal — we just log and skip.
-func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.SemanticModel, question string) ([]prompt.FewShotExample, int) {
+//
+// Grounding sources are layered under the fewShotLimit cap: explicitly selected
+// saved queries (savedQueryIDs) first so they take priority, then curated
+// examples, then — when autoFind is true — embedding-RAG recall, then recent
+// successful history. Passing autoFind=false and no ids reproduces a
+// recall-free prompt; autoFind=true with no ids reproduces the historical
+// default behavior.
+func (h *AIHandler) loadFewShotExamples(ctx context.Context, model *semantic.SemanticModel, question string, autoFind bool, savedQueryIDs []string) ([]prompt.FewShotExample, int) {
 	if model == nil {
 		return nil, 0
 	}
-	var modelID *string
-	if model.ID != "" {
-		modelID = new(model.ID)
-	}
+	modelID := optionalModelID(model)
+	curated := h.listCuratedFewShot(ctx, model, modelID)
 
-	var curated []metadata.FewShotCuratedRow
-	var err error
-
-	if h.deps.CatalogClient != nil {
-		curated, err = h.deps.CatalogClient.ListFewShot(ctx, model.DatasourceID, stringValue(modelID))
-	} else {
-		curated, err = h.deps.MetaRepo.ListFewShotCurated(ctx, model.DatasourceID, stringValue(modelID))
-	}
-
-	if err != nil {
-		slog.WarnContext(ctx, "load curated few-shot examples failed", "error", err)
-	}
-
-	out := make([]prompt.FewShotExample, 0, fewShotLimit)
+	b := newFewShotBuilder()
+	// Explicit "/"-selected saved queries take priority within the cap.
+	b.addAll(h.loadSavedQueryGrounding(ctx, model, savedQueryIDs))
 	for _, r := range curated {
-		if r.IsFewShot {
-			out = append(out, prompt.FewShotExample{
-				Question:     r.Question,
-				LogicalQuery: string(r.LogicalQuery),
-				Locale:       r.Locale,
-			})
-			if len(out) >= fewShotLimit {
-				break
-			}
+		if r.IsFewShot && !b.add(prompt.FewShotExample{
+			Question:     r.Question,
+			LogicalQuery: string(r.LogicalQuery),
+			Locale:       r.Locale,
+		}) {
+			break
 		}
 	}
 
-	out, recallHits := h.appendConfirmedFewShot(ctx, model, question, out)
+	recallHits := h.addRecall(ctx, b, model, question, autoFind)
+	h.addHistoryFewShot(ctx, b, model, modelID)
 
-	remaining := fewShotLimit - len(out)
-	if remaining > 0 {
-		historyRows, err := h.deps.MetaRepo.ListSuccessfulAIQueries(ctx, model.DatasourceID, modelID, remaining)
-		if err != nil {
-			slog.WarnContext(ctx, "load history few-shot examples failed", "error", err)
-		} else {
-			for _, r := range historyRows {
-				out = append(out, prompt.FewShotExample{
-					Question:     r.Question,
-					LogicalQuery: string(r.LogicalQuery),
-				})
-			}
-		}
+	return b.out, recallHits
+}
+
+// loadSavedQueryGrounding loads the explicitly selected saved queries and maps
+// them to few-shot examples. Datasource-scoped so a request cannot inject
+// another datasource's queries. Errors are non-fatal.
+func (h *AIHandler) loadSavedQueryGrounding(ctx context.Context, model *semantic.SemanticModel, ids []string) []prompt.FewShotExample {
+	if model == nil || len(ids) == 0 || h.deps == nil || h.deps.MetaRepo == nil {
+		return nil
 	}
+	rows, err := h.deps.MetaRepo.GetSavedQueriesByIDs(ctx, model.DatasourceID, ids)
+	if err != nil {
+		slog.WarnContext(ctx, "load saved query grounding failed", "error", err)
+		return nil
+	}
+	out := make([]prompt.FewShotExample, 0, len(rows))
+	for _, row := range rows {
+		lq := strings.TrimSpace(row.SQLQuery)
+		if lq == "" {
+			lq = strings.TrimSpace(string(row.LogicalQuery))
+		}
+		if lq == "" || strings.TrimSpace(row.Question) == "" {
+			continue
+		}
+		out = append(out, prompt.FewShotExample{Question: row.Question, LogicalQuery: lq})
+	}
+	return out
+}
 
-	return out, recallHits
+// dedupeFewShot removes duplicate examples by question hash, keeping the first
+// occurrence so higher-priority (explicit, curated) rows win over recalled ones.
+func dedupeFewShot(examples []prompt.FewShotExample) []prompt.FewShotExample {
+	seen := make(map[string]bool, len(examples))
+	out := examples[:0]
+	for _, ex := range examples {
+		key := metadata.QuestionHash(strings.TrimSpace(ex.Question))
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, ex)
+	}
+	return out
 }
 
 func stringValue(s *string) string {

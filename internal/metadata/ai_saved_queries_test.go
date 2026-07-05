@@ -108,6 +108,58 @@ func TestSavedQueriesInsertListAndRecall(t *testing.T) {
 	assert.ErrorIs(t, err, ErrSavedQueryNotFound)
 }
 
+// TestGetSavedQueriesByIDs verifies id lookup is datasource-scoped (a foreign
+// datasource's id is never returned) and preserves the caller's id ordering.
+func TestGetSavedQueriesByIDs(t *testing.T) {
+	db := testutil.OpenMetadataDB(t)
+	ctx := context.Background()
+	repo := NewRepository(db)
+
+	const (
+		datasourceID = "00000000-0000-0000-0000-0000000059c1"
+		otherDS      = "00000000-0000-0000-0000-0000000059c2"
+	)
+	testutil.EnsureMetadataTestDatasource(ctx, t, db, datasourceID, "sq-byids-test")
+	testutil.EnsureMetadataTestDatasource(ctx, t, db, otherDS, "sq-byids-other")
+	_, err := db.ExecContext(ctx, `DELETE FROM ai_saved_queries WHERE datasource_id IN ($1::uuid, $2::uuid)`,
+		datasourceID, otherDS)
+	require.NoError(t, err)
+
+	idA, err := repo.InsertSavedQuery(ctx, SavedQueryInsert{
+		DatasourceID: datasourceID, Name: "A", Question: "question a",
+		SQLQuery: `{"select":[{"type":"metric","name":"a"}]}`, Source: "skill", Runnable: true,
+	})
+	require.NoError(t, err)
+	idB, err := repo.InsertSavedQuery(ctx, SavedQueryInsert{
+		DatasourceID: datasourceID, Name: "B", Question: "question b",
+		SQLQuery: `{"select":[{"type":"metric","name":"b"}]}`, Source: "skill", Runnable: true,
+	})
+	require.NoError(t, err)
+	idOther, err := repo.InsertSavedQuery(ctx, SavedQueryInsert{
+		DatasourceID: otherDS, Name: "X", Question: "foreign",
+		SQLQuery: `{"select":[]}`, Source: "skill", Runnable: true,
+	})
+	require.NoError(t, err)
+
+	// Order follows the ids slice; the foreign-datasource id is filtered out.
+	got, err := repo.GetSavedQueriesByIDs(ctx, datasourceID, []string{idB, idA, idOther})
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.Equal(t, idB, got[0].ID)
+	assert.Equal(t, idA, got[1].ID)
+
+	// Scoping to the other datasource returns only its own row.
+	got, err = repo.GetSavedQueriesByIDs(ctx, otherDS, []string{idA, idOther})
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, idOther, got[0].ID)
+
+	// Empty inputs short-circuit.
+	got, err = repo.GetSavedQueriesByIDs(ctx, datasourceID, nil)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
 // TestUpsertSavedQueryExampleIsIdempotent verifies the positive-feedback
 // dual-write path: re-confirming the same question updates the single example
 // row (ON CONFLICT on the example partial index) rather than duplicating recall

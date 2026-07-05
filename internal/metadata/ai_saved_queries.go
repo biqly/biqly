@@ -184,6 +184,40 @@ func (r *Repository) ListSavedQueries(ctx context.Context, f SavedQueryFilter) (
 		scanSavedQueryRow)
 }
 
+// GetSavedQueriesByIDs returns the saved queries with the given ids, scoped to
+// datasourceID so a request can never inject another datasource's queries as
+// grounding. Ordering follows the ids slice so explicit selections keep their
+// priority; unknown or out-of-scope ids are silently dropped.
+func (r *Repository) GetSavedQueriesByIDs(ctx context.Context, datasourceID string, ids []string) ([]SavedQueryRow, error) {
+	if datasourceID == "" || len(ids) == 0 {
+		return nil, nil
+	}
+	q := `SELECT ` + savedQueryColumns + ` FROM ai_saved_queries
+		WHERE datasource_id = $1::uuid AND id = ANY($2::uuid[])`
+	rows, err := platformdb.QuerySliceErr(ctx, r.db, "get saved queries by ids", q,
+		[]any{datasourceID, pgarray.Strings(ids)},
+		scanSavedQueryRow)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[string]SavedQueryRow, len(rows))
+	for _, row := range rows {
+		byID[row.ID] = row
+	}
+	ordered := make([]SavedQueryRow, 0, len(rows))
+	seen := make(map[string]bool, len(rows))
+	for _, id := range ids {
+		if seen[id] {
+			continue
+		}
+		if row, ok := byID[id]; ok {
+			ordered = append(ordered, row)
+			seen[id] = true
+		}
+	}
+	return ordered, nil
+}
+
 // GetSavedQuery returns a single saved query by id.
 func (r *Repository) GetSavedQuery(ctx context.Context, id string) (SavedQueryRow, error) {
 	row := r.db.QueryRowContext(ctx, `SELECT `+savedQueryColumns+` FROM ai_saved_queries WHERE id = $1::uuid`, id)

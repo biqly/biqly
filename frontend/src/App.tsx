@@ -10,7 +10,7 @@ import {
   useMemo,
   useState,
 } from 'react'
-import { Link, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
 import abiLogo from './assets/abi-logo.png'
 import { Breadcrumbs, type Crumb } from './components/ui/Breadcrumbs'
@@ -98,13 +98,10 @@ const Composites = lazyWithPreload(() => import('./components/Composites'))
 const QueryBuilder = lazyWithPreload(() => import('./components/QueryBuilder'))
 const AIQuery = lazyWithPreload(() => import('./components/AIQuery'))
 const SavedQuestions = lazyWithPreload(() => import('./components/SavedQuestions'))
-const Skills = lazyWithPreload(() => import('./components/Skills'))
-const Knowledge = lazyWithPreload(() => import('./components/Knowledge'))
+const KnowledgeCenter = lazyWithPreload(() => import('./components/KnowledgeCenter'))
 const TableBrowser = lazyWithPreload(() => import('./components/TableBrowser'))
 const QueryHistory = lazyWithPreload(() => import('./components/QueryHistory'))
-const FewShotExamples = lazyWithPreload(() => import('./components/FewShotExamples'))
 const PromptTemplates = lazyWithPreload(() => import('./components/PromptTemplates'))
-const Glossary = lazyWithPreload(() => import('./components/Glossary'))
 const Evaluation = lazyWithPreload(() => import('./components/Evaluation'))
 const Dashboard = lazyWithPreload(() => import('./components/Dashboard'))
 const Settings = lazyWithPreload(() => import('./components/Settings'))
@@ -228,12 +225,6 @@ const IconSaved = (
   </svg>
 )
 
-const IconSkills = (
-  <svg {...iconProps}>
-    <path d="M13 2L4.5 13.5H11l-1 8.5L18.5 10.5H12z" />
-  </svg>
-)
-
 const IconKnowledge = (
   <svg {...iconProps}>
     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
@@ -246,14 +237,6 @@ const IconTableBrowser = (
     <rect x="3" y="3" width="18" height="18" rx="2" />
     <path d="M3 9h18" />
     <path d="M9 21V9" />
-  </svg>
-)
-
-const IconFewShot = (
-  <svg {...iconProps}>
-    <path d="M9 18h6" />
-    <path d="M10 21h4" />
-    <path d="M12 3a6 6 0 0 0-3.5 10.9c.5.4.9 1 1 1.6l.2 1h4.6l.2-1c.1-.6.5-1.2 1-1.6A6 6 0 0 0 12 3z" />
   </svg>
 )
 
@@ -291,15 +274,6 @@ const IconSettings = (
     <path d="M11 8.5h9.5" />
     <circle cx="17" cy="15.5" r="1.5" />
     <path d="M3.5 15.5h11" />
-  </svg>
-)
-
-const IconGlossary = (
-  <svg {...iconProps}>
-    <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5z" />
-    <path d="M6 6h10" />
-    <path d="M6 10h10" />
-    <path d="M6 14h10" />
   </svg>
 )
 
@@ -385,15 +359,6 @@ const routeDefs: AppRouteDef[] = [
     component: SavedQuestions,
   },
   {
-    path: '/skills',
-    sectionKey: 'query',
-    labelKey: 'app.nav.skills',
-    eyebrowKey: 'app.nav.skills_eyebrow',
-    descriptionKey: 'app.nav.skills_desc',
-    icon: IconSkills,
-    component: Skills,
-  },
-  {
     path: '/table-browser',
     sectionKey: 'query',
     labelKey: 'app.nav.table_browser',
@@ -412,31 +377,13 @@ const routeDefs: AppRouteDef[] = [
     component: QueryHistory,
   },
   {
-    path: '/few-shot-examples',
-    sectionKey: 'ai',
-    labelKey: 'app.nav.few_shot',
-    eyebrowKey: 'app.nav.few_shot_eyebrow',
-    descriptionKey: 'app.nav.few_shot_desc',
-    icon: IconFewShot,
-    component: FewShotExamples,
-  },
-  {
-    path: '/glossary',
-    sectionKey: 'ai',
-    labelKey: 'app.nav.glossary',
-    eyebrowKey: 'app.nav.glossary_eyebrow',
-    descriptionKey: 'app.nav.glossary_desc',
-    icon: IconGlossary,
-    component: Glossary,
-  },
-  {
     path: '/knowledge',
     sectionKey: 'ai',
     labelKey: 'app.nav.knowledge',
     eyebrowKey: 'app.nav.knowledge_eyebrow',
     descriptionKey: 'app.nav.knowledge_desc',
     icon: IconKnowledge,
-    component: Knowledge,
+    component: KnowledgeCenter,
   },
   {
     path: '/prompt-templates',
@@ -1068,6 +1015,21 @@ function App() {
                         />
                       )
                     })}
+
+                    {/* Legacy standalone pages consolidated into the Knowledge
+                        Center; redirect old deep-links to their new section. */}
+                    <Route
+                      path="/skills"
+                      element={<Navigate to="/knowledge?tab=saved_queries" replace />}
+                    />
+                    <Route
+                      path="/glossary"
+                      element={<Navigate to="/knowledge?tab=glossary" replace />}
+                    />
+                    <Route
+                      path="/few-shot-examples"
+                      element={<Navigate to="/knowledge?tab=saved_queries" replace />}
+                    />
 
                     <Route
                       path="/modeling/:modelId"

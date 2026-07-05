@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { listSavedQueries, type SavedQueryOption } from '../../api/aiSkills'
 import { useSemanticCatalog } from '../../hooks/useSemanticCatalog'
 import type { TranslationKey } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
@@ -214,6 +215,10 @@ export function ChatPanel({
   aiElapsedMs,
   contextEnabled,
   onContextEnabledChange,
+  autoFindEnabled,
+  onAutoFindEnabledChange,
+  selectedSavedQueryIds,
+  onSelectedSavedQueryIdsChange,
   onSendQuery,
   onAbort,
   get,
@@ -234,6 +239,28 @@ export function ChatPanel({
   } = useSemanticCatalog(semanticModelId, tables)
 
   const [model, setModel] = useState<SemanticModelDetail | null>(null)
+  const [savedQueries, setSavedQueries] = useState<SavedQueryOption[]>([])
+
+  // Load the datasource's saved queries for the "/" grounding picker.
+  // listSavedQueries returns [] for an empty datasource, so the reset flows
+  // through the async setter rather than a synchronous setState in the effect.
+  useEffect(() => {
+    let cancelled = false
+    void listSavedQueries(datasourceId)
+      .then((rows) => {
+        if (!cancelled) {
+          setSavedQueries(rows)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSavedQueries([])
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [datasourceId])
 
   useEffect(() => {
     if (!semanticModelId) {
@@ -374,6 +401,9 @@ export function ChatPanel({
             loading={loading}
             placeholder={t('ai_query.placeholder')}
             items={catalogItems}
+            savedQueries={savedQueries}
+            selectedSavedQueryIds={selectedSavedQueryIds}
+            onSelectedSavedQueryIdsChange={onSelectedSavedQueryIdsChange}
             t={t}
           />
           <div className={chatComposerBarClass}>
@@ -393,7 +423,18 @@ export function ChatPanel({
                   </label>
                 </div>
               )}
-              <span className={chatComposerHintClass}>{t('ai_query.mention_hint')}</span>
+              <div className={pastQueriesToggleClass}>
+                <input
+                  type="checkbox"
+                  id="ai-auto-find-skills"
+                  checked={autoFindEnabled}
+                  onChange={(e) => onAutoFindEnabledChange(e.target.checked)}
+                />
+                <label htmlFor="ai-auto-find-skills" title={t('ai_query.auto_find_toggle_title')}>
+                  {t('ai_query.auto_find_toggle')}
+                </label>
+              </div>
+              <span className={chatComposerHintClass}>{t('ai_query.saved_query_hint')}</span>
               {canRetranslate && (
                 <button
                   type="button"

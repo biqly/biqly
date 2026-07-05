@@ -346,7 +346,7 @@ export function AssistantMessageCard({
     if (!result.logical_query) {
       return
     }
-    void navigate(`/skills?${buildSavePrefillParams().toString()}`)
+    void navigate(`/knowledge?tab=saved_queries&${buildSavePrefillParams().toString()}`)
   }
 
   const resultWithPayload = result.result

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { draftSavedQuery } from '../api/aiSkills'
+import { ApiError } from '../api/apiClient'
 import { useApi } from '../hooks/useApi'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDatasources } from '../hooks/useDatasources'
@@ -115,6 +117,8 @@ export default function Skills() {
   const [form, setForm] = useState<SkillFormState>(() =>
     prefill ? { ...EMPTY_FORM, ...prefill } : EMPTY_FORM,
   )
+  const [drafting, setDrafting] = useState(false)
+  const [draftError, setDraftError] = useState<string | null>(null)
 
   const [paramValues, setParamValues] = useState<Record<string, string>>({})
   const [runState, setRunState] = useState<{
@@ -213,7 +217,44 @@ export default function Skills() {
   const openAdd = () => {
     setForm({ ...EMPTY_FORM, datasourceId })
     setFormError(null)
+    setDraftError(null)
     setIsNewModalOpen(true)
+  }
+
+  // handleDraft reuses the text-to-SQL generation to prefill Name / Description /
+  // Question / Logical Query from a natural-language description. On a
+  // clarification or failure it surfaces the message inline and leaves the form
+  // fields untouched so the user can adjust and retry.
+  const handleDraft = async (description: string) => {
+    const desc = description.trim()
+    if (!desc || !form.datasourceId) {
+      setDraftError(desc ? t('skills.draft_needs_datasource') : null)
+      return
+    }
+    setDraftError(null)
+    setDrafting(true)
+    try {
+      const res = await draftSavedQuery({
+        datasource_id: form.datasourceId,
+        model_id: form.modelId || undefined,
+        question: desc,
+      })
+      if (res.needs_clarification || res.error || !res.logical_query) {
+        setDraftError(res.message ?? res.error ?? t('skills.draft_failed'))
+        return
+      }
+      setForm((prev) => ({
+        ...prev,
+        name: res.name ?? prev.name,
+        description: res.description ?? prev.description,
+        question: res.question,
+        logicalQuery: JSON.stringify(res.logical_query, null, 2),
+      }))
+    } catch (err) {
+      setDraftError(err instanceof ApiError ? err.message : t('skills.draft_failed'))
+    } finally {
+      setDrafting(false)
+    }
   }
 
   const openEdit = (skill: Skill) => {
@@ -406,6 +447,9 @@ export default function Skills() {
         onClose={() => setIsNewModalOpen(false)}
         onSave={() => void handleSave(false)}
         saving={apiLoading}
+        onDraft={(description) => void handleDraft(description)}
+        drafting={drafting}
+        draftError={draftError}
         t={t}
       />
       <SkillFormModal
