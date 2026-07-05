@@ -6,16 +6,22 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+
+	"github.com/biqly/biqly/internal/query"
 )
 
 // DefaultLiveMinPassRate is the minimum full-suite pass rate for nightly live LLM eval.
 const DefaultLiveMinPassRate = 0.85
 
 // CaseSnapshot records one case outcome for baseline comparison.
+// Got and Want carry compact LogicalQuery JSON for failed cases only,
+// so nightly reports are diagnosable without re-running the suite.
 type CaseSnapshot struct {
 	Question string `json:"question,omitempty"`
 	Match    bool   `json:"match"`
 	Reason   string `json:"reason,omitempty"`
+	Got      string `json:"got,omitempty"`
+	Want     string `json:"want,omitempty"`
 }
 
 // RunSnapshot is a portable eval run summary used for drift detection in CI.
@@ -62,13 +68,29 @@ func SnapshotFromSuite(suite, provider, model string, result *SuiteResult, opts 
 		if c.Err != nil {
 			reason = c.Err.Error()
 		}
-		snap.Cases[c.Case.ID] = CaseSnapshot{
+		cs := CaseSnapshot{
 			Question: c.Case.Question,
 			Match:    c.Pass(opts),
 			Reason:   reason,
 		}
+		if !cs.Match {
+			cs.Got = marshalQueryCompact(c.Got)
+			cs.Want = marshalQueryCompact(&c.Case.Expected)
+		}
+		snap.Cases[c.Case.ID] = cs
 	}
 	return snap
+}
+
+func marshalQueryCompact(q *query.LogicalQuery) string {
+	if q == nil {
+		return ""
+	}
+	data, err := sonic.ConfigStd.Marshal(q)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 // CompareSnapshots diffs baseline and current case outcomes (same logic as DB regression).
