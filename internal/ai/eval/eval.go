@@ -77,7 +77,11 @@ func selectsEqual(a, b []query.SelectItem) bool {
 func selectKeys(items []query.SelectItem) []string {
 	out := make([]string, 0, len(items))
 	for _, it := range items {
+		// Formula/window aliases are free-form model output; compare content only.
 		key := it.Type + ":" + it.Name
+		if it.Formula != nil || it.Window != nil {
+			key = it.Type
+		}
 		if len(it.Filters) > 0 {
 			key += "|filters:" + joinedFilterKeys(it.Filters)
 		}
