@@ -71,7 +71,7 @@ func TestAIHandlerRunUsesQueryClientRun(t *testing.T) {
 	handler := &AIHandler{deps: (&app.Dependencies{QueryClient: queryclient.New(upstream.URL)}).AIDeps()}
 
 	rec := httptest.NewRecorder()
-	handler.finishAIRun(context.Background(), rec, integrationSemanticModel(), resp, nil)
+	handler.finishAIRun(context.Background(), rec, integrationSemanticModel(), resp, nil, "which countries?")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status: got %d, body %s", rec.Code, rec.Body.String())
 	}

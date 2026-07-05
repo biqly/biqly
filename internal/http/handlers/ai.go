@@ -437,8 +437,12 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 	case aiPhasePreview:
 		h.finishAIPreview(ctx, w, req, model, resp)
 	case aiPhaseRun:
+		question := req.Question
+		if pc != nil && pc.Question != "" {
+			question = pc.Question
+		}
 		if h.deps.QueryClient != nil {
-			h.finishAIRunWithQueryClient(ctx, w, resp, model)
+			h.finishAIRunWithQueryClient(ctx, w, resp, model, question)
 			return
 		}
 		runDatasource := resolved
@@ -446,7 +450,7 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 			writeInternalError(ctx, w, http.StatusInternalServerError, "datasource not resolved", errors.New("datasource not resolved"))
 			return
 		}
-		h.finishAIRun(ctx, w, model, resp, runDatasource)
+		h.finishAIRun(ctx, w, model, resp, runDatasource, question)
 	}
 }
 
@@ -593,7 +597,7 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 	writeJSON(w, http.StatusOK, resp)
 }
 
-func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, model *semantic.SemanticModel, resp *ai.Response, resolved *app.ResolvedDatasource) {
+func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, model *semantic.SemanticModel, resp *ai.Response, resolved *app.ResolvedDatasource, question string) {
 	var logicalQuery *query.LogicalQuery
 	if resp != nil && resp.Result != nil {
 		logicalQuery = resp.Result.LogicalQuery
@@ -607,7 +611,7 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 	}
 
 	if h.deps.QueryClient != nil {
-		h.finishAIRunWithQueryClient(ctx, w, resp, model)
+		h.finishAIRunWithQueryClient(ctx, w, resp, model, question)
 		return
 	}
 	if resolved == nil || resolved.DB == nil || resolved.Driver == nil {
@@ -661,11 +665,12 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 		resp.Result.Warnings = append(resp.Result.Warnings, anomalyWarnings...)
 	}
 	resp.Result.Result = result
+	h.attachAINaturalLanguageAnswer(ctx, resp, question)
 	persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, result, queryStatusSuccess, nil)
 	writeJSON(w, http.StatusOK, resp)
 }
 
-func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.ResponseWriter, resp *ai.Response, model *semantic.SemanticModel) {
+func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.ResponseWriter, resp *ai.Response, model *semantic.SemanticModel, question string) {
 	var logicalQuery *query.LogicalQuery
 	if resp != nil && resp.Result != nil {
 		logicalQuery = resp.Result.LogicalQuery
@@ -704,7 +709,30 @@ func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.Respo
 		resp.Result.Warnings = append(resp.Result.Warnings, anomalyWarnings...)
 	}
 	resp.Result.Result = result
+	h.attachAINaturalLanguageAnswer(ctx, resp, question)
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// attachAINaturalLanguageAnswer synthesizes a short natural-language answer from
+// the executed result and attaches it to resp.Result.Answer. Best-effort and
+// gated: it is skipped when answer synthesis is disabled (BI_AI_ANSWER_ENABLED),
+// when there is no executed result, or when the workspace has hit its daily
+// token budget. It never fails the request. Call it only after the executed
+// result (resp.Result.Result) has been populated.
+func (h *AIHandler) attachAINaturalLanguageAnswer(ctx context.Context, resp *ai.Response, question string) {
+	if resp == nil || resp.Result == nil || resp.Result.Result == nil {
+		return
+	}
+	if h.service == nil || !h.service.AnswerEnabled() {
+		return
+	}
+	if h.deps.SpendLimiter != nil {
+		if err := h.deps.SpendLimiter.Check(ctx, bimw.WorkspaceID(ctx)); err != nil {
+			return
+		}
+	}
+	locale := string(prompt.LocaleForQuestion(question, i18n.FromContext(ctx)))
+	resp.Result.Answer = h.service.SynthesizeAnswer(ctx, question, locale, resp.Result.Result)
 }
 
 // Query handles AI-powered natural language queries.

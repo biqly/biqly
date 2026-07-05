@@ -19,6 +19,7 @@ import {
 } from './canvasMath'
 import {
   CALC_SECTION_HEIGHT,
+  CARD_BOTTOM_PAD,
   MAX_SCALE,
   MIN_SCALE,
   REL_SECTION_LABEL_HEIGHT,
@@ -115,7 +116,7 @@ describe('cardHeight with sections', () => {
     const base = cardHeight(3)
     const withSections = cardHeight(3, { calcFieldCount: 2, relatedTables: ['a', 'b'] })
     expect(withSections).toBe(
-      base + CALC_SECTION_HEIGHT + REL_SECTION_LABEL_HEIGHT + 2 * ROW_HEIGHT,
+      base + CALC_SECTION_HEIGHT + REL_SECTION_LABEL_HEIGHT + 2 * ROW_HEIGHT + CARD_BOTTOM_PAD,
     )
   })
 })

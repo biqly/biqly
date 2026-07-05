@@ -491,6 +491,9 @@ export function AssistantMessageResults({
   const chartData = rowsToChartData(result.result.rows)
   const tableData = tableView === 'pivot' && pivotTable ? pivotTable : result.result
   const insight = buildResultInsight(result.result, t, localeTag)
+  // Prefer the server-synthesized natural-language answer (already in the user's
+  // locale); fall back to the deterministic client-side insight caption.
+  const answer = result.answer?.trim()
 
   return (
     <div className={resultsSectionClass}>
@@ -503,8 +506,12 @@ export function AssistantMessageResults({
         setChartType={setChartType}
         t={t}
       />
-      {insight && (
-        <p className="text-foreground-muted m-0 mb-2 text-[0.82rem] leading-normal">{insight}</p>
+      {answer ? (
+        <p className="text-foreground m-0 mb-2 text-[0.9rem] leading-normal">{answer}</p>
+      ) : (
+        insight && (
+          <p className="text-foreground-muted m-0 mb-2 text-[0.82rem] leading-normal">{insight}</p>
+        )
       )}
       {chartType !== 'table' && chartData.length > 0 && (
         <ChartContainer data={chartData} type={chartType} />

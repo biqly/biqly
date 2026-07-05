@@ -38,6 +38,7 @@ type Service struct {
 	maxRetries          int
 	multiCandidateCount int
 	baseTemperature     float64
+	answerEnabled       bool
 	cache               ResponseCache
 	ambiguityCache      sync.Map
 }
@@ -65,6 +66,7 @@ func newService(cfg *config.AIConfig, validator *query.Validator, provider provi
 		maxRetries:          retries,
 		multiCandidateCount: cfg.Generation.MultiCandidateCount,
 		baseTemperature:     cfg.Generation.Temperature,
+		answerEnabled:       cfg.Generation.AnswerEnabled,
 	}
 }
 
@@ -582,12 +584,23 @@ func (s *Service) generateWithRetries(
 		repairCtx, repairSpan := otel.Tracer("biqly/ai").Start(ctx, "ai.Repair")
 		repairSpan.SetAttributes(attribute.Int("ai.repair.attempt", attempt+1))
 		failureMsg := failureMessageFor(st.parseErr, sqlErr, st.warnings)
-		st.retryWarnings = append(st.retryWarnings, fmt.Sprintf("retry %d (context %s): %s", attempt+1, promptpkg.ContextTierLabel(contextTierForAttempt(attempt+1)), failureMsg))
+
+		// Empty-response spiral guard: when the provider returned a blank
+		// completion, expanding the context tier (compact→standard→expanded)
+		// only lengthens the prompt and worsens length-truncation. Keep the
+		// tier compact and re-prompt with a JSON-only emphasis instead.
+		emptyResponse := errors.Is(st.parseErr, ErrEmptyAIResponse)
 		nextTier := contextTierForAttempt(attempt + 1)
+		if emptyResponse {
+			nextTier = 0
+		}
+		repairSpan.SetAttributes(attribute.Bool("ai.repair.empty_response", emptyResponse))
+
+		st.retryWarnings = append(st.retryWarnings, fmt.Sprintf("retry %d (context %s): %s", attempt+1, promptpkg.ContextTierLabel(nextTier), failureMsg))
 		expanded, _ := s.buildPrompt(repairCtx, question, model, nextTier, options, filterSess, followIntent)
 		locale := promptpkg.LocaleForQuestion(question, i18n.FromContext(ctx))
 
-		st.prompt = s.buildNextAttemptPrompt(repairCtx, locale, expanded, gen.Content, failureMsg, validationErrors, attempt, st)
+		st.prompt = s.buildNextAttemptPrompt(repairCtx, locale, expanded, gen.Content, failureMsg, validationErrors, attempt, st, emptyResponse)
 		st.promptStats = promptpkg.MeasurePrompt(st.prompt, s.queryModel, nextTier, s.aiCfg)
 		repairSpan.End()
 	}
@@ -597,8 +610,11 @@ func (s *Service) generateWithRetries(
 
 // buildNextAttemptPrompt selects between a validation-error repair prompt and a
 // generic retry prompt, recording a RepairDetail on st for the former.
-func (s *Service) buildNextAttemptPrompt(ctx context.Context, locale i18n.Locale, expanded, lastResponse, failureMsg string, validationErrors query.ValidationErrors, attempt int, st *genLoopState) string {
+func (s *Service) buildNextAttemptPrompt(ctx context.Context, locale i18n.Locale, expanded, lastResponse, failureMsg string, validationErrors query.ValidationErrors, attempt int, st *genLoopState, emptyResponse bool) string {
 	if len(validationErrors) == 0 {
+		if emptyResponse {
+			return s.promptBuilder.BuildEmptyRetry(ctx, locale, expanded, failureMsg)
+		}
 		return s.promptBuilder.BuildRetry(ctx, locale, expanded, lastResponse, failureMsg)
 	}
 

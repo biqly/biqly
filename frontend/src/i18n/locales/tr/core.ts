@@ -1268,6 +1268,8 @@ export const core: CoreDictionary = {
     more_columns: 'kolon daha',
     table_card_aria: '{{name}} tablo kartı. Ok tuşları ile taşı, Shift+Ok büyük adım.',
     table_card_menu: '{{name}} ayrıntılarını aç',
+    columns_menu_title: 'Görünen kolonlar',
+    columns_menu_aria: '{{name}} için görünen kolonları seç',
     calc_fields_section: 'Hesaplanan Alanlar',
     relationships_section: 'İlişkiler',
     add_calc_field: 'Hesaplanan alan ekle',

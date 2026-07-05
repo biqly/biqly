@@ -392,6 +392,28 @@ export const modelingKebabClass = cn(
 
 export const modelingCardHeaderRowClass = 'flex items-center gap-[0.4rem] pr-6'
 
+// Fixed-position column-visibility dropdown, anchored to a card's kebab button.
+// Rendered outside the transformed/overflow-hidden canvas so it isn't clipped
+// or scaled.
+export const modelingColumnsMenuClass = cn(
+  'fixed z-50 flex max-h-[18rem] w-[15rem] flex-col overflow-hidden rounded-lg border border-border',
+  'bg-card-raised text-foreground shadow-[var(--shadow)]',
+)
+
+export const modelingColumnsMenuTitleClass = cn(
+  'shrink-0 border-b border-border px-3 py-2 text-[0.72rem] font-semibold',
+  'tracking-wide text-foreground-muted uppercase',
+)
+
+export const modelingColumnsMenuListClass = 'flex min-h-0 flex-col overflow-y-auto py-1'
+
+export const modelingColumnsMenuItemClass = cn(
+  'flex cursor-pointer items-center gap-2 px-3 py-[0.3rem] text-[0.78rem] text-foreground',
+  'hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]',
+  '[&_input]:h-[0.85rem] [&_input]:w-[0.85rem] [&_input]:shrink-0 [&_input]:accent-[var(--accent)]',
+  '[&_span]:min-w-0 [&_span]:overflow-hidden [&_span]:text-ellipsis [&_span]:whitespace-nowrap',
+)
+
 export const modelingDetailRootClass = 'flex min-w-0 flex-col gap-4 text-sm'
 export const modelingDetailHeaderClass = 'flex items-start justify-between gap-3'
 export const modelingDetailAliasClass = 'flex flex-col gap-1'

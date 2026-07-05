@@ -1,6 +1,7 @@
 import type { ColumnRow, SemanticJoin, SemanticModelDetail, TableRow } from '../../types/semantic'
 import {
   CALC_SECTION_HEIGHT,
+  CARD_BOTTOM_PAD,
   CARD_PAD_Y,
   CARD_WIDTH,
   GRID_X,
@@ -71,7 +72,8 @@ export const cardHeight = (count: number, section?: CardSection) => {
     base +
     CALC_SECTION_HEIGHT +
     REL_SECTION_LABEL_HEIGHT +
-    section.relatedTables.length * ROW_HEIGHT
+    section.relatedTables.length * ROW_HEIGHT +
+    CARD_BOTTOM_PAD
   )
 }
 export const rowCenterY = (idx: number) =>
@@ -172,18 +174,31 @@ export function buildCardLayouts(
   joinColumns: Map<string, Set<string>>,
   colLimit: number,
   sections: Map<string, CardSection>,
+  visibleByTable?: Map<string, Set<string>>,
 ): Map<string, CardLayout> {
   const out = new Map<string, CardLayout>()
   for (const tbl of tableCards) {
     const key = tableKey(tbl.schema_name, tbl.table_name)
     const linked = joinColumns.get(key) ?? new Set<string>()
     const allCols = columnOptions(columns, key)
-    const cols = [...allCols].sort((a, b) => compareColumns(a, b, linked)).slice(0, colLimit)
+    const explicit = visibleByTable?.get(key)
+    const section = sections.get(key) ?? { calcFieldCount: 0, relatedTables: [] }
+
+    // An explicit, non-empty selection overrides the auto-picked top-N subset:
+    // show exactly the checked columns in natural order, with no "+N more" row.
+    let cols: ColumnRow[]
+    let hidden: number
+    if (explicit && explicit.size > 0) {
+      cols = allCols.filter((c) => explicit.has(c.column_name))
+      hidden = 0
+    } else {
+      cols = [...allCols].sort((a, b) => compareColumns(a, b, linked)).slice(0, colLimit)
+      hidden = Math.max(0, allCols.length - cols.length)
+    }
+
     const idx = new Map<string, number>()
     cols.forEach((c, i) => idx.set(c.column_name, i))
-    const hidden = Math.max(0, allCols.length - cols.length)
     const rowCount = cols.length + (hidden > 0 ? 1 : 0)
-    const section = sections.get(key) ?? { calcFieldCount: 0, relatedTables: [] }
     out.set(key, {
       columnsShown: cols,
       columnIndex: idx,
