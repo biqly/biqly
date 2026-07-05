@@ -52,7 +52,7 @@ func (d SQLServerDialect) DateTrunc(part, column string) string {
 
 // CalendarPart returns YEAR / DATEPART(quarter|month) for integer grouping.
 func (d SQLServerDialect) CalendarPart(part, column string) string {
-	return CalendarPartLookup(d, part, column, "YEAR(%s)", "DATEPART(quarter, %s)", "MONTH(%s)")
+	return CalendarPartLookup(d, part, column, "YEAR(%s)", "DATEPART(quarter, %s)", "MONTH(%s)", "DATEPART(hour, %s)")
 }
 
 // ILike returns a case-insensitive LIKE expression.

@@ -93,8 +93,8 @@ func (BaseDialect) WindowFunc(fn string, args []string) (string, bool) {
 	return "", false
 }
 
-// CalendarPartLookup maps year/quarter/month to dialect-specific expressions.
-func CalendarPartLookup(d Dialect, part, column string, yearFmt, quarterFmt, monthFmt string) string {
+// CalendarPartLookup maps year/quarter/month/hour to dialect-specific expressions.
+func CalendarPartLookup(d Dialect, part, column string, yearFmt, quarterFmt, monthFmt, hourFmt string) string {
 	q := d.QuoteIdent(column)
 	switch strings.ToLower(strings.TrimSpace(part)) {
 	case "year":
@@ -103,6 +103,8 @@ func CalendarPartLookup(d Dialect, part, column string, yearFmt, quarterFmt, mon
 		return fmt.Sprintf(quarterFmt, q)
 	case "month":
 		return fmt.Sprintf(monthFmt, q)
+	case "hour":
+		return fmt.Sprintf(hourFmt, q)
 	default:
 		return d.DateTrunc(part, column)
 	}

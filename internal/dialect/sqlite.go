@@ -64,6 +64,7 @@ func (d SQLiteDialect) CalendarPart(part, column string) string {
 		"CAST(strftime('%%Y', %s) AS INTEGER)",
 		"(CAST(strftime('%%m', %s) AS INTEGER) + 2) / 3",
 		"CAST(strftime('%%m', %s) AS INTEGER)",
+		"CAST(strftime('%%H', %s) AS INTEGER)",
 	)
 }
 

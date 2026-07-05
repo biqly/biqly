@@ -34,6 +34,7 @@ const CurrentLogicalQueryVersion = logicalquery.CurrentLogicalQueryVersion
 // Re-exported time grain identifiers.
 const (
 	TimeGrainDay     = logicalquery.TimeGrainDay
+	TimeGrainHour    = logicalquery.TimeGrainHour
 	TimeGrainWeek    = logicalquery.TimeGrainWeek
 	TimeGrainMonth   = logicalquery.TimeGrainMonth
 	TimeGrainQuarter = logicalquery.TimeGrainQuarter

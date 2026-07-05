@@ -357,9 +357,9 @@ func validateGroupByClauses(lq *LogicalQuery, lk validationLookups) ValidationEr
 			errs = append(errs, &ValidationError{
 				Field:               "group_by.time_grain",
 				Code:                errmsg.CodeInvalidTimeGrain,
-				Message:             "invalid time_grain (expected day|week|month|quarter|year): " + gb.TimeGrain,
+				Message:             "invalid time_grain (expected hour|day|week|month|quarter|year): " + gb.TimeGrain,
 				Value:               gb.TimeGrain,
-				AllowedAlternatives: []string{"day", "week", "month", "quarter", "year"},
+				AllowedAlternatives: []string{"hour", "day", "week", "month", "quarter", "year"},
 			})
 			continue
 		}

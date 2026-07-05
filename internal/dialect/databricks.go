@@ -41,7 +41,7 @@ func (DatabricksDialect) DateTruncPlaceholder(part, placeholder string) string {
 
 // CalendarPart returns Spark's year/quarter/month functions.
 func (d DatabricksDialect) CalendarPart(part, column string) string {
-	return CalendarPartLookup(d, part, column, "year(%s)", "quarter(%s)", "month(%s)")
+	return CalendarPartLookup(d, part, column, "year(%s)", "quarter(%s)", "month(%s)", "hour(%s)")
 }
 
 // ILike returns Spark SQL's native case-insensitive LIKE.

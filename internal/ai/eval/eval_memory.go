@@ -14,21 +14,22 @@ import (
 )
 
 type memoryOrderRow struct {
-	Country string
-	Status  string
-	Amount  float64
-	Date    string
+	Country  string
+	Status   string
+	Amount   float64
+	Date     string
+	Customer string
 }
 
 var defaultOrdersSeed = []memoryOrderRow{
-	{Country: "TR", Status: "shipped", Amount: 100, Date: "2026-04-18"},
-	{Country: "TR", Status: "pending", Amount: 50, Date: "2026-04-20"},
-	{Country: "DE", Status: "shipped", Amount: 200, Date: "2026-05-03"},
-	{Country: "DE", Status: "shipped", Amount: 300, Date: "2026-05-12"},
-	{Country: "US", Status: "cancelled", Amount: 10, Date: "2026-04-25"},
-	{Country: "TR", Status: "shipped", Amount: 20, Date: "2026-05-18"},
-	{Country: "DE", Status: "pending", Amount: 30, Date: "2026-05-21"},
-	{Country: "US", Status: "shipped", Amount: 40, Date: "2026-05-24"},
+	{Country: "TR", Status: "shipped", Amount: 100, Date: "2026-04-18", Customer: "c1"},
+	{Country: "TR", Status: "pending", Amount: 50, Date: "2026-04-20", Customer: "c2"},
+	{Country: "DE", Status: "shipped", Amount: 200, Date: "2026-05-03", Customer: "c3"},
+	{Country: "DE", Status: "shipped", Amount: 300, Date: "2026-05-12", Customer: "c3"},
+	{Country: "US", Status: "cancelled", Amount: 10, Date: "2026-04-25", Customer: "c4"},
+	{Country: "TR", Status: "shipped", Amount: 20, Date: "2026-05-18", Customer: "c1"},
+	{Country: "DE", Status: "pending", Amount: 30, Date: "2026-05-21", Customer: "c5"},
+	{Country: "US", Status: "shipped", Amount: 40, Date: "2026-05-24", Customer: "c4"},
 }
 
 // OrdersSamples renders the in-memory orders seed as prompt sample rows so
@@ -38,10 +39,11 @@ func OrdersSamples() []prompt.TableSample {
 	rows := make([]map[string]any, 0, len(defaultOrdersSeed))
 	for _, r := range defaultOrdersSeed {
 		rows = append(rows, map[string]any{
-			"country":    r.Country,
-			"status":     r.Status,
-			"amount":     r.Amount,
-			"order_date": r.Date,
+			"country":     r.Country,
+			"status":      r.Status,
+			"amount":      r.Amount,
+			"order_date":  r.Date,
+			"customer_id": r.Customer,
 		})
 	}
 	return []prompt.TableSample{{Schema: "public", Table: "orders", Rows: rows}}
@@ -131,6 +133,8 @@ func memoryFieldValue(r memoryOrderRow, col string) any {
 		return r.Amount
 	case "order_date":
 		return r.Date
+	case "customer_id":
+		return r.Customer
 	default:
 		return nil
 	}
@@ -235,9 +239,32 @@ func memoryMetricValue(rows []memoryOrderRow, name string, model *semantic.Seman
 			return 0, err
 		}
 		return sum / float64(len(rows)), nil
+	case "max":
+		var best float64
+		col := metricColumn(metric.Expression)
+		for _, r := range rows {
+			if v, ok := memoryFieldValue(r, col).(float64); ok {
+				best = max(best, v)
+			}
+		}
+		return best, nil
+	case "count_distinct":
+		col := metricColumn(metric.Expression)
+		seen := map[any]struct{}{}
+		for _, r := range rows {
+			if v := memoryFieldValue(r, col); v != nil {
+				seen[v] = struct{}{}
+			}
+		}
+		return float64(len(seen)), nil
 	default:
 		return 0, fmt.Errorf("unsupported aggregation %q", metric.Aggregation)
 	}
+}
+
+func metricColumn(expression string) string {
+	parts := strings.Split(expression, ".")
+	return parts[len(parts)-1]
 }
 
 func memoryResultColumns(selectItems []query.SelectItem, model *semantic.SemanticModel, gbField string) ([]query.ResultColumn, error) {

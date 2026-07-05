@@ -305,6 +305,12 @@ func appendDateGrainDimensions(dimensions []semantic.Dimension, modelID string, 
 		{"month", "_month"},
 		{"day", "_day"},
 	}
+	if hasTimeOfDay(col.DataType) {
+		grains = append(grains, struct {
+			name   string
+			suffix string
+		}{"hour", "_hour"})
+	}
 	for _, grain := range grains {
 		if len(dimensions) >= maxDimensions {
 			break
@@ -443,6 +449,12 @@ func isNumericType(dataType string) bool {
 func isDateType(dataType string) bool {
 	t := strings.ToLower(dataType)
 	return strings.Contains(t, "date") || strings.Contains(t, "time")
+}
+
+// hasTimeOfDay reports whether the column type carries a time-of-day component
+// (timestamp/datetime/time), making an hour grain meaningful; plain dates do not.
+func hasTimeOfDay(dataType string) bool {
+	return strings.Contains(strings.ToLower(dataType), "time")
 }
 
 func isBooleanType(dataType string) bool {

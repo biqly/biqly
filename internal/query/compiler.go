@@ -504,7 +504,7 @@ func (c *Compiler) dimensionSQL(dim *semantic.Dimension, resolver *SchemaResolve
 		return "", fmt.Errorf("unsupported time grain: %s", dim.TimeGrain)
 	}
 	switch part {
-	case "year", "quarter", "month":
+	case "year", "quarter", "month", "hour":
 		return c.dialect.CalendarPart(part, colRef), nil
 	case "day", "week":
 		return c.dialect.DateTrunc(part, colRef), nil

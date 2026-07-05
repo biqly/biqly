@@ -81,6 +81,7 @@ func (d OracleDialect) CalendarPart(part, column string) string {
 		"EXTRACT(YEAR FROM %s)",
 		"TO_NUMBER(TO_CHAR(%s, 'Q'))",
 		"EXTRACT(MONTH FROM %s)",
+		"TO_NUMBER(TO_CHAR(%s, 'HH24'))",
 	)
 }
 

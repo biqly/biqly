@@ -199,7 +199,7 @@ type MeasureRef struct {
 // GroupBy represents a GROUP BY field.
 //
 // TimeGrain optionally buckets a date/timestamp dimension into calendar parts
-// (day | week | month | quarter | year). When non-empty, the compiler applies
+// (hour | day | week | month | quarter | year). When non-empty, the compiler applies
 // the dialect's DateTrunc/CalendarPart wrapping to the dimension's SELECT
 // projection and the GROUP BY expression so both stay consistent. Callers that
 // also list the dimension in `select` do NOT need to repeat the grain there —
@@ -211,6 +211,7 @@ type GroupBy struct {
 
 // Supported time grains for GroupBy.TimeGrain.
 const (
+	TimeGrainHour    = "hour"
 	TimeGrainDay     = "day"
 	TimeGrainWeek    = "week"
 	TimeGrainMonth   = "month"
@@ -222,7 +223,7 @@ const (
 // grain. Empty is considered valid (means "no bucketing").
 func IsValidTimeGrain(grain string) bool {
 	switch grain {
-	case "", TimeGrainDay, TimeGrainWeek, TimeGrainMonth, TimeGrainQuarter, TimeGrainYear:
+	case "", TimeGrainHour, TimeGrainDay, TimeGrainWeek, TimeGrainMonth, TimeGrainQuarter, TimeGrainYear:
 		return true
 	}
 	return false

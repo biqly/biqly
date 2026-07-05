@@ -46,6 +46,7 @@ func (d PostgresDialect) CalendarPart(part, column string) string {
 		"CAST(EXTRACT(YEAR FROM %s) AS INTEGER)",
 		"CAST(EXTRACT(QUARTER FROM %s) AS INTEGER)",
 		"CAST(EXTRACT(MONTH FROM %s) AS INTEGER)",
+		"CAST(EXTRACT(HOUR FROM %s) AS INTEGER)",
 	)
 }
 

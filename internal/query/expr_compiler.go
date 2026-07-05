@@ -289,7 +289,7 @@ func dateTruncSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolve
 func normalizeDateGrain(part string) (string, bool) {
 	part = strings.ToLower(strings.TrimSpace(part))
 	switch part {
-	case "day", "week", "month", "quarter", "year":
+	case "hour", "day", "week", "month", "quarter", "year":
 		return part, true
 	default:
 		return part, false
