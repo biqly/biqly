@@ -14,6 +14,7 @@ import {
   assistantCardTopClass,
 } from './aiQueryClasses'
 import {
+  AssistantMessageAnswer,
   AssistantMessageClarificationSections,
   AssistantMessageHeader,
   AssistantMessageQueryDetails,
@@ -22,6 +23,7 @@ import {
   AssistantMessageSummary,
 } from './assistantMessageCardSections'
 import { FeedbackSection } from './FeedbackSection'
+import { buildResultInsight } from './resultInsight'
 import { SampleDataModal } from './SampleDataModal'
 import type { AssistantMessageCardProps, FeedbackCatKey } from './types'
 import { AI_QUERY_TIMEOUT_MS } from './types'
@@ -351,73 +353,79 @@ export function AssistantMessageCard({
     ? (result as typeof result & { result: NonNullable<typeof result.result> })
     : null
 
+  // Server-synthesized prose answer (falls back to the deterministic insight
+  // caption) rendered left-aligned in the ✦ message column, above the card.
+  const insightCaption = buildResultInsight(result.result, t, localeTag)
+
   return (
-    <div className={assistantCardClass}>
-      <AssistantCardTop
-        result={result}
-        showDetails={showDetails}
-        onToggle={() => setShowDetails((v) => !v)}
-        t={t}
-      />
-      <AssistantMessageDetailsSection
-        showDetails={showDetails}
-        result={result}
-        aiRuntime={aiRuntime}
-        onSampleData={(tableName) => {
-          setSampleModalTable(tableName)
-          setSampleModalOpen(true)
-        }}
-        t={t}
-        localeTag={localeTag}
-      />
-      <AssistantMessageClarificationSections
-        result={result}
-        userQuestion={result.resolved_question ?? userQuestion}
-        onSelectClarification={onSelectClarification}
-        onSkipClarification={onSkipClarification}
-        onUseCandidate={handleUseCandidate}
-        t={t}
-      />
-      <AssistantRunPrompt
-        result={result}
-        loading={loading}
-        onRunQuery={() => {
-          void runQuery()
-        }}
-        t={t}
-      />
-      <ErrorAlert error={error} />
-      {resultWithPayload && (
-        <AssistantMessageResults
-          result={resultWithPayload}
-          chartType={chartType}
-          setChartType={(value) => setChartTypeOverride(value)}
-          tableView={tableView}
-          setTableView={(value) => setTableViewOverride(value)}
-          pivotTable={pivotTable}
-          userQuestion={userQuestion}
-          onFilterByValue={onFilterByValue}
-          onCellDrillDown={onCellDrillDown}
+    <>
+      <AssistantMessageAnswer answer={result.answer} caption={insightCaption} />
+      <div className={assistantCardClass}>
+        <AssistantCardTop
+          result={result}
+          showDetails={showDetails}
+          onToggle={() => setShowDetails((v) => !v)}
+          t={t}
+        />
+        <AssistantMessageDetailsSection
+          showDetails={showDetails}
+          result={result}
+          aiRuntime={aiRuntime}
+          onSampleData={(tableName) => {
+            setSampleModalTable(tableName)
+            setSampleModalOpen(true)
+          }}
           t={t}
           localeTag={localeTag}
         />
-      )}
-      <AssistantMessageFeedbackRow
-        userQuestion={userQuestion}
-        datasourceId={datasourceId}
-        hasLogicalQuery={!!result.logical_query}
-        submitFeedback={submitFeedback}
-        handleSaveToLibrary={handleSaveToLibrary}
-        handleSaveAsSkill={handleSaveAsSkill}
-        t={t}
-      />
-      <SampleDataModal
-        open={sampleModalOpen}
-        onClose={() => setSampleModalOpen(false)}
-        tableName={sampleModalTable}
-        datasourceId={datasourceId}
-        get={get}
-      />
-    </div>
+        <AssistantMessageClarificationSections
+          result={result}
+          userQuestion={result.resolved_question ?? userQuestion}
+          onSelectClarification={onSelectClarification}
+          onSkipClarification={onSkipClarification}
+          onUseCandidate={handleUseCandidate}
+          t={t}
+        />
+        <AssistantRunPrompt
+          result={result}
+          loading={loading}
+          onRunQuery={() => {
+            void runQuery()
+          }}
+          t={t}
+        />
+        <ErrorAlert error={error} />
+        {resultWithPayload && (
+          <AssistantMessageResults
+            result={resultWithPayload}
+            chartType={chartType}
+            setChartType={(value) => setChartTypeOverride(value)}
+            tableView={tableView}
+            setTableView={(value) => setTableViewOverride(value)}
+            pivotTable={pivotTable}
+            userQuestion={userQuestion}
+            onFilterByValue={onFilterByValue}
+            onCellDrillDown={onCellDrillDown}
+            t={t}
+          />
+        )}
+        <AssistantMessageFeedbackRow
+          userQuestion={userQuestion}
+          datasourceId={datasourceId}
+          hasLogicalQuery={!!result.logical_query}
+          submitFeedback={submitFeedback}
+          handleSaveToLibrary={handleSaveToLibrary}
+          handleSaveAsSkill={handleSaveAsSkill}
+          t={t}
+        />
+        <SampleDataModal
+          open={sampleModalOpen}
+          onClose={() => setSampleModalOpen(false)}
+          tableName={sampleModalTable}
+          datasourceId={datasourceId}
+          get={get}
+        />
+      </div>
+    </>
   )
 }

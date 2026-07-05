@@ -70,7 +70,7 @@ type skillResponse struct {
 	UpdatedAt      string              `json:"updated_at"`
 }
 
-func skillRowToResponse(row metadata.SkillRow) (skillResponse, error) {
+func skillRowToResponse(row metadata.SavedQueryRow) (skillResponse, error) {
 	resp := skillResponse{
 		ID:           row.ID,
 		DatasourceID: row.DatasourceID,
@@ -107,7 +107,10 @@ func skillRowToResponse(row metadata.SkillRow) (skillResponse, error) {
 // List returns skills, optionally filtered by ?datasource_id=.
 func (h *AISkillsHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	rows, err := h.deps.MetaRepo.ListSkills(ctx, r.URL.Query().Get("datasource_id"))
+	rows, err := h.deps.MetaRepo.ListSavedQueries(ctx, metadata.SavedQueryFilter{
+		DatasourceID: r.URL.Query().Get("datasource_id"),
+		RunnableOnly: true,
+	})
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list skills", err)
 		return
@@ -127,9 +130,9 @@ func (h *AISkillsHandler) List(w http.ResponseWriter, r *http.Request) {
 // Get returns one skill by id.
 func (h *AISkillsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	row, err := h.deps.MetaRepo.GetSkill(ctx, chi.URLParam(r, "id"))
+	row, err := h.deps.MetaRepo.GetSavedQuery(ctx, chi.URLParam(r, "id"))
 	if err != nil {
-		if errors.Is(err, metadata.ErrSkillNotFound) {
+		if errors.Is(err, metadata.ErrSavedQueryNotFound) {
 			writeEntityNotFound(w, "skill")
 			return
 		}
@@ -178,7 +181,7 @@ func (h *AISkillsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	id, err := h.deps.MetaRepo.InsertSkill(ctx, metadata.SkillInsert{
+	id, err := h.deps.MetaRepo.InsertSavedQuery(ctx, metadata.SavedQueryInsert{
 		DatasourceID: payload.DatasourceID,
 		ModelID:      payload.ModelID,
 		Name:         strings.TrimSpace(payload.Name),
@@ -187,6 +190,8 @@ func (h *AISkillsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		LogicalQuery: lqJSON,
 		Parameters:   paramsJSON,
 		Tags:         payload.Tags,
+		Source:       "skill",
+		Runnable:     true,
 		CreatedBy:    bimw.UserID(ctx),
 	})
 	if err != nil {
@@ -215,7 +220,7 @@ func (h *AISkillsHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if payload.IsActive != nil {
 		isActive = *payload.IsActive
 	}
-	err := h.deps.MetaRepo.UpdateSkill(ctx, chi.URLParam(r, "id"), metadata.SkillUpdate{
+	err := h.deps.MetaRepo.UpdateSavedQuery(ctx, chi.URLParam(r, "id"), metadata.SavedQueryUpdate{
 		Name:         strings.TrimSpace(payload.Name),
 		Description:  payload.Description,
 		Question:     payload.Question,
@@ -225,7 +230,7 @@ func (h *AISkillsHandler) Update(w http.ResponseWriter, r *http.Request) {
 		IsActive:     isActive,
 	})
 	if err != nil {
-		if errors.Is(err, metadata.ErrSkillNotFound) {
+		if errors.Is(err, metadata.ErrSavedQueryNotFound) {
 			writeEntityNotFound(w, "skill")
 			return
 		}
@@ -238,8 +243,8 @@ func (h *AISkillsHandler) Update(w http.ResponseWriter, r *http.Request) {
 // Delete removes a skill.
 func (h *AISkillsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if err := h.deps.MetaRepo.DeleteSkill(ctx, chi.URLParam(r, "id")); err != nil {
-		if errors.Is(err, metadata.ErrSkillNotFound) {
+	if err := h.deps.MetaRepo.DeleteSavedQuery(ctx, chi.URLParam(r, "id")); err != nil {
+		if errors.Is(err, metadata.ErrSavedQueryNotFound) {
 			writeEntityNotFound(w, "skill")
 			return
 		}
@@ -269,13 +274,17 @@ func (h *AISkillsHandler) Run(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	row, err := h.deps.MetaRepo.GetSkill(ctx, chi.URLParam(r, "id"))
+	row, err := h.deps.MetaRepo.GetSavedQuery(ctx, chi.URLParam(r, "id"))
 	if err != nil {
-		if errors.Is(err, metadata.ErrSkillNotFound) {
+		if errors.Is(err, metadata.ErrSavedQueryNotFound) {
 			writeEntityNotFound(w, "skill")
 			return
 		}
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to load skill", err)
+		return
+	}
+	if !row.Runnable {
+		writeEntityNotFound(w, "skill")
 		return
 	}
 	if !row.IsActive {
@@ -306,7 +315,7 @@ func (h *AISkillsHandler) Run(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	query.EnrichResult(result, &lq, nil)
-	if err := h.deps.MetaRepo.TouchSkillVerified(ctx, row.ID); err != nil {
+	if err := h.deps.MetaRepo.TouchSavedQueryVerified(ctx, row.ID); err != nil {
 		// Best-effort freshness marker; the run itself succeeded.
 		slog.WarnContext(ctx, "failed to touch skill verified", appendRequestLogArgs(ctx, []any{"skill_id", row.ID, "error", err})...)
 	}

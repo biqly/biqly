@@ -16,6 +16,9 @@ import { ResultTable } from '../ResultTable'
 import { ChartContainer } from '../ui/ChartContainer'
 import { ChartTypeSelector } from '../ui/ChartTypeSelector'
 import {
+  assistantAnswerCaptionClass,
+  assistantAnswerCaretClass,
+  assistantAnswerClass,
   assistantConfidenceClass,
   assistantSummaryClass,
   btnRunQueryContainerClass,
@@ -30,7 +33,6 @@ import {
 } from './aiQueryClasses'
 import { deriveClarificationStage, MAX_CLARIFICATION_ROUNDS } from './clarificationStage'
 import { GenerationTracePanel } from './generationTrace'
-import { buildResultInsight } from './resultInsight'
 import {
   CandidateComparisonPanel,
   ClarificationCard,
@@ -44,6 +46,7 @@ import {
 import { warningBodyKey } from './routingVizUtils'
 import { RunTracePanel } from './RunTrace'
 import type { AssistantMessageCardProps } from './types'
+import { useTypewriter } from './useTypewriter'
 
 type AssistantT = AssistantMessageCardProps['t']
 
@@ -77,6 +80,44 @@ export function AssistantMessageSummary({ result, t }: { result: AIQueryResponse
         </span>
       )}
     </div>
+  )
+}
+
+// Left-aligned assistant prose shown under the ✦ avatar/header and above the
+// result card. Prefers the server-synthesized answer (already in the user's
+// locale) and streams it in like a typewriter; falls back to the deterministic
+// insight caption (muted) and renders nothing when both are empty.
+export function AssistantMessageAnswer({
+  answer,
+  caption,
+}: {
+  answer?: string
+  caption?: string | null
+}) {
+  const trimmedAnswer = answer?.trim() ?? ''
+  const trimmedCaption = caption?.trim() ?? ''
+  const isCaption = trimmedAnswer === '' && trimmedCaption !== ''
+  const text = trimmedAnswer || trimmedCaption
+  const { shown, done } = useTypewriter(text)
+  if (!text) {
+    return null
+  }
+  return (
+    <p
+      className={isCaption ? assistantAnswerCaptionClass : assistantAnswerClass}
+      aria-live="polite"
+    >
+      {/* Animated glyphs are hidden from assistive tech; the full text is
+          exposed once via an sr-only node so screen readers aren't fed one
+          character at a time. */}
+      <span aria-hidden="true">{shown}</span>
+      {!done && (
+        <span aria-hidden="true" className={assistantAnswerCaretClass}>
+          ▍
+        </span>
+      )}
+      <span className="sr-only">{text}</span>
+    </p>
   )
 }
 
@@ -474,7 +515,6 @@ export function AssistantMessageResults({
   onFilterByValue,
   onCellDrillDown,
   t,
-  localeTag,
 }: {
   result: AIQueryResponse & { result: NonNullable<AIQueryResponse['result']> }
   chartType: 'bar' | 'line' | 'pie' | 'table'
@@ -486,14 +526,9 @@ export function AssistantMessageResults({
   onFilterByValue: AssistantMessageCardProps['onFilterByValue']
   onCellDrillDown: AssistantMessageCardProps['onCellDrillDown']
   t: AssistantT
-  localeTag: string
 }) {
   const chartData = rowsToChartData(result.result.rows)
   const tableData = tableView === 'pivot' && pivotTable ? pivotTable : result.result
-  const insight = buildResultInsight(result.result, t, localeTag)
-  // Prefer the server-synthesized natural-language answer (already in the user's
-  // locale); fall back to the deterministic client-side insight caption.
-  const answer = result.answer?.trim()
 
   return (
     <div className={resultsSectionClass}>
@@ -506,13 +541,6 @@ export function AssistantMessageResults({
         setChartType={setChartType}
         t={t}
       />
-      {answer ? (
-        <p className="text-foreground m-0 mb-2 text-[0.9rem] leading-normal">{answer}</p>
-      ) : (
-        insight && (
-          <p className="text-foreground-muted m-0 mb-2 text-[0.82rem] leading-normal">{insight}</p>
-        )
-      )}
       {chartType !== 'table' && chartData.length > 0 && (
         <ChartContainer data={chartData} type={chartType} />
       )}

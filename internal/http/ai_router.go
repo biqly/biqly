@@ -196,7 +196,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 func registerAISkillsRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthClient) {
 	skillsHandler := handlers.NewAISkillsHandler(deps)
 	skillDS := func(ctx context.Context, id string) (string, error) {
-		return deps.MetaRepo.DatasourceForSkill(ctx, id)
+		return deps.MetaRepo.DatasourceForSavedQuery(ctx, id)
 	}
 	skillAccess := bimw.RequireResolvedDatasourceAccess(authClient, "read", skillDS)
 	aiUserMW := bimw.InjectAIUserContext

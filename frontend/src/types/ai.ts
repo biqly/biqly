@@ -323,11 +323,27 @@ export interface SubqueryBody {
 }
 
 export interface SelectField {
-  type: 'dimension' | 'metric' | 'window' | 'case'
+  type: 'dimension' | 'metric' | 'window' | 'case' | 'formula'
   name: string
   alias?: string
   window?: WindowSpec
   case?: CaseExpr
+  formula?: FormulaSpec
+}
+
+// FormulaSpec mirrors the backend logicalquery.FormulaSpec: a computed value
+// combining two measures (each with its own filters), e.g. period-over-period
+// growth via op "percent_change". The backend already produces these for
+// comparison questions ("change rate vs the previous week").
+export interface MeasureRef {
+  metric: string
+  filters?: FilterClause[]
+}
+
+export interface FormulaSpec {
+  op: 'add' | 'subtract' | 'divide' | 'percent_of' | 'percent_change'
+  left: MeasureRef
+  right: MeasureRef
 }
 
 export interface CaseExpr {

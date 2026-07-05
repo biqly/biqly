@@ -36,7 +36,7 @@ func (h *AIHandler) appendConfirmedFewShot(
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.MemoryRecall")
 	defer span.End()
 	modelHash := memory.SemanticModelHashForModel(model)
-	candidates, err := h.deps.MetaRepo.ListActiveConfirmedQueries(ctx, model.DatasourceID, model.ID, modelHash, metadata.ConfirmedQueriesCandidatePool)
+	candidates, err := h.deps.MetaRepo.ListActiveSavedQueryExamples(ctx, model.DatasourceID, model.ID, modelHash, metadata.ConfirmedQueriesCandidatePool)
 	if err != nil {
 		span.RecordError(err)
 		slog.WarnContext(ctx, "load confirmed few-shot examples failed", "error", err)
@@ -77,6 +77,24 @@ func (h *AIHandler) loadMemoryFacts(ctx context.Context) []string {
 		facts = append(facts, row.Content)
 	}
 	return facts
+}
+
+// loadInstructions returns the datasource's active free-form business rules for
+// prompt injection as a "## Business Rules" block.
+func (h *AIHandler) loadInstructions(ctx context.Context, datasourceID string) []prompt.Instruction {
+	if h.deps == nil || h.deps.MetaRepo == nil || datasourceID == "" {
+		return nil
+	}
+	rows, err := h.deps.MetaRepo.ListActiveInstructions(ctx, datasourceID)
+	if err != nil {
+		slog.WarnContext(ctx, "load instructions failed", "error", err)
+		return nil
+	}
+	out := make([]prompt.Instruction, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, prompt.Instruction{Title: row.Title, Body: row.BodyMD})
+	}
+	return out
 }
 
 // storeConfirmedQueryOnPositiveFeedback persists the NL→SQL pair behind a
@@ -127,7 +145,7 @@ func (h *AIExamplesHandler) storeConfirmedQueryOnPositiveFeedback(
 		}
 	}
 
-	err = h.deps.MetaRepo.UpsertConfirmedQuery(ctx, metadata.ConfirmedQueryUpsert{
+	upsert := metadata.ConfirmedQueryUpsert{
 		DatasourceID:      datasourceID,
 		ModelID:           modelID,
 		UserID:            userID,
@@ -136,10 +154,16 @@ func (h *AIExamplesHandler) storeConfirmedQueryOnPositiveFeedback(
 		SQLQuery:          string(history.LogicalQuery),
 		SemanticModelHash: modelHash,
 		QuestionEmbedding: embedding,
-	})
-	if err != nil {
+	}
+	if err = h.deps.MetaRepo.UpsertConfirmedQuery(ctx, upsert); err != nil {
 		slog.WarnContext(ctx, "store confirmed query", "error", err)
 		return false
+	}
+	// Dual-write into the unified ai_saved_queries so few-shot recall (which now
+	// reads that table) sees newly confirmed pairs. Best-effort: a failure here
+	// must not fail the confirmation, which already persisted to the legacy table.
+	if err = h.deps.MetaRepo.UpsertSavedQueryExample(ctx, upsert); err != nil {
+		slog.WarnContext(ctx, "dual-write saved query example", "error", err)
 	}
 	if metrics != nil {
 		metrics.RecordMemoryStoreConfirmed()
