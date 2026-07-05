@@ -86,6 +86,9 @@ const ABExperimentPanel = lazyWithPreload(() =>
 const ConfirmedQueriesPanel = lazyWithPreload(() =>
   import('./ConfirmedQueriesPanel').then((m) => ({ default: m.ConfirmedQueriesPanel })),
 )
+const NLLexiconPanel = lazyWithPreload(() =>
+  import('./NLLexiconPanel').then((m) => ({ default: m.NLLexiconPanel })),
+)
 const QueryAuditPanel = lazyWithPreload(() =>
   import('./QueryAuditPanel').then((m) => ({ default: m.QueryAuditPanel })),
 )
@@ -108,6 +111,7 @@ const PROPLESS_TAB_PANELS: Partial<Record<AdminTab, ComponentType>> = {
   ai_providers: AIProvidersPanel,
   ai_ab_experiments: ABExperimentPanel,
   ai_confirmed: ConfirmedQueriesPanel,
+  ai_lexicon: NLLexiconPanel,
   mcp: MCPIntegrationPanel,
   reports: ReportSchedulesPanel,
 }
@@ -130,6 +134,7 @@ const TAB_COMPONENTS: Record<AdminTab, AdminLazyPanel> = {
   platform_settings: PlatformSettingsPanel,
   ai_ab_experiments: ABExperimentPanel,
   ai_confirmed: ConfirmedQueriesPanel,
+  ai_lexicon: NLLexiconPanel,
   query_audit: QueryAuditPanel,
   mcp: MCPIntegrationPanel,
   reports: ReportSchedulesPanel,
