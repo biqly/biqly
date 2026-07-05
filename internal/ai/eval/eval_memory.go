@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -24,6 +25,21 @@ var defaultOrdersSeed = []memoryOrderRow{
 	{Country: "DE", Status: "shipped", Amount: 200},
 	{Country: "DE", Status: "shipped", Amount: 300},
 	{Country: "US", Status: "cancelled", Amount: 10},
+}
+
+// OrdersSamples renders the in-memory orders seed as prompt sample rows so
+// live-eval prompts expose canonical stored values (country codes, status
+// spellings), mirroring how production attaches real table samples.
+func OrdersSamples() []prompt.TableSample {
+	rows := make([]map[string]any, 0, len(defaultOrdersSeed))
+	for _, r := range defaultOrdersSeed {
+		rows = append(rows, map[string]any{
+			"country": r.Country,
+			"status":  r.Status,
+			"amount":  r.Amount,
+		})
+	}
+	return []prompt.TableSample{{Schema: "public", Table: "orders", Rows: rows}}
 }
 
 // MemoryResultExecutor evaluates LogicalQueries against the built-in orders

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/biqly/biqly/internal/ai/prompt"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
@@ -26,7 +27,7 @@ type ResultExecutor interface {
 // QuestionProcessor generates a LogicalQuery and the eval metadata needed to
 // score one natural-language question.
 type QuestionProcessor interface {
-	EvaluateQuestion(ctx context.Context, question string, model *semantic.SemanticModel) (*QuestionResult, error)
+	EvaluateQuestion(ctx context.Context, question string, model *semantic.SemanticModel, samples []prompt.TableSample) (*QuestionResult, error)
 }
 
 // QuestionResult is the eval-owned projection of an AI generation response.
@@ -145,7 +146,7 @@ func RunGoldenSuite(ctx context.Context, processor QuestionProcessor, opts Suite
 func evaluateGoldenCase(ctx context.Context, c GoldenCase, processor QuestionProcessor) (CaseResult, float64, bool) {
 	cr := CaseResult{Case: c}
 	start := time.Now()
-	resp, err := processor.EvaluateQuestion(ctx, c.Question, c.Model)
+	resp, err := processor.EvaluateQuestion(ctx, c.Question, c.Model, c.Samples)
 	cr.LatencyMs = time.Since(start).Milliseconds()
 	if err != nil {
 		cr.Err = err

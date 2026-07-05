@@ -97,8 +97,12 @@ func (s *Service) LLMProvider() providerpkg.Provider {
 
 // EvaluateQuestion adapts Service to the eval package without making eval
 // depend on the root AI orchestration package.
-func (s *Service) EvaluateQuestion(ctx context.Context, question string, model *semantic.SemanticModel) (*evalpkg.QuestionResult, error) {
-	resp, err := s.ProcessQuestion(ctx, question, model)
+func (s *Service) EvaluateQuestion(ctx context.Context, question string, model *semantic.SemanticModel, samples []promptpkg.TableSample) (*evalpkg.QuestionResult, error) {
+	var opts []ProcessOption
+	if len(samples) > 0 {
+		opts = append(opts, WithSampleData(samples))
+	}
+	resp, err := s.ProcessQuestion(ctx, question, model, opts...)
 	if err != nil {
 		return nil, err
 	}

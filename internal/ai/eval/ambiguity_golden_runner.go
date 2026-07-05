@@ -162,7 +162,7 @@ func RunAmbiguityGoldenChoiceSuite(ctx context.Context, processor QuestionProces
 			continue
 		}
 
-		qr, err := processor.EvaluateQuestion(ctx, gc.Question, gc.Model)
+		qr, err := processor.EvaluateQuestion(ctx, gc.Question, gc.Model, nil)
 		if err != nil {
 			cr.Reason = err.Error()
 		} else if match, reason := LogicalQueryEqual(qr.LogicalQuery, &gc.Expected); !match {

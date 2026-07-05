@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 )
@@ -16,6 +17,7 @@ type GoldenCase struct {
 	ID       string
 	Question string
 	Model    *semantic.SemanticModel
+	Samples  []prompt.TableSample
 	Expected query.LogicalQuery
 }
 
