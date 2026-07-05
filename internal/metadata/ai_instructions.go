@@ -130,6 +130,20 @@ func (r *Repository) DeleteInstruction(ctx context.Context, id string) error {
 	return nil
 }
 
+// DatasourceForInstruction resolves an instruction id to its owning datasource
+// for access-control middleware.
+func (r *Repository) DatasourceForInstruction(ctx context.Context, id string) (string, error) {
+	var datasourceID string
+	err := r.db.QueryRowContext(ctx, `SELECT datasource_id::text FROM ai_instructions WHERE id = $1::uuid`, id).Scan(&datasourceID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", fmt.Errorf("instruction %s: %w", id, ErrInstructionNotFound)
+		}
+		return "", fmt.Errorf("datasource for instruction: %w", err)
+	}
+	return datasourceID, nil
+}
+
 func scanInstructionRow(s platformdb.Scanner) (InstructionRow, error) {
 	var row InstructionRow
 	if err := s.Scan(

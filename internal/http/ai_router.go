@@ -259,6 +259,20 @@ func registerAIExamplesGlossaryAndTemplatesRoutes(
 	r.With(bimw.RequireResolvedDatasourceAccess(authClient, "write", glossaryDS)).Put("/ai/glossary/{id}", glossaryHandler.UpdateGlossary)
 	r.With(bimw.RequireResolvedDatasourceAccess(authClient, "write", glossaryDS)).Delete("/ai/glossary/{id}", glossaryHandler.DeleteGlossary)
 
+	// Free-form business rules ("instructions") are datasource-scoped content
+	// injected into the prompt as a "## Business Rules" block. Create carries
+	// datasource_id in the body; update/delete carry only the instruction {id},
+	// so resolve it to the owning datasource and check write access — mirroring
+	// the glossary routes above.
+	instructionsHandler := handlers.NewAIInstructionsHandler(deps)
+	instructionDS := func(ctx context.Context, id string) (string, error) {
+		return deps.MetaRepo.DatasourceForInstruction(ctx, id)
+	}
+	r.Get("/ai/instructions", instructionsHandler.List)
+	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Post("/ai/instructions", instructionsHandler.Create)
+	r.With(bimw.RequireResolvedDatasourceAccess(authClient, "write", instructionDS)).Put("/ai/instructions/{id}", instructionsHandler.Update)
+	r.With(bimw.RequireResolvedDatasourceAccess(authClient, "write", instructionDS)).Delete("/ai/instructions/{id}", instructionsHandler.Delete)
+
 	// System prompt templates and time grains steer text-to-SQL for every
 	// user, and reseed/restore are destructive — admin surface only.
 	requireAISettings := bimw.RequirePermission(authClient, "ai:settings")
