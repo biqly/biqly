@@ -454,6 +454,14 @@ export const core = {
     mention_type_metric: 'metric',
     mention_type_table: 'table',
     mention_hint: 'Type @ to insert a field from the semantic model',
+    auto_find_toggle: 'Auto-find skills',
+    auto_find_toggle_title:
+      'Automatically ground answers with the best-matching saved queries (embedding search)',
+    saved_query_hint: 'Type @ for a field · / to add a saved query',
+    saved_query_picker_aria: 'Saved query suggestions',
+    saved_query_picker_label: 'Saved queries',
+    saved_query_no_matches: 'No matching saved queries',
+    saved_query_chip_remove: 'Remove saved query {{name}}',
     retranslate: 'Re-translate',
     retranslate_title:
       'Re-translate this model’s labels and descriptions (use after the source text changed)',

@@ -96,6 +96,10 @@ export interface ChatPanelProps {
   aiElapsedMs: number
   contextEnabled: boolean
   onContextEnabledChange: (conversationId: string, enabled: boolean) => void
+  autoFindEnabled: boolean
+  onAutoFindEnabledChange: (enabled: boolean) => void
+  selectedSavedQueryIds: string[]
+  onSelectedSavedQueryIdsChange: (ids: string[]) => void
   onSendQuery: (q: string, execute: boolean, clarificationChoice?: string) => void
   onAbort: () => void
   get: <T>(url: string) => Promise<T | null>

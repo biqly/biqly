@@ -219,6 +219,15 @@ export const mentionItemHintClass = 'block truncate text-[0.7rem] opacity-70'
 export const pastQueriesToggleClass =
   'inline-flex items-center gap-[0.4rem] text-[0.78rem] text-foreground-muted cursor-pointer select-none'
 
+// ─── "/" saved-query grounding picker + chips ───────────────────────
+export const savedQueryChipRowClass = 'flex flex-wrap items-center gap-1.5 px-[0.1rem] pb-1.5'
+
+export const savedQueryChipClass =
+  'inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 py-[0.12rem] pl-2 pr-1 text-[0.74rem] font-medium text-accent max-w-[16rem]'
+
+export const savedQueryChipRemoveClass =
+  'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-accent/80 transition-colors hover:bg-accent/20 hover:text-accent'
+
 export const feedbackRowClass = 'flex items-center gap-2 mt-2 border-t border-border pt-3'
 
 export const feedbackLearnedBadgeClass = 'ml-2 text-[0.78rem] text-success'

@@ -462,6 +462,14 @@ export const core: CoreDictionary = {
     mention_type_metric: 'metrik',
     mention_type_table: 'tablo',
     mention_hint: 'Semantik modelden alan eklemek için @ yazın',
+    auto_find_toggle: 'Otomatik beceri bul',
+    auto_find_toggle_title:
+      'Yanıtları en iyi eşleşen kayıtlı sorgularla otomatik temellendir (gömme araması)',
+    saved_query_hint: 'Alan için @ · kayıtlı sorgu eklemek için / yazın',
+    saved_query_picker_aria: 'Kayıtlı sorgu önerileri',
+    saved_query_picker_label: 'Kayıtlı sorgular',
+    saved_query_no_matches: 'Eşleşen kayıtlı sorgu yok',
+    saved_query_chip_remove: '{{name}} kayıtlı sorgusunu kaldır',
     retranslate: 'Yeniden çevir',
     retranslate_title:
       'Bu modelin etiket ve açıklamalarını yeniden çevir (kaynak metin değiştiğinde kullanın)',

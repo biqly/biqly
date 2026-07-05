@@ -91,6 +91,12 @@ export interface AIQueryRequest {
   conversation_id?: string
   example_ids?: string[]
   prior_turns?: PriorTurn[]
+  // auto_find_skills toggles the automatic embedding-RAG few-shot recall.
+  // Omitted/true preserves current behavior; false skips auto-recall so only
+  // explicitly selected saved queries ground the prompt.
+  auto_find_skills?: boolean
+  // saved_query_ids are the "/"-selected saved queries injected as grounding.
+  saved_query_ids?: string[]
 }
 
 export type AIJobKind =

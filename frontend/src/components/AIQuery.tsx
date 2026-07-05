@@ -38,11 +38,33 @@ import type { TableOption } from './aiQuery/types'
 import { AI_METADATA_EMBED_TIMEOUT_MS, AI_QUERY_TIMEOUT_MS } from './aiQuery/types'
 import { useAuth } from './auth/AuthProvider'
 
+const AUTO_FIND_STORAGE_KEY = 'biqly.aiQuery.autoFindSkills'
+
+// Auto-find defaults ON; only an explicit "false" turns it off. Guarded so a
+// storage-less environment (SSR/tests) simply falls back to the default.
+function loadAutoFindEnabled(): boolean {
+  try {
+    return window.localStorage.getItem(AUTO_FIND_STORAGE_KEY) !== 'false'
+  } catch {
+    return true
+  }
+}
+
+function saveAutoFindEnabled(enabled: boolean): void {
+  try {
+    window.localStorage.setItem(AUTO_FIND_STORAGE_KEY, enabled ? 'true' : 'false')
+  } catch {
+    // Non-fatal: the toggle still works for the session without persistence.
+  }
+}
+
 function buildAIQueryRequest(args: {
   datasourceId: string
   semanticModelId: string
   clarificationRound: number
   contextEnabled: boolean
+  autoFindEnabled: boolean
+  savedQueryIds: string[]
   recentPriorTurns: PriorTurn[] | undefined
   question: string
   conversationId: string
@@ -62,6 +84,10 @@ function buildAIQueryRequest(args: {
     include_views: true,
     conversation_id: args.conversationId,
     prior_turns: args.contextEnabled ? args.recentPriorTurns : undefined,
+    // Only send auto_find_skills when off — omitting it preserves the
+    // default-on behavior server-side.
+    auto_find_skills: args.autoFindEnabled ? undefined : false,
+    saved_query_ids: args.savedQueryIds.length > 0 ? args.savedQueryIds : undefined,
   }
 }
 
@@ -107,6 +133,11 @@ export default function AIQuery() {
   const [embeddingStatus, setEmbeddingStatus] = useState<string | null>(null)
   const [embeddingRunning, setEmbeddingRunning] = useState(false)
   const [queryAction, setQueryAction] = useState<'preview' | 'execute' | null>(null)
+  // Auto-find (embedding-RAG grounding) defaults on and persists across sessions
+  // as a composer preference. Selected saved-query grounding is per-question and
+  // clears after each send.
+  const [autoFindEnabled, setAutoFindEnabled] = useState(loadAutoFindEnabled)
+  const [selectedSavedQueryIds, setSelectedSavedQueryIds] = useState<string[]>([])
   const [jobError, setJobError] = useState<string | null>(null)
   const [aiElapsedMs, setAiElapsedMs] = useState(0)
   const [isConversationsExpanded, setIsConversationsExpanded] = useState(false)
@@ -344,6 +375,8 @@ export default function AIQuery() {
       semanticModelId,
       clarificationRound,
       contextEnabled: activeConversation?.context_enabled !== false,
+      autoFindEnabled,
+      savedQueryIds: selectedSavedQueryIds,
       recentPriorTurns,
       question: q,
       conversationId,
@@ -450,6 +483,9 @@ export default function AIQuery() {
     }
     const convId = activeConversation?.id ?? createConversation(conversationScope).id
     const body = requestBody(q, convId, clarificationChoice)
+    // The selected grounding is now captured in the request; clear the chips so
+    // the next question starts fresh.
+    setSelectedSavedQueryIds([])
     setQueryAction(execute ? 'execute' : 'preview')
     setJobError(null)
     try {
@@ -615,6 +651,13 @@ export default function AIQuery() {
           aiElapsedMs={displayElapsedMs}
           contextEnabled={activeConversation?.context_enabled !== false}
           onContextEnabledChange={updateConversationContext}
+          autoFindEnabled={autoFindEnabled}
+          onAutoFindEnabledChange={(enabled) => {
+            setAutoFindEnabled(enabled)
+            saveAutoFindEnabled(enabled)
+          }}
+          selectedSavedQueryIds={selectedSavedQueryIds}
+          onSelectedSavedQueryIdsChange={setSelectedSavedQueryIds}
           onSendQuery={(q, execute, clarificationChoice) => {
             void sendQuery(q, execute, clarificationChoice)
           }}

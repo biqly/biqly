@@ -1,5 +1,26 @@
-import type { SkillParameter } from '../components/skills/types'
+import type { Skill, SkillParameter } from '../components/skills/types'
 import { apiFetch } from './apiClient'
+
+// SavedQueryOption is the lightweight shape the composer "/"-picker needs: a
+// selectable saved query identified by id, shown by name + originating question.
+export interface SavedQueryOption {
+  id: string
+  name: string
+  question: string
+}
+
+// listSavedQueries fetches the datasource's runnable saved queries for the
+// composer "/"-picker. Returns [] when the datasource is unset.
+export async function listSavedQueries(datasourceId: string): Promise<SavedQueryOption[]> {
+  if (!datasourceId) {
+    return []
+  }
+  const data = await apiFetch<{ skills: Skill[] }>(
+    'GET',
+    `/api/ai/skills?datasource_id=${encodeURIComponent(datasourceId)}`,
+  )
+  return data.skills.map((s) => ({ id: s.id, name: s.name, question: s.question }))
+}
 
 // AI generation can take a while; allow more than the default 30s.
 const AI_DRAFT_TIMEOUT_MS = 120_000
