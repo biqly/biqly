@@ -18,6 +18,7 @@ export type AdminTab =
   | 'platform_settings'
   | 'ai_ab_experiments'
   | 'ai_confirmed'
+  | 'ai_lexicon'
   | 'query_audit'
   | 'mcp'
   | 'reports'
@@ -40,6 +41,7 @@ export const ADMIN_TAB_LABEL_KEYS = {
   platform_settings: 'admin.tabs.platform_settings',
   ai_ab_experiments: 'admin.tabs.ai_ab_experiments',
   ai_confirmed: 'admin.tabs.ai_confirmed',
+  ai_lexicon: 'admin.tabs.ai_lexicon',
   query_audit: 'admin.tabs.query_audit',
   mcp: 'admin.tabs.mcp',
   reports: 'admin.tabs.reports',
@@ -65,6 +67,7 @@ export const ADMIN_NAV_GROUPS: { id: string; labelKey: TranslationKey; tabs: Adm
       'ai_usage',
       'ai_history',
       'ai_confirmed',
+      'ai_lexicon',
       'sharing',
       'ai_ab_experiments',
       'reports',
