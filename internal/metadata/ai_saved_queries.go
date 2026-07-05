@@ -17,8 +17,7 @@ var ErrSavedQueryNotFound = errors.New("saved query not found")
 // SavedQueryRow is a unified grounding record. It can act as an EXAMPLE
 // (embedding-RAG few-shot grounding, source="example"), a SKILL (executable
 // parameterized LogicalQuery, source="skill", runnable=true), or carry the
-// columns of both. It merges the legacy ai_confirmed_queries and ai_skills
-// tables into one store.
+// columns of both. It merges the previous example and skill stores into one table.
 type SavedQueryRow struct {
 	ID                string
 	DatasourceID      string
@@ -134,10 +133,8 @@ func (r *Repository) InsertSavedQuery(ctx context.Context, in SavedQueryInsert) 
 }
 
 // UpsertSavedQueryExample stores or refreshes a grounding example (source
-// 'example'), keyed like the legacy ai_confirmed_queries unique key so the
-// positive-feedback dual-write updates in place instead of duplicating recall
-// rows. Mirrors Repository.UpsertConfirmedQuery; keeps new confirmations
-// visible to few-shot recall (which now reads ai_saved_queries).
+// 'example'), keyed like the confirmed-query unique key so positive feedback
+// updates in place instead of duplicating recall rows.
 func (r *Repository) UpsertSavedQueryExample(ctx context.Context, in ConfirmedQueryUpsert) error {
 	embeddingJSON, err := encodeEmbedding(in.QuestionEmbedding)
 	if err != nil {
@@ -170,6 +167,89 @@ func (r *Repository) UpsertSavedQueryExample(ctx context.Context, in ConfirmedQu
 		return fmt.Errorf("upsert saved query example: %w", err)
 	}
 	return nil
+}
+
+// ListSavedQueryExamplesForAdmin returns example rows for a datasource
+// regardless of model hash or active state (admin review listing).
+func (r *Repository) ListSavedQueryExamplesForAdmin(ctx context.Context, p ConfirmedQueriesAdminListParams) ([]ConfirmedQueryAdminRow, error) {
+	limit := p.Limit
+	if limit <= 0 {
+		limit = ConfirmedQueriesCandidatePool
+	}
+	offset := max(p.Offset, 0)
+	order := confirmedQueriesAdminOrderClause(p.SortBy, p.SortDir)
+	q := `
+		SELECT id::text, datasource_id::text, COALESCE(model_id::text, ''), created_by,
+			question, sql_query, semantic_model_hash, is_active, created_at
+		FROM ai_saved_queries
+		WHERE datasource_id = $1::uuid
+		  AND source = 'example'
+		ORDER BY ` + order + `
+		LIMIT $2 OFFSET $3
+	`
+	return platformdb.QuerySliceErr(ctx, r.db, "list saved query examples for admin", q,
+		[]any{p.DatasourceID, limit, offset},
+		func(s platformdb.Scanner) (ConfirmedQueryAdminRow, error) {
+			var row ConfirmedQueryAdminRow
+			if err := s.Scan(
+				&row.ID, &row.DatasourceID, &row.ModelID, &row.UserID,
+				&row.NLQuery, &row.SQLQuery, &row.SemanticModelHash,
+				&row.IsActive, &row.ConfirmedAt,
+			); err != nil {
+				return row, fmt.Errorf("scan saved query example admin row: %w", err)
+			}
+			return row, nil
+		})
+}
+
+// CountSavedQueryExamplesForAdmin returns how many example rows exist for a datasource.
+func (r *Repository) CountSavedQueryExamplesForAdmin(ctx context.Context, datasourceID string) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COUNT(*)::int
+		FROM ai_saved_queries
+		WHERE datasource_id = $1::uuid
+		  AND source = 'example'
+	`, datasourceID).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count saved query examples for admin: %w", err)
+	}
+	return n, nil
+}
+
+// SetSavedQueryExampleActive toggles a single example row's recall eligibility.
+// It returns the number of rows updated (0 when the id does not exist or is not an example).
+func (r *Repository) SetSavedQueryExampleActive(ctx context.Context, id string, active bool) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE ai_saved_queries
+		SET is_active = $2
+		WHERE id = $1::uuid
+		  AND source = 'example'
+	`, id, active)
+	if err != nil {
+		return 0, fmt.Errorf("set saved query example active: %w", err)
+	}
+	return res.RowsAffected()
+}
+
+// DeactivateSavedQueryExamplesExceptHash marks stale examples inactive after a model publish.
+func (r *Repository) DeactivateSavedQueryExamplesExceptHash(ctx context.Context, modelID, semanticModelHash string) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE ai_saved_queries
+		SET is_active = false
+		WHERE source = 'example'
+		  AND model_id = $1::uuid
+		  AND semantic_model_hash <> $2
+		  AND is_active
+	`, modelID, semanticModelHash)
+	if err != nil {
+		return 0, fmt.Errorf("deactivate saved query examples: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
 }
 
 // ListSavedQueries returns saved queries for the filter, newest-updated first.
@@ -303,9 +383,7 @@ func (r *Repository) DatasourceForSavedQuery(ctx context.Context, id string) (st
 }
 
 // ListActiveSavedQueryExamples returns recent active embedding-bearing example
-// rows for few-shot recall ranking. It is the ai_saved_queries equivalent of the
-// legacy ListActiveConfirmedQueries and returns the same ConfirmedQueryRow shape
-// so the recall ranker is unchanged.
+// rows for few-shot recall ranking.
 func (r *Repository) ListActiveSavedQueryExamples(ctx context.Context, datasourceID, modelID, semanticModelHash string, limit int) ([]ConfirmedQueryRow, error) {
 	if limit <= 0 {
 		limit = ConfirmedQueriesCandidatePool

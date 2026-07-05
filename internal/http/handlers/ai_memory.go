@@ -155,15 +155,9 @@ func (h *AIExamplesHandler) storeConfirmedQueryOnPositiveFeedback(
 		SemanticModelHash: modelHash,
 		QuestionEmbedding: embedding,
 	}
-	if err = h.deps.MetaRepo.UpsertConfirmedQuery(ctx, upsert); err != nil {
-		slog.WarnContext(ctx, "store confirmed query", "error", err)
-		return false
-	}
-	// Dual-write into the unified ai_saved_queries so few-shot recall (which now
-	// reads that table) sees newly confirmed pairs. Best-effort: a failure here
-	// must not fail the confirmation, which already persisted to the legacy table.
 	if err = h.deps.MetaRepo.UpsertSavedQueryExample(ctx, upsert); err != nil {
-		slog.WarnContext(ctx, "dual-write saved query example", "error", err)
+		slog.WarnContext(ctx, "store saved query example", "error", err)
+		return false
 	}
 	if metrics != nil {
 		metrics.RecordMemoryStoreConfirmed()

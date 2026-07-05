@@ -477,7 +477,7 @@ func (h *SemanticHandler) deactivateStaleConfirmedQueries(ctx context.Context, r
 		return
 	}
 	modelHash := metadata.SemanticModelHash(result.Model.ID, result.Version)
-	if _, err := h.deps.MetaRepo.DeactivateConfirmedQueriesExceptHash(ctx, result.Model.ID, modelHash); err != nil {
+	if _, err := h.deps.MetaRepo.DeactivateSavedQueryExamplesExceptHash(ctx, result.Model.ID, modelHash); err != nil {
 		slog.WarnContext(ctx, "deactivate stale confirmed queries after publish", "model_id", result.Model.ID, "error", err)
 	}
 }

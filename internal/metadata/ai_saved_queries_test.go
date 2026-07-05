@@ -160,10 +160,10 @@ func TestGetSavedQueriesByIDs(t *testing.T) {
 	assert.Empty(t, got)
 }
 
-// TestUpsertSavedQueryExampleIsIdempotent verifies the positive-feedback
-// dual-write path: re-confirming the same question updates the single example
-// row (ON CONFLICT on the example partial index) rather than duplicating recall
-// rows, and refreshes the SQL/embedding.
+// TestUpsertSavedQueryExampleIsIdempotent verifies the positive-feedback path:
+// re-confirming the same question updates the single example row (ON CONFLICT
+// on the example partial index) rather than duplicating recall rows, and
+// refreshes the SQL/embedding.
 func TestUpsertSavedQueryExampleIsIdempotent(t *testing.T) {
 	db := testutil.OpenMetadataDB(t)
 	ctx := context.Background()

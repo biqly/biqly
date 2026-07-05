@@ -13,26 +13,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// --- ai_confirmed_queries.go ---
+// --- confirmed query memory helpers ---
 
 func TestConfirmedQueriesAdminOrderClause(t *testing.T) {
-	assert.Equal(t, "confirmed_at DESC", confirmedQueriesAdminOrderClause("", ""))
-	assert.Equal(t, "nl_query ASC", confirmedQueriesAdminOrderClause("question", "asc"))
+	assert.Equal(t, "created_at DESC", confirmedQueriesAdminOrderClause("", ""))
+	assert.Equal(t, "question ASC", confirmedQueriesAdminOrderClause("question", "asc"))
 	assert.Equal(t, "is_active ASC", confirmedQueriesAdminOrderClause("status", "asc"))
-	assert.Equal(t, "confirmed_at DESC", confirmedQueriesAdminOrderClause("confirmed_at", "desc"))
-	assert.Equal(t, "confirmed_at DESC", confirmedQueriesAdminOrderClause("unknown", "desc"))
+	assert.Equal(t, "created_at DESC", confirmedQueriesAdminOrderClause("confirmed_at", "desc"))
+	assert.Equal(t, "created_at DESC", confirmedQueriesAdminOrderClause("unknown", "desc"))
 }
 
-func TestUpsertConfirmedQuery(t *testing.T) {
+func TestUpsertSavedQueryExample(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := NewRepository(db)
 	ctx := context.Background()
 
 	state.execs = []execMock{
-		{Pattern: "INSERT INTO ai_confirmed_queries", RowsAffected: 1},
+		{Pattern: "INSERT INTO ai_saved_queries", RowsAffected: 1},
 	}
 
-	err := repo.UpsertConfirmedQuery(ctx, ConfirmedQueryUpsert{
+	err := repo.UpsertSavedQueryExample(ctx, ConfirmedQueryUpsert{
 		DatasourceID:      "00000000-0000-0000-0000-000000000001",
 		ModelID:           "00000000-0000-0000-0000-000000000002",
 		UserID:            "user-1",
@@ -45,16 +45,16 @@ func TestUpsertConfirmedQuery(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestUpsertConfirmedQuery_EmptyModelID(t *testing.T) {
+func TestUpsertSavedQueryExample_EmptyModelID(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := NewRepository(db)
 	ctx := context.Background()
 
 	state.execs = []execMock{
-		{Pattern: "INSERT INTO ai_confirmed_queries", RowsAffected: 1},
+		{Pattern: "INSERT INTO ai_saved_queries", RowsAffected: 1},
 	}
 
-	err := repo.UpsertConfirmedQuery(ctx, ConfirmedQueryUpsert{
+	err := repo.UpsertSavedQueryExample(ctx, ConfirmedQueryUpsert{
 		DatasourceID:      "00000000-0000-0000-0000-000000000001",
 		QuestionHash:      "abc123",
 		NLQuery:           "how many users?",
@@ -64,14 +64,14 @@ func TestUpsertConfirmedQuery_EmptyModelID(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestListActiveConfirmedQueries(t *testing.T) {
+func TestListActiveSavedQueryExamplesCoverage(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := NewRepository(db)
 	ctx := context.Background()
 
 	state.queries = []queryMock{
 		{
-			Pattern: "FROM ai_confirmed_queries",
+			Pattern: "FROM ai_saved_queries",
 			Cols:    []string{"id", "datasource_id", "model_id", "user_id", "question_hash", "nl_query", "sql_query", "semantic_model_hash", "question_embedding", "is_active"},
 			Rows: [][]driver.Value{
 				{"cq-1", "ds-1", "m-1", "u-1", "hash1", "total revenue?", "SELECT sum(revenue)", "model@1", []byte(`[0.1,0.2,0.3]`), true},
@@ -79,14 +79,14 @@ func TestListActiveConfirmedQueries(t *testing.T) {
 		},
 	}
 
-	rows, err := repo.ListActiveConfirmedQueries(ctx, "ds-1", "m-1", "model@1", 10)
+	rows, err := repo.ListActiveSavedQueryExamples(ctx, "ds-1", "m-1", "model@1", 10)
 	assert.NoError(t, err)
 	assert.Len(t, rows, 1)
 	assert.Equal(t, "total revenue?", rows[0].NLQuery)
 	assert.Equal(t, []float32{0.1, 0.2, 0.3}, rows[0].QuestionEmbedding)
 }
 
-func TestListConfirmedQueriesForAdmin(t *testing.T) {
+func TestListSavedQueryExamplesForAdmin(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := NewRepository(db)
 	ctx := context.Background()
@@ -94,7 +94,7 @@ func TestListConfirmedQueriesForAdmin(t *testing.T) {
 
 	state.queries = []queryMock{
 		{
-			Pattern: "FROM ai_confirmed_queries WHERE datasource_id",
+			Pattern: "FROM ai_saved_queries WHERE datasource_id",
 			Cols:    []string{"id", "datasource_id", "model_id", "user_id", "nl_query", "sql_query", "semantic_model_hash", "is_active", "confirmed_at"},
 			Rows: [][]driver.Value{
 				{"cq-1", "ds-1", "m-1", "u-1", "total revenue?", "SELECT sum(revenue)", "model@1", true, now},
@@ -102,7 +102,7 @@ func TestListConfirmedQueriesForAdmin(t *testing.T) {
 		},
 	}
 
-	rows, err := repo.ListConfirmedQueriesForAdmin(ctx, ConfirmedQueriesAdminListParams{
+	rows, err := repo.ListSavedQueryExamplesForAdmin(ctx, ConfirmedQueriesAdminListParams{
 		DatasourceID: "ds-1",
 		Limit:        10,
 		Offset:       0,
@@ -114,48 +114,48 @@ func TestListConfirmedQueriesForAdmin(t *testing.T) {
 	assert.Equal(t, "total revenue?", rows[0].NLQuery)
 }
 
-func TestCountConfirmedQueriesForAdmin(t *testing.T) {
+func TestCountSavedQueryExamplesForAdmin(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := NewRepository(db)
 	ctx := context.Background()
 
 	state.queries = []queryMock{
 		{
-			Pattern: "SELECT COUNT(*)::int FROM ai_confirmed_queries",
+			Pattern: "SELECT COUNT(*)::int FROM ai_saved_queries",
 			Cols:    []string{"count"},
 			Rows:    [][]driver.Value{{int64(5)}},
 		},
 	}
 
-	count, err := repo.CountConfirmedQueriesForAdmin(ctx, "ds-1")
+	count, err := repo.CountSavedQueryExamplesForAdmin(ctx, "ds-1")
 	assert.NoError(t, err)
 	assert.Equal(t, 5, count)
 }
 
-func TestSetConfirmedQueryActive(t *testing.T) {
+func TestSetSavedQueryExampleActive(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := NewRepository(db)
 	ctx := context.Background()
 
 	state.execs = []execMock{
-		{Pattern: "UPDATE ai_confirmed_queries SET is_active", RowsAffected: 1},
+		{Pattern: "UPDATE ai_saved_queries SET is_active", RowsAffected: 1},
 	}
 
-	n, err := repo.SetConfirmedQueryActive(ctx, "cq-1", false)
+	n, err := repo.SetSavedQueryExampleActive(ctx, "cq-1", false)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), n)
 }
 
-func TestDeactivateConfirmedQueriesExceptHash(t *testing.T) {
+func TestDeactivateSavedQueryExamplesExceptHash(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := NewRepository(db)
 	ctx := context.Background()
 
 	state.execs = []execMock{
-		{Pattern: "UPDATE ai_confirmed_queries", RowsAffected: 3},
+		{Pattern: "UPDATE ai_saved_queries", RowsAffected: 3},
 	}
 
-	n, err := repo.DeactivateConfirmedQueriesExceptHash(ctx, "m-1", "new-hash")
+	n, err := repo.DeactivateSavedQueryExamplesExceptHash(ctx, "m-1", "new-hash")
 	assert.NoError(t, err)
 	assert.Equal(t, int64(3), n)
 }

@@ -152,7 +152,7 @@ Store confirmed NL-SQL pair (learn from success)
 ### Where Agent-First Patterns Are Stronger
 
 1. **Context richness**: A full semantic layer can carry more business semantics than a flat glossary — relationships, calculated fields, views, instructions, structured `ai_context`.
-2. **Learning loop**: A confirmed-query memory store grows a corpus of NL-SQL pairs that improve future queries. Biqly now has `ai_confirmed_queries`, but the broader agent-driven feedback loop is still less mature than fully agent-first stacks.
+2. **Learning loop**: A saved-query example memory store grows a corpus of NL-SQL pairs that improve future queries. Biqly now stores these in `ai_saved_queries`, but the broader agent-driven feedback loop is still less mature than fully agent-first stacks.
 3. **Agent flexibility**: The agent decides when and how to clarify without a fixed server-side flow.
 4. **Context enrichment tooling**: Systematic gap-filling (enums, units, NULL semantics, synonyms) beyond manual glossary edits.
 
@@ -168,7 +168,7 @@ Based on the comparative analysis and industry patterns (AWS, academic surveys, 
 > `internal/http/handlers/ai_ambiguity_tier.go`, generation trace in
 > `internal/ai/trace.go`, ambiguity golden eval coverage in
 > `internal/ai/eval/ambiguity_golden*.go`, confirmed-query memory storage via
-> `ai_confirmed_queries` (migration `044a`), and structured glossary
+> saved query examples (`ai_saved_queries`, migration `058a`), and structured glossary
 > `ai_context` support via migration `043a_add_ai_context_to_glossary_entries`.
 
 ### 5.1 Immediate (Fix Architecture Gaps)

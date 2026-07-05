@@ -52,12 +52,12 @@ func (h *AIHandler) AdminListConfirmedQueries(w http.ResponseWriter, r *http.Req
 		SortBy:       sortBy,
 		SortDir:      sortDir,
 	}
-	rows, err := h.deps.MetaRepo.ListConfirmedQueriesForAdmin(ctx, listParams)
+	rows, err := h.deps.MetaRepo.ListSavedQueryExamplesForAdmin(ctx, listParams)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list confirmed queries", err)
 		return
 	}
-	total, err := h.deps.MetaRepo.CountConfirmedQueriesForAdmin(ctx, datasourceID)
+	total, err := h.deps.MetaRepo.CountSavedQueryExamplesForAdmin(ctx, datasourceID)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to count confirmed queries", err)
 		return
@@ -90,7 +90,7 @@ func (h *AIHandler) AdminDeactivateConfirmedQuery(w http.ResponseWriter, r *http
 		return
 	}
 	ctx := r.Context()
-	n, err := h.deps.MetaRepo.SetConfirmedQueryActive(ctx, id, false)
+	n, err := h.deps.MetaRepo.SetSavedQueryExampleActive(ctx, id, false)
 	if err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to deactivate confirmed query", err)
 		return

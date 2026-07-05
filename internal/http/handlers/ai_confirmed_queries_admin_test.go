@@ -35,7 +35,7 @@ func TestAdminListConfirmedQueriesReturnsRows(t *testing.T) {
 					"monthly sales", `{"select":[]}`, "m-1@2", false, confirmedAt},
 			},
 		},
-		{Pattern: "SELECT COUNT(*)::int FROM ai_confirmed_queries", Cols: []string{"count"}, Rows: [][]driver.Value{{1}}},
+		{Pattern: "SELECT COUNT(*)::int FROM ai_saved_queries", Cols: []string{"count"}, Rows: [][]driver.Value{{1}}},
 	}
 	h := newAIHandlerWithRepo(metadata.NewRepository(db))
 
@@ -84,18 +84,18 @@ func deactivateVia(t *testing.T, h *AIHandler, id string) *httptest.ResponseReco
 // Deactivation flips is_active for the row and 404s on unknown ids.
 func TestAdminDeactivateConfirmedQuery(t *testing.T) {
 	db, state := setupMockDB(t)
-	state.execs = []execMock{{Pattern: "UPDATE ai_confirmed_queries SET is_active", RowsAffected: 1}}
+	state.execs = []execMock{{Pattern: "UPDATE ai_saved_queries SET is_active", RowsAffected: 1}}
 	h := newAIHandlerWithRepo(metadata.NewRepository(db))
 
 	rec := deactivateVia(t, h, testConfirmedQueryID)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	call := findCall(state.calls, "UPDATE ai_confirmed_queries SET is_active")
+	call := findCall(state.calls, "UPDATE ai_saved_queries SET is_active")
 	require.NotNil(t, call)
 	require.Len(t, call.Args, 2)
 	assert.Equal(t, testConfirmedQueryID, call.Args[0])
 	assert.Equal(t, false, call.Args[1])
 
-	state.execs = []execMock{{Pattern: "UPDATE ai_confirmed_queries SET is_active", RowsAffected: 0}}
+	state.execs = []execMock{{Pattern: "UPDATE ai_saved_queries SET is_active", RowsAffected: 0}}
 	assert.Equal(t, http.StatusNotFound, deactivateVia(t, h, testConfirmedQueryID).Code)
 
 	assert.Equal(t, http.StatusBadRequest, deactivateVia(t, h, "not-a-uuid").Code)

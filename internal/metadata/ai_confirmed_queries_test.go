@@ -22,7 +22,7 @@ func TestSemanticModelHashIncludesVersion(t *testing.T) {
 	assert.NotEqual(t, SemanticModelHash("model-1", 2), SemanticModelHash("model-1", 3))
 }
 
-func TestUpsertConfirmedQueryConcurrentSameKey(t *testing.T) {
+func TestUpsertSavedQueryExampleConcurrentSameKey(t *testing.T) {
 	db := testutil.OpenMetadataDB(t)
 	ctx := context.Background()
 	repo := NewRepository(db)
@@ -36,7 +36,7 @@ func TestUpsertConfirmedQueryConcurrentSameKey(t *testing.T) {
 	testutil.EnsureMetadataTestDatasource(ctx, t, db, datasourceID, "confirmed-query-test")
 	testutil.EnsureMetadataTestSemanticModel(ctx, t, db, modelID, datasourceID, "confirmed-query-model")
 	_, err := db.ExecContext(ctx, `
-		DELETE FROM ai_confirmed_queries
+		DELETE FROM ai_saved_queries
 		WHERE datasource_id = $1::uuid
 		  AND question_hash = $2
 		  AND semantic_model_hash = $3
@@ -49,7 +49,7 @@ func TestUpsertConfirmedQueryConcurrentSameKey(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			errs <- repo.UpsertConfirmedQuery(ctx, ConfirmedQueryUpsert{
+			errs <- repo.UpsertSavedQueryExample(ctx, ConfirmedQueryUpsert{
 				DatasourceID:      datasourceID,
 				ModelID:           modelID,
 				QuestionHash:      questionHash,
@@ -69,11 +69,12 @@ func TestUpsertConfirmedQueryConcurrentSameKey(t *testing.T) {
 	var count int
 	err = db.QueryRowContext(ctx, `
 		SELECT COUNT(*)::int
-		FROM ai_confirmed_queries
+		FROM ai_saved_queries
 		WHERE datasource_id = $1::uuid
 		  AND model_id = $2::uuid
 		  AND question_hash = $3
 		  AND semantic_model_hash = $4
+		  AND source = 'example'
 	`, datasourceID, modelID, questionHash, semanticModelHash).Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)

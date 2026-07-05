@@ -31,7 +31,7 @@ func TestDeactivateStaleConfirmedQueriesUsesPublishedHash(t *testing.T) {
 	db, state := setupMockDB(t)
 	repo := metadata.NewRepository(db)
 	state.execs = []execMock{
-		{Pattern: "UPDATE ai_confirmed_queries", RowsAffected: 3},
+		{Pattern: "UPDATE ai_saved_queries", RowsAffected: 3},
 	}
 
 	h := newSemanticHandlerWithRepo(repo)
@@ -40,7 +40,7 @@ func TestDeactivateStaleConfirmedQueriesUsesPublishedHash(t *testing.T) {
 		Version: 3,
 	})
 
-	call := findCall(state.calls, "UPDATE ai_confirmed_queries")
+	call := findCall(state.calls, "UPDATE ai_saved_queries")
 	require.NotNil(t, call, "expected deactivation UPDATE to run")
 	require.Len(t, call.Args, 2)
 	assert.Equal(t, "m-1", call.Args[0])
@@ -57,5 +57,5 @@ func TestDeactivateStaleConfirmedQueriesNoModelIsNoop(t *testing.T) {
 	h.deactivateStaleConfirmedQueries(context.Background(), nil)
 	h.deactivateStaleConfirmedQueries(context.Background(), &semantic.PublishResult{Version: 2})
 
-	assert.Nil(t, findCall(state.calls, "UPDATE ai_confirmed_queries"))
+	assert.Nil(t, findCall(state.calls, "UPDATE ai_saved_queries"))
 }
