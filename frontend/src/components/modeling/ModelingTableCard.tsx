@@ -29,6 +29,7 @@ interface ModelingTableCardProps {
   onDragStart: (event: MouseEvent) => void
   onKeyDown: (event: KeyboardEvent) => void
   onOpenDetail: () => void
+  onOpenColumnsMenu: (anchor: DOMRect) => void
   onAddCalcField: () => void
   onAddRelationship: () => void
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string
@@ -45,6 +46,7 @@ export function ModelingTableCard({
   onDragStart,
   onKeyDown,
   onOpenDetail,
+  onOpenColumnsMenu,
   onAddCalcField,
   onAddRelationship,
   t,
@@ -78,9 +80,10 @@ export function ModelingTableCard({
       <button
         type="button"
         className={modelingKebabClass}
-        aria-label={t('modeling.table_card_menu', { name: key })}
+        aria-label={t('modeling.columns_menu_aria', { name: key })}
+        aria-haspopup="true"
         onMouseDown={(event) => event.stopPropagation()}
-        onClick={onOpenDetail}
+        onClick={(event) => onOpenColumnsMenu(event.currentTarget.getBoundingClientRect())}
       >
         ⋮
       </button>

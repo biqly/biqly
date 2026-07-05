@@ -21,6 +21,49 @@ import { CARD_WIDTH, COL_LIMIT } from './constants'
 import type { Pt, Viewport } from './types'
 import { tableKey } from './utils'
 
+const VISIBLE_COLUMNS_STORAGE_PREFIX = 'biqly.modeling.visibleColumns.'
+
+// Per-model view preference: which columns are shown on each table card.
+// Stored locally only (no backend), keyed by model id.
+function loadVisibleByTable(modelId: string): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>()
+  if (!modelId || typeof window === 'undefined') {
+    return out
+  }
+  try {
+    const raw = window.localStorage.getItem(`${VISIBLE_COLUMNS_STORAGE_PREFIX}${modelId}`)
+    if (!raw) {
+      return out
+    }
+    const parsed: unknown = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object') {
+      for (const [key, cols] of Object.entries(parsed as Record<string, unknown>)) {
+        if (Array.isArray(cols)) {
+          out.set(key, new Set(cols.filter((c): c is string => typeof c === 'string')))
+        }
+      }
+    }
+  } catch {
+    // Ignore malformed / unavailable storage and fall back to defaults.
+  }
+  return out
+}
+
+function saveVisibleByTable(modelId: string, map: Map<string, Set<string>>) {
+  if (!modelId || typeof window === 'undefined') {
+    return
+  }
+  try {
+    const obj: Record<string, string[]> = {}
+    for (const [key, set] of map) {
+      obj[key] = [...set]
+    }
+    window.localStorage.setItem(`${VISIBLE_COLUMNS_STORAGE_PREFIX}${modelId}`, JSON.stringify(obj))
+  } catch {
+    // Ignore quota / serialization failures; the preference is best-effort.
+  }
+}
+
 export function useModelingCanvas(
   modelId: string,
   tableCards: TableRow[],
@@ -30,6 +73,9 @@ export function useModelingCanvas(
 ) {
   const [positions, setPositions] = useState<Record<string, Pt>>({})
   const [viewport, setViewport] = useState<Viewport>({ scale: 1, tx: 0, ty: 0 })
+  const [visibleByTable, setVisibleByTable] = useState<Map<string, Set<string>>>(() =>
+    loadVisibleByTable(modelId),
+  )
 
   const viewportRef = useRef(viewport)
   const wrapRef = useRef<HTMLDivElement | null>(null)
@@ -53,19 +99,43 @@ export function useModelingCanvas(
       joinColumns.get(toKey)!.add(join.to_column)
     }
     const sections = buildCardSections(tableCards, model)
-    return buildCardLayouts(tableCards, columns, joinColumns, COL_LIMIT, sections)
-  }, [tableCards, columns, model])
+    return buildCardLayouts(tableCards, columns, joinColumns, COL_LIMIT, sections, visibleByTable)
+  }, [tableCards, columns, model, visibleByTable])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPositions({})
     setViewport({ scale: 1, tx: 0, ty: 0 })
+    setVisibleByTable(loadVisibleByTable(modelId))
   }, [modelId])
 
   useEffect(() => {
+    // Preserve any card the user has already positioned; only auto-place cards
+    // that don't have a position yet. This keeps toggling column visibility
+    // (which changes card heights, and thus cardLayouts) from snapping every
+    // card back to the initial grid.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPositions(layoutInitialPositions(tableCards, cardLayouts))
+    setPositions((prev) => {
+      const fresh = layoutInitialPositions(tableCards, cardLayouts)
+      const merged: Record<string, Pt> = {}
+      for (const key of Object.keys(fresh)) {
+        merged[key] = prev[key] ?? fresh[key]!
+      }
+      return merged
+    })
   }, [tableCards, cardLayouts])
+
+  const setTableVisibleColumns = useCallback(
+    (key: string, cols: string[]) => {
+      setVisibleByTable((prev) => {
+        const next = new Map(prev)
+        next.set(key, new Set(cols))
+        saveVisibleByTable(modelId, next)
+        return next
+      })
+    },
+    [modelId],
+  )
 
   const canvasBounds = useMemo(
     () => computeCanvasBounds(tableCards, positions, cardLayouts),
@@ -302,6 +372,8 @@ export function useModelingCanvas(
     getJoinPath,
     panToKeys,
     restoreSavedViewport,
+    visibleByTable,
+    setTableVisibleColumns,
   }
 }
 

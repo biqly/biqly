@@ -167,6 +167,7 @@ export default function Modeling() {
             <ModelingCanvas
               canvas={s.canvas}
               tableCards={s.tableCards}
+              columns={s.columns}
               joins={s.joins}
               baseKey={s.baseKey}
               highlightJoinId={s.highlightJoinId}

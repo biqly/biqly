@@ -1257,6 +1257,8 @@ export const core = {
     more_columns: 'more columns',
     table_card_aria: '{{name}} table card. Arrow keys move it, Shift+Arrow for larger step.',
     table_card_menu: 'Open {{name}} details',
+    columns_menu_title: 'Visible columns',
+    columns_menu_aria: 'Choose visible columns for {{name}}',
     calc_fields_section: 'Calculated Fields',
     relationships_section: 'Relationships',
     add_calc_field: 'Add calculated field',
