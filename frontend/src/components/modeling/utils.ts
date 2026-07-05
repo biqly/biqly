@@ -1,5 +1,5 @@
 import type { TranslationKey } from '../../i18n'
-import type { ColumnRow, SemanticModelDetail, TableRow } from '../../types/semantic'
+import type { ColumnRow, SemanticJoin, SemanticModelDetail, TableRow } from '../../types/semantic'
 import type { JoinForm, JoinPayload } from './types'
 
 export function tableKey(schema: string, table: string) {
@@ -49,6 +49,21 @@ const DATA_TYPE_LABEL_KEYS: Record<string, TranslationKey> = {
 export function formatDataType(t: (key: TranslationKey) => string, dataType: string) {
   const key = DATA_TYPE_LABEL_KEYS[dataType.toLowerCase().trim()]
   return key ? t(key) : dataType
+}
+
+const RELATIONSHIP_LABEL_KEYS: Partial<Record<string, TranslationKey>> = {
+  many_to_one: 'modeling.rel_many_to_one',
+  one_to_many: 'modeling.rel_one_to_many',
+  one_to_one: 'modeling.rel_one_to_one',
+  many_to_many: 'modeling.rel_many_to_many',
+}
+
+export function relationshipLabel(
+  t: (key: TranslationKey) => string,
+  relationship: SemanticJoin['relationship'],
+) {
+  const key = RELATIONSHIP_LABEL_KEYS[relationship]
+  return key ? t(key) : relationship
 }
 
 export function columnSelectHint(column: ColumnRow, t: (key: TranslationKey) => string) {

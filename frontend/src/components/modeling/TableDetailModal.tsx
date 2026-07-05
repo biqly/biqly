@@ -5,15 +5,16 @@ import { buttonClass } from '../../lib/buttonClasses'
 import {
   modelingDetailAliasClass,
   modelingDetailDescriptionClass,
-  modelingDetailFieldDescriptionClass,
   modelingDetailFieldNameClass,
   modelingDetailHeaderClass,
-  modelingDetailListClass,
+  modelingDetailInfoCellClass,
+  modelingDetailInfoNameCellClass,
+  modelingDetailInfoTableClass,
+  modelingDetailInfoTableWrapClass,
+  modelingDetailInfoTypeCellClass,
   modelingDetailMutedClass,
   modelingDetailPreviewHeaderClass,
-  modelingDetailRelationshipClass,
   modelingDetailRootClass,
-  modelingDetailRowClass,
   modelingDetailTableCellClass,
   modelingDetailTableClass,
   modelingDetailTableHeaderClass,
@@ -30,7 +31,7 @@ import {
 } from '../tableBrowser/useTableBrowserQueryState'
 import { Modal } from '../ui/Modal'
 import { columnTypeIcon } from './columnTypeIcon'
-import { columnOptions, tableKey } from './utils'
+import { columnOptions, relationshipLabel, tableKey } from './utils'
 
 interface TableDetailModalProps {
   open: boolean
@@ -127,41 +128,58 @@ export function TableDetailModal({
           <h3 className={modelingDetailTitleClass}>
             {t('modeling.detail_columns')} ({tableColumns.length})
           </h3>
-          <ul className={modelingDetailListClass}>
-            {tableColumns.map((column) => {
-              const icon = columnTypeIcon(column.data_type)
-              return (
-                <li key={column.id} className={modelingDetailRowClass}>
-                  <span className={modelingTypeIconClass} aria-hidden="true">
-                    {icon.kind === 'timestamp' ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 12 12"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="size-[0.65rem]"
-                      >
-                        <circle cx="6" cy="6" r="5" />
-                        <polyline points="6,2.5 6,6 8.5,7.5" />
-                      </svg>
-                    ) : (
-                      icon.glyph
-                    )}
-                  </span>
-                  <span className={modelingDetailFieldNameClass}>{column.column_name}</span>
-                  <span className={modelingDetailMutedClass}>{column.data_type}</span>
-                  {column.description ? (
-                    <span className={modelingDetailFieldDescriptionClass}>
-                      {column.description}
-                    </span>
-                  ) : null}
-                </li>
-              )
-            })}
-          </ul>
+          <div className={modelingDetailInfoTableWrapClass}>
+            <table className={modelingDetailInfoTableClass}>
+              <thead>
+                <tr>
+                  <th className={modelingDetailTableHeaderClass}>
+                    {t('modeling.detail_col_name')}
+                  </th>
+                  <th className={modelingDetailTableHeaderClass}>
+                    {t('modeling.detail_col_type')}
+                  </th>
+                  <th className={modelingDetailTableHeaderClass}>
+                    {t('modeling.detail_col_description')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableColumns.map((column) => {
+                  const icon = columnTypeIcon(column.data_type)
+                  return (
+                    <tr key={column.id}>
+                      <td className={modelingDetailInfoNameCellClass}>{column.column_name}</td>
+                      <td className={modelingDetailInfoTypeCellClass}>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className={modelingTypeIconClass} aria-hidden="true">
+                            {icon.kind === 'timestamp' ? (
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 12 12"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="size-[0.65rem]"
+                              >
+                                <circle cx="6" cy="6" r="5" />
+                                <polyline points="6,2.5 6,6 8.5,7.5" />
+                              </svg>
+                            ) : (
+                              icon.glyph
+                            )}
+                          </span>
+                          {column.data_type}
+                        </span>
+                      </td>
+                      <td className={modelingDetailInfoCellClass}>{column.description}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         {relationships.length > 0 ? (
@@ -169,19 +187,38 @@ export function TableDetailModal({
             <h3 className={modelingDetailTitleClass}>
               {t('modeling.detail_relationships')} ({relationships.length})
             </h3>
-            <ul className={modelingDetailListClass}>
-              {relationships.map((relationship) => (
-                <li key={relationship.id} className={modelingDetailRelationshipClass}>
-                  <span className={modelingDetailFieldNameClass}>{relationship.name}</span>
-                  <span>
-                    {relationship.from_table} → {relationship.to_table}
-                  </span>
-                  <span className={modelingDetailFieldDescriptionClass}>
-                    {relationship.relationship}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <div className={modelingDetailInfoTableWrapClass}>
+              <table className={modelingDetailInfoTableClass}>
+                <thead>
+                  <tr>
+                    <th className={modelingDetailTableHeaderClass}>
+                      {t('modeling.detail_rel_name')}
+                    </th>
+                    <th className={modelingDetailTableHeaderClass}>
+                      {t('modeling.detail_rel_from')}
+                    </th>
+                    <th className={modelingDetailTableHeaderClass}>
+                      {t('modeling.detail_rel_to')}
+                    </th>
+                    <th className={modelingDetailTableHeaderClass}>
+                      {t('modeling.detail_rel_type')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {relationships.map((relationship) => (
+                    <tr key={relationship.id}>
+                      <td className={modelingDetailInfoNameCellClass}>{relationship.name}</td>
+                      <td className={modelingDetailInfoNameCellClass}>{relationship.from_table}</td>
+                      <td className={modelingDetailInfoNameCellClass}>{relationship.to_table}</td>
+                      <td className={modelingDetailInfoTypeCellClass}>
+                        {relationshipLabel(t, relationship.relationship)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         ) : null}
 
