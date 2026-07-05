@@ -1,8 +1,8 @@
 {
   "suite": "biqly-nightly-v1",
   "pass_rate": 1,
-  "total": 18,
-  "passed": 18,
+  "total": 27,
+  "passed": 27,
   "failed": 0,
   "cases": {
     "bench-cancelled-total": {
@@ -27,6 +27,42 @@
     },
     "count-orders": {
       "question": "kaç sipariş var",
+      "match": true
+    },
+    "cx-avg-by-country-sorted": {
+      "question": "ülke bazında ortalama sipariş tutarı, en yüksekten düşüğe",
+      "match": true
+    },
+    "cx-busiest-day": {
+      "question": "Mayıs 2026'da en çok sipariş alınan gün hangisi",
+      "match": true
+    },
+    "cx-having-countries": {
+      "question": "toplam cirosu 150'yi geçen ülkeler",
+      "match": true
+    },
+    "cx-month-diff": {
+      "question": "Mayıs 2026 ile Nisan 2026 arasındaki sipariş adedi farkı",
+      "match": true
+    },
+    "cx-month-growth": {
+      "question": "Nisan 2026'ya göre Mayıs 2026 cirosu yüzde kaç değişti",
+      "match": true
+    },
+    "cx-monthly-count-2026": {
+      "question": "2026 yılında ay bazında sipariş adedi",
+      "match": true
+    },
+    "cx-monthly-revenue": {
+      "question": "aylara göre ciro",
+      "match": true
+    },
+    "cx-shipped-share": {
+      "question": "shipped siparişlerin tüm siparişler içindeki payı yüzde kaç",
+      "match": true
+    },
+    "cx-top2-countries": {
+      "question": "ciroya göre ilk 2 ülke",
       "match": true
     },
     "edge-colloquial-count": {

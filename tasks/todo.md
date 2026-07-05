@@ -5211,3 +5211,29 @@ Success criteria:
 Review:
 
 - Pending.
+
+## Feature: complex/compositional AI eval tier (2026-07-05)
+
+### Goal
+Add logical-only complex golden cases to the nightly AI eval so live LLM runs measure multi-step Text-to-SQL behavior: period comparisons, formulas, time-grain breakdowns, having, and top-N.
+
+### Success criteria
+- [x] LogicalQueryEqual compares select item filters/formulas/windows and explicit group_by time_grain without changing simple select keys.
+- [x] Orders eval model/seed expose order_date grains and avg_amount.
+- [x] ComplexCases() adds unique, logical-only cases and NightlyCases includes them.
+- [x] Baseline regenerated and required Go/eval/lint gates pass.
+
+### Plan
+- [x] Inspect current eval, prompt, validator, and baseline shape.
+- [x] Implement equality and LogicalOnly execution bypass.
+- [x] Extend orders model, memory seed, and samples.
+- [x] Add complex cases and wire nightly.
+- [x] Regenerate baseline and verify uniqueness/template constraints.
+- [x] Run gates and document results.
+### Results
+- Added 9 logical-only complex nightly cases: cx-month-diff, cx-month-growth, cx-shipped-share, cx-monthly-revenue, cx-monthly-count-2026, cx-having-countries, cx-top2-countries, cx-busiest-day, cx-avg-by-country-sorted.
+- Regenerated `testdata/eval/nightly_baseline.json` with 27 nightly cases.
+- Verified new question strings are not substrings of existing eval questions and do not appear in prompt templates.
+- Gates: `go build ./...`, `go test ./internal/ai/... -count=1`, `make eval-regression` (also scanned for FAIL), `make lint-go` all passed.
+- Prompt/normalization ambiguity found: prompt rules say `order_by` only when asked, but service post-processing auto-adds ascending `order_by` for grouped time-grain dimensions. Monthly complex goldens include that final normalized shape so stub/live scoring matches the actual service output.
+- Window case skipped: prompt rules mention windows, but `LogicalQuerySchema` currently omits `window` from the select enum/schema; adding a window golden would measure schema/prompt inconsistency rather than live model behavior.

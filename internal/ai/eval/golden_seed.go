@@ -19,10 +19,15 @@ func OrdersModel() *semantic.SemanticModel {
 		Dimensions: []semantic.Dimension{
 			{Name: "country", Type: "text", ColumnRef: "orders.country"},
 			{Name: "status", Type: "text", ColumnRef: "orders.status"},
+			{Name: "order_date", Type: "date", ColumnRef: "orders.order_date"},
+			{Name: "order_date_year", Type: "date", ColumnRef: "orders.order_date", TimeGrain: "year"},
+			{Name: "order_date_month", Type: "date", ColumnRef: "orders.order_date", TimeGrain: "month"},
+			{Name: "order_date_day", Type: "date", ColumnRef: "orders.order_date", TimeGrain: "day"},
 		},
 		Metrics: []semantic.Metric{
 			{Name: "row_count", Aggregation: "count", Expression: "*"},
 			{Name: "total_amount", Aggregation: "sum", Expression: "orders.amount"},
+			{Name: "avg_amount", Aggregation: "avg", Expression: "orders.amount"},
 		},
 	}
 }

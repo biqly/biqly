@@ -99,12 +99,13 @@ func EdgeCases() []GoldenCase {
 	}
 }
 
-// NightlyCases is the full live-LLM nightly suite: benchmark + dialect/edge cases.
+// NightlyCases is the full live-LLM nightly suite: benchmark + dialect/edge + complex cases.
 // Every case carries orders sample rows so the model can see canonical stored
 // values (ISO country codes, English status values) exactly like production,
 // where handlers pass live table samples via WithSampleData.
 func NightlyCases() []GoldenCase {
 	cases := append(BenchmarkCases(), EdgeCases()...)
+	cases = append(cases, ComplexCases()...)
 	samples := OrdersSamples()
 	for i := range cases {
 		if cases[i].Samples == nil {

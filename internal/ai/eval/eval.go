@@ -4,6 +4,7 @@ package eval
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/query"
@@ -14,11 +15,12 @@ import (
 // question paired with the canonical LogicalQuery a correct system would emit
 // against the given semantic model.
 type GoldenCase struct {
-	ID       string
-	Question string
-	Model    *semantic.SemanticModel
-	Samples  []prompt.TableSample
-	Expected query.LogicalQuery
+	ID          string
+	Question    string
+	Model       *semantic.SemanticModel
+	Samples     []prompt.TableSample
+	LogicalOnly bool
+	Expected    query.LogicalQuery
 }
 
 // Result EvalResult records what the runner observed for one case.
@@ -52,6 +54,9 @@ func LogicalQueryEqual(a, b *query.LogicalQuery) (bool, string) {
 	if !groupByEqual(a.GroupBy, b.GroupBy) {
 		return false, "group_by differs"
 	}
+	if !filtersEqual(a.Having, b.Having) {
+		return false, "having differs"
+	}
 	if !orderByEqual(a.OrderBy, b.OrderBy) {
 		return false, "order_by differs"
 	}
@@ -72,9 +77,70 @@ func selectsEqual(a, b []query.SelectItem) bool {
 func selectKeys(items []query.SelectItem) []string {
 	out := make([]string, 0, len(items))
 	for _, it := range items {
-		out = append(out, it.Type+":"+it.Name)
+		key := it.Type + ":" + it.Name
+		if len(it.Filters) > 0 {
+			key += "|filters:" + joinedFilterKeys(it.Filters)
+		}
+		if it.Formula != nil {
+			key += "|formula:" + formulaKey(it.Formula)
+		}
+		if it.Window != nil {
+			key += "|window:" + windowKey(it.Window)
+		}
+		out = append(out, key)
 	}
 	return out
+}
+
+func joinedFilterKeys(filters []query.Filter) string {
+	keys := filterKeys(filters)
+	sort.Strings(keys)
+	return strings.Join(keys, ";")
+}
+
+func formulaKey(formula *query.FormulaSpec) string {
+	return strings.Join([]string{
+		"op=" + formula.Op,
+		"left=" + measureRefKey(formula.Left),
+		"right=" + measureRefKey(formula.Right),
+	}, "|")
+}
+
+func measureRefKey(ref query.MeasureRef) string {
+	key := "metric=" + ref.Metric
+	if len(ref.Filters) > 0 {
+		key += ",filters:" + joinedFilterKeys(ref.Filters)
+	}
+	return key
+}
+
+func windowKey(window *query.WindowSpec) string {
+	parts := []string{
+		"aggregation=" + window.Aggregation,
+		"expression=" + window.Expression,
+		"metric=" + window.Metric,
+	}
+	if len(window.PartitionBy) > 0 {
+		parts = append(parts, "partition_by="+strings.Join(window.PartitionBy, ","))
+	}
+	if len(window.OrderBy) > 0 {
+		parts = append(parts, "order_by="+orderByKey(window.OrderBy))
+	}
+	if window.Offset != 0 {
+		parts = append(parts, fmt.Sprintf("offset=%d", window.Offset))
+	}
+	if window.Frame != "" {
+		parts = append(parts, "frame="+window.Frame)
+	}
+	return strings.Join(parts, "|")
+}
+
+func orderByKey(orderBy []query.OrderBy) string {
+	parts := make([]string, 0, len(orderBy))
+	for _, ob := range orderBy {
+		parts = append(parts, ob.Field+":"+ob.Direction)
+	}
+	return strings.Join(parts, ",")
 }
 
 func filtersEqual(a, b []query.Filter) bool {
@@ -103,14 +169,21 @@ func groupByEqual(a, b []query.GroupBy) bool {
 	ka := make([]string, len(a))
 	kb := make([]string, len(b))
 	for i := range a {
-		ka[i] = a[i].Field
+		ka[i] = groupByKey(a[i])
 	}
 	for i := range b {
-		kb[i] = b[i].Field
+		kb[i] = groupByKey(b[i])
 	}
 	sort.Strings(ka)
 	sort.Strings(kb)
 	return equalStrings(ka, kb)
+}
+
+func groupByKey(gb query.GroupBy) string {
+	if gb.TimeGrain == "" {
+		return gb.Field
+	}
+	return gb.Field + "@" + gb.TimeGrain
 }
 
 func orderByEqual(a, b []query.OrderBy) bool {
