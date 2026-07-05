@@ -3,9 +3,9 @@ Either (A) JSON only, or (B) optional `## Reasoning` (Planning Steps 1–8, conc
 The JSON must match this structure:
 {"select": [{"type": "dimension|metric", "name": "..."}], "filters": [{"field": "...", "operator": "...", "value": ...}], "group_by": [{"field": "...", "time_grain": "day|week|month|quarter|year"}], "order_by": [{"field": "...", "direction": "asc|desc"}], "limit": 100}
 
-## Example — multi-metric grouping
+## Example — multi-metric grouping (no sorting requested → no order_by)
 Question: "orders per customer name and the most recent order date"
-{"select":[{"type":"dimension","name":"name"},{"type":"metric","name":"row_count"},{"type":"metric","name":"max_order_date"}],"group_by":[{"field":"name"}],"order_by":[{"field":"row_count","direction":"desc"}],"limit":100}
+{"select":[{"type":"dimension","name":"name"},{"type":"metric","name":"row_count"},{"type":"metric","name":"max_order_date"}],"group_by":[{"field":"name"}],"limit":100}
 
 ## Example — windowed ratio (two different time windows)
 Question (current date 2026-06-22): "ratio of total tweets sent today to total tweets sent this month" / "bugün atılan toplam tweet sayısının bu ay atılan toplam tweet sayısına oranı"

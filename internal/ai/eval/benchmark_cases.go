@@ -21,7 +21,10 @@ func BenchmarkCases() []GoldenCase {
 					{Type: "metric", Name: "total_amount"},
 				},
 				[]query.GroupBy{{Field: "country"}},
-				nil,
+				[]query.Filter{
+					{Field: "country", Operator: "is_not_null", Value: nil},
+					{Field: "country", Operator: "neq", Value: ""},
+				},
 				[]query.OrderBy{{Field: "total_amount", Direction: "desc"}},
 				1,
 			),

@@ -66,6 +66,10 @@ func memoryFilterMatch(r memoryOrderRow, f query.Filter, model *semantic.Semanti
 		return anyToString(val) == anyToString(f.Value)
 	case "neq", "!=":
 		return anyToString(val) != anyToString(f.Value)
+	case "is_null":
+		return val == nil || anyToString(val) == ""
+	case "is_not_null":
+		return val != nil && anyToString(val) != ""
 	default:
 		return anyToString(val) == anyToString(f.Value)
 	}

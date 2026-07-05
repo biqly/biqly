@@ -3,9 +3,9 @@ Ya (A) yalnızca JSON döndür ya da (B) isteğe bağlı `## Reasoning` bölüm�
 JSON şu yapıyla uyumlu olmalıdır:
 {"select": [{"type": "dimension|metric", "name": "..."}], "filters": [{"field": "...", "operator": "...", "value": ...}], "group_by": [{"field": "...", "time_grain": "day|week|month|quarter|year"}], "order_by": [{"field": "...", "direction": "asc|desc"}], "limit": 100}
 
-## Örnek - çok metrikli gruplama
+## Örnek - çok metrikli gruplama (sıralama istenmedi → order_by yok)
 Soru: "müşteri adına göre sipariş sayısı ve en son sipariş tarihi"
-{"select":[{"type":"dimension","name":"name"},{"type":"metric","name":"row_count"},{"type":"metric","name":"max_order_date"}],"group_by":[{"field":"name"}],"order_by":[{"field":"row_count","direction":"desc"}],"limit":100}
+{"select":[{"type":"dimension","name":"name"},{"type":"metric","name":"row_count"},{"type":"metric","name":"max_order_date"}],"group_by":[{"field":"name"}],"limit":100}
 
 ## Örnek - pencereli oran (iki farklı zaman penceresi)
 Soru (güncel tarih 2026-06-22): "bugün atılan toplam tweet sayısının bu ay atılan toplam tweet sayısına oranı"
