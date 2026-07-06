@@ -115,3 +115,4 @@ This document catalogs the BI_* variables loaded through the shared `internal/co
 2. **Provider & Model Selection**:
    - Connection/model routing targets (like OpenAI API Keys, model names, and base URLs) are **not** managed via environment variables.
    - They are configured dynamically in the administration panel under `Administration -> AI Providers` and stored in the database (`ai_providers` / `ai_models` tables), allowing live rotation of provider keys.
+3. **Agentic Query Runner operations**: the `BI_AGENT_*` variables above are the only rollout controls today (no runtime DB override yet). For metrics, alerts, the fallback-boundary caveat, and the `cmd/conversation-repair` CLI, see `docs/agents/agent-runbook.md`.

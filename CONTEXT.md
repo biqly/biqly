@@ -13,6 +13,7 @@ Agent skills: use the terms below consistently in issues, refactors, tests, and 
 | **Semantic layer** | Business-facing dimensions, metrics, joins on top of synced metadata — not raw tables in prompts |
 | **AI layer** | NL → LogicalQuery; table routing; ambiguity/clarification; few-shot and glossary context |
 | **Query layer** | LogicalQuery validation, join planning, dialect-aware SQL compile, safe execution |
+| **Agentic query runner** | `cmd/agent` — bounded, policy-gated planner/tool loop; standalone service, `agent.enabled=false` by default, no public route |
 | **Frontend** | React 19 + Vite — chat, modeling UI, charts (Recharts), i18n via `useT()` |
 
 Production deploys `catalog`, `query`, `ai`, `worker`, `auth`, `frontend`, and `mail` into Kubernetes namespace `biqly`; the biqly system databases now live on the shared `prag-postgresql` instance in namespace `postgresql`.
@@ -37,6 +38,7 @@ Production deploys `catalog`, `query`, `ai`, `worker`, `auth`, `frontend`, and `
 | **Composite model** | Multi-model semantic model exposed via `/api/semantic/composites/*`, resolved to a `SemanticModel` at query time — see `docs/composite-semantic-models.md` | Treating it as deferred or purely speculative |
 | **Eval / golden** | Regression suite for NL→LogicalQuery (`make eval-regression`) | Live LLM eval in pre-commit (`make eval-live`) |
 | **AI job** | Async NATS-backed query/preview/run/describe/embed job | Sync HTTP handler path |
+| **Agentic query runner** | `cmd/agent`'s bounded planner/tool loop (`internal/agent/`) — a policy-gated alternative to the legacy single-shot NL-to-SQL pipeline, rolled out via shadow/beta/default modes | The legacy pipeline itself; "the AI service" when you mean this separate runner |
 
 ## Key flows
 
@@ -65,5 +67,6 @@ Production deploys `catalog`, `query`, `ai`, `worker`, `auth`, `frontend`, and `
 - `docs/research/ambiguity-clarification-best-practices.md` — clarification architecture and roadmap
 - `docs/composite-semantic-models.md` — composite model architecture and APIs
 - `docs/openapi.yaml` — HTTP API
+- `docs/agents/agent-runbook.md` — agentic query runner operations (mode/allowlist controls, metrics, alerts, conversation-repair CLI)
 - `tasks/todo.md` — active implementation plans
 - `docs/adr/` — architectural decision records (create as decisions land)

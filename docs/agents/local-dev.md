@@ -67,7 +67,8 @@ rather than in-process — `.env.dev.example` points `BI_CATALOG_SERVICE_URL` /
 (`http://localhost:8888`), and it needs a live NATS connection (`make dev-up`
 already starts one). `BI_AGENT_ENABLED` defaults to `false`, so no traffic
 routes to it yet even when it's running — see `internal/http/handlers/ai_job_service.go`'s
-`routeAIJob`.
+`routeAIJob`. For mode/allowlist controls, metrics, alerts, and the
+conversation-repair CLI, see `docs/agents/agent-runbook.md`.
 
 ```sh
 make watch SVC="api agent auth"   # only api + agent + auth (skip mail)
