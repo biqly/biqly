@@ -23,6 +23,7 @@ import { pickValidIdOrFirst } from '../utils/effectiveSelection'
 import { localeNumberTag } from '../utils/formatters'
 import { normalizeAIQueryResponse } from '../utils/normalizeAIQueryResponse'
 import { buildResultSummary } from '../utils/priorTurnSummary'
+import { queuePositionLine } from './ai/jobProgressUtils'
 import {
   aiQueryLayoutClass,
   aiQueryMainClass,
@@ -95,7 +96,7 @@ export default function AIQuery() {
   const t = useT()
   const [locale] = useLocale()
   const localeTag = localeNumberTag(locale)
-  const { runJob, jobs, sessionId } = useAIJobs()
+  const { runJob, cancelJob, jobs, queueStatus, sessionId } = useAIJobs()
   const { accessToken } = useAuth()
   const { get, postData, loading, error, abort } = useApi()
   const { postData: postEmbedData, loading: embeddingLoading, error: embeddingError } = useApi()
@@ -649,6 +650,10 @@ export default function AIQuery() {
           jobError={jobError}
           queryAction={effectiveQueryAction}
           aiElapsedMs={displayElapsedMs}
+          activeJob={activeConversationJob}
+          queueNotice={
+            activeConversationJob ? queuePositionLine(activeConversationJob, queueStatus, t) : null
+          }
           contextEnabled={activeConversation?.context_enabled !== false}
           onContextEnabledChange={updateConversationContext}
           autoFindEnabled={autoFindEnabled}
@@ -661,7 +666,12 @@ export default function AIQuery() {
           onSendQuery={(q, execute, clarificationChoice) => {
             void sendQuery(q, execute, clarificationChoice)
           }}
-          onAbort={abort}
+          onAbort={() => {
+            abort()
+            if (activeConversationJob) {
+              void cancelJob(activeConversationJob.id)
+            }
+          }}
           get={get}
           postData={postData}
           updateMessageResponse={updateMessageResponse}

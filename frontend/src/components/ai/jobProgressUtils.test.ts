@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import type { TrackedAIJob } from '../hooks/useAIJobsUtils'
-import type { AIQueueStatus } from '../types/ai'
-import { queuePositionLine } from './AIJobTrackerUtils'
+import type { TrackedAIJob } from '../../hooks/useAIJobsUtils'
+import type { AIQueueStatus } from '../../types/ai'
+import { queuePositionLine } from './jobProgressUtils'
 
 function job(overrides: Partial<TrackedAIJob> = {}): TrackedAIJob {
   return {

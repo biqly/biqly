@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { listSavedQueries, type SavedQueryOption } from '../../api/aiSkills'
+import { jobIsActive, type TrackedAIJob } from '../../hooks/useAIJobs'
+import { useJobNow } from '../../hooks/useJobNow'
 import { useSemanticCatalog } from '../../hooks/useSemanticCatalog'
 import type { TranslationKey } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
@@ -8,6 +10,7 @@ import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import type { SemanticModelDetail } from '../../types/semantic'
 import { formatTimeOnly } from '../../utils/formatters'
+import { JobPhaseSteps } from '../ai/JobPhaseSteps'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import {
   chatBubbleClass,
@@ -100,10 +103,20 @@ function scrollChatFeed({
 interface TypingIndicatorProps {
   queryAction: string | null
   aiElapsedMs: number
+  activeJob: TrackedAIJob | null
+  queueNotice: string | null
   t: (key: TranslationKey, params?: Record<string, string | number>) => string
 }
 
-function TypingIndicator({ queryAction, aiElapsedMs, t }: TypingIndicatorProps) {
+function TypingIndicator({
+  queryAction,
+  aiElapsedMs,
+  activeJob,
+  queueNotice,
+  t,
+}: TypingIndicatorProps) {
+  const jobRunning = activeJob != null && jobIsActive(activeJob)
+  const now = useJobNow(queryAction !== null && jobRunning)
   if (queryAction === null) {
     return null
   }
@@ -122,6 +135,14 @@ function TypingIndicator({ queryAction, aiElapsedMs, t }: TypingIndicatorProps) 
           <span className={chatTypingLabelClass}>{t('ai_query.loading_thinking')}</span>
           <span className={chatTypingElapsedClass}>{formatAiWaitElapsed(aiElapsedMs, t)}</span>
         </div>
+        {jobRunning && (
+          <div className="border-border bg-canvas-subtle mt-2 max-w-xs rounded-lg border px-3 py-2.5">
+            <JobPhaseSteps job={activeJob} now={now} />
+            {queueNotice && (
+              <p className="text-foreground-muted mt-1.5 mb-0 text-[0.72rem]">{queueNotice}</p>
+            )}
+          </div>
+        )}
         <p className={chatTypingHintLabelClass}>
           {t('ai_query.wait_hint', { minutes: Math.round(AI_QUERY_TIMEOUT_MS / 60_000) })}
         </p>
@@ -213,6 +234,8 @@ export function ChatPanel({
   jobError,
   queryAction,
   aiElapsedMs,
+  activeJob,
+  queueNotice,
   contextEnabled,
   onContextEnabledChange,
   autoFindEnabled,
@@ -387,7 +410,13 @@ export function ChatPanel({
         ) : (
           <ChatEmptyState t={t} setQuestion={setQuestion} suggested={suggested} />
         )}
-        <TypingIndicator queryAction={queryAction} aiElapsedMs={aiElapsedMs} t={t} />
+        <TypingIndicator
+          queryAction={queryAction}
+          aiElapsedMs={aiElapsedMs}
+          activeJob={activeJob}
+          queueNotice={queueNotice}
+          t={t}
+        />
       </div>
 
       <footer className={chatInputAreaClass}>

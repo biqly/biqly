@@ -1,44 +1,3 @@
-export const aiJobFabClass =
-  'fixed right-5 bottom-5 z-[calc(var(--z-nav,50)+5)] inline-flex cursor-pointer items-center gap-[0.55rem] rounded-full border border-border-strong bg-card px-[0.9rem] py-[0.55rem] text-foreground shadow-[0_10px_28px_rgba(0,0,0,0.35)] transition-[border-color,box-shadow,transform] duration-120 hover:-translate-y-px hover:border-accent'
-
-export const aiJobFabAlertClass = 'border-red-400/55'
-
-export const aiJobFabPulseClass =
-  'size-[0.55rem] rounded-full bg-emerald-400 shadow-[0_0_0_0_rgba(52,211,153,0.5)] motion-safe:animate-[ai-job-pulse_1.6s_ease_infinite] motion-reduce:animate-none motion-reduce:shadow-none'
-
-export const aiJobFabPulseIdleClass = 'motion-safe:animate-none shadow-none'
-
-export const aiJobFabPulseAlertClass = 'bg-red-400 motion-safe:animate-none shadow-none'
-
-export const aiJobFabPctClass = 'text-[0.85rem] text-foreground-muted tabular-nums'
-
-export const aiJobPanelClass =
-  'fixed right-5 bottom-5 z-[calc(var(--z-nav,50)+5)] max-h-[min(70vh,32rem)] w-[min(24rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-border-strong bg-card shadow-[0_16px_48px_rgba(0,0,0,0.45)] motion-safe:animate-[ai-job-panel-in_180ms_cubic-bezier(0.16,1,0.3,1)] motion-reduce:animate-none'
-
-export const aiJobPanelHeadClass =
-  'sticky top-0 z-[1] flex items-start justify-between gap-3 border-b border-border bg-card px-4 py-[0.85rem]'
-
-export const aiJobPanelTitleClass = 'm-0 text-[0.95rem]'
-
-export const aiJobPanelSubClass = 'mt-[0.2rem] mb-0 text-[0.78rem] text-foreground-muted'
-
-export const aiJobPanelActionsClass = 'flex shrink-0 gap-1'
-
-export const aiJobPanelManageClass = 'flex flex-wrap items-start gap-[0.35rem] px-3 pb-2'
-
-export const aiJobPanelStaleClass =
-  'mt-[0.35rem] w-full rounded-[0.45rem] border border-dashed border-border p-[0.5rem_0.65rem] text-[0.8rem]'
-
-export const aiJobPanelStaleHeadClass = 'mb-[0.35rem] text-foreground-muted'
-
-export const aiJobPanelStaleListClass = 'm-0 mb-2 grid list-none gap-[0.35rem] p-0'
-
-export const aiJobPanelStaleItemClass = 'flex items-center justify-between gap-2'
-
-export const aiJobPanelStaleEmptyClass = 'm-0 text-[0.8rem] text-foreground-muted'
-
-export const aiJobPanelListClass = 'grid gap-[0.65rem] p-3'
-
 export const aiJobCardBaseClass =
   'rounded-[0.55rem] border border-border bg-canvas px-[0.65rem] py-[0.55rem] transition-[border-color] duration-120'
 
@@ -62,18 +21,10 @@ export function aiJobCardClass(modifier: '' | 'active' | 'failed' | 'done'): str
 
 export const aiJobCardHeadClass = 'flex items-start justify-between gap-2'
 
-export const aiJobCardToggleClass =
-  'group flex min-w-0 flex-1 cursor-pointer items-start gap-[0.45rem] rounded-[0.35rem] border-0 bg-transparent p-[0.1rem_0] text-left font-[inherit] text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
-
-export const aiJobCardChevronClass =
-  'mt-[0.1rem] w-[0.9rem] shrink-0 text-foreground-muted before:inline-block before:text-[0.8rem] before:transition-transform before:duration-140 before:content-["▸"] group-aria-expanded:before:rotate-90'
-
 export const aiJobCardProgressClass = 'mt-2 h-1 overflow-hidden rounded-full bg-border'
 
 export const aiJobCardProgressFillClass =
   'block h-full rounded-[inherit] bg-gradient-to-r from-accent to-emerald-400 transition-[width] duration-[600ms] ease-out'
-
-export const aiJobCardActionsClass = 'flex shrink-0 items-center gap-1'
 
 export const aiJobCardCancelClass = 'text-danger'
 

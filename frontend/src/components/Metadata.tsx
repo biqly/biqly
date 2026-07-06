@@ -14,6 +14,7 @@ import { legacyLayoutClass } from '../lib/layoutClasses'
 import type { AIRuntimeSettings } from '../types/ai'
 import type { Datasource } from '../types/metadata'
 import type { ColumnRow, TableRow } from '../types/semantic'
+import { MetadataAIJobsStrip } from './metadata/MetadataAIJobsStrip'
 import { MetadataBulkDescribeModal } from './metadata/MetadataBulkDescribeModal'
 import { MetadataDescribeModal } from './metadata/MetadataDescribeModal'
 import { filterMetadataTables } from './metadata/metadataTableFilters'
@@ -403,6 +404,8 @@ export default function Metadata() {
         </div>
         <ErrorAlert error={error} />
       </div>
+
+      <MetadataAIJobsStrip />
 
       {datasourceId && (
         <MetadataTablesPanel

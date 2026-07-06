@@ -1,4 +1,5 @@
 import type { RequestOptions } from '../../api/apiClient'
+import type { TrackedAIJob } from '../../hooks/useAIJobs'
 import type { Locale, TranslationKey } from '../../i18n'
 import type {
   AIQueryResponse,
@@ -94,6 +95,8 @@ export interface ChatPanelProps {
   jobError: string | null
   queryAction: 'preview' | 'execute' | null
   aiElapsedMs: number
+  activeJob: TrackedAIJob | null
+  queueNotice: string | null
   contextEnabled: boolean
   onContextEnabledChange: (conversationId: string, enabled: boolean) => void
   autoFindEnabled: boolean

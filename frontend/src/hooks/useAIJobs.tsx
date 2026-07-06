@@ -89,16 +89,8 @@ interface AIJobsContextValue {
   sessionId: string
   jobs: TrackedAIJob[]
   queueStatus: AIQueueStatus | null
-  expanded: boolean
-  setExpanded: (v: boolean) => void
-  minimized: boolean
-  setMinimized: (v: boolean) => void
   dismissJob: (id: string) => void
-  dismissFinishedJobs: () => void
   cancelJob: (id: string) => Promise<boolean>
-  cancelAllActiveJobs: () => Promise<number>
-  listStaleJobs: (olderMinutes?: number) => Promise<AIJob[]>
-  cancelJobIds: (ids: string[]) => Promise<number>
   runJob: <TRequest extends object, TResult = AIQueryResponse>(
     kind: AIJobKind,
     request: TRequest,
@@ -217,8 +209,6 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   }, [t])
   const [jobs, setJobs] = useState<TrackedAIJob[]>([])
   const [queueStatus, setQueueStatus] = useState<AIQueueStatus | null>(null)
-  const [expanded, setExpanded] = useState(false)
-  const [minimized, setMinimized] = useState(true)
   const [bulkEntries, setBulkEntries] = useState<BulkEntry[]>([])
   const [bulkRunning, setBulkRunning] = useState(false)
   const [bulkSummary, setBulkSummary] = useState<BulkDescribeSummary | null>(null)
@@ -366,7 +356,6 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
           callbacksRef.current.delete(jobId)
           waiter.settleError(error)
         }
-        setMinimized(false)
         return
       }
       pollFailuresRef.current.delete(jobId)
@@ -389,12 +378,6 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       }
       if (TERMINAL.has(data.status)) {
         finishJob(data)
-        // Best practice: only interrupt the user for failures. Successful
-        // results already surface in the requesting UI; the tray FAB reflects
-        // the completed state without stealing focus.
-        if (data.status === 'failed') {
-          setMinimized(false)
-        }
       }
     },
     [applyBulkProgressFromJob, finishJob, stopPolling, upsertJob],
@@ -636,10 +619,6 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
     [stopPolling],
   )
 
-  const dismissFinishedJobs = useCallback(() => {
-    setJobs((prev) => prev.filter((j) => !TERMINAL.has(j.status)))
-  }, [])
-
   const cancelJob = useCallback(
     async (id: string) => {
       const { data, status, error } = await fetchJSON<AIJob>(
@@ -668,69 +647,6 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     runJobRef.current = runJob
   }, [runJob])
-
-  const cancelAllActiveJobs = useCallback(async () => {
-    const { data, status, error } = await fetchJSON<{ cancelled: number }>(
-      '/api/ai/jobs/cancel-active',
-      {
-        method: 'POST',
-        body: JSON.stringify({ client_session_id: sessionId }),
-      },
-    )
-    if (error) {
-      return 0
-    }
-    if (status === 404 || status === 405 || !data) {
-      return 0
-    }
-    const activeIds = jobs.filter(jobIsActive).map((j) => j.id)
-    for (const id of activeIds) {
-      await pollJob(id)
-    }
-    return data.cancelled
-  }, [jobs, pollJob, sessionId])
-
-  const listStaleJobs = useCallback(
-    async (olderMinutes = 15) => {
-      const { data, status, error } = await fetchJSON<AIJobListResponse>(
-        `/api/ai/jobs/stale?client_session_id=${encodeURIComponent(sessionId)}&older_minutes=${olderMinutes}`,
-      )
-      if (error) {
-        return []
-      }
-      if (status === 404 || status === 405 || !data?.jobs) {
-        return []
-      }
-      return data.jobs
-    },
-    [sessionId],
-  )
-
-  const cancelJobIds = useCallback(
-    async (ids: string[]) => {
-      if (!ids.length) {
-        return 0
-      }
-      const { data, status, error } = await fetchJSON<{ cancelled: number }>(
-        '/api/ai/jobs/cancel-batch',
-        {
-          method: 'POST',
-          body: JSON.stringify({ ids, client_session_id: sessionId }),
-        },
-      )
-      if (error) {
-        return 0
-      }
-      if (status === 404 || status === 405 || !data) {
-        return 0
-      }
-      for (const id of ids) {
-        await pollJob(id)
-      }
-      return data.cancelled
-    },
-    [pollJob, sessionId],
-  )
 
   const cancelBulkDescribe = useCallback(() => {
     bulkCancelRef.current = true
@@ -825,16 +741,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       sessionId,
       jobs,
       queueStatus: hasQueuedJob ? queueStatus : null,
-      expanded,
-      setExpanded,
-      minimized,
-      setMinimized,
       dismissJob,
-      dismissFinishedJobs,
       cancelJob,
-      cancelAllActiveJobs,
-      listStaleJobs,
-      cancelJobIds,
       runJob,
       bulkDescribe: {
         running: bulkRunning,
@@ -849,14 +757,8 @@ export function AIJobsProvider({ children }: { children: ReactNode }) {
       jobs,
       queueStatus,
       hasQueuedJob,
-      expanded,
-      minimized,
       dismissJob,
-      dismissFinishedJobs,
       cancelJob,
-      cancelAllActiveJobs,
-      listStaleJobs,
-      cancelJobIds,
       runJob,
       bulkRunning,
       bulkEntries,
