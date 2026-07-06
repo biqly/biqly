@@ -182,3 +182,68 @@ func (q *NATSQueue) Close() error {
 	}
 	return nil
 }
+
+// SubjectQueue returns a subject-aware Publisher/Consumer backed by the same
+// JetStream connection and stream as q, for callers (e.g. the agentic
+// runtime's job router) that need to address a subject other than the one
+// this NATSQueue was constructed with. It never touches q's existing
+// fixed-subject Publish/Subscribe, which the legacy AI job pipeline keeps
+// using unchanged.
+func (q *NATSQueue) SubjectQueue() *NATSSubjectQueue {
+	return &NATSSubjectQueue{js: q.js, stream: q.stream}
+}
+
+// NATSSubjectQueue implements Publisher and Consumer against an explicit
+// subject per call, reusing one JetStream connection/stream across subjects.
+type NATSSubjectQueue struct {
+	js     jetStreamClient
+	stream string
+}
+
+// Publish implements Publisher. key becomes the JetStream message ID for
+// producer-side dedup; it should be stable across redelivery attempts by
+// the caller (e.g. the job id).
+func (q *NATSSubjectQueue) Publish(ctx context.Context, subject, key string, payload []byte) error {
+	opts := []jetstream.PublishOpt{}
+	if key != "" {
+		opts = append(opts, jetstream.WithMsgID(key))
+	}
+	if _, err := q.js.Publish(ctx, subject, payload, opts...); err != nil {
+		return fmt.Errorf("publish to subject %s: %w", subject, err)
+	}
+	return nil
+}
+
+// Subscribe implements Consumer: an explicit-subject, at-least-once,
+// explicit-ack durable consumer. Redelivery/DLQ handling belongs to the
+// caller's handler — unlike NATSQueue.Subscribe, this generic subject
+// consumer has no fixed notion of "the AI job DLQ subject".
+func (q *NATSSubjectQueue) Subscribe(ctx context.Context, subject, group string, handler func(context.Context, []byte) error) error {
+	if group == "" {
+		return errors.New("subscribe: group is required")
+	}
+	cons, err := q.js.CreateOrUpdateConsumer(ctx, q.stream, jetstream.ConsumerConfig{
+		Durable:       group,
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: subject,
+		AckWait:       30 * time.Minute,
+		MaxDeliver:    aiJobMaxDeliver,
+	})
+	if err != nil {
+		return fmt.Errorf("create consumer for subject %s: %w", subject, err)
+	}
+	_, err = cons.Consume(func(msg jetstream.Msg) {
+		hctx, cancel := context.WithTimeout(ctx, 35*time.Minute)
+		defer cancel()
+		if err := handler(hctx, msg.Data()); err != nil {
+			if nakErr := msg.Nak(); nakErr != nil {
+				slog.Warn("nack subject message", "subject", subject, "error", nakErr)
+			}
+			return
+		}
+		if ackErr := msg.Ack(); ackErr != nil {
+			slog.Warn("ack subject message", "subject", subject, "error", ackErr)
+		}
+	})
+	return err
+}

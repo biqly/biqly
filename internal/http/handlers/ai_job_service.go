@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/biqly/biqly/internal/ai"
+	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/i18n"
 	"github.com/biqly/biqly/internal/metadata"
@@ -205,6 +207,66 @@ func validateAIJobRequest(kind string, raw json.RawMessage) error {
 		return errors.New("invalid kind")
 	}
 	return nil
+}
+
+// AIJobRoute is the outcome of routing one job to the legacy and/or agent
+// job subjects. Exactly one of LegacySubject/AgentSubject is non-empty
+// except in shadow mode, where both are (legacy stays authoritative; the
+// agent subject only feeds the shadow comparator).
+type AIJobRoute struct {
+	// LegacySubject is the legacy AI job subject to publish to, or "" when
+	// the legacy pipeline should not process this job at all.
+	LegacySubject string
+	// AgentSubject is the agentic runtime's job subject to publish to, or ""
+	// when the agent pipeline should not process this job at all.
+	AgentSubject string
+	// AgentAuthoritative is true when the agent's result — not legacy's —
+	// is the one returned to the user.
+	AgentAuthoritative bool
+}
+
+// routeAIJob decides which subject(s) a job publishes to, from the agent
+// rollout config and the job's workspace. Pure and deterministic: the same
+// (cfg, workspaceID) always yields the same route.
+//
+//   - disabled                      -> legacy only
+//   - shadow                        -> legacy authoritative + agent shadow subject
+//   - active, workspace allowlisted -> agent authoritative
+//   - active, not allowlisted       -> legacy only
+//   - active, empty allowlist       -> agent authoritative for everyone ("default")
+//
+// Not yet called by Enqueue: cmd/agent (the consumer that would actually
+// process AgentSubject jobs) does not exist yet. Wiring this in before that
+// consumer ships risks stranding agent-routed jobs with nothing to process
+// them if BI_AGENT_ENABLED is ever flipped on early.
+func routeAIJob(cfg config.AgentConfig, workspaceID string) AIJobRoute {
+	if !cfg.Enabled {
+		return AIJobRoute{LegacySubject: queue.AIJobSubject}
+	}
+	switch cfg.Mode {
+	case config.AgentModeShadow:
+		return AIJobRoute{LegacySubject: queue.AIJobSubject, AgentSubject: cfg.JobSubject}
+	case config.AgentModeActive:
+		if len(cfg.WorkspaceAllowlist) == 0 || slices.Contains(cfg.WorkspaceAllowlist, workspaceID) {
+			return AIJobRoute{AgentSubject: cfg.JobSubject, AgentAuthoritative: true}
+		}
+		return AIJobRoute{LegacySubject: queue.AIJobSubject}
+	default:
+		return AIJobRoute{LegacySubject: queue.AIJobSubject}
+	}
+}
+
+// shouldFallbackToLegacy decides whether a failed agent-authoritative run
+// should be retried via the legacy pipeline. Only pre-execute failures on an
+// agent-authoritative route, with LegacyFallbackEnabled, ever fall back;
+// once Query Execute has started for a run this always returns false,
+// mirroring the runtime's own terminal-immutability invariant so nothing
+// double-runs a query that already executed.
+func shouldFallbackToLegacy(cfg config.AgentConfig, route AIJobRoute, queryExecuteStarted bool) bool {
+	if !route.AgentAuthoritative || queryExecuteStarted {
+		return false
+	}
+	return cfg.LegacyFallbackEnabled
 }
 
 func (s *AIJobService) Cancel(ctx context.Context, jobID string) (*metadata.AIJob, error) {
