@@ -81,6 +81,9 @@ type RunContext struct {
 	TenantID     string
 	UserID       string
 	DatasourceID string
+	// Question is the user's original natural-language question. Policy
+	// does not use it; the Planner does (see internal/agent/provider_planner.go).
+	Question string
 
 	// AllowedTools is the fixed tool allowlist for this run.
 	AllowedTools []ToolName

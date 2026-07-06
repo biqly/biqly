@@ -234,6 +234,45 @@ func TestAgentRunRuntimeStateAndTerminalImmutability(t *testing.T) {
 	assert.ErrorIs(t, err, ErrAgentRunNotFound)
 }
 
+// TestRecordShadowComparison verifies inserts succeed with both runs
+// present, and with either side empty (a run that never got persisted).
+func TestRecordShadowComparison(t *testing.T) {
+	db := testutil.OpenMetadataDB(t)
+	ctx := context.Background()
+	repo := NewRepository(db)
+
+	const (
+		datasourceID = "00000000-0000-0000-0000-0000000065c1"
+		userID       = "u-agent-shadow"
+		jobID        = "00000000-0000-0000-0000-0000000065cc"
+	)
+	testutil.EnsureMetadataTestDatasource(ctx, t, db, datasourceID, "agent-shadow-test")
+	cleanup := func() {
+		_, _ = db.ExecContext(ctx, `DELETE FROM agent_shadow_comparisons WHERE job_id = $1::uuid`, jobID)
+	}
+	cleanup()
+	t.Cleanup(cleanup)
+
+	legacyRunID, err := repo.CreateAgentRun(ctx, AgentRunInsert{
+		DatasourceID: datasourceID, UserID: userID, Question: "q",
+	})
+	require.NoError(t, err)
+	agentRunID, err := repo.CreateAgentRun(ctx, AgentRunInsert{
+		DatasourceID: datasourceID, UserID: userID, Question: "q",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, repo.RecordShadowComparison(ctx, jobID, legacyRunID, agentRunID, "match", []byte(`{}`)))
+	require.NoError(t, repo.RecordShadowComparison(ctx, jobID, legacyRunID, agentRunID, "result_mismatch", []byte(`{"note":"x"}`)))
+	// A comparison can be recorded even when one side never got a persisted run.
+	require.NoError(t, repo.RecordShadowComparison(ctx, jobID, "", agentRunID, "legacy_only_failure", []byte(`{}`)))
+
+	var count int
+	require.NoError(t, db.QueryRowContext(ctx,
+		`SELECT count(*) FROM agent_shadow_comparisons WHERE job_id = $1::uuid`, jobID).Scan(&count))
+	assert.Equal(t, 3, count)
+}
+
 // TestFindOpenRunResumesAcrossClarification verifies the resume key: a run left
 // waiting_clarification is resumable by the conversation's most-recent open run
 // even when the resolved question text (and thus its hash) has changed.

@@ -382,6 +382,22 @@ func (r *Repository) CompleteAgentRunTerminal(
 	return nil
 }
 
+// RecordShadowComparison inserts one agent_shadow_comparisons row for a
+// shadow-mode job/category pair (migration 065a). legacyRunID/agentRunID
+// may be empty when one side has no persisted run to point at.
+func (r *Repository) RecordShadowComparison(
+	ctx context.Context, jobID, legacyRunID, agentRunID, category string, detail []byte,
+) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO agent_shadow_comparisons (job_id, legacy_run_id, agent_run_id, category, detail)
+		VALUES ($1::uuid, NULLIF($2, '')::uuid, NULLIF($3, '')::uuid, $4, $5)
+	`, jobID, legacyRunID, agentRunID, category, detail)
+	if err != nil {
+		return fmt.Errorf("record shadow comparison: %w", err)
+	}
+	return nil
+}
+
 func scanAgentRunRow(s platformdb.Scanner) (AgentRunRow, error) {
 	var row AgentRunRow
 	if err := s.Scan(
