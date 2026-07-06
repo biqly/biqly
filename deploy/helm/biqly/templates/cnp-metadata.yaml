@@ -15,6 +15,15 @@ spec:
           - query
           - catalog
           - worker
+          # Agent uses only postgres+otel from this bundle (no redis, no auth
+          # client — see internal/app/agent_dependencies.go). It gets the same
+          # bundle as the others anyway: splitting postgres+otel out of this
+          # policy for one component isn't worth the added policy surface in
+          # the embedded-Postgres (dev) topology. In prod's shared-Postgres
+          # topology, agent's grant is properly least-privilege instead — see
+          # global.networkPolicy.sharedPostgresql.components (no redis/auth
+          # there at all).
+          - agent
   egress:
     - toEntities:
         - cluster

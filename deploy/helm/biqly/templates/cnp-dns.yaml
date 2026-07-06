@@ -15,6 +15,7 @@ spec:
           - query
           - catalog
           - worker
+          - agent
   egress:
     - toEndpoints:
         - matchLabels:

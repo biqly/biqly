@@ -86,6 +86,7 @@ global:
       namespace: postgresql
       instanceName: prag-postgresql
       components:
+        - agent
         - ai
         - auth
         - catalog

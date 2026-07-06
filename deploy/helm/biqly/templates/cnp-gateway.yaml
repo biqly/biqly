@@ -17,6 +17,9 @@ spec:
           # The worker runs the AI job consumer, so it needs the same in-cluster
           # egress (catalog/query/ai/NATS) as the HTTP services.
           - worker
+          # The agentic query runner needs the same in-cluster egress
+          # (catalog/query/ai/NATS) as the worker — see internal/app/agent_dependencies.go.
+          - agent
   ingress:
     - fromEntities:
         - ingress
@@ -33,6 +36,10 @@ spec:
               protocol: TCP
             # Worker metrics endpoint (host-network Prometheus scrapes).
             - port: "8083"
+              protocol: TCP
+            # Agent healthz/readyz/metrics endpoint (host-network Prometheus
+            # scrapes; see deploy/helm/biqly/charts/agent).
+            - port: "8084"
               protocol: TCP
     - fromEndpoints:
         - matchLabels:
