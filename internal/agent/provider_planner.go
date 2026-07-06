@@ -10,6 +10,7 @@ import (
 
 	"github.com/biqly/biqly/internal/ai/jsonextract"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
+	"github.com/biqly/biqly/internal/platform/observability"
 )
 
 // ErrPlannerResponseHasNoJSON is returned when the provider's completion
@@ -24,6 +25,7 @@ var ErrPlannerResponseHasNoJSON = errors.New("planner response contained no JSON
 // provider output the same way it applies in tests.
 type ProviderPlanner struct {
 	provider providerpkg.Provider
+	metrics  *observability.Metrics
 }
 
 // NewProviderPlanner builds a ProviderPlanner backed by provider.
@@ -31,11 +33,20 @@ func NewProviderPlanner(provider providerpkg.Provider) *ProviderPlanner {
 	return &ProviderPlanner{provider: provider}
 }
 
+// SetMetrics wires m as the destination for this ProviderPlanner's token
+// usage metrics. Optional — a nil (or never-set) recorder is a no-op.
+func (p *ProviderPlanner) SetMetrics(m *observability.Metrics) {
+	p.metrics = m
+}
+
 // Decide implements Planner.
 func (p *ProviderPlanner) Decide(ctx context.Context, run RunContext, history []RuntimeStep) (PlannerDecision, error) {
 	result, err := p.provider.Generate(ctx, buildPlannerPrompt(run, history))
 	if err != nil {
 		return PlannerDecision{}, fmt.Errorf("planner generate: %w", err)
+	}
+	if result.Usage != nil {
+		p.metrics.RecordAgentPlannerTokens(result.Usage.Prompt, result.Usage.Completion)
 	}
 	obj, ok := jsonextract.ExtractJSONObject(result.Content)
 	if !ok {

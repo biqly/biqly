@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+
+	"github.com/biqly/biqly/internal/platform/observability"
 )
 
 // ShadowCategory is a bounded, enum-like classification of how a shadow
@@ -121,12 +123,19 @@ type ShadowComparisonStore interface {
 // ShadowEvaluator computes and persists shadow comparisons between a
 // legacy run and the agent run that shadowed it.
 type ShadowEvaluator struct {
-	store ShadowComparisonStore
+	store   ShadowComparisonStore
+	metrics *observability.Metrics
 }
 
 // NewShadowEvaluator builds a ShadowEvaluator backed by store.
 func NewShadowEvaluator(store ShadowComparisonStore) *ShadowEvaluator {
 	return &ShadowEvaluator{store: store}
+}
+
+// SetMetrics wires m as the destination for this ShadowEvaluator's shadow
+// divergence metrics. Optional — a nil (or never-set) recorder is a no-op.
+func (e *ShadowEvaluator) SetMetrics(m *observability.Metrics) {
+	e.metrics = m
 }
 
 // Evaluate compares legacy and agent, then persists one row per resulting
@@ -144,6 +153,7 @@ func (e *ShadowEvaluator) Evaluate(
 		if err := e.store.RecordShadowComparison(ctx, jobID, legacyRunID, agentRunID, category, detailJSON); err != nil {
 			return comparison, fmt.Errorf("record shadow comparison: %w", err)
 		}
+		e.metrics.RecordAgentShadowComparison(string(category))
 	}
 	return comparison, nil
 }

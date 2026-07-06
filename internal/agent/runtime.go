@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+
+	"github.com/biqly/biqly/internal/platform/observability"
 )
 
 // RuntimeStep is one planner decision and its outcome, persisted so the run
@@ -68,11 +70,20 @@ type Runtime struct {
 	planner  Planner
 	registry *Registry
 	store    StateStore
+	metrics  *observability.Metrics
 }
 
 // NewRuntime builds a Runtime backed by planner, registry, and store.
 func NewRuntime(planner Planner, registry *Registry, store StateStore) *Runtime {
 	return &Runtime{planner: planner, registry: registry, store: store}
+}
+
+// SetMetrics wires m as the destination for this Runtime's run/step metrics.
+// Optional: a nil (or never-set) metrics recorder is a no-op on every
+// Record* call, matching internal/platform/observability's nil-receiver
+// convention.
+func (rt *Runtime) SetMetrics(m *observability.Metrics) {
+	rt.metrics = m
 }
 
 // Run executes (or resumes) runID's bounded planning loop until it reaches a
@@ -149,6 +160,14 @@ func (rt *Runtime) step(
 		if err := rt.store.Save(ctx, runID, state); err != nil {
 			return state, true, fmt.Errorf("save runtime state: %w", err)
 		}
+		rt.metrics.RecordAgentRunTerminal("failed")
+		if decision.Failure != nil {
+			// decision.Failure.ReasonCode is planner (LLM) output, not one of
+			// this runtime's fixed reason codes — RecordAgentTerminalFailure
+			// bounds it via BoundLabel, so an arbitrary planner string can
+			// never create an unbounded label series.
+			rt.metrics.RecordAgentTerminalFailure(decision.Failure.ReasonCode)
+		}
 		return state, true, nil
 	case DecisionTool:
 		return rt.runToolStep(ctx, run, runID, state, decision.Proposal)
@@ -161,6 +180,7 @@ func (rt *Runtime) step(
 
 func (rt *Runtime) runClarificationStep(ctx context.Context, run RunContext, runID string, state RuntimeState) (RuntimeState, bool, error) {
 	state.ClarificationRounds++
+	rt.metrics.RecordAgentClarificationRound(state.ClarificationRounds)
 	if state.ClarificationRounds > run.MaxClarificationRounds {
 		final, err := rt.finalizeFail(ctx, runID, state, "max_clarification_rounds_exceeded",
 			"exceeded the maximum number of clarification rounds")
@@ -197,11 +217,14 @@ func (rt *Runtime) runToolStep(
 		return state, true, fmt.Errorf("save runtime state before dispatch: %w", err)
 	}
 
+	dispatchStart := time.Now()
 	obs, err := rt.registry.Execute(ctx, run, *proposal)
+	rt.metrics.RecordAgentStepDuration(string(proposal.Tool), time.Since(dispatchStart))
 	idx := len(state.Steps) - 1
 	if err != nil {
 		if denied, ok := errors.AsType[*PolicyDeniedError](err); ok {
 			state.Steps[idx].DeniedReason = denied.ReasonCode
+			rt.metrics.RecordAgentPolicyDenial(denied.ReasonCode)
 			if serr := rt.store.Save(ctx, runID, state); serr != nil {
 				return state, true, fmt.Errorf("save runtime state after denial: %w", serr)
 			}
@@ -242,6 +265,7 @@ func (rt *Runtime) finalizeOK(ctx context.Context, runID string, state RuntimeSt
 	if err := rt.store.Save(ctx, runID, state); err != nil {
 		return state, fmt.Errorf("save runtime state: %w", err)
 	}
+	rt.metrics.RecordAgentRunTerminal("completed")
 	return state, nil
 }
 
@@ -250,6 +274,8 @@ func (rt *Runtime) finalizeFail(ctx context.Context, runID string, state Runtime
 	if err := rt.store.Save(ctx, runID, state); err != nil {
 		return state, fmt.Errorf("save runtime state: %w", err)
 	}
+	rt.metrics.RecordAgentRunTerminal("failed")
+	rt.metrics.RecordAgentTerminalFailure(reasonCode)
 	return state, nil
 }
 

@@ -76,6 +76,10 @@ func NewAgentDependencies(ctx context.Context, cfg *config.Config) (*agent.Agent
 
 	runtime := agent.NewRuntime(planner, registry, &metadataStateStore{repo: metaRepo})
 	shadow := agent.NewShadowEvaluator(&metadataShadowStore{repo: metaRepo})
+	metrics := observability.Default()
+	runtime.SetMetrics(metrics)
+	shadow.SetMetrics(metrics)
+	planner.SetMetrics(metrics)
 
 	return &agent.AgentDependencies{
 		Config:   cfg,
@@ -86,7 +90,7 @@ func NewAgentDependencies(ctx context.Context, cfg *config.Config) (*agent.Agent
 		Tools:    registry,
 		Runtime:  runtime,
 		Shadow:   shadow,
-		Metrics:  observability.Default(),
+		Metrics:  metrics,
 		Close: func() error {
 			_ = nq.Close()
 			return db.Close()

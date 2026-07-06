@@ -135,6 +135,11 @@ func processJob(ctx context.Context, deps *agent.AgentDependencies, payload []by
 			return err
 		}
 		run = metadata.AgentRunRow{ID: runID}
+	} else {
+		// A run already exists for this job_id: job_id-keyed creation
+		// (see the doc comment above) makes this only reachable via a NATS
+		// redelivery or a crash-recovery retry of the same message.
+		deps.Metrics.RecordAgentQueueRedelivery()
 	}
 
 	runCtx, runCancel := context.WithCancel(ctx)
