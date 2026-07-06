@@ -144,6 +144,12 @@ func (m *mockPromptTemplateRepo) GetPromptTemplate(_ context.Context, name strin
 	return m.data[name+"\x00"+string(loc)], nil
 }
 
+// Rows report version 2 ("admin-edited") so the seed's version-1 refresh rule
+// stays out of these fallback-bridge tests.
+func (m *mockPromptTemplateRepo) GetPromptTemplateVersion(_ context.Context, name string, loc i18n.Locale) (string, int, error) {
+	return m.data[name+"\x00"+string(loc)], 2, nil
+}
+
 func (m *mockPromptTemplateRepo) UpsertPromptTemplate(_ context.Context, name string, loc i18n.Locale, content string) error {
 	m.upserts = append(m.upserts, struct {
 		name    string

@@ -21,6 +21,12 @@ func (r *bridgeFakeRepo) GetPromptTemplate(_ context.Context, name string, loc i
 	return r.rows[name+"\x00"+string(loc)], nil
 }
 
+// Rows report version 2 ("admin-edited") so the seed's version-1 refresh rule
+// stays out of these bridge-behavior tests.
+func (r *bridgeFakeRepo) GetPromptTemplateVersion(_ context.Context, name string, loc i18n.Locale) (string, int, error) {
+	return r.rows[name+"\x00"+string(loc)], 2, nil
+}
+
 func (r *bridgeFakeRepo) UpsertPromptTemplate(_ context.Context, name string, loc i18n.Locale, content string) error {
 	r.rows[name+"\x00"+string(loc)] = content
 	return nil

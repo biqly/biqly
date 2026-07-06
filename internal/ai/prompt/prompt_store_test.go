@@ -12,9 +12,10 @@ import (
 
 // mockPromptTemplateRepo implements promptTemplateRepo for testing.
 type mockRepo struct {
-	countFn  func() int
-	getFn    func(name string, loc i18n.Locale) (string, error)
-	upsertFn func(name string, loc i18n.Locale, content string) error
+	countFn      func() int
+	getFn        func(name string, loc i18n.Locale) (string, error)
+	getVersionFn func(name string, loc i18n.Locale) (string, int, error)
+	upsertFn     func(name string, loc i18n.Locale, content string) error
 }
 
 func (m *mockRepo) CountPromptTemplates(_ context.Context) (int, error) {
@@ -29,6 +30,20 @@ func (m *mockRepo) GetPromptTemplate(_ context.Context, name string, loc i18n.Lo
 		return m.getFn(name, loc)
 	}
 	return "", nil
+}
+
+// GetPromptTemplateVersion defaults to delegating getFn at version 1,
+// matching the pre-versioning fallback behavior of dbPromptStore.load; use
+// getVersionFn when a test needs a specific version.
+func (m *mockRepo) GetPromptTemplateVersion(_ context.Context, name string, loc i18n.Locale) (string, int, error) {
+	if m.getVersionFn != nil {
+		return m.getVersionFn(name, loc)
+	}
+	if m.getFn != nil {
+		content, err := m.getFn(name, loc)
+		return content, 1, err
+	}
+	return "", 0, nil
 }
 
 func (m *mockRepo) UpsertPromptTemplate(_ context.Context, name string, loc i18n.Locale, content string) error {
@@ -138,9 +153,13 @@ func TestShouldSeedPromptTemplateEmptyTable(t *testing.T) {
 func TestShouldSeedPromptTemplateExisting(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
+	// Version 2 = an admin-edited row; the seed must leave it alone even though
+	// its content differs from the current embedded default.
 	repo := &mockRepo{
 		countFn: func() int { return 5 },
-		getFn:   func(_ string, _ i18n.Locale) (string, error) { return "existing", nil },
+		getVersionFn: func(_ string, _ i18n.Locale) (string, int, error) {
+			return "existing", 2, nil
+		},
 	}
 	seed, err := shouldSeedPromptTemplate(ctx, repo, 5, i18n.DefaultLocale, "system_rules")
 	if err != nil {
@@ -177,6 +196,62 @@ func TestShouldSeedPromptTemplateWithError(t *testing.T) {
 	_, err := shouldSeedPromptTemplate(ctx, repo, 1, i18n.DefaultLocale, "system_rules")
 	if err == nil {
 		t.Fatal("expected error from shouldSeedPromptTemplate")
+	}
+}
+
+// TestShouldSeedPromptTemplateRefreshesStaleSeedOnlyRow: a version-1 row was
+// written exactly once (by the seed); when the shipped embedded default has
+// moved on, the seed refreshes it so template improvements reach prod.
+func TestShouldSeedPromptTemplateRefreshesStaleSeedOnlyRow(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := &mockRepo{
+		getVersionFn: func(_ string, _ i18n.Locale) (string, int, error) {
+			return "stale seeded content from an older release", 1, nil
+		},
+	}
+	seed, err := shouldSeedPromptTemplate(ctx, repo, 5, i18n.DefaultLocale, "system_rules")
+	if err != nil {
+		t.Fatalf("shouldSeedPromptTemplate: %v", err)
+	}
+	if !seed {
+		t.Fatal("expected seed=true for a stale version-1 (never-edited) row")
+	}
+}
+
+func TestShouldSeedPromptTemplateKeepsCurrentSeedOnlyRow(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	current := promptTemplateFromEmbed(i18n.DefaultLocale, "system_rules")
+	if current == "" {
+		t.Skip("no embedded system_rules in this build")
+	}
+	repo := &mockRepo{
+		getVersionFn: func(_ string, _ i18n.Locale) (string, int, error) { return current, 1, nil },
+	}
+	seed, err := shouldSeedPromptTemplate(ctx, repo, 5, i18n.DefaultLocale, "system_rules")
+	if err != nil {
+		t.Fatalf("shouldSeedPromptTemplate: %v", err)
+	}
+	if seed {
+		t.Fatal("expected seed=false when the version-1 row already matches the embed")
+	}
+}
+
+func TestShouldSeedPromptTemplatePreservesEditedRow(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := &mockRepo{
+		getVersionFn: func(_ string, _ i18n.Locale) (string, int, error) {
+			return "admin-edited content", 3, nil
+		},
+	}
+	seed, err := shouldSeedPromptTemplate(ctx, repo, 5, i18n.DefaultLocale, "system_rules")
+	if err != nil {
+		t.Fatalf("shouldSeedPromptTemplate: %v", err)
+	}
+	if seed {
+		t.Fatal("expected seed=false for an admin-edited (version>1) row")
 	}
 }
 

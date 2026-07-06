@@ -67,6 +67,7 @@ type dbPromptStore struct {
 type promptTemplateRepo interface {
 	CountPromptTemplates(ctx context.Context) (int, error)
 	GetPromptTemplate(ctx context.Context, name string, loc i18n.Locale) (string, error)
+	GetPromptTemplateVersion(ctx context.Context, name string, loc i18n.Locale) (string, int, error)
 	UpsertPromptTemplate(ctx context.Context, name string, loc i18n.Locale, content string) error
 }
 
@@ -110,7 +111,7 @@ func shouldSeedPromptTemplate(ctx context.Context, repo promptTemplateRepo, exis
 	if existingCount == 0 {
 		return true, nil
 	}
-	existing, err := repo.GetPromptTemplate(ctx, name, loc)
+	existing, version, err := repo.GetPromptTemplateVersion(ctx, name, loc)
 	if err != nil {
 		return false, err
 	}
@@ -120,6 +121,14 @@ func shouldSeedPromptTemplate(ctx context.Context, repo promptTemplateRepo, exis
 	enFallback := promptTemplateFromEmbed(i18n.DefaultLocale, name)
 	locSpecific := promptTemplateFromEmbed(loc, name)
 	if loc != i18n.DefaultLocale && existing == enFallback && locSpecific != enFallback {
+		return true, nil
+	}
+	// Ship embedded improvements automatically to never-edited installs: a row
+	// at version 1 was written exactly once — by this seed — so when the shipped
+	// default has since moved on, refresh it. Any admin save or reseed bumps the
+	// version past 1 and those rows are left alone (the admin owns them; the
+	// "Reseed all from repo" button remains the explicit override).
+	if version == 1 && locSpecific != "" && existing != locSpecific {
 		return true, nil
 	}
 	return false, nil
