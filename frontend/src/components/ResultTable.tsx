@@ -1,13 +1,14 @@
 import { type KeyboardEvent, type MouseEvent, useMemo, useState } from 'react'
 
 import { useToast } from '../hooks/useToast'
-import { useT } from '../i18n'
+import { localeLanguageTag, useLocale, useT } from '../i18n'
 import { buttonClass } from '../lib/buttonClasses'
 import { cn } from '../lib/cn'
 import { cellDrillableClass } from '../lib/tableClasses'
-import type { ResultAnomaly } from '../types/ai'
+import type { QueryColumnFormat, ResultAnomaly } from '../types/ai'
 import { downloadCsv } from '../utils/exportCsv'
 import { formatResultCell } from '../utils/resultCellFormat'
+import { formatGrainValue } from './aiQuery/grainLabels'
 import { buildAnomalyCellSet, isAnomalyCell } from './resultTable/anomalies'
 import {
   buildContextMenuFromCellRect,
@@ -24,7 +25,7 @@ import {
 } from './resultTable/sort'
 
 interface ResultTableProps {
-  columns: { name: string; type?: string }[]
+  columns: { name: string; type?: string; format?: QueryColumnFormat }[]
   rows: unknown[][]
   rowCount: number
   durationMs?: number
@@ -45,6 +46,8 @@ export function ResultTable({
   onCellClick,
 }: ResultTableProps) {
   const t = useT()
+  const [locale] = useLocale()
+  const localeTag = localeLanguageTag(locale)
   const toast = useToast()
   const anomalyCells = useMemo(() => buildAnomalyCellSet(anomalies), [anomalies])
   const [sortColIdx, setSortColIdx] = useState<number | null>(null)
@@ -194,6 +197,9 @@ export function ResultTable({
                   {row.map((cell, colIdx) => {
                     const colName = columns[colIdx]?.name ?? ''
                     const isAnomaly = isAnomalyCell(anomalyCells, originalIndex, colName)
+                    // Month/quarter grains carry an integer ordinal: relabel the
+                    // display only; sort, drill-down and export keep the raw value.
+                    const grainLabel = formatGrainValue(columns[colIdx]?.format, cell, localeTag)
                     return (
                       <td
                         key={colIdx}
@@ -211,7 +217,7 @@ export function ResultTable({
                           className={onCellClick ? cellDrillableClass : ''}
                           onClick={() => onCellClick?.(colName, String(cell))}
                         >
-                          {formatResultCell(cell, colName, { question })}
+                          {grainLabel ?? formatResultCell(cell, colName, { question })}
                         </span>
                       </td>
                     )

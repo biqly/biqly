@@ -33,6 +33,7 @@ import {
 } from './aiQueryClasses'
 import { deriveClarificationStage, MAX_CLARIFICATION_ROUNDS } from './clarificationStage'
 import { GenerationTracePanel } from './generationTrace'
+import { formatGrainValue } from './grainLabels'
 import {
   CandidateComparisonPanel,
   ClarificationCard,
@@ -515,6 +516,7 @@ export function AssistantMessageResults({
   onFilterByValue,
   onCellDrillDown,
   t,
+  localeTag,
 }: {
   result: AIQueryResponse & { result: NonNullable<AIQueryResponse['result']> }
   chartType: 'bar' | 'line' | 'pie' | 'table'
@@ -526,8 +528,16 @@ export function AssistantMessageResults({
   onFilterByValue: AssistantMessageCardProps['onFilterByValue']
   onCellDrillDown: AssistantMessageCardProps['onCellDrillDown']
   t: AssistantT
+  localeTag: string
 }) {
-  const chartData = rowsToChartData(result.result.rows)
+  // The x-axis / category is the first column. When it is a month/quarter grain
+  // ordinal, relabel each point to a localized name; the row order (already
+  // sorted by the integer via order_by) is preserved by keeping array order.
+  const nameFormat = result.result.columns[0]?.format
+  const chartData = rowsToChartData(result.result.rows).map((d) => {
+    const label = formatGrainValue(nameFormat, d.name, localeTag)
+    return label ? { ...d, name: label } : d
+  })
   const tableData = tableView === 'pivot' && pivotTable ? pivotTable : result.result
 
   return (

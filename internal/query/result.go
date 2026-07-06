@@ -47,12 +47,14 @@ const (
 
 // Re-exported result-column format identifiers.
 const (
-	FormatNumber   = pkgquery.FormatNumber
-	FormatCurrency = pkgquery.FormatCurrency
-	FormatPercent  = pkgquery.FormatPercent
-	FormatDate     = pkgquery.FormatDate
-	FormatDateTime = pkgquery.FormatDateTime
-	FormatText     = pkgquery.FormatText
+	FormatNumber      = pkgquery.FormatNumber
+	FormatCurrency    = pkgquery.FormatCurrency
+	FormatPercent     = pkgquery.FormatPercent
+	FormatDate        = pkgquery.FormatDate
+	FormatDateTime    = pkgquery.FormatDateTime
+	FormatText        = pkgquery.FormatText
+	FormatMonthOfYear = pkgquery.FormatMonthOfYear
+	FormatQuarter     = pkgquery.FormatQuarter
 )
 
 // Re-exported chart suggestion identifiers.

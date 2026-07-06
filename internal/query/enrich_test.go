@@ -53,7 +53,7 @@ func TestEnrichResultTagsDimensionsAndMetrics(t *testing.T) {
 	}
 }
 
-func TestEnrichResultDateDimensionGetsDateFormat(t *testing.T) {
+func TestEnrichResultMonthGrainGetsMonthOfYearFormat(t *testing.T) {
 	model := newModel()
 	lq := LogicalQuery{
 		Select: []SelectItem{
@@ -72,12 +72,39 @@ func TestEnrichResultDateDimensionGetsDateFormat(t *testing.T) {
 
 	EnrichResult(result, &lq, model)
 
-	if result.Columns[0].Format != FormatDate {
-		t.Errorf("order_date.Format = %q, want date", result.Columns[0].Format)
+	// EXTRACT(MONTH …) yields a 1-12 ordinal, not a date: it must carry the
+	// month-of-year format so the frontend renders localized names.
+	if result.Columns[0].Format != FormatMonthOfYear {
+		t.Errorf("order_date.Format = %q, want month_of_year", result.Columns[0].Format)
 	}
+	// Month grain still counts as a time dimension for chart selection.
 	wantChart := []string{ChartLine, ChartBar, ChartTable}
 	if !equalStringSlices(result.ChartSuggestions, wantChart) {
 		t.Errorf("chart_suggestions = %v, want %v", result.ChartSuggestions, wantChart)
+	}
+}
+
+func TestEnrichResultQuarterGrainGetsQuarterFormat(t *testing.T) {
+	model := newModel()
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "order_date"},
+			{Type: SelectTypeMetric, Name: "order_count"},
+		},
+		GroupBy: []GroupBy{{Field: "order_date", TimeGrain: TimeGrainQuarter}},
+	}
+	result := &Result{
+		Columns: []ResultColumn{
+			{Name: "order_date", Type: "INT"},
+			{Name: "order_count", Type: "BIGINT"},
+		},
+		Rows: [][]any{{1, 10}, {2, 20}},
+	}
+
+	EnrichResult(result, &lq, model)
+
+	if result.Columns[0].Format != FormatQuarter {
+		t.Errorf("order_date.Format = %q, want quarter", result.Columns[0].Format)
 	}
 }
 
@@ -247,10 +274,10 @@ func TestFormatForTimeGrain_CalendarGrains(t *testing.T) {
 	}{
 		{TimeGrainDay, FormatNumber, FormatDate},
 		{TimeGrainWeek, FormatNumber, FormatDate},
-		{TimeGrainMonth, FormatText, FormatDate},
-		{TimeGrainQuarter, FormatNumber, FormatDate},
-		{TimeGrainYear, FormatText, FormatDate},
-		{"hour", FormatNumber, FormatNumber},
+		{TimeGrainMonth, FormatText, FormatMonthOfYear},
+		{TimeGrainQuarter, FormatNumber, FormatQuarter},
+		{TimeGrainYear, FormatText, FormatNumber},
+		{"hour", FormatText, FormatNumber},
 		{"", FormatText, FormatText},
 	}
 	for _, tt := range tests {
