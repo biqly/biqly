@@ -107,6 +107,11 @@ type RunContext struct {
 
 	MaxRows int
 	Timeout time.Duration
+
+	// MaxSteps and MaxClarificationRounds bound the runtime's planning loop
+	// (internal/agent/runtime.go); PolicyEngine.Evaluate does not use them.
+	MaxSteps               int
+	MaxClarificationRounds int
 }
 
 // PolicyEngine evaluates tool-call proposals against a RunContext. It has no
