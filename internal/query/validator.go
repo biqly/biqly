@@ -414,9 +414,8 @@ func (v *Validator) validateLimitOffset(lq *LogicalQuery) ValidationErrors {
 // dimensions (TimeGrain set) accept integers — those project to ints via
 // CalendarPart. Array operators (in/between) and string values pass through.
 func validateDateFilterValueType(f Filter, dimensions []semantic.Dimension) *ValidationError {
-	switch f.Operator {
-	case OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte:
-	default:
+	vals, ok := scalarFilterValues(f)
+	if !ok || len(vals) == 0 {
 		return nil
 	}
 	var dim *semantic.Dimension
@@ -433,19 +432,42 @@ func validateDateFilterValueType(f Filter, dimensions []semantic.Dimension) *Val
 	if t != "date" && t != "timestamp" && t != "datetime" {
 		return nil
 	}
-	if strings.TrimSpace(dim.TimeGrain) != "" {
-		return nil
+	grain := strings.ToLower(strings.TrimSpace(dim.TimeGrain))
+	for _, v := range vals {
+		if !isNumericFilterValue(v) {
+			continue
+		}
+		// whole=false means a fractional numeric (e.g. 5.5) — never a valid
+		// calendar part, so it fails the day range check below.
+		iv, whole := numericFilterValueInt(v)
+		switch grain {
+		case "":
+			return &ValidationError{
+				Field:               "filters",
+				Code:                errmsg.CodeDateValueTypeMismatch,
+				Message:             "filter on raw date/timestamp dimension " + f.Field + " must use an ISO date string (\"YYYY-MM-DD\"); for integer year/month/day filters use the matching *_year, *_month, or *_day grain dimension",
+				Value:               f.Field,
+				AllowedAlternatives: []string{f.Field + "_year", f.Field + "_month", f.Field + "_day"},
+			}
+		case TimeGrainDay:
+			if !whole || iv < 1 || iv > 31 {
+				return &ValidationError{
+					Field:   "filters",
+					Code:    errmsg.CodeDateValueTypeMismatch,
+					Message: "day grain filter on " + f.Field + " accepts day-of-month integers 1-31 or ISO date strings (\"YYYY-MM-DD\")",
+					Value:   f.Field,
+				}
+			}
+		case TimeGrainWeek:
+			return &ValidationError{
+				Field:   "filters",
+				Code:    errmsg.CodeDateValueTypeMismatch,
+				Message: "week grain filter on " + f.Field + " must use an ISO date string (\"YYYY-MM-DD\") anchoring the week; integers are not supported",
+				Value:   f.Field,
+			}
+		}
 	}
-	if !isNumericFilterValue(f.Value) {
-		return nil
-	}
-	return &ValidationError{
-		Field:               "filters",
-		Code:                errmsg.CodeDateValueTypeMismatch,
-		Message:             "filter on raw date/timestamp dimension " + f.Field + " must use an ISO date string (\"YYYY-MM-DD\"); for integer year/month/day filters use the matching *_year, *_month, or *_day grain dimension",
-		Value:               f.Field,
-		AllowedAlternatives: []string{f.Field + "_year", f.Field + "_month", f.Field + "_day"},
-	}
+	return nil
 }
 
 func isNumericFilterValue(v any) bool {

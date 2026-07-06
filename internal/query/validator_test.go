@@ -592,6 +592,35 @@ func TestValidateDateFilterValueType_SkipsNonComparisons(t *testing.T) {
 	}
 }
 
+func TestValidateDateFilterValueType_DayGrainIntegerInRangeOK(t *testing.T) {
+	dims := []semantic.Dimension{{Name: "d_day", ColumnRef: "t.d", Type: "date", TimeGrain: TimeGrainDay}}
+	if err := validateDateFilterValueType(Filter{Field: "d_day", Operator: OpEq, Value: float64(5)}, dims); err != nil {
+		t.Errorf("day-of-month 5 should validate, got %v", err)
+	}
+}
+
+func TestValidateDateFilterValueType_DayGrainIntegerOutOfRange(t *testing.T) {
+	dims := []semantic.Dimension{{Name: "d_day", ColumnRef: "t.d", Type: "date", TimeGrain: TimeGrainDay}}
+	if err := validateDateFilterValueType(Filter{Field: "d_day", Operator: OpEq, Value: float64(45)}, dims); err == nil {
+		t.Error("expected error for day-of-month 45")
+	}
+}
+
+func TestValidateDateFilterValueType_WeekGrainNumericRejected(t *testing.T) {
+	dims := []semantic.Dimension{{Name: "d_week", ColumnRef: "t.d", Type: "date", TimeGrain: TimeGrainWeek}}
+	if err := validateDateFilterValueType(Filter{Field: "d_week", Operator: OpEq, Value: float64(5)}, dims); err == nil {
+		t.Error("expected error for numeric week grain filter")
+	}
+}
+
+func TestValidateDateFilterValueType_RawDimBetweenNumericRejected(t *testing.T) {
+	dims := []semantic.Dimension{{Name: "d", ColumnRef: "t.d", Type: "timestamp"}}
+	f := Filter{Field: "d", Operator: OpBetween, Value: []any{"2026-07-01", float64(5)}}
+	if err := validateDateFilterValueType(f, dims); err == nil {
+		t.Error("expected error for numeric element in between on raw timestamp dim")
+	}
+}
+
 func TestValidateDateFilterValueType_SkipsNonDateDimensions(t *testing.T) {
 	dimensions := validatorTestModel().Dimensions
 	f := Filter{Field: "country", Operator: OpEq, Value: "TR"}

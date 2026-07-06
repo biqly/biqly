@@ -44,7 +44,7 @@ func (d ClickHouseDialect) DateTrunc(part, column string) string {
 
 // CalendarPart returns toYear / toQuarter / toMonth for UInt-sized calendar integers.
 func (d ClickHouseDialect) CalendarPart(part, column string) string {
-	return CalendarPartLookup(d, part, column, "toYear(%s)", "toQuarter(%s)", "toMonth(%s)", "toHour(%s)")
+	return CalendarPartLookup(d, part, column, "toYear(%s)", "toQuarter(%s)", "toMonth(%s)", "toDayOfMonth(%s)", "toHour(%s)")
 }
 
 func titleCase(s string) string {

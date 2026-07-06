@@ -51,7 +51,7 @@ func (d MySQLDialect) DateTrunc(part, column string) string {
 
 // CalendarPart returns YEAR / QUARTER / MONTH for integer grouping.
 func (d MySQLDialect) CalendarPart(part, column string) string {
-	return CalendarPartLookup(d, part, column, "YEAR(%s)", "QUARTER(%s)", "MONTH(%s)", "HOUR(%s)")
+	return CalendarPartLookup(d, part, column, "YEAR(%s)", "QUARTER(%s)", "MONTH(%s)", "DAYOFMONTH(%s)", "HOUR(%s)")
 }
 
 // ILike returns a case-insensitive LIKE expression.

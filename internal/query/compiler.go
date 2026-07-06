@@ -1357,6 +1357,13 @@ func (c *Compiler) buildFilterConjunction(filters []Filter, dimMap map[string]*s
 	parts := make([]string, 0, len(filters))
 
 	for _, f := range filters {
+		if expr, ok, err := c.dayOfMonthGrainFilterExpr(f, dimMap, model, resolver, args); err != nil {
+			return "", err
+		} else if ok {
+			parts = append(parts, expr)
+			continue
+		}
+
 		if expr, ok, err := c.calendarGrainFilterExpr(f, dimMap, resolver, args); err != nil {
 			return "", err
 		} else if ok {
@@ -1385,6 +1392,32 @@ func (c *Compiler) buildFilterConjunction(filters []Filter, dimMap map[string]*s
 	}
 
 	return strings.Join(parts, " AND "), nil
+}
+
+// dayOfMonthGrainFilterExpr compiles a *_day grain filter whose values are all
+// bare day-of-month integers (1–31) as EXTRACT(DAY FROM col) comparisons. The
+// day grain's default DATE_TRUNC('day', col) shape compares to a timestamptz
+// parameter, which cannot bind an integer — the prompt's canonical single-day
+// trio (*_year eq + *_month eq + *_day eq) relies on this integer part mode,
+// mirroring how month/quarter grains already accept bare integer parts.
+func (c *Compiler) dayOfMonthGrainFilterExpr(
+	f Filter,
+	dimMap map[string]*semantic.Dimension,
+	model *semantic.SemanticModel,
+	resolver *SchemaResolver,
+	args *[]any,
+) (string, bool, error) {
+	dim, ok := dimMap[f.Field]
+	if !ok || !dayGrainBareIntegerFilter(dim, f) {
+		return "", false, nil
+	}
+	lhs := c.dialect.CalendarPart(TimeGrainDay, resolver.PhysicalColumnRef(dim.ColumnRef))
+	part, newArgs, err := c.buildFilterPart(f, lhs, model, args)
+	if err != nil {
+		return "", false, err
+	}
+	*args = append(*args, newArgs...)
+	return part, true, nil
 }
 
 func (c *Compiler) calendarGrainFilterExpr(

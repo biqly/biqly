@@ -752,6 +752,86 @@ func TestCompiler_DayGrainISOUsesDateTruncInWhere(t *testing.T) {
 	}
 }
 
+// TestCompiler_DayGrainBareIntegerUsesExtractDay: the prompt's canonical
+// single-day trio (*_year eq + *_month eq + *_day eq) sends bare day-of-month
+// integers; these must compile as EXTRACT(DAY …) integer comparisons, not the
+// grain's default DATE_TRUNC('day') timestamptz comparison (which cannot bind
+// an integer and failed at pgx encode time in prod).
+func TestCompiler_DayGrainBareIntegerUsesExtractDay(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "tweets",
+		BaseSchema: "public",
+		BaseTable:  "timeline_tweets",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_ts_day", ColumnRef: "timeline_tweets.created_at_ts", Type: "date", TimeGrain: TimeGrainDay},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "count", Expression: "*", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		DatasourceID: "ds",
+		ModelID:      "tweets",
+		Select:       []SelectItem{{Type: SelectTypeMetric, Name: "count"}},
+		// float64 mirrors JSON decoding of {"value": 5}.
+		Filters: []Filter{{Field: "created_at_ts_day", Operator: OpEq, Value: float64(5)}},
+		Limit:   100,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	low := strings.ToLower(cq.SQL)
+	if !strings.Contains(low, "extract(day from") {
+		t.Fatalf("expected EXTRACT(DAY FROM in WHERE, got:\n%s", cq.SQL)
+	}
+	if strings.Contains(low, "date_trunc('day'") {
+		t.Fatalf("bare integer day filter must not use DATE_TRUNC('day', got:\n%s", cq.SQL)
+	}
+	found := false
+	for _, a := range cq.Args {
+		if v, ok := a.(float64); ok && v == 5 {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected integer day arg 5, got args: %#v", cq.Args)
+	}
+}
+
+func TestCompiler_DayGrainIntegerBetweenUsesExtractDay(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "tweets",
+		BaseSchema: "public",
+		BaseTable:  "timeline_tweets",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_ts_day", ColumnRef: "timeline_tweets.created_at_ts", Type: "date", TimeGrain: TimeGrainDay},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "count", Expression: "*", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		DatasourceID: "ds",
+		ModelID:      "tweets",
+		Select:       []SelectItem{{Type: SelectTypeMetric, Name: "count"}},
+		Filters: []Filter{{
+			Field:    "created_at_ts_day",
+			Operator: OpBetween,
+			Value:    []any{float64(1), float64(15)},
+		}},
+		Limit: 100,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	low := strings.ToLower(cq.SQL)
+	if !strings.Contains(low, "extract(day from") || !strings.Contains(low, "between") {
+		t.Fatalf("expected EXTRACT(DAY FROM … BETWEEN, got:\n%s", cq.SQL)
+	}
+}
+
 // TestCompiler_JoinDirectionWhenBaseIsFKTarget verifies the compiler swaps
 // join orientation when the join's ToTable is the base table (or anything
 // already in the FROM set), so the SQL never lists the same table twice.

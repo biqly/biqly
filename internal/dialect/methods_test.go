@@ -131,8 +131,11 @@ func TestCalendarPartMonthQuarterAndFallback(t *testing.T) {
 		{"sqlserver quarter", SQLServer, "quarter", "DATEPART(quarter, [orderdate])"},
 		{"clickhouse month", ClickHouse, "month", "toMonth(`orderdate`)"},
 		{"clickhouse quarter", ClickHouse, "quarter", "toQuarter(`orderdate`)"},
-		// Unsupported part falls back to DateTrunc.
-		{"postgres day fallback", Postgres, "day", `DATE_TRUNC('day', "orderdate")`},
+		// Day is a first-class integer part (day-of-month) as of the *_day
+		// grain filter fix; week remains a DateTrunc fallback.
+		{"postgres day", Postgres, "day", `CAST(EXTRACT(DAY FROM "orderdate") AS INTEGER)`},
+		{"mysql day", MySQL, "day", "DAYOFMONTH(`orderdate`)"},
+		{"postgres week fallback", Postgres, "week", `DATE_TRUNC('week', "orderdate")`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

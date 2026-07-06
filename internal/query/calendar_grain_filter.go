@@ -92,11 +92,11 @@ func isScalarCompareOp(op string) bool {
 	}
 }
 
-// bareIntegerMonthOrQuarter reports a 1–12 month or 1–4 quarter filter value
-// that does not carry a calendar year and therefore needs a *_year sibling.
-func bareIntegerMonthOrQuarter(grain string, v any) bool {
+// numericFilterValueInt coerces a (possibly JSON-decoded) numeric filter value
+// to a whole int. Returns false for non-numeric or fractional values.
+func numericFilterValueInt(v any) (int, bool) {
 	if !isNumericFilterValue(v) {
-		return false
+		return 0, false
 	}
 	var f float64
 	switch n := v.(type) {
@@ -112,15 +112,24 @@ func bareIntegerMonthOrQuarter(grain string, v any) bool {
 		var err error
 		f, err = n.Float64()
 		if err != nil {
-			return false
+			return 0, false
 		}
 	default:
-		return false
+		return 0, false
 	}
 	if math.Trunc(f) != f {
+		return 0, false
+	}
+	return int(f), true
+}
+
+// bareIntegerMonthOrQuarter reports a 1–12 month or 1–4 quarter filter value
+// that does not carry a calendar year and therefore needs a *_year sibling.
+func bareIntegerMonthOrQuarter(grain string, v any) bool {
+	iv, ok := numericFilterValueInt(v)
+	if !ok {
 		return false
 	}
-	iv := int(f)
 	switch grain {
 	case TimeGrainMonth:
 		return iv >= 1 && iv <= 12
@@ -129,6 +138,46 @@ func bareIntegerMonthOrQuarter(grain string, v any) bool {
 	default:
 		return false
 	}
+}
+
+// scalarFilterValues flattens a filter's comparable value(s): the scalar for
+// eq/neq/gt/gte/lt/lte, both bounds for between, and every element for in/not_in.
+// Returns false for ops that carry no comparable value (is_null etc.).
+func scalarFilterValues(f Filter) ([]any, bool) {
+	switch f.Operator {
+	case OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte:
+		return []any{f.Value}, true
+	case OpBetween, OpIn, OpNotIn:
+		vals, ok := f.Value.([]any)
+		if !ok {
+			return nil, false
+		}
+		return vals, true
+	default:
+		return nil, false
+	}
+}
+
+// dayGrainBareIntegerFilter reports a *_day grain filter whose every value is a
+// bare day-of-month integer (1–31). The prompt's canonical single-day form is
+// the integer trio (*_year eq + *_month eq + *_day eq), so these must compile
+// as EXTRACT(DAY …) comparisons — the day grain's default DATE_TRUNC('day')
+// shape compares against a timestamptz parameter and cannot bind an integer.
+func dayGrainBareIntegerFilter(dim *semantic.Dimension, f Filter) bool {
+	if dim == nil || strings.ToLower(strings.TrimSpace(dim.TimeGrain)) != TimeGrainDay {
+		return false
+	}
+	vals, ok := scalarFilterValues(f)
+	if !ok || len(vals) == 0 {
+		return false
+	}
+	for _, v := range vals {
+		iv, ok := numericFilterValueInt(v)
+		if !ok || iv < 1 || iv > 31 {
+			return false
+		}
+	}
+	return true
 }
 
 func filterTouchesField(filters []Filter, field string) bool {
