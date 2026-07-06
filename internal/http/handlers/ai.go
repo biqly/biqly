@@ -60,6 +60,7 @@ type AIHandler struct {
 	ambiguityOverridesCache runtimeOverrides[ambiguityOverrides]
 	memoryOverridesCache    runtimeOverrides[memoryOverrides]
 	queueOverridesCache     runtimeOverrides[queueOverrides]
+	agentOverridesCache     runtimeOverrides[agentOverrides]
 }
 
 // SetAuthClient wires the auth service client for user model access checks.

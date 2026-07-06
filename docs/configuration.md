@@ -19,6 +19,19 @@ This document catalogs the BI_* variables loaded through the shared `internal/co
 | `BI_QUERY_SERVICE_URL` | `""` | `http://biqly-query:8081` | No | `internal/config/config.go`, `internal/http/router.go` | No | URL of the query service. |
 | `BI_AI_SERVICE_URL` | `""` | `http://biqly-ai:8082` | No | `internal/config/config.go`, `internal/http/router.go` | No | URL of the AI service. |
 | `BI_API_SERVICE_URL` | `""` | `https://abi.il1.nl` | No | `internal/config/config.go`, `internal/http/mcp_router.go` | No | Base URL of the API gateway the standalone MCP service forwards governed tool calls to. Must carry the gateway hostname so HTTPRoutes match. Empty in the monolith. |
+| **Agentic Query Runner** | | | | | | |
+| `BI_AGENT_ENABLED` | `false` | `false` | No | `internal/config/config.go`, `internal/agent` | No | Toggles the agentic query-runner pipeline. Disabled by default; the legacy NL-to-SQL pipeline handles all traffic until enabled. |
+| `BI_AGENT_MODE` | `"shadow"` | `"shadow"` | No | `internal/config/config.go`, `internal/agent` | No | `shadow` (compute for comparison, never surface to the user) or `active` (the agent's result reaches the user). |
+| `BI_AGENT_MAX_STEPS` | `6` | `6` | No | `internal/config/config.go`, `internal/agent` | No | Caps planner tool-call iterations per run; must be between 1 and 6. |
+| `BI_AGENT_MAX_CLARIFICATION_ROUNDS` | `2` | `2` | No | `internal/config/config.go`, `internal/agent` | No | Caps clarification round-trips per run; must be between 0 and 2. |
+| `BI_AGENT_TIMEOUT` | `"45s"` | `"45s"` | No | `internal/config/config.go`, `internal/agent` | No | Bounds total run wall-clock time; must be between 1s and 45s. |
+| `BI_AGENT_MAX_ROWS` | `1000` | `1000` | No | `internal/config/config.go`, `internal/agent` | No | Caps rows returned by any `query.execute` tool call; must be between 1 and 1000. |
+| `BI_AGENT_JOB_SUBJECT` | `"biqly.agent.jobs"` | `"biqly.agent.jobs"` | No | `internal/config/config.go`, `internal/agent` | No | NATS subject the agent job queue publishes/consumes on. |
+| `BI_AGENT_STEP_SUBJECT` | `"biqly.agent.steps"` | `"biqly.agent.steps"` | No | `internal/config/config.go`, `internal/agent` | No | NATS subject the planner publishes per-step trace events on. |
+| `BI_AGENT_RESULT_SUBJECT` | `"biqly.agent.results"` | `"biqly.agent.results"` | No | `internal/config/config.go`, `internal/agent` | No | NATS subject completed run results are published on. |
+| `BI_AGENT_ERROR_SUBJECT` | `"biqly.agent.errors"` | `"biqly.agent.errors"` | No | `internal/config/config.go`, `internal/agent` | No | NATS subject failed run errors are published on. |
+| `BI_AGENT_WORKSPACE_ALLOWLIST` | `""` | `""` | No | `internal/config/config.go`, `internal/agent` | No | Comma-separated workspace IDs the agent pipeline is restricted to during rollout; empty means all workspaces. |
+| `BI_AGENT_LEGACY_FALLBACK_ENABLED` | `true` | `true` | No | `internal/config/config.go`, `internal/agent` | No | Falls back to the legacy NL-to-SQL pipeline when a run fails, times out, or its workspace is outside the allowlist. |
 | **Databases, Queue & Query Engine** | | | | | | |
 | `BI_METADATA_DB_DSN` | `postgres://localhost:5432/...` | Required (Secret) | No | `internal/platform/db` | No | Connection string for Metadata Postgres DB. |
 | `BI_REDIS_DSN` | `redis://localhost:6379` | `redis://biqly-dragonfly:6379` | No | `internal/config/config.go` | No | Connection string for Dragonfly (Redis). |

@@ -23,7 +23,24 @@ func newAIHandlerWithRepo(repo *metadata.Repository) *AIHandler {
 	cfg.AI.Memory = config.AIMemoryConfig{RecallEnabled: true, RecallLimit: 5}
 	cfg.PII = config.PIIConfig{Enabled: true, DetectionThreshold: 0.6}
 	cfg.NATS.Concurrency = 2
+	cfg.Agent = config.AgentConfig{
+		Enabled: false, Mode: config.AgentModeShadow, MaxSteps: 6,
+		MaxClarificationRounds: 2, Timeout: 45 * time.Second, MaxRows: 1000,
+	}
 	return &AIHandler{deps: (&app.Dependencies{MetaRepo: repo, Config: cfg}).AIDeps()}
+}
+
+// Agent overrides overlay the env defaults; unset fields keep them.
+func TestEffectiveAgentConfigAppliesOverrides(t *testing.T) {
+	h := newAIHandlerWithRepo(nil)
+	h.agentOverridesCache.cached = agentOverrides{Enabled: new(true), MaxSteps: new(2)}
+	h.agentOverridesCache.expires = time.Now().Add(time.Minute)
+
+	eff := h.effectiveAgentConfig(context.Background())
+	assert.True(t, eff.Enabled, "override should enable the agent")
+	assert.Equal(t, 2, eff.MaxSteps, "override should set max_steps")
+	assert.Equal(t, config.AgentModeShadow, eff.Mode, "unset override keeps env default")
+	assert.Equal(t, 45*time.Second, eff.Timeout, "unset override keeps env default")
 }
 
 func TestEffectiveQueueConfigAppliesOverrides(t *testing.T) {
@@ -103,6 +120,44 @@ func TestAdminRuntimeConfigReturnsEnvDefaults(t *testing.T) {
 
 	assert.Equal(t, 2, resp.Queue.Concurrency)
 	assert.False(t, resp.Queue.DBOverride)
+
+	assert.False(t, resp.Agent.Enabled)
+	assert.Equal(t, config.AgentModeShadow, resp.Agent.Mode)
+	assert.Equal(t, 6, resp.Agent.MaxSteps)
+	assert.Equal(t, 45, resp.Agent.TimeoutSeconds)
+	assert.False(t, resp.Agent.DBOverride)
+	assert.Equal(t, "environment", resp.Agent.Source)
+}
+
+// PUT accepts the agent domain and writes a single override row.
+func TestUpdateAdminRuntimeConfigPersistsAgent(t *testing.T) {
+	db, state := setupMockDB(t)
+	stored := `{"enabled":true,"mode":"active","max_steps":2}`
+	state.execs = []execMock{{Pattern: "INSERT INTO ai_runtime_config", RowsAffected: 1}}
+	state.queries = []queryMock{
+		{Pattern: "FROM ai_runtime_config", Cols: []string{"value"}, Rows: [][]driver.Value{{stored}}},
+	}
+	h := newAIHandlerWithRepo(metadata.NewRepository(db))
+
+	body := strings.NewReader(`{"agent":{"enabled":true,"mode":"active","max_steps":2}}`)
+	rec := httptest.NewRecorder()
+	h.UpdateAdminRuntimeConfig(rec, httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/ai/admin/config", body))
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	upsert := findCall(state.calls, "INSERT INTO ai_runtime_config")
+	require.NotNil(t, upsert, "expected upsert exec")
+	require.Len(t, upsert.Args, 2)
+	assert.Equal(t, agentRuntimeConfigKey, upsert.Args[0])
+
+	var resp adminRuntimeConfigResponse
+	require.NoError(t, sonic.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.True(t, resp.Agent.Enabled)
+	assert.Equal(t, "active", resp.Agent.Mode)
+	assert.Equal(t, 2, resp.Agent.MaxSteps)
+	assert.True(t, resp.Agent.DBOverride)
+	assert.Equal(t, "database", resp.Agent.Source)
+	assert.Equal(t, "database", resp.Agent.Sources["max_steps"])
+	assert.Equal(t, "environment", resp.Agent.Sources["max_rows"])
 }
 
 // PUT persists the overrides, invalidates the cache, and echoes the stored values.
@@ -190,6 +245,30 @@ func TestUpdateAdminRuntimeConfigValidation(t *testing.T) {
 		"queue concurrency out of range": {
 			body:    `{"queue":{"concurrency":11}}`,
 			wantMsg: "concurrency must be between 1 and 10",
+		},
+		"agent unknown mode": {
+			body:    `{"agent":{"mode":"eager"}}`,
+			wantMsg: "agent.mode must be",
+		},
+		"agent max_steps out of range": {
+			body:    `{"agent":{"max_steps":7}}`,
+			wantMsg: "agent.max_steps must be between 1 and 6",
+		},
+		"agent clarification rounds out of range": {
+			body:    `{"agent":{"max_clarification_rounds":3}}`,
+			wantMsg: "agent.max_clarification_rounds must be between 0 and 2",
+		},
+		"agent timeout out of range": {
+			body:    `{"agent":{"timeout_seconds":46}}`,
+			wantMsg: "agent.timeout_seconds must be between 1 and 45",
+		},
+		"agent max_rows out of range": {
+			body:    `{"agent":{"max_rows":1001}}`,
+			wantMsg: "agent.max_rows must be between 1 and 1000",
+		},
+		"agent unknown field": {
+			body:    `{"agent":{"job_subject":"x"}}`,
+			wantMsg: "agent contains an unknown",
 		},
 	} {
 		rec := httptest.NewRecorder()

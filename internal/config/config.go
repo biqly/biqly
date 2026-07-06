@@ -31,6 +31,7 @@ type Config struct {
 	PII       PIIConfig
 	Drift     DriftConfig
 	Mail      MailConfig
+	Agent     AgentConfig
 	// DeploymentMode is the deployment posture: "cloud" (default), "private",
 	// or "airgapped". Airgapped fails closed on external LLM/embedding egress:
 	// provider endpoints must resolve to private, in-cluster hosts.
@@ -43,6 +44,46 @@ const DeploymentModeAirgapped = "airgapped"
 // DriftConfig controls the background schema drift check.
 type DriftConfig struct {
 	CheckInterval time.Duration
+}
+
+// AgentModeShadow/AgentModeActive mirror agent.ModeShadow/agent.ModeActive
+// (internal/agent) without importing that package, keeping config decoupled
+// from the runtime pipeline it configures.
+const (
+	AgentModeShadow = "shadow"
+	AgentModeActive = "active"
+)
+
+// AgentConfig controls the agentic query-runner service: a NATS-driven
+// planner/tool-execution pipeline that can supersede the legacy single-shot
+// NL-to-SQL path once graduated out of shadow mode.
+type AgentConfig struct {
+	// Enabled toggles the agent pipeline. Disabled by default — the legacy
+	// pipeline handles all traffic until this is turned on.
+	Enabled bool
+	// Mode is AgentModeShadow (compute for comparison, never surface to the
+	// user) or AgentModeActive (the agent's result reaches the user).
+	Mode string
+	// MaxSteps caps planner tool-call iterations per run, 1-6.
+	MaxSteps int
+	// MaxClarificationRounds caps clarification round-trips per run, 0-2.
+	MaxClarificationRounds int
+	// Timeout bounds total run wall-clock time, 1-45 seconds.
+	Timeout time.Duration
+	// MaxRows caps rows returned by any query.execute tool call, 1-1000.
+	MaxRows int
+	// JobSubject/StepSubject/ResultSubject/ErrorSubject are the NATS subjects
+	// the agent job queue, planner, and workers publish/consume on.
+	JobSubject    string
+	StepSubject   string
+	ResultSubject string
+	ErrorSubject  string
+	// WorkspaceAllowlist restricts the agent pipeline to specific workspace
+	// IDs during rollout; empty means all workspaces.
+	WorkspaceAllowlist []string
+	// LegacyFallbackEnabled falls back to the legacy NL-to-SQL pipeline when
+	// an agent run fails, times out, or its workspace is outside the allowlist.
+	LegacyFallbackEnabled bool
 }
 
 // MailConfig holds details to access the mail worker.
@@ -417,6 +458,7 @@ func loadConfigFromEnv() *Config {
 		Drift: DriftConfig{
 			CheckInterval: getEnvAsDuration("BI_DRIFT_CHECK_INTERVAL", 6*time.Hour),
 		},
+		Agent: loadAgentConfigFromEnv(),
 		Mail: MailConfig{
 			ServiceURL:    getEnv("BI_AUTH_MAIL_SERVICE_URL", "http://localhost:8890"),
 			InternalToken: getEnv("BI_AUTH_MAIL_INTERNAL_TOKEN", ""),
@@ -487,6 +529,23 @@ func loadConfigFromEnv() *Config {
 			AutoScanOnSync:         getEnvAsBool("BI_PII_AUTO_SCAN_ON_SYNC", true),
 			DefaultMaskingStrategy: getEnv("BI_PII_DEFAULT_MASKING_STRATEGY", "partial"),
 		},
+	}
+}
+
+func loadAgentConfigFromEnv() AgentConfig {
+	return AgentConfig{
+		Enabled:                getEnvAsBool("BI_AGENT_ENABLED", false),
+		Mode:                   strings.ToLower(strings.TrimSpace(getEnv("BI_AGENT_MODE", AgentModeShadow))),
+		MaxSteps:               getEnvAsInt("BI_AGENT_MAX_STEPS", 6),
+		MaxClarificationRounds: getEnvAsInt("BI_AGENT_MAX_CLARIFICATION_ROUNDS", 2),
+		Timeout:                getEnvAsDuration("BI_AGENT_TIMEOUT", 45*time.Second),
+		MaxRows:                getEnvAsInt("BI_AGENT_MAX_ROWS", 1000),
+		JobSubject:             getEnv("BI_AGENT_JOB_SUBJECT", "biqly.agent.jobs"),
+		StepSubject:            getEnv("BI_AGENT_STEP_SUBJECT", "biqly.agent.steps"),
+		ResultSubject:          getEnv("BI_AGENT_RESULT_SUBJECT", "biqly.agent.results"),
+		ErrorSubject:           getEnv("BI_AGENT_ERROR_SUBJECT", "biqly.agent.errors"),
+		WorkspaceAllowlist:     splitCSV(getEnv("BI_AGENT_WORKSPACE_ALLOWLIST", "")),
+		LegacyFallbackEnabled:  getEnvAsBool("BI_AGENT_LEGACY_FALLBACK_ENABLED", true),
 	}
 }
 
@@ -580,6 +639,9 @@ func validateLoadedConfig(cfg *Config) error {
 		return fmt.Errorf("BI_AI_AMBIGUITY_MAX_LLM_TIER_PER_QUESTION must be >= 0, got %d", cfg.AI.Ambiguity.MaxLLMTierPerQuestion)
 	}
 	if err := validateFloatRange("BI_AI_EMBEDDING_WEIGHT", cfg.AI.Embedding.Weight, 0, 100); err != nil {
+		return err
+	}
+	if err := validateAgentConfig(cfg.Agent); err != nil {
 		return err
 	}
 	// Fail-closed: auth must stay enabled in production/Kubernetes (see TestProductionAuthEnabledFailClosed).
@@ -768,6 +830,28 @@ func getEnvAsFloat(key string, defaultVal float64) float64 {
 		return defaultVal
 	}
 	return val
+}
+
+// validateAgentConfig enforces the same bounds internal/agent's job
+// validation applies, checked once at load time so a misconfigured
+// deployment fails fast instead of rejecting every run.
+func validateAgentConfig(cfg AgentConfig) error {
+	if !slices.Contains([]string{AgentModeShadow, AgentModeActive}, cfg.Mode) {
+		return fmt.Errorf("BI_AGENT_MODE must be %q or %q, got %q", AgentModeShadow, AgentModeActive, cfg.Mode)
+	}
+	if cfg.MaxSteps < 1 || cfg.MaxSteps > 6 {
+		return fmt.Errorf("BI_AGENT_MAX_STEPS must be between 1 and 6, got %d", cfg.MaxSteps)
+	}
+	if cfg.MaxClarificationRounds < 0 || cfg.MaxClarificationRounds > 2 {
+		return fmt.Errorf("BI_AGENT_MAX_CLARIFICATION_ROUNDS must be between 0 and 2, got %d", cfg.MaxClarificationRounds)
+	}
+	if cfg.Timeout < 1*time.Second || cfg.Timeout > 45*time.Second {
+		return fmt.Errorf("BI_AGENT_TIMEOUT must be between 1s and 45s, got %s", cfg.Timeout)
+	}
+	if cfg.MaxRows < 1 || cfg.MaxRows > 1000 {
+		return fmt.Errorf("BI_AGENT_MAX_ROWS must be between 1 and 1000, got %d", cfg.MaxRows)
+	}
+	return nil
 }
 
 func validateFloatRange(key string, val, minVal, maxVal float64) error {
