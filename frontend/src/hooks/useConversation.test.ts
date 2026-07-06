@@ -38,7 +38,7 @@ describe('conversation storage', () => {
     const loaded = loadConversations(storage(JSON.stringify(expected)))
     expect(loaded).toHaveLength(1)
     expect(loaded[0]).toMatchObject({ id: 'conv-1', context_enabled: true })
-    expect(loaded[0].snapshot_version).toBe(0)
+    expect(loaded[0]?.snapshot_version).toBe(0)
   })
 
   it('defaults legacy conversations to context enabled', () => {
@@ -140,14 +140,14 @@ describe('conversation API sync', () => {
       context_enabled: true,
       snapshot_version: 0,
     })
-    expect(calls[0].messages).toHaveLength(1)
-    expect(calls[0].messages[0]).toMatchObject({
+    expect(calls[0]?.messages).toHaveLength(1)
+    expect(calls[0]?.messages[0]).toMatchObject({
       role: 'assistant',
       content: 'May 20 won',
       result_summary: 'date=2026-05-20, tweet_count=2932',
     })
-    expect(calls[0].messages[0].remote_id).toBeDefined()
-    expect(calls[0].messages[0].ordinal).toBe(0)
+    expect(calls[0]?.messages[0]?.remote_id).toBeDefined()
+    expect(calls[0]?.messages[0]?.ordinal).toBe(0)
   })
 
   it('deletes the remote conversation snapshot', async () => {

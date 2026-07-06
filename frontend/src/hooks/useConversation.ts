@@ -139,16 +139,13 @@ async function defaultSaveConversationAPI(
   })
 }
 
-/** Computes a SHA-256 hex digest of a string using the Web Crypto API. */
+/** Computes a SHA-256 hex digest of a string using the Web Crypto API.
+ * Requires a secure context (https or localhost), which all deployments use. */
 async function sha256Hex(input: string): Promise<string> {
-  if (typeof crypto?.subtle?.digest === 'function') {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
-    return Array.from(new Uint8Array(buf))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-  }
-  // Fallback for environments without SubtleCrypto (older browsers / SSR).
-  return `fallback-${input.length}-${Date.now()}`
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 async function defaultDeleteConversationAPI(id: string, token?: string | null): Promise<void> {
