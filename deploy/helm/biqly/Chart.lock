@@ -17,6 +17,9 @@ dependencies:
 - name: worker
   repository: file://charts/worker
   version: 0.1.0
+- name: agent
+  repository: file://charts/agent
+  version: 0.1.0
 - name: auth
   repository: file://charts/auth
   version: 0.1.0
@@ -26,5 +29,5 @@ dependencies:
 - name: frontend
   repository: file://charts/frontend
   version: 0.1.0
-digest: sha256:1c22dd3f389a9c42acee48d36033672fb683904d857f98260d6eaabd3dbb3c92
-generated: "2026-07-04T17:41:48.269452+03:00"
+digest: sha256:a2479f107946c4d5cbfdf4e115193af2609c0aa5a7123847f7c02f43a7faa452
+generated: "2026-07-06T22:31:15.681094+03:00"

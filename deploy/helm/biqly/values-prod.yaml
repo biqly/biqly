@@ -218,6 +218,11 @@ query:
 worker:
   image:
     tag: sha-fc93b3bf3c15ebe5244e430e17102b9fd24f3471
+# Explicit even though the base chart default is already false: this is the
+# switch an operator would flip to start real traffic shadowing, so it
+# should be visible here, not just inherited silently.
+agent:
+  enabled: false
 mcp:
   replicaCount: 1
   resources:
