@@ -10,9 +10,12 @@ endif
 AIR = go run github.com/air-verse/air@v1.65.3
 
 # Services `make watch` starts when SVC is unset (the host-native app services;
-# catalog/query/ai are embedded in cmd/api locally). Override with a space- or
-# comma-separated list: `make watch SVC="api auth"`.
-WATCH_SVCS ?= api auth mail
+# catalog/query/ai are embedded in cmd/api locally). agent needs BI_NATS_URL
+# (from `make dev-up`) and BI_CATALOG_SERVICE_URL/BI_AI_SERVICE_URL/
+# BI_QUERY_SERVICE_URL pointing at localhost:8888 (see .env.dev.example) since,
+# unlike api, it always talks to those over HTTP rather than in-process.
+# Override with a space- or comma-separated list: `make watch SVC="api auth"`.
+WATCH_SVCS ?= api auth mail agent
 SVC ?=
 COMMA := ,
 # debug-watch is single-service (one Delve :2345): default api, first token of SVC.

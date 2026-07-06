@@ -10,7 +10,7 @@ echo "Checking registry for tag: $TAG"
 
 # Services and their yq update paths (parallel arrays: no declare -A,
 # which is bash 4+ and not available on macOS 3.2).
-SERVICES=("auth" "frontend" "catalog" "query" "ai" "mcp" "worker" "mail")
+SERVICES=("auth" "frontend" "catalog" "query" "ai" "mcp" "worker" "mail" "agent")
 PATHS=(
   "auth.image.tag auth.migrate.image.tag"
   "frontend.image.tag"
@@ -20,6 +20,7 @@ PATHS=(
   "mcp.image.tag"
   "worker.image.tag"
   "mail.image.tag mail.migrate.image.tag"
+  "agent.image.tag"
 )
 
 UPDATED=0
