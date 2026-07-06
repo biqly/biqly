@@ -1,5 +1,31 @@
 # Todo list
 
+## Agentic Query Runner + conversation replay repair (2026-07-06)
+
+**Status:** Approved design; implementation not started.
+
+**Source of truth:**
+- Design: `docs/superpowers/specs/2026-07-06-agentic-query-runner-service-design.md`
+- Execution plan: `docs/superpowers/plans/2026-07-06-agentic-query-runner-service.md`
+
+### Success criteria
+- [ ] Reposting a conversation snapshot cannot create duplicate messages.
+- [ ] Existing proven ordered-prefix replay rows are archived and soft-deleted through a reversible repair; ambiguous rows are report-only.
+- [ ] Internal `cmd/agent` runs a maximum six-step, policy-gated, read-only BI query lifecycle through typed tools.
+- [ ] Shadow mode returns only the legacy response and never performs a second customer query execution.
+- [ ] Agent has no public route or direct customer database egress; Helm and Cilium assertions prove the boundary.
+- [ ] Focused tests, AI eval regression, frontend gate, Helm assertions, `make verify-main`, and `gograph_review --uncommitted` pass.
+
+### Execution phases
+- [ ] Phase 1 — Tasks 1–3: transactional conversation identity, idempotency, and stable frontend `remote_id`.
+- [ ] Phase 2 — Tasks 4–5: repair detector, report/archive/soft-delete/apply/restore CLI.
+- [ ] Phase 3 — Tasks 6–11: Agent contracts, Policy Engine, typed tools, runtime, routing, and `cmd/agent`.
+- [ ] Phase 4 — Tasks 12–16: trace UI, local dev/CI, Helm, NetworkPolicies, eval, metrics, and alerts.
+- [ ] Phase 5 — Tasks 17–18: documentation, full verification, reversible repair, dark deploy, and shadow report.
+
+### Review evidence
+- Pending implementation. Record commits, test outputs, repair counts, policy assertions, and rollout observations here.
+
 ## Feature: @-mention follow-ups + AI Query screen cleanup (2026-06-23)
 
 ### Asks (from user)

@@ -388,6 +388,7 @@ query:
     enabled: true
     pathPrefixes:
       - /api/query
+      - /api/audit/query
 
 mcp:
   enabled: true

@@ -43,3 +43,4 @@ route:
   enabled: true
   pathPrefixes:
     - /api/query
+    - /api/audit/query
