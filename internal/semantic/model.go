@@ -58,6 +58,14 @@ const (
 	AggCountDistinct = pkgsemantic.AggCountDistinct
 )
 
+// Re-exported metric rate behaviors.
+const (
+	RateBehaviorRatioOfSums            = pkgsemantic.RateBehaviorRatioOfSums
+	RateBehaviorAverageOfCustomerRates = pkgsemantic.RateBehaviorAverageOfCustomerRates
+	RateBehaviorWeightedAverage        = pkgsemantic.RateBehaviorWeightedAverage
+	RateBehaviorLatestValue            = pkgsemantic.RateBehaviorLatestValue
+)
+
 // Re-exported join defaults and relationship strings.
 const (
 	DefaultJoinType         = pkgsemantic.DefaultJoinType

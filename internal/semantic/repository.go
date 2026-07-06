@@ -163,7 +163,7 @@ func bulkInsertMetrics(ctx context.Context, tx *sql.Tx, mets []Metric) (err erro
 	if len(mets) == 0 {
 		return nil
 	}
-	stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active, expr_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`)
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active, expr_json, rate_behavior) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`)
 	if err != nil {
 		return fmt.Errorf("prepare metrics: %w", err)
 	}
@@ -178,7 +178,7 @@ func bulkInsertMetrics(ctx context.Context, tx *sql.Tx, mets []Metric) (err erro
 		if err != nil {
 			return fmt.Errorf("encode metric expression %q: %w", m.Name, err)
 		}
-		if _, err := stmt.ExecContext(ctx, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, exprJSON); err != nil {
+		if _, err := stmt.ExecContext(ctx, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, exprJSON, m.RateBehavior); err != nil {
 			return fmt.Errorf("insert metric %q: %w", m.Name, err)
 		}
 	}
@@ -356,10 +356,10 @@ func (r *Repository) CreateMetric(ctx context.Context, m *Metric) error {
 		return fmt.Errorf("encode metric expression: %w", err)
 	}
 	query := `
-		INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active, expr_json)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO semantic_metrics (id, model_id, name, label, expression, aggregation, format, synonyms, description, is_active, expr_json, rate_behavior)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
-	if err := r.db.QueryRowContext(ctx, query, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, exprJSON).Err(); err != nil {
+	if err := r.db.QueryRowContext(ctx, query, m.ID, m.ModelID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, exprJSON, m.RateBehavior).Err(); err != nil {
 		return fmt.Errorf("create metric: %w", err)
 	}
 	return r.MarkModelDraft(ctx, m.ModelID)
@@ -367,13 +367,13 @@ func (r *Repository) CreateMetric(ctx context.Context, m *Metric) error {
 
 // GetMetrics returns all active metrics for a model.
 func (r *Repository) GetMetrics(ctx context.Context, modelID string) ([]Metric, error) {
-	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at, expr_json FROM semantic_metrics WHERE model_id = $1::uuid AND is_active = true ORDER BY name`
+	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at, expr_json, rate_behavior FROM semantic_metrics WHERE model_id = $1::uuid AND is_active = true ORDER BY name`
 	return platformdb.QuerySliceErr(ctx, r.db, "get metrics", query, []any{modelID}, scanMetric)
 }
 
 // ListAllMetrics returns every metric (active and inactive) for a model.
 func (r *Repository) ListAllMetrics(ctx context.Context, modelID string) ([]Metric, error) {
-	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at, expr_json FROM semantic_metrics WHERE model_id = $1::uuid ORDER BY is_active DESC, name`
+	query := `SELECT id::text, model_id::text, name, label, expression, aggregation, format, synonyms, description, is_active, created_at, expr_json, rate_behavior FROM semantic_metrics WHERE model_id = $1::uuid ORDER BY is_active DESC, name`
 	return platformdb.QuerySliceErr(ctx, r.db, "list all metrics", query, []any{modelID}, scanMetric)
 }
 
@@ -392,8 +392,8 @@ func (r *Repository) UpdateMetric(ctx context.Context, m *Metric) error {
 	if err != nil {
 		return fmt.Errorf("encode metric expression: %w", err)
 	}
-	query := `UPDATE semantic_metrics SET name = $2, label = $3, expression = $4, aggregation = $5, format = $6, synonyms = $7, description = $8, is_active = $9, expr_json = $10 WHERE id = $1::uuid AND model_id = $11::uuid`
-	_, err = r.db.ExecContext(ctx, query, m.ID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, exprJSON, m.ModelID)
+	query := `UPDATE semantic_metrics SET name = $2, label = $3, expression = $4, aggregation = $5, format = $6, synonyms = $7, description = $8, is_active = $9, expr_json = $10, rate_behavior = $11 WHERE id = $1::uuid AND model_id = $12::uuid`
+	_, err = r.db.ExecContext(ctx, query, m.ID, m.Name, m.Label, m.Expression, m.Aggregation, m.Format, m.Synonyms, m.Description, m.IsActive, exprJSON, m.RateBehavior, m.ModelID)
 	if err != nil {
 		return fmt.Errorf("update metric: %w", err)
 	}
@@ -827,7 +827,7 @@ func scanEnumMapping(s platformdb.Scanner) (EnumMapping, error) {
 func scanMetric(s platformdb.Scanner) (Metric, error) {
 	var m Metric
 	var exprJSON sql.NullString
-	if err := s.Scan(&m.ID, &m.ModelID, &m.Name, &m.Label, &m.Expression, &m.Aggregation, &m.Format, &platformdb.NullStringArray{S: &m.Synonyms}, &m.Description, &m.IsActive, &m.CreatedAt, &exprJSON); err != nil {
+	if err := s.Scan(&m.ID, &m.ModelID, &m.Name, &m.Label, &m.Expression, &m.Aggregation, &m.Format, &platformdb.NullStringArray{S: &m.Synonyms}, &m.Description, &m.IsActive, &m.CreatedAt, &exprJSON, &m.RateBehavior); err != nil {
 		return m, fmt.Errorf("scan metric: %w", err)
 	}
 	if exprJSON.Valid {

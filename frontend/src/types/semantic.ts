@@ -129,6 +129,7 @@ export interface SemanticMetric {
   description?: string | null
   is_active?: boolean
   expr?: SemanticExprNode
+  rate_behavior?: string
 }
 
 export interface SemanticJoin {

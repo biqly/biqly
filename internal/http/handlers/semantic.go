@@ -619,29 +619,34 @@ func (h *SemanticHandler) CreateDimension(w http.ResponseWriter, r *http.Request
 }
 
 type createMetricRequest struct {
-	Name        string          `json:"name"`
-	Label       string          `json:"label,omitempty"`
-	Expression  string          `json:"expression"`
-	Aggregation string          `json:"aggregation"`
-	Format      string          `json:"format,omitempty"`
-	Synonyms    []string        `json:"synonyms,omitempty"`
-	Expr        json.RawMessage `json:"expr,omitempty"`
+	Name         string          `json:"name"`
+	Label        string          `json:"label,omitempty"`
+	Expression   string          `json:"expression"`
+	Aggregation  string          `json:"aggregation"`
+	Format       string          `json:"format,omitempty"`
+	Synonyms     []string        `json:"synonyms,omitempty"`
+	Expr         json.RawMessage `json:"expr,omitempty"`
+	RateBehavior string          `json:"rate_behavior,omitempty"`
 }
 
 func metricFromRequest(id, modelID string, req createMetricRequest) (*semantic.Metric, error) {
+	if !pkgsemantic.IsValidRateBehavior(req.RateBehavior) {
+		return nil, fmt.Errorf("invalid rate_behavior %q", req.RateBehavior)
+	}
 	expr, err := expressionNodeFromRequest(req.Expr, req.Expression, "expr")
 	if err != nil {
 		return nil, err
 	}
 	m := &semantic.Metric{
-		ID:          id,
-		ModelID:     modelID,
-		Name:        req.Name,
-		Expression:  req.Expression,
-		Expr:        expr,
-		Aggregation: req.Aggregation,
-		Synonyms:    req.Synonyms,
-		IsActive:    true,
+		ID:           id,
+		ModelID:      modelID,
+		Name:         req.Name,
+		Expression:   req.Expression,
+		Expr:         expr,
+		Aggregation:  req.Aggregation,
+		Synonyms:     req.Synonyms,
+		IsActive:     true,
+		RateBehavior: req.RateBehavior,
 	}
 	if req.Label != "" {
 		m.Label = new(req.Label)

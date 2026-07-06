@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	pkgsemantic "github.com/biqly/biqly/pkg/semantic"
 )
 
 // ModelFileSchemaVersion is the current schema version of the portable
@@ -54,13 +56,14 @@ type ModelFileEnumValue struct {
 
 // ModelFileMetric is the portable form of a Metric.
 type ModelFileMetric struct {
-	Name        string   `yaml:"name" json:"name"`
-	Label       string   `yaml:"label,omitempty" json:"label,omitempty"`
-	Expression  string   `yaml:"expression" json:"expression"`
-	Aggregation string   `yaml:"aggregation" json:"aggregation"`
-	Format      string   `yaml:"format,omitempty" json:"format,omitempty"`
-	Synonyms    []string `yaml:"synonyms,omitempty" json:"synonyms,omitempty"`
-	Description string   `yaml:"description,omitempty" json:"description,omitempty"`
+	Name         string   `yaml:"name" json:"name"`
+	Label        string   `yaml:"label,omitempty" json:"label,omitempty"`
+	Expression   string   `yaml:"expression" json:"expression"`
+	Aggregation  string   `yaml:"aggregation" json:"aggregation"`
+	Format       string   `yaml:"format,omitempty" json:"format,omitempty"`
+	Synonyms     []string `yaml:"synonyms,omitempty" json:"synonyms,omitempty"`
+	Description  string   `yaml:"description,omitempty" json:"description,omitempty"`
+	RateBehavior string   `yaml:"rate_behavior,omitempty" json:"rate_behavior,omitempty"`
 }
 
 // ModelFileJoin is the portable form of a Join.
@@ -128,13 +131,14 @@ func NewModelFile(m *SemanticModel) ModelFile {
 			continue
 		}
 		f.Metrics = append(f.Metrics, ModelFileMetric{
-			Name:        mt.Name,
-			Label:       deref(mt.Label),
-			Expression:  mt.Expression,
-			Aggregation: mt.Aggregation,
-			Format:      deref(mt.Format),
-			Synonyms:    mt.Synonyms,
-			Description: deref(mt.Description),
+			Name:         mt.Name,
+			Label:        deref(mt.Label),
+			Expression:   mt.Expression,
+			Aggregation:  mt.Aggregation,
+			Format:       deref(mt.Format),
+			Synonyms:     mt.Synonyms,
+			Description:  deref(mt.Description),
+			RateBehavior: mt.RateBehavior,
 		})
 	}
 	for i := range m.Joins {
@@ -185,6 +189,11 @@ func ParseModelFile(data []byte) (*ModelFile, error) {
 	if strings.TrimSpace(f.BaseTable) == "" {
 		return nil, errors.New("model file: base_table is required")
 	}
+	for i := range f.Metrics {
+		if !pkgsemantic.IsValidRateBehavior(f.Metrics[i].RateBehavior) {
+			return nil, fmt.Errorf("model file: metric %q has invalid rate_behavior %q", f.Metrics[i].Name, f.Metrics[i].RateBehavior)
+		}
+	}
 	return &f, nil
 }
 
@@ -233,14 +242,15 @@ func (f *ModelFile) Model(datasourceID string) *SemanticModel {
 	}
 	for _, fm := range f.Metrics {
 		m.Metrics = append(m.Metrics, Metric{
-			Name:        fm.Name,
-			Label:       optStr(fm.Label),
-			Expression:  fm.Expression,
-			Aggregation: fm.Aggregation,
-			Format:      optStr(fm.Format),
-			Synonyms:    fm.Synonyms,
-			Description: optStr(fm.Description),
-			IsActive:    true,
+			Name:         fm.Name,
+			Label:        optStr(fm.Label),
+			Expression:   fm.Expression,
+			Aggregation:  fm.Aggregation,
+			Format:       optStr(fm.Format),
+			Synonyms:     fm.Synonyms,
+			Description:  optStr(fm.Description),
+			IsActive:     true,
+			RateBehavior: fm.RateBehavior,
 		})
 	}
 	for _, fj := range f.Joins {

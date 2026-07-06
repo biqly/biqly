@@ -84,6 +84,36 @@ func TestPromptBuildIncludesEnumValues(t *testing.T) {
 	}
 }
 
+func TestPromptBuildIncludesMetricRateBehavior(t *testing.T) {
+	pb := &Builder{}
+	model := &semantic.SemanticModel{
+		ID: "m", DatasourceID: "d", Name: "x", BaseSchema: "public", BaseTable: "orders",
+		Metrics: []semantic.Metric{
+			{Name: "conversion_rate", Aggregation: "avg", Expression: "orders.rate", RateBehavior: semantic.RateBehaviorRatioOfSums},
+			{Name: "row_count", Aggregation: "count", Expression: "*"},
+		},
+	}
+	got := pb.Build(context.Background(), "conversion rate by region", model, Config{Locale: i18n.DefaultLocale})
+	want := "- conversion_rate (aggregation: avg, expression: orders.rate) — rate_behavior: ratio_of_sums — compute as SUM(numerator)/SUM(denominator) over the group; never average pre-computed row rates.\n"
+	if !strings.Contains(got, want) {
+		t.Errorf("expected rate_behavior instruction line in prompt, got excerpt:\n%s", truncatePrompt(got, 1200))
+	}
+	if !strings.Contains(got, "- row_count (aggregation: count, expression: *)\n") {
+		t.Errorf("metric without rate_behavior must render unchanged")
+	}
+}
+
+func TestRateBehaviorInstructionUnsetIsEmpty(t *testing.T) {
+	if got := rateBehaviorInstruction(""); got != "" {
+		t.Errorf("expected empty instruction for unset rate behavior, got %q", got)
+	}
+	for _, rb := range []string{semantic.RateBehaviorRatioOfSums, semantic.RateBehaviorAverageOfCustomerRates, semantic.RateBehaviorWeightedAverage, semantic.RateBehaviorLatestValue} {
+		if got := rateBehaviorInstruction(rb); !strings.Contains(got, "rate_behavior: "+rb) {
+			t.Errorf("expected instruction for %q to name the behavior, got %q", rb, got)
+		}
+	}
+}
+
 func TestFormatEnumValuesEmpty(t *testing.T) {
 	if got := formatEnumValues(nil); got != "" {
 		t.Errorf("expected empty string for no enum values, got %q", got)
