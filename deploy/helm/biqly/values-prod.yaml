@@ -218,11 +218,19 @@ query:
 worker:
   image:
     tag: sha-fc93b3bf3c15ebe5244e430e17102b9fd24f3471
-# Explicit even though the base chart default is already false: this is the
-# switch an operator would flip to start real traffic shadowing, so it
-# should be visible here, not just inherited silently.
+# Dark deploy (2026-07-06): agent.enabled=true creates the pod so it can be
+# observed running, but config.BI_AGENT_ENABLED stays "false" — the base
+# chart's own default is "true" (see charts/agent/values.yaml), so this
+# override is load-bearing, not redundant: without it the pod would start
+# consuming real jobs in shadow mode the moment it exists. The switch an
+# operator flips to start real traffic shadowing is config.BI_AGENT_ENABLED,
+# below — it should be visible here, not just inherited silently.
 agent:
-  enabled: false
+  enabled: true
+  image:
+    tag: sha-ae4317fbd23fc6f01d88cef62307af9ef28fe875
+  config:
+    BI_AGENT_ENABLED: "false"
 mcp:
   replicaCount: 1
   resources:
