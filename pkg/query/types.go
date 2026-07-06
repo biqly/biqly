@@ -68,6 +68,15 @@ const (
 	FormatDate     = "date"
 	FormatDateTime = "datetime"
 	FormatText     = "text"
+	// FormatMonthOfYear marks a month time-grain column whose value is the
+	// month-of-year ordinal (1-12) produced by EXTRACT(MONTH …), not a date.
+	// The frontend renders it as a localized month name while preserving the
+	// integer for sorting.
+	FormatMonthOfYear = "month_of_year"
+	// FormatQuarter marks a quarter time-grain column whose value is the
+	// quarter-of-year ordinal (1-4) produced by EXTRACT(QUARTER …). The
+	// frontend renders it as a localized "Q{n}" label; the integer sorts.
+	FormatQuarter = "quarter"
 )
 
 // Chart suggestion identifiers.

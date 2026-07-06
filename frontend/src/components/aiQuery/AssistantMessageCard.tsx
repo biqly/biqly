@@ -407,6 +407,7 @@ export function AssistantMessageCard({
             onFilterByValue={onFilterByValue}
             onCellDrillDown={onCellDrillDown}
             t={t}
+            localeTag={localeTag}
           />
         )}
         <AssistantMessageFeedbackRow

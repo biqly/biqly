@@ -100,12 +100,35 @@ func formatForDimension(dimType string) string {
 	}
 }
 
+// formatForTimeGrain maps a time grain to a rendering hint. day/week are
+// truncated to a real date (FormatDate). month/quarter compile to EXTRACT
+// ordinals (1-12, 1-4), so they get their own formats and the frontend renders
+// localized names while keeping the integer for sorting. year (a 4-digit
+// integer) and hour (0-23) are plain numbers.
 func formatForTimeGrain(grain, fallback string) string {
 	switch grain {
-	case TimeGrainDay, TimeGrainWeek, TimeGrainMonth, TimeGrainQuarter, TimeGrainYear:
+	case TimeGrainMonth:
+		return FormatMonthOfYear
+	case TimeGrainQuarter:
+		return FormatQuarter
+	case TimeGrainDay, TimeGrainWeek:
 		return FormatDate
+	case TimeGrainYear, TimeGrainHour:
+		return FormatNumber
 	}
 	return fallback
+}
+
+// isTimeDimFormat reports whether a dimension format represents a calendar
+// bucket (date or a month/quarter ordinal). These share time-series chart and
+// pivot treatment even though month/quarter values are integers.
+func isTimeDimFormat(format string) bool {
+	switch format {
+	case FormatDate, FormatDateTime, FormatMonthOfYear, FormatQuarter:
+		return true
+	default:
+		return false
+	}
 }
 
 // suggestCharts returns a short, ordered list of chart types appropriate for
@@ -117,7 +140,7 @@ func suggestCharts(columns []ResultColumn, rowCount int) []string {
 		switch c.SemanticType {
 		case SemanticTypeDimension:
 			dims++
-			if c.Format == FormatDate || c.Format == FormatDateTime {
+			if isTimeDimFormat(c.Format) {
 				hasTimeDim = true
 			}
 		case SemanticTypeMetric:
@@ -150,7 +173,7 @@ func suggestPivot(columns []ResultColumn) *PivotHint {
 	for _, c := range columns {
 		switch c.SemanticType {
 		case SemanticTypeDimension:
-			if c.Format == FormatDate || c.Format == FormatDateTime {
+			if isTimeDimFormat(c.Format) {
 				continue
 			}
 			catDims = append(catDims, c.Name)

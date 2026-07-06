@@ -517,7 +517,15 @@ export interface RunStep {
 
 export type QueryColumnSemanticType = 'dimension' | 'metric'
 
-export type QueryColumnFormat = 'number' | 'currency' | 'percent' | 'date' | 'datetime' | 'text'
+export type QueryColumnFormat =
+  | 'number'
+  | 'currency'
+  | 'percent'
+  | 'date'
+  | 'datetime'
+  | 'text'
+  | 'month_of_year'
+  | 'quarter'
 
 export interface QueryColumn {
   name: string
