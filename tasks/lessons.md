@@ -133,6 +133,14 @@ Applied in PII masking:
 
 ## Architecture Decisions
 
+### Distinguish AI Agent Runtime from Job/Service Orchestration
+
+When a request mentions an `agent` service and inter-service communication, do not infer that
+the user means a queue worker or generic service orchestrator. First clarify whether `agent`
+means an LLM-driven loop that plans, selects tools, observes results, and continues. Treat NATS,
+workers, and service-to-service transport as supporting infrastructure only after the AI agent's
+behavior and tool boundary are explicit.
+
 ### Expression AST: Sealed Interface with JSON Discriminator
 
 `pkg/semantic/expr.go` uses:
