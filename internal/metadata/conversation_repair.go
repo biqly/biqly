@@ -1,16 +1,26 @@
 package metadata
 
 import (
+	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
+
+	"github.com/bytedance/sonic"
 )
 
 // Production batch gap: legacy rows lack request/remote IDs, so we group
 // rapid sequential inserts into candidate POST batches using a fixed boundary.
 const repairBatchGap = 250 * time.Millisecond
+
+// RepairBatchGap returns the production batch gap for replay-chain detection.
+func RepairBatchGap() time.Duration {
+	return repairBatchGap
+}
 
 // RepairMessage is a flat message representation for the replay-chain detector.
 type RepairMessage struct {
@@ -25,11 +35,11 @@ type RepairMessage struct {
 
 // RepairCandidate describes a detected replay chain and what should be kept vs. removed.
 type RepairCandidate struct {
-	ConversationID string
-	CanonicalHash  string
-	KeepIDs        []string
-	ReplayIDs      []string
-	Reason         string
+	ConversationID string   `json:"conversation_id"`
+	CanonicalHash  string   `json:"canonical_hash"`
+	KeepIDs        []string `json:"keep_ids"`
+	ReplayIDs      []string `json:"replay_ids"`
+	Reason         string   `json:"reason"`
 }
 
 // ErrRepairAmbiguous is returned when the message history cannot be unambiguously
@@ -175,14 +185,16 @@ func jsonBytesEqual(a, b json.RawMessage) bool {
 	return hex.EncodeToString(ca) == hex.EncodeToString(cb)
 }
 
+// canonicalJSONAPI sorts map keys so equivalent payloads hash identically
+// regardless of original key order.
+var canonicalJSONAPI = sonic.Config{SortMapKeys: true}.Froze()
+
 func canonicalJSON(raw json.RawMessage) []byte {
 	var v any
-	// Use encoding/json for canonicalization — sonic doesn't guarantee
-	// stable key ordering for map[string]any, but encoding/json sorts keys.
-	if err := json.Unmarshal(raw, &v); err != nil {
+	if err := sonic.Unmarshal(raw, &v); err != nil {
 		return raw
 	}
-	out, err := json.Marshal(v)
+	out, err := canonicalJSONAPI.Marshal(v)
 	if err != nil {
 		return raw
 	}
@@ -213,4 +225,214 @@ func sortRepairMessages(msgs []RepairMessage) {
 			}
 		}
 	}
+}
+
+// RepairRunRow is one persisted repair run.
+type RepairRunRow struct {
+	ID             string
+	Mode           string
+	Status         string
+	CandidateCount int
+	RepairedCount  int
+	SkippedCount   int
+	CanonicalHash  string
+	CreatedAt      time.Time
+	CompletedAt    sql.NullTime
+}
+
+// CreateRepairRun inserts a new repair run and returns its id.
+func (r *Repository) CreateRepairRun(ctx context.Context, mode, canonicalHash string, candidateCount int) (string, error) {
+	var id string
+	err := r.db.QueryRowContext(ctx, `
+		INSERT INTO conversation_repair_runs (mode, status, candidate_count, canonical_hash)
+		VALUES ($1, 'pending', $2, $3)
+		RETURNING id::text
+	`, mode, candidateCount, canonicalHash).Scan(&id)
+	if err != nil {
+		return "", fmt.Errorf("create repair run: %w", err)
+	}
+	return id, nil
+}
+
+// CompleteRepairRun marks a repair run as completed and records counts.
+func (r *Repository) CompleteRepairRun(ctx context.Context, runID string, repairedCount, skippedCount int) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE conversation_repair_runs
+		SET status = 'completed', repaired_count = $2, skipped_count = $3, completed_at = now()
+		WHERE id = $1
+	`, runID, repairedCount, skippedCount)
+	if err != nil {
+		return fmt.Errorf("complete repair run: %w", err)
+	}
+	return nil
+}
+
+// GetRepairRun returns one repair run by id.
+func (r *Repository) GetRepairRun(ctx context.Context, runID string) (*RepairRunRow, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT id::text, mode, status, candidate_count, repaired_count, skipped_count,
+		       canonical_hash, created_at, completed_at
+		FROM conversation_repair_runs
+		WHERE id = $1
+	`, runID)
+	var rr RepairRunRow
+	if err := row.Scan(&rr.ID, &rr.Mode, &rr.Status, &rr.CandidateCount, &rr.RepairedCount,
+		&rr.SkippedCount, &rr.CanonicalHash, &rr.CreatedAt, &rr.CompletedAt); err != nil {
+		return nil, fmt.Errorf("get repair run: %w", err)
+	}
+	return &rr, nil
+}
+
+// LoadRepairMessages fetches all non-deleted messages for a conversation,
+// ordered by created_at and id, for replay-chain analysis.
+func (r *Repository) LoadRepairMessages(ctx context.Context, conversationID string) ([]RepairMessage, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id::text, role, content, COALESCE(ai_response::text, ''),
+		       COALESCE(result_summary, ''), created_at
+		FROM ai_conversation_messages
+		WHERE conversation_id = $1 AND deleted_at IS NULL
+		ORDER BY created_at ASC, id ASC
+	`, conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("load repair messages: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var messages []RepairMessage
+	for rows.Next() {
+		var m RepairMessage
+		var responseText string
+		if err := rows.Scan(&m.ID, &m.Role, &m.Content, &responseText, &m.Summary, &m.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan repair message: %w", err)
+		}
+		if responseText != "" {
+			m.Response = json.RawMessage(responseText)
+		}
+		messages = append(messages, m)
+	}
+	return messages, rows.Err()
+}
+
+// ApplyRepairRun archives the replay messages and soft-deletes them in one transaction.
+// It locks the conversation, re-verifies the canonical hash, and never hard-deletes.
+func (r *Repository) ApplyRepairRun(ctx context.Context, runID string, candidate RepairCandidate) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin repair tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Lock and re-verify canonical hash under FOR UPDATE.
+	var currentHash string
+	err = tx.QueryRowContext(ctx, `
+		SELECT canonical_hash FROM conversation_repair_runs
+		WHERE id = $1 AND status = 'pending'
+		FOR UPDATE
+	`, runID).Scan(&currentHash)
+	if err != nil {
+		return fmt.Errorf("lock repair run: %w", err)
+	}
+	if currentHash != candidate.CanonicalHash {
+		return fmt.Errorf("canonical hash mismatch: expected %s, got %s", currentHash, candidate.CanonicalHash)
+	}
+
+	// Archive each replay message, then soft-delete.
+	for _, msgID := range candidate.ReplayIDs {
+		var id, role, content, convID string
+		var createdAt time.Time
+		var remoteID sql.NullString
+		var ordinal sql.NullInt64
+		var fullRowJSON []byte
+
+		err = tx.QueryRowContext(ctx, `
+			SELECT id::text, conversation_id, COALESCE(remote_id, ''), role, content,
+			       created_at, COALESCE(ordinal, 0), to_jsonb(m)
+			FROM ai_conversation_messages m
+			WHERE id = $1
+		`, msgID).Scan(&id, &convID, &remoteID, &role, &content, &createdAt, &ordinal, &fullRowJSON)
+		if err != nil {
+			return fmt.Errorf("load message %s for archive: %w", msgID, err)
+		}
+
+		contentHash := computeCanonicalHash([]RepairMessage{{Role: role, Content: content}})
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO conversation_message_repair_archive
+			    (repair_run_id, original_message_id, conversation_id, remote_id, role,
+			     content, content_hash, ordinal, created_at, full_row_json)
+			VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, $7, $8, $9, $10)
+			ON CONFLICT (repair_run_id, original_message_id) DO NOTHING
+		`, runID, id, convID, remoteID.String, role, content, contentHash, ordinal, createdAt, fullRowJSON)
+		if err != nil {
+			return fmt.Errorf("archive message %s: %w", msgID, err)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			UPDATE ai_conversation_messages
+			SET deleted_at = now(), deleted_by_repair_run_id = $2::uuid
+			WHERE id = $1 AND deleted_at IS NULL
+		`, msgID, runID)
+		if err != nil {
+			return fmt.Errorf("soft-delete message %s: %w", msgID, err)
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE conversation_repair_runs
+		SET status = 'completed', repaired_count = $2, completed_at = now()
+		WHERE id = $1
+	`, runID, len(candidate.ReplayIDs)); err != nil {
+		return fmt.Errorf("complete repair run: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+// RestoreRepairRun clears the soft-delete markers for messages archived by a run.
+func (r *Repository) RestoreRepairRun(ctx context.Context, runID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE ai_conversation_messages
+		SET deleted_at = NULL, deleted_by_repair_run_id = NULL
+		WHERE deleted_by_repair_run_id = $1::uuid
+	`, runID)
+	if err != nil {
+		return fmt.Errorf("restore repair run: %w", err)
+	}
+	_, err = r.db.ExecContext(ctx, `
+		UPDATE conversation_repair_runs
+		SET status = 'pending', repaired_count = 0, completed_at = NULL
+		WHERE id = $1
+	`, runID)
+	if err != nil {
+		return fmt.Errorf("reset repair run status: %w", err)
+	}
+	return nil
+}
+
+// PurgeRepairRun physically deletes the archived messages for a completed run.
+// This is a separate, explicitly invoked operation after observation.
+func (r *Repository) PurgeRepairRun(ctx context.Context, runID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin purge tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Hard-delete soft-deleted messages attributed to this run.
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM ai_conversation_messages
+		WHERE deleted_by_repair_run_id = $1::uuid AND deleted_at IS NOT NULL
+	`, runID); err != nil {
+		return fmt.Errorf("purge messages: %w", err)
+	}
+
+	// Keep the archive rows for audit trail; just mark run as purged.
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE conversation_repair_runs
+		SET mode = 'purge', status = 'completed', completed_at = now()
+		WHERE id = $1
+	`, runID); err != nil {
+		return fmt.Errorf("mark purge complete: %w", err)
+	}
+
+	return tx.Commit()
 }
