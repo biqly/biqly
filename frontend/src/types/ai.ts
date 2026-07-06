@@ -294,6 +294,12 @@ export interface ConversationMessage {
    * re-attach results after a page refresh and to dedupe applied results. */
   job_id?: string
   result_summary?: string
+  /** Client-generated stable identity for idempotent snapshot writes. */
+  remote_id?: string
+  /** Position within the client conversation snapshot (for stable ordering). */
+  ordinal?: number
+  /** Server-assigned backend id (not used as replay identity). */
+  id?: string
 }
 
 export interface Conversation {
@@ -305,6 +311,8 @@ export interface Conversation {
   context_enabled?: boolean
   datasource_id?: string
   model_id?: string | null
+  /** Monotonically increasing server snapshot version for optimistic concurrency. */
+  snapshot_version?: number
 }
 
 // ─── LogicalQuery Types ────────────────────────────────────────────
