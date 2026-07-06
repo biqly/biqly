@@ -273,6 +273,9 @@ export interface AIQueryResponse {
   generation_trace?: GenerationTrace
   // Ordered pipeline step timeline (routing, prompt, LLM attempts, validation)
   run_steps?: RunStep[]
+  /** Id of the persisted agent_runs row for this question; lets the trace be
+   * re-fetched (GET /api/ai/runs/{id}) so it survives reload. */
+  run_id?: string
 }
 
 export interface ConversationMessage {

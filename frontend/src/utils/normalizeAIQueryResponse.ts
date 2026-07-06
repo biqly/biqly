@@ -126,6 +126,9 @@ function assignMetadataFields(flat: AIQueryResponse, metadata: Record<string, un
   if (Array.isArray(metadata.run_steps)) {
     flat.run_steps = metadata.run_steps.filter(isRecord) as unknown as AIQueryResponse['run_steps']
   }
+  if (typeof metadata.run_id === 'string') {
+    flat.run_id = metadata.run_id
+  }
 }
 
 /** Unwraps backend `ai.Response` ({ result, metadata, clarification }) into flat `AIQueryResponse`. */

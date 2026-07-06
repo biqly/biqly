@@ -383,8 +383,8 @@ export function AssistantMessageQueryDetails({
       {result.generation_trace && !result.needs_clarification ? (
         <GenerationTracePanel trace={result.generation_trace} />
       ) : null}
-      {result.run_steps?.length && !result.needs_clarification ? (
-        <RunTracePanel steps={result.run_steps} />
+      {(result.run_steps?.length || result.run_id) && !result.needs_clarification ? (
+        <RunTracePanel steps={result.run_steps ?? []} runId={result.run_id} />
       ) : null}
       <AssistantTableRoutingSection result={result} onSampleData={onSampleData} t={t} />
       <ValidationPlanSection result={result} t={t} />

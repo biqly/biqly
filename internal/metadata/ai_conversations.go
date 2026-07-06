@@ -143,6 +143,23 @@ func (r *Repository) DeleteAIConversation(ctx context.Context, id string, userID
 	return rows > 0, nil
 }
 
+// ConversationBelongsToUser reports whether the conversation exists and is
+// owned by userID. Used to scope conversation-derived listings (e.g. agent
+// runs) to their owner.
+func (r *Repository) ConversationBelongsToUser(ctx context.Context, id, userID string) (bool, error) {
+	if id == "" || userID == "" {
+		return false, nil
+	}
+	var exists bool
+	err := r.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM ai_conversations WHERE id = $1 AND user_id = $2)`,
+		id, userID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("conversation belongs to user: %w", err)
+	}
+	return exists, nil
+}
+
 func scanAIConversationRow(s platformdb.Scanner) (AIConversation, *AIConversationMessage, error) {
 	var conv AIConversation
 	var modelID, title sql.NullString

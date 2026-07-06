@@ -186,6 +186,25 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 
 	registerAIExamplesGlossaryAndTemplatesRoutes(r, deps, authClient, usageBreakdownPagination)
 	registerAISkillsRoutes(r, deps, aiHandler, authClient)
+	registerAIRunRoutes(r, deps, aiHandler, authClient, aiUserMW)
+}
+
+// registerAIRunRoutes wires the persisted agent run + step trace (Agentic
+// Runtime A1). The {id} detail route resolves the run to its owning datasource
+// before the access check (like the skills/glossary routes); the list route is
+// conversation-scoped and owner-checked in the handler.
+func registerAIRunRoutes(
+	r chi.Router,
+	deps *app.AIDeps,
+	aiHandler *handlers.AIHandler,
+	authClient *bimw.AuthClient,
+	aiUserMW func(http.Handler) http.Handler,
+) {
+	runDS := func(ctx context.Context, id string) (string, error) {
+		return deps.MetaRepo.DatasourceForAgentRun(ctx, id)
+	}
+	r.With(aiUserMW).Get("/ai/runs", aiHandler.ListAgentRuns)
+	r.With(aiUserMW, bimw.RequireResolvedDatasourceAccess(authClient, "read", runDS)).Get("/ai/runs/{id}", aiHandler.GetAgentRun)
 }
 
 // registerAISkillsRoutes wires the skills library: saved parameterized

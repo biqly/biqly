@@ -60,6 +60,10 @@ type AIMetadata struct {
 	RepairDetails               []RepairDetail              `json:"repair_details,omitempty"`
 	GenerationTrace             *GenerationTrace            `json:"generation_trace,omitempty"`
 	RunSteps                    []RunStep                   `json:"run_steps,omitempty"`
+	// RunID is the id of the persisted agent_runs row for this question, set by
+	// the handler after best-effort persistence so the frontend can fetch the
+	// durable run + step trace (survives reload).
+	RunID string `json:"run_id,omitempty"`
 }
 
 type RepairDetail struct {
