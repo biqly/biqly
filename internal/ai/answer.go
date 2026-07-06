@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/bytedance/sonic"
+
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/query"
 )
@@ -46,7 +48,60 @@ func (s *Service) SynthesizeAnswer(ctx context.Context, question, locale string,
 		slog.DebugContext(ctx, "answer synthesis failed", "error", err)
 		return ""
 	}
-	return strings.TrimSpace(gen.Content)
+	return sanitizeAnswerText(gen.Content)
+}
+
+// sanitizeAnswerText normalizes an answer completion to plain prose. Query
+// models are heavily primed toward JSON and sometimes wrap the sentence as
+// {"answer": "..."} or in a code fence despite the plain-text instruction;
+// unwrap those deterministically and fall back to the trimmed raw text.
+func sanitizeAnswerText(content string) string {
+	text := strings.TrimSpace(content)
+	if text == "" {
+		return ""
+	}
+	// Strip a surrounding markdown code fence (```json ... ``` or ``` ... ```).
+	if strings.HasPrefix(text, "```") {
+		text = strings.TrimPrefix(text, "```")
+		if idx := strings.IndexByte(text, '\n'); idx >= 0 && !strings.ContainsAny(text[:idx], " \t") {
+			text = text[idx+1:]
+		}
+		text = strings.TrimSuffix(strings.TrimSpace(text), "```")
+		text = strings.TrimSpace(text)
+	}
+	// Unwrap a JSON object: take the first string value (prefer "answer").
+	if strings.HasPrefix(text, "{") {
+		if v, ok := answerFromJSONObject(text); ok {
+			return v
+		}
+		return text
+	}
+	// Unwrap a bare JSON string literal.
+	if strings.HasPrefix(text, "\"") && strings.HasSuffix(text, "\"") {
+		var sv string
+		if err := sonic.ConfigStd.Unmarshal([]byte(text), &sv); err == nil && strings.TrimSpace(sv) != "" {
+			return strings.TrimSpace(sv)
+		}
+	}
+	return text
+}
+
+// answerFromJSONObject extracts the prose from a JSON-object completion like
+// {"answer": "..."} — preferring the "answer" key, else any non-empty string value.
+func answerFromJSONObject(text string) (string, bool) {
+	var obj map[string]any
+	if err := sonic.ConfigStd.Unmarshal([]byte(text), &obj); err != nil {
+		return "", false
+	}
+	if v, ok := obj["answer"].(string); ok && strings.TrimSpace(v) != "" {
+		return strings.TrimSpace(v), true
+	}
+	for _, v := range obj {
+		if sv, ok := v.(string); ok && strings.TrimSpace(sv) != "" {
+			return strings.TrimSpace(sv), true
+		}
+	}
+	return "", false
 }
 
 // buildAnswerPrompt renders a compact, bounded prompt: the question, the target
@@ -67,6 +122,7 @@ func buildAnswerPrompt(question, locale string, result *query.Result) string {
 	sb.WriteString(renderResultForAnswer(result))
 	sb.WriteString("\n## Instructions\n")
 	sb.WriteString("- Reply with 1-2 short sentences in plain text (no markdown, no tables, no SQL, no code fences).\n")
+	sb.WriteString("- Do NOT wrap the reply in JSON, braces, or quotes — output the bare sentence only.\n")
 	sb.WriteString("- State the key number(s) from the result directly; you may add at most one brief observation.\n")
 	sb.WriteString("- Use ONLY the data shown above. Do NOT invent, estimate, or extrapolate any values.\n")
 	sb.WriteString("- Write the answer in ")

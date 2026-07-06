@@ -85,3 +85,25 @@ func TestSynthesizeAnswerSkippedWhenDisabledOrNoData(t *testing.T) {
 		t.Fatalf("provider calls = %d, want 0 (no LLM call when gated/empty)", provider.calls)
 	}
 }
+
+func TestSanitizeAnswerText(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, in, want string
+	}{
+		{"plain", "Dün 589 tweet atılmıştır.", "Dün 589 tweet atılmıştır."},
+		{"json answer key", `{"answer": "Dün 589 tweet atılmıştır."}`, "Dün 589 tweet atılmıştır."},
+		{"json other key", `{"cevap": "589 tweet."}`, "589 tweet."},
+		{"fenced json", "```json\n{\"answer\": \"589 tweet.\"}\n```", "589 tweet."},
+		{"bare json string", `"589 tweet."`, "589 tweet."},
+		{"unparseable brace", "{not json", "{not json"},
+		{"empty", "  ", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := sanitizeAnswerText(tc.in); got != tc.want {
+				t.Fatalf("sanitizeAnswerText(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
