@@ -195,7 +195,21 @@ func ApplyFilterSession(lq *query.LogicalQuery, session *FilterSessionState, int
 		return nil
 	}
 	var notes []string
-	added := mergeMissingFilters(&lq.Filters, session.Filters)
+	inheritable := session.Filters
+	if owned := formulaMeasureFilterFields(lq); len(owned) > 0 {
+		// A comparison formula owns its measure-filter fields (the period axis:
+		// left day=5 vs right day=4). Re-applying a prior turn's value for those
+		// fields as a top-level WHERE would zero out the other side of the
+		// comparison, so exclude them from inheritance.
+		inheritable = make([]query.Filter, 0, len(session.Filters))
+		for _, f := range session.Filters {
+			if _, ok := owned[f.Field]; ok {
+				continue
+			}
+			inheritable = append(inheritable, f)
+		}
+	}
+	added := mergeMissingFilters(&lq.Filters, inheritable)
 	if len(added) > 0 {
 		notes = append(notes, fmt.Sprintf("inherited %d filter(s) from prior turn: %s", len(added), filterSummary(added)))
 	}
@@ -204,6 +218,26 @@ func ApplyFilterSession(lq *query.LogicalQuery, session *FilterSessionState, int
 		notes = append(notes, fmt.Sprintf("inherited %d having filter(s) from prior turn: %s", len(addedHaving), filterSummary(addedHaving)))
 	}
 	return notes
+}
+
+// formulaMeasureFilterFields collects the filter fields referenced inside
+// formula measure refs (both sides). A formula select item encodes its own
+// slice of the data per side; those fields must not be re-imposed globally.
+func formulaMeasureFilterFields(lq *query.LogicalQuery) map[string]struct{} {
+	owned := make(map[string]struct{})
+	for i := range lq.Select {
+		spec := lq.Select[i].Formula
+		if lq.Select[i].Type != query.SelectTypeFormula || spec == nil {
+			continue
+		}
+		for _, f := range spec.Left.Filters {
+			owned[f.Field] = struct{}{}
+		}
+		for _, f := range spec.Right.Filters {
+			owned[f.Field] = struct{}{}
+		}
+	}
+	return owned
 }
 
 func mergeMissingFilters(target *[]query.Filter, inherited []query.Filter) []query.Filter {

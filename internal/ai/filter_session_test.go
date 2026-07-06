@@ -135,3 +135,51 @@ func TestApplyFilterSessionDoesNotDuplicate(t *testing.T) {
 		t.Errorf("expected no inheritance when field already present, got %v", notes)
 	}
 }
+
+// TestApplyFilterSessionSkipsFormulaOwnedFields: a period-comparison formula
+// owns its measure-filter fields; inheriting the prior turn's value for those
+// fields as a top-level WHERE would zero one side of the comparison
+// (regression: "yüzde kaç değişmiştir?" returned NULL because the inherited
+// day=5 WHERE starved the day=4 measure).
+func TestApplyFilterSessionSkipsFormulaOwnedFields(t *testing.T) {
+	t.Parallel()
+	session := &FilterSessionState{
+		Filters: []query.Filter{
+			{Field: "created_at_ts_year", Operator: query.OpEq, Value: 2026},
+			{Field: "created_at_ts_2_day", Operator: query.OpEq, Value: 5},
+			{Field: "country", Operator: query.OpEq, Value: "TR"},
+		},
+	}
+	lq := &query.LogicalQuery{
+		Select: []query.SelectItem{{
+			Type: query.SelectTypeFormula,
+			Name: "pct",
+			Formula: &query.FormulaSpec{
+				Op: query.FormulaOpPercentChange,
+				Left: query.MeasureRef{Metric: "count", Filters: []query.Filter{
+					{Field: "created_at_ts_year", Operator: query.OpEq, Value: 2026},
+					{Field: "created_at_ts_2_day", Operator: query.OpEq, Value: 5},
+				}},
+				Right: query.MeasureRef{Metric: "count", Filters: []query.Filter{
+					{Field: "created_at_ts_year", Operator: query.OpEq, Value: 2026},
+					{Field: "created_at_ts_2_day", Operator: query.OpEq, Value: 4},
+				}},
+			},
+		}},
+	}
+	ApplyFilterSession(lq, session, IntentRefine)
+	for _, f := range lq.Filters {
+		if f.Field == "created_at_ts_2_day" || f.Field == "created_at_ts_year" {
+			t.Fatalf("formula-owned field %q must not be inherited at top level", f.Field)
+		}
+	}
+	found := false
+	for _, f := range lq.Filters {
+		if f.Field == "country" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("non-owned field country should still inherit")
+	}
+}

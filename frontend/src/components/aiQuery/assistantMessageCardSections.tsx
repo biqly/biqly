@@ -108,17 +108,18 @@ export function AssistantMessageAnswer({
     <p
       className={isCaption ? assistantAnswerCaptionClass : assistantAnswerClass}
       aria-live="polite"
+      aria-label={text}
     >
       {/* Animated glyphs are hidden from assistive tech; the full text is
-          exposed once via an sr-only node so screen readers aren't fed one
-          character at a time. */}
+          exposed via aria-label (an sr-only twin node would duplicate the
+          sentence in copied text) so screen readers aren't fed one character
+          at a time. */}
       <span aria-hidden="true">{shown}</span>
       {!done && (
         <span aria-hidden="true" className={assistantAnswerCaretClass}>
           ▍
         </span>
       )}
-      <span className="sr-only">{text}</span>
     </p>
   )
 }
