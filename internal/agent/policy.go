@@ -124,18 +124,25 @@ type identityArgs struct {
 	DatasourceID string `json:"datasource_id"`
 }
 
-// queryProposalArgs is the policy-relevant subset of query.compile /
-// query.execute arguments. Fields beyond these are opaque to the policy
-// engine and pass through unchanged.
+// queryProposalArgs is the full shape of query.compile / query.execute
+// arguments, shared by the policy engine and the query tool adapters
+// (internal/agent/query_tools.go) so both sides decode the exact same
+// wire shape. LogicalQuery/Fingerprint carry the real tool payload;
+// SQL/Columns/Joins/RowFilterSQL are the flat, policy-inspectable summary
+// the runtime derives from that LogicalQuery for query.compile proposals —
+// they are typically empty on query.execute proposals, whose compile-time
+// shape was already checked when they were query.compile proposals.
 type queryProposalArgs struct {
 	identityArgs
-	SQL            string     `json:"sql,omitempty"`
-	Columns        []string   `json:"columns,omitempty"`
-	MaskedColumns  []string   `json:"masked_columns,omitempty"`
-	Joins          []JoinEdge `json:"joins,omitempty"`
-	RowFilterSQL   string     `json:"row_filter_sql,omitempty"`
-	RowLimit       int        `json:"row_limit,omitempty"`
-	TimeoutSeconds int        `json:"timeout_seconds,omitempty"`
+	LogicalQuery   json.RawMessage `json:"logical_query,omitempty"`
+	Fingerprint    string          `json:"fingerprint,omitempty"`
+	SQL            string          `json:"sql,omitempty"`
+	Columns        []string        `json:"columns,omitempty"`
+	MaskedColumns  []string        `json:"masked_columns,omitempty"`
+	Joins          []JoinEdge      `json:"joins,omitempty"`
+	RowFilterSQL   string          `json:"row_filter_sql,omitempty"`
+	RowLimit       int             `json:"row_limit,omitempty"`
+	TimeoutSeconds int             `json:"timeout_seconds,omitempty"`
 }
 
 func deny(reason string) Decision {
