@@ -79,6 +79,9 @@ function assignQueryFields(flat: AIQueryResponse, source: Record<string, unknown
   if (typeof source.answer === 'string') {
     flat.answer = source.answer
   }
+  if (typeof source.caveat === 'string') {
+    flat.caveat = source.caveat
+  }
   if (typeof source.confidence === 'number') {
     flat.confidence = source.confidence
   }

@@ -24,11 +24,15 @@ type ProcessContext struct {
 	Question              string
 	ClarificationChoice   string
 	ClarificationResolved bool
-	DatasourceID          string
-	clarificationRound    int
-	memoryRecallHitCount  int
-	routeDurationMs       int64
-	contextResolveMs      int64
+	// ClarificationSkip is set when the user skipped a clarification card; the
+	// ambiguity gate then proceeds with the top interpretation of every
+	// ambiguous term instead of asking again (first-class skip, never a dead-end).
+	ClarificationSkip    bool
+	DatasourceID         string
+	clarificationRound   int
+	memoryRecallHitCount int
+	routeDurationMs      int64
+	contextResolveMs     int64
 }
 
 func (pc *ProcessContext) SetMemoryRecallHitCount(count int) {
@@ -46,12 +50,19 @@ func (pc *ProcessContext) MemoryRecallHitCount() int {
 }
 
 func buildProcessContext(req aiQueryRequest) *ProcessContext {
-	return &ProcessContext{
+	pc := &ProcessContext{
 		Question:            req.Question,
 		ClarificationChoice: req.ClarificationChoice,
 		DatasourceID:        req.DatasourceID,
 		clarificationRound:  req.ClarificationRound,
 	}
+	// The skip sentinel is not a real interpretation key; flag it and clear the
+	// choice so Resolve does not try to parse it.
+	if req.ClarificationChoice == ai.ClarificationSkipChoice {
+		pc.ClarificationSkip = true
+		pc.ClarificationChoice = ""
+	}
+	return pc
 }
 
 func (pc *ProcessContext) ApplyToRequest(req *aiQueryRequest) {

@@ -83,6 +83,7 @@ This document catalogs the BI_* variables loaded through the shared `internal/co
 | `BI_AI_AMBIGUITY_LLM_ENABLED` | `false` | `false` | No | `internal/config/config.go`, `internal/ai/service.go` | No | Toggles LLM-driven backup ambiguity scoring. This flag is env-only today. |
 | `BI_AI_AMBIGUITY_TIERED_ENABLED`| `false` | `true` (Helm override) | Yes | `internal/config/config.go`, `internal/http/handlers/ai_admin_config.go` | **Yes** | Runs synonym checks before scope checks. |
 | `BI_AI_AMBIGUITY_MAX_LLM_TIER_PER_QUESTION`| `1` | `1` | Yes | `internal/config/config.go`, `internal/http/handlers/ai_admin_config.go` | **Yes** | Limits how many rounds can invoke LLM ambiguity checks. |
+| `BI_AI_CLARIFY_POLICY_ENABLED`| `true` | `true` | Yes | `internal/config/config.go`, `internal/http/handlers/ai_ambiguity_tier.go` | No | Clarify only for genuine toss-ups; otherwise proceed with the top interpretation plus a one-line caveat. Disable to restore always-clarify. |
 | `BI_AI_MEMORY_RECALL_ENABLED` | `true` | `true` | Yes | `internal/config/config.go`, `internal/http/handlers/ai_admin_config.go` | **Yes** | Enables injection of confirmed-query examples. |
 | `BI_AI_MEMORY_RECALL_LIMIT` | `5` | `5` | Yes | `internal/config/config.go`, `internal/http/handlers/ai_admin_config.go` | **Yes** | Max count of few-shot example insertions. |
 | **PII Detection & Masking** | | | | | | |

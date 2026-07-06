@@ -106,6 +106,11 @@ export const assistantAnswerCaptionClass =
 
 export const assistantAnswerCaretClass = 'ml-px inline-block text-accent animate-pulse'
 
+// Muted one-line note shown under the answer when the clarification policy
+// proceeded with a safe default instead of asking (distinct from the answer).
+export const assistantCaveatClass =
+  'mt-1 mb-0 flex items-start gap-1.5 text-[0.78rem] leading-normal text-foreground-muted'
+
 export const assistantCardTopClass = 'flex items-center justify-between gap-3 flex-wrap'
 
 export const assistantSummaryClass = 'flex items-center gap-[0.6rem] flex-wrap min-w-0'

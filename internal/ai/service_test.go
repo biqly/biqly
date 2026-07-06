@@ -476,6 +476,59 @@ func TestProcessQuestionUsesUnmergedAmbiguityGlossary(t *testing.T) {
 	}
 }
 
+// With the clarify policy enabled, an equal-confidence synonym collision is a
+// genuine toss-up and must still clarify (the policy narrows WHEN we ask; it
+// does not suppress real ambiguity).
+func TestProcessQuestionClarifyPolicyStillClarifiesGenuineTie(t *testing.T) {
+	client := &countingProvider{}
+	svc := NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), client)
+	model := &semantic.SemanticModel{
+		Metrics: []semantic.Metric{
+			{Name: "gross_revenue", Synonyms: []string{"ciro"}},
+			{Name: "net_revenue", Synonyms: []string{"ciro"}},
+		},
+	}
+
+	resp, err := svc.ProcessQuestion(context.Background(), "Ciro göster", model,
+		WithAmbiguityCheck(true), WithClarifyPolicy(true))
+	resp = requireProcessQuestionResponse(t, resp, err)
+	if got := client.calls.Load(); got != 0 {
+		t.Errorf("ProcessQuestion() provider calls = %d, want 0 (clarify on tie)", got)
+	}
+	if resp.Clarification == nil || !resp.Clarification.NeedsClarification {
+		t.Fatalf("ProcessQuestion() clarification = %+v, want clarification for genuine tie", resp.Clarification)
+	}
+	if resp.Result != nil && resp.Result.Caveat != "" {
+		t.Errorf("ProcessQuestion() caveat = %q, want empty when clarifying", resp.Result.Caveat)
+	}
+}
+
+// Skipping a clarification proceeds with the top interpretation, generates an
+// answer, and surfaces a caveat instead of dead-ending or re-clarifying.
+func TestProcessQuestionSkipProceedsWithDefaultAndCaveat(t *testing.T) {
+	client := &countingProvider{}
+	svc := NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), client)
+	model := &semantic.SemanticModel{
+		Metrics: []semantic.Metric{
+			{Name: "gross_revenue", Aggregation: "sum", Expression: "amount", Synonyms: []string{"ciro"}},
+			{Name: "net_revenue", Aggregation: "sum", Expression: "amount", Synonyms: []string{"ciro"}},
+		},
+	}
+
+	resp, err := svc.ProcessQuestion(context.Background(), "Ciro göster", model,
+		WithAmbiguityCheck(true), WithClarificationSkip(true))
+	resp = requireProcessQuestionResponse(t, resp, err)
+	if resp.Clarification != nil && resp.Clarification.NeedsClarification {
+		t.Fatalf("ProcessQuestion() clarification = %+v, want none after skip", resp.Clarification)
+	}
+	if got := client.calls.Load(); got != 1 {
+		t.Errorf("ProcessQuestion() provider calls = %d, want 1 generation after skip", got)
+	}
+	if resp.Result == nil || resp.Result.Caveat == "" {
+		t.Fatalf("ProcessQuestion() caveat empty, want a default-assumption note after skip")
+	}
+}
+
 func TestProcessQuestionRetriesOnSQLDryRunFailure(t *testing.T) {
 	srv := stubLLMServer(t, []string{
 		`{"select":[{"type":"metric","name":"row_count"}],"limit":10}`,

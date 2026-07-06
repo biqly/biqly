@@ -28,6 +28,19 @@ func (h *AIHandler) tierZeroClarificationIfNeeded(
 }
 
 func ambiguityProcessOptions(cfg config.AmbiguityConfig, pc *ProcessContext, observer ai.AmbiguityAnalysisObserver, tierRecorder func(tier string)) []ai.ProcessOption {
+	// Skip is first-class: run the ambiguity check regardless of round and let
+	// the policy proceed with the top interpretation of every ambiguous term.
+	if pc != nil && pc.ClarificationSkip {
+		opts := []ai.ProcessOption{
+			ai.WithAmbiguityCheck(true),
+			ai.WithClarificationSkip(true),
+			ai.WithAmbiguityConfidenceThreshold(cfg.ConfidenceThreshold),
+		}
+		if observer != nil {
+			opts = append(opts, ai.WithAmbiguityAnalysisObserver(observer))
+		}
+		return opts
+	}
 	if pc != nil && pc.ShouldUseInteractiveTier(cfg) {
 		if tierRecorder != nil {
 			tierRecorder("3")
@@ -37,6 +50,7 @@ func ambiguityProcessOptions(cfg config.AmbiguityConfig, pc *ProcessContext, obs
 			ai.WithAmbiguityInteractiveTier(true),
 			ai.WithAmbiguityConfidenceThreshold(cfg.ConfidenceThreshold),
 			ai.WithLLMAmbiguityCheck(true),
+			ai.WithClarifyPolicy(cfg.ClarifyPolicyEnabled),
 		}
 		if observer != nil {
 			opts = append(opts, ai.WithAmbiguityAnalysisObserver(observer))
@@ -57,6 +71,7 @@ func ambiguityProcessOptions(cfg config.AmbiguityConfig, pc *ProcessContext, obs
 		ai.WithAmbiguityCheck(true),
 		ai.WithAmbiguityConfidenceThreshold(cfg.ConfidenceThreshold),
 		ai.WithAmbiguityMaxOptions(cfg.MaxOptions),
+		ai.WithClarifyPolicy(cfg.ClarifyPolicyEnabled),
 	}
 	if cfg.TieredEnabled {
 		opts = append(opts, ai.WithAmbiguitySynonymOnly(true))
