@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react'
+
+import { getAgentRun } from '../../api/agentRuns'
 import type { TranslationKey } from '../../i18n'
 import { useT } from '../../i18n'
 import type { RunStep } from '../../types/ai'
@@ -17,19 +20,45 @@ const STEP_LABEL_KEYS: Record<string, TranslationKey> = {
 
 export function RunTracePanel({
   steps,
+  runId,
   defaultOpen = false,
 }: {
   steps: RunStep[]
+  /** When set and no in-request steps are provided (e.g. a reloaded thread),
+   * the panel re-hydrates the timeline from the persisted run. */
+  runId?: string
   defaultOpen?: boolean
 }) {
   const t = useT()
-  if (steps.length === 0) {
+  const [hydrated, setHydrated] = useState<RunStep[] | null>(null)
+
+  useEffect(() => {
+    if (steps.length > 0 || !runId) {
+      return
+    }
+    let cancelled = false
+    void getAgentRun(runId)
+      .then((detail) => {
+        if (!cancelled) {
+          setHydrated(detail.steps)
+        }
+      })
+      .catch(() => {
+        // Best-effort: the persisted trace is a convenience, not required.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [steps.length, runId])
+
+  const effectiveSteps = steps.length > 0 ? steps : (hydrated ?? [])
+  if (effectiveSteps.length === 0) {
     return null
   }
   return (
     <Collapsible title={t('ai_query.run_trace_title')} defaultOpen={defaultOpen}>
       <ol className="text-foreground-muted m-0 mt-3 flex list-none flex-col gap-0 p-0 text-[0.88rem]">
-        {steps.map((step) => {
+        {effectiveSteps.map((step) => {
           const labelKey = STEP_LABEL_KEYS[step.kind]
           const failed = step.status === 'failed'
           return (

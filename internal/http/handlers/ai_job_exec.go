@@ -98,20 +98,24 @@ func (h *AIHandler) executeAIQueryPhase(
 
 	switch phase {
 	case aiPhaseGenerate:
-		return resp, nil
+		// No compile/execute; resp is already the generated logical query.
 	case aiPhasePreview:
 		if report != nil {
 			report(AIJobProgress{Phase: "compiling", Message: "compiling sql", Progress: 75, Status: metadata.AIJobStatusRunning})
 		}
-		return h.finishAIPreviewResult(ctx, req, model, resp)
+		resp, err = h.finishAIPreviewResult(ctx, req, model, resp)
 	case aiPhaseRun:
 		if report != nil {
 			report(AIJobProgress{Phase: "executing", Message: "executing query", Progress: 85, Status: metadata.AIJobStatusRunning})
 		}
-		return h.finishAIRunResult(ctx, req, model, resp, resolved)
-	default:
-		return resp, nil
+		resp, err = h.finishAIRunResult(ctx, req, model, resp, resolved)
 	}
+	if err != nil {
+		return nil, err
+	}
+	// Best-effort: durably record the run + step trace and stamp resp.Metadata.RunID.
+	h.persistAgentRun(ctx, req, model, resp)
+	return resp, nil
 }
 
 func (h *AIHandler) finishAIPreviewResult(ctx context.Context, req aiQueryRequest, model *semantic.SemanticModel, resp *ai.Response) (*ai.Response, error) {

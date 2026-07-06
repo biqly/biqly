@@ -566,7 +566,7 @@ func (*Builder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric, budget
 		if syn != "" {
 			sy = ", synonyms: " + syn
 		}
-		line := fmt.Sprintf("- %s (aggregation: %s, expression: %s%s)\n", m.Name, m.Aggregation, m.Expression, sy)
+		line := fmt.Sprintf("- %s (aggregation: %s, expression: %s%s)%s\n", m.Name, m.Aggregation, m.Expression, sy, rateBehaviorInstruction(m.RateBehavior))
 		r := utf8.RuneCountInString(line)
 		if used+r > budgetRunes {
 			omitted = len(metrics) - i
@@ -576,6 +576,24 @@ func (*Builder) writeMetrics(sb *bytes.Buffer, metrics []semantic.Metric, budget
 		used += r
 	}
 	return omitted
+}
+
+// rateBehaviorInstruction renders the deterministic formula instruction for a
+// metric's rate behavior. Empty (unset) renders nothing, keeping existing
+// prompts byte-for-byte identical.
+func rateBehaviorInstruction(rb string) string {
+	switch rb {
+	case semantic.RateBehaviorRatioOfSums:
+		return " — rate_behavior: ratio_of_sums — compute as SUM(numerator)/SUM(denominator) over the group; never average pre-computed row rates."
+	case semantic.RateBehaviorAverageOfCustomerRates:
+		return " — rate_behavior: average_of_customer_rates — average the per-entity rates (AVG of per-entity ratio), not the pooled ratio."
+	case semantic.RateBehaviorWeightedAverage:
+		return " — rate_behavior: weighted_average — weighted average using the metric's weight column; never a plain AVG of row values."
+	case semantic.RateBehaviorLatestValue:
+		return " — rate_behavior: latest_value — use the most recent value per group, not an aggregate over all rows."
+	default:
+		return ""
+	}
 }
 
 // BuildAmbiguityAnalysis asks the LLM to identify unclear terms before

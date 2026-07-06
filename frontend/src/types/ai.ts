@@ -1,5 +1,9 @@
 // ─── AI runtime (server env) ───────────────────────────────────────
 
+/** Sentinel clarification_choice sent when the user skips a clarification card;
+ * the backend proceeds with the top interpretation (mirrors ai.ClarificationSkipChoice). */
+export const CLARIFICATION_SKIP_CHOICE = 'skip'
+
 export interface AIRuntimeSettings {
   /** Deployment profile: cloud, private, or airgapped (read-only, env-set). */
   deployment_mode?: string
@@ -244,6 +248,9 @@ export interface AIQueryResponse {
   result?: QueryResultPayload
   /** Server-synthesized 1-2 sentence natural-language answer in the user's locale. */
   answer?: string
+  /** One-line note shown when the clarification policy proceeded with a safe
+   * default instead of asking (e.g. which metric definition was assumed). */
+  caveat?: string
   // Disambiguation
   needs_clarification?: boolean
   clarification_question?: string
@@ -273,6 +280,9 @@ export interface AIQueryResponse {
   generation_trace?: GenerationTrace
   // Ordered pipeline step timeline (routing, prompt, LLM attempts, validation)
   run_steps?: RunStep[]
+  /** Id of the persisted agent_runs row for this question; lets the trace be
+   * re-fetched (GET /api/ai/runs/{id}) so it survives reload. */
+  run_id?: string
 }
 
 export interface ConversationMessage {

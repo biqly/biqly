@@ -150,9 +150,13 @@ func (h *AIHandler) queryModelUsedLabel(ctx context.Context) string {
 }
 
 type aiQueryRequest struct {
-	DatasourceID        string   `json:"datasource_id"`
-	ModelID             string   `json:"model_id,omitempty"`
-	CompositeID         string   `json:"composite_id,omitempty"`
+	DatasourceID string `json:"datasource_id"`
+	ModelID      string `json:"model_id,omitempty"`
+	CompositeID  string `json:"composite_id,omitempty"`
+	// ConversationID scopes a persisted agent run to its conversation thread so
+	// the run + step trace can be listed per thread and resumed across
+	// clarification rounds. Empty for ad-hoc (non-conversation) queries.
+	ConversationID      string   `json:"conversation_id,omitempty"`
 	Question            string   `json:"question"`
 	Tables              []string `json:"tables,omitempty"`
 	ClarificationChoice string   `json:"clarification_choice,omitempty"`
@@ -454,6 +458,7 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 
 	switch phase {
 	case aiPhaseGenerate:
+		h.persistAgentRun(ctx, req, model, resp)
 		writeJSON(w, http.StatusOK, resp)
 	case aiPhasePreview:
 		h.finishAIPreview(ctx, w, req, model, resp)
@@ -463,7 +468,7 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 			question = pc.Question
 		}
 		if h.deps.QueryClient != nil {
-			h.finishAIRunWithQueryClient(ctx, w, resp, model, question)
+			h.finishAIRunWithQueryClient(ctx, w, req, resp, model, question)
 			return
 		}
 		runDatasource := resolved
@@ -471,7 +476,7 @@ func (h *AIHandler) processAndObserve(w http.ResponseWriter, r *http.Request, ph
 			writeInternalError(ctx, w, http.StatusInternalServerError, "datasource not resolved", errors.New("datasource not resolved"))
 			return
 		}
-		h.finishAIRun(ctx, w, model, resp, runDatasource, question)
+		h.finishAIRun(ctx, w, req, model, resp, runDatasource, question)
 	}
 }
 
@@ -569,6 +574,7 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 		logicalQuery = resp.Result.LogicalQuery
 	}
 	if logicalQuery == nil {
+		h.persistAgentRun(ctx, req, model, resp)
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
@@ -589,6 +595,7 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 			resp.Result.SQL = compiled.SQL
 			resp.Result.Args = compiled.Args
 		}
+		h.persistAgentRun(ctx, req, model, resp)
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
@@ -615,15 +622,17 @@ func (h *AIHandler) finishAIPreview(ctx context.Context, w http.ResponseWriter, 
 		resp.Result.SQL = cq.SQL
 		resp.Result.Args = cq.Args
 	}
+	h.persistAgentRun(ctx, req, model, resp)
 	writeJSON(w, http.StatusOK, resp)
 }
 
-func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, model *semantic.SemanticModel, resp *ai.Response, resolved *app.ResolvedDatasource, question string) {
+func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, req aiQueryRequest, model *semantic.SemanticModel, resp *ai.Response, resolved *app.ResolvedDatasource, question string) {
 	var logicalQuery *query.LogicalQuery
 	if resp != nil && resp.Result != nil {
 		logicalQuery = resp.Result.LogicalQuery
 	}
 	if logicalQuery == nil {
+		h.persistAgentRun(ctx, req, model, resp)
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
@@ -632,7 +641,7 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 	}
 
 	if h.deps.QueryClient != nil {
-		h.finishAIRunWithQueryClient(ctx, w, resp, model, question)
+		h.finishAIRunWithQueryClient(ctx, w, req, resp, model, question)
 		return
 	}
 	if resolved == nil || resolved.DB == nil || resolved.Driver == nil {
@@ -688,15 +697,17 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, mode
 	resp.Result.Result = result
 	h.attachAINaturalLanguageAnswer(ctx, resp, question)
 	persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, result, queryStatusSuccess, nil)
+	h.persistAgentRun(ctx, req, model, resp)
 	writeJSON(w, http.StatusOK, resp)
 }
 
-func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.ResponseWriter, resp *ai.Response, model *semantic.SemanticModel, question string) {
+func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.ResponseWriter, req aiQueryRequest, resp *ai.Response, model *semantic.SemanticModel, question string) {
 	var logicalQuery *query.LogicalQuery
 	if resp != nil && resp.Result != nil {
 		logicalQuery = resp.Result.LogicalQuery
 	}
 	if logicalQuery == nil {
+		h.persistAgentRun(ctx, req, model, resp)
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
@@ -731,6 +742,7 @@ func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.Respo
 	}
 	resp.Result.Result = result
 	h.attachAINaturalLanguageAnswer(ctx, resp, question)
+	h.persistAgentRun(ctx, req, model, resp)
 	writeJSON(w, http.StatusOK, resp)
 }
 

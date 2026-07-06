@@ -15,6 +15,7 @@ import {
 } from './aiQueryClasses'
 import {
   AssistantMessageAnswer,
+  AssistantMessageCaveat,
   AssistantMessageClarificationSections,
   AssistantMessageHeader,
   AssistantMessageQueryDetails,
@@ -360,6 +361,7 @@ export function AssistantMessageCard({
   return (
     <>
       <AssistantMessageAnswer answer={result.answer} caption={insightCaption} />
+      <AssistantMessageCaveat caveat={result.caveat} />
       <div className={assistantCardClass}>
         <AssistantCardTop
           result={result}

@@ -8,6 +8,7 @@ import type { TranslationKey } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
+import { CLARIFICATION_SKIP_CHOICE } from '../../types/ai'
 import type { SemanticModelDetail } from '../../types/semantic'
 import { formatTimeOnly } from '../../utils/formatters'
 import { JobPhaseSteps } from '../ai/JobPhaseSteps'
@@ -389,7 +390,7 @@ export function ChatPanel({
                         onSendQuery(originalQuestion, true, choice)
                       }
                       onSkipClarification={(originalQuestion) =>
-                        onSendQuery(originalQuestion, true)
+                        onSendQuery(originalQuestion, true, CLARIFICATION_SKIP_CHOICE)
                       }
                       onFilterByValue={(column, value) => {
                         const filterText = t('ai_query.filter_by_value', { column, value })

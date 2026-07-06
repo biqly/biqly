@@ -31,7 +31,7 @@ func sampleModel() *SemanticModel {
 			{ID: "d-3", ModelID: "m-1", Name: "inactive_dim", ColumnRef: "orders.x", Type: "text", IsActive: false},
 		},
 		Metrics: []Metric{
-			{ID: "mt-1", ModelID: "m-1", Name: "revenue", Expression: "orders.total_amount", Aggregation: "sum", Format: strPtr("currency"), IsActive: true},
+			{ID: "mt-1", ModelID: "m-1", Name: "revenue", Expression: "orders.total_amount", Aggregation: "sum", Format: strPtr("currency"), IsActive: true, RateBehavior: RateBehaviorRatioOfSums},
 			{ID: "mt-2", ModelID: "m-1", Name: "dead_metric", Expression: "orders.x", Aggregation: "sum", IsActive: false},
 		},
 		Joins: []Join{
@@ -67,6 +67,7 @@ func TestModelFileRoundTrip(t *testing.T) {
 	assert.Equal(t, "Açık", model.Dimensions[1].EnumValues[0].Label)
 	require.Len(t, model.Metrics, 1)
 	assert.Equal(t, "currency", *model.Metrics[0].Format)
+	assert.Equal(t, RateBehaviorRatioOfSums, model.Metrics[0].RateBehavior, "rate_behavior round-trips")
 	require.Len(t, model.Joins, 1)
 }
 
@@ -79,6 +80,7 @@ func TestParseModelFileRejectsBadInput(t *testing.T) {
 		{"missing name", "biqly_semantic_model: v1\nbase_table: t\n"},
 		{"missing base_table", "biqly_semantic_model: v1\nname: x\n"},
 		{"invalid yaml", "biqly_semantic_model: [\n"},
+		{"invalid rate_behavior", "biqly_semantic_model: v1\nname: x\nbase_table: t\nmetrics:\n  - name: m\n    expression: t.c\n    aggregation: sum\n    rate_behavior: bogus\n"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

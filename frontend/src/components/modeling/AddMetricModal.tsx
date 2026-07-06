@@ -10,6 +10,7 @@ import {
 import { metricModeToggleClass, toggleBtnClass, toggleGroupClass } from '../../lib/toggleClasses'
 import type { ColumnRow, SemanticMetric, SemanticModelDetail, TableRow } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
+import { Select } from '../ui/Select'
 import { AddMetricSimpleFields } from './AddMetricSimpleFields'
 import { ExpressionBuilder } from './ExpressionBuilder'
 import { useAddMetricModalState } from './useAddMetricModalState'
@@ -163,16 +164,41 @@ export function AddMetricModal({
           </div>
         )}
 
-        <div className={modelingFormGroupClass}>
-          <label htmlFor="metric-format">{t('modeling.metric_format_label')}</label>
-          <input
-            id="metric-format"
-            value={state.format}
-            onChange={(e) => state.setFormat(e.target.value)}
-            disabled={state.saving}
-            placeholder="$#,##0.00"
-            autoComplete="off"
-          />
+        <div className={modalFormRowClass()}>
+          <div className={modelingFormGroupClass}>
+            <label htmlFor="metric-format">{t('modeling.metric_format_label')}</label>
+            <input
+              id="metric-format"
+              value={state.format}
+              onChange={(e) => state.setFormat(e.target.value)}
+              disabled={state.saving}
+              placeholder="$#,##0.00"
+              autoComplete="off"
+            />
+          </div>
+          <div className={modelingFormGroupClass}>
+            <label htmlFor="metric-rate-behavior">{t('modeling.metric_rate_behavior_label')}</label>
+            <Select
+              id="metric-rate-behavior"
+              name="rate_behavior"
+              value={state.rateBehavior}
+              onChange={state.setRateBehavior}
+              disabled={state.saving}
+              options={[
+                { value: '', label: t('modeling.rate_behavior_default') },
+                { value: 'ratio_of_sums', label: t('modeling.rate_behavior_ratio_of_sums') },
+                {
+                  value: 'average_of_customer_rates',
+                  label: t('modeling.rate_behavior_average_of_customer_rates'),
+                },
+                { value: 'weighted_average', label: t('modeling.rate_behavior_weighted_average') },
+                { value: 'latest_value', label: t('modeling.rate_behavior_latest_value') },
+              ]}
+            />
+            <div className="text-foreground-muted mt-[0.35rem] text-[0.7rem]">
+              {t('modeling.metric_rate_behavior_help')}
+            </div>
+          </div>
         </div>
         <div className={modalActionsBorderedClass()}>
           <button

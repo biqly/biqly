@@ -36,6 +36,11 @@ type AIResult struct {
 	// synthesized from the executed result in the user's locale. Empty when
 	// answer synthesis is disabled, the result is unavailable, or synthesis failed.
 	Answer string `json:"answer,omitempty"`
+	// Caveat is a one-line note surfaced when the clarification policy proceeded
+	// with a safe default instead of asking the user (e.g. "Assumed \"revenue\"
+	// means Net Revenue. You can save a different definition."). Empty when no
+	// default was assumed.
+	Caveat string `json:"caveat,omitempty"`
 }
 
 type AIMetadata struct {
@@ -60,6 +65,10 @@ type AIMetadata struct {
 	RepairDetails               []RepairDetail              `json:"repair_details,omitempty"`
 	GenerationTrace             *GenerationTrace            `json:"generation_trace,omitempty"`
 	RunSteps                    []RunStep                   `json:"run_steps,omitempty"`
+	// RunID is the id of the persisted agent_runs row for this question, set by
+	// the handler after best-effort persistence so the frontend can fetch the
+	// durable run + step trace (survives reload).
+	RunID string `json:"run_id,omitempty"`
 }
 
 type RepairDetail struct {
@@ -95,6 +104,12 @@ type AIResponse = Response
 const (
 	ClarificationStatusNeeded = "needs_clarification"
 )
+
+// ClarificationSkipChoice is the sentinel clarification_choice value the client
+// sends when the user skips a clarification card. The backend treats it as
+// "proceed with the top interpretation of every ambiguous term" so skip is
+// first-class and never dead-ends.
+const ClarificationSkipChoice = "skip"
 
 // Clarification surfaces a structured ask-the-user response from the AI or the
 // table router. The frontend renders Question with Options as selectable

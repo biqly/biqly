@@ -19,6 +19,7 @@ import {
   assistantAnswerCaptionClass,
   assistantAnswerCaretClass,
   assistantAnswerClass,
+  assistantCaveatClass,
   assistantConfidenceClass,
   assistantSummaryClass,
   btnRunQueryContainerClass,
@@ -118,6 +119,22 @@ export function AssistantMessageAnswer({
         </span>
       )}
       <span className="sr-only">{text}</span>
+    </p>
+  )
+}
+
+// Muted one-line caveat rendered directly under the answer when the
+// clarification policy proceeded with a safe default (e.g. which metric
+// definition it assumed). Visually distinct from the prose answer.
+export function AssistantMessageCaveat({ caveat }: { caveat?: string }) {
+  const text = caveat?.trim() ?? ''
+  if (!text) {
+    return null
+  }
+  return (
+    <p className={assistantCaveatClass} aria-live="polite">
+      <span aria-hidden="true">ℹ</span>
+      <span>{text}</span>
     </p>
   )
 }
@@ -383,8 +400,8 @@ export function AssistantMessageQueryDetails({
       {result.generation_trace && !result.needs_clarification ? (
         <GenerationTracePanel trace={result.generation_trace} />
       ) : null}
-      {result.run_steps?.length && !result.needs_clarification ? (
-        <RunTracePanel steps={result.run_steps} />
+      {(result.run_steps?.length || result.run_id) && !result.needs_clarification ? (
+        <RunTracePanel steps={result.run_steps ?? []} runId={result.run_id} />
       ) : null}
       <AssistantTableRoutingSection result={result} onSampleData={onSampleData} t={t} />
       <ValidationPlanSection result={result} t={t} />

@@ -169,6 +169,17 @@ type processOptions struct {
 	ambiguityTierObserver        func(tier string)
 	stepObserver                 AIStepObserver
 	runRecorder                  *RunRecorder
+	// clarifyPolicy enables the clarify-vs-default policy on top of the analyzer:
+	// clarify only for genuine toss-ups, otherwise proceed with the top
+	// interpretation and surface a caveat. When false the legacy behavior
+	// (clarify whenever the analyzer fires) is preserved.
+	clarifyPolicy bool
+	// ambiguitySkip forces the policy to proceed with defaults even on a tie
+	// (the first-class "skip" action). Implies clarify-vs-default handling.
+	ambiguitySkip bool
+	// caveat is populated by checkAmbiguity when the policy proceeds with a
+	// default; ProcessQuestion attaches it to the final AIResult.
+	caveat string
 }
 
 type tieredProcessOptions struct {
@@ -278,6 +289,19 @@ func WithLLMAmbiguityCheck(enabled bool) ProcessOption {
 	return func(o *processOptions) { o.ambiguityLLMCheck = enabled }
 }
 
+// WithClarifyPolicy enables the clarify-vs-default policy: clarify only for
+// genuine toss-ups, otherwise proceed with the top interpretation plus a caveat.
+func WithClarifyPolicy(enabled bool) ProcessOption {
+	return func(o *processOptions) { o.clarifyPolicy = enabled }
+}
+
+// WithClarificationSkip makes the ambiguity gate proceed with the top
+// interpretation of every ambiguous term (the first-class "skip" action) rather
+// than asking again.
+func WithClarificationSkip(enabled bool) ProcessOption {
+	return func(o *processOptions) { o.ambiguitySkip = enabled }
+}
+
 // WithAmbiguityAnalysisObserver records ambiguity latency and source metrics.
 func WithAmbiguityAnalysisObserver(observer AmbiguityAnalysisObserver) ProcessOption {
 	return func(o *processOptions) { o.ambiguityObserver = observer }
@@ -296,7 +320,7 @@ func WithAIStepObserver(observer AIStepObserver) ProcessOption {
 // ProcessQuestion handles a natural language question. On parse or validation
 // failure the LLM is re-prompted with the prior output and error message, up
 // to s.maxRetries additional attempts.
-func (s *Service) ProcessQuestion(ctx context.Context, question string, model *semantic.SemanticModel, opts ...ProcessOption) (*AIResponse, error) {
+func (s *Service) ProcessQuestion(ctx context.Context, question string, model *semantic.SemanticModel, opts ...ProcessOption) (resp *AIResponse, err error) {
 	ctx, span := otel.Tracer("biqly/ai").Start(ctx, "ai.ProcessQuestion")
 	defer span.End()
 	span.SetAttributes(
@@ -312,8 +336,16 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 		opt(&options)
 	}
 
-	if resp, done := s.checkAmbiguity(ctx, question, model, &options); done {
-		return resp, nil
+	// When the clarification policy proceeds with a safe default, attach the
+	// caveat to the final answer regardless of which generation path produced it.
+	defer func() {
+		if err == nil && options.caveat != "" && resp != nil && resp.Result != nil {
+			resp.Result.Caveat = options.caveat
+		}
+	}()
+
+	if clarifyResp, done := s.checkAmbiguity(ctx, &question, model, &options); done {
+		return clarifyResp, nil
 	}
 
 	filterSess := FilterSessionFromPriorTurns(options.priorTurns)
@@ -365,7 +397,7 @@ func (s *Service) ProcessQuestion(ctx context.Context, question string, model *s
 // (response, true) when the question is ambiguous and the caller should return
 // the clarification response immediately, or (nil, false) to continue with
 // generation.
-func (s *Service) checkAmbiguity(ctx context.Context, question string, model *semantic.SemanticModel, options *processOptions) (*AIResponse, bool) {
+func (s *Service) checkAmbiguity(ctx context.Context, question *string, model *semantic.SemanticModel, options *processOptions) (*AIResponse, bool) {
 	if !options.ambiguityCheck {
 		return nil, false
 	}
@@ -373,23 +405,56 @@ func (s *Service) checkAmbiguity(ctx context.Context, question string, model *se
 	if glossary == nil {
 		glossary = options.glossary
 	}
-	cacheKey := ambiguityAnalysisCacheKey(question, model, glossary, options.ambiguityConfidenceThreshold, options.ambiguityLLMCheck, options.ambiguitySynonymOnly, options.ambiguityInteractiveTier)
+	cacheKey := ambiguityAnalysisCacheKey(*question, model, glossary, options.ambiguityConfidenceThreshold, options.ambiguityLLMCheck, options.ambiguitySynonymOnly, options.ambiguityInteractiveTier)
 	result, source, cached := s.getCachedAmbiguityAnalysis(cacheKey)
 	if cached {
 		if options.ambiguityObserver != nil {
 			options.ambiguityObserver(0, source, result.IsAmbiguous)
 		}
 	} else {
-		result = s.analyzeAmbiguity(ctx, question, model, glossary, options, cacheKey)
+		result = s.analyzeAmbiguity(ctx, *question, model, glossary, options, cacheKey)
 	}
-	if result.IsAmbiguous {
-		maxOptions := options.ambiguityMaxOptions
-		if options.ambiguityInteractiveTier {
-			maxOptions = 0
+	if !result.IsAmbiguous {
+		return nil, false
+	}
+
+	// Clarification policy sits on top of the analyzer output: clarify only for
+	// genuine toss-ups, otherwise proceed with the top interpretation as a safe
+	// default and surface a caveat. "skip" forces the default even on a tie.
+	if options.clarifyPolicy || options.ambiguitySkip {
+		decision := ambiguitypkg.Decide(result, ambiguitypkg.ClarificationTieEpsilon, options.ambiguitySkip)
+		if !decision.Clarify {
+			*question = ambiguitypkg.ApplyDefaults(*question, decision.Chosen)
+			options.caveat = buildDefaultCaveat(i18n.FromContext(ctx), decision.Chosen)
+			return nil, false
 		}
-		return ambiguityClarificationResponse(i18n.FromContext(ctx), result, maxOptions), true
 	}
-	return nil, false
+
+	maxOptions := options.ambiguityMaxOptions
+	if options.ambiguityInteractiveTier {
+		maxOptions = 0
+	}
+	return ambiguityClarificationResponse(i18n.FromContext(ctx), result, maxOptions), true
+}
+
+// buildDefaultCaveat renders the one-line note surfaced when the clarification
+// policy proceeds with a default instead of asking the user.
+func buildDefaultCaveat(locale i18n.Locale, chosen []ambiguitypkg.ChosenDefault) string {
+	if len(chosen) == 0 {
+		return ""
+	}
+	assumptions := make([]string, 0, len(chosen))
+	for _, c := range chosen {
+		label := strings.TrimSpace(c.Interpretation.Label)
+		if label == "" {
+			label = c.Interpretation.SemanticMapping.Name
+		}
+		assumptions = append(assumptions, i18n.Tf(locale, "clarification.default_assumption", map[string]any{
+			"Term":           c.Term,
+			"Interpretation": label,
+		}))
+	}
+	return strings.Join(assumptions, " ") + " " + i18n.T(locale, "clarification.default_save_hint")
 }
 
 // analyzeAmbiguity runs the deterministic ambiguity check and, when configured,

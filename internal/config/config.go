@@ -274,6 +274,11 @@ type AmbiguityConfig struct {
 	TieredEnabled bool
 	// MaxLLMTierPerQuestion caps how many clarification rounds may invoke the LLM ambiguity tier.
 	MaxLLMTierPerQuestion int
+	// ClarifyPolicyEnabled gates the clarify-vs-default policy: clarify only for
+	// genuine toss-ups, otherwise proceed with the top interpretation plus a
+	// caveat. Disabling it restores the legacy "always clarify when the analyzer
+	// fires" behavior.
+	ClarifyPolicyEnabled bool
 }
 
 // AIMemoryConfig groups the NL→SQL confirmed-query memory recall knobs.
@@ -543,6 +548,7 @@ func loadAIConfigFromEnv() AIConfig {
 			LLMEnabled:            getEnvAsBool("BI_AI_AMBIGUITY_LLM_ENABLED", false),
 			TieredEnabled:         getEnvAsBool("BI_AI_AMBIGUITY_TIERED_ENABLED", false),
 			MaxLLMTierPerQuestion: getEnvAsInt("BI_AI_AMBIGUITY_MAX_LLM_TIER_PER_QUESTION", 1),
+			ClarifyPolicyEnabled:  getEnvAsBool("BI_AI_CLARIFY_POLICY_ENABLED", true),
 		},
 		Memory: AIMemoryConfig{
 			RecallEnabled: getEnvAsBool("BI_AI_MEMORY_RECALL_ENABLED", true),

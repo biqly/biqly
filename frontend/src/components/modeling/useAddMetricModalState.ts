@@ -53,6 +53,7 @@ export function useAddMetricModalState(
       : 'sum',
   )
   const [format, setFormat] = useState(metric ? (metric.format ?? '') : '')
+  const [rateBehavior, setRateBehavior] = useState(metric ? (metric.rate_behavior ?? '') : '')
   const [expression, setExpression] = useState(metric ? metric.expression : '')
   const [astNode, setAstNode] = useState<SemanticExprNode | undefined>(
     metric ? metric.expr : undefined,
@@ -157,6 +158,7 @@ export function useAddMetricModalState(
       aggregation: payload.aggregation,
       format: format.trim() || undefined,
       expr: payload.expr,
+      rate_behavior: rateBehavior || undefined,
     }
   }
 
@@ -173,6 +175,8 @@ export function useAddMetricModalState(
     setSaving,
     format,
     setFormat,
+    rateBehavior,
+    setRateBehavior,
     expression,
     setExpression,
     astNode,

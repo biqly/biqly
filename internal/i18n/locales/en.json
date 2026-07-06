@@ -21,6 +21,8 @@
     "ambiguity_question_single": "What did you mean by \"{{.Term}}\"?",
     "ambiguity_question_multiple": "Please clarify the ambiguous terms in your question.",
     "needs_clarification_warning": "This question needs clarification before a query can be generated.",
+    "default_assumption": "Assumed \"{{.Term}}\" means {{.Interpretation}}.",
+    "default_save_hint": "You can save a different definition.",
     "temporal_filter_missing": "The time condition \"{{.Phrase}}\" was not applied to the generated query — results cover all time. Try restating the date range explicitly (e.g. an exact start and end date).",
     "ranking_followup_corrected": "Top {{.Limit}} {{.Dimension}} ranking was requested; corrected a minute-window misread to a ranking query.",
     "scope_apply_to_metric": "Apply the qualifier to metric {{.Metric}}",

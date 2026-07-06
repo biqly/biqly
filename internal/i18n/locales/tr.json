@@ -21,6 +21,8 @@
     "ambiguity_question_single": "\"{{.Term}}\" ile ne demek istediniz?",
     "ambiguity_question_multiple": "Lütfen sorunuzdaki belirsiz ifadeleri netleştirin.",
     "needs_clarification_warning": "Sorgu oluşturulabilmesi için bu sorunun netleştirilmesi gerekiyor.",
+    "default_assumption": "\"{{.Term}}\" ifadesinin {{.Interpretation}} anlamına geldiği varsayıldı.",
+    "default_save_hint": "Farklı bir tanım kaydedebilirsiniz.",
     "temporal_filter_missing": "\"{{.Phrase}}\" zaman koşulu üretilen sorguya uygulanamadı — sonuçlar tüm zamanları kapsıyor. Tarih aralığını açıkça belirterek (örn. kesin başlangıç ve bitiş tarihi) tekrar deneyin.",
     "ranking_followup_corrected": "Önceki {{.Dimension}} sıralamasının ilk {{.Limit}} satırı isteniyordu; dakika penceresi yerine sıralama sorgusu düzeltildi.",
     "scope_apply_to_metric": "Niteleyiciyi {{.Metric}} metriğine uygula",

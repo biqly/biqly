@@ -100,6 +100,10 @@ type Metric struct {
 	Description *string   `json:"description" db:"description"`
 	IsActive    bool      `json:"is_active" db:"is_active"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	// RateBehavior pins how a rate/ratio metric is aggregated across a group,
+	// so the AI query generator uses a deterministic formula instead of asking
+	// "which formula?". Empty means unset (plain aggregation semantics).
+	RateBehavior string `json:"rate_behavior,omitempty" db:"rate_behavior"`
 }
 
 // Join defines how tables are joined in a semantic model.
@@ -143,6 +147,24 @@ const (
 	AggMax           AggregationType = "max"
 	AggCountDistinct AggregationType = "count_distinct"
 )
+
+// Supported metric rate behaviors. Empty string means unset.
+const (
+	RateBehaviorRatioOfSums            = "ratio_of_sums"
+	RateBehaviorAverageOfCustomerRates = "average_of_customer_rates"
+	RateBehaviorWeightedAverage        = "weighted_average"
+	RateBehaviorLatestValue            = "latest_value"
+)
+
+// IsValidRateBehavior reports whether s is a supported metric rate behavior.
+// The empty string (unset) is valid.
+func IsValidRateBehavior(s string) bool {
+	switch s {
+	case "", RateBehaviorRatioOfSums, RateBehaviorAverageOfCustomerRates, RateBehaviorWeightedAverage, RateBehaviorLatestValue:
+		return true
+	}
+	return false
+}
 
 // Join defaults and relationship cardinality strings.
 const (
