@@ -255,6 +255,18 @@ export function ChatPanel({
 
   const messages = useMemo(() => activeConversation?.messages ?? [], [activeConversation])
 
+  const priorQuestions = useMemo(
+    () => messages.filter((m) => m.role === 'user').map((m) => m.content),
+    [messages],
+  )
+
+  const handleSelectFollowUp = (nextQuestion: string) => {
+    setQuestion(nextQuestion)
+    window.requestAnimationFrame(() => {
+      document.getElementById('ai-question')?.focus()
+    })
+  }
+
   const {
     items: catalogItems,
     canRetranslate,
@@ -402,6 +414,8 @@ export function ChatPanel({
                           true,
                         )
                       }
+                      onSelectFollowUp={handleSelectFollowUp}
+                      priorQuestions={priorQuestions}
                     />
                   </div>
                 </div>

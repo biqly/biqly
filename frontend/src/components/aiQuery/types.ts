@@ -56,6 +56,8 @@ export interface AssistantMessageCardProps {
   onSkipClarification: (originalQuestion: string) => void
   onFilterByValue: (column: string, value: string) => void
   onCellDrillDown: (column: string, value: string) => void
+  onSelectFollowUp: (question: string) => void
+  priorQuestions: string[]
 }
 
 export interface RoutingPanelProps {

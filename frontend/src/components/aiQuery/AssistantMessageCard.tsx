@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import type { TranslationKey } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { infoNoticeClass } from '../../lib/feedbackClasses'
@@ -24,6 +25,8 @@ import {
   AssistantMessageSummary,
 } from './assistantMessageCardSections'
 import { FeedbackSection } from './FeedbackSection'
+import { buildFallbackFollowUps, filterFollowUpSuggestions } from './followUpSuggestions'
+import { FollowUpSuggestions } from './FollowUpSuggestionsSection'
 import { buildResultInsight } from './resultInsight'
 import { SampleDataModal } from './SampleDataModal'
 import type { AssistantMessageCardProps, FeedbackCatKey } from './types'
@@ -237,9 +240,26 @@ export function AssistantMessageCard({
   onSkipClarification,
   onFilterByValue,
   onCellDrillDown,
+  onSelectFollowUp,
+  priorQuestions,
 }: AssistantMessageCardProps) {
   const navigate = useNavigate()
   const result = normalizeAIQueryResponse(message.ai_response)
+
+  const followUps = useMemo(() => {
+    if (!result) {
+      return []
+    }
+    const backend = filterFollowUpSuggestions(result.suggested_followups ?? [], priorQuestions)
+    if (backend.length > 0) {
+      return backend
+    }
+    return buildFallbackFollowUps({
+      response: result,
+      priorQuestions,
+      t: (key, vars) => t(key as TranslationKey, vars),
+    })
+  }, [priorQuestions, result, t])
 
   const [chartTypeOverride, setChartTypeOverride] = useResetStateOnDepsChange<
     'bar' | 'line' | 'pie' | 'table' | null
@@ -412,6 +432,11 @@ export function AssistantMessageCard({
             localeTag={localeTag}
           />
         )}
+        <FollowUpSuggestions
+          suggestions={followUps}
+          onSelect={onSelectFollowUp}
+          t={(key, vars) => t(key as TranslationKey, vars)}
+        />
         <AssistantMessageFeedbackRow
           userQuestion={userQuestion}
           datasourceId={datasourceId}
