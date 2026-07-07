@@ -113,6 +113,21 @@ describe('normalizeAIQueryResponse', () => {
     expect(flat?.run_steps?.[1]?.detail).toBe('provider timeout')
   })
 
+  it('unwraps suggested_followups from the nested result', () => {
+    const nested = {
+      result: {
+        sql: 'SELECT 1',
+        confidence: 0.8,
+        suggested_followups: [
+          { id: 'f1', kind: 'trend', label: 'Trend', question: 'How did this trend over time?' },
+        ],
+      },
+    }
+    const flat = normalizeAIQueryResponse(nested)
+    expect(flat?.suggested_followups).toHaveLength(1)
+    expect(flat?.suggested_followups?.[0]?.id).toBe('f1')
+  })
+
   it('filters non-string clarification_options entries', () => {
     const nested = {
       result: { confidence: 0 },

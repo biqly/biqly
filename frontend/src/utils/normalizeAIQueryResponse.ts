@@ -73,6 +73,9 @@ function assignQueryFields(flat: AIQueryResponse, source: Record<string, unknown
     flat.sql = source.sql
   }
   flat.warnings = toStringArray(source.warnings)
+  if (Array.isArray(source.suggested_followups)) {
+    flat.suggested_followups = source.suggested_followups as AIQueryResponse['suggested_followups']
+  }
   if (isRecord(source.result)) {
     flat.result = source.result as unknown as AIQueryResponse['result']
   }

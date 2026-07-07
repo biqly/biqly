@@ -238,6 +238,24 @@ export interface VisualizationHint {
   reason: string
 }
 
+export type SuggestedFollowUpKind =
+  | 'breakdown'
+  | 'comparison'
+  | 'trend'
+  | 'chart'
+  | 'drilldown'
+  | 'filter'
+  | 'explain'
+
+export interface SuggestedFollowUp {
+  id: string
+  label: string
+  question: string
+  reason?: string
+  kind: SuggestedFollowUpKind
+  requires?: string[]
+}
+
 export interface AIQueryResponse {
   confidence?: number
   confidence_breakdown?: ConfidenceBreakdown
@@ -283,6 +301,8 @@ export interface AIQueryResponse {
   /** Id of the persisted agent_runs row for this question; lets the trace be
    * re-fetched (GET /api/ai/runs/{id}) so it survives reload. */
   run_id?: string
+  /** Backend-suggested next questions (or client-built fallbacks) for the follow-up chips. */
+  suggested_followups?: SuggestedFollowUp[]
 }
 
 export interface ConversationMessage {
