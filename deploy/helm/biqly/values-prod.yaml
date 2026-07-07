@@ -218,15 +218,12 @@ query:
 worker:
   image:
     tag: sha-fc93b3bf3c15ebe5244e430e17102b9fd24f3471
-# Rolled back 2026-07-07: the dark-deploy on 2026-07-06 shared the legacy AI
-# pipeline's JetStream stream (BIQLY_AI_JOBS) via internal/queue.ConnectNATS,
-# which replaces (not merges) the stream's Subjects list on every connect —
-# this dropped biqly.ai.jobs from the stream and broke legacy AI job
-# publishing in production ("nats: no response from stream"). Disabled here
-# until internal/queue.ConnectNATS is fixed to merge subjects instead of
-# replacing them, then redeployed.
+# Re-deployed 2026-07-07: ConnectNATS fixed to merge subjects instead of
+# replacing them (b98ace38). Agent runs in shadow mode observing/comparing
+# results alongside the legacy pipeline, with its own job subject
+# (biqly.agent.jobs) on the shared BIQLY_AI_JOBS stream.
 agent:
-  enabled: false
+  enabled: true
 mcp:
   replicaCount: 1
   resources:

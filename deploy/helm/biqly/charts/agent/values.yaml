@@ -34,6 +34,7 @@ service:
 config:
   BI_HTTP_PORT: "8084"
   BI_NATS_URL: nats://biqly-nats:4222
+  BI_NATS_CONSUMER_GROUP: biqly-agent-workers
   BI_CATALOG_SERVICE_URL: http://biqly-catalog:8080
   BI_AI_SERVICE_URL: http://biqly-ai:8082
   BI_QUERY_SERVICE_URL: http://biqly-query:8081
