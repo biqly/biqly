@@ -8,6 +8,8 @@ import { unknownToDisplayString } from './formatters'
 export interface FormatResultCellOptions {
   /** Natural-language question; used to detect requests for decimal / fractional display. */
   question?: string
+  /** Backend rendering hint for the column (e.g. 'percent', 'number', 'currency'). */
+  columnFormat?: string
 }
 
 const MAX_NUMBER_FORMAT_CACHE_SIZE = 24
@@ -168,6 +170,16 @@ export function formatResultCell(
   const n = parseNumeric(value)
   if (n === null) {
     return unknownToDisplayString(value)
+  }
+
+  // Explicit backend format hint wins over name-based heuristics. Percent
+  // columns already carry a 0-100 scaled value, so append "%" directly.
+  if (options.columnFormat === 'percent') {
+    return `${getNumberFormat({
+      maximumFractionDigits: 1,
+      minimumFractionDigits: 0,
+      useGrouping: true,
+    }).format(n)}%`
   }
 
   const calendarInt = isCalendarIntColumn(columnName)

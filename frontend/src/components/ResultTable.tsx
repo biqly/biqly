@@ -217,7 +217,11 @@ export function ResultTable({
                           className={onCellClick ? cellDrillableClass : ''}
                           onClick={() => onCellClick?.(colName, String(cell))}
                         >
-                          {grainLabel ?? formatResultCell(cell, colName, { question })}
+                          {grainLabel ??
+                            formatResultCell(cell, colName, {
+                              question,
+                              columnFormat: columns[colIdx]?.format,
+                            })}
                         </span>
                       </td>
                     )

@@ -351,8 +351,8 @@ func upsertConversationInTx(
 		SET datasource_id = $2::uuid, model_id = NULLIF($3, '')::uuid,
 		    context_enabled = $4, title = NULLIF($5, ''),
 		    snapshot_version = snapshot_version + 1, updated_at = now()
-		WHERE id = $1 AND user_id = $2
-	`, conv.ID, conv.DatasourceID, derefStringOrEmpty(conv.ModelID), conv.ContextEnabled, derefStringOrEmpty(conv.Title)); err != nil {
+		WHERE id = $1 AND user_id = $6
+	`, conv.ID, conv.DatasourceID, derefStringOrEmpty(conv.ModelID), conv.ContextEnabled, derefStringOrEmpty(conv.Title), userID); err != nil {
 		return fmt.Errorf("update conversation: %w", err)
 	}
 	conv.SnapshotVersion = currentVersion + 1

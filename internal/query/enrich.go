@@ -57,11 +57,13 @@ func EnrichResult(result *Result, lq *LogicalQuery, model *semantic.SemanticMode
 				byAlias[alias] = role{semanticType: SemanticTypeDimension, format: format}
 			}
 		case SelectTypeMetric:
-			if _, ok := metricByName[item.Name]; ok {
-				byAlias[alias] = role{semanticType: SemanticTypeMetric, format: FormatNumber}
+			if mt, ok := metricByName[item.Name]; ok {
+				byAlias[alias] = role{semanticType: SemanticTypeMetric, format: formatForMetric(mt)}
 			}
 		case SelectTypeWindow:
 			byAlias[alias] = role{semanticType: SemanticTypeMetric, format: FormatNumber}
+		case SelectTypeFormula:
+			byAlias[alias] = role{semanticType: SemanticTypeMetric, format: formatForFormula(item.Formula)}
 		}
 	}
 
@@ -83,6 +85,39 @@ func PrimaryChartSuggestion(suggestions []string) string {
 		return ChartTable
 	}
 	return suggestions[0]
+}
+
+// formatForMetric honours an explicit semantic-model metric format, falling
+// back to FormatNumber when unset or unrecognised.
+func formatForMetric(m *semantic.Metric) string {
+	if m == nil || m.Format == nil {
+		return FormatNumber
+	}
+	switch strings.ToLower(strings.TrimSpace(*m.Format)) {
+	case FormatPercent:
+		return FormatPercent
+	case FormatCurrency:
+		return FormatCurrency
+	case FormatNumber:
+		return FormatNumber
+	default:
+		return FormatNumber
+	}
+}
+
+// formatForFormula maps a formula operator to a rendering hint. percent_of and
+// percent_change already compile to a 0-100 scaled value, so they render as
+// percentages; other operators (difference, ratio) stay plain numbers.
+func formatForFormula(f *FormulaSpec) string {
+	if f == nil {
+		return FormatNumber
+	}
+	switch f.Op {
+	case FormulaOpPercentOf, FormulaOpPercentChange:
+		return FormatPercent
+	default:
+		return FormatNumber
+	}
 }
 
 func formatForDimension(dimType string) string {

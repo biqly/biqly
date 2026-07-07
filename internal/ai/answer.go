@@ -4,9 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 
 	"github.com/bytedance/sonic"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
+	"golang.org/x/text/number"
 
 	promptpkg "github.com/biqly/biqly/internal/ai/prompt"
 	"github.com/biqly/biqly/internal/query"
@@ -119,11 +123,12 @@ func buildAnswerPrompt(question, locale string, result *query.Result) string {
 	sb.WriteString("## Question\n")
 	sb.WriteString(question)
 	sb.WriteString("\n\n## Query Result\n")
-	sb.WriteString(renderResultForAnswer(result))
+	sb.WriteString(renderResultForAnswer(result, locale))
 	sb.WriteString("\n## Instructions\n")
 	sb.WriteString("- Reply with 1-2 short sentences in plain text (no markdown, no tables, no SQL, no code fences).\n")
 	sb.WriteString("- Do NOT wrap the reply in JSON, braces, or quotes — output the bare sentence only.\n")
 	sb.WriteString("- State the key number(s) from the result directly; you may add at most one brief observation.\n")
+	sb.WriteString("- Reproduce the numbers exactly as formatted in the result above (keep the percent sign and digit grouping); do NOT reformat, round further, or expand them.\n")
 	sb.WriteString("- Use ONLY the data shown above. Do NOT invent, estimate, or extrapolate any values.\n")
 	sb.WriteString("- Write the answer in ")
 	sb.WriteString(locale)
@@ -133,8 +138,10 @@ func buildAnswerPrompt(question, locale string, result *query.Result) string {
 }
 
 // renderResultForAnswer produces a compact textual rendering of the result:
-// column names, up to answerMaxResultRows pipe-delimited rows, and the total count.
-func renderResultForAnswer(result *query.Result) string {
+// column names, up to answerMaxResultRows pipe-delimited rows, and the total
+// count. Numeric cells are pre-formatted (percent sign, locale digit grouping,
+// sensible rounding) so the LLM echoes clean numbers instead of raw floats.
+func renderResultForAnswer(result *query.Result, locale string) string {
 	var sb strings.Builder
 	names := make([]string, 0, len(result.Columns))
 	for _, c := range result.Columns {
@@ -144,12 +151,17 @@ func renderResultForAnswer(result *query.Result) string {
 	sb.WriteString(strings.Join(names, " | "))
 	sb.WriteByte('\n')
 
+	printer := message.NewPrinter(language.Make(locale))
 	limit := min(len(result.Rows), answerMaxResultRows)
 	for i := range limit {
 		row := result.Rows[i]
 		cells := make([]string, 0, len(row))
-		for _, v := range row {
-			cells = append(cells, promptpkg.TruncateRunes(formatAnswerCell(v), answerMaxCellRunes))
+		for colIdx, v := range row {
+			format := ""
+			if colIdx < len(result.Columns) {
+				format = result.Columns[colIdx].Format
+			}
+			cells = append(cells, promptpkg.TruncateRunes(formatAnswerCell(v, format, printer), answerMaxCellRunes))
 		}
 		sb.WriteString(strings.Join(cells, " | "))
 		sb.WriteByte('\n')
@@ -160,9 +172,44 @@ func renderResultForAnswer(result *query.Result) string {
 	return sb.String()
 }
 
-func formatAnswerCell(v any) string {
+// formatAnswerCell renders one cell for the answer prompt. Numeric values are
+// formatted per the column's rendering hint: percent columns (already 0-100
+// scaled) get up to one decimal plus "%", other numbers get locale digit
+// grouping with sensible rounding. Non-numeric values pass through unchanged.
+func formatAnswerCell(v any, format string, printer *message.Printer) string {
 	if v == nil {
 		return ""
 	}
-	return fmt.Sprintf("%v", v)
+	f, ok := answerFloat(v)
+	if !ok {
+		return fmt.Sprintf("%v", v)
+	}
+	switch format {
+	case query.FormatPercent:
+		return printer.Sprint(number.Decimal(f, number.MaxFractionDigits(1))) + "%"
+	case query.FormatNumber, query.FormatCurrency:
+		if f == math.Trunc(f) {
+			return printer.Sprint(number.Decimal(f, number.MaxFractionDigits(0)))
+		}
+		return printer.Sprint(number.Decimal(f, number.MaxFractionDigits(2)))
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+func answerFloat(v any) (float64, bool) {
+	switch x := v.(type) {
+	case float64:
+		return x, true
+	case float32:
+		return float64(x), true
+	case int:
+		return float64(x), true
+	case int64:
+		return float64(x), true
+	case int32:
+		return float64(x), true
+	default:
+		return 0, false
+	}
 }
