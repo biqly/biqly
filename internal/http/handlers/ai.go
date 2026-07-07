@@ -697,6 +697,7 @@ func (h *AIHandler) finishAIRun(ctx context.Context, w http.ResponseWriter, req 
 	}
 	resp.Result.Result = result
 	h.attachAINaturalLanguageAnswer(ctx, resp, question)
+	h.attachSuggestedFollowUps(ctx, resp, req)
 	persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, result, queryStatusSuccess, nil)
 	h.persistAgentRun(ctx, req, model, resp)
 	writeJSON(w, http.StatusOK, resp)
@@ -743,6 +744,7 @@ func (h *AIHandler) finishAIRunWithQueryClient(ctx context.Context, w http.Respo
 	}
 	resp.Result.Result = result
 	h.attachAINaturalLanguageAnswer(ctx, resp, question)
+	h.attachSuggestedFollowUps(ctx, resp, req)
 	h.persistAgentRun(ctx, req, model, resp)
 	writeJSON(w, http.StatusOK, resp)
 }

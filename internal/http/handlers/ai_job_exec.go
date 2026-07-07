@@ -168,7 +168,7 @@ func (h *AIHandler) finishAIRunResult(ctx context.Context, req aiQueryRequest, m
 	}
 
 	if h.deps.QueryClient != nil {
-		return h.finishAIRunResultWithQueryClient(ctx, resp, model, req.Question)
+		return h.finishAIRunResultWithQueryClient(ctx, resp, model, req)
 	}
 	if resolved == nil {
 		var err error
@@ -197,11 +197,13 @@ func (h *AIHandler) finishAIRunResult(ctx context.Context, req aiQueryRequest, m
 	}
 	enrichAIRunResponse(resp, result, logicalQuery, model)
 	h.attachAINaturalLanguageAnswer(ctx, resp, req.Question)
+	h.attachSuggestedFollowUps(ctx, resp, req)
 	persistQueryHistory(ctx, h.deps.MetaRepo, logicalQuery, model, cq, result, queryStatusSuccess, nil)
 	return resp, nil
 }
 
-func (h *AIHandler) finishAIRunResultWithQueryClient(ctx context.Context, resp *ai.Response, model *semantic.SemanticModel, question string) (*ai.Response, error) {
+func (h *AIHandler) finishAIRunResultWithQueryClient(ctx context.Context, resp *ai.Response, model *semantic.SemanticModel, req aiQueryRequest) (*ai.Response, error) {
+	question := req.Question
 	var logicalQuery *query.LogicalQuery
 	if resp != nil && resp.Result != nil {
 		logicalQuery = resp.Result.LogicalQuery
@@ -228,6 +230,7 @@ func (h *AIHandler) finishAIRunResultWithQueryClient(ctx context.Context, resp *
 	}
 	enrichAIRunResponse(resp, result, logicalQuery, model)
 	h.attachAINaturalLanguageAnswer(ctx, resp, question)
+	h.attachSuggestedFollowUps(ctx, resp, req)
 	return resp, nil
 }
 
