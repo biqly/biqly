@@ -92,6 +92,43 @@ func TestBuildDeterministicFollowUpsDropsQuestionsMatchingPriorTurns(t *testing.
 	}
 }
 
+func TestFollowUpSignalsFromColumnsMetricNameDoesNotFalsePositiveTimeField(t *testing.T) {
+	columns := []query.ResultColumn{
+		{Name: "region", SemanticType: query.SemanticTypeDimension, Format: query.FormatText},
+		{Name: "monthly_recurring_revenue", SemanticType: query.SemanticTypeMetric, Format: query.FormatNumber},
+	}
+
+	resultColumns, hasMetric, hasDimension, hasTimeField := followUpSignalsFromColumns(columns)
+
+	assert.Equal(t, []string{"region", "monthly_recurring_revenue"}, resultColumns)
+	assert.True(t, hasMetric)
+	assert.True(t, hasDimension)
+	assert.False(t, hasTimeField, "a metric column whose name contains a time-shaped word must not be treated as a time field")
+}
+
+func TestFollowUpSignalsFromColumnsNameFallbackStillDetectsGenuineTimeField(t *testing.T) {
+	columns := []query.ResultColumn{
+		{Name: "created_at_ts", SemanticType: query.SemanticTypeDimension, Format: query.FormatText},
+		{Name: "revenue", SemanticType: query.SemanticTypeMetric, Format: query.FormatNumber},
+	}
+
+	_, hasMetric, hasDimension, hasTimeField := followUpSignalsFromColumns(columns)
+
+	assert.True(t, hasMetric)
+	assert.True(t, hasDimension)
+	assert.True(t, hasTimeField, "a non-metric column whose name matches the time pattern should still be detected via the name fallback")
+}
+
+func TestFollowUpSignalsFromColumnsDateFormatDetectsTimeFieldRegardlessOfName(t *testing.T) {
+	columns := []query.ResultColumn{
+		{Name: "order_date", SemanticType: query.SemanticTypeDimension, Format: query.FormatDate},
+	}
+
+	_, _, _, hasTimeField := followUpSignalsFromColumns(columns)
+
+	assert.True(t, hasTimeField)
+}
+
 // TestSuggestedFollowUpsSurviveAIJobResultRoundTrip verifies that
 // suggested_followups attached to an ai.Response survive the same
 // marshal/unmarshal path used to persist and reload AI job results

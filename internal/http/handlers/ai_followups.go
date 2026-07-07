@@ -112,19 +112,7 @@ func (*AIHandler) attachSuggestedFollowUps(ctx context.Context, resp *ai.Respons
 		PriorQuestions: priorQuestionsFromTurns(req.PriorTurns),
 		ResultRowCount: len(result.Rows),
 	}
-	fc.ResultColumns = make([]string, 0, len(result.Columns))
-	for _, col := range result.Columns {
-		fc.ResultColumns = append(fc.ResultColumns, col.Name)
-		switch col.SemanticType {
-		case query.SemanticTypeMetric:
-			fc.HasMetric = true
-		case query.SemanticTypeDimension:
-			fc.HasDimension = true
-		}
-		if col.Format == query.FormatDate || col.Format == query.FormatDateTime || timeFieldNamePattern.MatchString(col.Name) {
-			fc.HasTimeField = true
-		}
-	}
+	fc.ResultColumns, fc.HasMetric, fc.HasDimension, fc.HasTimeField = followUpSignalsFromColumns(result.Columns)
 	// The fields actually present on this result are the safest set to
 	// validate Requires against — anything else is not guaranteed usable by
 	// the follow-up the chip would trigger.
@@ -132,6 +120,39 @@ func (*AIHandler) attachSuggestedFollowUps(ctx context.Context, resp *ai.Respons
 
 	resp.Result.SuggestedFollowUps = BuildDeterministicFollowUps(fc)
 	slog.DebugContext(ctx, "attached deterministic follow-up suggestions", "count", len(resp.Result.SuggestedFollowUps))
+}
+
+// followUpSignalsFromColumns derives the column-name list and the
+// HasMetric/HasDimension/HasTimeField signals that BuildDeterministicFollowUps
+// needs, from a query result's columns.
+//
+// The timeFieldNamePattern fallback is only applied to columns that are not
+// already classified as a metric: a metric's own name (e.g.
+// "monthly_recurring_revenue", "uptime_percentage", "daily_active_users") can
+// contain a time-shaped word without the column being a time axis, which
+// would otherwise cause a false-positive HasTimeField and misfire the
+// time+metric trend/chart suggestion. Dimension columns and unclassified
+// (empty SemanticType, e.g. raw SQL expressions) columns remain eligible for
+// the name-pattern fallback, mirroring the frontend's deterministic fallback
+// (frontend/src/components/aiQuery/followUpSuggestions.ts), which applies the
+// same regex without this restriction.
+func followUpSignalsFromColumns(columns []query.ResultColumn) (resultColumns []string, hasMetric, hasDimension, hasTimeField bool) {
+	resultColumns = make([]string, 0, len(columns))
+	for _, col := range columns {
+		resultColumns = append(resultColumns, col.Name)
+		switch col.SemanticType {
+		case query.SemanticTypeMetric:
+			hasMetric = true
+		case query.SemanticTypeDimension:
+			hasDimension = true
+		}
+		isDateFormat := col.Format == query.FormatDate || col.Format == query.FormatDateTime
+		nameLooksLikeTime := col.SemanticType != query.SemanticTypeMetric && timeFieldNamePattern.MatchString(col.Name)
+		if isDateFormat || nameLooksLikeTime {
+			hasTimeField = true
+		}
+	}
+	return resultColumns, hasMetric, hasDimension, hasTimeField
 }
 
 // priorQuestionsFromTurns extracts the question text from each prior
