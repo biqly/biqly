@@ -3,11 +3,18 @@ package ai
 import (
 	"slices"
 	"strings"
+	"unicode"
 )
 
 // maxSuggestedFollowUps caps the number of follow-up suggestions returned to
 // the client so the chat UI never needs to truncate the chip row itself.
 const maxSuggestedFollowUps = 3
+
+// similarityMinLength is the minimum length of the shorter of two normalized
+// strings before a substring-containment match counts as a near-duplicate.
+// Below this length, short strings (e.g. "Trend") would otherwise trigger
+// false-positive matches against unrelated longer suggestions.
+const similarityMinLength = 16
 
 // validSuggestedFollowUpKinds enumerates the kinds ValidateSuggestedFollowUps
 // accepts. Anything else (e.g. a hallucinated kind from an AI rewrite phase)
@@ -41,8 +48,9 @@ func ValidateSuggestedFollowUps(
 
 	seenQuestions := make(map[string]struct{}, len(priorQuestions))
 	for _, q := range priorQuestions {
-		seenQuestions[normalizeFollowUpQuestion(q)] = struct{}{}
+		seenQuestions[normalizeSuggestionText(q)] = struct{}{}
 	}
+	seenLabels := make(map[string]struct{}, len(candidates))
 
 	validated := make([]SuggestedFollowUp, 0, min(len(candidates), maxSuggestedFollowUps))
 	for _, candidate := range candidates {
@@ -68,15 +76,55 @@ func ValidateSuggestedFollowUps(
 		}
 		candidate.Requires = requires
 
-		normalizedQuestion := normalizeFollowUpQuestion(candidate.Question)
-		if _, duplicate := seenQuestions[normalizedQuestion]; duplicate {
+		normalizedQuestion := normalizeSuggestionText(candidate.Question)
+		if isNearDuplicate(seenQuestions, normalizedQuestion) {
 			continue
 		}
+
+		normalizedLabel := normalizeSuggestionText(candidate.Label)
+		if isNearDuplicate(seenLabels, normalizedLabel) {
+			continue
+		}
+
 		seenQuestions[normalizedQuestion] = struct{}{}
+		seenLabels[normalizedLabel] = struct{}{}
 
 		validated = append(validated, candidate)
 	}
 	return validated
+}
+
+// isNearDuplicate reports whether normalized is either an exact match of a
+// previously seen string, or a near-duplicate under the similarity MVP rule:
+// one of the two strings contains the other in full, and the shorter of the
+// pair is at least similarityMinLength runes long. The length floor avoids
+// treating short, generic strings (e.g. "Trend") as duplicates of unrelated
+// longer ones that merely happen to contain the same short substring.
+func isNearDuplicate(seen map[string]struct{}, normalized string) bool {
+	if _, exact := seen[normalized]; exact {
+		return true
+	}
+	for prior := range seen {
+		if isSimilarBySubstring(prior, normalized) {
+			return true
+		}
+	}
+	return false
+}
+
+// isSimilarBySubstring implements the containment half of the similarity
+// MVP: strings.Contains(prior, candidate) or strings.Contains(candidate,
+// prior) count as a duplicate once the shorter side reaches
+// similarityMinLength.
+func isSimilarBySubstring(a, b string) bool {
+	shorter, longer := a, b
+	if len(b) < len(a) {
+		shorter, longer = b, a
+	}
+	if len(shorter) < similarityMinLength {
+		return false
+	}
+	return strings.Contains(longer, shorter)
 }
 
 // trimmedRequiresWithinFieldSet trims each required field name and reports
@@ -98,6 +146,29 @@ func trimmedRequiresWithinFieldSet(requires []string, availableFieldSet map[stri
 	return trimmed, true
 }
 
-func normalizeFollowUpQuestion(question string) string {
-	return strings.ToLower(strings.TrimSpace(question))
+// normalizeSuggestionText lowercases, trims, collapses internal whitespace
+// runs to a single space, and drops simple punctuation, so that suggestions
+// which differ only in casing, spacing, or trailing punctuation compare as
+// duplicates.
+func normalizeSuggestionText(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+
+	var b strings.Builder
+	b.Grow(len(s))
+	pendingSpace := false
+	for _, r := range s {
+		switch {
+		case unicode.IsSpace(r):
+			pendingSpace = b.Len() > 0
+		case unicode.IsPunct(r):
+			// Drop simple punctuation entirely.
+		default:
+			if pendingSpace {
+				b.WriteByte(' ')
+				pendingSpace = false
+			}
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }

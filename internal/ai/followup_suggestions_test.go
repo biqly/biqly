@@ -70,6 +70,92 @@ func TestValidateSuggestedFollowUpsDropsPriorQuestionDuplicate(t *testing.T) {
 	require.Empty(t, got)
 }
 
+func TestValidateSuggestedFollowUpsDropsEmptyLabelOrQuestion(t *testing.T) {
+	candidates := []SuggestedFollowUp{
+		{
+			ID:       "blank-label",
+			Label:    "   ",
+			Question: "What happened yesterday?",
+			Kind:     SuggestedFollowUpExplain,
+		},
+		{
+			ID:       "blank-question",
+			Label:    "Yesterday recap",
+			Question: "   ",
+			Kind:     SuggestedFollowUpExplain,
+		},
+	}
+
+	got := ValidateSuggestedFollowUps(candidates, nil, nil)
+
+	require.Empty(t, got)
+}
+
+func TestValidateSuggestedFollowUpsDropsLabelDuplicate(t *testing.T) {
+	candidates := []SuggestedFollowUp{
+		{
+			ID:       "first",
+			Label:    "Busiest hour breakdown",
+			Question: "What was the busiest hour yesterday?",
+			Kind:     SuggestedFollowUpExplain,
+		},
+		{
+			ID:       "second",
+			Label:    "  BUSIEST hour BREAKDOWN  ",
+			Question: "Which day had the most activity overall?",
+			Kind:     SuggestedFollowUpExplain,
+		},
+	}
+
+	got := ValidateSuggestedFollowUps(candidates, nil, nil)
+
+	require.Len(t, got, 1)
+	require.Equal(t, "first", got[0].ID)
+}
+
+func TestValidateSuggestedFollowUpsDropsSubstringSimilarQuestion(t *testing.T) {
+	candidates := []SuggestedFollowUp{
+		{
+			ID:       "first",
+			Label:    "Busiest hour",
+			Question: "What was the busiest hour yesterday for tweets?",
+			Kind:     SuggestedFollowUpExplain,
+		},
+		{
+			ID:       "second",
+			Label:    "Busiest hour again",
+			Question: "Yesterday, what was the busiest hour yesterday for tweets, exactly?",
+			Kind:     SuggestedFollowUpExplain,
+		},
+	}
+
+	got := ValidateSuggestedFollowUps(candidates, nil, nil)
+
+	require.Len(t, got, 1)
+	require.Equal(t, "first", got[0].ID)
+}
+
+func TestValidateSuggestedFollowUpsKeepsShortSubstringOverlap(t *testing.T) {
+	candidates := []SuggestedFollowUp{
+		{
+			ID:       "first",
+			Label:    "Trend",
+			Question: "What was the busiest hour yesterday for tweets?",
+			Kind:     SuggestedFollowUpTrend,
+		},
+		{
+			ID:       "second",
+			Label:    "Trend line",
+			Question: "Show a trend of tweet volume by day over the last month?",
+			Kind:     SuggestedFollowUpTrend,
+		},
+	}
+
+	got := ValidateSuggestedFollowUps(candidates, nil, nil)
+
+	require.Len(t, got, 2)
+}
+
 func TestValidateSuggestedFollowUpsCapsAtThree(t *testing.T) {
 	candidates := []SuggestedFollowUp{
 		{ID: "c1", Label: "One", Question: "Question one?", Kind: SuggestedFollowUpTrend},
