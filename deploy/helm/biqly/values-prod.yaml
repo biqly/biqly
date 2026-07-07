@@ -218,19 +218,15 @@ query:
 worker:
   image:
     tag: sha-fc93b3bf3c15ebe5244e430e17102b9fd24f3471
-# Dark deploy (2026-07-06): agent.enabled=true creates the pod so it can be
-# observed running, but config.BI_AGENT_ENABLED stays "false" — the base
-# chart's own default is "true" (see charts/agent/values.yaml), so this
-# override is load-bearing, not redundant: without it the pod would start
-# consuming real jobs in shadow mode the moment it exists. The switch an
-# operator flips to start real traffic shadowing is config.BI_AGENT_ENABLED,
-# below — it should be visible here, not just inherited silently.
+# Rolled back 2026-07-07: the dark-deploy on 2026-07-06 shared the legacy AI
+# pipeline's JetStream stream (BIQLY_AI_JOBS) via internal/queue.ConnectNATS,
+# which replaces (not merges) the stream's Subjects list on every connect —
+# this dropped biqly.ai.jobs from the stream and broke legacy AI job
+# publishing in production ("nats: no response from stream"). Disabled here
+# until internal/queue.ConnectNATS is fixed to merge subjects instead of
+# replacing them, then redeployed.
 agent:
-  enabled: true
-  image:
-    tag: sha-ae4317fbd23fc6f01d88cef62307af9ef28fe875
-  config:
-    BI_AGENT_ENABLED: "false"
+  enabled: false
 mcp:
   replicaCount: 1
   resources:
