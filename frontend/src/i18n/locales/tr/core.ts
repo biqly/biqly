@@ -579,9 +579,16 @@ export const core: CoreDictionary = {
     model_used: 'Sorgu modeli:',
     configured: 'yapılandırılan:',
     retry_badge: '🔄 AI kendini düzeltti (deneme {{n}}/3)',
-    insight_ranked:
-      'En yüksek {{metric}} {{top}} kaydında ({{topVal}}); değerler {{n}} {{dim}} arasında {{minVal}} ile {{maxVal}} arasında değişiyor.',
-    insight_single: '{{metric}}: {{val}}.',
+    insight_ranked_explained:
+      '{{top}}, {{metric}} için en yüksek değerle öne çıkıyor ({{topVal}}). Bu sonuç {{n}} {{dim}} değerinin karşılaştırılmasıyla hesaplandı; aralık {{minVal}}-{{maxVal}}.',
+    insight_single_explained:
+      '{{metric}} değeri {{val}}. Sonuç tek metrik ve tek satır olarak döndüğü için bunu KPI özeti olarak gösteriyorum.',
+    insight_time_bucket_explained:
+      'Bu sonuç zaman alanının {{grain}} bazında gruplanmasıyla hesaplandı.',
+    time_grain_hour: 'saat',
+    time_grain_day: 'gün',
+    time_grain_month: 'ay',
+    time_grain_year: 'yıl',
     collapsible_routing: '📋 Tablo yönlendirme',
     sample_preview_btn: 'Örnek veriyi önizle',
     plan_ok_title: '✅ SQL planı',

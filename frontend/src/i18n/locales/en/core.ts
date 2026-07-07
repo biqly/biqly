@@ -571,9 +571,16 @@ export const core = {
     model_used: 'Query model:',
     configured: 'configured:',
     retry_badge: '🔄 AI self‑corrected (attempt {{n}}/3)',
-    insight_ranked:
-      '{{top}} has the highest {{metric}} ({{topVal}}); values range from {{minVal}} to {{maxVal}} across {{n}} {{dim}}.',
-    insight_single: '{{metric}}: {{val}}.',
+    insight_ranked_explained:
+      '{{top}} stands out with the highest {{metric}} ({{topVal}}). This was calculated by comparing {{n}} {{dim}} values; the range is {{minVal}}-{{maxVal}}.',
+    insight_single_explained:
+      '{{metric}} is {{val}}. Since the result returned a single metric and a single row, this is shown as a KPI summary.',
+    insight_time_bucket_explained:
+      'This result was calculated by grouping the time field by {{grain}}.',
+    time_grain_hour: 'hour',
+    time_grain_day: 'day',
+    time_grain_month: 'month',
+    time_grain_year: 'year',
     collapsible_routing: '📋 Table routing',
     sample_preview_btn: 'Preview sample data',
     plan_ok_title: '✅ SQL plan',
