@@ -41,6 +41,42 @@ type AIResult struct {
 	// means Net Revenue. You can save a different definition."). Empty when no
 	// default was assumed.
 	Caveat string `json:"caveat,omitempty"`
+	// SuggestedFollowUps are up to maxSuggestedFollowUps next-question chips
+	// derived from the executed result shape (deterministically built, and
+	// optionally AI-rewritten/ranked). Always passed through
+	// ValidateSuggestedFollowUps before reaching this field. Empty when the
+	// result shape offers no safe follow-up or suggestion generation is
+	// unavailable.
+	SuggestedFollowUps []SuggestedFollowUp `json:"suggested_followups,omitempty"`
+}
+
+// SuggestedFollowUpKind enumerates the safe, backend-recognized follow-up
+// intents. AI-rewritten suggestions must map onto one of these; unknown kinds
+// are dropped by ValidateSuggestedFollowUps.
+type SuggestedFollowUpKind string
+
+const (
+	SuggestedFollowUpBreakdown  SuggestedFollowUpKind = "breakdown"
+	SuggestedFollowUpComparison SuggestedFollowUpKind = "comparison"
+	SuggestedFollowUpTrend      SuggestedFollowUpKind = "trend"
+	SuggestedFollowUpChart      SuggestedFollowUpKind = "chart"
+	SuggestedFollowUpDrilldown  SuggestedFollowUpKind = "drilldown"
+	SuggestedFollowUpFilter     SuggestedFollowUpKind = "filter"
+	SuggestedFollowUpExplain    SuggestedFollowUpKind = "explain"
+)
+
+// SuggestedFollowUp is one next-question chip offered under an assistant
+// response. Question is the full text sent back through the composer when
+// the user picks the suggestion; Requires lists the result fields the
+// suggestion depends on (validated against the fields actually available on
+// the current result before the suggestion is ever surfaced).
+type SuggestedFollowUp struct {
+	ID       string                `json:"id"`
+	Label    string                `json:"label"`
+	Question string                `json:"question"`
+	Reason   string                `json:"reason,omitempty"`
+	Kind     SuggestedFollowUpKind `json:"kind"`
+	Requires []string              `json:"requires,omitempty"`
 }
 
 type AIMetadata struct {
