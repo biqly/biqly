@@ -57,6 +57,47 @@ describe('filterFollowUpSuggestions', () => {
     expect(result).toHaveLength(1)
     expect(result[0]?.id).toBe('2')
   })
+
+  it('drops a candidate whose normalized text contains a prior question (substring match)', () => {
+    const suggestions: SuggestedFollowUp[] = [
+      {
+        id: '1',
+        kind: 'trend',
+        label: 'Busiest hour',
+        question: 'What was the busiest hour today in detail?',
+      },
+      {
+        id: '2',
+        kind: 'comparison',
+        label: 'Compare',
+        question: 'How does revenue compare by region?',
+      },
+    ]
+
+    const result = filterFollowUpSuggestions(suggestions, ['What was the busiest hour?'])
+
+    expect(result).toHaveLength(1)
+    expect(result[0]?.id).toBe('2')
+  })
+
+  it('drops a candidate whose normalized text is contained by a prior question (substring match)', () => {
+    const suggestions: SuggestedFollowUp[] = [
+      { id: '1', kind: 'trend', label: 'Busiest hour', question: 'What was the busiest hour?' },
+      {
+        id: '2',
+        kind: 'comparison',
+        label: 'Compare',
+        question: 'How does revenue compare by region?',
+      },
+    ]
+
+    const result = filterFollowUpSuggestions(suggestions, [
+      'What was the busiest hour today in detail?',
+    ])
+
+    expect(result).toHaveLength(1)
+    expect(result[0]?.id).toBe('2')
+  })
 })
 
 describe('buildFallbackFollowUps', () => {
