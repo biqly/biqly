@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import type { TranslationKey } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { infoNoticeClass } from '../../lib/feedbackClasses'
@@ -244,7 +243,7 @@ export function AssistantMessageCard({
   priorQuestions,
 }: AssistantMessageCardProps) {
   const navigate = useNavigate()
-  const result = normalizeAIQueryResponse(message.ai_response)
+  const result = useMemo(() => normalizeAIQueryResponse(message.ai_response), [message.ai_response])
 
   const followUps = useMemo(() => {
     if (!result) {
@@ -257,7 +256,7 @@ export function AssistantMessageCard({
     return buildFallbackFollowUps({
       response: result,
       priorQuestions,
-      t: (key, vars) => t(key as TranslationKey, vars),
+      t,
     })
   }, [priorQuestions, result, t])
 
@@ -432,11 +431,7 @@ export function AssistantMessageCard({
             localeTag={localeTag}
           />
         )}
-        <FollowUpSuggestions
-          suggestions={followUps}
-          onSelect={onSelectFollowUp}
-          t={(key, vars) => t(key as TranslationKey, vars)}
-        />
+        <FollowUpSuggestions suggestions={followUps} onSelect={onSelectFollowUp} t={t} />
         <AssistantMessageFeedbackRow
           userQuestion={userQuestion}
           datasourceId={datasourceId}

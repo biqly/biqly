@@ -1,4 +1,4 @@
-import type { LooseTFunction } from '../../i18n'
+import type { TFunction } from '../../i18n'
 import type { AIQueryResponse, SuggestedFollowUp } from '../../types/ai'
 
 /** Locale-aware, punctuation-insensitive normalization used for follow-up dedup matching. */
@@ -55,7 +55,7 @@ export function filterFollowUpSuggestions(
 export function buildFallbackFollowUps(args: {
   response: AIQueryResponse
   priorQuestions: string[]
-  t: LooseTFunction
+  t: TFunction
 }): SuggestedFollowUp[] {
   const result = args.response.result
   if (!result || result.rows.length === 0) {

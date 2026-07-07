@@ -1,4 +1,4 @@
-import type { LooseTFunction } from '../../i18n'
+import type { TFunction } from '../../i18n'
 import type { SuggestedFollowUp } from '../../types/ai'
 
 // This file is named `FollowUpSuggestionsSection.tsx` rather than
@@ -10,17 +10,10 @@ import type { SuggestedFollowUp } from '../../types/ai'
 // `tsc` and typed ESLint outright, not just import resolution. The exported
 // component below is still named `FollowUpSuggestions`, matching the
 // component API from the plan; only the file name differs.
-//
-// `t` is typed as `LooseTFunction` (not `TFunction`) because the i18n keys
-// this component references (`ai_query.followups_title`,
-// `ai_query.followups_apply_aria`) don't exist yet — a later task adds them
-// to the strict `TranslationKey` union. `LooseTFunction` is the same
-// escape hatch `ExpressionBuilder.tsx` uses for this exact situation. Switch
-// back to `TFunction` once those keys land.
 interface FollowUpSuggestionsProps {
   suggestions: SuggestedFollowUp[]
   onSelect: (question: string) => void
-  t: LooseTFunction
+  t: TFunction
 }
 
 export function FollowUpSuggestions({ suggestions, onSelect, t }: FollowUpSuggestionsProps) {
