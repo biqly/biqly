@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/bytedance/sonic"
@@ -209,6 +210,15 @@ func answerFloat(v any) (float64, bool) {
 		return float64(x), true
 	case int32:
 		return float64(x), true
+	case string:
+		// SQL numeric/decimal columns (e.g. a percent_change formula) are often
+		// scanned as strings; parse so the same formatting the table applies also
+		// reaches the answer prompt instead of leaking the raw digits.
+		f, err := strconv.ParseFloat(strings.TrimSpace(x), 64)
+		if err != nil {
+			return 0, false
+		}
+		return f, true
 	default:
 		return 0, false
 	}

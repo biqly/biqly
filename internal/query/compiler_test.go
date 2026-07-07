@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bytedance/sonic"
 
@@ -749,6 +750,67 @@ func TestCompiler_DayGrainISOUsesDateTruncInWhere(t *testing.T) {
 	low := strings.ToLower(cq.SQL)
 	if !strings.Contains(low, "date_trunc('day'") {
 		t.Fatalf("expected DATE_TRUNC('day' in WHERE, got:\n%s", cq.SQL)
+	}
+}
+
+// TestCompiler_HourGrainDateAnchorUsesDayTrunc: "hourly breakdown of yesterday"
+// applies a GROUP BY hour override to the same timestamp dimension that also
+// carries the "yesterday" (date-only) filter. The hour grain renders the
+// dimension as EXTRACT(HOUR) (integer), so a date-string filter bound against it
+// failed in prod with 22P02 ("invalid input syntax for type integer:
+// '2026-07-07'"). A date-only anchor means the whole day, so the filter must
+// compile as DATE_TRUNC('day', col) and bind a timestamp — never EXTRACT(HOUR).
+func TestCompiler_HourGrainDateAnchorUsesDayTrunc(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name:       "tweets",
+		BaseSchema: "public",
+		BaseTable:  "timeline_tweets",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_ts_hour", ColumnRef: "timeline_tweets.created_at_ts", Type: "timestamp", TimeGrain: TimeGrainHour},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "count", Expression: "*", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		DatasourceID: "ds",
+		ModelID:      "tweets",
+		Select:       []SelectItem{{Type: SelectTypeDimension, Name: "created_at_ts_hour"}, {Type: SelectTypeMetric, Name: "count"}},
+		Filters:      []Filter{{Field: "created_at_ts_hour", Operator: OpEq, Value: "2026-07-07"}},
+		GroupBy:      []GroupBy{{Field: "created_at_ts_hour", TimeGrain: TimeGrainHour}},
+		Limit:        100,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	low := strings.ToLower(cq.SQL)
+	if !strings.Contains(low, "date_trunc('day'") {
+		t.Fatalf("hour-grain date-only filter must use DATE_TRUNC('day' in WHERE, got:\n%s", cq.SQL)
+	}
+	// The SELECT/GROUP BY still buckets by hour; the guard is that the *filter*
+	// LHS must not be an integer EXTRACT(HOUR) compared against a date string.
+	// Scope the check to the WHERE clause (between WHERE and GROUP BY), since the
+	// SELECT and GROUP BY legitimately EXTRACT(HOUR) for bucketing.
+	whereIdx := strings.Index(low, "where")
+	if whereIdx < 0 {
+		t.Fatalf("expected a WHERE clause, got:\n%s", cq.SQL)
+	}
+	whereClause := low[whereIdx:]
+	if groupIdx := strings.Index(whereClause, "group by"); groupIdx >= 0 {
+		whereClause = whereClause[:groupIdx]
+	}
+	if strings.Contains(whereClause, "extract(hour from") {
+		t.Fatalf("hour-grain date filter must not EXTRACT(HOUR) in WHERE, got:\n%s", cq.SQL)
+	}
+	hasTime := false
+	for _, a := range cq.Args {
+		if _, ok := a.(time.Time); ok {
+			hasTime = true
+		}
+	}
+	if !hasTime {
+		t.Fatalf("expected a time.Time anchor arg, got args: %#v", cq.Args)
 	}
 }
 

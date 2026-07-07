@@ -281,9 +281,28 @@ func quarterGrainFilterUsesDateTrunc(dim *semantic.Dimension, f Filter) bool {
 	return ok
 }
 
+// hourGrainFilterUsesDateTrunc reports whether an *_hour grain filter carries a
+// calendar anchor value (date or timestamp). The hour grain renders its
+// dimension as EXTRACT(HOUR FROM col) (an integer), so binding a date/timestamp
+// string to it fails with 22P02 ("invalid input syntax for type integer"). This
+// happens when a GROUP BY hour override is applied to a dimension that also
+// carries a "yesterday"-style date filter (e.g. "hourly breakdown of yesterday").
+// Such filters must compare via DATE_TRUNC instead — see calendarGrainFilterExpr
+// for the day-vs-hour truncation choice.
+func hourGrainFilterUsesDateTrunc(dim *semantic.Dimension, f Filter) bool {
+	if strings.ToLower(strings.TrimSpace(dim.TimeGrain)) != TimeGrainHour {
+		return false
+	}
+	if !isScalarCompareOp(f.Operator) {
+		return false
+	}
+	_, ok := calendarAnchorTime(f.Value)
+	return ok
+}
+
 func (c *Compiler) dateTruncCompareExpr(part, columnRef, op string, argIndex int) (string, error) {
 	part = strings.ToLower(strings.TrimSpace(part))
-	if part != "day" && part != "month" && part != "quarter" {
+	if part != "day" && part != "month" && part != "quarter" && part != "hour" {
 		return "", fmt.Errorf("date_trunc compare: unsupported part %q", part)
 	}
 	lhs := c.dialect.DateTrunc(part, columnRef)
