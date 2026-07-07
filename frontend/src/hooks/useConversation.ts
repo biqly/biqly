@@ -86,6 +86,11 @@ function generateId(): string {
   return `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+/** Generates a stable client-side identity for a message. */
+function generateRemoteId(): string {
+  return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+}
+
 /** Guards localStorage entries: only objects with a string `id` are real conversations. */
 function isStoredConversation(value: unknown): value is Conversation {
   return (
@@ -99,10 +104,16 @@ function normalizeConversation(conversation: Conversation): Conversation {
   const raw = conversation as Omit<Conversation, 'messages'> & {
     messages?: ConversationMessage[]
   }
+  const messages = (raw.messages ?? []).map((msg, idx) => ({
+    ...msg,
+    remote_id: msg.remote_id ?? generateRemoteId(),
+    ordinal: msg.ordinal ?? idx,
+  }))
   return {
     ...conversation,
     context_enabled: conversation.context_enabled ?? true,
-    messages: raw.messages ?? [],
+    snapshot_version: conversation.snapshot_version ?? 0,
+    messages,
   }
 }
 
@@ -119,9 +130,22 @@ async function defaultSaveConversationAPI(
   if (!conversation.datasource_id) {
     return
   }
+  // Generate an idempotency key stable across retries of the same payload.
+  const payload = JSON.stringify(conversation)
+  const idempotencyKey = await sha256Hex(`save-${conversation.id}-${payload}`)
   await apiFetch<Conversation>('POST', '/api/ai/conversations', conversation, {
     token: token ?? undefined,
+    headers: { 'Idempotency-Key': idempotencyKey },
   })
+}
+
+/** Computes a SHA-256 hex digest of a string using the Web Crypto API.
+ * Requires a secure context (https or localhost), which all deployments use. */
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 async function defaultDeleteConversationAPI(id: string, token?: string | null): Promise<void> {
@@ -213,8 +237,11 @@ export function withAssistantMessageForJob(
     return null
   }
   const ts = new Date().toISOString()
+  const ordinal = conv.messages.length
   const msg: ConversationMessage = {
     ...message,
+    remote_id: generateRemoteId(),
+    ordinal,
     role: 'assistant',
     job_id: jobId,
     timestamp: ts,
@@ -276,6 +303,7 @@ export function useConversation(accessToken?: string | null) {
         created_at: now,
         updated_at: now,
         context_enabled: true,
+        snapshot_version: 0,
         datasource_id: scope.datasource_id,
         model_id: scope.model_id,
       }
@@ -308,7 +336,13 @@ export function useConversation(accessToken?: string | null) {
             return c
           }
           const ts = new Date().toISOString()
-          const msg: ConversationMessage = { ...message, timestamp: ts }
+          const ordinal = c.messages.length
+          const msg: ConversationMessage = {
+            ...message,
+            remote_id: message.remote_id ?? generateRemoteId(),
+            ordinal: message.ordinal ?? ordinal,
+            timestamp: ts,
+          }
           const newMessages = [...c.messages, msg]
           const title =
             c.title ?? (message.role === 'user' ? message.content.slice(0, 60) : undefined)

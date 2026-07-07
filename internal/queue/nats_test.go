@@ -56,6 +56,7 @@ func TestNATSQueueCloseNilConn(t *testing.T) {
 type mockJetStream struct {
 	publish        func(ctx context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error)
 	createConsumer func(ctx context.Context, stream string, cfg jetstream.ConsumerConfig) (jetstream.Consumer, error)
+	stream         func(ctx context.Context, name string) (jetstream.Stream, error)
 }
 
 func (m *mockJetStream) Publish(ctx context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error) {
@@ -74,6 +75,13 @@ func (m *mockJetStream) CreateOrUpdateConsumer(ctx context.Context, stream strin
 		return m.createConsumer(ctx, stream, cfg)
 	}
 	return nil, errors.New("not implemented")
+}
+
+func (m *mockJetStream) Stream(ctx context.Context, name string) (jetstream.Stream, error) {
+	if m.stream != nil {
+		return m.stream(ctx, name)
+	}
+	return nil, errors.New("stream not found")
 }
 
 type mockMsgWithNakErr struct {
@@ -332,4 +340,143 @@ func TestNATSQueueSubscribe_EmptyGroupDefault(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "biqly-ai-workers", createdCfg.Durable)
+}
+
+func TestNATSSubjectQueuePublishSetsMsgIDAndSubject(t *testing.T) {
+	var gotSubject string
+	var gotOpts []jetstream.PublishOpt
+	q := (&NATSQueue{js: &mockJetStream{
+		publish: func(_ context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error) {
+			gotSubject = subject
+			gotOpts = opts
+			assert.Equal(t, []byte("payload"), payload)
+			return &jetstream.PubAck{}, nil
+		},
+	}}).SubjectQueue()
+
+	require.NoError(t, q.Publish(context.Background(), "biqly.agent.jobs", "job-1", []byte("payload")))
+	assert.Equal(t, "biqly.agent.jobs", gotSubject)
+	assert.Len(t, gotOpts, 1, "a non-empty key must set a JetStream WithMsgID dedup option")
+}
+
+func TestNATSSubjectQueuePublishWithoutKeySetsNoOpts(t *testing.T) {
+	var gotOpts []jetstream.PublishOpt
+	q := (&NATSQueue{js: &mockJetStream{
+		publish: func(_ context.Context, _ string, _ []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error) {
+			gotOpts = opts
+			return &jetstream.PubAck{}, nil
+		},
+	}}).SubjectQueue()
+
+	require.NoError(t, q.Publish(context.Background(), "biqly.agent.jobs", "", []byte("payload")))
+	assert.Empty(t, gotOpts)
+}
+
+func TestNATSSubjectQueuePublishError(t *testing.T) {
+	q := (&NATSQueue{js: &mockJetStream{
+		publish: func(context.Context, string, []byte, ...jetstream.PublishOpt) (*jetstream.PubAck, error) {
+			return nil, errors.New("publish failed")
+		},
+	}}).SubjectQueue()
+
+	err := q.Publish(context.Background(), "biqly.agent.jobs", "job-1", []byte("payload"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "biqly.agent.jobs")
+}
+
+func TestNATSSubjectQueueSubscribeRequiresGroup(t *testing.T) {
+	q := (&NATSQueue{}).SubjectQueue()
+	err := q.Subscribe(context.Background(), "biqly.agent.jobs", "", func(context.Context, []byte) error { return nil })
+	assert.Error(t, err)
+}
+
+func TestNATSSubjectQueueSubscribeDispatchesPayloadAndAcks(t *testing.T) {
+	msg := &mockMsg{meta: &jetstream.MsgMetadata{NumDelivered: 1}}
+	mockCons := &mockConsumer{
+		consumeFunc: func(handler jetstream.MessageHandler, _ ...jetstream.PullConsumeOpt) (jetstream.ConsumeContext, error) {
+			handler(msg)
+			return &mockConsumeContext{}, nil
+		},
+	}
+	var gotSubject string
+	q := (&NATSQueue{
+		js: &mockJetStream{
+			createConsumer: func(_ context.Context, _ string, cfg jetstream.ConsumerConfig) (jetstream.Consumer, error) {
+				gotSubject = cfg.FilterSubject
+				return mockCons, nil
+			},
+		},
+		stream: "test-stream",
+	}).SubjectQueue()
+
+	var gotPayload []byte
+	err := q.Subscribe(context.Background(), "biqly.agent.jobs", "agent-workers", func(_ context.Context, payload []byte) error {
+		gotPayload = payload
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "biqly.agent.jobs", gotSubject)
+	assert.Equal(t, []byte("job-1"), gotPayload)
+}
+
+func TestNATSSubjectQueueSubscribeHandlerErrorNaks(t *testing.T) {
+	msg := &mockMsg{meta: &jetstream.MsgMetadata{NumDelivered: 1}}
+	mockCons := &mockConsumer{
+		consumeFunc: func(handler jetstream.MessageHandler, _ ...jetstream.PullConsumeOpt) (jetstream.ConsumeContext, error) {
+			handler(msg)
+			return &mockConsumeContext{}, nil
+		},
+	}
+	q := (&NATSQueue{
+		js: &mockJetStream{
+			createConsumer: func(context.Context, string, jetstream.ConsumerConfig) (jetstream.Consumer, error) {
+				return mockCons, nil
+			},
+		},
+	}).SubjectQueue()
+
+	err := q.Subscribe(context.Background(), "biqly.agent.jobs", "agent-workers", func(context.Context, []byte) error {
+		return errors.New("handler failed")
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, msg.nakCalls)
+}
+
+func TestNATSSubjectQueueSubscribeCreateConsumerError(t *testing.T) {
+	q := (&NATSQueue{
+		js: &mockJetStream{
+			createConsumer: func(context.Context, string, jetstream.ConsumerConfig) (jetstream.Consumer, error) {
+				return nil, errors.New("create consumer failed")
+			},
+		},
+	}).SubjectQueue()
+
+	err := q.Subscribe(context.Background(), "biqly.agent.jobs", "agent-workers", func(context.Context, []byte) error { return nil })
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "create consumer failed")
+}
+
+func TestMergeStreamSubjects_Deduplicates(t *testing.T) {
+	existing := []string{"biqly.ai.jobs", "biqly.ai.jobs.dlq"}
+	desired := []string{"biqly.agent.jobs", "biqly.ai.jobs.dlq"}
+	got := mergeStreamSubjects(existing, desired)
+	expected := []string{"biqly.agent.jobs", "biqly.ai.jobs.dlq", "biqly.ai.jobs"}
+	assert.Equal(t, expected, got)
+}
+
+func TestMergeStreamSubjects_NoExisting(t *testing.T) {
+	got := mergeStreamSubjects(nil, []string{"biqly.agent.jobs", "biqly.ai.jobs.dlq"})
+	assert.Equal(t, []string{"biqly.agent.jobs", "biqly.ai.jobs.dlq"}, got)
+}
+
+func TestMergeStreamSubjects_EmptyDesired(t *testing.T) {
+	got := mergeStreamSubjects([]string{"biqly.ai.jobs", "biqly.ai.jobs.dlq"}, nil)
+	assert.Equal(t, []string{"biqly.ai.jobs", "biqly.ai.jobs.dlq"}, got)
+}
+
+func TestMergeStreamSubjects_AllOverlap(t *testing.T) {
+	existing := []string{"a.subj", "b.subj"}
+	desired := []string{"b.subj", "a.subj"}
+	got := mergeStreamSubjects(existing, desired)
+	assert.Equal(t, []string{"b.subj", "a.subj"}, got)
 }

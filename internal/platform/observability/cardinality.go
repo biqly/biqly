@@ -50,6 +50,12 @@ var VecLabelLimits = map[string]map[string]int{
 	"biqly_ambiguity_resolution_total":     {"outcome": 2},
 	"biqly_routing_grain_detections_total": {"grain": 6},
 	"biqly_feedback_submitted_total":       {"rating": 2},
+	"biqly_agent_runs_total":               {"outcome": 2},
+	"biqly_agent_terminal_failures_total":  {"reason": 7},
+	"biqly_agent_step_duration_seconds":    {"tool": 6},
+	"biqly_agent_policy_denials_total":     {"reason": 14},
+	"biqly_agent_shadow_comparisons_total": {"category": 10},
+	"biqly_agent_planner_tokens_total":     {"kind": 2},
 }
 
 var cardinalityRegistered sync.Map

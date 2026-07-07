@@ -26,6 +26,10 @@ dependencies:
     version: 0.1.0
     repository: file://charts/worker
     condition: worker.enabled
+  - name: agent
+    version: 0.1.0
+    repository: file://charts/agent
+    condition: agent.enabled
   - name: auth
     version: 0.1.0
     repository: file://charts/auth

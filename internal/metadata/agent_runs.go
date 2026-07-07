@@ -13,6 +13,11 @@ import (
 // ErrAgentRunNotFound is returned when an agent-run id does not exist.
 var ErrAgentRunNotFound = errors.New("agent run not found")
 
+// ErrAgentRunAlreadyTerminal is returned when a caller tries to complete a
+// run that already reached a terminal state — a terminal result is
+// immutable once set (terminal_version only ever advances 0 -> 1).
+var ErrAgentRunAlreadyTerminal = errors.New("agent run already reached a terminal state")
+
 // Agent run status values. Non-terminal runs (running, waiting_clarification)
 // are resumable across clarification rounds; terminal runs are not.
 const (
@@ -246,6 +251,151 @@ func (r *Repository) DatasourceForAgentRun(ctx context.Context, id string) (stri
 		return "", fmt.Errorf("datasource for agent run: %w", err)
 	}
 	return datasourceID, nil
+}
+
+// CreateAgentRunForJob is CreateAgentRun for a job-driven (NATS) run: it
+// records job_id so a redelivered message can find the same run instead of
+// creating a duplicate. The unique index on job_id makes this call itself
+// idempotent — a second insert for the same job_id fails, and the caller
+// should fall back to GetAgentRunByJobID.
+func (r *Repository) CreateAgentRunForJob(ctx context.Context, jobID string, in AgentRunInsert) (string, error) {
+	mode := in.Mode
+	if mode == "" {
+		mode = "interactive"
+	}
+	status := in.Status
+	if status == "" {
+		status = AgentRunStatusRunning
+	}
+	var id string
+	err := r.db.QueryRowContext(ctx, `
+		INSERT INTO agent_runs (
+			job_id, conversation_id, datasource_id, model_id, user_id, question,
+			question_hash, mode, status, confidence, answer
+		) VALUES (
+			$1::uuid, $2, $3::uuid, $4, $5, $6,
+			$7, $8, $9, $10, $11
+		)
+		RETURNING id::text
+	`,
+		jobID,
+		platformdb.NullIfEmpty(in.ConversationID),
+		in.DatasourceID,
+		platformdb.NullUUIDPtr(&in.ModelID),
+		in.UserID,
+		in.Question,
+		in.QuestionHash,
+		mode,
+		status,
+		in.Confidence,
+		in.Answer,
+	).Scan(&id)
+	if err != nil {
+		return "", fmt.Errorf("create agent run for job: %w", err)
+	}
+	return id, nil
+}
+
+// GetAgentRunByJobID returns the run already created for a job, if any.
+// Callers use this to make job processing idempotent under NATS redelivery:
+// check first, and only call CreateAgentRunForJob when nothing is found.
+func (r *Repository) GetAgentRunByJobID(ctx context.Context, jobID string) (AgentRunRow, bool, error) {
+	row := r.db.QueryRowContext(ctx, `SELECT `+agentRunColumns+` FROM agent_runs WHERE job_id = $1::uuid`, jobID)
+	run, err := scanAgentRunRow(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return AgentRunRow{}, false, nil
+		}
+		return AgentRunRow{}, false, fmt.Errorf("get agent run by job id: %w", err)
+	}
+	return run, true, nil
+}
+
+// SaveAgentRuntimeState persists the resumable planner/tool-loop snapshot
+// for a run. Safe to call repeatedly as the loop progresses; each call
+// overwrites the prior snapshot with the latest one.
+func (r *Repository) SaveAgentRuntimeState(ctx context.Context, runID string, state []byte) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE agent_runs SET runtime_state = $2, updated_at = now()
+		WHERE id = $1::uuid
+	`, runID, state)
+	if err != nil {
+		return fmt.Errorf("save agent runtime state: %w", err)
+	}
+	return nil
+}
+
+// LoadAgentRuntimeState returns the persisted runtime-state snapshot for a
+// run ("{}" for a run that has not yet taken a step).
+func (r *Repository) LoadAgentRuntimeState(ctx context.Context, runID string) ([]byte, error) {
+	var raw []byte
+	err := r.db.QueryRowContext(ctx, `SELECT runtime_state FROM agent_runs WHERE id = $1::uuid`, runID).Scan(&raw)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("agent run %s: %w", runID, ErrAgentRunNotFound)
+		}
+		return nil, fmt.Errorf("load agent runtime state: %w", err)
+	}
+	return raw, nil
+}
+
+// MarkAgentRunQueryExecuteStarted flips query_execute_started to true.
+// Idempotent — safe to call more than once for the same run.
+func (r *Repository) MarkAgentRunQueryExecuteStarted(ctx context.Context, runID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE agent_runs SET query_execute_started = true, updated_at = now()
+		WHERE id = $1::uuid
+	`, runID)
+	if err != nil {
+		return fmt.Errorf("mark agent run query execute started: %w", err)
+	}
+	return nil
+}
+
+// CompleteAgentRunTerminal records a run's terminal outcome and its final
+// runtime-state snapshot, advancing terminal_version 0 -> 1. Returns
+// ErrAgentRunAlreadyTerminal without modifying anything if the run already
+// has a terminal_version > 0 — a terminal result cannot be overwritten.
+func (r *Repository) CompleteAgentRunTerminal(
+	ctx context.Context,
+	runID, status string,
+	confidence float64,
+	answer string,
+	state []byte,
+) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE agent_runs
+		SET status = $2, confidence = $3, answer = $4, runtime_state = $5,
+		    terminal_version = terminal_version + 1, updated_at = now()
+		WHERE id = $1::uuid AND terminal_version = 0
+	`, runID, status, confidence, answer, state)
+	if err != nil {
+		return fmt.Errorf("complete agent run terminal: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("complete agent run terminal affected: %w", err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("agent run %s: %w", runID, ErrAgentRunAlreadyTerminal)
+	}
+	return nil
+}
+
+// RecordShadowComparison inserts one agent_shadow_comparisons row for a
+// shadow-mode job/category pair (migration 065a). legacyRunID/agentRunID
+// may be empty when one side has no persisted run to point at.
+func (r *Repository) RecordShadowComparison(
+	ctx context.Context, jobID, legacyRunID, agentRunID, category string, detail []byte,
+) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO agent_shadow_comparisons (job_id, legacy_run_id, agent_run_id, category, detail)
+		VALUES ($1::uuid, NULLIF($2, '')::uuid, NULLIF($3, '')::uuid, $4, $5)
+	`, jobID, legacyRunID, agentRunID, category, detail)
+	if err != nil {
+		return fmt.Errorf("record shadow comparison: %w", err)
+	}
+	return nil
 }
 
 func scanAgentRunRow(s platformdb.Scanner) (AgentRunRow, error) {

@@ -121,6 +121,158 @@ func TestAgentRunsLifecycle(t *testing.T) {
 	assert.ErrorIs(t, err, ErrAgentRunNotFound)
 }
 
+// TestAgentRunJobIdempotency verifies job_id-keyed creation is redelivery-safe:
+// a second CreateAgentRunForJob for the same job_id fails on the unique index,
+// and GetAgentRunByJobID lets the caller find the existing run instead.
+func TestAgentRunJobIdempotency(t *testing.T) {
+	db := testutil.OpenMetadataDB(t)
+	ctx := context.Background()
+	repo := NewRepository(db)
+
+	const (
+		datasourceID = "00000000-0000-0000-0000-0000000065a1"
+		userID       = "u-agent-job"
+		jobID        = "00000000-0000-0000-0000-0000000065aa"
+	)
+	testutil.EnsureMetadataTestDatasource(ctx, t, db, datasourceID, "agent-job-test")
+
+	// job_id is uniquely constrained; clean up so reruns against a
+	// persistent dev DB don't collide with a previous run's row.
+	cleanup := func() {
+		_, _ = db.ExecContext(ctx, `DELETE FROM agent_runs WHERE job_id = $1::uuid`, jobID)
+	}
+	cleanup()
+	t.Cleanup(cleanup)
+
+	runID, err := repo.CreateAgentRunForJob(ctx, jobID, AgentRunInsert{
+		DatasourceID: datasourceID,
+		UserID:       userID,
+		Question:     "job-driven question",
+		QuestionHash: QuestionHash("job-driven question"),
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, runID)
+
+	// Redelivery: the second create attempt for the same job must fail...
+	_, err = repo.CreateAgentRunForJob(ctx, jobID, AgentRunInsert{
+		DatasourceID: datasourceID,
+		UserID:       userID,
+		Question:     "job-driven question",
+	})
+	assert.Error(t, err)
+
+	// ...and the caller resumes via GetAgentRunByJobID instead of duplicating.
+	found, ok, err := repo.GetAgentRunByJobID(ctx, jobID)
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Equal(t, runID, found.ID)
+
+	// An unrelated job_id has no run yet.
+	_, ok, err = repo.GetAgentRunByJobID(ctx, "00000000-0000-0000-0000-0000000065ab")
+	require.NoError(t, err)
+	assert.False(t, ok)
+}
+
+// TestAgentRunRuntimeStateAndTerminalImmutability verifies the resumable
+// runtime-state snapshot round-trips, query_execute_started is idempotent,
+// and a terminal result cannot be overwritten once set.
+func TestAgentRunRuntimeStateAndTerminalImmutability(t *testing.T) {
+	db := testutil.OpenMetadataDB(t)
+	ctx := context.Background()
+	repo := NewRepository(db)
+
+	const (
+		datasourceID = "00000000-0000-0000-0000-0000000065b1"
+		userID       = "u-agent-runtime"
+	)
+	testutil.EnsureMetadataTestDatasource(ctx, t, db, datasourceID, "agent-runtime-test")
+
+	runID, err := repo.CreateAgentRun(ctx, AgentRunInsert{
+		DatasourceID: datasourceID,
+		UserID:       userID,
+		Question:     "runtime state question",
+		QuestionHash: QuestionHash("runtime state question"),
+	})
+	require.NoError(t, err)
+
+	// A fresh run has the migration's default empty-object snapshot.
+	state, err := repo.LoadAgentRuntimeState(ctx, runID)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{}`, string(state))
+
+	// Save persists a snapshot; Load round-trips it exactly.
+	require.NoError(t, repo.SaveAgentRuntimeState(ctx, runID, []byte(`{"steps":[{"seq":1}]}`)))
+	state, err = repo.LoadAgentRuntimeState(ctx, runID)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"steps":[{"seq":1}]}`, string(state))
+
+	// Marking query_execute_started is idempotent (no error calling it twice).
+	require.NoError(t, repo.MarkAgentRunQueryExecuteStarted(ctx, runID))
+	require.NoError(t, repo.MarkAgentRunQueryExecuteStarted(ctx, runID))
+
+	// First terminal completion succeeds and records the outcome.
+	require.NoError(t, repo.CompleteAgentRunTerminal(ctx, runID, AgentRunStatusCompleted, 0.95, "42",
+		[]byte(`{"steps":[{"seq":1}],"terminal":{"kind":"final"}}`)))
+	run, _, err := repo.GetAgentRun(ctx, runID)
+	require.NoError(t, err)
+	assert.Equal(t, AgentRunStatusCompleted, run.Status)
+	assert.InDelta(t, 0.95, run.Confidence, 1e-9)
+	assert.Equal(t, "42", run.Answer)
+
+	// A second terminal completion attempt is rejected: the result is immutable.
+	err = repo.CompleteAgentRunTerminal(ctx, runID, AgentRunStatusFailed, 0, "should not apply", []byte(`{}`))
+	assert.ErrorIs(t, err, ErrAgentRunAlreadyTerminal)
+
+	// The rejected attempt did not overwrite the original outcome.
+	run, _, err = repo.GetAgentRun(ctx, runID)
+	require.NoError(t, err)
+	assert.Equal(t, AgentRunStatusCompleted, run.Status)
+	assert.Equal(t, "42", run.Answer)
+
+	// Load/save on an unknown run surfaces the not-found sentinel.
+	_, err = repo.LoadAgentRuntimeState(ctx, "00000000-0000-0000-0000-0000000065ff")
+	assert.ErrorIs(t, err, ErrAgentRunNotFound)
+}
+
+// TestRecordShadowComparison verifies inserts succeed with both runs
+// present, and with either side empty (a run that never got persisted).
+func TestRecordShadowComparison(t *testing.T) {
+	db := testutil.OpenMetadataDB(t)
+	ctx := context.Background()
+	repo := NewRepository(db)
+
+	const (
+		datasourceID = "00000000-0000-0000-0000-0000000065c1"
+		userID       = "u-agent-shadow"
+		jobID        = "00000000-0000-0000-0000-0000000065cc"
+	)
+	testutil.EnsureMetadataTestDatasource(ctx, t, db, datasourceID, "agent-shadow-test")
+	cleanup := func() {
+		_, _ = db.ExecContext(ctx, `DELETE FROM agent_shadow_comparisons WHERE job_id = $1::uuid`, jobID)
+	}
+	cleanup()
+	t.Cleanup(cleanup)
+
+	legacyRunID, err := repo.CreateAgentRun(ctx, AgentRunInsert{
+		DatasourceID: datasourceID, UserID: userID, Question: "q",
+	})
+	require.NoError(t, err)
+	agentRunID, err := repo.CreateAgentRun(ctx, AgentRunInsert{
+		DatasourceID: datasourceID, UserID: userID, Question: "q",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, repo.RecordShadowComparison(ctx, jobID, legacyRunID, agentRunID, "match", []byte(`{}`)))
+	require.NoError(t, repo.RecordShadowComparison(ctx, jobID, legacyRunID, agentRunID, "result_mismatch", []byte(`{"note":"x"}`)))
+	// A comparison can be recorded even when one side never got a persisted run.
+	require.NoError(t, repo.RecordShadowComparison(ctx, jobID, "", agentRunID, "legacy_only_failure", []byte(`{}`)))
+
+	var count int
+	require.NoError(t, db.QueryRowContext(ctx,
+		`SELECT count(*) FROM agent_shadow_comparisons WHERE job_id = $1::uuid`, jobID).Scan(&count))
+	assert.Equal(t, 3, count)
+}
+
 // TestFindOpenRunResumesAcrossClarification verifies the resume key: a run left
 // waiting_clarification is resumable by the conversation's most-recent open run
 // even when the resolved question text (and thus its hash) has changed.

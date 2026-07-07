@@ -31,12 +31,13 @@ func TestAIConversationRepositoryCRUD(t *testing.T) {
 			Pattern: "FROM ai_conversations",
 			Cols: []string{
 				"id", "user_id", "datasource_id", "model_id", "context_enabled", "title",
-				"created_at", "updated_at", "message_id", "message_role", "message_content",
+				"snapshot_version", "created_at", "updated_at",
+				"message_id", "message_role", "message_content",
 				"message_ai_response", "message_result_summary", "message_created_at",
 			},
 			Rows: [][]driver.Value{{
 				"conv-1", "user-1", "ds-1", "model-1", true, "Tweets",
-				now, now, "msg-1", "assistant", "May 20 won", []byte(`{"sql":"SELECT 1"}`),
+				int64(0), now, now, "msg-1", "assistant", "May 20 won", []byte(`{"sql":"SELECT 1"}`),
 				"date=2026-05-20, tweet_count=2932", now,
 			}},
 		},

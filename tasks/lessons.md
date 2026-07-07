@@ -133,6 +133,14 @@ Applied in PII masking:
 
 ## Architecture Decisions
 
+### Distinguish AI Agent Runtime from Job/Service Orchestration
+
+When a request mentions an `agent` service and inter-service communication, do not infer that
+the user means a queue worker or generic service orchestrator. First clarify whether `agent`
+means an LLM-driven loop that plans, selects tools, observes results, and continues. Treat NATS,
+workers, and service-to-service transport as supporting infrastructure only after the AI agent's
+behavior and tool boundary are explicit.
+
 ### Expression AST: Sealed Interface with JSON Discriminator
 
 `pkg/semantic/expr.go` uses:
@@ -509,3 +517,5 @@ Sources: [Google TypeScript Style Guide — Naming](https://google.github.io/sty
 7. **Don't commit with lint errors** — `make lint-go` / `make lint-frontend` / `make test-go` must all pass cleanly (zero errors).
 8. **Don't hardcode Tailwind colors for themed UI** — use `@theme inline` token bridge (`bg-card`, `text-foreground`, …). Legacy BEM CSS in `frontend/src/styles/` may remain until migrated; don't broad-rewrite without an explicit task.
 9. **Don't trust eslint+tsc to catch Prettier drift** — run `prettier --check`/`--write` on touched frontend files; CI's `format:check` is a separate gate.
+10. **Don't write per-component egress `CiliumNetworkPolicy` blocks** — a new service's in-cluster egress (catalog/query/ai/NATS/DNS/Postgres/OTel) is granted by adding its `app.kubernetes.io/component` value to the existing shared policies' `endpointSelector` (`cnp-gateway.yaml`, `cnp-dns.yaml`, `cnp-metadata.yaml`, etc.) — those files' own `egress:` block already covers every component matched by that same selector. Only ingress (who may call *this* service) needs a dedicated `cnp-<component>.yaml`.
+11. **Wire optional cross-cutting concerns (metrics, tracing) via a post-construction `SetX(...)` setter, not a constructor parameter** — mirrors `SetAIMetricsRecorder` in `internal/http/handlers`. Keeps every existing test call site compiling unchanged, and every `Record*` method's `if m == nil { return }` guard makes "never called `SetX`" a safe, silent no-op instead of a nil-pointer panic.

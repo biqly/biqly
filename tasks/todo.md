@@ -1,5 +1,43 @@
 # Todo list
 
+## Agentic Query Runner + conversation replay repair (2026-07-06)
+
+**Status:** Phases 1–4 (Tasks 1–16) implemented and committed on `dev`, `agent.enabled=false` by default everywhere. Phase 5 (Tasks 17–18) in progress: this doc pass is Task 17; Task 18's live-production steps (real repair apply, dark deploy, shadow enable) are paused pending explicit go-ahead — see Task 18 below.
+
+**Source of truth:**
+- Design: `docs/superpowers/specs/2026-07-06-agentic-query-runner-service-design.md`
+- Execution plan: `docs/superpowers/plans/2026-07-06-agentic-query-runner-service.md`
+
+### Success criteria
+- [x] Reposting a conversation snapshot cannot create duplicate messages.
+- [x] Existing proven ordered-prefix replay rows are archived and soft-deleted through a reversible repair; ambiguous rows are report-only.
+- [x] Internal `cmd/agent` runs a maximum six-step, policy-gated, read-only BI query lifecycle through typed tools.
+- [x] Shadow mode returns only the legacy response and never performs a second customer query execution.
+- [x] Agent has no public route or direct customer database egress; Helm and Cilium assertions prove the boundary.
+- [~] Focused tests, AI eval regression, frontend gate, Helm assertions, `make verify-main`, and `gograph_review --uncommitted` pass — all green through Task 16; Task 18 re-runs the full gate once more before rollout.
+
+### Execution phases
+- [x] Phase 1 — Tasks 1–3: transactional conversation identity, idempotency, and stable frontend `remote_id` (`59734f02`, `a668d589`, `ffe913d5`).
+- [x] Phase 2 — Tasks 4–5: repair detector, report/archive/soft-delete/apply/restore CLI (`cmd/conversation-repair`).
+- [x] Phase 3 — Tasks 6–11: Agent contracts, Policy Engine, typed tools, runtime, routing helpers, and `cmd/agent` (`internal/agent/`, `internal/app/agent_dependencies.go`).
+- [x] Phase 4 — Tasks 12–16: trace UI, local dev/CI, Helm subchart, NetworkPolicies, eval/metrics/alerts (`36e90abd`).
+  - Deferred within Phase 4, documented rather than faked: the legacy-fallback metric (`shouldFallbackToLegacy` has no real call site yet — Task 10 deliberately did not wire it into `Enqueue`) and agent-specific eval golden cases (the existing `internal/ai/eval/` harness drives the legacy single-shot pipeline via a stub `Provider`, not the agent's planner/tool loop — needs its own harness, not a bolt-on).
+- [~] Phase 5 — Task 17 (this doc pass) in progress; Task 18's local-only verification gate is safe to run now, but its live-production steps (real conversation repair apply, dark deploy to the cluster, enabling shadow mode) require an explicit go-ahead before executing — see Task 18 below.
+
+### Task 18 — full verification and production rollout
+- [x] Local-only verification: `gofmt`, `make lint-go`, `make test-go`, `deadcode -test`, `make check-frontend`, `make eval-regression`, `make helm-lint`, `make helm-template`, `scripts/assert-agent-helm.sh`, `gograph_review --uncommitted` — all green through Phase 4.
+- [ ] **Requires explicit confirmation before proceeding** (mutates real data or the live cluster): `conversation-repair report`/`detect --dry-run` against a real `--conversation-id`, applying reversible repair, dark-deploying `cmd/agent` via `helm upgrade` with `agent.enabled=true` (still `BI_AGENT_ENABLED=false`), then flipping `BI_AGENT_MODE=shadow` in production and observing `biqly_agent_shadow_comparisons_total`/`biqly.agent` alerts for the promotion report.
+
+### Review evidence
+- `59734f02` feat(conversations): idempotent snapshot writes with versioned ledger.
+- `a668d589` fix(frontend): persist stable conversation message ids.
+- `ffe913d5` feat(conversations): detect replay chains safely.
+- `cmd/conversation-repair` — report/archive/soft-delete/apply/restore CLI, tests + lint green.
+- `internal/agent/` (policy, tools, runtime, provider planner, shadow evaluator), `cmd/agent`, `internal/app/agent_dependencies.go` — planner/tool loop, policy engine, `AgentDependencies`, all with focused + race tests green.
+- Helm: `deploy/helm/biqly/charts/agent` (subchart, `agent.enabled=false` default), `cnp-agent.yaml` + `cnp-dns/gateway/metadata.yaml` updates, `scripts/assert-agent-helm.sh` (RED→GREEN verified via `git stash`).
+- `36e90abd` feat(agent): add run/step/policy/shadow observability and alerts — bounded-label Prometheus metrics + `biqly.agent` PrometheusRule group; `internal/platform/observability/tier2_metrics_test.go` covers both the happy path and bounded-label fallback.
+- Every commit through Phase 4 passed the full local gate (`gofmt`, `make lint-go`, `go test -race`, `deadcode -test`, `make check-frontend`, `make helm-lint`/`helm-template`, `gograph_review --uncommitted`) before landing.
+
 ## Feature: @-mention follow-ups + AI Query screen cleanup (2026-06-23)
 
 ### Asks (from user)

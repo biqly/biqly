@@ -6,8 +6,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
+	"time"
 
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
@@ -23,6 +26,7 @@ const (
 	piiRuntimeConfigKey       = "pii"
 	memoryRuntimeConfigKey    = "memory"
 	queueRuntimeConfigKey     = "queue"
+	agentRuntimeConfigKey     = "agent"
 )
 
 // maxLLMTierPerQuestionLimit caps the admin-settable LLM tier round budget.
@@ -36,6 +40,19 @@ const maxMemoryRecallLimit = 10
 
 // maxQueueConcurrencyLimit caps the admin-settable concurrent job limit.
 const maxQueueConcurrencyLimit = 10
+
+// Agent rollout knob bounds, mirrored from internal/agent's job validation
+// (not imported, to keep this package decoupled from the runtime pipeline).
+const (
+	minAgentMaxSteps            = 1
+	maxAgentMaxSteps            = 6
+	minAgentClarificationRounds = 0
+	maxAgentClarificationRounds = 2
+	minAgentTimeoutSeconds      = 1
+	maxAgentTimeoutSeconds      = 45
+	minAgentMaxRows             = 1
+	maxAgentMaxRows             = 1000
+)
 
 // Wire field sources reported per knob so the UI can badge where a value
 // comes from. "environment" covers both explicit env vars and code defaults —
@@ -73,6 +90,18 @@ type queueOverrides struct {
 	Concurrency *int `json:"concurrency,omitempty"`
 }
 
+// agentOverrides is the DB-managed subset of config.AgentConfig's rollout
+// knobs. NATS subjects, the workspace allowlist, and legacy fallback are
+// infra wiring and stay env-only, like AI connection/model selection.
+type agentOverrides struct {
+	Enabled                *bool   `json:"enabled,omitempty"`
+	Mode                   *string `json:"mode,omitempty"`
+	MaxSteps               *int    `json:"max_steps,omitempty"`
+	MaxClarificationRounds *int    `json:"max_clarification_rounds,omitempty"`
+	TimeoutSeconds         *int    `json:"timeout_seconds,omitempty"`
+	MaxRows                *int    `json:"max_rows,omitempty"`
+}
+
 func (h *AIHandler) loadAmbiguityOverrides(ctx context.Context) ambiguityOverrides {
 	return h.ambiguityOverridesCache.load(ctx, h.metaRepo(), ambiguityRuntimeConfigKey)
 }
@@ -83,6 +112,10 @@ func (h *AIHandler) loadMemoryOverrides(ctx context.Context) memoryOverrides {
 
 func (h *AIHandler) loadQueueOverrides(ctx context.Context) queueOverrides {
 	return h.queueOverridesCache.load(ctx, h.metaRepo(), queueRuntimeConfigKey)
+}
+
+func (h *AIHandler) loadAgentOverrides(ctx context.Context) agentOverrides {
+	return h.agentOverridesCache.load(ctx, h.metaRepo(), agentRuntimeConfigKey)
 }
 
 func (h *AIHandler) EffectiveConcurrency(ctx context.Context) int {
@@ -151,6 +184,36 @@ func (h *AIHandler) effectiveMemoryConfig(ctx context.Context) config.AIMemoryCo
 	return cfg
 }
 
+// effectiveAgentConfig overlays DB-managed overrides onto the
+// environment-derived agent rollout config. Subjects, workspace allowlist,
+// and legacy fallback are env-only and pass through unchanged.
+func (h *AIHandler) effectiveAgentConfig(ctx context.Context) config.AgentConfig {
+	cfg := config.AgentConfig{Mode: config.AgentModeShadow}
+	if h.deps != nil && h.deps.Config != nil {
+		cfg = h.deps.Config.Agent
+	}
+	ov := h.loadAgentOverrides(ctx)
+	if ov.Enabled != nil {
+		cfg.Enabled = *ov.Enabled
+	}
+	if ov.Mode != nil {
+		cfg.Mode = *ov.Mode
+	}
+	if ov.MaxSteps != nil {
+		cfg.MaxSteps = *ov.MaxSteps
+	}
+	if ov.MaxClarificationRounds != nil {
+		cfg.MaxClarificationRounds = *ov.MaxClarificationRounds
+	}
+	if ov.TimeoutSeconds != nil {
+		cfg.Timeout = time.Duration(*ov.TimeoutSeconds) * time.Second
+	}
+	if ov.MaxRows != nil {
+		cfg.MaxRows = *ov.MaxRows
+	}
+	return cfg
+}
+
 // effectivePIIConfig overlays DB-managed overrides onto the environment-derived
 // PII config. It reads through to the database on every call: PII scans are
 // rare, admin-triggered operations, and the catalog service has no shared
@@ -205,11 +268,25 @@ type adminQueueConfig struct {
 	Sources     map[string]string `json:"sources"`
 }
 
+// adminAgentConfig is the wire shape of the admin-tunable agent rollout knobs.
+type adminAgentConfig struct {
+	Enabled                bool              `json:"enabled"`
+	Mode                   string            `json:"mode"`
+	MaxSteps               int               `json:"max_steps"`
+	MaxClarificationRounds int               `json:"max_clarification_rounds"`
+	TimeoutSeconds         int               `json:"timeout_seconds"`
+	MaxRows                int               `json:"max_rows"`
+	DBOverride             bool              `json:"db_override"`
+	Source                 string            `json:"source"`
+	Sources                map[string]string `json:"sources"`
+}
+
 type adminRuntimeConfigResponse struct {
 	Ambiguity adminAmbiguityConfig `json:"ambiguity"`
 	PII       adminPIIConfig       `json:"pii"`
 	Memory    adminMemoryConfig    `json:"memory"`
 	Queue     adminQueueConfig     `json:"queue"`
+	Agent     adminAgentConfig     `json:"agent"`
 }
 
 func fieldSource(overridden bool) string {
@@ -277,6 +354,18 @@ func (h *AIHandler) adminRuntimeConfigResponse(ctx context.Context) adminRuntime
 	}
 	queueSource, queueOverride := domainSource(queueSources)
 
+	agentOv := h.loadAgentOverrides(ctx)
+	agentEff := h.effectiveAgentConfig(ctx)
+	agentSources := map[string]string{
+		"enabled":                  fieldSource(agentOv.Enabled != nil),
+		"mode":                     fieldSource(agentOv.Mode != nil),
+		"max_steps":                fieldSource(agentOv.MaxSteps != nil),
+		"max_clarification_rounds": fieldSource(agentOv.MaxClarificationRounds != nil),
+		"timeout_seconds":          fieldSource(agentOv.TimeoutSeconds != nil),
+		"max_rows":                 fieldSource(agentOv.MaxRows != nil),
+	}
+	agentSource, agentOverride := domainSource(agentSources)
+
 	return adminRuntimeConfigResponse{
 		Ambiguity: h.effectiveAmbiguitySettings(ctx),
 		PII: adminPIIConfig{
@@ -299,6 +388,17 @@ func (h *AIHandler) adminRuntimeConfigResponse(ctx context.Context) adminRuntime
 			Source:      queueSource,
 			Sources:     queueSources,
 		},
+		Agent: adminAgentConfig{
+			Enabled:                agentEff.Enabled,
+			Mode:                   agentEff.Mode,
+			MaxSteps:               agentEff.MaxSteps,
+			MaxClarificationRounds: agentEff.MaxClarificationRounds,
+			TimeoutSeconds:         int(agentEff.Timeout.Seconds()),
+			MaxRows:                agentEff.MaxRows,
+			DBOverride:             agentOverride,
+			Source:                 agentSource,
+			Sources:                agentSources,
+		},
 	}
 }
 
@@ -316,6 +416,7 @@ type adminRuntimeConfigUpdateRequest struct {
 	PII       json.RawMessage `json:"pii,omitempty"`
 	Memory    json.RawMessage `json:"memory,omitempty"`
 	Queue     json.RawMessage `json:"queue,omitempty"`
+	Agent     json.RawMessage `json:"agent,omitempty"`
 }
 
 // strictUnmarshalJSON decodes data into v, rejecting unknown fields so typos
@@ -356,6 +457,26 @@ func validateMemoryOverrides(ov memoryOverrides) string {
 func validateQueueOverrides(ov queueOverrides) string {
 	if ov.Concurrency != nil && (*ov.Concurrency < 1 || *ov.Concurrency > maxQueueConcurrencyLimit) {
 		return "queue.concurrency must be between 1 and 10"
+	}
+	return ""
+}
+
+func validateAgentOverrides(ov agentOverrides) string {
+	if ov.Mode != nil && !slices.Contains([]string{config.AgentModeShadow, config.AgentModeActive}, *ov.Mode) {
+		return fmt.Sprintf("agent.mode must be %q or %q", config.AgentModeShadow, config.AgentModeActive)
+	}
+	if ov.MaxSteps != nil && (*ov.MaxSteps < minAgentMaxSteps || *ov.MaxSteps > maxAgentMaxSteps) {
+		return "agent.max_steps must be between 1 and 6"
+	}
+	if ov.MaxClarificationRounds != nil &&
+		(*ov.MaxClarificationRounds < minAgentClarificationRounds || *ov.MaxClarificationRounds > maxAgentClarificationRounds) {
+		return "agent.max_clarification_rounds must be between 0 and 2"
+	}
+	if ov.TimeoutSeconds != nil && (*ov.TimeoutSeconds < minAgentTimeoutSeconds || *ov.TimeoutSeconds > maxAgentTimeoutSeconds) {
+		return "agent.timeout_seconds must be between 1 and 45"
+	}
+	if ov.MaxRows != nil && (*ov.MaxRows < minAgentMaxRows || *ov.MaxRows > maxAgentMaxRows) {
+		return "agent.max_rows must be between 1 and 1000"
 	}
 	return ""
 }
@@ -405,8 +526,8 @@ func (h *AIHandler) UpdateAdminRuntimeConfig(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusBadRequest, "invalid request body: unknown or malformed field")
 		return
 	}
-	if input.Ambiguity == nil && input.PII == nil && input.Memory == nil && input.Queue == nil {
-		writeError(w, http.StatusBadRequest, "at least one config domain (ambiguity, pii, memory, queue) is required")
+	if input.Ambiguity == nil && input.PII == nil && input.Memory == nil && input.Queue == nil && input.Agent == nil {
+		writeError(w, http.StatusBadRequest, "at least one config domain (ambiguity, pii, memory, queue, agent) is required")
 		return
 	}
 
@@ -447,6 +568,14 @@ func (h *AIHandler) UpdateAdminRuntimeConfig(w http.ResponseWriter, r *http.Requ
 		}
 		updates = append(updates, domainUpdate{key: queueRuntimeConfigKey, ov: ov})
 	}
+	if input.Agent != nil {
+		ov, msg := decodeDomainOverrides("agent", input.Agent, validateAgentOverrides)
+		if msg != "" {
+			writeError(w, http.StatusBadRequest, msg)
+			return
+		}
+		updates = append(updates, domainUpdate{key: agentRuntimeConfigKey, ov: ov})
+	}
 
 	ctx := r.Context()
 	changes := make(map[string]any, len(updates))
@@ -461,6 +590,7 @@ func (h *AIHandler) UpdateAdminRuntimeConfig(w http.ResponseWriter, r *http.Requ
 	h.ambiguityOverridesCache.invalidate()
 	h.memoryOverridesCache.invalidate()
 	h.queueOverridesCache.invalidate()
+	h.agentOverridesCache.invalidate()
 
 	if h.deps.AuditLogger != nil {
 		h.deps.AuditLogger.Log(ctx, audit.Event{

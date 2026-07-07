@@ -12,6 +12,39 @@ var (
 	ambiguityLLMTierYieldOutcomes      = []string{"found", "empty", "timeout", "error"}
 )
 
+// Agent runtime label sets mirror internal/agent's bounded string consts
+// (ToolName, Reason*, RuntimeState failure reason codes, ShadowCategory) by
+// value. This package cannot import internal/agent — internal/agent already
+// imports observability (see internal/agent/service.go) — so the bound is
+// enforced here via BoundLabel instead of a shared Go type.
+var (
+	agentRunOutcomes = []string{"completed", "failed"}
+	// agentTerminalFailureReasons mirrors every reasonCode internal/agent/runtime.go
+	// passes to finalizeFail/abandonOrFail.
+	agentTerminalFailureReasons = []string{
+		"context_canceled", "timeout", "planner_error", "invalid_decision_kind",
+		"max_clarification_rounds_exceeded", "max_steps_exceeded", "tool_error",
+	}
+	// agentToolNames mirrors internal/agent/policy.go's ToolName consts.
+	agentToolNames = []string{
+		"catalog.resolve", "semantic.resolve", "query.compile", "query.execute", "memory.recall",
+	}
+	// agentPolicyDenialReasons mirrors internal/agent/policy.go's Reason* consts.
+	agentPolicyDenialReasons = []string{
+		"tool_not_allowlisted", "retry_budget_exhausted", "airgapped_egress_denied",
+		"malformed_arguments", "identity_mismatch", "prompt_injection_suspected",
+		"multi_statement_sql_denied", "write_or_ddl_denied", "hidden_column_denied",
+		"pii_masking_required", "invalid_join_denied", "row_filter_required", "context_canceled",
+	}
+	// agentShadowCategories mirrors internal/agent/shadow.go's ShadowCategory consts.
+	agentShadowCategories = []string{
+		"match", "result_mismatch", "query_mismatch", "latency_regression",
+		"clarification_mismatch", "policy_outcome_mismatch", "agent_only_failure",
+		"legacy_only_failure", "both_failed",
+	}
+	agentClarificationRoundBands = []float64{1, 2, 3, 4, 5}
+)
+
 type tier2MetricsFactory interface {
 	NewCounter(opts prometheus.CounterOpts) prometheus.Counter
 	NewCounterVec(opts prometheus.CounterOpts, labelNames []string) *prometheus.CounterVec
@@ -94,6 +127,109 @@ func registerTier2Metrics(f tier2MetricsFactory, m *Metrics) {
 	m.enrichContextApplyErrors = f.NewCounter(prometheus.CounterOpts{
 		Name: "biqly_enrich_context_apply_errors_total", Help: "Total failed attempts to apply context enrichment suggestions.",
 	})
+
+	// Agent runtime metrics (internal/agent's planner/policy/tool loop). Never
+	// use the run's question, SQL, credentials, or result rows as a label —
+	// every label here is bounded via BoundLabel against a fixed value set.
+	m.agentRunsTotal = f.NewCounterVec(prometheus.CounterOpts{
+		Name: "biqly_agent_runs_total", Help: "Total agent runs by terminal outcome.",
+	}, []string{"outcome"})
+	m.agentTerminalFailures = f.NewCounterVec(prometheus.CounterOpts{
+		Name: "biqly_agent_terminal_failures_total", Help: "Total agent run terminal failures by reason code.",
+	}, []string{"reason"})
+	m.agentStepDuration = f.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "biqly_agent_step_duration_seconds", Help: "Agent tool dispatch latency in seconds, by tool.", Buckets: prometheus.DefBuckets,
+	}, []string{"tool"})
+	m.agentPolicyDenials = f.NewCounterVec(prometheus.CounterOpts{
+		Name: "biqly_agent_policy_denials_total", Help: "Total agent tool-call proposals denied by policy, by reason code.",
+	}, []string{"reason"})
+	m.agentClarificationRounds = f.NewHistogram(prometheus.HistogramOpts{
+		Name:    "biqly_agent_clarification_rounds_histogram",
+		Help:    "Distribution of clarification round counts reached by agent runs.",
+		Buckets: agentClarificationRoundBands,
+	})
+	m.agentShadowComparisons = f.NewCounterVec(prometheus.CounterOpts{
+		Name: "biqly_agent_shadow_comparisons_total", Help: "Total shadow-mode comparisons between legacy and agent runs, by category.",
+	}, []string{"category"})
+	m.agentQueueRedeliveries = f.NewCounter(prometheus.CounterOpts{
+		Name: "biqly_agent_queue_redeliveries_total",
+		Help: "Total agent jobs whose run already existed on job-id lookup (NATS redelivery or crash recovery resume).",
+	})
+	m.agentPlannerTokens = f.NewCounterVec(prometheus.CounterOpts{
+		Name: "biqly_agent_planner_tokens_total", Help: "Total planner LLM tokens used, by kind (prompt, completion).",
+	}, []string{"kind"})
+}
+
+// RecordAgentRunTerminal records an agent run reaching a terminal state.
+func (m *Metrics) RecordAgentRunTerminal(outcome string) {
+	if m == nil {
+		return
+	}
+	m.agentRunsTotal.WithLabelValues(BoundLabel(outcome, agentRunOutcomes, "failed")).Inc()
+}
+
+// RecordAgentTerminalFailure records the specific reason code an agent run failed with.
+func (m *Metrics) RecordAgentTerminalFailure(reason string) {
+	if m == nil {
+		return
+	}
+	m.agentTerminalFailures.WithLabelValues(BoundLabel(reason, agentTerminalFailureReasons, "tool_error")).Inc()
+}
+
+// RecordAgentStepDuration records one tool dispatch's latency.
+func (m *Metrics) RecordAgentStepDuration(tool string, duration time.Duration) {
+	if m == nil {
+		return
+	}
+	m.agentStepDuration.WithLabelValues(BoundLabel(tool, agentToolNames, "other")).Observe(duration.Seconds())
+}
+
+// RecordAgentPolicyDenial records a policy denial by reason code.
+func (m *Metrics) RecordAgentPolicyDenial(reason string) {
+	if m == nil {
+		return
+	}
+	m.agentPolicyDenials.WithLabelValues(BoundLabel(reason, agentPolicyDenialReasons, "other")).Inc()
+}
+
+// RecordAgentClarificationRound records the clarification round number an agent run reached.
+func (m *Metrics) RecordAgentClarificationRound(round int) {
+	if m == nil {
+		return
+	}
+	m.agentClarificationRounds.Observe(float64(round))
+}
+
+// RecordAgentShadowComparison records one shadow-mode comparison category.
+func (m *Metrics) RecordAgentShadowComparison(category string) {
+	if m == nil {
+		return
+	}
+	m.agentShadowComparisons.WithLabelValues(BoundLabel(category, agentShadowCategories, "other")).Inc()
+}
+
+// RecordAgentQueueRedelivery records an agent job resuming an already-created
+// run instead of creating a fresh one — the signal that a NATS message was
+// redelivered (or a crash-recovery retry) rather than processed for the
+// first time.
+func (m *Metrics) RecordAgentQueueRedelivery() {
+	if m == nil {
+		return
+	}
+	m.agentQueueRedeliveries.Inc()
+}
+
+// RecordAgentPlannerTokens records planner LLM token usage for one Decide call.
+func (m *Metrics) RecordAgentPlannerTokens(promptTokens, completionTokens int) {
+	if m == nil {
+		return
+	}
+	if promptTokens > 0 {
+		m.agentPlannerTokens.WithLabelValues("prompt").Add(float64(promptTokens))
+	}
+	if completionTokens > 0 {
+		m.agentPlannerTokens.WithLabelValues("completion").Add(float64(completionTokens))
+	}
 }
 
 // RecordNATSPublish records NATS publish metrics.

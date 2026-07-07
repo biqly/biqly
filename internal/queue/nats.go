@@ -31,6 +31,7 @@ type jetStreamClient interface {
 	CreateOrUpdateStream(ctx context.Context, cfg jetstream.StreamConfig) (jetstream.Stream, error)
 	CreateOrUpdateConsumer(ctx context.Context, stream string, cfg jetstream.ConsumerConfig) (jetstream.Consumer, error)
 	Publish(ctx context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error)
+	Stream(ctx context.Context, name string) (jetstream.Stream, error)
 }
 
 type NATSQueue struct {
@@ -50,6 +51,26 @@ func normalizeNATSConfig(cfg NATSConfig) NATSConfig {
 	return cfg
 }
 
+// mergeStreamSubjects appends existing subjects not already present in desired,
+// preserving the order of desired first then existing. This ensures every caller's
+// CreateOrUpdateStream preserves subjects registered by other services sharing
+// the same JetStream stream (e.g. legacy AI pipeline + agentic runner).
+func mergeStreamSubjects(existing, desired []string) []string {
+	seen := make(map[string]bool, len(desired))
+	merged := make([]string, 0, len(desired))
+	for _, s := range desired {
+		seen[s] = true
+		merged = append(merged, s)
+	}
+	for _, s := range existing {
+		if !seen[s] {
+			merged = append(merged, s)
+			seen[s] = true
+		}
+	}
+	return merged
+}
+
 func ConnectNATS(cfg NATSConfig) (*NATSQueue, error) {
 	if cfg.URL == "" {
 		return nil, errors.New("nats url is empty")
@@ -66,9 +87,25 @@ func ConnectNATS(cfg NATSConfig) (*NATSQueue, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+
+	subjects := []string{cfg.Subject, AIJobDLQSubject}
+
+	// Merge with existing stream subjects instead of replacing them.
+	// Multiple services (legacy AI pipeline + agentic runner) share the
+	// same JetStream stream. Every caller's CreateOrUpdateStream must
+	// preserve subjects registered by other callers, or the first caller
+	// to restart after another's connect silently drops the other's
+	// subjects — breaking that service's job publishing.
+	if existing, sErr := js.Stream(ctx, cfg.Stream); sErr == nil {
+		info, iErr := existing.Info(ctx)
+		if iErr == nil {
+			subjects = mergeStreamSubjects(info.Config.Subjects, subjects)
+		}
+	}
+
 	_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Name:      cfg.Stream,
-		Subjects:  []string{cfg.Subject, AIJobDLQSubject},
+		Subjects:  subjects,
 		Retention: jetstream.WorkQueuePolicy,
 		MaxAge:    7 * 24 * time.Hour,
 	})
@@ -181,4 +218,69 @@ func (q *NATSQueue) Close() error {
 		q.nc.Close()
 	}
 	return nil
+}
+
+// SubjectQueue returns a subject-aware Publisher/Consumer backed by the same
+// JetStream connection and stream as q, for callers (e.g. the agentic
+// runtime's job router) that need to address a subject other than the one
+// this NATSQueue was constructed with. It never touches q's existing
+// fixed-subject Publish/Subscribe, which the legacy AI job pipeline keeps
+// using unchanged.
+func (q *NATSQueue) SubjectQueue() *NATSSubjectQueue {
+	return &NATSSubjectQueue{js: q.js, stream: q.stream}
+}
+
+// NATSSubjectQueue implements Publisher and Consumer against an explicit
+// subject per call, reusing one JetStream connection/stream across subjects.
+type NATSSubjectQueue struct {
+	js     jetStreamClient
+	stream string
+}
+
+// Publish implements Publisher. key becomes the JetStream message ID for
+// producer-side dedup; it should be stable across redelivery attempts by
+// the caller (e.g. the job id).
+func (q *NATSSubjectQueue) Publish(ctx context.Context, subject, key string, payload []byte) error {
+	opts := []jetstream.PublishOpt{}
+	if key != "" {
+		opts = append(opts, jetstream.WithMsgID(key))
+	}
+	if _, err := q.js.Publish(ctx, subject, payload, opts...); err != nil {
+		return fmt.Errorf("publish to subject %s: %w", subject, err)
+	}
+	return nil
+}
+
+// Subscribe implements Consumer: an explicit-subject, at-least-once,
+// explicit-ack durable consumer. Redelivery/DLQ handling belongs to the
+// caller's handler — unlike NATSQueue.Subscribe, this generic subject
+// consumer has no fixed notion of "the AI job DLQ subject".
+func (q *NATSSubjectQueue) Subscribe(ctx context.Context, subject, group string, handler func(context.Context, []byte) error) error {
+	if group == "" {
+		return errors.New("subscribe: group is required")
+	}
+	cons, err := q.js.CreateOrUpdateConsumer(ctx, q.stream, jetstream.ConsumerConfig{
+		Durable:       group,
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: subject,
+		AckWait:       30 * time.Minute,
+		MaxDeliver:    aiJobMaxDeliver,
+	})
+	if err != nil {
+		return fmt.Errorf("create consumer for subject %s: %w", subject, err)
+	}
+	_, err = cons.Consume(func(msg jetstream.Msg) {
+		hctx, cancel := context.WithTimeout(ctx, 35*time.Minute)
+		defer cancel()
+		if err := handler(hctx, msg.Data()); err != nil {
+			if nakErr := msg.Nak(); nakErr != nil {
+				slog.Warn("nack subject message", "subject", subject, "error", nakErr)
+			}
+			return
+		}
+		if ackErr := msg.Ack(); ackErr != nil {
+			slog.Warn("ack subject message", "subject", subject, "error", ackErr)
+		}
+	})
+	return err
 }

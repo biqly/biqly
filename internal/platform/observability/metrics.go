@@ -128,6 +128,15 @@ type Metrics struct {
 	semanticgenDimensionsGenerated prometheus.Histogram
 	semanticgenMetricsGenerated    prometheus.Histogram
 	feedbackSubmitted              *prometheus.CounterVec
+
+	agentRunsTotal           *prometheus.CounterVec
+	agentTerminalFailures    *prometheus.CounterVec
+	agentStepDuration        *prometheus.HistogramVec
+	agentPolicyDenials       *prometheus.CounterVec
+	agentClarificationRounds prometheus.Histogram
+	agentShadowComparisons   *prometheus.CounterVec
+	agentQueueRedeliveries   prometheus.Counter
+	agentPlannerTokens       *prometheus.CounterVec
 }
 
 // NewMetrics registers every collector against reg and returns the bundle.

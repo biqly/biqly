@@ -54,17 +54,32 @@ Run a subset with `SVC` (space- or comma-separated `cmd/<svc>` names):
 make watch SVC="api auth"   # only api + auth (skip mail)
 ```
 
-The default set is `WATCH_SVCS = api auth mail` (catalog/query/ai are embedded in
-`cmd/api` locally). The Makefile sources `.env` + `.env.dev` and passes the
+The default set is `WATCH_SVCS = api auth mail agent` (catalog/query/ai are
+embedded in `cmd/api` locally; `agent` is the agentic query-runner service,
+standalone). The Makefile sources `.env` + `.env.dev` and passes the
 build/run commands to `air`, so each binary gets the localhost DSNs. Build output
 goes to `tmp/<svc>/` (gitignored). Auth auto-generates an in-memory dev JWT key
 when none is configured (a WARN line, not an error).
+
+Unlike `api`/`auth`/`mail`, `agent` always talks to catalog/AI/query over HTTP
+rather than in-process — `.env.dev.example` points `BI_CATALOG_SERVICE_URL` /
+`BI_AI_SERVICE_URL` / `BI_QUERY_SERVICE_URL` at the local monolith
+(`http://localhost:8888`), and it needs a live NATS connection (`make dev-up`
+already starts one). `BI_AGENT_ENABLED` defaults to `false`, so no traffic
+routes to it yet even when it's running — see `internal/http/handlers/ai_job_service.go`'s
+`routeAIJob`. For mode/allowlist controls, metrics, alerts, and the
+conversation-repair CLI, see `docs/agents/agent-runbook.md`.
+
+```sh
+make watch SVC="api agent auth"   # only api + agent + auth (skip mail)
+```
 
 For breakpoint debugging while keeping live-reload, swap `watch` → `debug-watch`:
 
 ```sh
 make debug-watch            # api under Delve on :2345; rebuilds on save
 make debug-watch SVC=auth   # auth under Delve on :2345
+make debug-watch SVC=agent  # agent under Delve on :2345
 ```
 
 Attach the IDE to `localhost:2345` (Delve, `--accept-multiclient --continue`).

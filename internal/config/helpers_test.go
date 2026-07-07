@@ -246,6 +246,98 @@ func TestLoadDevelopmentAllowsAuthDisabled(t *testing.T) {
 	}
 }
 
+func TestLoadAgentConfigDefaults(t *testing.T) {
+	t.Setenv("BI_ENCRYPTION_KEY", "a-real-32-byte-key-value-1234567")
+	t.Setenv("BI_METADATA_DB_DSN", "postgres://example/db?sslmode=disable")
+	t.Setenv("BI_ENV", "development")
+	t.Setenv("BI_AUTH_ENABLED", "false")
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Agent.Enabled {
+		t.Error("Agent.Enabled should default to false")
+	}
+	if cfg.Agent.Mode != AgentModeShadow {
+		t.Errorf("Agent.Mode = %q, want %q", cfg.Agent.Mode, AgentModeShadow)
+	}
+	if cfg.Agent.MaxSteps != 6 {
+		t.Errorf("Agent.MaxSteps = %d, want 6", cfg.Agent.MaxSteps)
+	}
+	if cfg.Agent.MaxClarificationRounds != 2 {
+		t.Errorf("Agent.MaxClarificationRounds = %d, want 2", cfg.Agent.MaxClarificationRounds)
+	}
+	if cfg.Agent.Timeout != 45*time.Second {
+		t.Errorf("Agent.Timeout = %v, want 45s", cfg.Agent.Timeout)
+	}
+	if cfg.Agent.MaxRows != 1000 {
+		t.Errorf("Agent.MaxRows = %d, want 1000", cfg.Agent.MaxRows)
+	}
+	if !cfg.Agent.LegacyFallbackEnabled {
+		t.Error("Agent.LegacyFallbackEnabled should default to true")
+	}
+}
+
+func TestLoadAgentConfigValidation(t *testing.T) {
+	base := func(t *testing.T) {
+		t.Helper()
+		t.Setenv("BI_ENCRYPTION_KEY", "a-real-32-byte-key-value-1234567")
+		t.Setenv("BI_METADATA_DB_DSN", "postgres://example/db?sslmode=disable")
+		t.Setenv("BI_ENV", "development")
+		t.Setenv("BI_AUTH_ENABLED", "false")
+		t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	}
+
+	t.Run("rejects unknown mode", func(t *testing.T) {
+		base(t)
+		t.Setenv("BI_AGENT_MODE", "eager")
+		if _, err := Load(); err == nil {
+			t.Fatal("Load should reject an unknown BI_AGENT_MODE")
+		}
+	})
+	t.Run("rejects out-of-range max_steps", func(t *testing.T) {
+		base(t)
+		t.Setenv("BI_AGENT_MAX_STEPS", "7")
+		if _, err := Load(); err == nil {
+			t.Fatal("Load should reject BI_AGENT_MAX_STEPS above 6")
+		}
+	})
+	t.Run("rejects out-of-range clarification rounds", func(t *testing.T) {
+		base(t)
+		t.Setenv("BI_AGENT_MAX_CLARIFICATION_ROUNDS", "3")
+		if _, err := Load(); err == nil {
+			t.Fatal("Load should reject BI_AGENT_MAX_CLARIFICATION_ROUNDS above 2")
+		}
+	})
+	t.Run("rejects out-of-range timeout", func(t *testing.T) {
+		base(t)
+		t.Setenv("BI_AGENT_TIMEOUT", "46s")
+		if _, err := Load(); err == nil {
+			t.Fatal("Load should reject BI_AGENT_TIMEOUT above 45s")
+		}
+	})
+	t.Run("rejects out-of-range max_rows", func(t *testing.T) {
+		base(t)
+		t.Setenv("BI_AGENT_MAX_ROWS", "1001")
+		if _, err := Load(); err == nil {
+			t.Fatal("Load should reject BI_AGENT_MAX_ROWS above 1000")
+		}
+	})
+	t.Run("accepts active mode and in-range values", func(t *testing.T) {
+		base(t)
+		t.Setenv("BI_AGENT_MODE", "active")
+		t.Setenv("BI_AGENT_MAX_STEPS", "1")
+		t.Setenv("BI_AGENT_MAX_CLARIFICATION_ROUNDS", "0")
+		t.Setenv("BI_AGENT_TIMEOUT", "1s")
+		t.Setenv("BI_AGENT_MAX_ROWS", "1")
+		if _, err := Load(); err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+	})
+}
+
 func TestLoadAIJobsConsumerEnabled(t *testing.T) {
 	t.Setenv("BI_ENCRYPTION_KEY", "a-real-32-byte-key-value-1234567")
 	t.Setenv("BI_METADATA_DB_DSN", "postgres://example/db?sslmode=disable")
