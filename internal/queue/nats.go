@@ -31,6 +31,7 @@ type jetStreamClient interface {
 	CreateOrUpdateStream(ctx context.Context, cfg jetstream.StreamConfig) (jetstream.Stream, error)
 	CreateOrUpdateConsumer(ctx context.Context, stream string, cfg jetstream.ConsumerConfig) (jetstream.Consumer, error)
 	Publish(ctx context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error)
+	Stream(ctx context.Context, name string) (jetstream.Stream, error)
 }
 
 type NATSQueue struct {
@@ -50,6 +51,26 @@ func normalizeNATSConfig(cfg NATSConfig) NATSConfig {
 	return cfg
 }
 
+// mergeStreamSubjects appends existing subjects not already present in desired,
+// preserving the order of desired first then existing. This ensures every caller's
+// CreateOrUpdateStream preserves subjects registered by other services sharing
+// the same JetStream stream (e.g. legacy AI pipeline + agentic runner).
+func mergeStreamSubjects(existing, desired []string) []string {
+	seen := make(map[string]bool, len(desired))
+	merged := make([]string, 0, len(desired))
+	for _, s := range desired {
+		seen[s] = true
+		merged = append(merged, s)
+	}
+	for _, s := range existing {
+		if !seen[s] {
+			merged = append(merged, s)
+			seen[s] = true
+		}
+	}
+	return merged
+}
+
 func ConnectNATS(cfg NATSConfig) (*NATSQueue, error) {
 	if cfg.URL == "" {
 		return nil, errors.New("nats url is empty")
@@ -66,9 +87,25 @@ func ConnectNATS(cfg NATSConfig) (*NATSQueue, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+
+	subjects := []string{cfg.Subject, AIJobDLQSubject}
+
+	// Merge with existing stream subjects instead of replacing them.
+	// Multiple services (legacy AI pipeline + agentic runner) share the
+	// same JetStream stream. Every caller's CreateOrUpdateStream must
+	// preserve subjects registered by other callers, or the first caller
+	// to restart after another's connect silently drops the other's
+	// subjects — breaking that service's job publishing.
+	if existing, sErr := js.Stream(ctx, cfg.Stream); sErr == nil {
+		info, iErr := existing.Info(ctx)
+		if iErr == nil {
+			subjects = mergeStreamSubjects(info.Config.Subjects, subjects)
+		}
+	}
+
 	_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Name:      cfg.Stream,
-		Subjects:  []string{cfg.Subject, AIJobDLQSubject},
+		Subjects:  subjects,
 		Retention: jetstream.WorkQueuePolicy,
 		MaxAge:    7 * 24 * time.Hour,
 	})

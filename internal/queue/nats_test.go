@@ -56,6 +56,7 @@ func TestNATSQueueCloseNilConn(t *testing.T) {
 type mockJetStream struct {
 	publish        func(ctx context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error)
 	createConsumer func(ctx context.Context, stream string, cfg jetstream.ConsumerConfig) (jetstream.Consumer, error)
+	stream         func(ctx context.Context, name string) (jetstream.Stream, error)
 }
 
 func (m *mockJetStream) Publish(ctx context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error) {
@@ -74,6 +75,13 @@ func (m *mockJetStream) CreateOrUpdateConsumer(ctx context.Context, stream strin
 		return m.createConsumer(ctx, stream, cfg)
 	}
 	return nil, errors.New("not implemented")
+}
+
+func (m *mockJetStream) Stream(ctx context.Context, name string) (jetstream.Stream, error) {
+	if m.stream != nil {
+		return m.stream(ctx, name)
+	}
+	return nil, errors.New("stream not found")
 }
 
 type mockMsgWithNakErr struct {
@@ -446,4 +454,29 @@ func TestNATSSubjectQueueSubscribeCreateConsumerError(t *testing.T) {
 	err := q.Subscribe(context.Background(), "biqly.agent.jobs", "agent-workers", func(context.Context, []byte) error { return nil })
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "create consumer failed")
+}
+
+func TestMergeStreamSubjects_Deduplicates(t *testing.T) {
+	existing := []string{"biqly.ai.jobs", "biqly.ai.jobs.dlq"}
+	desired := []string{"biqly.agent.jobs", "biqly.ai.jobs.dlq"}
+	got := mergeStreamSubjects(existing, desired)
+	expected := []string{"biqly.agent.jobs", "biqly.ai.jobs.dlq", "biqly.ai.jobs"}
+	assert.Equal(t, expected, got)
+}
+
+func TestMergeStreamSubjects_NoExisting(t *testing.T) {
+	got := mergeStreamSubjects(nil, []string{"biqly.agent.jobs", "biqly.ai.jobs.dlq"})
+	assert.Equal(t, []string{"biqly.agent.jobs", "biqly.ai.jobs.dlq"}, got)
+}
+
+func TestMergeStreamSubjects_EmptyDesired(t *testing.T) {
+	got := mergeStreamSubjects([]string{"biqly.ai.jobs", "biqly.ai.jobs.dlq"}, nil)
+	assert.Equal(t, []string{"biqly.ai.jobs", "biqly.ai.jobs.dlq"}, got)
+}
+
+func TestMergeStreamSubjects_AllOverlap(t *testing.T) {
+	existing := []string{"a.subj", "b.subj"}
+	desired := []string{"b.subj", "a.subj"}
+	got := mergeStreamSubjects(existing, desired)
+	assert.Equal(t, []string{"b.subj", "a.subj"}, got)
 }
