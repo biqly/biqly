@@ -1,14 +1,36 @@
 package handlers
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/biqly/biqly/internal/ai"
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
+	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/bytedance/sonic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// stubFollowUpRewriteProvider is a minimal providerpkg.Provider stub for
+// exercising the AI follow-up rewrite phase without a real LLM call.
+type stubFollowUpRewriteProvider struct {
+	content string
+	err     error
+}
+
+func (p *stubFollowUpRewriteProvider) Generate(context.Context, string) (providerpkg.GenerationResult, error) {
+	if p.err != nil {
+		return providerpkg.GenerationResult{}, p.err
+	}
+	return providerpkg.GenerationResult{Content: p.content}, nil
+}
+
+func (p *stubFollowUpRewriteProvider) GenerateAt(ctx context.Context, prompt string, _ float64) (providerpkg.GenerationResult, error) {
+	return p.Generate(ctx, prompt)
+}
 
 func TestBuildDeterministicFollowUpsTimeAndMetricProducesTrendAndChart(t *testing.T) {
 	fc := FollowUpContext{
@@ -165,4 +187,112 @@ func TestSuggestedFollowUpsSurviveAIJobResultRoundTrip(t *testing.T) {
 	require.NotNil(t, reloaded.Result)
 	require.Len(t, reloaded.Result.SuggestedFollowUps, 1)
 	assert.Equal(t, resp.Result.SuggestedFollowUps[0], reloaded.Result.SuggestedFollowUps[0])
+}
+
+// aiFollowUpsResponseWithSingleMetricRow builds a minimal *ai.Response/
+// aiQueryRequest pair whose executed result shape is guaranteed to produce at
+// least one deterministic follow-up suggestion (a single-row metric result),
+// so attachSuggestedFollowUps has something to hand to the AI rewrite phase.
+func aiFollowUpsResponseWithSingleMetricRow() (*ai.Response, aiQueryRequest) {
+	resp := &ai.Response{
+		Result: &ai.AIResult{
+			Result: &query.Result{
+				Columns: []query.ResultColumn{{Name: "revenue", SemanticType: query.SemanticTypeMetric}},
+				Rows:    [][]any{{100}},
+			},
+		},
+	}
+	req := aiQueryRequest{Question: "what is total revenue?"}
+	return resp, req
+}
+
+// TestAttachSuggestedFollowUpsAIRewriteInvalidJSONFallsBackToDeterministic
+// covers the brief's Step 4: a stub provider that returns invalid JSON must
+// leave the already-attached deterministic suggestions in place, never an
+// empty or partial result.
+func TestAttachSuggestedFollowUpsAIRewriteInvalidJSONFallsBackToDeterministic(t *testing.T) {
+	h := newAIHandlerWithRepo(nil)
+	h.service = ai.NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), &stubFollowUpRewriteProvider{content: "not json at all"})
+
+	resp, req := aiFollowUpsResponseWithSingleMetricRow()
+	fc := FollowUpContext{
+		UserQuestion:    req.Question,
+		AvailableFields: []string{"revenue"},
+		ResultColumns:   []string{"revenue"},
+		ResultRowCount:  1,
+		HasMetric:       true,
+	}
+	want := BuildDeterministicFollowUps(fc)
+	require.NotEmpty(t, want, "test fixture must produce at least one deterministic suggestion")
+
+	h.attachSuggestedFollowUps(context.Background(), resp, req)
+
+	assert.Equal(t, want, resp.Result.SuggestedFollowUps)
+}
+
+// TestAttachSuggestedFollowUpsAIRewriteInvalidFieldsFallsBackToDeterministic
+// covers the brief's Step 4 for the "invalid fields" half: the AI returns
+// well-formed JSON, but every suggestion fails re-validation (references a
+// field outside AVAILABLE_FIELDS), so the deterministic fallback must be kept.
+func TestAttachSuggestedFollowUpsAIRewriteInvalidFieldsFallsBackToDeterministic(t *testing.T) {
+	h := newAIHandlerWithRepo(nil)
+	h.service = ai.NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), &stubFollowUpRewriteProvider{
+		content: `{"suggestions": [{"id": "bad", "label": "Bad", "question": "Bad question?", "kind": "comparison", "requires": ["not_a_real_field"]}]}`,
+	})
+
+	resp, req := aiFollowUpsResponseWithSingleMetricRow()
+	fc := FollowUpContext{
+		UserQuestion:    req.Question,
+		AvailableFields: []string{"revenue"},
+		ResultColumns:   []string{"revenue"},
+		ResultRowCount:  1,
+		HasMetric:       true,
+	}
+	want := BuildDeterministicFollowUps(fc)
+	require.NotEmpty(t, want, "test fixture must produce at least one deterministic suggestion")
+
+	h.attachSuggestedFollowUps(context.Background(), resp, req)
+
+	assert.Equal(t, want, resp.Result.SuggestedFollowUps)
+}
+
+// TestAttachSuggestedFollowUpsAIRewriteProviderErrorFallsBackToDeterministic
+// covers the LLM-call-failure half of the fallback contract: a provider error
+// must not empty out or otherwise disturb the deterministic suggestions.
+func TestAttachSuggestedFollowUpsAIRewriteProviderErrorFallsBackToDeterministic(t *testing.T) {
+	h := newAIHandlerWithRepo(nil)
+	h.service = ai.NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), &stubFollowUpRewriteProvider{err: errors.New("boom")})
+
+	resp, req := aiFollowUpsResponseWithSingleMetricRow()
+	fc := FollowUpContext{
+		UserQuestion:    req.Question,
+		AvailableFields: []string{"revenue"},
+		ResultColumns:   []string{"revenue"},
+		ResultRowCount:  1,
+		HasMetric:       true,
+	}
+	want := BuildDeterministicFollowUps(fc)
+	require.NotEmpty(t, want, "test fixture must produce at least one deterministic suggestion")
+
+	h.attachSuggestedFollowUps(context.Background(), resp, req)
+
+	assert.Equal(t, want, resp.Result.SuggestedFollowUps)
+}
+
+// TestAttachSuggestedFollowUpsAIRewriteValidResponseReplacesDeterministic
+// confirms the success path: a well-formed, valid AI rewrite does replace the
+// deterministic suggestions, so the fallback tests above are meaningfully
+// exercising the failure path and not just a no-op AI phase.
+func TestAttachSuggestedFollowUpsAIRewriteValidResponseReplacesDeterministic(t *testing.T) {
+	h := newAIHandlerWithRepo(nil)
+	h.service = ai.NewServiceWithProvider(&config.AIConfig{}, query.NewValidator(1000), &stubFollowUpRewriteProvider{
+		content: `{"suggestions": [{"id": "rewritten", "label": "Rewritten", "question": "Rewritten question?", "kind": "comparison", "requires": ["revenue"]}]}`,
+	})
+
+	resp, req := aiFollowUpsResponseWithSingleMetricRow()
+
+	h.attachSuggestedFollowUps(context.Background(), resp, req)
+
+	require.Len(t, resp.Result.SuggestedFollowUps, 1)
+	assert.Equal(t, "rewritten", resp.Result.SuggestedFollowUps[0].ID)
 }

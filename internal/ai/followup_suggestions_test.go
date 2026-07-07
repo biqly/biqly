@@ -1,6 +1,8 @@
 package ai
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -168,4 +170,92 @@ func TestValidateSuggestedFollowUpsCapsAtThree(t *testing.T) {
 
 	require.Len(t, got, maxSuggestedFollowUps)
 	require.Equal(t, []string{"c1", "c2", "c3"}, []string{got[0].ID, got[1].ID, got[2].ID})
+}
+
+func TestRewriteFollowUpsWithAINilProviderReturnsNilNoError(t *testing.T) {
+	got, err := RewriteFollowUpsWithAI(context.Background(), nil, "how many tweets?", []SuggestedFollowUp{
+		{ID: "c1", Label: "One", Question: "Question one?", Kind: SuggestedFollowUpTrend},
+	}, []string{"created_at_ts"}, nil)
+
+	require.NoError(t, err)
+	require.Nil(t, got)
+}
+
+func TestRewriteFollowUpsWithAINoCandidatesReturnsNilNoError(t *testing.T) {
+	provider := &stubAnswerProvider{content: "should not be called"}
+
+	got, err := RewriteFollowUpsWithAI(context.Background(), provider, "how many tweets?", nil, []string{"created_at_ts"}, nil)
+
+	require.NoError(t, err)
+	require.Nil(t, got)
+	require.Equal(t, 0, provider.calls)
+}
+
+func TestRewriteFollowUpsWithAIParsesValidResponse(t *testing.T) {
+	provider := &stubAnswerProvider{content: `{"suggestions": [
+		{"id": "rewritten-1", "label": "Rewritten label", "question": "Rewritten question?", "reason": "why", "kind": "comparison", "requires": ["created_at_ts"]}
+	]}`}
+	candidates := []SuggestedFollowUp{
+		{ID: "c1", Label: "One", Question: "Question one?", Kind: SuggestedFollowUpTrend},
+	}
+
+	got, err := RewriteFollowUpsWithAI(context.Background(), provider, "how many tweets?", candidates, []string{"created_at_ts"}, []string{"prior question?"})
+
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.Equal(t, "rewritten-1", got[0].ID)
+	require.Equal(t, "Rewritten label", got[0].Label)
+	require.Equal(t, "Rewritten question?", got[0].Question)
+	require.Equal(t, SuggestedFollowUpComparison, got[0].Kind)
+	require.Equal(t, 1, provider.calls)
+	require.Contains(t, provider.lastPrompt, "how many tweets?")
+	require.Contains(t, provider.lastPrompt, "created_at_ts")
+	require.Contains(t, provider.lastPrompt, "prior question?")
+}
+
+func TestRewriteFollowUpsWithAIInvalidJSONReturnsError(t *testing.T) {
+	provider := &stubAnswerProvider{content: "not json at all"}
+	candidates := []SuggestedFollowUp{
+		{ID: "c1", Label: "One", Question: "Question one?", Kind: SuggestedFollowUpTrend},
+	}
+
+	got, err := RewriteFollowUpsWithAI(context.Background(), provider, "how many tweets?", candidates, nil, nil)
+
+	require.Error(t, err)
+	require.Nil(t, got)
+}
+
+func TestRewriteFollowUpsWithAIProviderErrorReturnsError(t *testing.T) {
+	provider := &stubAnswerProvider{err: errors.New("boom")}
+	candidates := []SuggestedFollowUp{
+		{ID: "c1", Label: "One", Question: "Question one?", Kind: SuggestedFollowUpTrend},
+	}
+
+	got, err := RewriteFollowUpsWithAI(context.Background(), provider, "how many tweets?", candidates, nil, nil)
+
+	require.Error(t, err)
+	require.Nil(t, got)
+}
+
+// TestRewriteFollowUpsWithAIDoesNotValidate confirms RewriteFollowUpsWithAI
+// does not itself call ValidateSuggestedFollowUps: a suggestion whose
+// Requires references a field outside availableFields must still come back
+// in the raw, unvalidated result. Validation is the caller's responsibility
+// (see attachSuggestedFollowUps), so that a single AI failure path can fall
+// back to the deterministic suggestions instead of surfacing a partially
+// invalid AI result.
+func TestRewriteFollowUpsWithAIDoesNotValidate(t *testing.T) {
+	provider := &stubAnswerProvider{content: `{"suggestions": [
+		{"id": "bad", "label": "Bad", "question": "Bad question?", "kind": "comparison", "requires": ["field_not_available"]}
+	]}`}
+	candidates := []SuggestedFollowUp{
+		{ID: "c1", Label: "One", Question: "Question one?", Kind: SuggestedFollowUpTrend},
+	}
+
+	got, err := RewriteFollowUpsWithAI(context.Background(), provider, "how many tweets?", candidates, []string{"created_at_ts"}, nil)
+
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.Equal(t, "bad", got[0].ID)
+	require.Equal(t, []string{"field_not_available"}, got[0].Requires)
 }

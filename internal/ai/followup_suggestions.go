@@ -1,9 +1,16 @@
 package ai
 
 import (
+	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"unicode"
+
+	"github.com/bytedance/sonic"
+
+	"github.com/biqly/biqly/internal/ai/jsonextract"
+	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 )
 
 // maxSuggestedFollowUps caps the number of follow-up suggestions returned to
@@ -125,6 +132,100 @@ func isSimilarBySubstring(a, b string) bool {
 		return false
 	}
 	return strings.Contains(longer, shorter)
+}
+
+// followUpRewriteResponse is the strict-JSON shape RewriteFollowUpsWithAI
+// expects back from the LLM. SuggestedFollowUp's own JSON tags already match
+// the per-suggestion shape, so no separate DTO type is needed for the
+// elements.
+type followUpRewriteResponse struct {
+	Suggestions []SuggestedFollowUp `json:"suggestions"`
+}
+
+// RewriteFollowUpsWithAI asks an LLM to rewrite labels/questions and/or
+// select the best of the deterministic candidates, returning them
+// unvalidated: the caller must still pass the result through
+// ValidateSuggestedFollowUps (this function intentionally does not call it),
+// so a caller can fall back to its own already-validated deterministic
+// suggestions on any AI failure without ever surfacing a partially invalid
+// AI result. Returns (nil, nil) — not an error — when there is nothing to
+// rewrite (no provider or no candidates).
+func RewriteFollowUpsWithAI(
+	ctx context.Context,
+	llmProvider providerpkg.Provider,
+	userQuestion string,
+	candidates []SuggestedFollowUp,
+	availableFields []string,
+	priorQuestions []string,
+) ([]SuggestedFollowUp, error) {
+	if llmProvider == nil || len(candidates) == 0 {
+		return nil, nil
+	}
+
+	prompt, err := buildFollowUpRewritePrompt(userQuestion, candidates, availableFields, priorQuestions)
+	if err != nil {
+		return nil, fmt.Errorf("build follow-up rewrite prompt: %w", err)
+	}
+
+	gen, err := llmProvider.Generate(ctx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("generate follow-up rewrite: %w", err)
+	}
+
+	var response followUpRewriteResponse
+	if err := sonic.ConfigStd.Unmarshal([]byte(jsonextract.TrimToJSONObject(gen.Content)), &response); err != nil {
+		return nil, fmt.Errorf("parse follow-up rewrite: %w", err)
+	}
+	return response.Suggestions, nil
+}
+
+// buildFollowUpRewritePrompt assembles the follow-up rewrite prompt: the
+// constraint rules, the user's current question, the deterministic
+// candidates and available fields (as JSON, in the exact response shape the
+// model must echo), and the prior questions to avoid repeating.
+func buildFollowUpRewritePrompt(
+	userQuestion string,
+	candidates []SuggestedFollowUp,
+	availableFields []string,
+	priorQuestions []string,
+) (string, error) {
+	candidatesJSON, err := sonic.ConfigStd.Marshal(candidates)
+	if err != nil {
+		return "", fmt.Errorf("marshal candidates: %w", err)
+	}
+	fieldsJSON, err := sonic.ConfigStd.Marshal(availableFields)
+	if err != nil {
+		return "", fmt.Errorf("marshal available fields: %w", err)
+	}
+	priorQuestionsJSON, err := sonic.ConfigStd.Marshal(priorQuestions)
+	if err != nil {
+		return "", fmt.Errorf("marshal prior questions: %w", err)
+	}
+
+	var b strings.Builder
+	b.WriteString("You are refining next-question suggestions for a BI chat assistant.\n\n")
+	b.WriteString("You may rewrite labels/questions and select the best candidates.\n")
+	b.WriteString("You may not introduce fields outside AVAILABLE_FIELDS.\n")
+	b.WriteString("You may not create more than 3 suggestions.\n")
+	b.WriteString("Return strict JSON only.\n")
+	b.WriteString("Do not include SQL. Do not include markdown. If no safe suggestion exists, return {\"suggestions\":[]}.\n")
+	b.WriteString("Do not repeat any prior user question.\n\n")
+	b.WriteString("USER_QUESTION: ")
+	b.WriteString(userQuestion)
+	b.WriteString("\n\n")
+	b.WriteString("CANDIDATES (JSON):\n")
+	b.Write(candidatesJSON)
+	b.WriteString("\n\n")
+	b.WriteString("AVAILABLE_FIELDS (JSON):\n")
+	b.Write(fieldsJSON)
+	b.WriteString("\n\n")
+	b.WriteString("PRIOR_QUESTIONS (JSON, do not repeat any of these):\n")
+	b.Write(priorQuestionsJSON)
+	b.WriteString("\n\n")
+	b.WriteString("Respond with exactly this JSON shape:\n")
+	b.WriteString(`{"suggestions": [{"id": "...", "label": "...", "question": "...", "reason": "...", "kind": "comparison", "requires": ["field_name"]}]}`)
+	b.WriteString("\n")
+	return b.String(), nil
 }
 
 // trimmedRequiresWithinFieldSet trims each required field name and reports

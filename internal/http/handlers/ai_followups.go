@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/biqly/biqly/internal/ai"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/query"
 )
 
@@ -97,11 +98,19 @@ func BuildDeterministicFollowUps(fc FollowUpContext) []ai.SuggestedFollowUp {
 // (resp.Result.Result) has been populated.
 //
 // It is a method on *AIHandler (rather than a free function) for call-site
-// and interface parity with attachAINaturalLanguageAnswer, and so a later AI
-// rewrite/selection phase (see ai.RewriteFollowUpsWithAI in the plan) can use
-// handler-level dependencies without changing every call site again. It does
-// not use handler state today, since Task 2 is deterministic-only.
-func (*AIHandler) attachSuggestedFollowUps(ctx context.Context, resp *ai.Response, req aiQueryRequest) {
+// and interface parity with attachAINaturalLanguageAnswer, and so the AI
+// rewrite/selection phase below can use handler-level dependencies (the
+// service's LLM provider, the spend limiter) without changing every call
+// site again.
+//
+// The AI rewrite is best-effort and cost-gated on top of the deterministic
+// suggestions: resp.Result.SuggestedFollowUps is set to the deterministic,
+// already-validated result first, and is only replaced if every later step
+// (provider available, spend budget OK, LLM call, JSON parse, and
+// re-validation) succeeds and yields a non-empty result. Any failure leaves
+// the deterministic suggestions in place, so the response never loses its
+// follow-up chips because of an AI failure alone.
+func (h *AIHandler) attachSuggestedFollowUps(ctx context.Context, resp *ai.Response, req aiQueryRequest) {
 	if resp == nil || resp.Result == nil || resp.Result.Result == nil {
 		return
 	}
@@ -118,8 +127,34 @@ func (*AIHandler) attachSuggestedFollowUps(ctx context.Context, resp *ai.Respons
 	// the follow-up the chip would trigger.
 	fc.AvailableFields = fc.ResultColumns
 
-	resp.Result.SuggestedFollowUps = BuildDeterministicFollowUps(fc)
-	slog.DebugContext(ctx, "attached deterministic follow-up suggestions", "count", len(resp.Result.SuggestedFollowUps))
+	deterministic := BuildDeterministicFollowUps(fc)
+	resp.Result.SuggestedFollowUps = deterministic
+	slog.DebugContext(ctx, "attached deterministic follow-up suggestions", "count", len(deterministic))
+
+	if h.service == nil || len(deterministic) == 0 {
+		return
+	}
+	provider := h.service.LLMProvider()
+	if provider == nil {
+		return
+	}
+	if h.deps.SpendLimiter != nil {
+		if err := h.deps.SpendLimiter.Check(ctx, bimw.WorkspaceID(ctx)); err != nil {
+			return
+		}
+	}
+
+	rewritten, err := ai.RewriteFollowUpsWithAI(ctx, provider, fc.UserQuestion, deterministic, fc.AvailableFields, fc.PriorQuestions)
+	if err != nil {
+		slog.WarnContext(ctx, "AI follow-up rewrite failed, keeping deterministic suggestions", "error", err)
+		return
+	}
+	validated := ai.ValidateSuggestedFollowUps(rewritten, fc.AvailableFields, fc.PriorQuestions)
+	if len(validated) == 0 {
+		return
+	}
+	resp.Result.SuggestedFollowUps = validated
+	slog.DebugContext(ctx, "attached AI-rewritten follow-up suggestions", "count", len(validated))
 }
 
 // followUpSignalsFromColumns derives the column-name list and the
