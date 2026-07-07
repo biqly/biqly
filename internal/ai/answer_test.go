@@ -86,6 +86,31 @@ func TestSynthesizeAnswerSkippedWhenDisabledOrNoData(t *testing.T) {
 	}
 }
 
+func TestRenderResultForAnswerFormatsStringNumerics(t *testing.T) {
+	t.Parallel()
+	// SQL numeric/decimal columns (e.g. a percent_change formula) arrive as
+	// strings; the answer prompt must apply the same percent/number formatting the
+	// table does instead of leaking the raw digits.
+	result := &query.Result{
+		Columns: []query.ResultColumn{
+			{Name: "fark", Format: query.FormatNumber},
+			{Name: "degisim_orani", Format: query.FormatPercent},
+		},
+		Rows:  [][]any{{"-227", "-27.3164861612515042"}},
+		Stats: query.Stats{RowCount: 1},
+	}
+	got := renderResultForAnswer(result, "tr")
+	if strings.Contains(got, "-27.3164861612515042") {
+		t.Fatalf("rendered raw percent digits; got:\n%s", got)
+	}
+	if !strings.Contains(got, "-27,3%") {
+		t.Fatalf("percent not formatted to 1 decimal with %% sign; got:\n%s", got)
+	}
+	if !strings.Contains(got, "-227") {
+		t.Fatalf("number cell missing; got:\n%s", got)
+	}
+}
+
 func TestSanitizeAnswerText(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

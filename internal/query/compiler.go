@@ -1438,6 +1438,15 @@ func (c *Compiler) calendarGrainFilterExpr(
 		grain = TimeGrainMonth
 	case quarterGrainFilterUsesDateTrunc(dim, f):
 		grain = TimeGrainQuarter
+	case hourGrainFilterUsesDateTrunc(dim, f):
+		// An hour-grained dimension renders as EXTRACT(HOUR) (integer). A
+		// date-only anchor ("2026-07-07") means the whole day ("hourly breakdown
+		// of yesterday"), so truncate to day; a timestamp anchor pins that hour.
+		if isDateOnlyCalendarValue(f.Value) {
+			grain = TimeGrainDay
+		} else {
+			grain = TimeGrainHour
+		}
 	default:
 		return "", false, nil
 	}
