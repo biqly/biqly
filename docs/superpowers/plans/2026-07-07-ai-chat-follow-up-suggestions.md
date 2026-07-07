@@ -311,7 +311,7 @@ Do not auto-submit in the first implementation. The user should be able to edit 
 - Produces: `SuggestedFollowUp`, `SuggestedFollowUpKind`, `ValidateSuggestedFollowUps`.
 - Consumes: current response type and prior user question list.
 
-- [ ] **Step 1: Run gograph preflight**
+- [x] **Step 1: Run gograph preflight**
 
 Run:
 
@@ -328,11 +328,11 @@ gograph_plan "<actual response symbol>"
 
 Expected: identify the backend response struct and the response assembly path before editing.
 
-- [ ] **Step 2: Add backend types**
+- [x] **Step 2: Add backend types**
 
 Add the Go contract from the "Go Contract" section to the existing response contract package.
 
-- [ ] **Step 3: Add validation helper**
+- [x] **Step 3: Add validation helper**
 
 Implement:
 
@@ -357,7 +357,7 @@ func ValidateSuggestedFollowUps(
 
 The implementation must use `slices.Contains` or a map set for membership, not a hand-rolled repeated linear scan on hot paths.
 
-- [ ] **Step 4: Add tests for validation**
+- [x] **Step 4: Add tests for validation**
 
 Test cases:
 
@@ -369,7 +369,7 @@ func TestValidateSuggestedFollowUpsDropsPriorQuestionDuplicate(t *testing.T)
 func TestValidateSuggestedFollowUpsCapsAtThree(t *testing.T)
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run focused tests for the package:
 
@@ -394,7 +394,7 @@ Expected: all new validation tests pass.
 - Consumes: `ValidateSuggestedFollowUps`.
 - Produces: `suggested_followups` in final persisted `AIQueryResponse`.
 
-- [ ] **Step 1: Build deterministic candidates**
+- [x] **Step 1: Build deterministic candidates**
 
 Create a pure helper near response assembly:
 
@@ -424,7 +424,7 @@ Candidate rules:
 - `ResultRowCount == 1 && HasMetric`: add drilldown/breakdown suggestion.
 - Always validate before returning.
 
-- [ ] **Step 2: Add optional AI rewrite/select phase**
+- [x] **Step 2: Add optional AI rewrite/select phase**
 
 If the existing AI pipeline has a structured-output helper, use it. If it does not, keep Task 2 deterministic and leave AI rewrite as Task 8 below.
 
@@ -439,7 +439,7 @@ if err != nil || len(rewritten) == 0 {
 return ValidateSuggestedFollowUps(rewritten, ctx.AvailableFields, ctx.PriorQuestions)
 ```
 
-- [ ] **Step 3: Attach suggestions to response**
+- [x] **Step 3: Attach suggestions to response**
 
 When assembling the final AI response, set:
 
@@ -449,11 +449,11 @@ resp.SuggestedFollowUps = BuildFollowUpsForResponse(...)
 
 Ensure this occurs before the response is serialized into any job/agent-run result JSON.
 
-- [ ] **Step 4: Verify persistence**
+- [x] **Step 4: Verify persistence**
 
 Add or update a test that stores a completed AI response and reloads it. Expected: `suggested_followups` survives round-trip.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -479,11 +479,11 @@ Expected: tests pass and response JSON includes `suggested_followups`.
 - Produces: `normalizeFollowUpText`, `filterFollowUpSuggestions`, `buildFallbackFollowUps`.
 - Consumes: `SuggestedFollowUp`, `AIQueryResponse`, `ConversationMessage`.
 
-- [ ] **Step 1: Add TypeScript types**
+- [x] **Step 1: Add TypeScript types**
 
 Add the TypeScript contract from the "TypeScript Contract" section.
 
-- [ ] **Step 2: Implement normalization**
+- [x] **Step 2: Implement normalization**
 
 ```ts
 export function normalizeFollowUpText(value: string): string {
@@ -495,7 +495,7 @@ export function normalizeFollowUpText(value: string): string {
 }
 ```
 
-- [ ] **Step 3: Implement duplicate filtering**
+- [x] **Step 3: Implement duplicate filtering**
 
 ```ts
 export function filterFollowUpSuggestions(
@@ -527,7 +527,7 @@ export function filterFollowUpSuggestions(
 }
 ```
 
-- [ ] **Step 4: Implement fallback builder**
+- [x] **Step 4: Implement fallback builder**
 
 ```ts
 export function buildFallbackFollowUps(args: {
@@ -574,7 +574,7 @@ export function buildFallbackFollowUps(args: {
 }
 ```
 
-- [ ] **Step 5: Add tests**
+- [x] **Step 5: Add tests**
 
 Tests:
 
@@ -585,7 +585,7 @@ it('builds chart fallback for metric results')
 it('returns no fallback for empty results')
 ```
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run:
 
@@ -609,11 +609,11 @@ Expected: focused tests pass.
 - Consumes: `SuggestedFollowUp[]`, `onSelect(question)`, `t`.
 - Produces: accessible suggestion buttons.
 
-- [ ] **Step 1: Implement component**
+- [x] **Step 1: Implement component**
 
 Use the component API from "Frontend Interaction Model".
 
-- [ ] **Step 2: Keep visual style compact**
+- [x] **Step 2: Keep visual style compact**
 
 Use Tailwind utilities:
 
@@ -624,7 +624,7 @@ className="flex flex-wrap gap-2"
 className="rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm text-text transition hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
 ```
 
-- [ ] **Step 3: Accessibility checks**
+- [x] **Step 3: Accessibility checks**
 
 Each button must:
 
@@ -633,7 +633,7 @@ Each button must:
 - have `aria-label` containing `suggestion.question`
 - be keyboard focusable
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -659,7 +659,7 @@ Expected: ESLint passes for the new component.
 - Consumes: frontend `buildFallbackFollowUps`.
 - Produces: composer-fill interaction from suggestion click.
 
-- [ ] **Step 1: Add callback prop**
+- [x] **Step 1: Add callback prop**
 
 In `frontend/src/components/aiQuery/types.ts`, add to `AssistantMessageCardProps`:
 
@@ -668,7 +668,7 @@ onSelectFollowUp: (question: string) => void
 priorQuestions: string[]
 ```
 
-- [ ] **Step 2: Add composer focus handler**
+- [x] **Step 2: Add composer focus handler**
 
 In `AIQuery.tsx`:
 
@@ -685,7 +685,7 @@ const handleSelectFollowUp = useCallback((nextQuestion: string) => {
 
 Attach `questionInputRef` to the existing composer textarea.
 
-- [ ] **Step 3: Derive prior questions**
+- [x] **Step 3: Derive prior questions**
 
 In `AIQuery.tsx`, derive:
 
@@ -698,7 +698,7 @@ const priorQuestions = useMemo(
 
 Pass `priorQuestions` and `handleSelectFollowUp` into every `AssistantMessageCard`.
 
-- [ ] **Step 4: Render suggestions in assistant card**
+- [x] **Step 4: Render suggestions in assistant card**
 
 In `AssistantMessageCard.tsx`, compute:
 
@@ -721,7 +721,7 @@ Render after results and before feedback:
 <FollowUpSuggestions suggestions={followUps} onSelect={onSelectFollowUp} t={t} />
 ```
 
-- [ ] **Step 5: Verify behavior manually**
+- [x] **Step 5: Verify behavior manually**
 
 Run:
 
@@ -752,7 +752,7 @@ Expected:
 - Consumes: `QueryResultPayload`, `TFunction`, `localeTag`.
 - Produces: a concise 1-2 sentence caption.
 
-- [ ] **Step 1: Extend insight output carefully**
+- [x] **Step 1: Extend insight output carefully**
 
 Keep current ranked and single-KPI cases, but return a fuller localized sentence.
 
@@ -769,7 +769,7 @@ insight_time_bucket_explained:
   'Bu sonuc zaman alaninin {{grain}} bazinda gruplanmasiyla hesaplandi.'
 ```
 
-- [ ] **Step 2: Detect time buckets conservatively**
+- [x] **Step 2: Detect time buckets conservatively**
 
 Use column names only for generic explanatory text:
 
@@ -786,7 +786,7 @@ function timeGrainForColumn(name: string): 'saat' | 'gun' | 'ay' | 'yil' | null 
 
 Do not claim a grain unless the column name clearly indicates it.
 
-- [ ] **Step 3: Add tests**
+- [x] **Step 3: Add tests**
 
 Tests:
 
@@ -796,7 +796,7 @@ it('returns a richer single KPI explanation')
 it('does not invent time grain for unknown columns')
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -819,7 +819,7 @@ Expected: existing insight behavior remains covered and richer text is stable.
 
 - Produces localized copy consumed by Tasks 3-6.
 
-- [ ] **Step 1: Add Turkish keys**
+- [x] **Step 1: Add Turkish keys**
 
 ```ts
 followups_title: 'Devam etmek ister misin?',
@@ -832,7 +832,7 @@ followups_chart_label: 'Grafikte goster',
 followups_chart_question: 'Bu sonucu uygun bir grafikle goster.',
 ```
 
-- [ ] **Step 2: Add English keys**
+- [x] **Step 2: Add English keys**
 
 ```ts
 followups_title: 'Want to continue?',
@@ -845,7 +845,7 @@ followups_chart_label: 'Show as a chart',
 followups_chart_question: 'Show this result as a suitable chart.',
 ```
 
-- [ ] **Step 3: Copy review**
+- [x] **Step 3: Copy review**
 
 Check:
 
@@ -868,11 +868,11 @@ Check:
 - Consumes: deterministic candidates and conversation/query context.
 - Produces: validated AI-rewritten suggestions.
 
-- [ ] **Step 1: Use existing structured AI helper**
+- [x] **Step 1: Use existing structured AI helper**
 
 If an existing JSON-schema or structured-output helper exists in the AI package, use it. Do not create a second ad-hoc JSON extraction stack.
 
-- [ ] **Step 2: Restrict AI to rewriting/selecting**
+- [x] **Step 2: Restrict AI to rewriting/selecting**
 
 Prompt rule:
 
@@ -883,7 +883,7 @@ You may not create more than 3 suggestions.
 Return strict JSON only.
 ```
 
-- [ ] **Step 3: Validate after AI**
+- [x] **Step 3: Validate after AI**
 
 Always call:
 
@@ -893,7 +893,7 @@ validated := ValidateSuggestedFollowUps(aiSuggestions, ctx.AvailableFields, ctx.
 
 If `validated` is empty, return deterministic validated suggestions.
 
-- [ ] **Step 4: Test AI failure path**
+- [x] **Step 4: Test AI failure path**
 
 Use a stub provider that returns invalid JSON or invalid fields. Expected: deterministic fallback still returns safe suggestions.
 
@@ -909,7 +909,7 @@ Use a stub provider that returns invalid JSON or invalid fields. Expected: deter
 
 - Confirms all touched frontend/backend behavior.
 
-- [ ] **Step 1: Frontend checks**
+- [x] **Step 1: Frontend checks**
 
 Run:
 
@@ -919,7 +919,7 @@ make check-frontend
 
 Expected: eslint, Tailwind checks, format check, knip, tests, and build pass.
 
-- [ ] **Step 2: Backend checks if Go files changed**
+- [x] **Step 2: Backend checks if Go files changed**
 
 Run:
 
@@ -931,7 +931,7 @@ make test-go
 
 Expected: lint and race tests pass.
 
-- [ ] **Step 3: gograph review if Go files changed**
+- [x] **Step 3: gograph review if Go files changed**
 
 Use MCP:
 
@@ -941,7 +941,7 @@ gograph_review --uncommitted
 
 Expected: blast radius matches the AI query response/follow-up generation scope.
 
-- [ ] **Step 4: Manual UX smoke**
+- [x] **Step 4: Manual UX smoke**
 
 Run:
 
@@ -992,4 +992,14 @@ Two execution options:
 
 1. **Subagent-Driven (recommended)** - Dispatch a fresh subagent per task, review between tasks, and keep implementation slices small.
 2. **Inline Execution** - Execute tasks in this session using `superpowers:executing-plans`, with checkpoints after backend contract, frontend UI, and verification.
+
+## Status: Implemented (verified 2026-07-07)
+
+All 9 tasks landed across commits `cfaf2400`..`d6698918` (plus follow-up fix `ecb7ddec`). Verified against the actual codebase:
+
+- Backend: `internal/ai/schema.go`, `internal/ai/followup_suggestions.go`, `internal/http/handlers/ai_followups.go` — wired into `finishAIRun` / `finishAIRunResult`. `go build ./...` clean, `golangci-lint run` 0 issues, `go test -race ./internal/ai/... ./internal/http/handlers/...` all pass, `gofmt` clean on touched files.
+- Frontend: types, fallback helper, i18n copy, richer `resultInsight` captions all present. `npm run check` (eslint + tailwind + format + knip + vitest + tsc build) exits 0, 57/57 test files pass.
+- Two file-location deviations from the plan's assumptions (implementation adapted to the real codebase structure, behavior unchanged):
+  - Composer fill/focus wiring lives in `frontend/src/components/aiQuery/ChatPanel.tsx`, not `AIQuery.tsx`.
+  - The chip component is `frontend/src/components/aiQuery/FollowUpSuggestionsSection.tsx`, not `FollowUpSuggestions.tsx`.
 

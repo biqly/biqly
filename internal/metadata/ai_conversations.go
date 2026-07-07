@@ -348,7 +348,7 @@ func upsertConversationInTx(
 	}
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE ai_conversations
-		SET datasource_id = $2, model_id = NULLIF($3, '')::uuid,
+		SET datasource_id = $2::uuid, model_id = NULLIF($3, '')::uuid,
 		    context_enabled = $4, title = NULLIF($5, ''),
 		    snapshot_version = snapshot_version + 1, updated_at = now()
 		WHERE id = $1 AND user_id = $2
