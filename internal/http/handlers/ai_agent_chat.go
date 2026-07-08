@@ -149,6 +149,15 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 			"metadata":   result.Metadata,
 		})
 	case state.Terminal != nil && state.Terminal.Failure != nil:
+		// A failed run (max_steps_exceeded, tool_error, timeout,
+		// max_clarification_rounds_exceeded, ...) may still have executed one
+		// or more real tool steps before failing — persist that partial trace
+		// the same way the success path does, so GetAgentRun/RunTracePanel
+		// don't show an empty trace on reload. Mirrors the legacy pipeline's
+		// persistAgentRun call from its own failure branch (ai_job_exec.go).
+		h.persistWebAgentSteps(context.WithoutCancel(r.Context()), runID, &ai.Response{
+			Metadata: &ai.AIMetadata{RunSteps: webAgentRunSteps(state.Steps)},
+		})
 		sendAgentError(send, state.Terminal.Failure.ReasonCode, state.Terminal.Failure.Message)
 	default:
 		sendAgentEvent(send, "clarification_required", map[string]any{
@@ -217,7 +226,7 @@ func (h *AIHandler) createWebAgentRun(ctx context.Context, req webAgentRequest) 
 // composeWebAgentFinalResult, whose Metadata.RunSteps is exactly the shape
 // agentStepsFromResponse converts.
 func (h *AIHandler) persistWebAgentSteps(ctx context.Context, runID string, resp *ai.Response) {
-	if h == nil || h.deps == nil || h.deps.MetaRepo == nil || resp == nil {
+	if h == nil || h.deps == nil || h.deps.MetaRepo == nil || runID == "" || resp == nil {
 		return
 	}
 	if steps := agentStepsFromResponse(resp); len(steps) > 0 {

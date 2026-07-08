@@ -267,6 +267,81 @@ func TestWebAgentChatPersistsStepsOnCompletedRun(t *testing.T) {
 	assert.Equal(t, "ok", ins.Args[3], "status")
 }
 
+// TestWebAgentChatPersistsStepsOnFailedRun proves the failure-path
+// counterpart to TestWebAgentChatPersistsStepsOnCompletedRun: a run that
+// reaches a graceful Terminal.Failure (max_steps_exceeded, tool_error,
+// timeout, max_clarification_rounds_exceeded, ...) after executing at least
+// one real tool step must still persist that partial trace to agent_steps —
+// otherwise GetAgentRun/RunTracePanel show an empty trace for a failed run
+// that made real progress, even though the legacy job pipeline's
+// persistAgentRun persists steps from its own structurally-equivalent
+// failure branch.
+func TestWebAgentChatPersistsStepsOnFailedRun(t *testing.T) {
+	db, state := setupMockDB(t)
+	state.queries = []queryMock{
+		{
+			Pattern: "INSERT INTO agent_runs",
+			Cols:    []string{"id"},
+			Rows:    [][]driver.Value{{"run-1"}},
+		},
+	}
+	state.execs = []execMock{
+		{Pattern: "DELETE FROM agent_steps", RowsAffected: 1},
+		{Pattern: "INSERT INTO agent_steps", RowsAffected: 1},
+	}
+	h := newAIHandlerWithRepo(metadata.NewRepository(db))
+	h.deps.Config.WebAgent = config.WebAgentConfig{Enabled: true, MaxSteps: 6, MaxClarificationRounds: 2}
+	h.webAgentLimiter = &fakeWebAgentLimiter{}
+	h.webAgentRunner = func(_ context.Context, _ webAgentRequest, _ string) (agent.RuntimeState, error) {
+		return agent.RuntimeState{
+			Steps: []agent.RuntimeStep{{
+				Seq: 1,
+				Proposal: agent.Proposal{
+					Tool:      agent.ToolWebListModels,
+					Arguments: []byte(`{"datasource_id":"ds-1"}`),
+				},
+				Observation: &agent.Observation{Tool: agent.ToolWebListModels, Payload: []byte(`{"models":[]}`)},
+			}},
+			Terminal: &agent.TerminalResult{
+				Kind: agent.DecisionFail,
+				Failure: &agent.Failure{
+					ReasonCode: "max_steps_exceeded",
+					Message:    "exceeded max steps",
+				},
+			},
+		}, nil
+	}
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/agent/chat", strings.NewReader(`{
+		"message":"show revenue",
+		"datasource_id":"ds-1"
+	}`))
+	ctx := bimw.WithUserID(req.Context(), "user-1")
+	ctx = bimw.WithWorkspaceID(ctx, "workspace-1")
+	rec := httptest.NewRecorder()
+
+	h.WebAgentChat(rec, req.WithContext(ctx))
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	body := rec.Body.String()
+	assert.Contains(t, body, `"type":"error"`)
+	assert.Contains(t, body, `"code":"max_steps_exceeded"`)
+	assert.NotContains(t, body, `"type":"result"`, "a failed run must never report a final result")
+
+	del := findCall(state.calls, "DELETE FROM agent_steps")
+	require.NotNil(t, del, "expected the failed run's partial steps to be replaced")
+	require.Len(t, del.Args, 1)
+	assert.Equal(t, "run-1", del.Args[0])
+
+	ins := findCall(state.calls, "INSERT INTO agent_steps")
+	require.NotNil(t, ins, "expected the single recorded step to be persisted despite the run failing")
+	require.Len(t, ins.Args, 7)
+	assert.Equal(t, "run-1", ins.Args[0])
+	assert.EqualValues(t, 1, ins.Args[1], "seq")
+	assert.Equal(t, string(agent.ToolWebListModels), ins.Args[2], "kind")
+	assert.Equal(t, "ok", ins.Args[3], "status")
+}
+
 // TestWebAgentChatClientCancelAbandonsRunCleanly proves the client-abort path
 // (T6 item 2): canceling the request context mid-run must unblock the
 // in-flight runner via the runtime's existing cancellation semantics, mark
