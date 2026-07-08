@@ -546,9 +546,10 @@ func countColumnEntity(columnName string) string {
 }
 
 // countColumnSynonyms pairs a count column's entity with the row-count
-// lexicon vocabulary ("sayısı", "adet", ...) so a question like "retweet
-// sayısı" scores against this specific metric instead of losing outright to
-// the model's generic count metric, which otherwise owns that vocabulary.
+// lexicon's localized quantity vocabulary (see lexicon.DomainRowCount) so a
+// question naming the entity plus a quantity word scores against this
+// specific metric instead of losing outright to the model's generic count
+// metric, which otherwise owns that vocabulary.
 func countColumnSynonyms(columnName string) []string {
 	entity := countColumnEntity(columnName)
 	if entity == "" {
