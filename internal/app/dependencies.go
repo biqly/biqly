@@ -84,6 +84,7 @@ type Dependencies struct {
 	AIProviderStore *ai.ProviderStore
 	ResponseCache   ai.ResponseCache
 	SpendLimiter    *ai.SpendLimiter
+	AIRedis         *redis.Client
 	Jobs            config.JobsConfig
 	AIJobQueue      queue.AIJobPublisher
 	AIJobService    AIJobRunner
@@ -163,6 +164,7 @@ type AIDeps struct {
 	AIProviderStore *ai.ProviderStore
 	ResponseCache   ai.ResponseCache
 	SpendLimiter    *ai.SpendLimiter
+	AIRedis         *redis.Client
 	Jobs            config.JobsConfig
 	AIJobQueue      queue.AIJobPublisher
 	AIJobService    AIJobRunner
@@ -197,6 +199,7 @@ func (d *Dependencies) AIDeps() *AIDeps {
 		AIProviderStore: d.AIProviderStore,
 		ResponseCache:   d.ResponseCache,
 		SpendLimiter:    d.SpendLimiter,
+		AIRedis:         d.AIRedis,
 		Jobs:            d.Jobs,
 		AIJobQueue:      d.AIJobQueue,
 		AIJobService:    d.AIJobService,
@@ -347,6 +350,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		AIProviderStore: aiBits.providerStore,
 		ResponseCache:   aiBits.responseCache,
 		SpendLimiter:    aiBits.spendLimiter,
+		AIRedis:         aiBits.redis,
 		PoolCache:       poolCache,
 		Jobs:            cfg.Jobs,
 		DashboardRepo:   dashboardRepo,
@@ -411,6 +415,7 @@ type aiBundle struct {
 	providerStore *ai.ProviderStore
 	responseCache ai.ResponseCache
 	spendLimiter  *ai.SpendLimiter
+	redis         *redis.Client
 	abRouter      *abtest.TrafficRouter
 }
 
@@ -515,6 +520,7 @@ func setupAI(
 		providerStore: providerStore,
 		responseCache: responseCache,
 		spendLimiter:  spendLimiter,
+		redis:         aiRedis,
 		abRouter:      abRouter,
 	}, nil
 }

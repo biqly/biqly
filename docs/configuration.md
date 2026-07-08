@@ -32,6 +32,12 @@ This document catalogs the BI_* variables loaded through the shared `internal/co
 | `BI_AGENT_ERROR_SUBJECT` | `"biqly.agent.errors"` | `"biqly.agent.errors"` | No | `internal/config/config.go`, `internal/agent` | No | NATS subject failed run errors are published on. |
 | `BI_AGENT_WORKSPACE_ALLOWLIST` | `""` | `""` | No | `internal/config/config.go`, `internal/agent` | No | Comma-separated workspace IDs the agent pipeline is restricted to during rollout; empty means all workspaces. |
 | `BI_AGENT_LEGACY_FALLBACK_ENABLED` | `true` | `true` | No | `internal/config/config.go`, `internal/agent` | No | Falls back to the legacy NL-to-SQL pipeline when a run fails, times out, or its workspace is outside the allowlist. |
+| **Web Agent Mode** | | | | | | |
+| `BI_WEB_AGENT_ENABLED` | `false` | N/A | No | `internal/config/config.go`, `/api/agent/chat` | No | Feature flag for the in-request SSE web agent path. Disabled by default. |
+| `BI_WEB_AGENT_MAX_STEPS` | `6` | N/A | No | `internal/config/config.go`, `internal/agent.Runtime` | No | Caps web-agent planner tool-call iterations per run; must be between 1 and 6. |
+| `BI_WEB_AGENT_MAX_CLARIFICATION_ROUNDS` | `2` | N/A | No | `internal/config/config.go`, `internal/agent.Runtime` | No | Caps web-agent clarification round-trips per run; must be between 0 and 2. |
+| `BI_WEB_AGENT_TIMEOUT` | `"120s"` | N/A | No | `internal/config/config.go`, `/api/agent/chat` | No | Bounds total web-agent request time; must be between 1s and 120s. Gateway HTTPRoute timeout is handled separately. |
+| `BI_WEB_AGENT_WORKSPACE_ALLOWLIST` | falls back to `BI_AGENT_WORKSPACE_ALLOWLIST` | N/A | No | `internal/config/config.go`, `/api/agent/chat` | No | Comma-separated workspace IDs allowed to use web agent mode. If unset, reuses `BI_AGENT_WORKSPACE_ALLOWLIST`; empty means all workspaces. |
 | **Databases, Queue & Query Engine** | | | | | | |
 | `BI_METADATA_DB_DSN` | `postgres://localhost:5432/...` | Required (Secret) | No | `internal/platform/db` | No | Connection string for Metadata Postgres DB. |
 | `BI_REDIS_DSN` | `redis://localhost:6379` | `redis://biqly-dragonfly:6379` | No | `internal/config/config.go` | No | Connection string for Dragonfly (Redis). |
@@ -115,4 +121,4 @@ This document catalogs the BI_* variables loaded through the shared `internal/co
 2. **Provider & Model Selection**:
    - Connection/model routing targets (like OpenAI API Keys, model names, and base URLs) are **not** managed via environment variables.
    - They are configured dynamically in the administration panel under `Administration -> AI Providers` and stored in the database (`ai_providers` / `ai_models` tables), allowing live rotation of provider keys.
-3. **Agentic Query Runner operations**: the `BI_AGENT_*` variables above are the only rollout controls today (no runtime DB override yet). For metrics, alerts, the fallback-boundary caveat, and the `cmd/conversation-repair` CLI, see `docs/agents/agent-runbook.md`.
+3. **Agentic Query Runner operations**: the `BI_AGENT_*` variables above control the NATS-driven runner (no runtime DB override yet). The `BI_WEB_AGENT_*` variables control the separate in-request SSE web path and default off. For metrics, alerts, the fallback-boundary caveat, and the `cmd/conversation-repair` CLI, see `docs/agents/agent-runbook.md`.

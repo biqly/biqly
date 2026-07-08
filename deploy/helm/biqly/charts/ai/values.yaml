@@ -61,6 +61,7 @@ route:
   enabled: true
   pathPrefixes:
     - /api/ai
+    - /api/agent
   # MCP run_question loops back through the gateway to /api/ai/query/run and
   # the AI pipeline can run for minutes; Envoy's 15s default would 504 it.
   timeouts:

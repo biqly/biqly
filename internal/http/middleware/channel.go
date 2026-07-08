@@ -23,6 +23,8 @@ func ChannelTag() func(http.Handler) http.Handler {
 				ch = audit.ChannelUI
 			case audit.ChannelMCP:
 				ch = audit.ChannelMCP
+			case audit.ChannelAgent:
+				ch = audit.ChannelAgent
 			}
 			next.ServeHTTP(w, r.WithContext(audit.WithChannel(r.Context(), ch)))
 		})

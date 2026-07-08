@@ -11,6 +11,7 @@ import (
 	"github.com/biqly/biqly/internal/ai/jsonextract"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
 	"github.com/biqly/biqly/internal/platform/observability"
+	"github.com/biqly/biqly/internal/toolcontract"
 )
 
 // ErrPlannerResponseHasNoJSON is returned when the provider's completion
@@ -68,8 +69,16 @@ func buildPlannerPrompt(run RunContext, history []RuntimeStep) string {
 	b.WriteString(`"final" is {"answer": "...", "confidence": 0-1}. `)
 	b.WriteString(`"fail" is {"reason_code": "...", "message": "..."}. `)
 	b.WriteString("No other keys, no prose outside the JSON object.\n\n")
+	b.WriteString("Rules:\n")
+	b.WriteString("- Use only the available tools; never invent tool names.\n")
+	b.WriteString("- Never write raw SQL, ask the user to run SQL, or accept SQL as execution input.\n")
+	b.WriteString("- Use governed LogicalQuery JSON only through the provided tools.\n")
+	b.WriteString("- Prefer list_skills then run_skill when a saved skill matches the task.\n")
+	b.WriteString("- If metric, grain, datasource, model, or date scope is ambiguous, ask a structured clarification instead of guessing.\n")
+	b.WriteString("- For follow-up questions, inherit prior filters, date ranges, groupings and datasource/model choices unless the user changes them.\n\n")
 
 	fmt.Fprintf(&b, "Question: %s\n", run.Question)
+	writePriorTurns(&b, run.PriorTurns)
 	b.WriteString("Available tools: ")
 	for i, tool := range run.AllowedTools {
 		if i > 0 {
@@ -78,6 +87,7 @@ func buildPlannerPrompt(run RunContext, history []RuntimeStep) string {
 		b.WriteString(string(tool))
 	}
 	b.WriteString("\n")
+	writeWebToolDescriptors(&b, run.AllowedTools)
 
 	if len(history) == 0 {
 		b.WriteString("No steps taken yet.\n")
@@ -88,6 +98,48 @@ func buildPlannerPrompt(run RunContext, history []RuntimeStep) string {
 		b.WriteString(describeStep(step))
 	}
 	return b.String()
+}
+
+func writePriorTurns(b *strings.Builder, priorTurns []PriorTurn) {
+	if len(priorTurns) == 0 {
+		return
+	}
+	b.WriteString("Prior turns (most recent context; inherit unless contradicted):\n")
+	start := max(0, len(priorTurns)-4)
+	for i, turn := range priorTurns[start:] {
+		fmt.Fprintf(b, "%d. user=%q", i+1, truncate(turn.User, 300))
+		if strings.TrimSpace(turn.Assistant) != "" {
+			fmt.Fprintf(b, " assistant=%q", truncate(turn.Assistant, 300))
+		}
+		if strings.TrimSpace(turn.ResultSummary) != "" {
+			fmt.Fprintf(b, " result_summary=%q", truncate(turn.ResultSummary, 300))
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString("\n")
+}
+
+func writeWebToolDescriptors(b *strings.Builder, allowed []ToolName) {
+	if !hasWebAgentTool(allowed) {
+		return
+	}
+	b.WriteString("Web tool descriptors (all dispatch through governed /api/* paths):\n")
+	for _, spec := range toolcontract.AllTools {
+		if !containsTool(allowed, ToolName(spec.Name)) {
+			continue
+		}
+		fmt.Fprintf(b, "- %s: %s\n", spec.Name, spec.Description)
+	}
+	b.WriteString("Tool observations may be truncated for planner context; do not infer exact totals from partial rows.\n\n")
+}
+
+func hasWebAgentTool(tools []ToolName) bool {
+	for _, tool := range tools {
+		if isWebAgentTool(tool) {
+			return true
+		}
+	}
+	return false
 }
 
 func describeStep(step RuntimeStep) string {

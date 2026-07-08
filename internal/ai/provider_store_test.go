@@ -28,6 +28,26 @@ func TestValidPurpose(t *testing.T) {
 	}
 }
 
+func TestAgentPurposeNotUserSelectable(t *testing.T) {
+	if UserSelectablePurpose(string(PurposeAgent)) {
+		t.Error("agent purpose should not be user-selectable (admin-only)")
+	}
+}
+
+func TestAgentPurposeFallsBackToQuery(t *testing.T) {
+	store := NewProviderStore(nil, nil, &config.AIConfig{
+		Connection: config.AIConnectionConfig{Model: "fallback-model"},
+	})
+	// No agent model configured — should fall back to query model.
+	cfg, fromDB := store.ChatConfigForPurpose(PurposeAgent)
+	if fromDB {
+		t.Error("expected fromDB=false when no agent model is configured")
+	}
+	if cfg.Connection.Model != "fallback-model" {
+		t.Errorf("expected fallback model, got %q", cfg.Connection.Model)
+	}
+}
+
 func TestValidProviderType(t *testing.T) {
 	cases := map[string]bool{
 		"openai":            true,

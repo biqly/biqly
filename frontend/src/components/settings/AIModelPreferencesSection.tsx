@@ -121,10 +121,31 @@ const PURPOSE_ICONS: Record<AIPurpose, React.ReactNode> = {
       className="lucide lucide-gavel"
       style={{ color: '#ec4899' }}
     >
-      <path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" />
+      <path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" />
       <path d="m16 16 3-3" />
       <path d="m8 7 9 9" />
       <path d="m11 4 8 8" />
+    </svg>
+  ),
+  agent: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="lucide lucide-bot"
+      style={{ color: '#8b5cf6' }}
+    >
+      <rect width="18" height="10" x="3" y="11" rx="2" />
+      <path d="M12 2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1 1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
+      <path d="M12 6v5" />
+      <path d="M7 15h.01" />
+      <path d="M17 15h.01" />
     </svg>
   ),
 }

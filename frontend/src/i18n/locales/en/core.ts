@@ -1601,6 +1601,7 @@ export const core = {
         embedding: 'Semantic search over metadata',
         translation: 'Translate descriptions and labels',
         judge: 'Evaluation and quality scoring',
+        agent: 'Multi-step agent planner and finalizer',
       },
     },
     persist_hint: 'Language and theme are available in the sidebar — saved per browser.',

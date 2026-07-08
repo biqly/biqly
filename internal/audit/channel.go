@@ -8,6 +8,7 @@ const (
 	ChannelUI       = "ui"
 	ChannelAPI      = "api"
 	ChannelMCP      = "mcp"
+	ChannelAgent    = "agent"
 	ChannelInternal = "internal"
 )
 

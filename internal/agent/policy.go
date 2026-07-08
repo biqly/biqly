@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+
+	"github.com/biqly/biqly/internal/toolcontract"
 )
 
 // ToolName identifies one of the fixed set of tools a planner may call.
@@ -21,6 +23,15 @@ const (
 	ToolQueryCompile ToolName = "query.compile"
 	ToolQueryExecute ToolName = "query.execute"
 	ToolMemoryRecall ToolName = "memory.recall"
+
+	// Web agent tools (MCP-parity 6-tool set). These map 1:1 to the
+	// toolcontract package's governed tools.
+	ToolWebListDatasources ToolName = ToolName(toolcontract.ToolListDatasources)
+	ToolWebListModels      ToolName = ToolName(toolcontract.ToolListModels)
+	ToolWebRunQuestion     ToolName = ToolName(toolcontract.ToolRunQuestion)
+	ToolWebRunLogicalQuery ToolName = ToolName(toolcontract.ToolRunLogicalQuery)
+	ToolWebListSkills      ToolName = ToolName(toolcontract.ToolListSkills)
+	ToolWebRunSkill        ToolName = ToolName(toolcontract.ToolRunSkill)
 )
 
 // Proposal is a planner's request to invoke one tool with the given
@@ -73,6 +84,14 @@ func (e JoinEdge) key() string {
 	return l + "|" + r
 }
 
+// PriorTurn is a compact conversation-history item shown to the planner so
+// follow-up questions can inherit earlier filters, date ranges and grouping.
+type PriorTurn struct {
+	User          string `json:"user,omitempty"`
+	Assistant     string `json:"assistant,omitempty"`
+	ResultSummary string `json:"result_summary,omitempty"`
+}
+
 // RunContext carries the run-scoped facts already authorized upstream (by
 // auth, RBAC, and the resolved semantic model) that every proposal is
 // checked against. It is built once per run from trusted sources — never
@@ -84,6 +103,9 @@ type RunContext struct {
 	// Question is the user's original natural-language question. Policy
 	// does not use it; the Planner does (see internal/agent/provider_planner.go).
 	Question string
+	// PriorTurns are recent conversation turns from the web chat request.
+	// Policy does not use them; the Planner does for follow-up inheritance.
+	PriorTurns []PriorTurn
 
 	// AllowedTools is the fixed tool allowlist for this run.
 	AllowedTools []ToolName
@@ -110,6 +132,10 @@ type RunContext struct {
 
 	MaxRows int
 	Timeout time.Duration
+
+	// Credential is the caller's JWT/PAT forwarded to loopback HTTP calls
+	// by the web agent tools. Set only on the web path (channel=agent).
+	Credential toolcontract.Credential
 
 	// MaxSteps and MaxClarificationRounds bound the runtime's planning loop
 	// (internal/agent/runtime.go); PolicyEngine.Evaluate does not use them.
@@ -176,15 +202,20 @@ func (*PolicyEngine) Evaluate(ctx context.Context, run RunContext, proposal Prop
 
 	// Lenient here: this only peeks at the identity fields every tool shares.
 	// The full shape is validated strictly per-tool below (e.g. evaluateQuery).
-	var ident identityArgs
-	if err := sonic.Unmarshal(proposal.Arguments, &ident); err != nil {
-		return deny(ReasonMalformedArguments)
-	}
-	if ident.TenantID != run.TenantID || ident.UserID != run.UserID || ident.DatasourceID != run.DatasourceID {
-		return deny(ReasonIdentityMismatch)
-	}
-	if containsPromptInjection(string(proposal.Arguments)) {
-		return deny(ReasonPromptInjection)
+	// Web tools (channel=agent) carry no identity in their arguments — identity
+	// comes from RunContext.Credential, verified by the /api/* middleware chain.
+	isWebTool := isWebAgentTool(proposal.Tool)
+	if !isWebTool {
+		var ident identityArgs
+		if err := sonic.Unmarshal(proposal.Arguments, &ident); err != nil {
+			return deny(ReasonMalformedArguments)
+		}
+		if ident.TenantID != run.TenantID || ident.UserID != run.UserID || ident.DatasourceID != run.DatasourceID {
+			return deny(ReasonIdentityMismatch)
+		}
+		if containsPromptInjection(string(proposal.Arguments)) {
+			return deny(ReasonPromptInjection)
+		}
 	}
 
 	switch proposal.Tool {
@@ -192,9 +223,24 @@ func (*PolicyEngine) Evaluate(ctx context.Context, run RunContext, proposal Prop
 		return evaluateQuery(run, proposal)
 	case ToolCatalog, ToolSemantic, ToolMemoryRecall:
 		return Decision{Allowed: true, Arguments: proposal.Arguments}
+	case ToolWebListDatasources, ToolWebListModels, ToolWebRunQuestion,
+		ToolWebRunLogicalQuery, ToolWebListSkills, ToolWebRunSkill:
+		return Decision{Allowed: true, Arguments: proposal.Arguments}
 	default:
 		return deny(ReasonToolNotAllowlisted)
 	}
+}
+
+// webAgentTools is the set of MCP-parity web agent tools, for fast membership
+// testing without triggering the exhaustive linter on a switch statement.
+var webAgentTools = []ToolName{
+	ToolWebListDatasources, ToolWebListModels, ToolWebRunQuestion,
+	ToolWebRunLogicalQuery, ToolWebListSkills, ToolWebRunSkill,
+}
+
+// isWebAgentTool reports whether tool is one of the MCP-parity web agent tools.
+func isWebAgentTool(tool ToolName) bool {
+	return slices.Contains(webAgentTools, tool)
 }
 
 func evaluateQuery(run RunContext, proposal Proposal) Decision {

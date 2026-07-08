@@ -1612,6 +1612,7 @@ export const core: CoreDictionary = {
         embedding: 'Metadata üzerinde anlamsal arama',
         translation: 'Açıklama ve etiket çevirisi',
         judge: 'Değerlendirme ve kalite puanlama',
+        agent: 'Çok adımlı ajan planlayıcı ve sonuçlayıcı',
       },
     },
     persist_hint: 'Dil ve tema yan menüden erişilebilir — tarayıcı başına saklanır.',

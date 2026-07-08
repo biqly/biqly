@@ -8,6 +8,7 @@ import (
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/http/handlers"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
+	"github.com/biqly/biqly/internal/toolcontract"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -43,7 +44,11 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(authMW)
-		registerAIAPIRoutes(r, deps.AIDeps(), authClient, false)
+		var dispatch http.Handler
+		if proxy, ok := newUpstreamProxy(deps.Config.Services.APIURL, "BI_API_SERVICE_URL", "api"); ok {
+			dispatch = proxy
+		}
+		registerAIAPIRoutes(r, deps.AIDeps(), authClient, false, dispatch)
 	})
 
 	r.Route("/internal", func(r chi.Router) {
@@ -66,10 +71,19 @@ func aiServiceRequestTimeout(deps *app.Dependencies) time.Duration {
 // are wrapped with RequireDatasourceAccess("read") so users cannot target
 // datasources they have not been granted. Pass nil from the AI microservice,
 // which is fronted by the monolith proxy that enforces the same checks.
-func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthClient, enforceMiddlewares bool) {
+func registerAIAPIRoutes(
+	r chi.Router,
+	deps *app.AIDeps,
+	authClient *bimw.AuthClient,
+	enforceMiddlewares bool,
+	dispatch http.Handler,
+) {
 	aiHandler := handlers.NewAIHandler(deps)
 	aiHandler.SetAuthClient(authClient)
 	aiHandler.SetAIMetricsRecorder(GetMetrics())
+	if dispatch != nil {
+		aiHandler.SetWebAgentDispatcher(&toolcontract.HTTPDispatcher{API: dispatch})
+	}
 	var dsAccess func(http.Handler) http.Handler
 	if enforceMiddlewares && authClient != nil {
 		dsAccess = bimw.RequireDatasourceAccess(authClient, "read")
@@ -113,6 +127,7 @@ func registerAIAPIRoutes(r chi.Router, deps *app.AIDeps, authClient *bimw.AuthCl
 	r.With(aiUserMW, dsAccess).Post("/ai/query", aiHandler.Query)
 	r.With(aiUserMW, dsAccess).Post("/ai/query/preview", aiHandler.Preview)
 	r.With(aiUserMW, dsAccess).Post("/ai/query/run", aiHandler.Run)
+	r.With(aiUserMW, dsAccess).Post("/agent/chat", aiHandler.WebAgentChat)
 	r.With(aiUserMW, dsAccess).Post("/ai/metadata/describe", aiHandler.Describe)
 	r.With(aiUserMW, dsAccess).Post("/ai/metadata/embed", aiHandler.EmbedMetadata)
 	// Backfills locale translations for a semantic model's label/description and

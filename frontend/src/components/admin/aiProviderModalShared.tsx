@@ -3,7 +3,14 @@ import type { AIProviderType, AIPurpose } from '../../api/aiProviders'
 import { cn } from '../../lib/cn'
 
 export const PROVIDER_TYPES: AIProviderType[] = ['openai', 'openai-compatible', 'anthropic']
-export const PURPOSES: AIPurpose[] = ['query', 'describe', 'embedding', 'translation', 'judge']
+export const PURPOSES: AIPurpose[] = [
+  'query',
+  'describe',
+  'embedding',
+  'translation',
+  'judge',
+  'agent',
+]
 
 export function defaultBaseURL(type: AIProviderType): string {
   switch (type) {
