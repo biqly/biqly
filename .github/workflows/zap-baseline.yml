@@ -47,7 +47,6 @@ jobs:
         with:
           target: ${{ env.TARGET }}
           cmd_options: >
-            -configfile /zap/wrk/openapi.json
             -openapifile openapi.json
             -openapi.target ${{ env.TARGET }}
             -openapi.hostoverride ${{ env.TARGET }}
