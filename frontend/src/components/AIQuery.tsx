@@ -46,6 +46,29 @@ import { useAuth } from './auth/AuthProvider'
 
 const AUTO_FIND_STORAGE_KEY = 'biqly.aiQuery.autoFindSkills'
 
+// AgentTurnState is one conversation's ephemeral Agent Mode trace: the live
+// step list plus a paused clarification, if any. See agentTurnsByConversation
+// below for why this is keyed per conversation rather than a single value.
+interface AgentTurnState {
+  steps: RunStep[]
+  clarification: PendingAgentClarification | null
+}
+
+const EMPTY_AGENT_TURN: AgentTurnState = { steps: [], clarification: null }
+
+// resolveActiveAgentTurn looks up one conversation's ephemeral trace, always
+// returning a concrete (never undefined/null) AgentTurnState so call sites
+// can read `.steps`/`.clarification` directly instead of chaining `?.`/`??`.
+function resolveActiveAgentTurn(
+  byConversation: Record<string, AgentTurnState>,
+  convId: string | null | undefined,
+): AgentTurnState {
+  if (!convId) {
+    return EMPTY_AGENT_TURN
+  }
+  return byConversation[convId] ?? EMPTY_AGENT_TURN
+}
+
 // Auto-find defaults ON; only an explicit "false" turns it off. Guarded so a
 // storage-less environment (SSR/tests) simply falls back to the default.
 function loadAutoFindEnabled(): boolean {
@@ -150,35 +173,60 @@ export default function AIQuery() {
   // ephemeral, not part of the persisted conversation snapshot. Cleared once
   // the turn resolves to a result/error (the real message takes over) or is
   // explicitly cancelled. See ChatPanel's AgentTraceCard slot.
-  const [agentSteps, setAgentSteps] = useState<RunStep[]>([])
-  const [agentClarification, setAgentClarification] = useState<PendingAgentClarification | null>(
-    null,
+  //
+  // Keyed by conversation id (not a single shared value): AIQuery renders a
+  // single ChatPanel across every conversation in the sidebar, and a genuine
+  // Agent Mode turn keeps streaming in the background when the user switches
+  // away from its conversation (see runAgentTurn's per-conversation abort
+  // scoping below). A single shared trace/clarification would let a fresh
+  // turn started in one conversation clobber — or have its own step events
+  // corrupted by — another conversation's still-pending state. Switching
+  // away and back to the SAME conversation still shows/resumes its entry;
+  // a DIFFERENT conversation's entry is untouched and renders once its
+  // owning conversation is active again.
+  const [agentTurnsByConversation, setAgentTurnsByConversation] = useState<
+    Record<string, AgentTurnState>
+  >({})
+  const updateAgentTurn = useCallback(
+    (convId: string, updater: (prev: AgentTurnState) => AgentTurnState) => {
+      setAgentTurnsByConversation((prev) => ({
+        ...prev,
+        [convId]: updater(prev[convId] ?? { steps: [], clarification: null }),
+      }))
+    },
+    [],
   )
-  // Which conversation the above ephemeral state belongs to. AIQuery renders
-  // a single ChatPanel across every conversation in the sidebar, so without
-  // this the trace/clarification card would leak into whichever conversation
-  // happens to be active when it's shown, or hijack that conversation's next
-  // composer send as a clarification answer. Switching away and back to the
-  // SAME conversation still shows/resumes it; switching to a DIFFERENT one
-  // hides it (the run keeps going in the background and still lands its
-  // result in its own conversation once it finishes).
-  const [agentTurnConversationId, setAgentTurnConversationId] = useState<string | null>(null)
-  const agentTraceOwnsActiveConversation = agentTurnConversationId === activeConversationId
+  const clearAgentTurn = useCallback((convId: string) => {
+    setAgentTurnsByConversation((prev) => {
+      if (!(convId in prev)) {
+        return prev
+      }
+      const next = { ...prev }
+      delete next[convId]
+      return next
+    })
+  }, [])
+  const activeAgentTurn = resolveActiveAgentTurn(agentTurnsByConversation, activeConversationId)
   const [selectedSavedQueryIds, setSelectedSavedQueryIds] = useState<string[]>([])
   const [jobError, setJobError] = useState<string | null>(null)
   const [aiElapsedMs, setAiElapsedMs] = useState(0)
   const [isConversationsExpanded, setIsConversationsExpanded] = useState(false)
-  // Tracks the in-flight Agent Mode SSE stream (if any) so it can be aborted
-  // on unmount/navigation or when a new turn supersedes it. A ref (not
-  // state) because it's plumbing for cleanup/cancellation, not something a
-  // render depends on — mirrors the embedding-fetch effects' per-effect
-  // AbortController below, just held across the async sendQuery call instead
-  // of a single effect.
-  const agentStreamAbortRef = useRef<AbortController | null>(null)
+  // Tracks the in-flight Agent Mode SSE stream(s), keyed by conversation id,
+  // so starting a fresh turn in one conversation aborts only that
+  // conversation's own previous turn (an explicit resend/supersede) without
+  // touching a genuinely still-streaming turn in a different conversation. A
+  // ref (not state) because it's plumbing for cleanup/cancellation, not
+  // something a render depends on — mirrors the embedding-fetch effects'
+  // per-effect AbortController below, just held across the async sendQuery
+  // call instead of a single effect.
+  const agentStreamAbortRef = useRef<Map<string, AbortController>>(new Map())
 
   useEffect(() => {
+    const aborts = agentStreamAbortRef.current
     return () => {
-      agentStreamAbortRef.current?.abort()
+      for (const controller of aborts.values()) {
+        controller.abort()
+      }
     }
   }, [])
 
@@ -515,28 +563,35 @@ export default function AIQuery() {
 
   // runAgentTurn drives one POST /api/agent/chat call — either a fresh
   // question or a resume (resume_run_id + clarification_answer) — and
-  // reduces it through runAgentModeTurn. Steps stream live into agentSteps
-  // via onStep; a clarification_required outcome pauses here (agentSteps is
-  // NOT reset, so a resumed call's steps append to the same trace); a
-  // result/error outcome ends the turn. `isCurrent` re-checks the abort ref
+  // reduces it through runAgentModeTurn. Steps stream live into this
+  // conversation's agentTurnsByConversation entry via onStep; a
+  // clarification_required outcome pauses here (steps are NOT reset, so a
+  // resumed call's steps append to the same trace); a result/error outcome
+  // ends the turn. The abort ref is a Map keyed by convId (not a single
+  // controller) so aborting the previous turn only supersedes a resend in
+  // the SAME conversation — a genuinely in-flight turn in a different
+  // conversation keeps streaming untouched. `isCurrent` re-checks that map
   // at settle time (not just in `finally`) so a superseded turn's
   // resolution — including its own step events, still possibly in flight
-  // when a newer send aborts it — can never mutate state that now belongs
-  // to the turn that superseded it.
+  // when a newer send in the same conversation aborts it — can never mutate
+  // state that now belongs to the turn that superseded it.
   const runAgentTurn = useCallback(
     async (request: AgentChatRequest, convId: string) => {
-      agentStreamAbortRef.current?.abort()
+      const aborts = agentStreamAbortRef.current
+      aborts.get(convId)?.abort()
       const controller = new AbortController()
-      agentStreamAbortRef.current = controller
-      setAgentTurnConversationId(convId)
-      const isCurrent = () => agentStreamAbortRef.current === controller
+      aborts.set(convId, controller)
+      const isCurrent = () => aborts.get(convId) === controller
       try {
         const outcome = await runAgentModeTurn(request, {
           token: accessToken ?? undefined,
           signal: controller.signal,
           onStep: (event) => {
             if (isCurrent()) {
-              setAgentSteps((prev) => mergeAgentStepEvent(prev, event))
+              updateAgentTurn(convId, (prev) => ({
+                ...prev,
+                steps: mergeAgentStepEvent(prev.steps, event),
+              }))
             }
           },
           clarificationFallback: t('ai_query.agent_clarification_fallback'),
@@ -544,11 +599,6 @@ export default function AIQuery() {
         })
         if (!isCurrent()) {
           return
-        }
-        const resetAgentTrace = () => {
-          setAgentSteps([])
-          setAgentClarification(null)
-          setAgentTurnConversationId(null)
         }
         if (outcome.kind === 'result') {
           addMessage(
@@ -559,31 +609,34 @@ export default function AIQuery() {
             },
             convId,
           )
-          resetAgentTrace()
+          clearAgentTurn(convId)
         } else if (outcome.kind === 'clarification') {
-          setAgentClarification({
-            runId: outcome.runId,
-            question: outcome.question,
-            choices: outcome.choices,
-            allowFreeText: outcome.allowFreeText,
-          })
+          updateAgentTurn(convId, (prev) => ({
+            ...prev,
+            clarification: {
+              runId: outcome.runId,
+              question: outcome.question,
+              choices: outcome.choices,
+              allowFreeText: outcome.allowFreeText,
+            },
+          }))
         } else if (outcome.kind === 'error') {
           setJobError(outcome.message)
-          resetAgentTrace()
+          clearAgentTurn(convId)
         } else {
           // 'none': an explicit cancel (not superseded — isCurrent() above
           // already filters out the superseded case). Clear the ephemeral
           // trace so a cancelled run doesn't leave a stale in-progress card.
-          resetAgentTrace()
+          clearAgentTurn(convId)
         }
       } finally {
         if (isCurrent()) {
-          agentStreamAbortRef.current = null
+          aborts.delete(convId)
           setQueryAction(null)
         }
       }
     },
-    [accessToken, t, addMessage, assistantContentFor],
+    [accessToken, t, addMessage, assistantContentFor, updateAgentTurn, clearAgentTurn],
   )
 
   // answerAgentClarification resumes the paused run identified by
@@ -597,9 +650,9 @@ export default function AIQuery() {
   // instruction the planner can actually act on.
   const answerAgentClarification = useCallback(
     async (answer: string, displayLabel: string) => {
-      const pending = agentClarification
       const convId = activeConversation?.id
-      if (!pending || !convId || agentTurnConversationId !== convId) {
+      const pending = resolveActiveAgentTurn(agentTurnsByConversation, convId).clarification
+      if (!pending || !convId) {
         return
       }
       setQueryAction('execute')
@@ -615,22 +668,16 @@ export default function AIQuery() {
         convId,
       )
     },
-    [
-      agentClarification,
-      agentTurnConversationId,
-      activeConversation,
-      addMessage,
-      runAgentTurn,
-      datasourceId,
-    ],
+    [agentTurnsByConversation, activeConversation, addMessage, runAgentTurn, datasourceId],
   )
 
   const handleAgentClarificationChoice = useCallback(
     (choiceId: string) => {
-      const label = agentClarification?.choices.find((c) => c.id === choiceId)?.label ?? choiceId
+      const label =
+        activeAgentTurn.clarification?.choices.find((c) => c.id === choiceId)?.label ?? choiceId
       void answerAgentClarification(choiceId, label)
     },
-    [agentClarification, answerAgentClarification],
+    [activeAgentTurn, answerAgentClarification],
   )
 
   const handleAgentClarificationSkip = useCallback(() => {
@@ -663,12 +710,13 @@ export default function AIQuery() {
       // rather than starting fresh). Numbered-choice/skip answers go through
       // answerAgentClarification instead (AgentTraceCard's own buttons), not
       // through this composer path.
-      if (agentClarification && agentTurnConversationId === convId) {
+      const pendingClarification = agentTurnsByConversation[convId]?.clarification
+      if (pendingClarification) {
         addMessage({ role: 'user', content: q }, convId)
         setQuestion('')
         await runAgentTurn(
           {
-            resume_run_id: agentClarification.runId,
+            resume_run_id: pendingClarification.runId,
             clarification_answer: q,
             datasource_id: datasourceId,
             conversation_id: convId,
@@ -680,8 +728,10 @@ export default function AIQuery() {
 
       addMessage({ role: 'user', content: q }, convId, conversationScope)
       setQuestion('')
-      setAgentSteps([])
-      setAgentClarification(null)
+      // Clear only THIS conversation's stale trace before starting fresh —
+      // convId's own entry, never another conversation's still-pending
+      // clarification/steps (see agentTurnsByConversation above).
+      clearAgentTurn(convId)
       const agentRequest: AgentChatRequest = {
         message: q,
         conversation_id: convId,
@@ -872,8 +922,8 @@ export default function AIQuery() {
             setAgentModeEnabled(enabled)
             saveAgentModeEnabled(enabled)
           }}
-          agentTraceSteps={agentTraceOwnsActiveConversation ? agentSteps : []}
-          agentClarification={agentTraceOwnsActiveConversation ? agentClarification : null}
+          agentTraceSteps={activeAgentTurn.steps}
+          agentClarification={activeAgentTurn.clarification}
           onAgentClarificationChoice={handleAgentClarificationChoice}
           onAgentClarificationSkip={handleAgentClarificationSkip}
           selectedSavedQueryIds={selectedSavedQueryIds}
@@ -883,7 +933,12 @@ export default function AIQuery() {
           }}
           onAbort={() => {
             abort()
-            agentStreamAbortRef.current?.abort()
+            // Cancel only the currently-viewed conversation's stream — a
+            // different conversation's genuinely in-flight turn is not what
+            // the user is looking at, so Cancel here must not touch it.
+            if (activeConversationId) {
+              agentStreamAbortRef.current.get(activeConversationId)?.abort()
+            }
             if (activeConversationJob) {
               void cancelJob(activeConversationJob.id)
             }

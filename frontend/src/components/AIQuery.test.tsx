@@ -22,10 +22,31 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type * as I18nModule from '../i18n'
 import type { AgentTurnOutcome, RunAgentModeTurnOptions } from './aiQuery/agentModeTurn'
 
-const { mockRunAgentModeTurn, mockAddMessage } = vi.hoisted(() => ({
-  mockRunAgentModeTurn: vi.fn(),
-  mockAddMessage: vi.fn(),
-}))
+// conversationHarness backs the useConversation mock below with two
+// conversations ('conv-1', 'conv-2') and a mutable "active" pointer, so the
+// multi-conversation describe block can switch which conversation AIQuery
+// sees as active (via setActiveConversationId + a re-render) without
+// remounting the component — remounting would reset AIQuery's own internal
+// agentTurnsByConversation state, which is exactly what these tests need to
+// observe surviving a conversation switch.
+const { mockRunAgentModeTurn, mockAddMessage, conversationHarness, mockSetActiveConversationId } =
+  vi.hoisted(() => {
+    const conversationHarness = {
+      activeConversationId: 'conv-1',
+      conversations: {
+        'conv-1': { id: 'conv-1', messages: [], context_enabled: true },
+        'conv-2': { id: 'conv-2', messages: [], context_enabled: true },
+      } as Record<string, { id: string; messages: unknown[]; context_enabled: boolean }>,
+    }
+    return {
+      mockRunAgentModeTurn: vi.fn(),
+      mockAddMessage: vi.fn(),
+      conversationHarness,
+      mockSetActiveConversationId: vi.fn((id: string) => {
+        conversationHarness.activeConversationId = id
+      }),
+    }
+  })
 
 vi.mock('react-router-dom', () => ({
   useLocation: () => ({ state: null }),
@@ -55,15 +76,15 @@ vi.mock('../hooks/useApi', () => ({
 
 vi.mock('../hooks/useConversation', () => ({
   useConversation: () => ({
+    // Deliberately empty (not Object.values(conversations)): a non-empty
+    // list would mount the real SidebarConversationItem, which needs a
+    // ConfirmProvider this minimal harness doesn't set up. This suite only
+    // needs activeConversation/activeConversationId to be switchable.
     conversations: [],
-    activeConversation: {
-      id: 'conv-1',
-      messages: [],
-      context_enabled: true,
-    },
-    activeConversationId: 'conv-1',
-    setActiveConversationId: vi.fn(),
-    createConversation: vi.fn(() => ({ id: 'conv-1' })),
+    activeConversation: conversationHarness.conversations[conversationHarness.activeConversationId],
+    activeConversationId: conversationHarness.activeConversationId,
+    setActiveConversationId: mockSetActiveConversationId,
+    createConversation: vi.fn(() => conversationHarness.conversations['conv-1']),
     addMessage: mockAddMessage,
     appendAssistantForJob: vi.fn(),
     deleteConversation: vi.fn(),
@@ -148,6 +169,8 @@ afterEach(() => {
   cleanup()
   mockRunAgentModeTurn.mockReset()
   mockAddMessage.mockReset()
+  mockSetActiveConversationId.mockClear()
+  conversationHarness.activeConversationId = 'conv-1'
 })
 
 describe('AIQuery Agent Mode stream cleanup', () => {
@@ -319,5 +342,106 @@ describe('AIQuery Agent Mode stream cleanup', () => {
     // The resume is itself a real user-visible turn: a bubble for the chosen
     // answer, in addition to the original question.
     expect(mockAddMessage).toHaveBeenCalledTimes(2)
+  })
+})
+
+// Regression coverage for the review fix: agentSteps/agentClarification/the
+// abort ref must be scoped per conversation id, not shared as a single
+// global value. Before the fix, a fresh question sent in a DIFFERENT
+// conversation than the one holding a pending clarification (a) wiped that
+// other conversation's clarification/trace unconditionally, and (b) — via
+// the single global AbortController ref — aborted (and killed server-side) a
+// genuinely still-streaming run in that other conversation, contradicting
+// the documented "the run keeps going in the background" behavior.
+describe('AIQuery Agent Mode multi-conversation scoping', () => {
+  it("switching to a different conversation and sending a fresh question does not clear the other conversation's pending clarification", async () => {
+    let resolveConv1: (outcome: AgentTurnOutcome) => void = () => undefined
+    mockRunAgentModeTurn.mockImplementationOnce(
+      () =>
+        new Promise<AgentTurnOutcome>((resolve) => {
+          resolveConv1 = resolve
+        }),
+    )
+
+    const { rerender } = render(<AIQuery />)
+
+    // conv-1 (the active conversation) asks a question and pauses on a
+    // clarification.
+    fireEvent.click(screen.getByText('send'))
+    expect(mockRunAgentModeTurn).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      resolveConv1({
+        kind: 'clarification',
+        runId: 'run-conv1',
+        question: 'Which region did you mean?',
+        choices: [{ id: 'emea', label: 'EMEA' }],
+        allowFreeText: true,
+      })
+      await Promise.resolve()
+    })
+    expect(screen.getByTestId('agent-clarification-question').textContent).toBe(
+      'Which region did you mean?',
+    )
+
+    // Switch the active conversation to conv-2 — its own trace is empty, so
+    // the card must not show conv-1's clarification while conv-2 is active.
+    conversationHarness.activeConversationId = 'conv-2'
+    rerender(<AIQuery />)
+    expect(screen.getByTestId('agent-clarification-question').textContent).toBe('')
+
+    // Send a brand new question in conv-2. Per the bug report, the old code
+    // unconditionally cleared agentSteps/agentClarification here even though
+    // they belonged to conv-1, not conv-2.
+    const conv2Requests: unknown[] = []
+    mockRunAgentModeTurn.mockImplementationOnce((request: unknown) => {
+      conv2Requests.push(request)
+      return new Promise<AgentTurnOutcome>(() => undefined) // never resolves
+    })
+    fireEvent.click(screen.getByText('send'))
+    expect(mockRunAgentModeTurn).toHaveBeenCalledTimes(2)
+    expect(conv2Requests[0]).toMatchObject({ conversation_id: 'conv-2' })
+    // conv-2's own send must not be misrouted as an answer to conv-1's
+    // clarification (no resume_run_id/clarification_answer).
+    expect(conv2Requests[0]).not.toHaveProperty('resume_run_id')
+
+    // Switch back to conv-1: its paused clarification must still be there.
+    conversationHarness.activeConversationId = 'conv-1'
+    rerender(<AIQuery />)
+    expect(screen.getByTestId('agent-clarification-question').textContent).toBe(
+      'Which region did you mean?',
+    )
+  })
+
+  it("starting a fresh turn in a different conversation does not abort another conversation's genuinely in-flight stream", () => {
+    const signals: AbortSignal[] = []
+    mockRunAgentModeTurn.mockImplementation(
+      (_request: unknown, options: RunAgentModeTurnOptions) => {
+        signals.push(options.signal!)
+        return new Promise<AgentTurnOutcome>(() => undefined) // never resolves
+      },
+    )
+
+    const { rerender } = render(<AIQuery />)
+
+    // conv-1 starts a turn that never settles (a genuinely in-flight stream).
+    fireEvent.click(screen.getByText('send'))
+    expect(signals).toHaveLength(1)
+    expect(signals[0]!.aborted).toBe(false)
+
+    // Switch to conv-2 and start its own turn.
+    conversationHarness.activeConversationId = 'conv-2'
+    rerender(<AIQuery />)
+    fireEvent.click(screen.getByText('send'))
+    expect(signals).toHaveLength(2)
+
+    // conv-1's stream must still be running — a different conversation's
+    // fresh turn must not have superseded/aborted it.
+    expect(signals[0]!.aborted).toBe(false)
+    expect(signals[1]!.aborted).toBe(false)
+
+    // Cancel while conv-2 is active must only abort conv-2's own stream.
+    fireEvent.click(screen.getByText('abort'))
+    expect(signals[0]!.aborted).toBe(false)
+    expect(signals[1]!.aborted).toBe(true)
   })
 })
