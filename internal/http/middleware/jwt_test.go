@@ -510,7 +510,7 @@ func TestJWTAuthWithAdminBypass_AdminKeyBypasses(t *testing.T) {
 
 	adminKey := "s3cret-admin-api-key"
 	provider := NewPublicKeyProvider(srv.URL, "tok")
-	mw := JWTAuthWithAdminBypass(provider, []string{adminKey})
+	mw := JWTAuthWithAdminBypass(provider, []string{adminKey}, nil)
 
 	// Case 1: Authorization: Bearer <adminKey>
 	var gotUserID string
@@ -584,7 +584,7 @@ func TestJWTAuthWithAdminBypass_SecondKeyAccepted(t *testing.T) {
 	defer srv.Close()
 
 	provider := NewPublicKeyProvider(srv.URL, "tok")
-	mw := JWTAuthWithAdminBypass(provider, []string{"", "admin-only-key"})
+	mw := JWTAuthWithAdminBypass(provider, []string{"", "admin-only-key"}, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -628,7 +628,7 @@ func TestJWTAuthWithAdminBypass_FallbackToJWT(t *testing.T) {
 	})
 
 	provider := NewPublicKeyProvider(srv.URL, "tok")
-	mw := JWTAuthWithAdminBypass(provider, []string{"s3cret-admin-api-key"})
+	mw := JWTAuthWithAdminBypass(provider, []string{"s3cret-admin-api-key"}, nil)
 
 	var gotUserID string
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -646,5 +646,125 @@ func TestJWTAuthWithAdminBypass_FallbackToJWT(t *testing.T) {
 	}
 	if gotUserID != "user-1" {
 		t.Fatalf("JWT fallback expected UserID='user-1', got %q", gotUserID)
+	}
+}
+
+// newVerifyTokenServer stubs the auth service's /internal/auth/verify-token
+// endpoint: status/body are canned per test, independent of the request.
+func newVerifyTokenServer(t *testing.T, status int, body any) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/auth/verify-token", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Internal-Token") == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(status)
+		if body != nil {
+			_ = sonic.ConfigStd.NewEncoder(w).Encode(body)
+		}
+	})
+	return httptest.NewServer(mux)
+}
+
+func TestJWTAuthWithAdminBypass_PATAccepted(t *testing.T) {
+	_, pub := newSigningKey(t)
+	keySrv := newKeyServer(t, pub, "biqly")
+	defer keySrv.Close()
+
+	verifySrv := newVerifyTokenServer(t, http.StatusOK, PATIdentity{
+		UserID:        "user-2",
+		Email:         "pat@x.com",
+		EmailVerified: true,
+		Roles:         []string{"analyst"},
+		WorkspaceID:   "ws-2",
+	})
+	defer verifySrv.Close()
+
+	provider := NewPublicKeyProvider(keySrv.URL, "tok")
+	authClient := NewAuthClient(verifySrv.URL, "tok")
+	mw := JWTAuthWithAdminBypass(provider, nil, authClient)
+
+	var gotUserID string
+	var gotRoles []string
+	var gotWorkspaceID string
+	var gotEmailVerified bool
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserID = UserID(r.Context())
+		gotRoles = UserRoles(r.Context())
+		gotWorkspaceID, _ = r.Context().Value(WorkspaceIDKey).(string)
+		gotEmailVerified = EmailVerified(r.Context())
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer bqpat_abc123")
+	w := httptest.NewRecorder()
+	mw(handler).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("PAT accepted: expected 200, got %d", w.Code)
+	}
+	if gotUserID != "user-2" {
+		t.Fatalf("PAT accepted: expected UserID='user-2', got %q", gotUserID)
+	}
+	if len(gotRoles) != 1 || gotRoles[0] != "analyst" {
+		t.Fatalf("PAT accepted: expected roles=[analyst], got %+v", gotRoles)
+	}
+	if gotWorkspaceID != "ws-2" {
+		t.Fatalf("PAT accepted: expected WorkspaceID='ws-2', got %q", gotWorkspaceID)
+	}
+	if !gotEmailVerified {
+		t.Fatalf("PAT accepted: expected EmailVerified=true")
+	}
+}
+
+func TestJWTAuthWithAdminBypass_PATRejected401(t *testing.T) {
+	_, pub := newSigningKey(t)
+	keySrv := newKeyServer(t, pub, "biqly")
+	defer keySrv.Close()
+
+	// Revoked/expired/unknown tokens all surface as a plain 401 from the auth
+	// service; the middleware must not leak the distinction.
+	verifySrv := newVerifyTokenServer(t, http.StatusUnauthorized, nil)
+	defer verifySrv.Close()
+
+	provider := NewPublicKeyProvider(keySrv.URL, "tok")
+	authClient := NewAuthClient(verifySrv.URL, "tok")
+	mw := JWTAuthWithAdminBypass(provider, nil, authClient)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer bqpat_revoked")
+	w := httptest.NewRecorder()
+	mw(handler).ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("PAT rejected: expected 401, got %d", w.Code)
+	}
+}
+
+func TestJWTAuthWithAdminBypass_PATNoAuthClientFailsClosed(t *testing.T) {
+	_, pub := newSigningKey(t)
+	keySrv := newKeyServer(t, pub, "biqly")
+	defer keySrv.Close()
+
+	provider := NewPublicKeyProvider(keySrv.URL, "tok")
+	mw := JWTAuthWithAdminBypass(provider, nil, nil)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer bqpat_whatever")
+	w := httptest.NewRecorder()
+	mw(handler).ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("PAT with nil authClient: expected 401, got %d", w.Code)
 	}
 }

@@ -24,7 +24,7 @@ func buildAPIAuthMiddleware(deps *app.Dependencies) func(http.Handler) http.Hand
 		// gate) and BI_ADMIN_API_KEY (the key admin tooling and the frontend's
 		// useAdminApi flows actually send).
 		return bimw.JWTAuthWithAdminBypass(provider,
-			[]string{deps.Config.Security.APIKey, deps.Config.Security.AdminAPIKey})
+			[]string{deps.Config.Security.APIKey, deps.Config.Security.AdminAPIKey}, NewAuthClient(deps))
 	}
 
 	if deps.Config.Security.APIKey == "" {
@@ -69,7 +69,7 @@ func buildAIAuthMiddleware(deps *app.Dependencies) func(http.Handler) http.Handl
 			slog.Error("BI_AUTH_ENABLED is true but BI_AUTH_SERVICE_URL is empty — JWT verification will fail")
 		}
 		return bimw.JWTAuthWithAdminBypass(bimw.NewPublicKeyProvider(authCfg.ServiceURL, authCfg.InternalToken),
-			[]string{deps.Config.Security.APIKey, deps.Config.Security.AdminAPIKey})
+			[]string{deps.Config.Security.APIKey, deps.Config.Security.AdminAPIKey}, buildAIAuthClient(deps))
 	}
 	if authCfg.ServiceURL != "" {
 		return bimw.OptionalJWTAuth(bimw.NewPublicKeyProvider(authCfg.ServiceURL, authCfg.InternalToken))

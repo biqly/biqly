@@ -150,6 +150,7 @@ func (h *AuthHandler) RegisterAuthRoutes(r chi.Router) {
 		r.Post("/admin/ldap-config/test", h.handleAdminTestLDAP)
 		r.Post("/admin/users/{id}/resend-verification", h.handleAdminResendUserVerification)
 		h.RegisterAccountSelfRoutes(r)
+		h.RegisterPersonalTokenRoutes(r)
 	})
 }
 
@@ -157,6 +158,7 @@ func (h *AuthHandler) RegisterInternalRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(h.internalTokenMiddleware)
 		r.Post("/verify", h.handleVerify)
+		r.Post("/verify-token", h.handleVerifyPersonalAccessToken)
 		r.Get("/user/{id}/permissions", h.handleGetUserPermissions)
 	})
 }

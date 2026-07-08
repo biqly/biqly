@@ -8,6 +8,9 @@ const (
 
 	AuditSessionRevoked = "session.revoked"
 
+	AuditTokenCreated = "personal_access_token.created"
+	AuditTokenRevoked = "personal_access_token.revoked"
+
 	AuditMFABypassGenerated = "mfa.bypass_code_generated" //nolint:gosec // audit event name, not a credential
 
 	AuditRoleAssigned  = "role.assigned"

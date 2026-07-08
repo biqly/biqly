@@ -63,6 +63,7 @@ type Service struct {
 	ldapConfig       *LDAPConfigRepository
 	ldapAuth         ldap.Authenticator
 	auditSvc         *AuditService
+	patMgr           *PersonalAccessTokenManager
 }
 
 func (s *Service) UserRepo() *UserRepository {
@@ -85,6 +86,11 @@ func (s *Service) SetWorkspaceService(ws WorkspaceService) { s.workspaceSvc = ws
 // SetMFAService wires the MFA service after construction. Optional; if unset
 // MFA checks are skipped and login proceeds with single factor.
 func (s *Service) SetMFAService(m MFAService) { s.mfaSvc = m }
+
+// SetPersonalAccessTokenManager wires the personal access token manager after
+// construction. Optional; if unset, personal-access-token endpoints return
+// ErrPersonalAccessTokensUnavailable.
+func (s *Service) SetPersonalAccessTokenManager(m *PersonalAccessTokenManager) { s.patMgr = m }
 
 func NewAuthService(
 	userRepo *UserRepository,
