@@ -60,7 +60,11 @@ function mergeAbortSignals(
   return merged.signal
 }
 
-function buildFetchHeaders(
+// Exported so callers that can't use fetchJSON (e.g. agentStream.ts, which
+// needs the raw streaming Response body instead of a parsed JSON result) can
+// still build the same Authorization/X-Locale/X-Biqly-Channel headers instead
+// of duplicating this logic.
+export function buildFetchHeaders(
   init: (RequestInit & RequestOptions) | undefined,
   body: BodyInit | null | undefined,
 ): Headers {
