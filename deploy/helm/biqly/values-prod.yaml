@@ -140,11 +140,11 @@ auth:
       memory: 128Mi
   image:
     repository: auth
-    tag: sha-ea7d7152dd49bd7a4fb78806ab222d450dad5136
+    tag: sha-48540fa4e7cb322c2b8492d468ed47cd0d2a98ce
   migrate:
     image:
       repository: auth
-      tag: sha-ea7d7152dd49bd7a4fb78806ab222d450dad5136
+      tag: sha-48540fa4e7cb322c2b8492d468ed47cd0d2a98ce
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -171,11 +171,11 @@ mail:
     BI_MAIL_SMTP_SENDER_NAME: "ABI"
   image:
     repository: mail
-    tag: sha-ea7d7152dd49bd7a4fb78806ab222d450dad5136
+    tag: sha-48540fa4e7cb322c2b8492d468ed47cd0d2a98ce
   migrate:
     image:
       repository: mail
-      tag: sha-ea7d7152dd49bd7a4fb78806ab222d450dad5136
+      tag: sha-48540fa4e7cb322c2b8492d468ed47cd0d2a98ce
 frontend:
   replicaCount: 1
   resources:
@@ -186,7 +186,7 @@ frontend:
       cpu: 200m
       memory: 64Mi
   image:
-    tag: sha-f62cd7de63f49561103be24aa8f429f6250c49a1
+    tag: sha-48540fa4e7cb322c2b8492d468ed47cd0d2a98ce
 catalog:
   replicaCount: 1
   resources:
@@ -197,7 +197,7 @@ catalog:
       cpu: 500m
       memory: 256Mi
   image:
-    tag: sha-ea7d7152dd49bd7a4fb78806ab222d450dad5136
+    tag: sha-48540fa4e7cb322c2b8492d468ed47cd0d2a98ce
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -211,13 +211,13 @@ query:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-ea7d7152dd49bd7a4fb78806ab222d450dad5136
+    tag: sha-48540fa4e7cb322c2b8492d468ed47cd0d2a98ce
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
 worker:
   image:
-    tag: sha-ea7d7152dd49bd7a4fb78806ab222d450dad5136
+    tag: sha-48540fa4e7cb322c2b8492d468ed47cd0d2a98ce
 # Re-deployed 2026-07-07: ConnectNATS fixed to merge subjects instead of
 # replacing them (b98ace38). Agent runs in shadow mode observing/comparing
 # results alongside the legacy pipeline, with its own job subject
@@ -225,7 +225,7 @@ worker:
 agent:
   enabled: true
   image:
-    tag: sha-ea7d7152dd49bd7a4fb78806ab222d450dad5136
+    tag: sha-48540fa4e7cb322c2b8492d468ed47cd0d2a98ce
 mcp:
   replicaCount: 1
   resources:
@@ -236,7 +236,7 @@ mcp:
       cpu: 300m
       memory: 192Mi
   image:
-    tag: sha-ea7d7152dd49bd7a4fb78806ab222d450dad5136
+    tag: sha-48540fa4e7cb322c2b8492d468ed47cd0d2a98ce
   config:
     # MCP proxies tool calls to the API gateway; the hostname must match the
     # gateway HTTPRoutes (see global.gateway.hostnames).
@@ -254,7 +254,7 @@ ai:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-ea7d7152dd49bd7a4fb78806ab222d450dad5136
+    tag: sha-48540fa4e7cb322c2b8492d468ed47cd0d2a98ce
   rollout:
     enabled: false
   autoscaling:
