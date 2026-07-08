@@ -2,7 +2,7 @@
 
 ## Web Agent Mode for AI Chat (2026-07-08)
 
-**Status:** in progress — Phase 0-1 complete (T1-T8, backend). Phase 2 (frontend, T9-T12) and Phase 3 (hardening/parity/rollout, T13-T15) not started.
+**Status:** in progress — Phase 0-2 complete (T1-T12, backend + frontend). Phase 3 (hardening/parity/rollout, T13-T15) not started; prod rollout steps require explicit go-ahead.
 
 **Source of truth:**
 - Design: `docs/superpowers/specs/2026-07-08-web-agent-mode-design.md`
@@ -12,7 +12,7 @@
 - [x] Web agent never accepts or emits raw SQL as user-controlled execution input (structured `run_logical_query` tool only; SQL preview is output-only, gated same as the legacy pipeline).
 - [x] All tool calls pass through existing `/api/*` governed paths with the caller's own credentials.
 - [x] Agent calls the MCP-parity tool set: `list_models`, `list_datasources`, `run_question`, `run_logical_query`, `list_skills`, `run_skill` — defined once in `internal/toolcontract`, consumed by both MCP and the web agent.
-- [ ] Frontend streams agent progress with SSE (`POST /api/agent/chat`, fetch + ReadableStream client). — backend SSE endpoint is complete; frontend client is T9-T12, not started.
+- [x] Frontend streams agent progress with SSE (`POST /api/agent/chat`, fetch + ReadableStream client).
 - [x] Final answer includes business summary, table, chart suggestion, follow-ups, and trace.
 - [x] Existing auth, RLS, PII masking, spend caps, and audit apply unchanged; per-user concurrency guard added.
 - [ ] Same question via MCP client and web agent selects the same datasource/model and produces an equivalent LogicalQuery (parity harness). — T13, not started.
@@ -20,7 +20,7 @@
 ### Execution phases
 - [x] Phase 0 — T1–T2: shared `internal/toolcontract` package; MCP server consumes it.
 - [x] Phase 1 — T3–T8: `PurposeAgent`, web tool registry + policy caps, planner prompt + `BI_WEB_AGENT_*` bounds, `POST /api/agent/chat` SSE handler (live steps, cancel, spend-cap, role narrowing, Helm route), finalizer result payload + `agent_steps` persistence, and clarification round-trip (resume, identity check, full multi-round history) — all complete, reviewed, and committed on `dev`.
-- [ ] Phase 2 — T9–T12: SSE client, Agent Mode toggle, streaming UX (live trace / clarification card / result), i18n + a11y + frontend gate.
+- [x] Phase 2 — T9–T12: SSE client, Agent Mode toggle, streaming UX (live trace / clarification card / result), i18n + a11y + frontend gate.
 - [ ] Phase 3 — T13–T15: parity harness, docs + full gate + dev deploy, staged rollout (dark → allowlist → beta → default; prod upgrade needs explicit go-ahead).
 
 ### Review
@@ -35,7 +35,12 @@
 - T6 complete (commit `49d02da1`): live per-step SSE event sink + heartbeat (`streamAgentSteps`, matches `newEvalSSESender`/15s cadence), explicit client-cancel test (with a `context.WithoutCancel` fix for a latent bug where a canceled run's "mark failed" write was silently skipped), spend-cap rejection test (verified `Check` precedes any LLM call), role-based tool narrowing wired into the handler (`webAgentAllowedTools`, enforced at `PolicyEngine.Evaluate`, fails closed to viewer set), and a `make helm-assert-web-agent-route` assertion. Subagent code review: Approved, no Critical/Important findings.
 - T7 complete (commit `cd98ea45`): `composeWebAgentFinalResult` reuses the legacy pipeline's own helpers (`enrichAIRunResponse`'s `VisualizationHintFromResult`, `attachAINaturalLanguageAnswer`, `attachSuggestedFollowUps`) so the SSE `result` payload matches `AssistantMessageCard`'s existing shape byte-for-byte, with a golden test. Subagent code review: Approved. Follow-up fix (`cbe004ae`, `f1de440d`): the design doc commits to `agent_steps` persistence ("Full fidelity persists in `agent_steps` as today"), but the web agent path only wrote a `runtime_state` metadata blob and never called `ReplaceAgentSteps` — fixed for both the success and failure terminal paths so `GetAgentRun`/`RunTracePanel` reload-hydration works like the legacy pipeline. Re-review: Approved.
 - T8 complete (commits `cf9277d4`, `6d08c21f`): activated the previously-dead-code `webAgentStateStore.Load` for resume (was always creating a new run instead), added `RuntimeState.PendingClarification`/`ClarificationHistory` (the runtime previously discarded the planner's clarification question/options entirely on pause), identity-checked resume (owner + datasource match, generic not-found on mismatch, no existence-leak), and threaded the full accumulated clarification history (not just the latest round) plus the original question into the resumed planner prompt — verified against a real 2-round accumulate-and-resume flow with `Planner.Decide` argument capture. First-pass review found the original question was dropped on every resume and round-1's Q&A was overwritten before round 2; fixed and re-reviewed clean.
-- Backend (Phase 0-1, T1-T8) is now fully complete on `dev`. Remaining work: Phase 2 frontend (T9-T12) and Phase 3 hardening/parity/rollout (T13-T15, prod steps require explicit go-ahead per the plan).
+- Backend (Phase 0-1, T1-T8) is fully complete on `dev`.
+- T9 complete (commit `0dc41ce0`): `frontend/src/api/agentStream.ts` SSE parser (frame-split-across-chunks, heartbeat-ignore, `[DONE]`-terminal all genuinely tested) + `frontend/src/types/agent.ts`, types derived from the actual backend handler shapes via gograph. Reviewed clean.
+- T10 complete (commits `aeb0cb7b`, `ee9abf0b`, `d15b5125`): Agent Mode toggle (localStorage, default off) + `sendQuery` routing to the SSE client. Two review-and-fix rounds found real races: missing `AbortController`/unmount cleanup (fixed), then the fix's own "abort previous turn" safety net had an unguarded `setQueryAction(null)` that let a superseded turn's settlement clobber the new turn's loading state (fixed, with a genuine double-send regression test). Legacy (toggle-off) path verified byte-identical throughout.
+- T11 complete (commits `292d8c62`, `380d57c4`): live per-step trace into `RunTracePanel`, clarification resume (reusing the existing `ClarificationCard` unmodified), cancel button, all wired through `AssistantMessageCard`'s existing sections with zero changes needed there (verified by a real component test). Found and fixed a genuine pre-existing bug in `normalizeAIQueryResponse` that silently dropped `run_id` on a second normalization pass. One fix round: switching conversations while one had a pending clarification/in-flight stream clobbered it via unguarded global state — now scoped per-conversation. No server-side clarification skip sentinel exists yet, so Skip sends a natural-language instruction as a disclosed stopgap. Manual browser/dev-loop QA was not performed (honestly disclosed) — recommend a manual pass before broad rollout. Known follow-up (filed, not fixed): the `queryAction` busy-flag is still global, so an unrelated idle conversation's composer disables and shows a dead Cancel button while another conversation streams.
+- T12 complete (commit `b102bd37`): i18n/a11y audit came back clean except the live trace card had no screen-reader announcement — fixed with `role="status"` (matches the existing `TypingIndicator` convention). Full `make check-frontend` gate green.
+- Phase 0-2 (T1-T12, backend + frontend) is now fully complete on `dev`. Remaining work: Phase 3 hardening/parity/rollout (T13-T15, prod steps require explicit go-ahead per the plan).
 
 ## Agentic Query Runner + conversation replay repair (2026-07-06)
 

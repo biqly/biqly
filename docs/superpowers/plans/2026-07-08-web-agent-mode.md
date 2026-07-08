@@ -17,7 +17,7 @@ Every task ends with its focused tests green plus `gofmt` + `make lint-go` (Go) 
 - [x] T6 — `POST /api/agent/chat` SSE handler
 - [x] T7 — Finalizer
 - [x] T8 — Clarification round-trip
-- [ ] T9-T12 — Frontend Agent Mode
+- [x] T9-T12 — Frontend Agent Mode
 - [ ] T13-T15 — Hardening, parity, rollout
 
 ---
@@ -135,11 +135,24 @@ planner prompt — verified against a real 2-round accumulate-and-resume flow.
   (handles multi-line frames, `[DONE]`, abort); `frontend/src/types/agent.ts`.
 - **Done when:** vitest parser tests (chunk splits, heartbeats, error frames) green.
 
+T9 complete (commit `0dc41ce0`, reviewed clean). Types were derived from the actual
+backend handler shapes (not just the design doc's illustrative JSON) via gograph, and
+`AssistantMessageCard`-reused types (`LogicalQuery`, `QueryResultPayload`,
+`VisualizationHint`, `SuggestedFollowUp`) so the result-payload type needs no
+duplication.
+
 ### T10 — Agent Mode toggle + send path
 - Toggle in `ChatPanel.tsx` beside context/auto-find (localStorage, threaded from
   `AIQuery.tsx`); when on, `sendQuery` calls the agent stream instead of jobs/polling;
   prior turns + datasource preselection included.
 - **Done when:** toggle persists; agent-off behavior byte-identical to today.
+
+T10 complete (commits `aeb0cb7b`, `ee9abf0b`, `d15b5125`). Two review rounds found real
+races: the SSE stream had no `AbortController`/unmount cleanup (fixed), and the fix's
+own "abort the previous turn on a new send" safety net had an unguarded
+`setQueryAction(null)` that let a just-superseded turn's settlement clobber the new
+turn's loading state, re-enabling the composer mid-stream (fixed, with a genuine
+double-send regression test).
 
 ### T11 — Streaming UX
 - Live trace: `step` events feed `RunTracePanel` incrementally; clarification card
@@ -151,9 +164,33 @@ planner prompt — verified against a real 2-round accumulate-and-resume flow.
 - **Done when:** component tests for trace/clarification/result; manual dev-loop pass
   (`make watch` + `make dev-frontend`) of the full flow incl. cancel + clarification.
 
+T11 complete (commits `292d8c62`, `380d57c4`). Reused `ClarificationCard`/`RunTracePanel`
+unmodified; found and fixed a real pre-existing bug in `normalizeAIQueryResponse` that
+silently dropped `run_id` on a second normalization pass (broke trace reload-hydration
+for every agent-mode result, and for some legacy-pipeline messages too). One fix round:
+switching conversations while one had a pending clarification/in-flight stream clobbered
+it via unguarded global state and a single global abort ref — now scoped per-conversation
+(`agentTurnsByConversation`, per-conversation `AbortController` map). No skip sentinel
+exists server-side for the web agent path yet, so Skip sends a natural-language
+instruction as a stopgap (disclosed, not blocking). Manual dev-loop/browser QA was
+explicitly not performed by the implementer (honest per-task disclosure) — recommend a
+manual pass before shipping the toggle broadly.
+Known follow-up (not fixed, filed): `queryAction` busy-flag is still global, not
+per-conversation — while one conversation streams, an unrelated idle conversation's
+composer is disabled and shows a dead Cancel button. Pre-existing shape, exposed (not
+introduced) by this task's per-conversation scoping.
+
 ### T12 — i18n, a11y, frontend gate
 - All strings via `useT()` (ai_query.agent_*); keyboard/ARIA on the clarification
   card and toggle; `make check-frontend` (tsc, eslint, knip, vitest, build) green.
+
+T12 complete (commit `b102bd37`). Audit came back genuinely clean (i18n, toggle a11y,
+clarification-card a11y on the live path all already correct from T9-T11) except one
+real gap: the live trace card had no `aria-live` announcement for screen readers — fixed
+with `role="status"` (matches the existing `TypingIndicator` convention). Full frontend
+gate green.
+
+**Phase 2 (T9-T12) is fully complete.**
 
 ## Phase 3 — Hardening, parity, rollout
 
