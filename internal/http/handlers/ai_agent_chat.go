@@ -136,11 +136,13 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case state.Terminal != nil && state.Terminal.Final != nil:
+		result := h.composeWebAgentFinalResult(r.Context(), req, runID, state)
 		sendAgentEvent(send, "result", map[string]any{
 			"run_id":     runID,
-			"answer":     state.Terminal.Final.Answer,
-			"confidence": state.Terminal.Final.Confidence,
-			"steps":      webAgentStepEvents(state.Steps),
+			"answer":     result.Result.Answer,
+			"confidence": result.Result.Confidence,
+			"result":     result.Result,
+			"metadata":   result.Metadata,
 		})
 	case state.Terminal != nil && state.Terminal.Failure != nil:
 		sendAgentError(send, state.Terminal.Failure.ReasonCode, state.Terminal.Failure.Message)
@@ -440,14 +442,6 @@ func sendAgentError(send agentSSESender, code, message string) {
 
 func sendAgentDone(send agentSSESender) {
 	send("done", nil)
-}
-
-func webAgentStepEvents(steps []agent.RuntimeStep) []map[string]any {
-	out := make([]map[string]any, 0, len(steps))
-	for _, step := range steps {
-		out = append(out, webAgentStepEvent(step))
-	}
-	return out
 }
 
 func webAgentStepEvent(step agent.RuntimeStep) map[string]any {
