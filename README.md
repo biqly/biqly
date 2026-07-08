@@ -49,6 +49,8 @@ Biqly can run as a **monolith** or as **independent microservices** behind a BFF
 
 Unset a service URL to fall back to in-process monolith handler for that domain.
 
+Two services sit outside the BFF fan-out: **mcp** (`services/mcp`, :8083, public `/mcp` route) exposes governed MCP tools to AI clients and proxies every tool call back through the gateway to `/api/*` with the caller's credentials; **agent** (`cmd/agent`, internal, no public route) runs the agentic query runner — a bounded, policy-gated planner/tool loop consumed via NATS, deployed in shadow mode.
+
 ## Features
 
 ### AI & Natural Language
@@ -66,6 +68,13 @@ Unset a service URL to fall back to in-process monolith handler for that domain.
 - Prompt A/B testing: deterministic traffic split, statistical significance, winner recommendation
 - Expression AST: sealed interface with JSON discriminator, dialect-aware compilation, visual builder
 - Schema drift detection: automatic on metadata sync, email alerts, scheduled re-checks
+
+### MCP Integration
+
+- Stateless MCP server (streamable HTTP, JSON responses) at `/mcp`
+- Tools: `list_datasources`, `list_models`, `run_question`, `run_logical_query`, `list_skills`, `run_skill`
+- Every tool call dispatches through the governed `/api/*` path — same auth, RLS, PII masking, spend caps, and audit (channel=`mcp`); raw SQL is never accepted
+- Authenticate with a personal access token (`Authorization: Bearer bqpat_...`)
 
 ### Query Engine API
 
@@ -109,6 +118,7 @@ Unset a service URL to fall back to in-process monolith handler for that domain.
 - OAuth2: GitHub, Google
 - LDAP integration
 - Magic link authentication
+- Personal access tokens (`bqpat_` bearer tokens) for MCP/API integrations, self-service CRUD under `/api/auth/me/tokens`
 - Email verification, password reset, invitation flow
 - Per-user AI model access control
 - Multi-tenant workspaces with datasource sharing
@@ -142,7 +152,7 @@ Unset a service URL to fall back to in-process monolith handler for that domain.
 ### Deployment
 
 - Docker Compose for local development (11 services)
-- Helm umbrella chart with 8 dependencies (7 first-party charts + Bitnami PostgreSQL)
+- Helm umbrella chart with 10 dependencies (9 first-party charts + Bitnami PostgreSQL)
 - Manual / CI-triggered Helm upgrades
 - Prometheus / Grafana monitoring
 - Distributed tracing (Jaeger / OTEL)
@@ -230,18 +240,24 @@ cmd/
   auth/                 Auth microservice (:8889)
   mail/                 Mail worker (:8890)
   worker/               AI job worker (NATS consumer)
+  agent/                Agentic query runner service (internal, NATS)
   biqly/                Admin CLI (`enrich-context`)
   migrate/              Metadata DB migration CLI
   auth-migrate/         Auth DB migration CLI
   mail-migrate/         Mail DB migration CLI
+  conversation-repair/  Reversible conversation replay repair CLI
+  eval-live/            Live LLM eval runner (nightly workflow)
   export-sft/           SFT dataset exporter for fine-tuning
+  gen-openapi/          OpenAPI spec generator
 
 services/
   ai/                   Standalone AI service (:8882)
   catalog/              Standalone catalog service (:8880)
   query/                Standalone query engine (:8881)
+  mcp/                  MCP gateway service (:8083, public /mcp route)
 
 internal/
+  agent/                Agentic query runner (planner loop, tool policy, shadow eval)
   ai/                   AI/LLM text-to-LogicalQuery pipeline
     provider/           LLM provider implementations (OpenAI, Anthropic)
     prompt/             Prompt engineering, templates, budget, glossary
@@ -330,15 +346,15 @@ frontend/               React 19 + TypeScript 6 + Vite 8
     utils/              Utility functions
 
 deploy/
-  helm/biqly/           Helm umbrella chart (8 dependencies)
-    charts/             ai, auth, catalog, frontend, mail, query, worker + Bitnami postgresql
+  helm/biqly/           Helm umbrella chart (10 dependencies)
+    charts/             agent, ai, auth, catalog, frontend, mail, mcp, query, worker + Bitnami postgresql
     templates/          32 templates (configmaps, shared-PostgreSQL CNP, secrets, monitoring, etc.)
   infra/                Shared cluster infra manifests (envoy-gateway)
   monitoring/           Grafana / Prometheus support files
 
 migrations/
-  *.sql                 Metadata DB (54 migration IDs)
-  auth/*.sql            Auth DB (36 migration IDs)
+  *.sql                 Metadata DB (65 migration IDs)
+  auth/*.sql            Auth DB (37 migration IDs)
   mail/*.sql            Mail DB (1 migration ID)
 
 scripts/                Operational scripts (seed data, keygen, env sync)
@@ -608,6 +624,20 @@ testdata/               Golden SQL test files
 | `GET` | `/api/dashboards/{id}` | Get dashboard |
 | `PUT` | `/api/dashboards/{id}` | Update dashboard |
 | `DELETE` | `/api/dashboards/{id}` | Delete dashboard |
+
+### Personal Access Tokens
+
+| Method | Path | Description |
+| -------- | ------ | ------------- |
+| `GET` | `/api/auth/me/tokens` | List active tokens |
+| `POST` | `/api/auth/me/tokens` | Create token (secret shown once, `bqpat_` prefix) |
+| `DELETE` | `/api/auth/me/tokens/{id}` | Revoke token |
+
+### MCP
+
+| Method | Path | Description |
+| -------- | ------ | ------------- |
+| `POST` | `/mcp` | MCP streamable-HTTP endpoint (stateless, JSON responses); authenticate with `Authorization: Bearer bqpat_...` |
 
 ## Tech Stack
 

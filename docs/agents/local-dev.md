@@ -74,6 +74,10 @@ conversation-repair CLI, see `docs/agents/agent-runbook.md`.
 make watch SVC="api agent auth"   # only api + agent + auth (skip mail)
 ```
 
+The MCP endpoint needs no extra service locally: the monolith (`cmd/api`) serves
+`/mcp` in-process and dispatches tool calls to its own router. The standalone
+`services/mcp` gateway (with `BI_API_SERVICE_URL`) is a deploy-time concern only.
+
 For breakpoint debugging while keeping live-reload, swap `watch` → `debug-watch`:
 
 ```sh
