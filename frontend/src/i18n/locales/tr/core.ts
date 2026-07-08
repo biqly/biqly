@@ -465,6 +465,9 @@ export const core: CoreDictionary = {
     auto_find_toggle: 'Otomatik beceri bul',
     auto_find_toggle_title:
       'Yanıtları en iyi eşleşen kayıtlı sorgularla otomatik temellendir (gömme araması)',
+    agent_mode_toggle: 'Ajan modu',
+    agent_mode_toggle_title:
+      'Deneysel: yapay zeka tek seferde yanıtlamak yerine birden çok adımı kendi kendine planlayıp çalıştırsın',
     saved_query_hint: 'Alan için @ · kayıtlı sorgu eklemek için / yazın',
     saved_query_picker_aria: 'Kayıtlı sorgu önerileri',
     saved_query_picker_label: 'Kayıtlı sorgular',
@@ -564,6 +567,9 @@ export const core: CoreDictionary = {
     clarify_default: 'Lütfen netleştirin.',
     assistant_sql_preview: 'SQL: {{snippet}}…',
     assistant_executed: 'Sorgu çalıştırıldı',
+    agent_clarification_fallback:
+      'Ajanın devam edebilmesi için daha fazla bilgiye ihtiyacı var — lütfen sorunuzu yeniden ifade edin.',
+    err_agent_stream: 'Ajan çalıştırması başarısız oldu',
     job_failed_message: 'Yapay zeka işi başarısız oldu: {{error}}',
     job_cancelled_message: 'Sorgu iptal edildi: {{question}}',
     filter_by_value: '{{column}} = "{{value}}" ile filtrele',

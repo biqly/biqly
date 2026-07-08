@@ -457,6 +457,9 @@ export const core = {
     auto_find_toggle: 'Auto-find skills',
     auto_find_toggle_title:
       'Automatically ground answers with the best-matching saved queries (embedding search)',
+    agent_mode_toggle: 'Agent mode',
+    agent_mode_toggle_title:
+      'Experimental: let the AI plan and run multiple steps autonomously instead of answering in one pass',
     saved_query_hint: 'Type @ for a field · / to add a saved query',
     saved_query_picker_aria: 'Saved query suggestions',
     saved_query_picker_label: 'Saved queries',
@@ -556,6 +559,9 @@ export const core = {
     clarify_default: 'Please clarify.',
     assistant_sql_preview: 'SQL: {{snippet}}…',
     assistant_executed: 'Query executed',
+    agent_clarification_fallback:
+      'The agent needs more information before it can continue — please rephrase your question.',
+    err_agent_stream: 'Agent run failed',
     job_failed_message: 'The AI job failed: {{error}}',
     job_cancelled_message: 'Query cancelled: {{question}}',
     filter_by_value: '{{column}} = "{{value}}" filter',

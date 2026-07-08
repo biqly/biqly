@@ -103,6 +103,8 @@ export interface ChatPanelProps {
   onContextEnabledChange: (conversationId: string, enabled: boolean) => void
   autoFindEnabled: boolean
   onAutoFindEnabledChange: (enabled: boolean) => void
+  agentModeEnabled: boolean
+  onAgentModeEnabledChange: (enabled: boolean) => void
   selectedSavedQueryIds: string[]
   onSelectedSavedQueryIdsChange: (ids: string[]) => void
   onSendQuery: (q: string, execute: boolean, clarificationChoice?: string) => void

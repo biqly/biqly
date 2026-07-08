@@ -10,6 +10,7 @@ import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useLocale, useT } from '../i18n'
 import { buttonClass } from '../lib/buttonClasses'
 import { cn } from '../lib/cn'
+import type { AgentChatRequest } from '../types/agent'
 import type {
   AIJob,
   AIQueryRequest,
@@ -24,6 +25,8 @@ import { localeNumberTag } from '../utils/formatters'
 import { normalizeAIQueryResponse } from '../utils/normalizeAIQueryResponse'
 import { buildResultSummary } from '../utils/priorTurnSummary'
 import { queuePositionLine } from './ai/jobProgressUtils'
+import { loadAgentModeEnabled, saveAgentModeEnabled } from './aiQuery/agentModeStorage'
+import { runAgentModeTurn } from './aiQuery/agentModeTurn'
 import {
   aiQueryLayoutClass,
   aiQueryMainClass,
@@ -138,6 +141,9 @@ export default function AIQuery() {
   // as a composer preference. Selected saved-query grounding is per-question and
   // clears after each send.
   const [autoFindEnabled, setAutoFindEnabled] = useState(loadAutoFindEnabled)
+  // Agent Mode routes sendQuery through the T9 SSE agent stream
+  // (POST /api/agent/chat) instead of the job/polling path. See T10 brief.
+  const [agentModeEnabled, setAgentModeEnabled] = useState(loadAgentModeEnabled)
   const [selectedSavedQueryIds, setSelectedSavedQueryIds] = useState<string[]>([])
   const [jobError, setJobError] = useState<string | null>(null)
   const [aiElapsedMs, setAiElapsedMs] = useState(0)
@@ -483,12 +489,52 @@ export default function AIQuery() {
       model_id: semanticModelId.startsWith('composite:') ? null : semanticModelId || null,
     }
     const convId = activeConversation?.id ?? createConversation(conversationScope).id
-    const body = requestBody(q, convId, clarificationChoice)
     // The selected grounding is now captured in the request; clear the chips so
     // the next question starts fresh.
     setSelectedSavedQueryIds([])
     setQueryAction(execute ? 'execute' : 'preview')
     setJobError(null)
+
+    if (agentModeEnabled) {
+      addMessage({ role: 'user', content: q }, convId, conversationScope)
+      setQuestion('')
+      try {
+        const agentRequest: AgentChatRequest = {
+          message: q,
+          conversation_id: convId,
+          datasource_id: datasourceId,
+          // Mirrors buildAIQueryRequest's context gating: the per-conversation
+          // "link context" toggle controls whether prior turns are sent.
+          prior_turns: activeConversation?.context_enabled !== false ? recentPriorTurns : undefined,
+        }
+        const outcome = await runAgentModeTurn(agentRequest, {
+          token: accessToken ?? undefined,
+          clarificationFallback: t('ai_query.agent_clarification_fallback'),
+          genericErrorMessage: t('ai_query.err_agent_stream'),
+        })
+        if (outcome.kind === 'result') {
+          addMessage(
+            {
+              role: 'assistant',
+              content: assistantContentFor(outcome.response),
+              ai_response: outcome.response,
+            },
+            convId,
+          )
+        } else if (outcome.kind === 'clarification') {
+          // T11 owns the real clarification card; T10 only needs to avoid a
+          // silent stall when one arrives mid-development.
+          addMessage({ role: 'assistant', content: outcome.message }, convId)
+        } else if (outcome.kind === 'error') {
+          setJobError(outcome.message)
+        }
+      } finally {
+        setQueryAction(null)
+      }
+      return
+    }
+
+    const body = requestBody(q, convId, clarificationChoice)
     try {
       const kind = execute ? 'run' : 'preview'
       const outcome = await runJob(kind, body, {
@@ -660,6 +706,11 @@ export default function AIQuery() {
           onAutoFindEnabledChange={(enabled) => {
             setAutoFindEnabled(enabled)
             saveAutoFindEnabled(enabled)
+          }}
+          agentModeEnabled={agentModeEnabled}
+          onAgentModeEnabledChange={(enabled) => {
+            setAgentModeEnabled(enabled)
+            saveAgentModeEnabled(enabled)
           }}
           selectedSavedQueryIds={selectedSavedQueryIds}
           onSelectedSavedQueryIdsChange={setSelectedSavedQueryIds}

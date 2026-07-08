@@ -241,6 +241,8 @@ export function ChatPanel({
   onContextEnabledChange,
   autoFindEnabled,
   onAutoFindEnabledChange,
+  agentModeEnabled,
+  onAgentModeEnabledChange,
   selectedSavedQueryIds,
   onSelectedSavedQueryIdsChange,
   onSendQuery,
@@ -476,6 +478,17 @@ export function ChatPanel({
                 />
                 <label htmlFor="ai-auto-find-skills" title={t('ai_query.auto_find_toggle_title')}>
                   {t('ai_query.auto_find_toggle')}
+                </label>
+              </div>
+              <div className={pastQueriesToggleClass}>
+                <input
+                  type="checkbox"
+                  id="ai-agent-mode"
+                  checked={agentModeEnabled}
+                  onChange={(e) => onAgentModeEnabledChange(e.target.checked)}
+                />
+                <label htmlFor="ai-agent-mode" title={t('ai_query.agent_mode_toggle_title')}>
+                  {t('ai_query.agent_mode_toggle')}
                 </label>
               </div>
               <span className={chatComposerHintClass}>{t('ai_query.saved_query_hint')}</span>
