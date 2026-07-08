@@ -63,9 +63,9 @@ Run `npx prettier --check` (or `npm --prefix frontend run format:check`) on ever
 
 ### ZAP GitHub Action OpenAPI Args
 
-For `zaproxy/action-baseline` and `zaproxy/action-full-scan`, pass generated OpenAPI specs with `cmd_options: -openapifile openapi.json ...`. Do not pass the OpenAPI file through `-configfile`; the baseline script treats config/rules flags as scan policy files, and the action can mangle `-configfile` into a missing `/zap/wrk/onfigfile` path before any report is produced.
+For generated OpenAPI specs, use `zaproxy/action-api-scan`, not `zaproxy/action-baseline` or `zaproxy/action-full-scan`. The baseline/full scripts do not accept OpenAPI flags; `-openapifile` fails as `Invalid option o`, while `-configfile` is for scan rules and can be mangled into a missing `/zap/wrk/onfigfile` path before any report is produced.
 
-**Rule**: Use `rules_file_name` only for ZAP rules TSV files. Use `-openapifile`, `-openapi.target`, and `-openapi.hostoverride` for OpenAPI endpoint seeding.
+**Rule**: For passive OpenAPI scans, run `action-api-scan` with `target: openapi.json`, `format: openapi`, and `cmd_options: -S -O <target-url>`. For active OpenAPI scans, use the same action without `-S`. Use `rules_file_name` only for ZAP rules TSV files.
 
 
 Use Go's built-in `min` / `max` for simple clamps and two-value comparisons, such as `chunk = min(chunk, len(encoded))`. Keep explicit `if` statements when branches have side effects, extra logic, or clearer domain meaning.
