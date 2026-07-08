@@ -59,7 +59,7 @@ func TestRouter_ProxiesQueryOwnedPublicRoutes(t *testing.T) {
 func TestRouter_DoesNotProxyNonQueryPublicRoutes(t *testing.T) {
 	t.Parallel()
 	handler, calls := routerWithCountingUpstream(t, func(s *config.ServicesConfig, url string) { s.QueryURL = url })
-	assertRouteStaysLocal(t, handler, stdhttp.MethodGet, "/api/datasources", "", stdhttp.StatusInternalServerError, calls, "datasource")
+	assertRouteStaysLocal(t, handler, stdhttp.MethodGet, "/health", "", stdhttp.StatusOK, calls, "health")
 }
 
 func TestRouter_QueryProxyErrorUsesInternalEnvelope(t *testing.T) {

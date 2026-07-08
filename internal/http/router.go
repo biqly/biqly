@@ -25,6 +25,18 @@ var healthCheckBody = []byte(`{"status":"ok"}`)
 
 // Router sets up all HTTP routes.
 func Router(deps *app.Dependencies) http.Handler {
+	r := setupRouter(deps)
+	return OTELHTTPHandler("biqly-api", r)
+}
+
+// ChiRouter builds the same routes as Router but returns the raw chi.Router
+// without the OTEL wrapper. Used by code-generation tools (cmd/gen-openapi)
+// that need to Walk the route tree.
+func ChiRouter(deps *app.Dependencies) chi.Router {
+	return setupRouter(deps)
+}
+
+func setupRouter(deps *app.Dependencies) chi.Router {
 	r := chi.NewRouter()
 
 	// CORS — restrict to explicitly configured origins. Empty list = no
@@ -155,5 +167,5 @@ func Router(deps *app.Dependencies) http.Handler {
 		registerQueryInternalRoutes(r, deps.QueryDeps())
 	})
 
-	return OTELHTTPHandler("biqly-api", r)
+	return r
 }

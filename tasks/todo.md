@@ -38,6 +38,15 @@
 - `36e90abd` feat(agent): add run/step/policy/shadow observability and alerts — bounded-label Prometheus metrics + `biqly.agent` PrometheusRule group; `internal/platform/observability/tier2_metrics_test.go` covers both the happy path and bounded-label fallback.
 - Every commit through Phase 4 passed the full local gate (`gofmt`, `make lint-go`, `go test -race`, `deadcode -test`, `make check-frontend`, `make helm-lint`/`helm-template`, `gograph_review --uncommitted`) before landing.
 
+### Snapshot persistence follow-up (2026-07-07)
+- [x] Fix production log noise: `conversation_write_requests` FK failures and `ai_conversation_messages` duplicate primary-key failures.
+- [~] Verify with focused metadata tests, `gograph_review --uncommitted`, and `make lint-go`.
+
+Review:
+- `go test ./internal/metadata -count=1` and `git diff --check` pass.
+- `gograph_review` on `(*Repository).SaveAIConversationSnapshot` and `upsertMessagesInTx` passed; `gograph_review --uncommitted` hit a git diff invocation error, so symbol-level review was used.
+- `make lint-go` is blocked by a parallel-agent untracked file (`cmd/gen-openapi/main.go`: gosec G306 on `os.WriteFile(..., 0644)`). Left untouched.
+
 ## Feature: @-mention follow-ups + AI Query screen cleanup (2026-06-23)
 
 ### Asks (from user)
