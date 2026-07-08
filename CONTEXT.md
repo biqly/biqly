@@ -13,10 +13,11 @@ Agent skills: use the terms below consistently in issues, refactors, tests, and 
 | **Semantic layer** | Business-facing dimensions, metrics, joins on top of synced metadata — not raw tables in prompts |
 | **AI layer** | NL → LogicalQuery; table routing; ambiguity/clarification; few-shot and glossary context |
 | **Query layer** | LogicalQuery validation, join planning, dialect-aware SQL compile, safe execution |
-| **Agentic query runner** | `cmd/agent` — bounded, policy-gated planner/tool loop; standalone service, `agent.enabled=false` by default, no public route |
+| **Agentic query runner** | `cmd/agent` — bounded, policy-gated planner/tool loop; standalone service, `agent.enabled=false` by default (prod runs it in shadow mode), no public route |
+| **MCP gateway** | `services/mcp` — stateless MCP server (streamable HTTP at `/mcp`) exposing governed tools (`run_question`, `run_logical_query`, `list_datasources`, `list_models`, `list_skills`, `run_skill`); every tool call proxies through the API gateway with the caller's credentials, so the same auth/RLS/PII/audit chain applies (channel=`mcp`). Owns no DB, no query logic. |
 | **Frontend** | React 19 + Vite — chat, modeling UI, charts (Recharts), i18n via `useT()` |
 
-Production deploys `catalog`, `query`, `ai`, `worker`, `auth`, `frontend`, and `mail` into Kubernetes namespace `biqly`; the biqly system databases now live on the shared `prag-postgresql` instance in namespace `postgresql`.
+Production deploys `catalog`, `query`, `ai`, `worker`, `auth`, `frontend`, `mail`, `mcp`, and the internal `agent` (shadow mode) into Kubernetes namespace `biqly`; the biqly system databases now live on the shared `prag-postgresql` instance in namespace `postgresql`.
 
 ## Glossary
 
@@ -39,12 +40,16 @@ Production deploys `catalog`, `query`, `ai`, `worker`, `auth`, `frontend`, and `
 | **Eval / golden** | Regression suite for NL→LogicalQuery (`make eval-regression`) | Live LLM eval in pre-commit (`make eval-live`) |
 | **AI job** | Async NATS-backed query/preview/run/describe/embed job | Sync HTTP handler path |
 | **Agentic query runner** | `cmd/agent`'s bounded planner/tool loop (`internal/agent/`) — a policy-gated alternative to the legacy single-shot NL-to-SQL pipeline, rolled out via shadow/beta/default modes | The legacy pipeline itself; "the AI service" when you mean this separate runner |
+| **Skill** | Saved, named, parameterized LogicalQuery template validated by users; run via `/api/ai/skills/{id}/run` or the MCP `run_skill` tool | "saved query" in new code/docs |
+| **Personal access token (PAT)** | Long-lived `bqpat_`-prefixed bearer token for MCP/API integrations; self-service CRUD at `/api/auth/me/tokens`, verified by the auth service (`internal/auth/pat.go`) | Session JWT; "API key" (`X-API-Key` is a separate header) |
+| **MCP** | Model Context Protocol server (`services/mcp`) exposing the governed tools above to AI clients (Claude, Cursor, …) at `/mcp` | A second query path — it only proxies to `/api/*` |
 
 ## Key flows
 
 1. **Sync query**: HTTP → `parseAndRouteAIQuery` → `ProcessContext.Resolve` → `processAIQuestion` → compile/run.
 2. **Async query**: `executeAIQueryPhase` must use the same `ProcessContext` path as sync (no duplicate clarification logic).
-3. **Security**: Read-only SQL only; row-level filters; denied fields never enter AI prompt; audit on every query.
+3. **MCP tool call**: MCP client → gateway `/mcp` → `services/mcp` → reverse proxy back through the gateway to `/api/*` with the caller's PAT — the request crosses the Envoy gateway twice, so both routes carry explicit HTTPRoute timeouts (mcp/ai `1800s`, query `120s`; Envoy's default is 15s).
+4. **Security**: Read-only SQL only; row-level filters; denied fields never enter AI prompt; audit on every query.
 
 ## Turkish / business language
 
@@ -60,7 +65,10 @@ Production deploys `catalog`, `query`, `ai`, `worker`, `auth`, `frontend`, and `
 | Ambiguity | `internal/ai/ambiguity/` |
 | Compiler | `internal/query/compiler.go` |
 | Semantic CRUD | `internal/semantic/` |
-| Config flags | `internal/config/config.go` (`AmbiguityConfig`, `BI_*` env) |
+| Agentic runner | `internal/agent/`, `cmd/agent/` |
+| MCP server | `internal/http/mcp_server.go`, `internal/http/mcp_router.go`, `services/mcp/` |
+| Personal access tokens | `internal/auth/pat.go`, `internal/auth/handlers/handler_tokens.go`, `internal/http/middleware/jwt.go` (bearer-prefix detection) |
+| Config flags | `internal/config/config.go` (`AmbiguityConfig`, `BI_*` env) — full list in `docs/configuration.md` |
 
 ## Related docs
 

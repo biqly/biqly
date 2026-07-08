@@ -300,7 +300,7 @@ deploy/
 │   ├── values-dev.yaml    # dev overrides
 │   ├── values-prod.yaml   # prod overrides (applied manually with helm upgrade)
 │   ├── templates/         # namespace, postgresql (cnp), nats, dragonfly, otel, alertmanager, etc.
-│   └── charts/            # sub-charts: catalog, query, ai, worker, auth, mail, frontend
+│   └── charts/            # sub-charts: catalog, query, mcp, ai, worker, agent, auth, mail, frontend
 └── infra/                 # cluster infra (envoy-gateway, etc.), applied with kubectl/helm
 ```
 
@@ -310,6 +310,9 @@ key points:
 - there is no ArgoCD (or other GitOps controller) in the `prag` cluster; deploys are manual/CI-triggered `helm upgrade`, not auto-synced from git.
 - image tags for `main`-pushed commits are bumped in `values-prod.yaml` with `scripts/helm-bump-tags.sh` (checks `ghcr.io/biqly/<svc>:sha-<commit>` exists per service, then rewrites the pinned tag paths), followed by a manual `helm upgrade --install biqly deploy/helm/biqly -n biqly -f deploy/helm/biqly/values-prod.yaml`.
 - to apply changes locally (dev): `helm upgrade --install biqly deploy/helm/biqly -n biqly -f deploy/helm/biqly/values-dev.yaml`
+- **after editing any subchart under `deploy/helm/biqly/charts/*/`, run `helm dependency build deploy/helm/biqly` before upgrading** — the `file://` dependencies are packaged as `charts/*.tgz`, and a stale tgz silently deploys old templates while `helm template` renders the edited directory.
+- `helm upgrade` may need `--force-conflicts`: the `biqly-ai` HTTPRoute carries a stale `argocd-controller` field manager (old argo-rollouts canary experiment) that owns `.spec.rules`.
+- gateway HTTPRoute timeouts are set in values (`route.timeouts.request`: mcp/ai `1800s`, query `120s`) because Envoy's 15s default 504s long AI/MCP calls; new long-running routes need the same treatment.
 - to inspect the cluster: `kubectl -n biqly get pods`
 
 ### ci / github actions (`.github/workflows/`)
@@ -318,10 +321,11 @@ key points:
 | --- | --- | --- |
 | `ci.yml` | push/pr to `main` | backend (go test + lint + build) + frontend quality gate + docker build & push |
 | `test.yml` | push/pr to `main` | go test only (lighter gate, also runs on prs) |
-| `build-*.yml` | push/pr to `main` | per-service docker builds (auth, ai, query, catalog, mail, migrate, worker) |
+| `build-*.yml` | push/pr to `main` | per-service docker builds (agent, ai, auth, catalog, mail, mcp, migrate, query, worker) |
 | `codeql.yml` | push/pr to `main` | CodeQL security analysis |
 | `eval-nightly.yml` | nightly schedule + manual dispatch | AI eval regression suite (real LLM) |
 | `semgrep.yml` | push/pr to `main` | sast security scan |
+| `zap-baseline.yml` / `zap-full.yml` | manual dispatch | OWASP ZAP DAST scan against a deployed target (OpenAPI-driven) |
 
 notes:
 
