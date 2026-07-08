@@ -61,6 +61,12 @@ Run `npx prettier --check` (or `npm --prefix frontend run format:check`) on ever
 
 **Local CI parity**: run `make test-go` or `make verify-main` before push — do not rely on `go test ./internal/queue/...` alone if NATS happens to be running locally.
 
+### ZAP GitHub Action OpenAPI Args
+
+For `zaproxy/action-baseline` and `zaproxy/action-full-scan`, pass generated OpenAPI specs with `cmd_options: -openapifile openapi.json ...`. Do not pass the OpenAPI file through `-configfile`; the baseline script treats config/rules flags as scan policy files, and the action can mangle `-configfile` into a missing `/zap/wrk/onfigfile` path before any report is produced.
+
+**Rule**: Use `rules_file_name` only for ZAP rules TSV files. Use `-openapifile`, `-openapi.target`, and `-openapi.hostoverride` for OpenAPI endpoint seeding.
+
 
 Use Go's built-in `min` / `max` for simple clamps and two-value comparisons, such as `chunk = min(chunk, len(encoded))`. Keep explicit `if` statements when branches have side effects, extra logic, or clearer domain meaning.
 
