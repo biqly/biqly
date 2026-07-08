@@ -41,3 +41,7 @@ route:
   enabled: true
   pathPrefixes:
     - /mcp
+  # An MCP tool call synchronously runs the AI/query pipeline upstream; do not
+  # let the gateway cut it at Envoy's 15s default route timeout.
+  timeouts:
+    request: 1800s
