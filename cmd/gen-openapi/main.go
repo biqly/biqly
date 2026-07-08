@@ -46,7 +46,9 @@ func main() {
 	}
 
 	if *output != "" {
-		if err := os.WriteFile(*output, append(buf, '\n'), 0600); err != nil {
+		// The generated spec contains route metadata only and must be readable by
+		// the ZAP Docker user in CI.
+		if err := os.WriteFile(*output, append(buf, '\n'), 0644); err != nil { //nolint:gosec
 			fmt.Fprintf(os.Stderr, "write %s: %v\n", *output, err)
 			os.Exit(1)
 		}
