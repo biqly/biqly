@@ -22,6 +22,17 @@ type Clarification struct {
 	Options  []string `json:"options,omitempty"`
 }
 
+// ClarificationExchange carries one clarification round's question and the
+// user's answer into the planner's next Decide call, right after a resumed
+// run continues past a clarification_required pause. It is set on
+// RunContext.PriorClarification only for a resumed run; PolicyEngine does
+// not use it — only the planner prompt (provider_planner.go), so the model
+// doesn't re-ask a question it already has an answer for.
+type ClarificationExchange struct {
+	Question string
+	Answer   string
+}
+
 // FinalResponse is a run's successful terminal outcome.
 type FinalResponse struct {
 	Answer     string  `json:"answer"`

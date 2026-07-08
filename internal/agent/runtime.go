@@ -38,6 +38,15 @@ type RuntimeState struct {
 	ClarificationRounds int             `json:"clarification_rounds"`
 	QueryExecuteStarted bool            `json:"query_execute_started"`
 	Terminal            *TerminalResult `json:"terminal,omitempty"`
+	// PendingClarification is the question (and options) the planner most
+	// recently asked, set by runClarificationStep right before Run pauses.
+	// A caller resuming the run (T8: resume_run_id + clarification_answer)
+	// reads this to render the clarification_required SSE event's
+	// question/choices and to build the resumed RunContext.PriorClarification.
+	// Run clears it at the top of the next Run call — once a resume is in
+	// flight, the question is being addressed, so a stale value never
+	// lingers in persisted state past that point.
+	PendingClarification *Clarification `json:"pending_clarification,omitempty"`
 }
 
 // toolStepCount returns how many steps in state proposed a tool call — the
@@ -127,6 +136,11 @@ func (rt *Runtime) Run(ctx context.Context, run RunContext, runID string) (Runti
 	if state.Terminal != nil {
 		return state, ErrRunAlreadyTerminal
 	}
+	// A resumed run is, by definition, addressing whatever clarification
+	// paused it last time — clear it now so a stale question never lingers
+	// in persisted state once the loop moves past it (runClarificationStep
+	// sets a fresh one if the planner asks again).
+	state.PendingClarification = nil
 
 	var deadline time.Time
 	if run.Timeout > 0 {
@@ -171,7 +185,7 @@ func (rt *Runtime) step(
 
 	switch decision.Kind {
 	case DecisionClarification:
-		return rt.runClarificationStep(ctx, run, runID, state)
+		return rt.runClarificationStep(ctx, run, runID, state, decision.Clarification)
 	case DecisionFinal:
 		final, err := rt.finalizeOK(ctx, runID, state, decision.Final)
 		return final, true, err
@@ -198,14 +212,18 @@ func (rt *Runtime) step(
 	}
 }
 
-func (rt *Runtime) runClarificationStep(ctx context.Context, run RunContext, runID string, state RuntimeState) (RuntimeState, bool, error) {
+func (rt *Runtime) runClarificationStep(ctx context.Context, run RunContext, runID string, state RuntimeState, clarification *Clarification) (RuntimeState, bool, error) {
 	state.ClarificationRounds++
 	rt.metrics.RecordAgentClarificationRound(state.ClarificationRounds)
 	if state.ClarificationRounds > run.MaxClarificationRounds {
+		// The run is failing terminally, not pausing — there is nothing left
+		// pending for a caller to resume.
+		state.PendingClarification = nil
 		final, err := rt.finalizeFail(ctx, runID, state, "max_clarification_rounds_exceeded",
 			"exceeded the maximum number of clarification rounds")
 		return final, true, err
 	}
+	state.PendingClarification = clarification
 	if err := rt.store.Save(ctx, runID, state); err != nil {
 		return state, true, fmt.Errorf("save runtime state: %w", err)
 	}

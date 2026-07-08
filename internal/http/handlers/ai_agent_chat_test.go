@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -22,6 +23,48 @@ import (
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
 )
+
+// agentRunRowQueryMock returns the queryMock for GetAgentRun's row query
+// (internal/metadata/agent_runs.go's agentRunColumns SELECT), matched by the
+// COALESCE(conversation_id) column expression unique to that query
+// (LoadAgentRuntimeState's "SELECT runtime_state ..." query targets the same
+// table but a different, non-overlapping pattern).
+func agentRunRowQueryMock(userID string) queryMock {
+	now := time.Now()
+	return queryMock{
+		Pattern: "coalesce(conversation_id, '')",
+		Cols: []string{
+			"id", "conversation_id", "datasource_id", "model_id", "user_id",
+			"question", "question_hash", "mode", "status", "confidence", "answer",
+			"created_at", "updated_at",
+		},
+		Rows: [][]driver.Value{{
+			"run-1", "", "ds-1", "", userID,
+			"show revenue", "hash", webAgentMode, metadata.AgentRunStatusWaitingClarification, 0.0, "",
+			now, now,
+		}},
+	}
+}
+
+// agentStepsQueryMock returns an empty-steps queryMock for GetAgentRun's
+// listAgentSteps call.
+func agentStepsQueryMock() queryMock {
+	return queryMock{
+		Pattern: "from agent_steps",
+		Cols:    []string{"seq", "kind", "status", "attempt", "duration_ms", "detail"},
+		Rows:    nil,
+	}
+}
+
+// agentRuntimeStateQueryMock returns the queryMock for
+// webAgentStateStore.Load's LoadAgentRuntimeState call.
+func agentRuntimeStateQueryMock(raw string) queryMock {
+	return queryMock{
+		Pattern: "select runtime_state from agent_runs",
+		Cols:    []string{"runtime_state"},
+		Rows:    [][]driver.Value{{[]byte(raw)}},
+	}
+}
 
 type fakeWebAgentLimiter struct {
 	err       error
@@ -537,15 +580,15 @@ func TestWebAgentRunContextAppliesRoleFromAuthContext(t *testing.T) {
 	req := webAgentRequest{Message: "show revenue", DatasourceID: "ds-1"}
 
 	viewerCtx := bimw.WithUserRoles(context.Background(), []string{"viewer"})
-	viewerRun := h.webAgentRunContext(viewerCtx, req)
+	viewerRun := h.webAgentRunContext(viewerCtx, req, nil)
 	assert.NotContains(t, viewerRun.AllowedTools, agent.ToolWebRunLogicalQuery)
 
 	analystCtx := bimw.WithUserRoles(context.Background(), []string{"analyst"})
-	analystRun := h.webAgentRunContext(analystCtx, req)
+	analystRun := h.webAgentRunContext(analystCtx, req, nil)
 	assert.Contains(t, analystRun.AllowedTools, agent.ToolWebRunLogicalQuery)
 
 	// No roles at all (e.g. a claim-less identity) fails closed to viewer.
-	noRoleRun := h.webAgentRunContext(context.Background(), req)
+	noRoleRun := h.webAgentRunContext(context.Background(), req, nil)
 	assert.NotContains(t, noRoleRun.AllowedTools, agent.ToolWebRunLogicalQuery)
 }
 
@@ -628,4 +671,225 @@ func TestStreamAgentStepsFiresHeartbeatWhileRunIsSlow(t *testing.T) {
 
 	close(proceed)
 	<-done
+}
+
+// TestWebAgentChatClarificationRequiredEventCarriesQuestionAndChoices proves
+// T8's clarification_required SSE event surfaces the planner's actual
+// question and options (design doc: {"question":..., "choices":[{"id":...,
+// "label":...}], "allow_free_text": true}), not just a bare run_id.
+func TestWebAgentChatClarificationRequiredEventCarriesQuestionAndChoices(t *testing.T) {
+	db, state := setupMockDB(t)
+	state.queries = []queryMock{
+		{Pattern: "INSERT INTO agent_runs", Cols: []string{"id"}, Rows: [][]driver.Value{{"run-1"}}},
+	}
+	h := newAIHandlerWithRepo(metadata.NewRepository(db))
+	h.deps.Config.WebAgent = config.WebAgentConfig{Enabled: true, MaxSteps: 6, MaxClarificationRounds: 2}
+	h.webAgentLimiter = &fakeWebAgentLimiter{}
+	h.webAgentRunner = func(context.Context, webAgentRequest, string) (agent.RuntimeState, error) {
+		return agent.RuntimeState{
+			ClarificationRounds: 1,
+			PendingClarification: &agent.Clarification{
+				Question: "which revenue metric?",
+				Options:  []string{"net_revenue", "gross_revenue"},
+			},
+		}, nil
+	}
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/agent/chat", strings.NewReader(`{
+		"message":"show revenue",
+		"datasource_id":"ds-1"
+	}`))
+	ctx := bimw.WithUserID(req.Context(), "user-1")
+	ctx = bimw.WithWorkspaceID(ctx, "workspace-1")
+	rec := httptest.NewRecorder()
+
+	h.WebAgentChat(rec, req.WithContext(ctx))
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	body := rec.Body.String()
+	assert.Contains(t, body, `"type":"clarification_required"`)
+	assert.Contains(t, body, `"run_id":"run-1"`)
+	assert.Contains(t, body, `"allow_free_text":true`)
+	assert.Contains(t, body, `"question":"which revenue metric?"`)
+	assert.Contains(t, body, `"id":"net_revenue"`)
+	assert.Contains(t, body, `"label":"net_revenue"`)
+	assert.Contains(t, body, `"id":"gross_revenue"`)
+}
+
+// TestWebAgentChatResumeContinuesRunAfterClarification is T8's pause/resume
+// integration test: a first call pauses on a clarification, and a second
+// call carrying resume_run_id + clarification_answer continues the *same*
+// run (no new INSERT) through to a final result.
+func TestWebAgentChatResumeContinuesRunAfterClarification(t *testing.T) {
+	db, state := setupMockDB(t)
+	state.queries = []queryMock{
+		{Pattern: "INSERT INTO agent_runs", Cols: []string{"id"}, Rows: [][]driver.Value{{"run-1"}}},
+		agentRunRowQueryMock("user-1"),
+		agentStepsQueryMock(),
+		agentRuntimeStateQueryMock(`{"clarification_rounds":1,"pending_clarification":{"question":"which metric?","options":["net_revenue","gross_revenue"]}}`),
+	}
+	h := newAIHandlerWithRepo(metadata.NewRepository(db))
+	h.deps.Config.WebAgent = config.WebAgentConfig{Enabled: true, MaxSteps: 6, MaxClarificationRounds: 2}
+	h.webAgentLimiter = &fakeWebAgentLimiter{}
+	h.webAgentRunner = func(context.Context, webAgentRequest, string) (agent.RuntimeState, error) {
+		return agent.RuntimeState{
+			ClarificationRounds: 1,
+			PendingClarification: &agent.Clarification{
+				Question: "which metric?",
+				Options:  []string{"net_revenue", "gross_revenue"},
+			},
+		}, nil
+	}
+
+	firstReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/agent/chat", strings.NewReader(`{
+		"message":"show revenue",
+		"datasource_id":"ds-1"
+	}`))
+	ctx := bimw.WithUserID(firstReq.Context(), "user-1")
+	ctx = bimw.WithWorkspaceID(ctx, "workspace-1")
+	firstRec := httptest.NewRecorder()
+	h.WebAgentChat(firstRec, firstReq.WithContext(ctx))
+	require.Contains(t, firstRec.Body.String(), `"type":"clarification_required"`)
+
+	h.webAgentRunner = func(_ context.Context, req webAgentRequest, runID string) (agent.RuntimeState, error) {
+		require.Equal(t, "run-1", runID, "resume must continue the same run, not create a new one")
+		require.Equal(t, "net_revenue", req.ClarificationAnswer)
+		return agent.RuntimeState{
+			Terminal: &agent.TerminalResult{
+				Kind:  agent.DecisionFinal,
+				Final: &agent.FinalResponse{Answer: "net revenue is 100", Confidence: 0.9},
+			},
+		}, nil
+	}
+
+	resumeReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/agent/chat", strings.NewReader(`{
+		"resume_run_id":"run-1",
+		"clarification_answer":"net_revenue",
+		"datasource_id":"ds-1"
+	}`))
+	resumeCtx := bimw.WithUserID(resumeReq.Context(), "user-1")
+	resumeCtx = bimw.WithWorkspaceID(resumeCtx, "workspace-1")
+	resumeRec := httptest.NewRecorder()
+
+	h.WebAgentChat(resumeRec, resumeReq.WithContext(resumeCtx))
+
+	require.Equal(t, http.StatusOK, resumeRec.Code, resumeRec.Body.String())
+	body := resumeRec.Body.String()
+	assert.Contains(t, body, `"type":"run_started"`)
+	assert.Contains(t, body, `"run_id":"run-1"`)
+	assert.Contains(t, body, `"type":"result"`)
+	assert.Contains(t, body, `"answer":"net revenue is 100"`)
+	assert.Contains(t, body, "data: [DONE]")
+
+	// Resuming must not have inserted a second agent_runs row.
+	var inserts int
+	for _, call := range state.calls {
+		if strings.Contains(call.Op, "INSERT INTO agent_runs") {
+			inserts++
+		}
+	}
+	assert.Equal(t, 1, inserts)
+}
+
+// TestWebAgentChatResumeRejectsDifferentUser is T8's "Done when" security
+// case: a caller resuming someone else's run gets a generic not-found error,
+// not a distinguishable "forbidden" that would leak the run's existence.
+func TestWebAgentChatResumeRejectsDifferentUser(t *testing.T) {
+	db, state := setupMockDB(t)
+	state.queries = []queryMock{
+		agentRunRowQueryMock("owner-user"),
+		agentStepsQueryMock(),
+	}
+	h := newAIHandlerWithRepo(metadata.NewRepository(db))
+	h.deps.Config.WebAgent = config.WebAgentConfig{Enabled: true, MaxSteps: 6, MaxClarificationRounds: 2}
+	h.webAgentLimiter = &fakeWebAgentLimiter{}
+	h.webAgentRunner = func(context.Context, webAgentRequest, string) (agent.RuntimeState, error) {
+		t.Fatal("runner must not be invoked for a rejected resume")
+		return agent.RuntimeState{}, nil
+	}
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/agent/chat", strings.NewReader(`{
+		"resume_run_id":"run-1",
+		"clarification_answer":"net_revenue",
+		"datasource_id":"ds-1"
+	}`))
+	ctx := bimw.WithUserID(req.Context(), "attacker-user")
+	ctx = bimw.WithWorkspaceID(ctx, "workspace-1")
+	rec := httptest.NewRecorder()
+
+	h.WebAgentChat(rec, req.WithContext(ctx))
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	body := rec.Body.String()
+	assert.Contains(t, body, `"type":"error"`)
+	assert.Contains(t, body, `"code":"not_found"`)
+	assert.NotContains(t, body, "run_started")
+}
+
+// TestResumeWebAgentRunLoadsPendingClarificationForPlanner is a focused unit
+// test on resumeWebAgentRun itself: it must resolve the persisted
+// PendingClarification's question plus the request's answer into a
+// ClarificationExchange the planner prompt can render.
+func TestResumeWebAgentRunLoadsPendingClarificationForPlanner(t *testing.T) {
+	db, state := setupMockDB(t)
+	state.queries = []queryMock{
+		agentRunRowQueryMock("user-1"),
+		agentStepsQueryMock(),
+		agentRuntimeStateQueryMock(`{"pending_clarification":{"question":"which metric?","options":["net_revenue","gross_revenue"]}}`),
+	}
+	h := newAIHandlerWithRepo(metadata.NewRepository(db))
+
+	ctx := bimw.WithUserID(context.Background(), "user-1")
+	runID, prior, err := h.resumeWebAgentRun(ctx, webAgentRequest{
+		ResumeRunID:         "run-1",
+		DatasourceID:        "ds-1",
+		ClarificationAnswer: "net_revenue",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "run-1", runID)
+	require.NotNil(t, prior)
+	assert.Equal(t, "which metric?", prior.Question)
+	assert.Equal(t, "net_revenue", prior.Answer)
+}
+
+// TestResumeWebAgentRunRejectsMismatchedDatasource proves the extra
+// defense-in-depth check: even with the correct owner, a resume request
+// naming a different datasource than the run's original one is rejected the
+// same generic way as a different user.
+func TestResumeWebAgentRunRejectsMismatchedDatasource(t *testing.T) {
+	db, state := setupMockDB(t)
+	state.queries = []queryMock{
+		agentRunRowQueryMock("user-1"),
+		agentStepsQueryMock(),
+	}
+	h := newAIHandlerWithRepo(metadata.NewRepository(db))
+
+	ctx := bimw.WithUserID(context.Background(), "user-1")
+	_, _, err := h.resumeWebAgentRun(ctx, webAgentRequest{
+		ResumeRunID:  "run-1",
+		DatasourceID: "ds-other",
+	})
+
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, errWebAgentResumeForbidden))
+}
+
+// TestResumeWebAgentRunRejectsAlreadyTerminalRun proves resuming a run that
+// already reached a terminal result surfaces a distinct, non-security error
+// rather than silently re-running (or masquerading as "not found").
+func TestResumeWebAgentRunRejectsAlreadyTerminalRun(t *testing.T) {
+	db, state := setupMockDB(t)
+	state.queries = []queryMock{
+		agentRunRowQueryMock("user-1"),
+		agentStepsQueryMock(),
+		agentRuntimeStateQueryMock(`{"terminal":{"kind":"final","final":{"answer":"done","confidence":1}}}`),
+	}
+	h := newAIHandlerWithRepo(metadata.NewRepository(db))
+
+	ctx := bimw.WithUserID(context.Background(), "user-1")
+	_, _, err := h.resumeWebAgentRun(ctx, webAgentRequest{ResumeRunID: "run-1", DatasourceID: "ds-1"})
+
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, agent.ErrRunAlreadyTerminal))
 }

@@ -159,6 +159,8 @@ func TestRuntimeClarificationPauses(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, state.Terminal, "clarification pauses without a terminal result")
 	assert.Equal(t, 1, state.ClarificationRounds)
+	require.NotNil(t, state.PendingClarification, "the paused question survives for a caller to surface")
+	assert.Equal(t, "which metric?", state.PendingClarification.Question)
 
 	// Resuming re-loads the paused state and continues the loop.
 	planner.decisions = append(planner.decisions, finalDecision("resumed"))
@@ -166,6 +168,47 @@ func TestRuntimeClarificationPauses(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, state.Terminal)
 	assert.Equal(t, "resumed", state.Terminal.Final.Answer)
+	assert.Nil(t, state.PendingClarification, "resuming past the clarification clears it")
+}
+
+// TestRuntimeClarificationCarriesOptionsThroughPendingState proves the
+// planner's clarification options (not just the question) survive into
+// RuntimeState.PendingClarification, since T8's clarification_required SSE
+// event renders both question and choices from this field.
+func TestRuntimeClarificationCarriesOptionsThroughPendingState(t *testing.T) {
+	registry := NewRegistry(&PolicyEngine{}, NewCatalogTool(&fakeCatalogResolver{}))
+	run := runtimeTestRun()
+	planner := &scriptedPlanner{decisions: []PlannerDecision{
+		{Kind: DecisionClarification, Clarification: &Clarification{
+			Question: "which metric?",
+			Options:  []string{"net_revenue", "gross_revenue"},
+		}},
+	}}
+	store := newFakeStateStore()
+	rt := NewRuntime(planner, registry, store)
+
+	state, err := rt.Run(context.Background(), run, "run-9")
+	require.NoError(t, err)
+	require.NotNil(t, state.PendingClarification)
+	assert.Equal(t, []string{"net_revenue", "gross_revenue"}, state.PendingClarification.Options)
+}
+
+// TestRuntimeMaxClarificationRoundsExceededClearsPending proves that once a
+// run fails terminally for exhausting its clarification budget, there is no
+// stale "pending" question left behind for a caller to (incorrectly) resume.
+func TestRuntimeMaxClarificationRoundsExceededClearsPending(t *testing.T) {
+	registry := NewRegistry(&PolicyEngine{}, NewCatalogTool(&fakeCatalogResolver{}))
+	run := runtimeTestRun()
+	run.MaxClarificationRounds = 0
+	store := newFakeStateStore()
+	planner := &scriptedPlanner{decisions: []PlannerDecision{clarificationDecision("q1")}}
+	rt := NewRuntime(planner, registry, store)
+
+	state, err := rt.Run(context.Background(), run, "run-10")
+	require.NoError(t, err)
+	require.NotNil(t, state.Terminal)
+	assert.Equal(t, "max_clarification_rounds_exceeded", state.Terminal.Failure.ReasonCode)
+	assert.Nil(t, state.PendingClarification)
 }
 
 func TestRuntimeMaxTwoClarificationRoundsExceeded(t *testing.T) {

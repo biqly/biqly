@@ -28,6 +28,12 @@ const webAgentMode = "web"
 var (
 	errWebAgentConcurrencyLimit       = errors.New("web agent concurrency limit reached")
 	errWebAgentConcurrencyUnavailable = errors.New("web agent concurrency guard unavailable")
+	// errWebAgentResumeForbidden is returned by resumeWebAgentRun for both
+	// "no such run" and "run belongs to someone else" — deliberately not
+	// distinguished so a caller probing run ids cannot learn which case
+	// applies (T8: "do not leak whether the run exists to an unauthorized
+	// caller").
+	errWebAgentResumeForbidden = errors.New("agent run not found")
 )
 
 type webAgentRequest struct {
@@ -114,16 +120,13 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 	}
 	defer release(context.WithoutCancel(r.Context()))
 
-	runID, err := h.createWebAgentRun(r.Context(), req)
-	if err != nil {
-		slog.WarnContext(r.Context(), "create web agent run failed", "error", err)
-		sendAgentError(send, "run_create_failed", "could not create agent run")
-		sendAgentDone(send)
+	runID, priorClarification, started := h.startOrResumeWebAgentRun(r.Context(), req, send)
+	if !started {
 		return
 	}
 	sendAgentEvent(send, "run_started", map[string]any{"run_id": runID})
 
-	state, err := h.runWebAgent(r.Context(), req, runID, send, heartbeat)
+	state, err := h.runWebAgent(r.Context(), req, runID, send, heartbeat, priorClarification)
 	if err != nil {
 		// context.WithoutCancel: a client abort (T6 item 2) cancels
 		// r.Context(), but the run must still be durably marked failed
@@ -160,10 +163,7 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 		})
 		sendAgentError(send, state.Terminal.Failure.ReasonCode, state.Terminal.Failure.Message)
 	default:
-		sendAgentEvent(send, "clarification_required", map[string]any{
-			"run_id":          runID,
-			"allow_free_text": true,
-		})
+		sendAgentEvent(send, "clarification_required", webAgentClarificationEvent(runID, state.PendingClarification))
 	}
 	sendAgentDone(send)
 }
@@ -198,6 +198,111 @@ func workspaceAllowed(workspaceID string, allowlist []string) bool {
 		return true
 	}
 	return slices.Contains(allowlist, workspaceID)
+}
+
+// webAgentClarificationEvent builds the clarification_required SSE payload's
+// question/choices from the paused run's pending clarification. clarification
+// is nil only defensively (the default case in WebAgentChat is only reached
+// after a DecisionClarification pause, which always sets it) — in that case
+// the event still carries run_id/allow_free_text so the client can fall back
+// to free-text input.
+func webAgentClarificationEvent(runID string, clarification *agent.Clarification) map[string]any {
+	event := map[string]any{
+		"run_id":          runID,
+		"allow_free_text": true,
+	}
+	if clarification == nil {
+		return event
+	}
+	event["question"] = clarification.Question
+	choices := make([]map[string]string, 0, len(clarification.Options))
+	for _, opt := range clarification.Options {
+		// Clarification.Options is a flat []string — the planner does not
+		// model a separate choice id distinct from its label, so both are
+		// set to the option text itself, matching the design doc's
+		// {"id":..., "label":...} shape without inventing an id scheme the
+		// rest of the system has no use for.
+		choices = append(choices, map[string]string{"id": opt, "label": opt})
+	}
+	event["choices"] = choices
+	return event
+}
+
+// resumeWebAgentRun loads a previously paused run for req.ResumeRunID and
+// identity-checks it before continuing: a run only resumes for the user who
+// created it (mirrors metadata.ConversationBelongsToUser's ownership check —
+// agent_runs has no workspace/tenant column to check instead), and, when the
+// request still carries a datasource_id, it must match the run's original
+// one too. Both failure modes collapse to errWebAgentResumeForbidden so a
+// caller cannot distinguish "wrong owner" from "run does not exist". The
+// returned ClarificationExchange (nil unless the run actually paused on a
+// clarification) lets the caller build the resumed RunContext so the planner
+// sees the question it asked and the user's answer.
+func (h *AIHandler) resumeWebAgentRun(ctx context.Context, req webAgentRequest) (string, *agent.ClarificationExchange, error) {
+	if h == nil || h.deps == nil || h.deps.MetaRepo == nil {
+		return "", nil, errors.New("metadata repository is not configured")
+	}
+	run, _, err := h.deps.MetaRepo.GetAgentRun(ctx, req.ResumeRunID)
+	if err != nil {
+		if errors.Is(err, metadata.ErrAgentRunNotFound) {
+			return "", nil, errWebAgentResumeForbidden
+		}
+		return "", nil, err
+	}
+	if run.UserID != bimw.UserID(ctx) || (req.DatasourceID != "" && run.DatasourceID != req.DatasourceID) {
+		return "", nil, errWebAgentResumeForbidden
+	}
+	state, ok, err := (&webAgentStateStore{repo: h.deps.MetaRepo}).Load(ctx, req.ResumeRunID)
+	if err != nil {
+		return "", nil, err
+	}
+	if !ok {
+		return "", nil, errWebAgentResumeForbidden
+	}
+	if state.Terminal != nil {
+		return "", nil, agent.ErrRunAlreadyTerminal
+	}
+	var prior *agent.ClarificationExchange
+	if state.PendingClarification != nil {
+		prior = &agent.ClarificationExchange{
+			Question: state.PendingClarification.Question,
+			Answer:   req.ClarificationAnswer,
+		}
+	}
+	return run.ID, prior, nil
+}
+
+// startOrResumeWebAgentRun creates a new run, or — when req.ResumeRunID is
+// set — resumes a previously paused one, sending a clean SSE error frame
+// (and closing the stream) itself on any failure. started reports whether
+// the caller should continue; on false, WebAgentChat must return
+// immediately without sending anything else.
+func (h *AIHandler) startOrResumeWebAgentRun(ctx context.Context, req webAgentRequest, send agentSSESender) (runID string, priorClarification *agent.ClarificationExchange, started bool) {
+	if req.ResumeRunID == "" {
+		runID, err := h.createWebAgentRun(ctx, req)
+		if err != nil {
+			slog.WarnContext(ctx, "create web agent run failed", "error", err)
+			sendAgentError(send, "run_create_failed", "could not create agent run")
+			sendAgentDone(send)
+			return "", nil, false
+		}
+		return runID, nil, true
+	}
+	runID, priorClarification, err := h.resumeWebAgentRun(ctx, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, errWebAgentResumeForbidden):
+			sendAgentError(send, "not_found", "agent run not found")
+		case errors.Is(err, agent.ErrRunAlreadyTerminal):
+			sendAgentError(send, "already_terminal", "agent run has already finished")
+		default:
+			slog.WarnContext(ctx, "resume web agent run failed", "error", err)
+			sendAgentError(send, "run_resume_failed", "could not resume agent run")
+		}
+		sendAgentDone(send)
+		return "", nil, false
+	}
+	return runID, priorClarification, true
 }
 
 func (h *AIHandler) createWebAgentRun(ctx context.Context, req webAgentRequest) (string, error) {
@@ -256,7 +361,7 @@ const webAgentHeartbeatInterval = 15 * time.Second
 // production, the real agent.Runtime — and streams its steps live over send
 // as they happen (T6 item 1) via streamAgentSteps, instead of buffering them
 // until the run finishes.
-func (h *AIHandler) runWebAgent(ctx context.Context, req webAgentRequest, runID string, send agentSSESender, heartbeat func()) (agent.RuntimeState, error) {
+func (h *AIHandler) runWebAgent(ctx context.Context, req webAgentRequest, runID string, send agentSSESender, heartbeat func(), priorClarification *agent.ClarificationExchange) (agent.RuntimeState, error) {
 	if h.webAgentRunner != nil {
 		runner := h.webAgentRunner
 		return streamAgentSteps(ctx, send, heartbeat, webAgentHeartbeatInterval,
@@ -290,7 +395,7 @@ func (h *AIHandler) runWebAgent(ctx context.Context, req webAgentRequest, runID 
 			rt.SetStepHook(emit)
 			ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 			defer cancel()
-			return rt.Run(ctx, h.webAgentRunContext(ctx, req), runID)
+			return rt.Run(ctx, h.webAgentRunContext(ctx, req, priorClarification), runID)
 		})
 }
 
@@ -348,7 +453,7 @@ func streamAgentSteps(
 	}
 }
 
-func (h *AIHandler) webAgentRunContext(ctx context.Context, req webAgentRequest) agent.RunContext {
+func (h *AIHandler) webAgentRunContext(ctx context.Context, req webAgentRequest, priorClarification *agent.ClarificationExchange) agent.RunContext {
 	cfg := normalizeWebAgentConfig(h.deps.Config.WebAgent)
 	return agent.RunContext{
 		TenantID:               bimw.WorkspaceID(ctx),
@@ -356,6 +461,7 @@ func (h *AIHandler) webAgentRunContext(ctx context.Context, req webAgentRequest)
 		DatasourceID:           req.DatasourceID,
 		Question:               firstNonEmpty(req.Message, req.ClarificationAnswer),
 		PriorTurns:             agentPriorTurns(req.PriorTurns),
+		PriorClarification:     priorClarification,
 		AllowedTools:           webAgentAllowedTools(pii.PrimaryRole(bimw.UserRoles(ctx))),
 		RetryBudget:            webAgentRetryBudget(),
 		DeploymentMode:         h.deps.Config.DeploymentMode,

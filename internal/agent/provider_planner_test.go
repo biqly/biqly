@@ -174,6 +174,24 @@ func TestProviderPlannerWebHappyPathListModelsRunQuestionFinal(t *testing.T) {
 	assert.Contains(t, provider.prompts[2], `"rows"`)
 }
 
+// TestBuildPlannerPromptDescribesPriorClarification proves a resumed run's
+// answered clarification round-trip reaches the planner prompt (T8: "the
+// resumed run's next planner call sees the Q&A"), and that a fresh run
+// (PriorClarification nil) renders no such section.
+func TestBuildPlannerPromptDescribesPriorClarification(t *testing.T) {
+	run := baseRunContext()
+	run.Question = "revenue by region"
+	run.PriorClarification = &ClarificationExchange{Question: "which metric?", Answer: "net_revenue"}
+
+	prompt := buildPlannerPrompt(run, nil)
+	assert.Contains(t, prompt, "which metric?")
+	assert.Contains(t, prompt, "net_revenue")
+	assert.Contains(t, prompt, "do not ask the same question again")
+
+	fresh := buildPlannerPrompt(baseRunContext(), nil)
+	assert.NotContains(t, fresh, "previously asked a clarification")
+}
+
 func TestTruncateLongObservationPayload(t *testing.T) {
 	long := make([]byte, 600)
 	for i := range long {
