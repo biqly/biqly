@@ -176,6 +176,7 @@ func buildAuthHandlers(cfg *biqauth.Config, db *sql.DB, redisClient *redis.Clien
 	magicLinkRepo := biqauth.NewMagicLinkRepository(db)
 	authSvc.SetMagicLinkRepository(magicLinkRepo)
 	authSvc.SetAuditService(auditSvc)
+	authSvc.SetPersonalAccessTokenManager(biqauth.NewPersonalAccessTokenManager(db))
 
 	limiter := biqauth.NewRateLimiter(redisClient)
 	authHandler := handlers.NewAuthHandler(authSvc, webAuthnSvc, jwtMgr, cfg, limiter)

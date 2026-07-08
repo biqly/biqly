@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/bytedance/sonic"
 	"io"
@@ -212,6 +213,62 @@ func (c *AuthClient) CheckDatasourceAccess(ctx context.Context, userID, datasour
 
 func (c *AuthClient) ListUserDatasources(ctx context.Context, userID string) ([]string, error) {
 	return c.fetchDatasourceIDs(ctx, fmt.Sprintf("/internal/auth/user/%s/datasources", userID))
+}
+
+// ErrInvalidPersonalAccessToken is returned by VerifyPersonalAccessToken when
+// the auth service rejects the token (unknown, expired, revoked, or owner
+// deactivated) — distinct from a transport/service-unavailable error so
+// callers can map it to 401 rather than 503.
+var ErrInvalidPersonalAccessToken = errors.New("invalid personal access token")
+
+// PATIdentity is the identity resolved from a valid personal access token,
+// shaped like JWTClaims so callers can populate the same request context
+// either way.
+type PATIdentity struct {
+	UserID        string   `json:"user_id"`
+	Email         string   `json:"email"`
+	EmailVerified bool     `json:"email_verified"`
+	Roles         []string `json:"roles"`
+	WorkspaceID   string   `json:"workspace_id"`
+}
+
+// VerifyPersonalAccessToken resolves a long-lived personal access token to
+// its owner's current identity, via the auth service (DB-backed lookup —
+// unlike JWT verification, this is never a local, stateless check). No
+// caching: revoking a token must take effect immediately, and PAT-bearing
+// traffic (external AI agents/API integrations) is far lower-volume than
+// session traffic, so the extra round trip per call is an acceptable trade.
+func (c *AuthClient) VerifyPersonalAccessToken(ctx context.Context, token string) (*PATIdentity, error) {
+	body, err := sonic.ConfigStd.Marshal(map[string]string{"token": token})
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/internal/auth/verify-token", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Token", c.internalToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, ErrInvalidPersonalAccessToken
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("auth service returned %d", resp.StatusCode)
+	}
+
+	var identity PATIdentity
+	if err := sonic.ConfigStd.NewDecoder(resp.Body).Decode(&identity); err != nil {
+		return nil, err
+	}
+	return &identity, nil
 }
 
 // UserAIAccess mirrors rbac.UserAIAccess for internal auth resolution.

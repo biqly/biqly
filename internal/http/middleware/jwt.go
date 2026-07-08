@@ -168,12 +168,23 @@ func matchesAnyKey(provided []byte, keys [][]byte) bool {
 	return false
 }
 
+// personalAccessTokenPrefix marks a bearer credential as a long-lived
+// personal access token rather than a session JWT. Duplicated (not imported)
+// from internal/auth/pat.go, since the api service never imports the auth
+// package (separately deployed services with separate databases).
+const personalAccessTokenPrefix = "bqpat_"
+
 // JWTAuthWithAdminBypass verifies the Bearer JWT against the auth service's public key,
 // but also allows a request carrying a valid API key matching any of adminKeys
-// (e.g. BI_API_KEY and BI_ADMIN_API_KEY — distinct keys gating different layers).
-// When a key matches, context is populated with UserID = "admin", UserRoles = []string{RoleSuperAdmin},
-// and EmailVerified = true, which bypasses downstream permission/datasource checks.
-func JWTAuthWithAdminBypass(provider *PublicKeyProvider, adminKeys []string, bypassPaths ...string) func(http.Handler) http.Handler {
+// (e.g. BI_API_KEY and BI_ADMIN_API_KEY — distinct keys gating different layers),
+// or a personal access token (prefix "bqpat_"), verified live against the auth
+// service via authClient since — unlike a JWT — its validity depends on
+// revocation/expiry state that only the auth service's database holds.
+// When an admin key matches, context is populated with UserID = "admin",
+// UserRoles = []string{RoleSuperAdmin}, and EmailVerified = true, which
+// bypasses downstream permission/datasource checks. authClient may be nil
+// (e.g. auth service unreachable); PAT-shaped bearer tokens then fail closed.
+func JWTAuthWithAdminBypass(provider *PublicKeyProvider, adminKeys []string, authClient *AuthClient, bypassPaths ...string) func(http.Handler) http.Handler {
 	expected := make([][]byte, 0, len(adminKeys))
 	for _, k := range adminKeys {
 		if k = strings.TrimSpace(k); k != "" {
@@ -196,13 +207,29 @@ func JWTAuthWithAdminBypass(provider *PublicKeyProvider, adminKeys []string, byp
 				return
 			}
 
-			// Fallback to standard JWT verification.
 			tokenStr := extractBearer(r)
 			if tokenStr == "" {
 				writeAuthError(w, http.StatusUnauthorized, "missing bearer token")
 				return
 			}
 
+			// Personal access tokens require a live DB-backed lookup (revocation/
+			// expiry), so they take a distinct path from stateless JWT verification.
+			if strings.HasPrefix(tokenStr, personalAccessTokenPrefix) {
+				if authClient == nil {
+					writeAuthError(w, http.StatusUnauthorized, "invalid token")
+					return
+				}
+				identity, err := authClient.VerifyPersonalAccessToken(r.Context(), tokenStr)
+				if err != nil {
+					writeAuthError(w, http.StatusUnauthorized, "invalid token")
+					return
+				}
+				next.ServeHTTP(w, r.WithContext(applyPATIdentity(r.Context(), identity)))
+				return
+			}
+
+			// Fallback to standard JWT verification.
 			cfg, err := provider.getConfig(r.Context())
 			if err != nil {
 				writeAuthError(w, http.StatusServiceUnavailable, "auth key unavailable")
@@ -287,15 +314,22 @@ func applyJWTClaims(ctx context.Context, claims *JWTClaims) context.Context {
 	return ctx
 }
 
+// applyPATIdentity populates the request context from a verified personal
+// access token identity, using the same keys applyJWTClaims does, so
+// downstream handlers cannot tell the two credential types apart.
+func applyPATIdentity(ctx context.Context, identity *PATIdentity) context.Context {
+	ctx = context.WithValue(ctx, UserIDKey, identity.UserID)
+	ctx = context.WithValue(ctx, UserEmailKey, identity.Email)
+	ctx = context.WithValue(ctx, UserRolesKey, identity.Roles)
+	ctx = context.WithValue(ctx, WorkspaceIDKey, identity.WorkspaceID)
+	ctx = context.WithValue(ctx, EmailVerifiedKey, identity.EmailVerified)
+	return ctx
+}
+
 // pathMatchesBypass reports whether path is exempt from JWT verification.
 // Bypass entries use exact path match only (no prefix matching).
 func pathMatchesBypass(path string, bypassPaths []string) bool {
-	for _, bp := range bypassPaths {
-		if path == bp {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(bypassPaths, path)
 }
 
 func extractBearer(r *http.Request) string {

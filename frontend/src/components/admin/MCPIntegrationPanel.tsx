@@ -9,6 +9,7 @@ import {
   adminValClass,
 } from './adminClasses'
 import { AdminPanelShell } from './AdminPanelShell'
+import { ApiTokensCard } from './ApiTokensCard'
 
 const codeBlockClass =
   'm-0 overflow-auto rounded-md bg-card-raised p-3 font-mono text-xs whitespace-pre-wrap wrap-break-word text-foreground'
@@ -73,6 +74,8 @@ export function MCPIntegrationPanel() {
           <p className="text-foreground-muted m-0 text-sm">{t('admin.mcp.governance_note')}</p>
         </div>
       </div>
+
+      <ApiTokensCard />
 
       <div className={adminCardClass}>
         <div className="flex flex-col gap-2">

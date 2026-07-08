@@ -353,6 +353,7 @@ func metricsFromNumericColumn(modelID string, col metadata.Column, baseSchema st
 	format := metricFormat(col.ColumnName)
 	sumLabel := "Sum " + label
 	avgLabel := "Average " + label
+	countSynonyms := countColumnSynonyms(col.ColumnName)
 	return []semantic.Metric{
 		{
 			ID:          uuid.New().String(),
@@ -362,7 +363,7 @@ func metricsFromNumericColumn(modelID string, col metadata.Column, baseSchema st
 			Expression:  expr,
 			Aggregation: string(semantic.AggSum),
 			Format:      format,
-			Synonyms:    synonyms(col.ColumnName),
+			Synonyms:    dedupeStrings(append(synonyms(col.ColumnName), countSynonyms...)),
 			Description: col.Description,
 			IsActive:    true,
 		},
@@ -374,7 +375,7 @@ func metricsFromNumericColumn(modelID string, col metadata.Column, baseSchema st
 			Expression:  expr,
 			Aggregation: string(semantic.AggAvg),
 			Format:      format,
-			Synonyms:    append(synonyms(col.ColumnName), "average "+strings.ToLower(label), "ortalama "+strings.ToLower(label)),
+			Synonyms:    dedupeStrings(append(append(synonyms(col.ColumnName), "average "+strings.ToLower(label), "ortalama "+strings.ToLower(label)), countSynonyms...)),
 			Description: col.Description,
 			IsActive:    true,
 		},
@@ -527,6 +528,38 @@ func humanLabel(value string) string {
 
 func synonyms(name string) []string {
 	return dedupeStrings([]string{name, humanLabel(name), strings.ReplaceAll(name, "_", " ")})
+}
+
+var countColumnSuffixPattern = regexp.MustCompile(`_(count|cnt|num|number)$`)
+
+// countColumnEntity extracts the entity a count-style column name refers to
+// (e.g. "retweet_count" -> "retweet"). Returns "" when the column has no
+// recognized count suffix, or the suffix is the whole name (a column
+// literally named "count" has no entity to disambiguate).
+func countColumnEntity(columnName string) string {
+	name := normalizeName(columnName)
+	loc := countColumnSuffixPattern.FindStringIndex(name)
+	if len(loc) == 0 || loc[0] == 0 {
+		return ""
+	}
+	return strings.ReplaceAll(name[:loc[0]], "_", " ")
+}
+
+// countColumnSynonyms pairs a count column's entity with the row-count
+// lexicon vocabulary ("sayısı", "adet", ...) so a question like "retweet
+// sayısı" scores against this specific metric instead of losing outright to
+// the model's generic count metric, which otherwise owns that vocabulary.
+func countColumnSynonyms(columnName string) []string {
+	entity := countColumnEntity(columnName)
+	if entity == "" {
+		return nil
+	}
+	terms := lexicon.Active().Terms(lexicon.DomainRowCount, "row_count")
+	out := make([]string, 0, len(terms))
+	for _, term := range terms {
+		out = append(out, entity+" "+term)
+	}
+	return out
 }
 
 func dedupeStrings(values []string) []string {

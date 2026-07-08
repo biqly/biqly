@@ -105,20 +105,34 @@ func (h *AuthHandler) handleListSessions(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *AuthHandler) handleRevokeSession(w http.ResponseWriter, r *http.Request) {
+	h.handleRevokeByID(w, r, h.service.RevokeSession, auth.ErrSessionNotFound, "session", auth.AuditSessionRevoked)
+}
+
+// handleRevokeByID is the shared shape behind every "revoke one of my own
+// child resources by id" endpoint (sessions, personal access tokens, ...):
+// resolve the caller, revoke scoped to that caller, 404 on not-found, audit,
+// 204 on success.
+func (h *AuthHandler) handleRevokeByID(
+	w http.ResponseWriter,
+	r *http.Request,
+	revoke func(ctx context.Context, userID, id string) error,
+	notFoundErr error,
+	resourceType, auditAction string,
+) {
 	userID, ok := h.requireUserID(w, r)
 	if !ok {
 		return
 	}
-	sessionID := chi.URLParam(r, "id")
-	if err := h.service.RevokeSession(r.Context(), userID, sessionID); err != nil {
-		if errors.Is(err, auth.ErrSessionNotFound) {
+	id := chi.URLParam(r, "id")
+	if err := revoke(r.Context(), userID, id); err != nil {
+		if errors.Is(err, notFoundErr) {
 			h.respondError(w, http.StatusNotFound, err.Error())
 			return
 		}
 		h.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	h.auditLog(r, &userID, auth.AuditSessionRevoked, new("session"), &sessionID, nil)
+	h.auditLog(r, &userID, auditAction, new(resourceType), &id, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 

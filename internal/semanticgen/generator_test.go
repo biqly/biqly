@@ -1,6 +1,7 @@
 package semanticgen
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -150,4 +151,57 @@ func hasMetric(metrics []semantic.Metric, name, expr, aggregation string) bool {
 		}
 	}
 	return false
+}
+
+func TestCountColumnEntity(t *testing.T) {
+	cases := []struct {
+		column string
+		want   string
+	}{
+		{"retweet_count", "retweet"},
+		{"like_count", "like"},
+		{"total_amount", ""}, // no count-style suffix
+		{"count", ""},        // suffix is the whole name, no entity to disambiguate
+		{"id", ""},
+	}
+	for _, c := range cases {
+		if got := countColumnEntity(c.column); got != c.want {
+			t.Errorf("countColumnEntity(%q) = %q, want %q", c.column, got, c.want)
+		}
+	}
+}
+
+func TestMetricsFromNumericColumnAddsCountEntitySynonyms(t *testing.T) {
+	col := metadata.Column{DatasourceID: "ds1", SchemaName: "public", TableName: "timeline_tweets", ColumnName: "retweet_count", DataType: "integer"}
+	metrics := metricsFromNumericColumn("m1", col, "public", map[string]bool{})
+	if len(metrics) != 2 {
+		t.Fatalf("got %d metrics, want 2 (sum, avg)", len(metrics))
+	}
+
+	sum := metrics[0]
+	if sum.Name != "sum_retweet_count" {
+		t.Fatalf("sum metric name = %q, want sum_retweet_count", sum.Name)
+	}
+	if !containsSynonym(sum.Synonyms, "retweet sayisi") || !containsSynonym(sum.Synonyms, "retweet adet") {
+		t.Fatalf("sum_retweet_count missing localized count-entity synonyms: %#v", sum.Synonyms)
+	}
+
+	avg := metrics[1]
+	if !containsSynonym(avg.Synonyms, "retweet sayisi") {
+		t.Fatalf("avg_retweet_count missing localized count-entity synonyms: %#v", avg.Synonyms)
+	}
+}
+
+func TestMetricsFromNumericColumnLeavesNonCountColumnsUnaffected(t *testing.T) {
+	col := metadata.Column{DatasourceID: "ds1", SchemaName: "sales", TableName: "orders", ColumnName: "total_amount", DataType: "numeric"}
+	metrics := metricsFromNumericColumn("m1", col, "sales", map[string]bool{})
+	for _, m := range metrics {
+		if containsSynonym(m.Synonyms, "total_amount sayisi") {
+			t.Fatalf("non-count column should not gain quantity-word synonyms: %#v", m.Synonyms)
+		}
+	}
+}
+
+func containsSynonym(synonyms []string, want string) bool {
+	return slices.Contains(synonyms, want)
 }
