@@ -237,13 +237,10 @@ func (r *Repository) SaveAIConversationSnapshot(
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	// 1. Check idempotency ledger — replay or reserve.
+	// 1. Check idempotency ledger — replay if this request already completed.
 	if replayed, ok, err := r.checkIdempotencyLedger(ctx, tx, in); ok {
 		return replayed, err
 	} else if err != nil {
-		return ConversationSnapshotResult{}, err
-	}
-	if err := r.reserveIdempotencyKey(ctx, tx, userID, in); err != nil {
 		return ConversationSnapshotResult{}, err
 	}
 
@@ -253,12 +250,19 @@ func (r *Repository) SaveAIConversationSnapshot(
 		return ConversationSnapshotResult{}, err
 	}
 
-	// 3. Upsert messages by (conversation_id, remote_id).
+	// 3. Reserve the idempotency key after the parent conversation exists.
+	reservation := in
+	reservation.Conversation = conv
+	if err := r.reserveIdempotencyKey(ctx, tx, userID, reservation); err != nil {
+		return ConversationSnapshotResult{}, err
+	}
+
+	// 4. Upsert messages by (conversation_id, remote_id).
 	if err := upsertMessagesInTx(ctx, tx, &conv); err != nil {
 		return ConversationSnapshotResult{}, err
 	}
 
-	// 4. Complete idempotency ledger and commit.
+	// 5. Complete idempotency ledger and commit.
 	statusCode := 201
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE conversation_write_requests
@@ -382,7 +386,7 @@ func upsertMessagesInTx(ctx context.Context, tx *sql.Tx, conv *AIConversation) e
 				ordinal = EXCLUDED.ordinal,
 				updated_at = now()
 			RETURNING id::text, created_at
-		`, msg.ID, conv.ID, msg.RemoteID, msg.Ordinal, msg.Role, msg.Content,
+		`, "", conv.ID, msg.RemoteID, msg.Ordinal, msg.Role, msg.Content,
 			aiResponse, derefStringOrEmpty(msg.ResultSummary),
 		).Scan(&msgID, &msgCreatedAt)
 		if err != nil {

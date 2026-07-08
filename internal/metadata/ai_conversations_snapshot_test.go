@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,6 +54,15 @@ func TestSaveAIConversationSnapshotCreatesNewConversation(t *testing.T) {
 	assert.Equal(t, "conv-1", result.Conversation.ID)
 	assert.Equal(t, int64(1), result.Conversation.SnapshotVersion)
 	assert.Equal(t, 201, result.StatusCode)
+
+	require.Len(t, state.calls, 7)
+	assert.Contains(t, state.calls[2].Op, "INSERT INTO ai_conversations")
+	assert.Contains(t, state.calls[3].Op, "INSERT INTO conversation_write_requests")
+	require.Len(t, state.calls[3].Args, 4)
+	assert.Equal(t, "conv-1", state.calls[3].Args[2])
+	assert.Contains(t, state.calls[4].Op, "INSERT INTO ai_conversation_messages")
+	require.NotEmpty(t, state.calls[4].Args)
+	assert.Empty(t, state.calls[4].Args[0])
 }
 
 func TestSaveAIConversationSnapshotRejectsStaleVersion(t *testing.T) {
@@ -128,6 +138,51 @@ func TestSaveAIConversationSnapshotRejectsIdempotencyConflict(t *testing.T) {
 	_, err := repo.SaveAIConversationSnapshot(ctx, "user-1", in)
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, ErrIdempotencyKeyConflict))
+}
+
+func TestSaveAIConversationSnapshotIgnoresClientMessageID(t *testing.T) {
+	db, state := setupMockDB(t)
+	repo := NewRepository(db)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 6, 10, 0, 0, 0, time.UTC)
+
+	state.queries = []queryMock{
+		{Pattern: "conversation_write_requests", Cols: []string{"response_status", "payload_hash"}, Rows: [][]driver.Value{}},
+		{Pattern: "INSERT INTO ai_conversations", Cols: []string{"id", "snapshot_version", "created_at", "updated_at"}, Rows: [][]driver.Value{{"conv-1", int64(1), now, now}}},
+		{Pattern: "INSERT INTO ai_conversation_messages", Cols: []string{"id", "created_at"}, Rows: [][]driver.Value{{"srv-msg-1", now}}},
+	}
+	state.execs = []execMock{
+		{Pattern: "conversation_write_requests", RowsAffected: 1},
+	}
+
+	conv := AIConversation{
+		DatasourceID:   "ds-1",
+		ContextEnabled: true,
+		Messages: []AIConversationMessage{
+			{ID: "client-msg-1", RemoteID: "remote-msg-1", Role: "user", Content: "hello"},
+		},
+	}
+	in := ConversationSnapshotWrite{
+		Conversation:    conv,
+		ExpectedVersion: 0,
+		IdempotencyKey:  "idem-1",
+		PayloadHash:     "hash-1",
+	}
+	result, err := repo.SaveAIConversationSnapshot(ctx, "user-1", in)
+	require.NoError(t, err)
+	require.Len(t, result.Conversation.Messages, 1)
+	assert.Equal(t, "srv-msg-1", result.Conversation.Messages[0].ID)
+
+	var messageInsert *mockCall
+	for i := range state.calls {
+		if strings.Contains(state.calls[i].Op, "INSERT INTO ai_conversation_messages") {
+			messageInsert = &state.calls[i]
+			break
+		}
+	}
+	require.NotNil(t, messageInsert)
+	require.NotEmpty(t, messageInsert.Args)
+	assert.Empty(t, messageInsert.Args[0])
 }
 
 func TestListAIConversationsExcludesSoftDeletedMessages(t *testing.T) {
