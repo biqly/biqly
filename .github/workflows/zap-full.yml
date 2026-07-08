@@ -45,13 +45,11 @@ jobs:
           jq '.paths | length' openapi.json
 
       - name: ZAP Full Scan
-        uses: zaproxy/action-full-scan@75ee1686750ab1511a73b26b77a2aedd295053ed # v0.12.0
+        uses: zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d # v0.10.0
         with:
-          target: ${{ env.TARGET }}
-          cmd_options: >
-            -openapifile openapi.json
-            -openapi.target ${{ env.TARGET }}
-            -openapi.hostoverride ${{ env.TARGET }}
+          target: openapi.json
+          format: openapi
+          cmd_options: -O ${{ env.TARGET }}
           allow_issue_writing: false
           fail_action: false
 
