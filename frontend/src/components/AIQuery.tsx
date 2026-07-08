@@ -553,9 +553,15 @@ export default function AIQuery() {
         // outcome.kind === 'none' covers a clean abort (unmount, or being
         // superseded above) — intentionally silent, no error surfaced.
       } finally {
-        setQueryAction(null)
+        // A turn that was superseded by a newer send (aborted above) must
+        // not clear queryAction here — that would clobber the state the
+        // superseding turn just set and re-enable the composer while it is
+        // still genuinely in flight. Only the turn that is still the
+        // current one (i.e. wasn't aborted out from under itself) gets to
+        // mark the UI as done.
         if (agentStreamAbortRef.current === controller) {
           agentStreamAbortRef.current = null
+          setQueryAction(null)
         }
       }
       return

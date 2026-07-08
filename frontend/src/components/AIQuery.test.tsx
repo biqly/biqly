@@ -117,10 +117,12 @@ vi.mock('./aiQuery/ChatPanel', () => ({
   ChatPanel: (props: {
     onSendQuery: (q: string, execute: boolean) => void
     jobError: string | null
+    queryAction: 'preview' | 'execute' | null
   }) => (
     <div>
       <button onClick={() => props.onSendQuery('How many orders?', true)}>send</button>
       <div data-testid="job-error">{props.jobError ?? ''}</div>
+      <div data-testid="query-action">{props.queryAction ?? ''}</div>
     </div>
   ),
 }))
@@ -180,5 +182,57 @@ describe('AIQuery Agent Mode stream cleanup', () => {
     expect(screen.getByTestId('job-error').textContent).toBe('')
     // A clean abort must not add an error message to the conversation either.
     expect(mockAddMessage).toHaveBeenCalledTimes(1) // only the initial user message
+  })
+
+  it("does not let a superseded turn clobber the superseding turn's loading state", async () => {
+    // Reproduces the double-send race: Turn 1 is still in flight when Turn 2
+    // starts. Turn 2 aborts Turn 1 (agentStreamAbortRef's "abort the previous
+    // turn" safety net), which makes Turn 1's promise settle to {kind:'none'}
+    // almost immediately — but Turn 1's own `finally` must not clear
+    // queryAction, because that belongs to Turn 2 now. Only Turn 2 settling
+    // should clear it.
+    const resolvers: ((outcome: AgentTurnOutcome) => void)[] = []
+    const signals: AbortSignal[] = []
+    mockRunAgentModeTurn.mockImplementation(
+      (_request: unknown, options: RunAgentModeTurnOptions) => {
+        signals.push(options.signal!)
+        return new Promise<AgentTurnOutcome>((resolve) => {
+          resolvers.push(resolve)
+        })
+      },
+    )
+
+    render(<AIQuery />)
+
+    fireEvent.click(screen.getByText('send'))
+    expect(mockRunAgentModeTurn).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('query-action').textContent).toBe('execute')
+
+    // Turn 2 starts: this aborts Turn 1's signal via the existing
+    // "abort the previous turn" safety net in sendQuery.
+    fireEvent.click(screen.getByText('send'))
+    expect(mockRunAgentModeTurn).toHaveBeenCalledTimes(2)
+    expect(signals[0]!.aborted).toBe(true)
+    expect(signals[1]!.aborted).toBe(false)
+    expect(screen.getByTestId('query-action').textContent).toBe('execute')
+
+    // Turn 1's aborted stream settles to 'none' (per agentModeTurn.ts's
+    // abort handling) while Turn 2 is still genuinely in flight.
+    await act(async () => {
+      resolvers[0]!({ kind: 'none' })
+      await Promise.resolve()
+    })
+
+    // Turn 2 is still running — its loading state must survive Turn 1's
+    // settlement rather than being clobbered back to null.
+    expect(screen.getByTestId('query-action').textContent).toBe('execute')
+
+    // Now Turn 2 itself settles; only now should the UI go idle.
+    await act(async () => {
+      resolvers[1]!({ kind: 'none' })
+      await Promise.resolve()
+    })
+
+    expect(screen.getByTestId('query-action').textContent).toBe('')
   })
 })
