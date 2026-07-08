@@ -390,6 +390,10 @@ query:
     pathPrefixes:
       - /api/query
       - /api/audit/query
+    # Envoy's default route timeout is 15s; logical-query compile+execute can
+    # legitimately exceed it (BI_QUERY_TIMEOUT_SECONDS budget + overhead).
+    timeouts:
+      request: 120s
 
 mcp:
   enabled: true
@@ -421,6 +425,11 @@ mcp:
     enabled: true
     pathPrefixes:
       - /mcp
+    # An MCP tool call synchronously runs the AI/query pipeline upstream; the
+    # service's own middleware budget is BI_AI_*_TIMEOUT + headroom (~20min in
+    # prod), so the gateway must not cut it at Envoy's 15s default.
+    timeouts:
+      request: 1800s
 
 auth:
   enabled: true
@@ -545,6 +554,10 @@ ai:
     enabled: true
     pathPrefixes:
       - /api/ai
+    # MCP run_question loops back through the gateway to /api/ai/query/run and
+    # the AI pipeline can run for minutes; Envoy's 15s default would 504 it.
+    timeouts:
+      request: 1800s
   rollout:
     enabled: false
     analysis:
