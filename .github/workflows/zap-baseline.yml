@@ -43,7 +43,7 @@ jobs:
           jq '.paths | length' openapi.json
 
       - name: ZAP Baseline Scan
-        uses: zapier/zap-baseline-action@v0.14.0
+        uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed # v0.14.0
         with:
           target: ${{ env.TARGET }}
           cmd_options: >
