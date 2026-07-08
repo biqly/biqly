@@ -26,6 +26,19 @@ const STEP_LABEL_KEYS: Record<string, TranslationKey> = {
   clarification: 'ai_query.run_trace_step_clarification',
   final_response: 'ai_query.run_trace_step_final_response',
   shadow_comparison: 'ai_query.run_trace_step_shadow_comparison',
+  // Web agent tool steps (T6/T11: the MCP-parity 6-tool set — see
+  // internal/toolcontract.ToolName / internal/agent's ToolWeb* constants).
+  // Both the live SSE trace (agentTraceSteps.ts remaps `kind` to the tool
+  // name before it reaches this panel) and the persisted/reloaded trace
+  // (webAgentRunSteps sets RunStep.Kind to the same raw tool name
+  // server-side) use these exact strings, so one entry per tool covers both
+  // paths.
+  list_datasources: 'ai_query.run_trace_step_list_datasources',
+  list_models: 'ai_query.run_trace_step_list_models',
+  run_question: 'ai_query.run_trace_step_run_question',
+  run_logical_query: 'ai_query.run_trace_step_run_logical_query',
+  list_skills: 'ai_query.run_trace_step_list_skills',
+  run_skill: 'ai_query.run_trace_step_run_skill',
 }
 
 // REASON_CODE_LABEL_KEYS maps the agent runtime's bounded reason-code
@@ -127,6 +140,7 @@ export function RunTracePanel({
         {effectiveSteps.map((step) => {
           const labelKey = STEP_LABEL_KEYS[step.kind]
           const failed = step.status === 'failed'
+          const running = step.status === 'running'
           const cancelled = failed && step.detail === 'context_canceled'
           const terminal = isTerminalStepKind(step.kind)
           return (
@@ -137,7 +151,7 @@ export function RunTracePanel({
               <span
                 aria-hidden="true"
                 className={`absolute top-[0.3rem] left-[-0.32rem] h-2.5 w-2.5 rounded-full ${
-                  failed ? 'bg-error' : 'bg-success'
+                  failed ? 'bg-error' : running ? 'bg-accent animate-pulse' : 'bg-success'
                 }`}
               />
               <span className={`text-foreground font-semibold ${terminal ? 'underline' : ''}`}>
@@ -148,7 +162,13 @@ export function RunTracePanel({
                   {t('ai_query.run_trace_attempt', { n: step.attempt })}
                 </span>
               ) : null}
-              <span className="text-foreground-faint text-[0.78rem]">{step.duration_ms}ms</span>
+              {running ? (
+                <span className="text-foreground-faint text-[0.78rem]">
+                  {t('ai_query.run_trace_running')}
+                </span>
+              ) : (
+                <span className="text-foreground-faint text-[0.78rem]">{step.duration_ms}ms</span>
+              )}
               {cancelled ? (
                 <span className="text-foreground-faint text-[0.78rem] font-semibold">
                   {t('ai_query.run_trace_cancelled')}

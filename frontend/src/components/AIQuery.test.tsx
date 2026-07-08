@@ -110,19 +110,34 @@ vi.mock('./aiQuery/RoutingPanel', () => ({
   RoutingPanel: () => null,
 }))
 
-// Minimal stand-in exposing only what this suite drives/asserts:
-// onSendQuery (to trigger a send) and jobError (to prove a clean abort
-// never surfaces as a user-facing error).
+// Minimal stand-in exposing only what this suite drives/asserts: onSendQuery
+// (to trigger a send or a free-text clarification answer), jobError/
+// queryAction (to prove a clean abort never surfaces as a user-facing
+// error), onAbort (Cancel wiring), and the T11 clarification/trace props
+// (to drive and observe the resume path without rendering the real
+// ChatPanel/AgentTraceCard tree).
 vi.mock('./aiQuery/ChatPanel', () => ({
   ChatPanel: (props: {
     onSendQuery: (q: string, execute: boolean) => void
+    onAbort: () => void
     jobError: string | null
     queryAction: 'preview' | 'execute' | null
+    agentTraceSteps: unknown[]
+    agentClarification: { runId: string; question: string } | null
+    onAgentClarificationChoice: (choiceId: string) => void
+    onAgentClarificationSkip: () => void
   }) => (
     <div>
       <button onClick={() => props.onSendQuery('How many orders?', true)}>send</button>
+      <button onClick={props.onAbort}>abort</button>
+      <button onClick={() => props.onAgentClarificationChoice('emea')}>select-choice</button>
+      <button onClick={props.onAgentClarificationSkip}>skip-clarification</button>
       <div data-testid="job-error">{props.jobError ?? ''}</div>
       <div data-testid="query-action">{props.queryAction ?? ''}</div>
+      <div data-testid="agent-clarification-question">
+        {props.agentClarification?.question ?? ''}
+      </div>
+      <div data-testid="agent-trace-step-count">{props.agentTraceSteps.length}</div>
     </div>
   ),
 }))
@@ -234,5 +249,75 @@ describe('AIQuery Agent Mode stream cleanup', () => {
     })
 
     expect(screen.getByTestId('query-action').textContent).toBe('')
+  })
+
+  it('aborts the in-flight Agent Mode stream when Cancel (onAbort) is clicked', () => {
+    let capturedSignal: AbortSignal | undefined
+    mockRunAgentModeTurn.mockImplementation(
+      (_request: unknown, options: RunAgentModeTurnOptions) => {
+        capturedSignal = options.signal
+        return new Promise<AgentTurnOutcome>(() => undefined)
+      },
+    )
+
+    render(<AIQuery />)
+    fireEvent.click(screen.getByText('send'))
+    expect(capturedSignal?.aborted).toBe(false)
+
+    fireEvent.click(screen.getByText('abort'))
+
+    expect(capturedSignal?.aborted).toBe(true)
+  })
+
+  it('surfaces a clarification_required outcome as a pending clarification, then resumes with resume_run_id/clarification_answer when a choice is selected', async () => {
+    let resolveFirst: (outcome: AgentTurnOutcome) => void = () => undefined
+    const secondCallRequests: unknown[] = []
+    mockRunAgentModeTurn
+      .mockImplementationOnce(
+        () =>
+          new Promise<AgentTurnOutcome>((resolve) => {
+            resolveFirst = resolve
+          }),
+      )
+      .mockImplementationOnce((request: unknown) => {
+        secondCallRequests.push(request)
+        return Promise.resolve<AgentTurnOutcome>({ kind: 'none' })
+      })
+
+    render(<AIQuery />)
+    fireEvent.click(screen.getByText('send'))
+    expect(mockRunAgentModeTurn).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      resolveFirst({
+        kind: 'clarification',
+        runId: 'run-9',
+        question: 'Which region did you mean?',
+        choices: [{ id: 'emea', label: 'EMEA' }],
+        allowFreeText: true,
+      })
+      await Promise.resolve()
+    })
+
+    expect(screen.getByTestId('agent-clarification-question').textContent).toBe(
+      'Which region did you mean?',
+    )
+    // The turn is paused, not running: the composer/Cancel gating must not
+    // stay stuck "busy" while waiting on the user.
+    expect(screen.getByTestId('query-action').textContent).toBe('')
+
+    fireEvent.click(screen.getByText('select-choice'))
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(mockRunAgentModeTurn).toHaveBeenCalledTimes(2)
+    expect(secondCallRequests[0]).toMatchObject({
+      resume_run_id: 'run-9',
+      clarification_answer: 'emea',
+    })
+    // The resume is itself a real user-visible turn: a bubble for the chosen
+    // answer, in addition to the original question.
+    expect(mockAddMessage).toHaveBeenCalledTimes(2)
   })
 })

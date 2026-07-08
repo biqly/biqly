@@ -93,6 +93,19 @@ function assignQueryFields(flat: AIQueryResponse, source: Record<string, unknown
     flat.visualization_hint =
       source.visualization_hint as unknown as AIQueryResponse['visualization_hint']
   }
+  // run_id must survive a second pass through normalizeAIQueryResponse: an
+  // agent-mode message's ai_response is ALREADY the flat shape
+  // normalizeAgentResultEvent produced (run_id backfilled from the SSE
+  // envelope), but AssistantMessageCard re-normalizes message.ai_response on
+  // every render (`normalizeAIQueryResponse(message.ai_response)`), taking
+  // this same flat-passthrough branch again. Without copying it here, that
+  // second pass silently dropped run_id (it was previously only ever
+  // assigned in assignMetadataFields, reached solely by the nested-envelope
+  // unwrap branch) — which broke RunTracePanel's reload-via-run_id path for
+  // every agent-mode result (T11 review finding).
+  if (typeof source.run_id === 'string') {
+    flat.run_id = source.run_id
+  }
 }
 
 function assignMetadataFields(flat: AIQueryResponse, metadata: Record<string, unknown>): void {

@@ -1,5 +1,5 @@
 import { streamAgentChat } from '../../api/agentStream'
-import type { AgentChatRequest, AgentStreamEvent } from '../../types/agent'
+import type { AgentChatRequest, AgentStepEvent, AgentStreamEvent } from '../../types/agent'
 import type { AIQueryResponse } from '../../types/ai'
 import { normalizeAgentResultEvent } from '../../utils/normalizeAIQueryResponse'
 
@@ -9,7 +9,16 @@ import { normalizeAgentResultEvent } from '../../utils/normalizeAIQueryResponse'
 // setJobError) rather than inventing a parallel channel.
 export type AgentTurnOutcome =
   | { kind: 'result'; response: AIQueryResponse }
-  | { kind: 'clarification'; message: string }
+  // T11: the clarification_required event's fields are normalized (question/
+  // choices/allowFreeText always populated) so the caller can drive the real
+  // ClarificationCard + a resume call without re-deriving fallbacks itself.
+  | {
+      kind: 'clarification'
+      runId: string
+      question: string
+      choices: { id: string; label: string }[]
+      allowFreeText: boolean
+    }
   | { kind: 'error'; message: string }
   // The stream ended (e.g. aborted, or closed with [DONE] before any
   // terminal event arrived) without producing a result/error/clarification.
@@ -23,21 +32,27 @@ export type AgentEventStream = (
 export interface RunAgentModeTurnOptions {
   token?: string
   signal?: AbortSignal
-  /** Plain-text fallback shown when a clarification_required event arrives —
-   * T11 replaces this with the real clarification card; T10 just needs to
-   * avoid a silent stall. */
+  /** Fallback question text used when a clarification_required event arrives
+   * without one (defensive — the handler always sets it in practice). */
   clarificationFallback: string
   /** Message surfaced via the error outcome when the stream throws (network
    * failure, non-OK response) rather than emitting a structured error event. */
   genericErrorMessage: string
+  /** Invoked synchronously for every `step` event as it streams in, so a
+   * caller can feed a live trace panel (T11) without waiting for the turn to
+   * resolve. Optional so existing/unit-test callers that don't care about
+   * the live trace can omit it. */
+  onStep?: (event: AgentStepEvent) => void
   /** Injectable for tests; defaults to the real T9 SSE client. */
   stream?: AgentEventStream
 }
 
 // runAgentModeTurn drives POST /api/agent/chat (T9's streamAgentChat) for a
-// single Agent Mode send and reduces the event stream down to one terminal
-// outcome. `run_started`/`step` events feed the live trace panel — that's
-// T11 scope, so they're consumed and ignored here.
+// single Agent Mode send (a fresh question, or a resume via
+// resume_run_id/clarification_answer) and reduces the event stream down to
+// one terminal outcome. `run_started` events are ignored (nothing downstream
+// needs the run id before either a step or a terminal event arrives); `step`
+// events are forwarded live via onStep rather than accumulated here.
 export async function runAgentModeTurn(
   request: AgentChatRequest,
   options: RunAgentModeTurnOptions,
@@ -52,8 +67,18 @@ export async function runAgentModeTurn(
       if (event.type === 'error') {
         return { kind: 'error', message: event.message }
       }
+      if (event.type === 'step') {
+        options.onStep?.(event)
+        continue
+      }
       if (event.type === 'clarification_required') {
-        return { kind: 'clarification', message: event.question ?? options.clarificationFallback }
+        return {
+          kind: 'clarification',
+          runId: event.run_id ?? '',
+          question: event.question ?? options.clarificationFallback,
+          choices: event.choices ?? [],
+          allowFreeText: event.allow_free_text,
+        }
       }
     }
     return { kind: 'none' }

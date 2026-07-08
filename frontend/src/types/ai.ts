@@ -547,7 +547,11 @@ export interface GenerationTrace {
 export interface RunStep {
   seq: number
   kind: string
-  status: 'ok' | 'failed'
+  /** 'running' is a client-only state for a live (not yet persisted) step —
+   * the started half of the started/completed pair the web agent runtime
+   * emits per tool call (T6). The backend never persists 'running'; a
+   * reloaded trace only ever carries 'ok' | 'failed'. */
+  status: 'ok' | 'failed' | 'running'
   attempt?: number
   duration_ms: number
   detail?: string

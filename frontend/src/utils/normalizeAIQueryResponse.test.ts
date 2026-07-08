@@ -197,4 +197,23 @@ describe('normalizeAgentResultEvent', () => {
     const flat = normalizeAgentResultEvent(event)
     expect(flat?.run_id).toBe('run-envelope')
   })
+
+  it('survives a second normalizeAIQueryResponse pass (AssistantMessageCard re-normalizes on every render)', () => {
+    const event: AgentResultEvent = {
+      type: 'result',
+      run_id: 'run-3',
+      result: { confidence: 1, sql: 'SELECT 1', answer: 'One.' },
+    }
+    const onceFlat = normalizeAgentResultEvent(event)
+    expect(onceFlat?.run_id).toBe('run-3')
+
+    // AssistantMessageCard does `normalizeAIQueryResponse(message.ai_response)`
+    // on every render — message.ai_response IS onceFlat here. Re-running it
+    // must not drop run_id (regression: it previously did, since run_id was
+    // only ever assigned by assignMetadataFields, reached solely via the
+    // nested-envelope unwrap branch — the flat passthrough branch this
+    // already-flat object takes never copied it).
+    const twiceFlat = normalizeAIQueryResponse(onceFlat)
+    expect(twiceFlat?.run_id).toBe('run-3')
+  })
 })

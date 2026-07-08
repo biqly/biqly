@@ -94,12 +94,16 @@ describe('runAgentModeTurn', () => {
     expect(outcome).toEqual({ kind: 'error', message: 'provider timeout' })
   })
 
-  it('falls back to a plain message on clarification_required (T11 owns the real card)', async () => {
+  it('normalizes a clarification_required event into a structured clarification outcome', async () => {
     const stream = fakeStream([
       {
         type: 'clarification_required',
         run_id: 'run-2',
         question: 'Which datasource did you mean?',
+        choices: [
+          { id: 'ds-a', label: 'Datasource A' },
+          { id: 'ds-b', label: 'Datasource B' },
+        ],
         allow_free_text: true,
       },
     ])
@@ -110,10 +114,19 @@ describe('runAgentModeTurn', () => {
       stream,
     })
 
-    expect(outcome).toEqual({ kind: 'clarification', message: 'Which datasource did you mean?' })
+    expect(outcome).toEqual({
+      kind: 'clarification',
+      runId: 'run-2',
+      question: 'Which datasource did you mean?',
+      choices: [
+        { id: 'ds-a', label: 'Datasource A' },
+        { id: 'ds-b', label: 'Datasource B' },
+      ],
+      allowFreeText: true,
+    })
   })
 
-  it('uses the clarification fallback text when the event has no question', async () => {
+  it('uses the clarification fallback text and defaults choices to [] when the event omits them', async () => {
     const stream = fakeStream([
       { type: 'clarification_required', run_id: 'run-3', allow_free_text: false },
     ])
@@ -124,7 +137,48 @@ describe('runAgentModeTurn', () => {
       stream,
     })
 
-    expect(outcome).toEqual({ kind: 'clarification', message: 'fallback text' })
+    expect(outcome).toEqual({
+      kind: 'clarification',
+      runId: 'run-3',
+      question: 'fallback text',
+      choices: [],
+      allowFreeText: false,
+    })
+  })
+
+  it('invokes onStep for every step event live, without waiting for the terminal event', async () => {
+    const stream = fakeStream([
+      { type: 'run_started', run_id: 'run-5' },
+      { type: 'step', seq: 1, kind: 'tool_call_started', tool: 'list_models' },
+      {
+        type: 'step',
+        seq: 1,
+        kind: 'tool_call_completed',
+        tool: 'list_models',
+        status: 'completed',
+      },
+      { type: 'result', run_id: 'run-5', result: { confidence: 1, answer: 'Done.' } },
+    ])
+    const seen: unknown[] = []
+
+    const outcome = await runAgentModeTurn(baseRequest, {
+      clarificationFallback: 'fallback',
+      genericErrorMessage: 'generic',
+      onStep: (event) => seen.push(event),
+      stream,
+    })
+
+    expect(outcome.kind).toBe('result')
+    expect(seen).toEqual([
+      { type: 'step', seq: 1, kind: 'tool_call_started', tool: 'list_models' },
+      {
+        type: 'step',
+        seq: 1,
+        kind: 'tool_call_completed',
+        tool: 'list_models',
+        status: 'completed',
+      },
+    ])
   })
 
   it('turns a thrown network error into an error outcome using the generic message', async () => {

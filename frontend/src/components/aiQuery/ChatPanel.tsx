@@ -8,11 +8,14 @@ import type { TranslationKey } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
+import type { PendingAgentClarification } from '../../types/agent'
+import type { AIRuntimeSettings, Conversation, ConversationMessage, RunStep } from '../../types/ai'
 import { CLARIFICATION_SKIP_CHOICE } from '../../types/ai'
 import type { SemanticModelDetail } from '../../types/semantic'
 import { formatTimeOnly } from '../../utils/formatters'
 import { JobPhaseSteps } from '../ai/JobPhaseSteps'
 import { ErrorAlert } from '../ui/ErrorAlert'
+import { AgentTraceCard } from './AgentTraceCard'
 import {
   chatBubbleClass,
   chatComposerActionBtnClass,
@@ -218,6 +221,156 @@ function ChatEmptyState({ t, setQuestion, suggested }: ChatEmptyStateProps) {
   )
 }
 
+interface ChatMessageFeedProps {
+  activeConversation: Conversation | null | undefined
+  messages: ConversationMessage[]
+  suggested: SuggestedQuestion[]
+  t: ChatPanelProps['t']
+  setQuestion: ChatPanelProps['setQuestion']
+  localeNumberTag: ChatPanelProps['localeNumberTag']
+  localeTag: string
+  datasourceId: string
+  aiRuntime: AIRuntimeSettings | null
+  get: ChatPanelProps['get']
+  postData: ChatPanelProps['postData']
+  updateMessageResponse: ChatPanelProps['updateMessageResponse']
+  onSendQuery: ChatPanelProps['onSendQuery']
+  onSelectFollowUp: (question: string) => void
+  priorQuestions: string[]
+  agentModeEnabled: boolean
+  agentTraceSteps: RunStep[]
+  agentClarification: PendingAgentClarification | null
+  onAgentClarificationChoice: (choiceId: string) => void
+  onAgentClarificationSkip: () => void
+  queryAction: ChatPanelProps['queryAction']
+  aiElapsedMs: number
+  activeJob: TrackedAIJob | null
+  queueNotice: string | null
+}
+
+// ChatMessageFeed renders the message list (or the empty-state suggestions),
+// the ephemeral Agent Mode trace/clarification slot, and the typing
+// indicator — everything inside ChatPanel's scrollable feed div except the
+// div itself (ChatPanel keeps the ref for its own autoscroll effect).
+// Split out from ChatPanel as a plain prop-forwarding extraction (no
+// behavior change) to keep ChatPanel's own cyclomatic complexity down.
+function ChatMessageFeed({
+  activeConversation,
+  messages,
+  suggested,
+  t,
+  setQuestion,
+  localeNumberTag,
+  localeTag,
+  datasourceId,
+  aiRuntime,
+  get,
+  postData,
+  updateMessageResponse,
+  onSendQuery,
+  onSelectFollowUp,
+  priorQuestions,
+  agentModeEnabled,
+  agentTraceSteps,
+  agentClarification,
+  onAgentClarificationChoice,
+  onAgentClarificationSkip,
+  queryAction,
+  aiElapsedMs,
+  activeJob,
+  queueNotice,
+}: ChatMessageFeedProps) {
+  const formatMessageTime = (timestamp: string) => formatTimeOnly(timestamp, localeTag)
+
+  return (
+    <>
+      {activeConversation && messages.length > 0 ? (
+        messages.map((message, index) => {
+          if (message.role === 'user') {
+            return (
+              <div key={index} className={cn(chatMsgClass, chatMsgUserClass)}>
+                <div className={cn(chatBubbleClass, userBubbleClass)}>
+                  <div className={userBubbleContentClass}>{message.content}</div>
+                  <span className={userBubbleTimeClass}>
+                    {formatMessageTime(message.timestamp)}
+                  </span>
+                </div>
+              </div>
+            )
+          }
+          const userQuestion = index > 0 ? (messages[index - 1]?.content ?? '') : ''
+          return (
+            <div
+              key={index}
+              className={cn(chatMsgClass, chatMsgAssistantClass)}
+              data-message-index={index}
+            >
+              <span className={chatMsgAvatarClass} aria-hidden="true">
+                ✦
+              </span>
+              <div className={chatMsgMainClass}>
+                <div className={chatMsgMetaClass}>
+                  <span className={chatMsgAuthorClass}>{t('ai_query.assistant_label')}</span>
+                  {message.timestamp && (
+                    <span className="chat-msg__time">{formatMessageTime(message.timestamp)}</span>
+                  )}
+                </div>
+                <AssistantMessageCard
+                  message={message}
+                  messageIndex={index}
+                  conversationId={activeConversation.id}
+                  datasourceId={datasourceId}
+                  aiRuntime={aiRuntime}
+                  userQuestion={userQuestion}
+                  get={get}
+                  postData={postData}
+                  updateMessageResponse={updateMessageResponse}
+                  t={t}
+                  localeNumberTag={localeNumberTag}
+                  localeTag={localeTag}
+                  onSelectClarification={(choice, originalQuestion) =>
+                    onSendQuery(originalQuestion, true, choice)
+                  }
+                  onSkipClarification={(originalQuestion) =>
+                    onSendQuery(originalQuestion, true, CLARIFICATION_SKIP_CHOICE)
+                  }
+                  onFilterByValue={(column, value) => {
+                    const filterText = t('ai_query.filter_by_value', { column, value })
+                    setQuestion((prev: string) => (prev ? `${prev} ${filterText}` : filterText))
+                  }}
+                  onCellDrillDown={(col, val) =>
+                    onSendQuery(t('ai_query.drill_down_prompt', { column: col, value: val }), true)
+                  }
+                  onSelectFollowUp={onSelectFollowUp}
+                  priorQuestions={priorQuestions}
+                />
+              </div>
+            </div>
+          )
+        })
+      ) : (
+        <ChatEmptyState t={t} setQuestion={setQuestion} suggested={suggested} />
+      )}
+      {agentModeEnabled && (agentTraceSteps.length > 0 || agentClarification) ? (
+        <AgentTraceCard
+          steps={agentTraceSteps}
+          clarification={agentClarification}
+          onSelectClarificationChoice={onAgentClarificationChoice}
+          onSkipClarification={onAgentClarificationSkip}
+          t={t}
+        />
+      ) : null}
+      <TypingIndicator
+        queryAction={queryAction}
+        aiElapsedMs={aiElapsedMs}
+        activeJob={activeJob}
+        queueNotice={queueNotice}
+        t={t}
+      />
+    </>
+  )
+}
+
 export function ChatPanel({
   t,
   localeNumberTag,
@@ -243,6 +396,10 @@ export function ChatPanel({
   onAutoFindEnabledChange,
   agentModeEnabled,
   onAgentModeEnabledChange,
+  agentTraceSteps,
+  agentClarification,
+  onAgentClarificationChoice,
+  onAgentClarificationSkip,
   selectedSavedQueryIds,
   onSelectedSavedQueryIdsChange,
   onSendQuery,
@@ -349,90 +506,34 @@ export function ChatPanel({
   const executeButtonLabel =
     loading && queryAction === 'execute' ? loadingLabel : t('ai_query.execute_btn')
 
-  const formatMessageTime = (timestamp: string) => formatTimeOnly(timestamp, localeTag)
-
   return (
     <>
       <div ref={chatFeedRef} className={chatFeedClass}>
-        {activeConversation && messages.length > 0 ? (
-          messages.map((message, index) => {
-            if (message.role === 'user') {
-              return (
-                <div key={index} className={cn(chatMsgClass, chatMsgUserClass)}>
-                  <div className={cn(chatBubbleClass, userBubbleClass)}>
-                    <div className={userBubbleContentClass}>{message.content}</div>
-                    <span className={userBubbleTimeClass}>
-                      {formatMessageTime(message.timestamp)}
-                    </span>
-                  </div>
-                </div>
-              )
-            } else {
-              const userQuestion = index > 0 ? (messages[index - 1]?.content ?? '') : ''
-              return (
-                <div
-                  key={index}
-                  className={cn(chatMsgClass, chatMsgAssistantClass)}
-                  data-message-index={index}
-                >
-                  <span className={chatMsgAvatarClass} aria-hidden="true">
-                    ✦
-                  </span>
-                  <div className={chatMsgMainClass}>
-                    <div className={chatMsgMetaClass}>
-                      <span className={chatMsgAuthorClass}>{t('ai_query.assistant_label')}</span>
-                      {message.timestamp && (
-                        <span className="chat-msg__time">
-                          {formatMessageTime(message.timestamp)}
-                        </span>
-                      )}
-                    </div>
-                    <AssistantMessageCard
-                      message={message}
-                      messageIndex={index}
-                      conversationId={activeConversation.id}
-                      datasourceId={datasourceId}
-                      aiRuntime={aiRuntime}
-                      userQuestion={userQuestion}
-                      get={get}
-                      postData={postData}
-                      updateMessageResponse={updateMessageResponse}
-                      t={t}
-                      localeNumberTag={localeNumberTag}
-                      localeTag={localeTag}
-                      onSelectClarification={(choice, originalQuestion) =>
-                        onSendQuery(originalQuestion, true, choice)
-                      }
-                      onSkipClarification={(originalQuestion) =>
-                        onSendQuery(originalQuestion, true, CLARIFICATION_SKIP_CHOICE)
-                      }
-                      onFilterByValue={(column, value) => {
-                        const filterText = t('ai_query.filter_by_value', { column, value })
-                        setQuestion((prev: string) => (prev ? `${prev} ${filterText}` : filterText))
-                      }}
-                      onCellDrillDown={(col, val) =>
-                        onSendQuery(
-                          t('ai_query.drill_down_prompt', { column: col, value: val }),
-                          true,
-                        )
-                      }
-                      onSelectFollowUp={handleSelectFollowUp}
-                      priorQuestions={priorQuestions}
-                    />
-                  </div>
-                </div>
-              )
-            }
-          })
-        ) : (
-          <ChatEmptyState t={t} setQuestion={setQuestion} suggested={suggested} />
-        )}
-        <TypingIndicator
+        <ChatMessageFeed
+          activeConversation={activeConversation}
+          messages={messages}
+          suggested={suggested}
+          t={t}
+          setQuestion={setQuestion}
+          localeNumberTag={localeNumberTag}
+          localeTag={localeTag}
+          datasourceId={datasourceId}
+          aiRuntime={aiRuntime}
+          get={get}
+          postData={postData}
+          updateMessageResponse={updateMessageResponse}
+          onSendQuery={onSendQuery}
+          onSelectFollowUp={handleSelectFollowUp}
+          priorQuestions={priorQuestions}
+          agentModeEnabled={agentModeEnabled}
+          agentTraceSteps={agentTraceSteps}
+          agentClarification={agentClarification}
+          onAgentClarificationChoice={onAgentClarificationChoice}
+          onAgentClarificationSkip={onAgentClarificationSkip}
           queryAction={queryAction}
           aiElapsedMs={aiElapsedMs}
           activeJob={activeJob}
           queueNotice={queueNotice}
-          t={t}
         />
       </div>
 
@@ -505,7 +606,12 @@ export function ChatPanel({
               )}
             </div>
             <div className={chatComposerActionsClass}>
-              {loading && queryAction !== null && (
+              {/* Agent Mode's SSE stream never sets useApi()'s `loading` (it
+                  doesn't go through postData/get), so the Cancel button also
+                  needs to show whenever an Agent Mode turn is in flight
+                  (queryAction is set unconditionally at the top of
+                  sendQuery for both paths). */}
+              {(loading || agentModeEnabled) && queryAction !== null && (
                 <button
                   className={cn(buttonClass('ghost'), chatComposerActionBtnClass)}
                   onClick={onAbort}

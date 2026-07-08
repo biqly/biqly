@@ -90,3 +90,15 @@ export type AgentStreamEvent =
   | AgentClarificationRequiredEvent
   | AgentResultEvent
   | AgentErrorEvent
+
+// PendingAgentClarification is the normalized (always-populated) shape a UI
+// consumer works with once a clarification_required event pauses a run —
+// AgentClarificationRequiredEvent's fields are optional on the wire, but by
+// the time runAgentModeTurn resolves a 'clarification' outcome, question/
+// choices/allowFreeText have already been defaulted (see agentModeTurn.ts).
+export interface PendingAgentClarification {
+  runId: string
+  question: string
+  choices: AgentClarificationChoice[]
+  allowFreeText: boolean
+}
