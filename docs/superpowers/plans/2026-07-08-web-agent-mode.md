@@ -14,9 +14,9 @@ Every task ends with its focused tests green plus `gofmt` + `make lint-go` (Go) 
 - [x] T3 — `PurposeAgent`
 - [x] T4 — Web tool registry + policy
 - [x] T5 — Planner prompt + web run bounds
-- [~] T6 — `POST /api/agent/chat` SSE handler
-- [ ] T7 — Finalizer
-- [ ] T8 — Clarification round-trip
+- [x] T6 — `POST /api/agent/chat` SSE handler
+- [x] T7 — Finalizer
+- [x] T8 — Clarification round-trip
 - [ ] T9-T12 — Frontend Agent Mode
 - [ ] T13-T15 — Hardening, parity, rollout
 
@@ -91,9 +91,10 @@ Progress:
   spend limiting, and Redis-backed fail-closed per-user concurrency (max 2).
 - Added `/api/agent` to AI route values with `1800s` timeout and rebuilt Helm
   dependencies.
-- Still open for T6 completion: live per-step SSE event sink + heartbeat, explicit cancel
-  test, direct spend-cap rejection test, role-based web-tool narrowing, and a helm-template
-  assertion that can run with the chart's required secrets/helpers.
+- T6 complete: live per-step SSE event sink + heartbeat, explicit cancel test,
+  spend-cap rejection test, role-based web-tool narrowing wired into the handler's
+  tool set construction, and a `make helm-assert-web-agent-route` assertion — all
+  landed and reviewed clean (commit `49d02da1`).
 
 ### T7 — Finalizer
 - Compose the `result` payload: `SynthesizeAnswer` summary, chart suggestion
@@ -102,6 +103,14 @@ Progress:
 - **Done when:** result payload golden test; a run's final SSE frame renders in the
   existing `AssistantMessageCard` shape without frontend changes (verified in T11).
 
+T7 complete (commit `cd98ea45`, reviewed clean). Follow-up fix (`cbe004ae`,
+`f1de440d`): the design doc commits to `agent_steps` persistence ("Full fidelity
+persists in `agent_steps` as today") but the web agent path only wrote a
+`runtime_state` metadata blob — never called `ReplaceAgentSteps`. Fixed for both
+the success (`Terminal.Final`) and failure (`Terminal.Failure`) terminal paths, so
+`GetAgentRun`/`RunTracePanel` reload-hydration works for web agent runs exactly
+like the legacy pipeline.
+
 ### T8 — Clarification round-trip
 - `clarification_required` SSE event with structured choices + free text; stream ends.
 - Resume: `resume_run_id` + `clarification_answer` loads persisted `RuntimeState`,
@@ -109,6 +118,15 @@ Progress:
   new stream.
 - **Done when:** pause/resume integration test (stub planner emitting a clarification,
   then a final) passes; resuming as a different user is rejected.
+
+T8 complete (commits `cf9277d4`, `6d08c21f`). `agent.RuntimeState` gained
+`PendingClarification`/`ClarificationHistory` fields (the runtime previously
+discarded the planner's clarification question entirely); resume loads the
+existing run via the previously-dead-code `webAgentStateStore.Load` instead of
+creating a new run, identity-checks it (owner + datasource match, generic
+not-found error on mismatch), and threads the original question plus the full
+accumulated clarification history (not just the latest round) into the resumed
+planner prompt — verified against a real 2-round accumulate-and-resume flow.
 
 ## Phase 2 — Frontend Agent Mode
 

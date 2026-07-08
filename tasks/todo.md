@@ -2,24 +2,24 @@
 
 ## Web Agent Mode for AI Chat (2026-07-08)
 
-**Status:** in progress — Phase 0 complete; Phase 1 T3-T5 complete; T6 `POST /api/agent/chat` backend stream skeleton is in progress.
+**Status:** in progress — Phase 0-1 complete (T1-T8, backend). Phase 2 (frontend, T9-T12) and Phase 3 (hardening/parity/rollout, T13-T15) not started.
 
 **Source of truth:**
 - Design: `docs/superpowers/specs/2026-07-08-web-agent-mode-design.md`
 - Execution plan: `docs/superpowers/plans/2026-07-08-web-agent-mode.md`
 
 ### Success criteria
-- [ ] Web agent never accepts or emits raw SQL as user-controlled execution input.
-- [ ] All tool calls pass through existing `/api/*` governed paths with the caller's own credentials.
+- [x] Web agent never accepts or emits raw SQL as user-controlled execution input (structured `run_logical_query` tool only; SQL preview is output-only, gated same as the legacy pipeline).
+- [x] All tool calls pass through existing `/api/*` governed paths with the caller's own credentials.
 - [x] Agent calls the MCP-parity tool set: `list_models`, `list_datasources`, `run_question`, `run_logical_query`, `list_skills`, `run_skill` — defined once in `internal/toolcontract`, consumed by both MCP and the web agent.
-- [ ] Frontend streams agent progress with SSE (`POST /api/agent/chat`, fetch + ReadableStream client).
-- [ ] Final answer includes business summary, table, chart suggestion, follow-ups, and trace.
-- [ ] Existing auth, RLS, PII masking, spend caps, and audit apply unchanged; per-user concurrency guard added.
-- [ ] Same question via MCP client and web agent selects the same datasource/model and produces an equivalent LogicalQuery (parity harness).
+- [ ] Frontend streams agent progress with SSE (`POST /api/agent/chat`, fetch + ReadableStream client). — backend SSE endpoint is complete; frontend client is T9-T12, not started.
+- [x] Final answer includes business summary, table, chart suggestion, follow-ups, and trace.
+- [x] Existing auth, RLS, PII masking, spend caps, and audit apply unchanged; per-user concurrency guard added.
+- [ ] Same question via MCP client and web agent selects the same datasource/model and produces an equivalent LogicalQuery (parity harness). — T13, not started.
 
 ### Execution phases
 - [x] Phase 0 — T1–T2: shared `internal/toolcontract` package; MCP server consumes it.
-- [~] Phase 1 — T3–T8: `PurposeAgent`, web tool registry + policy caps, planner prompt + `BI_WEB_AGENT_*` bounds complete; T6 backend SSE route/concurrency/spend skeleton in progress, then finalizer and clarification round-trip.
+- [x] Phase 1 — T3–T8: `PurposeAgent`, web tool registry + policy caps, planner prompt + `BI_WEB_AGENT_*` bounds, `POST /api/agent/chat` SSE handler (live steps, cancel, spend-cap, role narrowing, Helm route), finalizer result payload + `agent_steps` persistence, and clarification round-trip (resume, identity check, full multi-round history) — all complete, reviewed, and committed on `dev`.
 - [ ] Phase 2 — T9–T12: SSE client, Agent Mode toggle, streaming UX (live trace / clarification card / result), i18n + a11y + frontend gate.
 - [ ] Phase 3 — T13–T15: parity harness, docs + full gate + dev deploy, staged rollout (dark → allowlist → beta → default; prod upgrade needs explicit go-ahead).
 
@@ -32,7 +32,10 @@
 - T6 in progress: added `/api/agent/chat` SSE handler, route registration, governed loopback dispatcher wiring, `agent_runs` creation with web mode, planner/runtime execution, metadata state persistence, caller credential forwarding, runtime-unavailable guard before DB insert, Redis-backed fail-closed per-user concurrency (max 2), and standalone AI Redis wiring for response cache/spend limiter/concurrency.
 - T6 Helm progress: `/api/agent` added to AI route path prefixes with `1800s` timeout; `helm dependency build deploy/helm/biqly` completed after network approval. Full `helm template` assertion is still open because this chart render currently requires production secret values/helpers.
 - T6 evidence: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/agent ./internal/app ./internal/http ./internal/http/handlers -count=1 -run 'TestWebAgent|TestRuntimeCancellation|TestRuntimePlannerError|TestRuntimeSuccessful|TestGetAgentRun|TestListAgentRuns|TestNewAgentDependencies'` green; focused `-race` for agent + web-agent handler green; `make lint-go` 0 issues. Broad `-race` hit sandbox localhost-bind failures in unrelated `httptest.NewServer` tests, so bind-free focused selectors were used.
-- T6 remaining before complete: live per-step SSE sink + heartbeat, explicit cancel and spend-cap rejection tests, final result payload (T7), clarification resume (T8), role-based web-tool narrowing, and helm-template route assertion with required values.
+- T6 complete (commit `49d02da1`): live per-step SSE event sink + heartbeat (`streamAgentSteps`, matches `newEvalSSESender`/15s cadence), explicit client-cancel test (with a `context.WithoutCancel` fix for a latent bug where a canceled run's "mark failed" write was silently skipped), spend-cap rejection test (verified `Check` precedes any LLM call), role-based tool narrowing wired into the handler (`webAgentAllowedTools`, enforced at `PolicyEngine.Evaluate`, fails closed to viewer set), and a `make helm-assert-web-agent-route` assertion. Subagent code review: Approved, no Critical/Important findings.
+- T7 complete (commit `cd98ea45`): `composeWebAgentFinalResult` reuses the legacy pipeline's own helpers (`enrichAIRunResponse`'s `VisualizationHintFromResult`, `attachAINaturalLanguageAnswer`, `attachSuggestedFollowUps`) so the SSE `result` payload matches `AssistantMessageCard`'s existing shape byte-for-byte, with a golden test. Subagent code review: Approved. Follow-up fix (`cbe004ae`, `f1de440d`): the design doc commits to `agent_steps` persistence ("Full fidelity persists in `agent_steps` as today"), but the web agent path only wrote a `runtime_state` metadata blob and never called `ReplaceAgentSteps` — fixed for both the success and failure terminal paths so `GetAgentRun`/`RunTracePanel` reload-hydration works like the legacy pipeline. Re-review: Approved.
+- T8 complete (commits `cf9277d4`, `6d08c21f`): activated the previously-dead-code `webAgentStateStore.Load` for resume (was always creating a new run instead), added `RuntimeState.PendingClarification`/`ClarificationHistory` (the runtime previously discarded the planner's clarification question/options entirely on pause), identity-checked resume (owner + datasource match, generic not-found on mismatch, no existence-leak), and threaded the full accumulated clarification history (not just the latest round) plus the original question into the resumed planner prompt — verified against a real 2-round accumulate-and-resume flow with `Planner.Decide` argument capture. First-pass review found the original question was dropped on every resume and round-1's Q&A was overwritten before round 2; fixed and re-reviewed clean.
+- Backend (Phase 0-1, T1-T8) is now fully complete on `dev`. Remaining work: Phase 2 frontend (T9-T12) and Phase 3 hardening/parity/rollout (T13-T15, prod steps require explicit go-ahead per the plan).
 
 ## Agentic Query Runner + conversation replay repair (2026-07-06)
 
