@@ -1,16 +1,10 @@
 package http
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"net/http"
-	"net/url"
-	"strings"
 
-	"github.com/biqly/biqly/internal/audit"
-	bimw "github.com/biqly/biqly/internal/http/middleware"
-	"github.com/bytedance/sonic"
+	"github.com/biqly/biqly/internal/toolcontract"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -27,177 +21,83 @@ func mcpHandler(dispatch http.Handler) http.Handler {
 }
 
 func newMCPServer(dispatch http.Handler, authorization, apiKey string) *mcp.Server {
-	d := &mcpDispatcher{api: dispatch, authorization: authorization, apiKey: apiKey}
+	d := &mcpToolDispatcher{
+		disp: &toolcontract.HTTPDispatcher{API: dispatch},
+		cred: toolcontract.Credential{Authorization: authorization, APIKey: apiKey},
+	}
 	s := mcp.NewServer(&mcp.Implementation{Name: "biqly", Title: "Biqly governed BI", Version: "1.0.0"}, nil)
 
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_datasources",
-		Description: "List the datasources the caller can access. Returns id, name and " +
-			"type for each; use the id with the other tools.",
-	}, d.listDatasources)
-
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_models",
-		Description: "List published semantic models (dimensions, metrics, joins) the " +
-			"caller can query, optionally filtered by datasource.",
-	}, d.listModels)
-
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "run_question",
-		Description: "Answer a natural-language question against a datasource. The " +
-			"backend generates a governed LogicalQuery, compiles it to SQL with " +
-			"row-level security and PII masking applied, executes it read-only and " +
-			"returns the result rows plus the generated query.",
-	}, d.runQuestion)
-
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "run_logical_query",
-		Description: "Compile and execute a Biqly LogicalQuery JSON document " +
-			"(datasource_id, model_id, select, filters, group_by, order_by, limit). " +
-			"The backend enforces the semantic model, permissions and read-only " +
-			"execution; raw SQL is never accepted.",
-	}, d.runLogicalQuery)
-
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_skills",
-		Description: "List saved skills: named, parameterized LogicalQuery templates " +
-			"validated by users. Prefer running a matching skill over generating a " +
-			"fresh query. Returns name, description, parameters and tags per skill.",
-	}, d.listSkills)
-
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "run_skill",
-		Description: "Execute a saved skill by id with parameter values. The stored " +
-			"LogicalQuery template is compiled and executed through the governed " +
-			"query path with all permissions applied.",
-	}, d.runSkill)
+	// Register the six governed tools from the shared toolcontract package.
+	// Tool names/descriptions come from toolcontract.AllTools; the MCP-specific
+	// handler functions below call the shared dispatch helpers.
+	for _, spec := range toolcontract.AllTools {
+		switch spec.Name {
+		case toolcontract.ToolListDatasources:
+			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.listDatasources)
+		case toolcontract.ToolListModels:
+			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.listModels)
+		case toolcontract.ToolRunQuestion:
+			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.runQuestion)
+		case toolcontract.ToolRunLogicalQuery:
+			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.runLogicalQuery)
+		case toolcontract.ToolListSkills:
+			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.listSkills)
+		case toolcontract.ToolRunSkill:
+			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.runSkill)
+		}
+	}
 
 	return s
 }
 
-// mcpDispatcher performs in-process loopback requests against the monolith
-// router on behalf of MCP tool calls, forwarding the caller's credentials.
-type mcpDispatcher struct {
-	api           http.Handler
-	authorization string
-	apiKey        string
+// mcpToolDispatcher wraps the shared toolcontract.Dispatcher, fixing the
+// credential (from the inbound request) and channel (mcp) so each MCP tool
+// handler is a thin adapter over the shared dispatch path.
+type mcpToolDispatcher struct {
+	disp toolcontract.Dispatcher
+	cred toolcontract.Credential
 }
 
-type mcpListModelsInput struct {
-	DatasourceID string `json:"datasource_id,omitempty" jsonschema:"optional datasource id to filter models by"`
+func (d *mcpToolDispatcher) listDatasources(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+	res, err := toolcontract.DispatchListDatasources(ctx, d.disp, d.cred, toolcontract.ChannelMCP)
+	return toMCPResult(res), nil, err
 }
 
-type mcpRunQuestionInput struct {
-	DatasourceID string `json:"datasource_id" jsonschema:"datasource id to answer the question against"`
-	Question     string `json:"question" jsonschema:"the natural-language question to answer"`
-	ModelID      string `json:"model_id,omitempty" jsonschema:"optional semantic model id; omitted = automatic routing"`
+func (d *mcpToolDispatcher) listModels(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.ListModelsInput) (*mcp.CallToolResult, any, error) {
+	res, err := toolcontract.DispatchListModels(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
+	return toMCPResult(res), nil, err
 }
 
-type mcpRunLogicalQueryInput struct {
-	LogicalQuery map[string]any `json:"logical_query" jsonschema:"the LogicalQuery document to compile and execute"`
+func (d *mcpToolDispatcher) runQuestion(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.RunQuestionInput) (*mcp.CallToolResult, any, error) {
+	res, err := toolcontract.DispatchRunQuestion(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
+	return toMCPResult(res), nil, err
 }
 
-type mcpListSkillsInput struct {
-	DatasourceID string `json:"datasource_id,omitempty" jsonschema:"optional datasource id to filter skills by"`
+func (d *mcpToolDispatcher) runLogicalQuery(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.RunLogicalQueryInput) (*mcp.CallToolResult, any, error) {
+	res, err := toolcontract.DispatchRunLogicalQuery(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
+	return toMCPResult(res), nil, err
 }
 
-type mcpRunSkillInput struct {
-	SkillID    string         `json:"skill_id" jsonschema:"id of the skill to run"`
-	Parameters map[string]any `json:"parameters,omitempty" jsonschema:"parameter values keyed by parameter name"`
+func (d *mcpToolDispatcher) listSkills(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.ListSkillsInput) (*mcp.CallToolResult, any, error) {
+	res, err := toolcontract.DispatchListSkills(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
+	return toMCPResult(res), nil, err
 }
 
-func (d *mcpDispatcher) listDatasources(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
-	return d.call(ctx, http.MethodGet, "/api/datasources", nil)
+func (d *mcpToolDispatcher) runSkill(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.RunSkillInput) (*mcp.CallToolResult, any, error) {
+	res, err := toolcontract.DispatchRunSkill(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
+	return toMCPResult(res), nil, err
 }
 
-func (d *mcpDispatcher) listModels(ctx context.Context, _ *mcp.CallToolRequest, in mcpListModelsInput) (*mcp.CallToolResult, any, error) {
-	path := "/api/semantic/models"
-	if ds := strings.TrimSpace(in.DatasourceID); ds != "" {
-		path += "?datasource_id=" + url.QueryEscape(ds)
-	}
-	return d.call(ctx, http.MethodGet, path, nil)
-}
-
-func (d *mcpDispatcher) runQuestion(ctx context.Context, _ *mcp.CallToolRequest, in mcpRunQuestionInput) (*mcp.CallToolResult, any, error) {
-	body := map[string]any{
-		"datasource_id": in.DatasourceID,
-		"question":      in.Question,
-	}
-	if in.ModelID != "" {
-		body["model_id"] = in.ModelID
-	}
-	return d.call(ctx, http.MethodPost, "/api/ai/query/run", body)
-}
-
-func (d *mcpDispatcher) runLogicalQuery(ctx context.Context, _ *mcp.CallToolRequest, in mcpRunLogicalQueryInput) (*mcp.CallToolResult, any, error) {
-	return d.call(ctx, http.MethodPost, "/api/query/run", map[string]any{"logical_query": in.LogicalQuery})
-}
-
-func (d *mcpDispatcher) listSkills(ctx context.Context, _ *mcp.CallToolRequest, in mcpListSkillsInput) (*mcp.CallToolResult, any, error) {
-	path := "/api/ai/skills"
-	if ds := strings.TrimSpace(in.DatasourceID); ds != "" {
-		path += "?datasource_id=" + url.QueryEscape(ds)
-	}
-	return d.call(ctx, http.MethodGet, path, nil)
-}
-
-func (d *mcpDispatcher) runSkill(ctx context.Context, _ *mcp.CallToolRequest, in mcpRunSkillInput) (*mcp.CallToolResult, any, error) {
-	body := map[string]any{}
-	if len(in.Parameters) > 0 {
-		body["parameters"] = in.Parameters
-	}
-	return d.call(ctx, http.MethodPost, "/api/ai/skills/"+url.PathEscape(in.SkillID)+"/run", body)
-}
-
-func (d *mcpDispatcher) call(ctx context.Context, method, path string, body any) (*mcp.CallToolResult, any, error) {
-	var reader *bytes.Reader
-	if body != nil {
-		encoded, err := sonic.ConfigStd.Marshal(body)
-		if err != nil {
-			return nil, nil, fmt.Errorf("encode request: %w", err)
-		}
-		reader = bytes.NewReader(encoded)
-	} else {
-		reader = bytes.NewReader(nil)
-	}
-	req, err := http.NewRequestWithContext(ctx, method, path, reader)
-	if err != nil {
-		return nil, nil, fmt.Errorf("build request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(bimw.ChannelHeader, audit.ChannelMCP)
-	if d.authorization != "" {
-		req.Header.Set("Authorization", d.authorization)
-	}
-	if d.apiKey != "" {
-		req.Header.Set("X-API-Key", d.apiKey)
-	}
-
-	rec := &mcpResponseRecorder{header: make(http.Header), status: http.StatusOK}
-	d.api.ServeHTTP(rec, req)
-
-	text := rec.body.String()
-	if rec.status < 200 || rec.status >= 300 {
+// toMCPResult converts a toolcontract.DispatchResult into the MCP SDK's
+// CallToolResult shape: raw-JSON TextContent, IsError on non-2xx.
+func toMCPResult(res toolcontract.DispatchResult) *mcp.CallToolResult {
+	if res.IsError() {
 		return &mcp.CallToolResult{
 			IsError: true,
-			Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("HTTP %d: %s", rec.status, text)}},
-		}, nil, nil
+			Content: []mcp.Content{&mcp.TextContent{Text: res.ErrorText()}},
+		}
 	}
 	return &mcp.CallToolResult{
-		Content: []mcp.Content{&mcp.TextContent{Text: text}},
-	}, nil, nil
+		Content: []mcp.Content{&mcp.TextContent{Text: string(res.Body)}},
+	}
 }
-
-// mcpResponseRecorder is a minimal in-process http.ResponseWriter used to
-// capture loopback dispatch responses without net/http/httptest.
-type mcpResponseRecorder struct {
-	header http.Header
-	status int
-	body   bytes.Buffer
-}
-
-func (r *mcpResponseRecorder) Header() http.Header { return r.header }
-
-func (r *mcpResponseRecorder) WriteHeader(status int) { r.status = status }
-
-func (r *mcpResponseRecorder) Write(p []byte) (int, error) { return r.body.Write(p) }

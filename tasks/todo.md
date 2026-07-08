@@ -1,5 +1,39 @@
 # Todo list
 
+## Web Agent Mode for AI Chat (2026-07-08)
+
+**Status:** in progress — Phase 0 complete; Phase 1 T3-T5 complete; T6 `POST /api/agent/chat` backend stream skeleton is in progress.
+
+**Source of truth:**
+- Design: `docs/superpowers/specs/2026-07-08-web-agent-mode-design.md`
+- Execution plan: `docs/superpowers/plans/2026-07-08-web-agent-mode.md`
+
+### Success criteria
+- [ ] Web agent never accepts or emits raw SQL as user-controlled execution input.
+- [ ] All tool calls pass through existing `/api/*` governed paths with the caller's own credentials.
+- [x] Agent calls the MCP-parity tool set: `list_models`, `list_datasources`, `run_question`, `run_logical_query`, `list_skills`, `run_skill` — defined once in `internal/toolcontract`, consumed by both MCP and the web agent.
+- [ ] Frontend streams agent progress with SSE (`POST /api/agent/chat`, fetch + ReadableStream client).
+- [ ] Final answer includes business summary, table, chart suggestion, follow-ups, and trace.
+- [ ] Existing auth, RLS, PII masking, spend caps, and audit apply unchanged; per-user concurrency guard added.
+- [ ] Same question via MCP client and web agent selects the same datasource/model and produces an equivalent LogicalQuery (parity harness).
+
+### Execution phases
+- [x] Phase 0 — T1–T2: shared `internal/toolcontract` package; MCP server consumes it.
+- [~] Phase 1 — T3–T8: `PurposeAgent`, web tool registry + policy caps, planner prompt + `BI_WEB_AGENT_*` bounds complete; T6 backend SSE route/concurrency/spend skeleton in progress, then finalizer and clarification round-trip.
+- [ ] Phase 2 — T9–T12: SSE client, Agent Mode toggle, streaming UX (live trace / clarification card / result), i18n + a11y + frontend gate.
+- [ ] Phase 3 — T13–T15: parity harness, docs + full gate + dev deploy, staged rollout (dark → allowlist → beta → default; prod upgrade needs explicit go-ahead).
+
+### Review
+- T1-T2 complete: `internal/toolcontract` owns the six governed tool definitions and dispatch helpers; MCP server consumes them.
+- T3 complete: `PurposeAgent` added with query fallback, admin UI purpose support, and migration `066a_add_agent_purpose`.
+- T4 complete: web tool registry over `toolcontract.Dispatcher`, planner-visible truncation, and web-tool policy bypasses untrusted identity args in favor of forwarded caller credentials.
+- T5 complete: planner prompt now renders web tool descriptors, no-raw-SQL / skill-first / clarification / prior-turn inheritance rules, and prior turns; `Config.WebAgent` loads `BI_WEB_AGENT_*` with 120s timeout, max steps 6, max clarification rounds 2, and allowlist reuse from `BI_AGENT_WORKSPACE_ALLOWLIST`.
+- T5 evidence: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/agent ./internal/config -count=1 -run 'TestProviderPlanner|TestBuildPlannerPrompt|TestLoadWebAgent|TestLoadAgentConfig' -v` green; `make lint-go` 0 issues; `gograph_review --uncommitted` hit git diff exit 129, so symbol-level reviews were run for `buildPlannerPrompt`, `RunContext`, `AgentConfig`, and `WebAgentConfig`.
+- T6 in progress: added `/api/agent/chat` SSE handler, route registration, governed loopback dispatcher wiring, `agent_runs` creation with web mode, planner/runtime execution, metadata state persistence, caller credential forwarding, runtime-unavailable guard before DB insert, Redis-backed fail-closed per-user concurrency (max 2), and standalone AI Redis wiring for response cache/spend limiter/concurrency.
+- T6 Helm progress: `/api/agent` added to AI route path prefixes with `1800s` timeout; `helm dependency build deploy/helm/biqly` completed after network approval. Full `helm template` assertion is still open because this chart render currently requires production secret values/helpers.
+- T6 evidence: `GOCACHE=/private/tmp/biqly-gocache go test ./internal/agent ./internal/app ./internal/http ./internal/http/handlers -count=1 -run 'TestWebAgent|TestRuntimeCancellation|TestRuntimePlannerError|TestRuntimeSuccessful|TestGetAgentRun|TestListAgentRuns|TestNewAgentDependencies'` green; focused `-race` for agent + web-agent handler green; `make lint-go` 0 issues. Broad `-race` hit sandbox localhost-bind failures in unrelated `httptest.NewServer` tests, so bind-free focused selectors were used.
+- T6 remaining before complete: live per-step SSE sink + heartbeat, explicit cancel and spend-cap rejection tests, final result payload (T7), clarification resume (T8), role-based web-tool narrowing, and helm-template route assertion with required values.
+
 ## Agentic Query Runner + conversation replay repair (2026-07-06)
 
 **Status:** Phases 1–4 (Tasks 1–16) implemented and committed on `dev`, `agent.enabled=false` by default everywhere. Phase 5 (Tasks 17–18) in progress: this doc pass is Task 17; Task 18's live-production steps (real repair apply, dark deploy, shadow enable) are paused pending explicit go-ahead — see Task 18 below.

@@ -38,15 +38,18 @@ const (
 	PurposeTranslation Purpose = "translation"
 	// PurposeJudge — LLM-assisted evaluation judging.
 	PurposeJudge Purpose = "judge"
+	// PurposeAgent — web agent planner/finalizer (multi-step tool loop).
+	// Falls back to PurposeQuery when no agent model is configured.
+	PurposeAgent Purpose = "agent"
 )
 
 // AllPurposes lists every valid purpose in display order.
-var AllPurposes = []Purpose{PurposeQuery, PurposeDescribe, PurposeEmbedding, PurposeTranslation, PurposeJudge}
+var AllPurposes = []Purpose{PurposeQuery, PurposeDescribe, PurposeEmbedding, PurposeTranslation, PurposeJudge, PurposeAgent}
 
 // ValidPurpose reports whether p is a recognized purpose.
 func ValidPurpose(p string) bool {
 	switch Purpose(p) {
-	case PurposeQuery, PurposeDescribe, PurposeEmbedding, PurposeTranslation, PurposeJudge:
+	case PurposeQuery, PurposeDescribe, PurposeEmbedding, PurposeTranslation, PurposeJudge, PurposeAgent:
 		return true
 	default:
 		return false
@@ -66,7 +69,7 @@ func UserSelectablePurpose(p string) bool {
 	switch Purpose(p) {
 	case PurposeQuery, PurposeDescribe:
 		return true
-	case PurposeEmbedding, PurposeTranslation, PurposeJudge:
+	case PurposeEmbedding, PurposeTranslation, PurposeJudge, PurposeAgent:
 		return false
 	default:
 		return false
@@ -222,7 +225,7 @@ func (s *ProviderStore) ModelLabelForPurpose(p Purpose) string {
 		}
 	}
 	switch p {
-	case PurposeQuery:
+	case PurposeQuery, PurposeAgent:
 		return s.fallback.ResolvedQuery().Config.Connection.Model
 	case PurposeDescribe, PurposeJudge:
 		if m := strings.TrimSpace(s.fallback.Connection.Model); m != "" {
@@ -274,7 +277,7 @@ func (s *ProviderStore) ChatConfigForModelUUID(ctx context.Context, modelUUID st
 	rm.BaseURL = baseURL
 	rm.APIKey = s.decrypt(encKey)
 	cfg := s.chatConfigFromResolved(&rm)
-	if Purpose(purpose) == PurposeQuery {
+	if Purpose(purpose) == PurposeQuery || Purpose(purpose) == PurposeAgent {
 		cfg = ensureQueryMaxTokens(cfg)
 	}
 	return cfg, true
@@ -342,10 +345,23 @@ func (s *ProviderStore) ActiveModelUUIDsByProviders(ctx context.Context, provide
 }
 
 // ChatConfigForPurpose returns the AIConfig for a chat-completion purpose
-// (query, describe, judge, translation), layering the resolved DB selection
+// (query, describe, judge, translation, agent), layering the resolved DB selection
 // over the fallback env config so non-connection tuning knobs carry through.
 // The bool reports whether the DB supplied the selection.
+//
+// PurposeAgent falls back to PurposeQuery when no agent-specific model is
+// configured, so existing deployments keep working with zero config.
 func (s *ProviderStore) ChatConfigForPurpose(p Purpose) (config.AIConfig, bool) {
+	// Agent falls back to the query model when no agent model is configured.
+	if p == PurposeAgent {
+		if rm, ok := s.resolvedFor(PurposeAgent); ok {
+			cfg := s.chatConfigFromResolved(rm)
+			cfg = ensureQueryMaxTokens(cfg)
+			return cfg, true
+		}
+		// No agent model configured — use query (DB-resolved or fallback).
+		return s.ChatConfigForPurpose(PurposeQuery)
+	}
 	rm, ok := s.resolvedFor(p)
 	if !ok {
 		cfg := s.fallback

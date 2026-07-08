@@ -30,6 +30,7 @@ import (
 	"github.com/biqly/biqly/internal/platform/observability"
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
+	"github.com/biqly/biqly/internal/toolcontract"
 	"github.com/google/uuid"
 )
 
@@ -61,6 +62,9 @@ type AIHandler struct {
 	memoryOverridesCache    runtimeOverrides[memoryOverrides]
 	queueOverridesCache     runtimeOverrides[queueOverrides]
 	agentOverridesCache     runtimeOverrides[agentOverrides]
+	webAgentDispatcher      toolcontract.Dispatcher
+	webAgentRunner          webAgentRunFunc
+	webAgentLimiter         webAgentConcurrencyLimiter
 }
 
 // SetAuthClient wires the auth service client for user model access checks.
@@ -100,10 +104,15 @@ func NewAIHandler(deps *app.AIDeps) *AIHandler {
 		deps.Config.AI.Routing.MaxDateGrainExtras,
 		deps.Config.AI.Routing.SlimNumericMetrics,
 	))
+	var webAgentLimiter webAgentConcurrencyLimiter
+	if deps.AIRedis != nil {
+		webAgentLimiter = redisWebAgentLimiter{client: deps.AIRedis, max: 2}
+	}
 	return &AIHandler{
-		service:     svc,
-		tableRouter: router,
-		deps:        deps,
+		service:         svc,
+		tableRouter:     router,
+		deps:            deps,
+		webAgentLimiter: webAgentLimiter,
 	}
 }
 

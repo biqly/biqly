@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -207,7 +208,7 @@ func (rt *Runtime) runToolStep(
 
 	step := RuntimeStep{Seq: state.nextSeq(), Proposal: *proposal}
 	state.Steps = append(state.Steps, step)
-	if proposal.Tool == ToolQueryExecute {
+	if toolStartsQueryExecution(proposal.Tool) {
 		state.QueryExecuteStarted = true
 	}
 	// Persist BEFORE the external call: a crash here resumes with the
@@ -243,6 +244,12 @@ func (rt *Runtime) runToolStep(
 	}
 	return state, false, nil
 }
+
+func toolStartsQueryExecution(tool ToolName) bool {
+	return slices.Contains(queryExecutionTools, tool)
+}
+
+var queryExecutionTools = []ToolName{ToolQueryExecute, ToolWebRunQuestion, ToolWebRunLogicalQuery, ToolWebRunSkill}
 
 // abandonOrFail handles context cancellation / planner errors before a
 // terminal decision. Once Query Execute has started, a run must never be

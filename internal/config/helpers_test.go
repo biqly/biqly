@@ -1,6 +1,7 @@
 package config
 
 import (
+	"slices"
 	"testing"
 	"time"
 )
@@ -334,6 +335,91 @@ func TestLoadAgentConfigValidation(t *testing.T) {
 		t.Setenv("BI_AGENT_MAX_ROWS", "1")
 		if _, err := Load(); err != nil {
 			t.Fatalf("Load() error = %v", err)
+		}
+	})
+}
+
+func TestLoadWebAgentConfigDefaultsAndAllowlistReuse(t *testing.T) {
+	t.Setenv("BI_ENCRYPTION_KEY", "a-real-32-byte-key-value-1234567")
+	t.Setenv("BI_METADATA_DB_DSN", "postgres://example/db?sslmode=disable")
+	t.Setenv("BI_ENV", "development")
+	t.Setenv("BI_AUTH_ENABLED", "false")
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	t.Setenv("BI_AGENT_WORKSPACE_ALLOWLIST", "ws-1, ws-2")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.WebAgent.Enabled {
+		t.Error("WebAgent.Enabled should default to false")
+	}
+	if cfg.WebAgent.MaxSteps != 6 {
+		t.Errorf("WebAgent.MaxSteps = %d, want 6", cfg.WebAgent.MaxSteps)
+	}
+	if cfg.WebAgent.MaxClarificationRounds != 2 {
+		t.Errorf("WebAgent.MaxClarificationRounds = %d, want 2", cfg.WebAgent.MaxClarificationRounds)
+	}
+	if cfg.WebAgent.Timeout != 120*time.Second {
+		t.Errorf("WebAgent.Timeout = %v, want 120s", cfg.WebAgent.Timeout)
+	}
+	if got, want := cfg.WebAgent.WorkspaceAllowlist, []string{"ws-1", "ws-2"}; !slices.Equal(got, want) {
+		t.Errorf("WebAgent.WorkspaceAllowlist = %v, want %v", got, want)
+	}
+
+	t.Setenv("BI_WEB_AGENT_WORKSPACE_ALLOWLIST", "web-only")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("Load() with web allowlist override error = %v", err)
+	}
+	if got, want := cfg.WebAgent.WorkspaceAllowlist, []string{"web-only"}; !slices.Equal(got, want) {
+		t.Errorf("WebAgent.WorkspaceAllowlist override = %v, want %v", got, want)
+	}
+}
+
+func TestLoadWebAgentConfigValidation(t *testing.T) {
+	base := func(t *testing.T) {
+		t.Helper()
+		t.Setenv("BI_ENCRYPTION_KEY", "a-real-32-byte-key-value-1234567")
+		t.Setenv("BI_METADATA_DB_DSN", "postgres://example/db?sslmode=disable")
+		t.Setenv("BI_ENV", "development")
+		t.Setenv("BI_AUTH_ENABLED", "false")
+		t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	}
+
+	t.Run("rejects out-of-range max_steps", func(t *testing.T) {
+		base(t)
+		t.Setenv("BI_WEB_AGENT_MAX_STEPS", "7")
+		if _, err := Load(); err == nil {
+			t.Fatal("Load should reject BI_WEB_AGENT_MAX_STEPS above 6")
+		}
+	})
+	t.Run("rejects out-of-range clarification rounds", func(t *testing.T) {
+		base(t)
+		t.Setenv("BI_WEB_AGENT_MAX_CLARIFICATION_ROUNDS", "3")
+		if _, err := Load(); err == nil {
+			t.Fatal("Load should reject BI_WEB_AGENT_MAX_CLARIFICATION_ROUNDS above 2")
+		}
+	})
+	t.Run("rejects out-of-range timeout", func(t *testing.T) {
+		base(t)
+		t.Setenv("BI_WEB_AGENT_TIMEOUT", "121s")
+		if _, err := Load(); err == nil {
+			t.Fatal("Load should reject BI_WEB_AGENT_TIMEOUT above 120s")
+		}
+	})
+	t.Run("accepts in-range values", func(t *testing.T) {
+		base(t)
+		t.Setenv("BI_WEB_AGENT_ENABLED", "true")
+		t.Setenv("BI_WEB_AGENT_MAX_STEPS", "1")
+		t.Setenv("BI_WEB_AGENT_MAX_CLARIFICATION_ROUNDS", "0")
+		t.Setenv("BI_WEB_AGENT_TIMEOUT", "1s")
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if !cfg.WebAgent.Enabled {
+			t.Fatal("expected WebAgent.Enabled from env")
 		}
 	})
 }

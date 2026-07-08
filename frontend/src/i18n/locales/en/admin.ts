@@ -562,6 +562,7 @@ export const admin = {
       embedding: 'Embedding (vectors)',
       translation: 'Translation',
       judge: 'Judge (eval)',
+      agent: 'Agent (planner)',
     },
     types: {
       openai: 'OpenAI',

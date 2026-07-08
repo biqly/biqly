@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -23,6 +24,36 @@ func (f *fakeProvider) Generate(_ context.Context, prompt string) (providerpkg.G
 
 func (f *fakeProvider) GenerateAt(ctx context.Context, prompt string, _ float64) (providerpkg.GenerationResult, error) {
 	return f.Generate(ctx, prompt)
+}
+
+type queuedProvider struct {
+	prompts []string
+	results []providerpkg.GenerationResult
+}
+
+func (q *queuedProvider) Generate(_ context.Context, prompt string) (providerpkg.GenerationResult, error) {
+	q.prompts = append(q.prompts, prompt)
+	if len(q.prompts) > len(q.results) {
+		return providerpkg.GenerationResult{}, errors.New("provider queue exhausted")
+	}
+	return q.results[len(q.prompts)-1], nil
+}
+
+func (q *queuedProvider) GenerateAt(ctx context.Context, prompt string, _ float64) (providerpkg.GenerationResult, error) {
+	return q.Generate(ctx, prompt)
+}
+
+type staticTool struct {
+	name    ToolName
+	payload string
+	calls   int
+}
+
+func (t *staticTool) Name() ToolName { return t.name }
+
+func (t *staticTool) Execute(_ context.Context, _ RunContext, _ json.RawMessage) (Observation, error) {
+	t.calls++
+	return Observation{Tool: t.name, Payload: []byte(t.payload)}, nil
 }
 
 func TestProviderPlannerDecodesToolDecision(t *testing.T) {
@@ -90,6 +121,57 @@ func TestBuildPlannerPromptDescribesDeniedAndErroredSteps(t *testing.T) {
 	assert.Contains(t, prompt, "DENIED reason=tool_not_allowlisted")
 	assert.Contains(t, prompt, "ERROR=upstream timeout")
 	assert.Contains(t, prompt, `observation={"ok":true}`)
+}
+
+func TestBuildPlannerPromptDescribesWebToolsAndPriorTurns(t *testing.T) {
+	run := baseRunContext()
+	run.Question = "what about this month?"
+	run.AllowedTools = []ToolName{ToolWebListSkills, ToolWebRunSkill, ToolWebRunQuestion}
+	run.PriorTurns = []PriorTurn{
+		{User: "show last month revenue by region", Assistant: "Revenue was split by region.", ResultSummary: "filters: last month; group_by: region"},
+	}
+
+	prompt := buildPlannerPrompt(run, nil)
+
+	assert.Contains(t, prompt, "Never write raw SQL")
+	assert.Contains(t, prompt, "Prefer list_skills then run_skill")
+	assert.Contains(t, prompt, "Prior turns")
+	assert.Contains(t, prompt, "last month")
+	assert.Contains(t, prompt, "inherit")
+	assert.Contains(t, prompt, "list_skills:")
+	assert.Contains(t, prompt, "run_question:")
+	assert.NotContains(t, prompt, "list_datasources:")
+}
+
+func TestProviderPlannerWebHappyPathListModelsRunQuestionFinal(t *testing.T) {
+	provider := &queuedProvider{results: []providerpkg.GenerationResult{
+		{Content: `{"tool":{"name":"list_models","arguments":{"datasource_id":"ds-1"}}}`},
+		{Content: `{"tool":{"name":"run_question","arguments":{"datasource_id":"ds-1","question":"revenue by region","model_id":"model-1"}}}`},
+		{Content: `{"final":{"answer":"Regional revenue is ready.","confidence":0.92}}`},
+	}}
+	planner := NewProviderPlanner(provider)
+	listModels := &staticTool{name: ToolWebListModels, payload: `{"models":[{"id":"model-1","name":"Revenue"}]}`}
+	runQuestion := &staticTool{name: ToolWebRunQuestion, payload: `{"rows":[{"region":"TR","revenue":42}],"logical_query":{"select":[]}}`}
+	registry := NewRegistry(&PolicyEngine{}, listModels, runQuestion)
+	run := runtimeTestRun()
+	run.Question = "revenue by region"
+	run.AllowedTools = []ToolName{ToolWebListModels, ToolWebRunQuestion}
+	run.MaxSteps = 6
+	run.MaxClarificationRounds = 2
+
+	state, err := NewRuntime(planner, registry, newFakeStateStore()).Run(context.Background(), run, "web-run-1")
+
+	require.NoError(t, err)
+	require.NotNil(t, state.Terminal)
+	assert.Equal(t, DecisionFinal, state.Terminal.Kind)
+	assert.Equal(t, "Regional revenue is ready.", state.Terminal.Final.Answer)
+	require.Len(t, state.Steps, 2)
+	assert.Equal(t, 1, listModels.calls)
+	assert.Equal(t, 1, runQuestion.calls)
+	require.Len(t, provider.prompts, 3)
+	assert.Contains(t, provider.prompts[0], "list_models:")
+	assert.Contains(t, provider.prompts[1], `"models"`)
+	assert.Contains(t, provider.prompts[2], `"rows"`)
 }
 
 func TestTruncateLongObservationPayload(t *testing.T) {

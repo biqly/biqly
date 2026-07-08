@@ -32,6 +32,7 @@ type Config struct {
 	Drift     DriftConfig
 	Mail      MailConfig
 	Agent     AgentConfig
+	WebAgent  WebAgentConfig
 	// DeploymentMode is the deployment posture: "cloud" (default), "private",
 	// or "airgapped". Airgapped fails closed on external LLM/embedding egress:
 	// provider endpoints must resolve to private, in-cluster hosts.
@@ -84,6 +85,23 @@ type AgentConfig struct {
 	// LegacyFallbackEnabled falls back to the legacy NL-to-SQL pipeline when
 	// an agent run fails, times out, or its workspace is outside the allowlist.
 	LegacyFallbackEnabled bool
+}
+
+// WebAgentConfig controls the in-request SSE web agent path. It is separate
+// from AgentConfig because the NATS runner validates a 45s job envelope, while
+// web runs keep the HTTP stream open and use a longer request budget.
+type WebAgentConfig struct {
+	// Enabled toggles POST /api/agent/chat. Disabled by default.
+	Enabled bool
+	// MaxSteps caps planner tool-call iterations per run, 1-6.
+	MaxSteps int
+	// MaxClarificationRounds caps clarification round-trips per run, 0-2.
+	MaxClarificationRounds int
+	// Timeout bounds total web run wall-clock time, 1-120 seconds.
+	Timeout time.Duration
+	// WorkspaceAllowlist restricts the web agent to specific workspace IDs
+	// during rollout; empty means all workspaces.
+	WorkspaceAllowlist []string
 }
 
 // MailConfig holds details to access the mail worker.
@@ -458,7 +476,8 @@ func loadConfigFromEnv() *Config {
 		Drift: DriftConfig{
 			CheckInterval: getEnvAsDuration("BI_DRIFT_CHECK_INTERVAL", 6*time.Hour),
 		},
-		Agent: loadAgentConfigFromEnv(),
+		Agent:    loadAgentConfigFromEnv(),
+		WebAgent: loadWebAgentConfigFromEnv(),
 		Mail: MailConfig{
 			ServiceURL:    getEnv("BI_AUTH_MAIL_SERVICE_URL", "http://localhost:8890"),
 			InternalToken: getEnv("BI_AUTH_MAIL_INTERNAL_TOKEN", ""),
@@ -546,6 +565,17 @@ func loadAgentConfigFromEnv() AgentConfig {
 		ErrorSubject:           getEnv("BI_AGENT_ERROR_SUBJECT", "biqly.agent.errors"),
 		WorkspaceAllowlist:     splitCSV(getEnv("BI_AGENT_WORKSPACE_ALLOWLIST", "")),
 		LegacyFallbackEnabled:  getEnvAsBool("BI_AGENT_LEGACY_FALLBACK_ENABLED", true),
+	}
+}
+
+func loadWebAgentConfigFromEnv() WebAgentConfig {
+	allowlist := getEnv("BI_WEB_AGENT_WORKSPACE_ALLOWLIST", getEnv("BI_AGENT_WORKSPACE_ALLOWLIST", ""))
+	return WebAgentConfig{
+		Enabled:                getEnvAsBool("BI_WEB_AGENT_ENABLED", false),
+		MaxSteps:               getEnvAsInt("BI_WEB_AGENT_MAX_STEPS", 6),
+		MaxClarificationRounds: getEnvAsInt("BI_WEB_AGENT_MAX_CLARIFICATION_ROUNDS", 2),
+		Timeout:                getEnvAsDuration("BI_WEB_AGENT_TIMEOUT", 120*time.Second),
+		WorkspaceAllowlist:     splitCSV(allowlist),
 	}
 }
 
@@ -642,6 +672,9 @@ func validateLoadedConfig(cfg *Config) error {
 		return err
 	}
 	if err := validateAgentConfig(cfg.Agent); err != nil {
+		return err
+	}
+	if err := validateWebAgentConfig(cfg.WebAgent); err != nil {
 		return err
 	}
 	// Fail-closed: auth must stay enabled in production/Kubernetes (see TestProductionAuthEnabledFailClosed).
@@ -850,6 +883,19 @@ func validateAgentConfig(cfg AgentConfig) error {
 	}
 	if cfg.MaxRows < 1 || cfg.MaxRows > 1000 {
 		return fmt.Errorf("BI_AGENT_MAX_ROWS must be between 1 and 1000, got %d", cfg.MaxRows)
+	}
+	return nil
+}
+
+func validateWebAgentConfig(cfg WebAgentConfig) error {
+	if cfg.MaxSteps < 1 || cfg.MaxSteps > 6 {
+		return fmt.Errorf("BI_WEB_AGENT_MAX_STEPS must be between 1 and 6, got %d", cfg.MaxSteps)
+	}
+	if cfg.MaxClarificationRounds < 0 || cfg.MaxClarificationRounds > 2 {
+		return fmt.Errorf("BI_WEB_AGENT_MAX_CLARIFICATION_ROUNDS must be between 0 and 2, got %d", cfg.MaxClarificationRounds)
+	}
+	if cfg.Timeout < 1*time.Second || cfg.Timeout > 120*time.Second {
+		return fmt.Errorf("BI_WEB_AGENT_TIMEOUT must be between 1s and 120s, got %s", cfg.Timeout)
 	}
 	return nil
 }

@@ -103,6 +103,12 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 	}
 
 	catalogHTTPClient, queryHTTPClient := provideServiceClients(cfg)
+	aiRedis := newAIRedisClient(ctx, cfg.Redis.DSN)
+	var responseCache ai.ResponseCache
+	if aiRedis != nil {
+		responseCache = ai.NewRedisResponseCache(aiRedis)
+	}
+	spendLimiter := ai.NewSpendLimiter(aiRedis, cfg.AI.Generation.WorkspaceDailyTokenBudget)
 
 	return &Dependencies{
 		Config:          cfg,
@@ -129,6 +135,9 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		Jobs:            cfg.Jobs,
 		TimeGrains:      timeGrainsStore,
 		AIProviderStore: providerStore,
+		ResponseCache:   responseCache,
+		SpendLimiter:    spendLimiter,
+		AIRedis:         aiRedis,
 	}, nil
 }
 

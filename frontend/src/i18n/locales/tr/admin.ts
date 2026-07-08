@@ -568,6 +568,7 @@ export const admin: AdminDictionary = {
       embedding: 'Embedding (vektör)',
       translation: 'Çeviri',
       judge: 'Değerlendirici (eval)',
+      agent: 'Ajan (planlayıcı)',
     },
     types: {
       openai: 'OpenAI',

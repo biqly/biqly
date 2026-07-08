@@ -6,7 +6,7 @@ import { ADMIN_OPTS, AI_API_BASE } from './constants'
 // via the apiClient's useAdminKey option (same scheme as the eval endpoints).
 const adminOpts = ADMIN_OPTS
 
-export type AIPurpose = 'query' | 'describe' | 'embedding' | 'translation' | 'judge'
+export type AIPurpose = 'query' | 'describe' | 'embedding' | 'translation' | 'judge' | 'agent'
 export type AIProviderType = 'openai' | 'openai-compatible' | 'anthropic'
 
 export interface AIProvider {
