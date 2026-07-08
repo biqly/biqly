@@ -72,6 +72,7 @@ type Runtime struct {
 	registry *Registry
 	store    StateStore
 	metrics  *observability.Metrics
+	stepHook func(RuntimeStep)
 }
 
 // NewRuntime builds a Runtime backed by planner, registry, and store.
@@ -85,6 +86,24 @@ func NewRuntime(planner Planner, registry *Registry, store StateStore) *Runtime 
 // convention.
 func (rt *Runtime) SetMetrics(m *observability.Metrics) {
 	rt.metrics = m
+}
+
+// SetStepHook installs fn as the callback invoked, synchronously and in
+// order, every time a RuntimeStep's persisted state changes: once right
+// after a tool proposal is recorded (before dispatch — observers see a
+// "started" step), and again after its outcome is known (denied, failed, or
+// completed). This lets a caller (the web agent's SSE handler, T6) stream
+// steps live instead of waiting for Run to return the final state.
+// Optional: a nil hook (the default) is a no-op. fn must not block — it runs
+// on Run's own goroutine, so a slow hook stalls the run itself.
+func (rt *Runtime) SetStepHook(fn func(RuntimeStep)) {
+	rt.stepHook = fn
+}
+
+func (rt *Runtime) notifyStep(step RuntimeStep) {
+	if rt.stepHook != nil {
+		rt.stepHook(step)
+	}
 }
 
 // Run executes (or resumes) runID's bounded planning loop until it reaches a
@@ -217,6 +236,7 @@ func (rt *Runtime) runToolStep(
 	if err := rt.store.Save(ctx, runID, state); err != nil {
 		return state, true, fmt.Errorf("save runtime state before dispatch: %w", err)
 	}
+	rt.notifyStep(step)
 
 	dispatchStart := time.Now()
 	obs, err := rt.registry.Execute(ctx, run, *proposal)
@@ -229,9 +249,11 @@ func (rt *Runtime) runToolStep(
 			if serr := rt.store.Save(ctx, runID, state); serr != nil {
 				return state, true, fmt.Errorf("save runtime state after denial: %w", serr)
 			}
+			rt.notifyStep(state.Steps[idx])
 			return state, false, nil // let the planner see the denial and correct course
 		}
 		state.Steps[idx].Error = err.Error()
+		rt.notifyStep(state.Steps[idx])
 		final, ferr := rt.finalizeFail(ctx, runID, state, "tool_error", err.Error())
 		return final, true, ferr
 	}
@@ -242,6 +264,7 @@ func (rt *Runtime) runToolStep(
 	if err := rt.store.Save(ctx, runID, state); err != nil {
 		return state, true, fmt.Errorf("save runtime state after dispatch: %w", err)
 	}
+	rt.notifyStep(state.Steps[idx])
 	return state, false, nil
 }
 

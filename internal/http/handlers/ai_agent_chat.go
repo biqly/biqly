@@ -19,6 +19,7 @@ import (
 	"github.com/biqly/biqly/internal/config"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/security/pii"
 	"github.com/biqly/biqly/internal/toolcontract"
 )
 
@@ -69,7 +70,7 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	send, ok := newAgentSSESender(r.Context(), w)
+	send, heartbeat, ok := newAgentSSESender(r.Context(), w)
 	if !ok {
 		writeError(w, http.StatusInternalServerError, "streaming unsupported")
 		return
@@ -122,15 +123,16 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 	}
 	sendAgentEvent(send, "run_started", map[string]any{"run_id": runID})
 
-	state, err := h.runWebAgent(r.Context(), req, runID)
+	state, err := h.runWebAgent(r.Context(), req, runID, send, heartbeat)
 	if err != nil {
-		h.failWebAgentRun(r.Context(), runID, err)
+		// context.WithoutCancel: a client abort (T6 item 2) cancels
+		// r.Context(), but the run must still be durably marked failed
+		// rather than left stuck "running" forever — same reasoning as the
+		// concurrency-slot release above.
+		h.failWebAgentRun(context.WithoutCancel(r.Context()), runID, err)
 		sendAgentError(send, "runtime_error", err.Error())
 		sendAgentDone(send)
 		return
-	}
-	for _, step := range state.Steps {
-		sendAgentEvent(send, "step", webAgentStepEvent(step))
 	}
 	switch {
 	case state.Terminal != nil && state.Terminal.Final != nil:
@@ -208,9 +210,28 @@ func (h *AIHandler) failWebAgentRun(ctx context.Context, runID string, cause err
 	}
 }
 
-func (h *AIHandler) runWebAgent(ctx context.Context, req webAgentRequest, runID string) (agent.RuntimeState, error) {
+// webAgentHeartbeatInterval matches the design doc's SSE heartbeat cadence:
+// a comment frame every 15s keeps the gateway (and any other HTTP
+// intermediary) from treating a long planner/tool call as an idle
+// connection and closing it early — the same 1800s HTTPRoute timeout only
+// covers total request duration, not idle gaps.
+const webAgentHeartbeatInterval = 15 * time.Second
+
+// runWebAgent executes one run — the h.webAgentRunner test seam or, in
+// production, the real agent.Runtime — and streams its steps live over send
+// as they happen (T6 item 1) via streamAgentSteps, instead of buffering them
+// until the run finishes.
+func (h *AIHandler) runWebAgent(ctx context.Context, req webAgentRequest, runID string, send agentSSESender, heartbeat func()) (agent.RuntimeState, error) {
 	if h.webAgentRunner != nil {
-		return h.webAgentRunner(ctx, req, runID)
+		runner := h.webAgentRunner
+		return streamAgentSteps(ctx, send, heartbeat, webAgentHeartbeatInterval,
+			func(ctx context.Context, emit func(agent.RuntimeStep)) (agent.RuntimeState, error) {
+				state, err := runner(ctx, req, runID)
+				for _, step := range state.Steps {
+					emit(step)
+				}
+				return state, err
+			})
 	}
 	if h.webAgentDispatcher == nil {
 		return agent.RuntimeState{}, errors.New("web agent dispatcher is not configured")
@@ -228,10 +249,68 @@ func (h *AIHandler) runWebAgent(ctx context.Context, req webAgentRequest, runID 
 	planner := agent.NewProviderPlanner(provider)
 	webTools := agent.NewWebTools(h.webAgentDispatcher, req.Credential)
 	registry := agent.NewRegistry(&agent.PolicyEngine{}, webTools.All()...)
-	rt := agent.NewRuntime(planner, registry, &webAgentStateStore{repo: h.deps.MetaRepo})
-	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
-	defer cancel()
-	return rt.Run(ctx, h.webAgentRunContext(ctx, req), runID)
+	return streamAgentSteps(ctx, send, heartbeat, webAgentHeartbeatInterval,
+		func(ctx context.Context, emit func(agent.RuntimeStep)) (agent.RuntimeState, error) {
+			rt := agent.NewRuntime(planner, registry, &webAgentStateStore{repo: h.deps.MetaRepo})
+			rt.SetStepHook(emit)
+			ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
+			defer cancel()
+			return rt.Run(ctx, h.webAgentRunContext(ctx, req), runID)
+		})
+}
+
+// streamAgentSteps runs runFn on a background goroutine and relays every
+// step it emits to send as a live "step" SSE event, in order, from the
+// calling goroutine (the only goroutine that ever writes to send — runFn's
+// goroutine only ever pushes to the internal channel). While runFn is still
+// running, heartbeat fires every heartbeatEvery so a slow planner/tool call
+// never leaves the connection looking idle. runFn's ctx is exactly the ctx
+// passed in here: an already-canceled or later-canceled context propagates
+// straight through, relying on the runtime's own cancellation semantics to
+// make runFn return promptly — streamAgentSteps itself does not time out.
+func streamAgentSteps(
+	ctx context.Context,
+	send agentSSESender,
+	heartbeat func(),
+	heartbeatEvery time.Duration,
+	runFn func(ctx context.Context, emit func(agent.RuntimeStep)) (agent.RuntimeState, error),
+) (agent.RuntimeState, error) {
+	type runResult struct {
+		state agent.RuntimeState
+		err   error
+	}
+	stepCh := make(chan agent.RuntimeStep, 32)
+	resultCh := make(chan runResult, 1)
+	go func() {
+		state, err := runFn(ctx, func(step agent.RuntimeStep) {
+			select {
+			case stepCh <- step:
+			case <-ctx.Done():
+			}
+		})
+		close(stepCh)
+		resultCh <- runResult{state: state, err: err}
+	}()
+
+	ticker := time.NewTicker(heartbeatEvery)
+	defer ticker.Stop()
+	for {
+		select {
+		case step, ok := <-stepCh:
+			if !ok {
+				// runFn returned and closed stepCh: the result is already
+				// waiting (send happens strictly after close, in program
+				// order, on the same goroutine).
+				res := <-resultCh
+				return res.state, res.err
+			}
+			sendAgentEvent(send, "step", webAgentStepEvent(step))
+		case <-ticker.C:
+			if heartbeat != nil {
+				heartbeat()
+			}
+		}
+	}
 }
 
 func (h *AIHandler) webAgentRunContext(ctx context.Context, req webAgentRequest) agent.RunContext {
@@ -242,7 +321,7 @@ func (h *AIHandler) webAgentRunContext(ctx context.Context, req webAgentRequest)
 		DatasourceID:           req.DatasourceID,
 		Question:               firstNonEmpty(req.Message, req.ClarificationAnswer),
 		PriorTurns:             agentPriorTurns(req.PriorTurns),
-		AllowedTools:           webAgentAllowedTools(),
+		AllowedTools:           webAgentAllowedTools(pii.PrimaryRole(bimw.UserRoles(ctx))),
 		RetryBudget:            webAgentRetryBudget(),
 		DeploymentMode:         h.deps.Config.DeploymentMode,
 		Timeout:                cfg.Timeout,
@@ -275,15 +354,24 @@ func agentPriorTurns(in []priorTurnPayload) []agent.PriorTurn {
 	return out
 }
 
-func webAgentAllowedTools() []agent.ToolName {
-	return []agent.ToolName{
+// webAgentAllowedTools returns the role-narrowed tool allowlist (T6/T4:
+// "role-based allowlist (viewer vs analyst) from auth context"). This is a
+// cheap first gate mirroring /api/* RBAC — the HTTP middleware chain the
+// tools loop back through remains the authority — so an unrecognized or
+// empty role fails closed to the viewer set, same as pii.PrimaryRole's
+// documented default.
+func webAgentAllowedTools(role string) []agent.ToolName {
+	tools := []agent.ToolName{
 		agent.ToolWebListDatasources,
 		agent.ToolWebListModels,
 		agent.ToolWebRunQuestion,
-		agent.ToolWebRunLogicalQuery,
 		agent.ToolWebListSkills,
 		agent.ToolWebRunSkill,
 	}
+	if role == pii.RoleAnalyst || role == pii.RoleAdmin {
+		tools = append(tools, agent.ToolWebRunLogicalQuery)
+	}
+	return tools
 }
 
 func webAgentRetryBudget() map[agent.ToolName]int {
@@ -299,16 +387,21 @@ func webAgentRetryBudget() map[agent.ToolName]int {
 
 type agentSSESender func(string, any)
 
-func newAgentSSESender(ctx context.Context, w http.ResponseWriter) (agentSSESender, bool) {
+// newAgentSSESender returns the SSE event writer plus a heartbeat writer
+// that emits a bare SSE comment frame (a line starting with ':' — ignored by
+// every conforming SSE/EventSource parser, so it never becomes a spurious
+// "step"/"result" the client has to filter out) to keep the connection alive
+// during a long planner/tool call.
+func newAgentSSESender(ctx context.Context, w http.ResponseWriter) (send agentSSESender, heartbeat func(), ok bool) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		return nil, false
+		return nil, nil, false
 	}
-	return func(eventType string, payload any) {
+	send = func(eventType string, payload any) {
 		if eventType == "done" {
 			_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 			flusher.Flush()
@@ -329,7 +422,12 @@ func newAgentSSESender(ctx context.Context, w http.ResponseWriter) (agentSSESend
 		}
 		_, _ = fmt.Fprintf(w, "data: %s\n\n", raw)
 		flusher.Flush()
-	}, true
+	}
+	heartbeat = func() {
+		_, _ = fmt.Fprint(w, ": heartbeat\n\n")
+		flusher.Flush()
+	}
+	return send, heartbeat, true
 }
 
 func sendAgentEvent(send agentSSESender, eventType string, payload map[string]any) {
@@ -374,9 +472,18 @@ type webAgentStateStore struct {
 	repo *metadata.Repository
 }
 
+// spendChecker is the subset of *ai.SpendLimiter that spendLimitedProvider
+// needs. Narrowing to an interface (rather than depending on the concrete
+// Redis-backed type directly) lets tests inject a fake that forces a
+// rejection deterministically, without a real Redis instance.
+type spendChecker interface {
+	Check(ctx context.Context, workspace string) error
+	Record(ctx context.Context, workspace string, tokens int)
+}
+
 type spendLimitedProvider struct {
 	next      providerpkg.Provider
-	limiter   *ai.SpendLimiter
+	limiter   spendChecker
 	workspace string
 }
 

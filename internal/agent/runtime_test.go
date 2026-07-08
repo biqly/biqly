@@ -428,6 +428,70 @@ func TestUnmarshalStateEmptyIsZeroValue(t *testing.T) {
 	assert.Equal(t, RuntimeState{}, got)
 }
 
+// TestRuntimeStepHookObservesStartedThenCompleted proves the live event sink
+// (T6 item 1): SetStepHook fires once when a tool proposal is persisted
+// (Observation still nil — a "started" event) and once more after the
+// outcome is known (Observation set — a "completed" event), in that order,
+// synchronously as Run executes rather than only after Run returns.
+func TestRuntimeStepHookObservesStartedThenCompleted(t *testing.T) {
+	fake := &fakeCatalogResolver{result: []CatalogEntity{{Table: "orders"}}}
+	registry := NewRegistry(&PolicyEngine{}, NewCatalogTool(fake))
+	run := runtimeTestRun()
+	planner := &scriptedPlanner{decisions: []PlannerDecision{
+		toolDecision(ToolCatalog, identityJSON(run)),
+		finalDecision("42"),
+	}}
+	store := newFakeStateStore()
+	rt := NewRuntime(planner, registry, store)
+
+	var seen []RuntimeStep
+	rt.SetStepHook(func(step RuntimeStep) {
+		// Deep-copy so a later mutation of the shared underlying step (the
+		// runtime reuses state.Steps[idx] in place) cannot retroactively
+		// change what this test already observed.
+		seen = append(seen, step)
+	})
+
+	state, err := rt.Run(context.Background(), run, "run-hook-1")
+	require.NoError(t, err)
+	require.NotNil(t, state.Terminal)
+
+	require.Len(t, seen, 2, "one 'started' event and one 'completed' event")
+	assert.Nil(t, seen[0].Observation, "first event fires before dispatch")
+	assert.Equal(t, 1, seen[0].Seq)
+	assert.NotNil(t, seen[1].Observation, "second event fires after the outcome is known")
+	assert.Equal(t, 1, seen[1].Seq)
+}
+
+// TestRuntimeStepHookObservesDenial proves a policy-denied step is also
+// surfaced live: a "started" event (proposal persisted, pre-dispatch) then a
+// second event once the policy denial is known (DeniedReason set).
+func TestRuntimeStepHookObservesDenial(t *testing.T) {
+	fake := &fakeCatalogResolver{result: []CatalogEntity{{Table: "orders"}}}
+	registry := NewRegistry(&PolicyEngine{}, NewCatalogTool(fake))
+	run := runtimeTestRun()
+	run.AllowedTools = []ToolName{ToolSemantic, ToolCatalog}
+	planner := &scriptedPlanner{decisions: []PlannerDecision{
+		toolDecision(ToolQueryExecute, identityJSON(run)), // not allowlisted -> denied
+		toolDecision(ToolCatalog, identityJSON(run)),
+		finalDecision("corrected"),
+	}}
+	store := newFakeStateStore()
+	rt := NewRuntime(planner, registry, store)
+
+	var seen []RuntimeStep
+	rt.SetStepHook(func(step RuntimeStep) {
+		seen = append(seen, step)
+	})
+
+	_, err := rt.Run(context.Background(), run, "run-hook-2")
+	require.NoError(t, err)
+
+	require.GreaterOrEqual(t, len(seen), 2)
+	assert.Empty(t, seen[0].DeniedReason, "first event is the pre-dispatch 'started' step")
+	assert.Equal(t, ReasonToolNotAllowlisted, seen[1].DeniedReason, "second event carries the policy denial")
+}
+
 func TestRuntimePersistsBeforeAndAfterEveryExternalCall(t *testing.T) {
 	fake := &fakeCatalogResolver{result: []CatalogEntity{{Table: "orders"}}}
 	registry := NewRegistry(&PolicyEngine{}, NewCatalogTool(fake))

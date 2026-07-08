@@ -3,7 +3,7 @@ ifndef .FEATURES
 $(error This Makefile requires GNU Make. On macOS: brew install make && gmake <target>)
 endif
 
-.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai watch debug-watch dev-frontend test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit setup-githooks semgrep-scan vet govulncheck verify-main helm-deps helm-lint helm-template helm-assert-agent helm-upgrade-prod helm-upgrade-prag helm-status helm-history helm-bump-tags clean migrate-up migrate-test-up migrate-down docker-up docker-down dev-up dev-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai watch debug-watch dev-frontend test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit setup-githooks semgrep-scan vet govulncheck verify-main helm-deps helm-lint helm-template helm-assert-agent helm-assert-web-agent-route helm-upgrade-prod helm-upgrade-prag helm-status helm-history helm-bump-tags clean migrate-up migrate-test-up migrate-down docker-up docker-down dev-up dev-down seed-adventureworks
 
 # air provides Go live-reload (rebuild + restart on .go save). Pinned via
 # `go run` so no global install is required (first run downloads it).
@@ -209,6 +209,9 @@ helm-template: helm-deps
 
 helm-assert-agent: helm-template
 	@./scripts/assert-agent-helm.sh /tmp/biqly-helm-template.yaml
+
+helm-assert-web-agent-route: helm-template
+	@./scripts/assert-web-agent-route-helm.sh /tmp/biqly-helm-template.yaml
 
 helm-bump-tags:
 	@chmod +x scripts/helm-bump-tags.sh
