@@ -148,6 +148,19 @@ export default function AIQuery() {
   const [jobError, setJobError] = useState<string | null>(null)
   const [aiElapsedMs, setAiElapsedMs] = useState(0)
   const [isConversationsExpanded, setIsConversationsExpanded] = useState(false)
+  // Tracks the in-flight Agent Mode SSE stream (if any) so it can be aborted
+  // on unmount/navigation or when a new turn supersedes it. A ref (not
+  // state) because it's plumbing for cleanup/cancellation, not something a
+  // render depends on — mirrors the embedding-fetch effects' per-effect
+  // AbortController below, just held across the async sendQuery call instead
+  // of a single effect.
+  const agentStreamAbortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => {
+      agentStreamAbortRef.current?.abort()
+    }
+  }, [])
 
   // Derive the clarification round from the conversation itself so it survives
   // page refreshes and conversation switches.
@@ -498,6 +511,14 @@ export default function AIQuery() {
     if (agentModeEnabled) {
       addMessage({ role: 'user', content: q }, convId, conversationScope)
       setQuestion('')
+      // A new send supersedes any still-in-flight previous stream. The
+      // composer's textarea already disables resubmission while queryAction
+      // is set, but this is a cheap guard against overlapping streams from
+      // any other trigger path, and keeps exactly one AbortController alive
+      // at a time for the unmount cleanup above to target.
+      agentStreamAbortRef.current?.abort()
+      const controller = new AbortController()
+      agentStreamAbortRef.current = controller
       try {
         const agentRequest: AgentChatRequest = {
           message: q,
@@ -509,6 +530,7 @@ export default function AIQuery() {
         }
         const outcome = await runAgentModeTurn(agentRequest, {
           token: accessToken ?? undefined,
+          signal: controller.signal,
           clarificationFallback: t('ai_query.agent_clarification_fallback'),
           genericErrorMessage: t('ai_query.err_agent_stream'),
         })
@@ -528,8 +550,13 @@ export default function AIQuery() {
         } else if (outcome.kind === 'error') {
           setJobError(outcome.message)
         }
+        // outcome.kind === 'none' covers a clean abort (unmount, or being
+        // superseded above) — intentionally silent, no error surfaced.
       } finally {
         setQueryAction(null)
+        if (agentStreamAbortRef.current === controller) {
+          agentStreamAbortRef.current = null
+        }
       }
       return
     }

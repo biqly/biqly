@@ -151,6 +151,36 @@ describe('runAgentModeTurn', () => {
     expect(outcome).toEqual({ kind: 'error', message: 'generic error message' })
   })
 
+  it('resolves silently to "none" (no error) when the stream throws after the caller aborted it', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    const abortError = new DOMException('The user aborted a request.', 'AbortError')
+    const stream = throwingStream(abortError)
+
+    const outcome = await runAgentModeTurn(baseRequest, {
+      signal: controller.signal,
+      clarificationFallback: 'fallback',
+      genericErrorMessage: 'generic error message',
+      stream,
+    })
+
+    expect(outcome).toEqual({ kind: 'none' })
+  })
+
+  it('still surfaces an error outcome for a thrown failure when the signal was never aborted', async () => {
+    const controller = new AbortController()
+    const stream = throwingStream(new Error('HTTP 500'))
+
+    const outcome = await runAgentModeTurn(baseRequest, {
+      signal: controller.signal,
+      clarificationFallback: 'fallback',
+      genericErrorMessage: 'generic',
+      stream,
+    })
+
+    expect(outcome).toEqual({ kind: 'error', message: 'HTTP 500' })
+  })
+
   it('resolves to "none" when the stream ends without a terminal event', async () => {
     const stream = fakeStream([{ type: 'run_started', run_id: 'run-4' }])
 

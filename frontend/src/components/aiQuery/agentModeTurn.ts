@@ -58,6 +58,15 @@ export async function runAgentModeTurn(
     }
     return { kind: 'none' }
   } catch (err) {
+    // An intentional abort (unmount, or a new turn superseding this one) is
+    // not a user-facing error — the caller's AbortController set the signal
+    // itself, so `aborted` is the authoritative signal here rather than
+    // sniffing `err.name === 'AbortError'` (DOMException isn't reliably
+    // `instanceof Error` across environments). Resolve silently as 'none',
+    // which AIQuery.tsx's sendQuery already ignores.
+    if (options.signal?.aborted) {
+      return { kind: 'none' }
+    }
     return {
       kind: 'error',
       message: err instanceof Error ? err.message : options.genericErrorMessage,
