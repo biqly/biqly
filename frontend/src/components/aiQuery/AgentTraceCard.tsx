@@ -23,6 +23,12 @@ import { RunTracePanel } from './RunTrace'
 // must not change that shared, already-tested behavior. Once the run
 // reaches a terminal result/error, ChatPanel stops rendering this card and
 // the real persisted assistant message (via addMessage) takes over.
+//
+// role="status" (T12): a purely visual "steps streaming in" experience is
+// otherwise inaccessible to a screen-reader user — mirrors ChatPanel's own
+// TypingIndicator, which wraps the same kind of ephemeral assistant-turn
+// bubble in role="status" for the identical reason (implicit aria-live=
+// "polite" announces each update without stealing focus).
 export function AgentTraceCard({
   steps,
   clarification,
@@ -40,7 +46,11 @@ export function AgentTraceCard({
     return null
   }
   return (
-    <div className={cn(chatMsgClass, chatMsgAssistantClass)} data-testid="agent-trace-card">
+    <div
+      className={cn(chatMsgClass, chatMsgAssistantClass)}
+      data-testid="agent-trace-card"
+      role="status"
+    >
       <span className={chatMsgAvatarClass} aria-hidden="true">
         ✦
       </span>

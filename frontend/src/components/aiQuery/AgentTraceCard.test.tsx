@@ -155,6 +155,19 @@ describe('AgentTraceCard', () => {
     expect(screen.queryByText('ai_query.agent_clarification_free_text_hint')).toBeNull()
   })
 
+  it('marks itself as a live region so step/clarification updates are announced to screen readers', () => {
+    render(
+      <AgentTraceCard
+        steps={[step({ seq: 1, kind: 'list_models', status: 'running' })]}
+        clarification={null}
+        onSelectClarificationChoice={vi.fn()}
+        onSkipClarification={vi.fn()}
+        t={identityT}
+      />,
+    )
+    expect(screen.getByTestId('agent-trace-card').getAttribute('role')).toBe('status')
+  })
+
   it('keeps showing the trace panel alongside a clarification card in the same slot', () => {
     render(
       <AgentTraceCard
