@@ -580,15 +580,15 @@ func TestWebAgentRunContextAppliesRoleFromAuthContext(t *testing.T) {
 	req := webAgentRequest{Message: "show revenue", DatasourceID: "ds-1"}
 
 	viewerCtx := bimw.WithUserRoles(context.Background(), []string{"viewer"})
-	viewerRun := h.webAgentRunContext(viewerCtx, req, nil)
+	viewerRun := h.webAgentRunContext(viewerCtx, req, webAgentResumeInfo{})
 	assert.NotContains(t, viewerRun.AllowedTools, agent.ToolWebRunLogicalQuery)
 
 	analystCtx := bimw.WithUserRoles(context.Background(), []string{"analyst"})
-	analystRun := h.webAgentRunContext(analystCtx, req, nil)
+	analystRun := h.webAgentRunContext(analystCtx, req, webAgentResumeInfo{})
 	assert.Contains(t, analystRun.AllowedTools, agent.ToolWebRunLogicalQuery)
 
 	// No roles at all (e.g. a claim-less identity) fails closed to viewer.
-	noRoleRun := h.webAgentRunContext(context.Background(), req, nil)
+	noRoleRun := h.webAgentRunContext(context.Background(), req, webAgentResumeInfo{})
 	assert.NotContains(t, noRoleRun.AllowedTools, agent.ToolWebRunLogicalQuery)
 }
 
@@ -829,7 +829,9 @@ func TestWebAgentChatResumeRejectsDifferentUser(t *testing.T) {
 // TestResumeWebAgentRunLoadsPendingClarificationForPlanner is a focused unit
 // test on resumeWebAgentRun itself: it must resolve the persisted
 // PendingClarification's question plus the request's answer into a
-// ClarificationExchange the planner prompt can render.
+// ClarificationExchange the planner prompt can render, AND (T8 review
+// finding 1) return the run's ORIGINAL question — not the clarification
+// answer — for the caller to thread into RunContext.Question.
 func TestResumeWebAgentRunLoadsPendingClarificationForPlanner(t *testing.T) {
 	db, state := setupMockDB(t)
 	state.queries = []queryMock{
@@ -840,7 +842,7 @@ func TestResumeWebAgentRunLoadsPendingClarificationForPlanner(t *testing.T) {
 	h := newAIHandlerWithRepo(metadata.NewRepository(db))
 
 	ctx := bimw.WithUserID(context.Background(), "user-1")
-	runID, prior, err := h.resumeWebAgentRun(ctx, webAgentRequest{
+	runID, resume, err := h.resumeWebAgentRun(ctx, webAgentRequest{
 		ResumeRunID:         "run-1",
 		DatasourceID:        "ds-1",
 		ClarificationAnswer: "net_revenue",
@@ -848,9 +850,61 @@ func TestResumeWebAgentRunLoadsPendingClarificationForPlanner(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "run-1", runID)
-	require.NotNil(t, prior)
-	assert.Equal(t, "which metric?", prior.Question)
-	assert.Equal(t, "net_revenue", prior.Answer)
+	// agentRunRowQueryMock persists the original question as "show revenue" —
+	// distinct from the clarification answer "net_revenue" below, so this
+	// assertion fails if OriginalQuestion were ever recomputed from the
+	// current request instead of the persisted run row.
+	assert.Equal(t, "show revenue", resume.OriginalQuestion)
+	require.Len(t, resume.ClarificationHistory, 1)
+	assert.Equal(t, "which metric?", resume.ClarificationHistory[0].Question)
+	assert.Equal(t, "net_revenue", resume.ClarificationHistory[0].Answer)
+}
+
+// TestResumeWebAgentRunAccumulatesClarificationHistoryAcrossTwoRounds is the
+// genuine 2-round data-flow test T8's review demanded: round 1's persisted
+// history (already containing Q1/A1, as if this were the second resume in a
+// real flow) plus round 2's own pending question/answer must BOTH surface in
+// the ClarificationHistory resumeWebAgentRun returns — round 1's resolution
+// must not be lost by the time round 2 resumes.
+func TestResumeWebAgentRunAccumulatesClarificationHistoryAcrossTwoRounds(t *testing.T) {
+	db, state := setupMockDB(t)
+	state.queries = []queryMock{
+		agentRunRowQueryMock("user-1"),
+		agentStepsQueryMock(),
+		agentRuntimeStateQueryMock(`{
+			"clarification_history":[{"Question":"which metric?","Answer":"net_revenue"}],
+			"pending_clarification":{"question":"which quarter?","options":["Q1","Q2"]}
+		}`),
+	}
+	h := newAIHandlerWithRepo(metadata.NewRepository(db))
+
+	ctx := bimw.WithUserID(context.Background(), "user-1")
+	runID, resume, err := h.resumeWebAgentRun(ctx, webAgentRequest{
+		ResumeRunID:         "run-1",
+		DatasourceID:        "ds-1",
+		ClarificationAnswer: "Q2",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "run-1", runID)
+	assert.Equal(t, "show revenue", resume.OriginalQuestion)
+	require.Len(t, resume.ClarificationHistory, 2, "round 1's Q1/A1 must survive alongside round 2's Q2/A2")
+	assert.Equal(t, "which metric?", resume.ClarificationHistory[0].Question)
+	assert.Equal(t, "net_revenue", resume.ClarificationHistory[0].Answer)
+	assert.Equal(t, "which quarter?", resume.ClarificationHistory[1].Question)
+	assert.Equal(t, "Q2", resume.ClarificationHistory[1].Answer)
+
+	// Chaining resumeWebAgentRun's output into webAgentRunContext (exactly as
+	// WebAgentChat does in production) must produce a RunContext whose
+	// Question is the ORIGINAL question, and whose ClarificationHistory
+	// carries both resolved rounds — not just the latest one.
+	runCtx := h.webAgentRunContext(ctx, webAgentRequest{
+		DatasourceID:        "ds-1",
+		ClarificationAnswer: "Q2",
+	}, resume)
+	assert.Equal(t, "show revenue", runCtx.Question)
+	require.Len(t, runCtx.ClarificationHistory, 2)
+	assert.Equal(t, "Q2", runCtx.ClarificationHistory[1].Answer)
 }
 
 // TestResumeWebAgentRunRejectsMismatchedDatasource proves the extra

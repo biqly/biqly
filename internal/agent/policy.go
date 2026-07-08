@@ -106,12 +106,14 @@ type RunContext struct {
 	// PriorTurns are recent conversation turns from the web chat request.
 	// Policy does not use them; the Planner does for follow-up inheritance.
 	PriorTurns []PriorTurn
-	// PriorClarification is set only when resuming a run that just paused on
-	// a clarification_required event: it carries the question that was asked
-	// and the user's answer, so the planner's next Decide call sees the
-	// round-trip instead of re-asking the same question. Policy does not use
-	// it; the Planner does (see internal/agent/provider_planner.go).
-	PriorClarification *ClarificationExchange
+	// ClarificationHistory is set only when resuming a run that has paused on
+	// one or more clarification_required events: it carries every round's
+	// question and the user's answer so far, oldest first, so the planner's
+	// next Decide call sees the FULL round-trip history (not just the most
+	// recent round) instead of re-asking a question it — or an earlier round
+	// — already has an answer for. Policy does not use it; the Planner does
+	// (see internal/agent/provider_planner.go).
+	ClarificationHistory []ClarificationExchange
 
 	// AllowedTools is the fixed tool allowlist for this run.
 	AllowedTools []ToolName

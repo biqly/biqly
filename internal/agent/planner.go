@@ -24,10 +24,12 @@ type Clarification struct {
 
 // ClarificationExchange carries one clarification round's question and the
 // user's answer into the planner's next Decide call, right after a resumed
-// run continues past a clarification_required pause. It is set on
-// RunContext.PriorClarification only for a resumed run; PolicyEngine does
-// not use it — only the planner prompt (provider_planner.go), so the model
-// doesn't re-ask a question it already has an answer for.
+// run continues past a clarification_required pause. RunContext.
+// ClarificationHistory carries the full accumulated list of these — every
+// round resolved so far, oldest first — across a multi-round resume chain,
+// not just the most recent one; PolicyEngine does not use it — only the
+// planner prompt (provider_planner.go), so the model doesn't re-ask a
+// question it already has an answer for.
 type ClarificationExchange struct {
 	Question string
 	Answer   string

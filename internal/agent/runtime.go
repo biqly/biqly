@@ -42,11 +42,20 @@ type RuntimeState struct {
 	// recently asked, set by runClarificationStep right before Run pauses.
 	// A caller resuming the run (T8: resume_run_id + clarification_answer)
 	// reads this to render the clarification_required SSE event's
-	// question/choices and to build the resumed RunContext.PriorClarification.
-	// Run clears it at the top of the next Run call — once a resume is in
-	// flight, the question is being addressed, so a stale value never
-	// lingers in persisted state past that point.
+	// question/choices and to pair it with the caller's answer into a new
+	// ClarificationExchange for RunContext.ClarificationHistory. Run clears
+	// it at the top of the next Run call — once a resume is in flight, the
+	// question is being addressed, so a stale value never lingers in
+	// persisted state past that point.
 	PendingClarification *Clarification `json:"pending_clarification,omitempty"`
+	// ClarificationHistory accumulates every clarification round resolved so
+	// far, oldest first: Run adopts run.ClarificationHistory (built by the
+	// caller from this same field plus the round it just resumed — see
+	// resumeWebAgentRun) as the new durable baseline at the top of each Run
+	// call, so a genuine multi-round flow (pause on Q1 -> resume with A1 ->
+	// pause on Q2 -> resume with A2) never loses round 1's Q1/A1 by the time
+	// round 2 resumes.
+	ClarificationHistory []ClarificationExchange `json:"clarification_history,omitempty"`
 }
 
 // toolStepCount returns how many steps in state proposed a tool call — the
@@ -141,6 +150,15 @@ func (rt *Runtime) Run(ctx context.Context, run RunContext, runID string) (Runti
 	// in persisted state once the loop moves past it (runClarificationStep
 	// sets a fresh one if the planner asks again).
 	state.PendingClarification = nil
+	// run.ClarificationHistory is the caller's up-to-date accumulated view
+	// (state's own prior history plus the round it just resumed with an
+	// answer — see resumeWebAgentRun). Adopting it here, before the loop
+	// starts, makes it the new durable baseline: it flows into every
+	// planner.Decide call via run, and survives to the next resume because
+	// every Save call below persists this same state value.
+	if len(run.ClarificationHistory) > 0 {
+		state.ClarificationHistory = run.ClarificationHistory
+	}
 
 	var deadline time.Time
 	if run.Timeout > 0 {

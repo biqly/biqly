@@ -53,12 +53,14 @@ type scriptedPlanner struct {
 	errs       []error
 	calls      int
 	gotHistory [][]RuntimeStep
+	gotRun     []RunContext
 }
 
 var errPlannerFailure = errors.New("planner failure")
 
-func (p *scriptedPlanner) Decide(_ context.Context, _ RunContext, history []RuntimeStep) (PlannerDecision, error) {
+func (p *scriptedPlanner) Decide(_ context.Context, run RunContext, history []RuntimeStep) (PlannerDecision, error) {
 	p.gotHistory = append(p.gotHistory, history)
+	p.gotRun = append(p.gotRun, run)
 	i := p.calls
 	p.calls++
 	if i < len(p.errs) && p.errs[i] != nil {
@@ -169,6 +171,67 @@ func TestRuntimeClarificationPauses(t *testing.T) {
 	require.NotNil(t, state.Terminal)
 	assert.Equal(t, "resumed", state.Terminal.Final.Answer)
 	assert.Nil(t, state.PendingClarification, "resuming past the clarification clears it")
+}
+
+// TestRuntimeAccumulatesClarificationHistoryAcrossTwoResumes is the genuine
+// 2-round flow T8 must support: round 1 pauses on Q1, is resumed with A1
+// (mirroring resumeWebAgentRun's job of pairing the persisted pending
+// question with the caller's answer and feeding the accumulated history
+// back in via RunContext), round 2 pauses on Q2 and is resumed with A2. It
+// proves round 1's Q1/A1 is never lost by the time round 2's planner call
+// happens — the exact gap RuntimeState.PendingClarification's single-field
+// overwrite used to create — and that RuntimeState.ClarificationHistory
+// durably accumulates both rounds across the persisted state.
+func TestRuntimeAccumulatesClarificationHistoryAcrossTwoResumes(t *testing.T) {
+	registry := NewRegistry(&PolicyEngine{}, NewCatalogTool(&fakeCatalogResolver{}))
+	run := runtimeTestRun()
+	store := newFakeStateStore()
+	planner := &scriptedPlanner{decisions: []PlannerDecision{clarificationDecision("which metric?")}}
+	rt := NewRuntime(planner, registry, store)
+
+	// Round 1: pause on Q1.
+	state, err := rt.Run(context.Background(), run, "run-accum")
+	require.NoError(t, err)
+	require.NotNil(t, state.PendingClarification)
+	assert.Equal(t, "which metric?", state.PendingClarification.Question)
+	assert.Empty(t, state.ClarificationHistory)
+
+	// Resume 1: caller pairs the persisted pending question with the user's
+	// answer (A1) and passes the accumulated history back via RunContext for
+	// round 2's planner call — this is resumeWebAgentRun's job in production.
+	run.ClarificationHistory = []ClarificationExchange{{Question: "which metric?", Answer: "net_revenue"}}
+	planner.decisions = append(planner.decisions, clarificationDecision("which quarter?"))
+	state, err = rt.Run(context.Background(), run, "run-accum")
+	require.NoError(t, err)
+	require.NotNil(t, state.PendingClarification)
+	assert.Equal(t, "which quarter?", state.PendingClarification.Question)
+	// Round 1's Q1/A1 must survive into the persisted state, not be
+	// overwritten by round 2's new pending question.
+	require.Len(t, state.ClarificationHistory, 1)
+	assert.Equal(t, "which metric?", state.ClarificationHistory[0].Question)
+	assert.Equal(t, "net_revenue", state.ClarificationHistory[0].Answer)
+	// Round 2's planner call must have seen round 1's Q1/A1.
+	require.Len(t, planner.gotRun, 2)
+	require.Len(t, planner.gotRun[1].ClarificationHistory, 1)
+	assert.Equal(t, "net_revenue", planner.gotRun[1].ClarificationHistory[0].Answer)
+
+	// Resume 2: round 2 resolves too — the caller now carries BOTH rounds.
+	run.ClarificationHistory = append(run.ClarificationHistory,
+		ClarificationExchange{Question: "which quarter?", Answer: "Q2"})
+	planner.decisions = append(planner.decisions, finalDecision("net revenue for Q2"))
+	state, err = rt.Run(context.Background(), run, "run-accum")
+	require.NoError(t, err)
+	require.NotNil(t, state.Terminal)
+	assert.Equal(t, "net revenue for Q2", state.Terminal.Final.Answer)
+	require.Len(t, state.ClarificationHistory, 2)
+	assert.Equal(t, "which quarter?", state.ClarificationHistory[1].Question)
+	assert.Equal(t, "Q2", state.ClarificationHistory[1].Answer)
+	// The FINAL planner call must have seen BOTH rounds' Q&A, not just the
+	// latest one.
+	require.Len(t, planner.gotRun, 3)
+	require.Len(t, planner.gotRun[2].ClarificationHistory, 2)
+	assert.Equal(t, "net_revenue", planner.gotRun[2].ClarificationHistory[0].Answer)
+	assert.Equal(t, "Q2", planner.gotRun[2].ClarificationHistory[1].Answer)
 }
 
 // TestRuntimeClarificationCarriesOptionsThroughPendingState proves the

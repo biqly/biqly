@@ -120,13 +120,13 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 	}
 	defer release(context.WithoutCancel(r.Context()))
 
-	runID, priorClarification, started := h.startOrResumeWebAgentRun(r.Context(), req, send)
+	runID, resume, started := h.startOrResumeWebAgentRun(r.Context(), req, send)
 	if !started {
 		return
 	}
 	sendAgentEvent(send, "run_started", map[string]any{"run_id": runID})
 
-	state, err := h.runWebAgent(r.Context(), req, runID, send, heartbeat, priorClarification)
+	state, err := h.runWebAgent(r.Context(), req, runID, send, heartbeat, resume)
 	if err != nil {
 		// context.WithoutCancel: a client abort (T6 item 2) cancels
 		// r.Context(), but the run must still be durably marked failed
@@ -228,6 +228,20 @@ func webAgentClarificationEvent(runID string, clarification *agent.Clarification
 	return event
 }
 
+// webAgentResumeInfo carries what a resumed run needs beyond req itself.
+// Both fields are zero-valued for a fresh (non-resumed) run.
+type webAgentResumeInfo struct {
+	// OriginalQuestion is run.Question as persisted at run creation (see
+	// createWebAgentRun) — the user's ORIGINAL ask, never recomputed from
+	// the resume request, which typically carries only clarification_answer
+	// and an empty message.
+	OriginalQuestion string
+	// ClarificationHistory is every clarification round resolved so far,
+	// oldest first, including the round this resume just answered. See
+	// resumeWebAgentRun.
+	ClarificationHistory []agent.ClarificationExchange
+}
+
 // resumeWebAgentRun loads a previously paused run for req.ResumeRunID and
 // identity-checks it before continuing: a run only resumes for the user who
 // created it (mirrors metadata.ConversationBelongsToUser's ownership check —
@@ -235,41 +249,43 @@ func webAgentClarificationEvent(runID string, clarification *agent.Clarification
 // request still carries a datasource_id, it must match the run's original
 // one too. Both failure modes collapse to errWebAgentResumeForbidden so a
 // caller cannot distinguish "wrong owner" from "run does not exist". The
-// returned ClarificationExchange (nil unless the run actually paused on a
-// clarification) lets the caller build the resumed RunContext so the planner
-// sees the question it asked and the user's answer.
-func (h *AIHandler) resumeWebAgentRun(ctx context.Context, req webAgentRequest) (string, *agent.ClarificationExchange, error) {
+// returned webAgentResumeInfo carries the run's ORIGINAL question (T8 review
+// finding: must not be recomputed from the resume request alone) plus the
+// full clarification history to date — the persisted history from earlier
+// rounds plus the round this resume just answered — so the caller can build
+// a resumed RunContext the planner has everything it needs from.
+func (h *AIHandler) resumeWebAgentRun(ctx context.Context, req webAgentRequest) (string, webAgentResumeInfo, error) {
 	if h == nil || h.deps == nil || h.deps.MetaRepo == nil {
-		return "", nil, errors.New("metadata repository is not configured")
+		return "", webAgentResumeInfo{}, errors.New("metadata repository is not configured")
 	}
 	run, _, err := h.deps.MetaRepo.GetAgentRun(ctx, req.ResumeRunID)
 	if err != nil {
 		if errors.Is(err, metadata.ErrAgentRunNotFound) {
-			return "", nil, errWebAgentResumeForbidden
+			return "", webAgentResumeInfo{}, errWebAgentResumeForbidden
 		}
-		return "", nil, err
+		return "", webAgentResumeInfo{}, err
 	}
 	if run.UserID != bimw.UserID(ctx) || (req.DatasourceID != "" && run.DatasourceID != req.DatasourceID) {
-		return "", nil, errWebAgentResumeForbidden
+		return "", webAgentResumeInfo{}, errWebAgentResumeForbidden
 	}
 	state, ok, err := (&webAgentStateStore{repo: h.deps.MetaRepo}).Load(ctx, req.ResumeRunID)
 	if err != nil {
-		return "", nil, err
+		return "", webAgentResumeInfo{}, err
 	}
 	if !ok {
-		return "", nil, errWebAgentResumeForbidden
+		return "", webAgentResumeInfo{}, errWebAgentResumeForbidden
 	}
 	if state.Terminal != nil {
-		return "", nil, agent.ErrRunAlreadyTerminal
+		return "", webAgentResumeInfo{}, agent.ErrRunAlreadyTerminal
 	}
-	var prior *agent.ClarificationExchange
+	history := slices.Clone(state.ClarificationHistory)
 	if state.PendingClarification != nil {
-		prior = &agent.ClarificationExchange{
+		history = append(history, agent.ClarificationExchange{
 			Question: state.PendingClarification.Question,
 			Answer:   req.ClarificationAnswer,
-		}
+		})
 	}
-	return run.ID, prior, nil
+	return run.ID, webAgentResumeInfo{OriginalQuestion: run.Question, ClarificationHistory: history}, nil
 }
 
 // startOrResumeWebAgentRun creates a new run, or — when req.ResumeRunID is
@@ -277,18 +293,18 @@ func (h *AIHandler) resumeWebAgentRun(ctx context.Context, req webAgentRequest) 
 // (and closing the stream) itself on any failure. started reports whether
 // the caller should continue; on false, WebAgentChat must return
 // immediately without sending anything else.
-func (h *AIHandler) startOrResumeWebAgentRun(ctx context.Context, req webAgentRequest, send agentSSESender) (runID string, priorClarification *agent.ClarificationExchange, started bool) {
+func (h *AIHandler) startOrResumeWebAgentRun(ctx context.Context, req webAgentRequest, send agentSSESender) (runID string, resume webAgentResumeInfo, started bool) {
 	if req.ResumeRunID == "" {
 		runID, err := h.createWebAgentRun(ctx, req)
 		if err != nil {
 			slog.WarnContext(ctx, "create web agent run failed", "error", err)
 			sendAgentError(send, "run_create_failed", "could not create agent run")
 			sendAgentDone(send)
-			return "", nil, false
+			return "", webAgentResumeInfo{}, false
 		}
-		return runID, nil, true
+		return runID, webAgentResumeInfo{}, true
 	}
-	runID, priorClarification, err := h.resumeWebAgentRun(ctx, req)
+	runID, resume, err := h.resumeWebAgentRun(ctx, req)
 	if err != nil {
 		switch {
 		case errors.Is(err, errWebAgentResumeForbidden):
@@ -300,9 +316,9 @@ func (h *AIHandler) startOrResumeWebAgentRun(ctx context.Context, req webAgentRe
 			sendAgentError(send, "run_resume_failed", "could not resume agent run")
 		}
 		sendAgentDone(send)
-		return "", nil, false
+		return "", webAgentResumeInfo{}, false
 	}
-	return runID, priorClarification, true
+	return runID, resume, true
 }
 
 func (h *AIHandler) createWebAgentRun(ctx context.Context, req webAgentRequest) (string, error) {
@@ -361,7 +377,7 @@ const webAgentHeartbeatInterval = 15 * time.Second
 // production, the real agent.Runtime — and streams its steps live over send
 // as they happen (T6 item 1) via streamAgentSteps, instead of buffering them
 // until the run finishes.
-func (h *AIHandler) runWebAgent(ctx context.Context, req webAgentRequest, runID string, send agentSSESender, heartbeat func(), priorClarification *agent.ClarificationExchange) (agent.RuntimeState, error) {
+func (h *AIHandler) runWebAgent(ctx context.Context, req webAgentRequest, runID string, send agentSSESender, heartbeat func(), resume webAgentResumeInfo) (agent.RuntimeState, error) {
 	if h.webAgentRunner != nil {
 		runner := h.webAgentRunner
 		return streamAgentSteps(ctx, send, heartbeat, webAgentHeartbeatInterval,
@@ -395,7 +411,7 @@ func (h *AIHandler) runWebAgent(ctx context.Context, req webAgentRequest, runID 
 			rt.SetStepHook(emit)
 			ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 			defer cancel()
-			return rt.Run(ctx, h.webAgentRunContext(ctx, req, priorClarification), runID)
+			return rt.Run(ctx, h.webAgentRunContext(ctx, req, resume), runID)
 		})
 }
 
@@ -453,15 +469,20 @@ func streamAgentSteps(
 	}
 }
 
-func (h *AIHandler) webAgentRunContext(ctx context.Context, req webAgentRequest, priorClarification *agent.ClarificationExchange) agent.RunContext {
+func (h *AIHandler) webAgentRunContext(ctx context.Context, req webAgentRequest, resume webAgentResumeInfo) agent.RunContext {
 	cfg := normalizeWebAgentConfig(h.deps.Config.WebAgent)
 	return agent.RunContext{
-		TenantID:               bimw.WorkspaceID(ctx),
-		UserID:                 bimw.UserID(ctx),
-		DatasourceID:           req.DatasourceID,
-		Question:               firstNonEmpty(req.Message, req.ClarificationAnswer),
+		TenantID:     bimw.WorkspaceID(ctx),
+		UserID:       bimw.UserID(ctx),
+		DatasourceID: req.DatasourceID,
+		// resume.OriginalQuestion (the run's ORIGINAL question, persisted at
+		// creation) takes priority over the current request's message/answer:
+		// on a real resume, req.Message is typically empty and
+		// req.ClarificationAnswer is just the answer text, neither of which
+		// is the original ask the planner needs to keep pursuing.
+		Question:               firstNonEmpty(resume.OriginalQuestion, req.Message, req.ClarificationAnswer),
 		PriorTurns:             agentPriorTurns(req.PriorTurns),
-		PriorClarification:     priorClarification,
+		ClarificationHistory:   resume.ClarificationHistory,
 		AllowedTools:           webAgentAllowedTools(pii.PrimaryRole(bimw.UserRoles(ctx))),
 		RetryBudget:            webAgentRetryBudget(),
 		DeploymentMode:         h.deps.Config.DeploymentMode,
