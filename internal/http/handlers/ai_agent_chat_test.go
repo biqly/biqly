@@ -201,6 +201,72 @@ func TestWebAgentChatStreamsRunStartedStepAndResult(t *testing.T) {
 	assert.Equal(t, "run_started", event["type"])
 }
 
+// TestWebAgentChatPersistsStepsOnCompletedRun proves the design doc's
+// "Full fidelity persists in agent_steps as today" commitment holds for the
+// web agent path too: a completed run's step trace must land in agent_steps
+// via ReplaceAgentSteps (matching the legacy job pipeline's persistAgentRun),
+// not just the JSON state blob webAgentStateStore.Save writes into
+// agent_runs — otherwise a page reload / GET run-by-id after the SSE stream
+// ends would show no steps for a web agent run.
+func TestWebAgentChatPersistsStepsOnCompletedRun(t *testing.T) {
+	db, state := setupMockDB(t)
+	state.queries = []queryMock{
+		{
+			Pattern: "INSERT INTO agent_runs",
+			Cols:    []string{"id"},
+			Rows:    [][]driver.Value{{"run-1"}},
+		},
+	}
+	state.execs = []execMock{
+		{Pattern: "DELETE FROM agent_steps", RowsAffected: 1},
+		{Pattern: "INSERT INTO agent_steps", RowsAffected: 1},
+	}
+	h := newAIHandlerWithRepo(metadata.NewRepository(db))
+	h.deps.Config.WebAgent = config.WebAgentConfig{Enabled: true, MaxSteps: 6, MaxClarificationRounds: 2}
+	h.webAgentLimiter = &fakeWebAgentLimiter{}
+	h.webAgentRunner = func(_ context.Context, _ webAgentRequest, _ string) (agent.RuntimeState, error) {
+		return agent.RuntimeState{
+			Steps: []agent.RuntimeStep{{
+				Seq: 1,
+				Proposal: agent.Proposal{
+					Tool:      agent.ToolWebListModels,
+					Arguments: []byte(`{"datasource_id":"ds-1"}`),
+				},
+				Observation: &agent.Observation{Tool: agent.ToolWebListModels, Payload: []byte(`{"models":[]}`)},
+			}},
+			Terminal: &agent.TerminalResult{
+				Kind:  agent.DecisionFinal,
+				Final: &agent.FinalResponse{Answer: "done", Confidence: 0.9},
+			},
+		}, nil
+	}
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/agent/chat", strings.NewReader(`{
+		"message":"show revenue",
+		"datasource_id":"ds-1"
+	}`))
+	ctx := bimw.WithUserID(req.Context(), "user-1")
+	ctx = bimw.WithWorkspaceID(ctx, "workspace-1")
+	rec := httptest.NewRecorder()
+
+	h.WebAgentChat(rec, req.WithContext(ctx))
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	del := findCall(state.calls, "DELETE FROM agent_steps")
+	require.NotNil(t, del, "expected the completed run's steps to be replaced")
+	require.Len(t, del.Args, 1)
+	assert.Equal(t, "run-1", del.Args[0])
+
+	ins := findCall(state.calls, "INSERT INTO agent_steps")
+	require.NotNil(t, ins, "expected the single recorded step to be persisted")
+	require.Len(t, ins.Args, 7)
+	assert.Equal(t, "run-1", ins.Args[0])
+	assert.EqualValues(t, 1, ins.Args[1], "seq")
+	assert.Equal(t, string(agent.ToolWebListModels), ins.Args[2], "kind")
+	assert.Equal(t, "ok", ins.Args[3], "status")
+}
+
 // TestWebAgentChatClientCancelAbandonsRunCleanly proves the client-abort path
 // (T6 item 2): canceling the request context mid-run must unblock the
 // in-flight runner via the runtime's existing cancellation semantics, mark

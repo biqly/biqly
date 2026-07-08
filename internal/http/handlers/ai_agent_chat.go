@@ -137,6 +137,10 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case state.Terminal != nil && state.Terminal.Final != nil:
 		result := h.composeWebAgentFinalResult(r.Context(), req, runID, state)
+		// context.WithoutCancel: same reasoning as failWebAgentRun above — a
+		// client abort must not stop the already-completed run's step trace
+		// from being durably persisted.
+		h.persistWebAgentSteps(context.WithoutCancel(r.Context()), runID, result)
 		sendAgentEvent(send, "result", map[string]any{
 			"run_id":     runID,
 			"answer":     result.Result.Answer,
@@ -201,6 +205,26 @@ func (h *AIHandler) createWebAgentRun(ctx context.Context, req webAgentRequest) 
 		Mode:           webAgentMode,
 		Status:         metadata.AgentRunStatusRunning,
 	})
+}
+
+// persistWebAgentSteps durably records a completed web agent run's step
+// trace in agent_steps, mirroring the legacy job pipeline's persistAgentRun
+// (ai_agent_run.go), so a web agent run's steps are queryable after the SSE
+// stream ends (page reload, GET run-by-id) exactly like a legacy pipeline
+// run's steps are today (design doc commitment: "Full fidelity persists in
+// agent_steps as today"). Best-effort: any error only logs a warning and
+// never fails the already-completed run. resp is the ai.Response built by
+// composeWebAgentFinalResult, whose Metadata.RunSteps is exactly the shape
+// agentStepsFromResponse converts.
+func (h *AIHandler) persistWebAgentSteps(ctx context.Context, runID string, resp *ai.Response) {
+	if h == nil || h.deps == nil || h.deps.MetaRepo == nil || resp == nil {
+		return
+	}
+	if steps := agentStepsFromResponse(resp); len(steps) > 0 {
+		if err := h.deps.MetaRepo.ReplaceAgentSteps(ctx, runID, steps); err != nil {
+			slog.WarnContext(ctx, "persist web agent steps failed", "run_id", runID, "error", err)
+		}
+	}
 }
 
 func (h *AIHandler) failWebAgentRun(ctx context.Context, runID string, cause error) {
