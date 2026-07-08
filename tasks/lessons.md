@@ -65,7 +65,7 @@ Run `npx prettier --check` (or `npm --prefix frontend run format:check`) on ever
 
 For generated OpenAPI specs, use `zaproxy/action-api-scan`, not `zaproxy/action-baseline` or `zaproxy/action-full-scan`. The baseline/full scripts do not accept OpenAPI flags; `-openapifile` fails as `Invalid option o`, while `-configfile` is for scan rules and can be mangled into a missing `/zap/wrk/onfigfile` path before any report is produced.
 
-**Rule**: For passive OpenAPI scans, run `action-api-scan` with `target: openapi.json`, `format: openapi`, and `cmd_options: -S -O <target-url>`. For active OpenAPI scans, use the same action without `-S`. Use `rules_file_name` only for ZAP rules TSV files.
+**Rule**: For passive OpenAPI scans, run `action-api-scan` with `target: /zap/wrk/openapi.json`, `format: openapi`, and `cmd_options: -S -I -O <target-url>`. The `/zap/wrk` prefix matches the action's Docker volume mount; a bare `openapi.json` can fail inside ZAP as `DOES_NOT_EXIST (/zap/wrk/openapi.json)`. The generated spec must be world-readable (`0644`), because the ZAP container reads it as the `zap` user. For active OpenAPI scans, use the same action without `-S` but keep `-I` if the workflow should report warnings without failing. Use `rules_file_name` only for ZAP rules TSV files.
 
 
 Use Go's built-in `min` / `max` for simple clamps and two-value comparisons, such as `chunk = min(chunk, len(encoded))`. Keep explicit `if` statements when branches have side effects, extra logic, or clearer domain meaning.

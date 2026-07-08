@@ -47,9 +47,9 @@ jobs:
       - name: ZAP Full Scan
         uses: zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d # v0.10.0
         with:
-          target: openapi.json
+          target: /zap/wrk/openapi.json
           format: openapi
-          cmd_options: -O ${{ env.TARGET }}
+          cmd_options: -I -O ${{ env.TARGET }}
           allow_issue_writing: false
           fail_action: false
 
