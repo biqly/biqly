@@ -1,5 +1,5 @@
 # Auth service image: ships the runtime binary plus the auth migration binary.
-FROM golang:1.26.4-alpine AS builder
+FROM golang:1.26.5-alpine AS builder
 
 RUN apk --no-cache add ca-certificates
 

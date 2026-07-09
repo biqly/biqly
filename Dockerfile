@@ -1,6 +1,6 @@
 # Multi-binary build: SERVICE selects which directory under cmd/ to compile.
 # Defaults to "api"; pass --build-arg SERVICE=migrate (or worker) to build the others.
-FROM golang:1.26.4-alpine AS builder
+FROM golang:1.26.5-alpine AS builder
 
 RUN apk --no-cache add ca-certificates
 
