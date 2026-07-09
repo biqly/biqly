@@ -123,6 +123,21 @@ func (r *StatusRecorder) Status() int {
 	return r.status
 }
 
+// Flush delegates to the wrapped ResponseWriter's http.Flusher, if it has one.
+// Embedding http.ResponseWriter as an interface field only promotes that
+// interface's own methods (Header/Write/WriteHeader) — it does NOT promote
+// Flush from the underlying concrete writer, so without this method a
+// *StatusRecorder silently fails the w.(http.Flusher) check every SSE/
+// streaming handler relies on, even though the real ResponseWriter beneath it
+// supports flushing. Any middleware in this codebase that wraps a
+// ResponseWriter in a StatusRecorder — e.g. HTTPMetricsMiddleware, which is
+// applied to every request — must not break streaming responses.
+func (r *StatusRecorder) Flush() {
+	if f, ok := r.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 // WriteOK writes a JSON success response of the form {"status": "ok"} with status 200 OK.
 func WriteOK(w http.ResponseWriter) {
 	WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})

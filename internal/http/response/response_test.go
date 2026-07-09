@@ -126,6 +126,30 @@ func TestStatusRecorder(t *testing.T) {
 	}
 }
 
+// TestStatusRecorderImplementsFlusher guards against a regression that broke
+// every streaming (SSE) endpoint in production: HTTPMetricsMiddleware wraps
+// every request's ResponseWriter in a StatusRecorder, and any handler that
+// does w.(http.Flusher) to stream (e.g. newAgentSSESender, newEvalSSESender)
+// failed that assertion and 500'd, even though the real ResponseWriter
+// beneath the wrapper supports flushing.
+func TestStatusRecorderImplementsFlusher(t *testing.T) {
+	t.Parallel()
+	rec := httptest.NewRecorder()
+	sr := NewStatusRecorder(rec)
+
+	flusher, ok := (http.ResponseWriter(sr)).(http.Flusher)
+	if !ok {
+		t.Fatal("*StatusRecorder must implement http.Flusher for streaming handlers to work")
+	}
+	if rec.Flushed {
+		t.Fatal("underlying recorder should not be flushed yet")
+	}
+	flusher.Flush()
+	if !rec.Flushed {
+		t.Fatal("StatusRecorder.Flush() did not delegate to the underlying ResponseWriter")
+	}
+}
+
 func TestWriteOK(t *testing.T) {
 	t.Parallel()
 	rec := httptest.NewRecorder()
