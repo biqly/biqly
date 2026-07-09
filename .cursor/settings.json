@@ -2,6 +2,9 @@
   "plugins": {
     "golang-skills/golang-skills": {
       "enabled": true
+    },
+    "continual-learning": {
+      "enabled": true
     }
   }
 }
