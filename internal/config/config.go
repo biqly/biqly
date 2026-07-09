@@ -937,6 +937,23 @@ func (c *Config) MaxQueryRuntime() time.Duration {
 	return time.Duration(c.Query.MaxRuntimeSeconds) * time.Second
 }
 
+// HTTPWriteTimeout is the http.Server WriteTimeout for the AI service.
+// Go's WriteTimeout is absolute from response start, so it must cover the
+// longest in-request path: web-agent SSE (BI_WEB_AGENT_TIMEOUT), AI provider
+// HTTP calls, and query max runtime. A too-low value resets the SSE stream
+// mid-run (Envoy UPE / browser "network error") even while heartbeats flow.
+func (c *Config) HTTPWriteTimeout() time.Duration {
+	const buffer = 15 * time.Second
+	timeout := c.MaxQueryRuntime() + buffer
+	if web := c.WebAgent.Timeout + buffer; web > timeout {
+		timeout = web
+	}
+	if ai := c.AI.RequestTimeout(); ai > timeout {
+		timeout = ai
+	}
+	return timeout
+}
+
 func getEnvAsDuration(key string, defaultVal time.Duration) time.Duration {
 	valStr := os.Getenv(key)
 	if valStr == "" {

@@ -151,6 +151,32 @@ func TestConfigAccessors(t *testing.T) {
 	}
 }
 
+func TestHTTPWriteTimeoutCoversWebAgentAndAI(t *testing.T) {
+	c := &Config{}
+	c.Query.MaxRuntimeSeconds = 60
+	c.WebAgent.Timeout = 120 * time.Second
+	c.AI.Connection.HTTPTimeoutSeconds = 12
+
+	// max(60+15, 120+15, 12+30) = 135s — web agent budget wins over query.
+	if got := c.HTTPWriteTimeout(); got != 135*time.Second {
+		t.Fatalf("HTTPWriteTimeout() = %v, want 135s", got)
+	}
+
+	c.AI.Connection.HTTPTimeoutSeconds = 300
+	// max(75, 135, 300+30) = 330s — AI provider HTTP budget wins.
+	if got := c.HTTPWriteTimeout(); got != 330*time.Second {
+		t.Fatalf("HTTPWriteTimeout() with long AI HTTP = %v, want 330s", got)
+	}
+
+	c.WebAgent.Timeout = 0
+	c.AI.Connection.HTTPTimeoutSeconds = 0
+	c.Query.MaxRuntimeSeconds = 60
+	// RequestTimeout falls back to 300+30; still covers query-only path.
+	if got := c.HTTPWriteTimeout(); got != 330*time.Second {
+		t.Fatalf("HTTPWriteTimeout() AI default floor = %v, want 330s", got)
+	}
+}
+
 func TestLoadDefaultEncryptionKeyRejected(t *testing.T) {
 	// Unset key resolves to the insecure default, which Load must reject.
 	t.Setenv("BI_ENCRYPTION_KEY", "")
