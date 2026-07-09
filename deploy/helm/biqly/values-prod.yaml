@@ -249,10 +249,16 @@ ai:
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi
+      memory: 256Mi
     limits:
       cpu: 1000m
-      memory: 512Mi
+      # 512Mi OOMKilled the pod (exit 137) as soon as a web agent run started:
+      # the old sizing assumed this pod only serves light HTTP (the heavy
+      # pipeline ran on workers via NATS), but the web agent runs the full
+      # pipeline in-request AND its run_question tool loops back into this
+      # same pod — one question = planner + a complete legacy pipeline
+      # execution concurrently. 1Gi matches the base chart's default.
+      memory: 1Gi
   image:
     tag: sha-be1ae9f2d3e2bf0a67d0d1d10c8eb4dd9b04ba36
   rollout:
@@ -288,6 +294,11 @@ ai:
     # is never wired and /api/agent/chat fails with "web agent runtime is not
     # configured" (BI_WEB_AGENT_ENABLED=true alone is not sufficient).
     BI_API_SERVICE_URL: https://abi.il1.nl
+    # Soft heap ceiling ~90% of the 1Gi cgroup limit: Go's GC collects
+    # aggressively as the heap approaches this instead of letting the kernel
+    # OOM-kill the pod mid-SSE-stream (the failure mode that motivated the
+    # limit raise above).
+    GOMEMLIMIT: 900MiB
   ambiguity:
     tieredEnabled: true
     maxLLMTierPerQuestion: 1
