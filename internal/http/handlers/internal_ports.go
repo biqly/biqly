@@ -41,4 +41,5 @@ type internalQueryRunner interface {
 	// not persisted.
 	CompileWithModel(ctx context.Context, lq *query.LogicalQuery, inline *semantic.SemanticModel) (*core.CompileResult, *core.ServiceError)
 	RunWithModel(ctx context.Context, lq *query.LogicalQuery, inline *semantic.SemanticModel) (*core.RunResult, *core.ServiceError)
+	DryRunWithModel(ctx context.Context, lq *query.LogicalQuery, inline *semantic.SemanticModel) (*core.CompileResult, *core.ServiceError)
 }

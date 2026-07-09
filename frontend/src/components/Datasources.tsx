@@ -45,6 +45,7 @@ import { formatDateTime } from '../utils/formatters'
 import { useAuth } from './auth/AuthProvider'
 import { buildDatasourceAccessView } from './datasources/accessView'
 import { DatasourceFormModal } from './datasources/DatasourceFormModal'
+import { FunctionBlocklistPanel } from './datasources/FunctionBlocklistPanel'
 import { EmptyState } from './ui/EmptyState'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingScreen } from './ui/LoadingScreen'
@@ -584,6 +585,8 @@ export default function Datasources() {
           </>
         )}
       </div>
+
+      <FunctionBlocklistPanel datasources={datasourceRows.map(({ datasource }) => datasource)} />
 
       <DatasourceFormModal
         open={showForm}

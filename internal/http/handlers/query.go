@@ -105,6 +105,72 @@ func (h *QueryHandler) Explain(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// MetricQuery accepts a structured metric query (measures, dimensions, filters)
+// without natural language, converts it to a LogicalQuery, and executes it
+// through the same governed run path as Run.
+func (h *QueryHandler) MetricQuery(w http.ResponseWriter, r *http.Request) {
+	req, ok := decodeJSON[query.StructuredMetricQuery](w, r)
+	if !ok {
+		return
+	}
+	lq, err := req.ToLogicalQuery()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	start := time.Now()
+	result, se := h.query.RunWithModel(r.Context(), &lq, nil)
+	rows := 0
+	if result != nil && result.Result != nil {
+		rows = result.Result.Stats.RowCount
+	}
+	if h.metrics != nil {
+		h.metrics.RecordQueryExecution(time.Since(start).Milliseconds(), se == nil, rows)
+	}
+	if se != nil {
+		writeServiceError(r.Context(), w, se)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"logical_query": lq,
+		"result":        result.Result,
+	})
+}
+
+// DryRun validates a LogicalQuery against the target datasource without
+// executing it. It returns the parameterized SQL, bind arguments, and canonical
+// fingerprint through the public route's RBAC and datasource access checks.
+func (h *QueryHandler) DryRun(w http.ResponseWriter, r *http.Request) {
+	payload, ok := decodeQueryPayload(w, r)
+	if !ok {
+		return
+	}
+
+	start := time.Now()
+	compiled, se := h.query.DryRunWithModel(r.Context(), &payload.LogicalQuery, payload.Model)
+	if h.metrics != nil {
+		h.metrics.RecordQueryCompile(time.Since(start).Milliseconds(), se == nil)
+	}
+	if se != nil {
+		writeServiceError(r.Context(), w, se)
+		return
+	}
+
+	fingerprint, err := fingerprintFor(&payload.LogicalQuery, compiled.Model)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "query failed", err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"sql":         compiled.Compiled.SQL,
+		"args":        compiled.Compiled.Args,
+		"fingerprint": fingerprint,
+	})
+}
+
 func decodeQueryPayload(w http.ResponseWriter, r *http.Request) (*queryPayload, bool) {
 	body, ok := readRequestBody(w, r)
 	if !ok {

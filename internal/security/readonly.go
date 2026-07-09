@@ -17,8 +17,6 @@ func init() {
 		"INSERT", "UPDATE", "DELETE", "DROP", "ALTER",
 		"TRUNCATE", "CREATE", "GRANT", "REVOKE", "MERGE",
 		"CALL", "EXEC", "EXECUTE",
-		"XP_CMDSHELL", "OPENROWSET", "PG_READ_FILE",
-		"LOAD_FILE", "DBLINK", "LO_IMPORT",
 		"SET", "RESET", "COPY", "DO", "LOCK", "VACUUM", "REINDEX",
 		// SELECT ... INTO (Postgres/SQL Server table create) and MySQL's
 		// INTO OUTFILE / INTO DUMPFILE turn a "SELECT" into a data-modifying /
@@ -37,15 +35,27 @@ func init() {
 }
 
 // ReadOnlyChecker validates that SQL is safe to execute.
-type ReadOnlyChecker struct{}
+type ReadOnlyChecker struct {
+	deniedFunctions []string
+}
 
 // NewReadOnlyChecker creates a new read-only SQL checker.
 func NewReadOnlyChecker() *ReadOnlyChecker {
-	return &ReadOnlyChecker{}
+	return &ReadOnlyChecker{deniedFunctions: DefaultDeniedFunctions()}
+}
+
+// NewReadOnlyCheckerWithAdditionalDeniedFunctions creates a read-only checker
+// with the immutable defaults plus datasource-specific denied functions.
+func NewReadOnlyCheckerWithAdditionalDeniedFunctions(additional []string) (*ReadOnlyChecker, error) {
+	deniedFunctions, err := EffectiveDeniedFunctions(additional)
+	if err != nil {
+		return nil, err
+	}
+	return &ReadOnlyChecker{deniedFunctions: deniedFunctions}, nil
 }
 
 // Check verifies the SQL is a safe SELECT/WITH/EXPLAIN query.
-func (*ReadOnlyChecker) Check(sql string) error {
+func (c *ReadOnlyChecker) Check(sql string) error {
 	trimmed := strings.TrimSpace(sql)
 	if trimmed == "" {
 		return errors.New("empty query")
@@ -75,6 +85,9 @@ func (*ReadOnlyChecker) Check(sql string) error {
 		if pattern.MatchString(cleaned) {
 			return fmt.Errorf("query contains dangerous keyword: %s", dangerousKeywords[i])
 		}
+	}
+	if err := checkFunctionBlocklist(trimmed, c.deniedFunctions); err != nil {
+		return err
 	}
 
 	if hasMultipleStatements(cleaned) {

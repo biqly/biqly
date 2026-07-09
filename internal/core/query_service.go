@@ -17,6 +17,7 @@ import (
 	"github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
+	pkgmetadata "github.com/biqly/biqly/pkg/metadata"
 )
 
 const (
@@ -160,7 +161,25 @@ func (s *QueryService) CompileWithModel(ctx context.Context, lq *query.LogicalQu
 		return nil, se
 	}
 	loaded.Compiled = compiled
+	if se := enforceFunctionBlocklist(loaded); se != nil {
+		return nil, se
+	}
 	return loaded, nil
+}
+
+func enforceFunctionBlocklist(compiled *CompileResult) *ServiceError {
+	custom, err := pkgmetadata.ParseDatasourceFunctionBlocklist(compiled.Datasource.Config)
+	if err != nil {
+		return ToServiceError(fmt.Errorf("parse datasource function blocklist: %w", err))
+	}
+	checker, err := security.NewReadOnlyCheckerWithAdditionalDeniedFunctions(custom)
+	if err != nil {
+		return ToServiceError(fmt.Errorf("invalid datasource function blocklist: %w", err))
+	}
+	if err := checker.Check(compiled.Compiled.SQL); err != nil {
+		return ToServiceError(fmt.Errorf("function blocklist: %w", err))
+	}
+	return nil
 }
 
 func (s *QueryService) CompileWithContext(ctx context.Context, lq *query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) (*query.CompiledQuery, *ServiceError) {
@@ -238,19 +257,61 @@ func (s *QueryService) RunWithModel(ctx context.Context, lq *query.LogicalQuery,
 	return &RunResult{CompileResult: *compiled, Result: result}, nil
 }
 
+// DryRunWithModel compiles a LogicalQuery and validates its generated SQL
+// against the target datasource's EXPLAIN facility without executing it.
+func (s *QueryService) DryRunWithModel(ctx context.Context, lq *query.LogicalQuery, inline *semantic.SemanticModel) (*CompileResult, *ServiceError) {
+	compiled, se := s.CompileWithModel(ctx, lq, inline)
+	if se != nil {
+		return nil, se
+	}
+	explain, se := dryRunExplainSQL(compiled.Compiled, compiled.Driver)
+	if se != nil || explain == "" {
+		return compiled, se
+	}
+	dsn, err := metadata.RuntimeDSN(compiled.Datasource, s.encryptor)
+	if err != nil {
+		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrLoadDatasource, err))
+	}
+	db, cleanup, err := s.openPool(ctx, compiled.Driver, compiled.Datasource.ID, dsn)
+	if err != nil {
+		return nil, ToServiceError(fmt.Errorf("%w: %w", ErrConnection, err))
+	}
+	defer cleanup()
+
+	if se := runDryExplain(ctx, db, explain, compiled.Compiled.Args); se != nil {
+		return nil, se
+	}
+	return compiled, nil
+}
+
+// DryRun validates a LogicalQuery against a caller-provided datasource
+// connection. It is retained for AI validation paths that already own a
+// connection and have resolved the semantic model and driver.
 func (s *QueryService) DryRun(ctx context.Context, db *sql.DB, lq *query.LogicalQuery, model *semantic.SemanticModel, driver datasource.Driver) *ServiceError {
 	compiled, se := s.CompileWithContext(ctx, lq, model, driver)
 	if se != nil {
 		return se
 	}
+	explain, se := dryRunExplainSQL(compiled, driver)
+	if se != nil || explain == "" {
+		return se
+	}
+	return runDryExplain(ctx, db, explain, compiled.Args)
+}
+
+func dryRunExplainSQL(compiled *query.CompiledQuery, driver datasource.Driver) (string, *ServiceError) {
 	if err := security.NewReadOnlyChecker().Check(compiled.SQL); err != nil {
-		return ToServiceError(fmt.Errorf("read-only check: %w", err))
+		return "", ToServiceError(fmt.Errorf("read-only check: %w", err))
 	}
 	explain := driver.Dialect().ExplainSQL(compiled.SQL)
 	if explain == "" {
-		return nil
+		return "", nil
 	}
-	rows, err := db.QueryContext(ctx, explain, compiled.Args...)
+	return explain, nil
+}
+
+func runDryExplain(ctx context.Context, db *sql.DB, explain string, args []any) *ServiceError {
+	rows, err := db.QueryContext(ctx, explain, args...)
 	if err != nil {
 		return ToServiceError(fmt.Errorf("explain: %w", err))
 	}

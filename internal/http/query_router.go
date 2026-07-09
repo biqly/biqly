@@ -64,6 +64,8 @@ func registerQueryAPIRoutes(r chi.Router, deps *app.QueryDeps, authClient *bimw.
 	r.With(dsAccess).Post("/query/compile", queryHandler.Compile)
 	r.With(dsAccess).Post("/query/run", queryHandler.Run)
 	r.With(dsAccess).Post("/query/explain", queryHandler.Explain)
+	r.With(dsAccess).Post("/query/dry-run", queryHandler.DryRun)
+	r.With(dsAccess).Post("/query/metric", queryHandler.MetricQuery)
 	r.Get("/query/history", queryHandler.History)
 	r.Get("/query/history/{id}", queryHandler.GetHistory)
 

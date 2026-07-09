@@ -58,6 +58,8 @@ func NewFakeBackend() http.Handler {
 	mux.HandleFunc("GET /api/ai/prompt-templates/active", handleListPromptTemplates)
 	mux.HandleFunc("POST /api/ai/query/run", handleRunQuestion)
 	mux.HandleFunc("POST /api/query/run", handleRunLogicalQuery)
+	mux.HandleFunc("POST /api/query/compile", handleCompileLogicalQuery)
+	mux.HandleFunc("POST /api/query/dry-run", handleDryRunLogicalQuery)
 	mux.HandleFunc("GET /api/ai/skills", handleListSkills)
 	mux.HandleFunc("POST /api/ai/skills/{id}/run", handleRunSkill)
 	return mux
@@ -156,6 +158,39 @@ func handleRunLogicalQuery(w http.ResponseWriter, r *http.Request) {
 		"model_id":      req.LogicalQuery.ModelID,
 		"logical_query": req.LogicalQuery,
 		"rows":          []map[string]any{},
+	})
+}
+
+// handleCompileLogicalQuery is the fake backend for POST /api/query/compile
+// (dry_plan tool): returns SQL + args without executing.
+func handleCompileLogicalQuery(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		LogicalQuery query.LogicalQuery `json:"logical_query"`
+	}
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"sql":  "SELECT 1",
+		"args": []any{},
+	})
+}
+
+// handleDryRunLogicalQuery is the fake backend for POST /api/query/dry-run
+// (dry_run tool): returns SQL + args + fingerprint without executing.
+func handleDryRunLogicalQuery(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		LogicalQuery query.LogicalQuery `json:"logical_query"`
+	}
+	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"sql":         "SELECT 1",
+		"args":        []any{},
+		"fingerprint": "fp-dry-run-stub",
 	})
 }
 

@@ -159,6 +159,27 @@ func TestReadOnlyCheckerRejectsNonSelectPrefix(t *testing.T) {
 	}
 }
 
+func TestReadOnlyCheckerRejectsDataReaderFunctions(t *testing.T) {
+	checker := NewReadOnlyChecker()
+	dangerousQueries := []string{
+		`SELECT * FROM read_csv('s3://bucket/data.csv')`,
+		`SELECT * FROM read_parquet('s3://bucket/data.parquet')`,
+		`SELECT * FROM postgres_scan('host=localhost dbname=foreign', 'table')`,
+		`SELECT * FROM mysql_scan('host=localhost', 'table')`,
+		`SELECT lo_export(loid, '/tmp/file')`,
+		`SELECT dblink_connect('host=remote')`,
+		`SELECT dblink_exec('host=remote', 'DROP TABLE x')`,
+		`SELECT pg_execute_server_program(123, '/tmp/payload', '')`,
+		`SELECT eval('malicious()')`,
+		`SELECT evalfunction('malicious()')`,
+	}
+	for _, q := range dangerousQueries {
+		if err := checker.Check(q); err == nil {
+			t.Errorf("expected error for query: %s", q)
+		}
+	}
+}
+
 func TestReadOnlyCheckerRejectsNewDangerousKeywords(t *testing.T) {
 	checker := NewReadOnlyChecker()
 	cases := []string{

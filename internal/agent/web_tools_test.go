@@ -49,11 +49,11 @@ func mustMarshal(t *testing.T, v any) json.RawMessage {
 	return raw
 }
 
-func TestWebTools_AllReturnsSeven(t *testing.T) {
+func TestWebTools_AllReturnsTen(t *testing.T) {
 	wt := NewWebTools(&toolcontract.HTTPDispatcher{API: http.NewServeMux()}, toolcontract.Credential{})
 	tools := wt.All()
-	if len(tools) != 7 {
-		t.Fatalf("expected 7 tools, got %d", len(tools))
+	if len(tools) != 10 {
+		t.Fatalf("expected 10 tools, got %d", len(tools))
 	}
 	want := map[ToolName]bool{
 		ToolWebListDatasources:     true,
@@ -63,6 +63,9 @@ func TestWebTools_AllReturnsSeven(t *testing.T) {
 		ToolWebRunLogicalQuery:     true,
 		ToolWebListSkills:          true,
 		ToolWebRunSkill:            true,
+		ToolWebDryPlan:             true,
+		ToolWebDryRun:              true,
+		ToolWebMetricQuery:         true,
 	}
 	for _, tool := range tools {
 		if !want[tool.Name()] {

@@ -69,7 +69,8 @@ export function buildFetchHeaders(
   body: BodyInit | null | undefined,
 ): Headers {
   const headers = new Headers(init?.headers)
-  if (body && !headers.has('Content-Type')) {
+  const isMultipartForm = typeof FormData !== 'undefined' && body instanceof FormData
+  if (body && !isMultipartForm && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
   if (!headers.has('X-Locale')) {

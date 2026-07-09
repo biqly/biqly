@@ -161,6 +161,10 @@ func (r integrationQueryRunner) RunWithModel(ctx context.Context, lq *query.Logi
 	}, nil
 }
 
+func (r integrationQueryRunner) DryRunWithModel(ctx context.Context, lq *query.LogicalQuery, inline *semantic.SemanticModel) (*core.CompileResult, *core.ServiceError) {
+	return r.CompileWithModel(ctx, lq, inline)
+}
+
 type fakeModelLoader struct {
 	model *semantic.SemanticModel
 }

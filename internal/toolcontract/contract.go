@@ -50,6 +50,9 @@ const (
 	ToolRunLogicalQuery     ToolName = "run_logical_query"
 	ToolListSkills          ToolName = "list_skills"
 	ToolRunSkill            ToolName = "run_skill"
+	ToolDryPlan             ToolName = "dry_plan"
+	ToolDryRun              ToolName = "dry_run"
+	ToolMetricQuery         ToolName = "metric_query"
 )
 
 // ToolSpec is the static definition of one governed tool: its name,
@@ -123,6 +126,31 @@ var AllTools = []ToolSpec{
 		Method: http.MethodPost,
 		Path:   "/api/ai/skills",
 	},
+	{
+		Name: ToolDryPlan,
+		Description: "Compile a Biqly LogicalQuery into SQL without executing it. " +
+			"Returns the parameterized SQL string and bind arguments. " +
+			"Use this to preview what SQL will be generated before calling run_logical_query.",
+		Method: http.MethodPost,
+		Path:   "/api/query/compile",
+	},
+	{
+		Name: ToolDryRun,
+		Description: "Compile and validate a Biqly LogicalQuery without executing it. " +
+			"Like dry_plan but also returns the canonical fingerprint for caching. " +
+			"Useful for checking query validity without touching data.",
+		Method: http.MethodPost,
+		Path:   "/api/query/dry-run",
+	},
+	{
+		Name: ToolMetricQuery,
+		Description: "Run a structured metric query (measures, dimensions, optional " +
+			"time grain and filters) without natural language. Compiles to a " +
+			"LogicalQuery and executes through the governed read-only path. Prefer " +
+			"this over run_logical_query when you already know metric/dimension names.",
+		Method: http.MethodPost,
+		Path:   "/api/query/metric",
+	},
 }
 
 // Input argument structs with jsonschema tags (consumed by MCP SDK for schema
@@ -161,6 +189,19 @@ type ListSkillsInput struct {
 type RunSkillInput struct {
 	SkillID    string         `json:"skill_id" jsonschema:"id of the skill to run"`
 	Parameters map[string]any `json:"parameters,omitempty" jsonschema:"parameter values keyed by parameter name"`
+}
+
+// MetricQueryInput is a structured metric query (no NL).
+type MetricQueryInput struct {
+	DatasourceID  string           `json:"datasource_id" jsonschema:"datasource id"`
+	ModelID       string           `json:"model_id" jsonschema:"semantic model id"`
+	Measures      []string         `json:"measures" jsonschema:"metric names to aggregate"`
+	Dimensions    []string         `json:"dimensions,omitempty" jsonschema:"dimension names to group by"`
+	TimeDimension map[string]any   `json:"time_dimension,omitempty" jsonschema:"optional time dimension with grain and date_range"`
+	Filters       []map[string]any `json:"filters,omitempty" jsonschema:"optional field/operator/value filters"`
+	Sort          []map[string]any `json:"sort,omitempty" jsonschema:"optional sort fields"`
+	Limit         int              `json:"limit,omitempty" jsonschema:"row limit; default 1000"`
+	Offset        int              `json:"offset,omitempty" jsonschema:"row offset"`
 }
 
 // DispatchResult is the outcome of a single tool dispatch.
@@ -298,6 +339,59 @@ func DispatchRunLogicalQuery(ctx context.Context, disp Dispatcher, in RunLogical
 	lq = injectLogicalQueryField(lq, "datasource_id", in.DatasourceID)
 	lq = injectLogicalQueryField(lq, "model_id", in.ModelID)
 	return disp.Dispatch(ctx, http.MethodPost, "/api/query/run", map[string]any{"logical_query": lq}, cred, channel)
+}
+
+// DispatchDryPlan calls POST /api/query/compile — compiles a LogicalQuery into
+// SQL without executing it. Same body structure as DispatchRunLogicalQuery.
+func DispatchDryPlan(ctx context.Context, disp Dispatcher, in RunLogicalQueryInput, cred Credential, channel string) (DispatchResult, error) {
+	lq := in.LogicalQuery
+	if lq == nil {
+		lq = make(map[string]any)
+	}
+	lq = injectLogicalQueryField(lq, "datasource_id", in.DatasourceID)
+	lq = injectLogicalQueryField(lq, "model_id", in.ModelID)
+	return disp.Dispatch(ctx, http.MethodPost, "/api/query/compile", map[string]any{"logical_query": lq}, cred, channel)
+}
+
+// DispatchDryRun calls POST /api/query/dry-run — compiles and validates a
+// LogicalQuery without executing it, returning SQL, args, and fingerprint.
+// Same body structure as DispatchRunLogicalQuery.
+func DispatchDryRun(ctx context.Context, disp Dispatcher, in RunLogicalQueryInput, cred Credential, channel string) (DispatchResult, error) {
+	lq := in.LogicalQuery
+	if lq == nil {
+		lq = make(map[string]any)
+	}
+	lq = injectLogicalQueryField(lq, "datasource_id", in.DatasourceID)
+	lq = injectLogicalQueryField(lq, "model_id", in.ModelID)
+	return disp.Dispatch(ctx, http.MethodPost, "/api/query/dry-run", map[string]any{"logical_query": lq}, cred, channel)
+}
+
+// DispatchMetricQuery calls POST /api/query/metric with a structured metric body.
+func DispatchMetricQuery(ctx context.Context, disp Dispatcher, in MetricQueryInput, cred Credential, channel string) (DispatchResult, error) {
+	body := map[string]any{
+		"datasource_id": in.DatasourceID,
+		"model_id":      in.ModelID,
+		"measures":      in.Measures,
+	}
+	if len(in.Dimensions) > 0 {
+		body["dimensions"] = in.Dimensions
+	}
+	if in.TimeDimension != nil {
+		body["time_dimension"] = in.TimeDimension
+	}
+	if len(in.Filters) > 0 {
+		body["filters"] = in.Filters
+	}
+	if len(in.Sort) > 0 {
+		body["sort"] = in.Sort
+	}
+	if in.Limit > 0 {
+		body["limit"] = in.Limit
+	}
+	if in.Offset > 0 {
+		body["offset"] = in.Offset
+	}
+	return disp.Dispatch(ctx, http.MethodPost, "/api/query/metric", body, cred, channel)
 }
 
 // injectLogicalQueryField clones lq and sets key when missing/blank and value

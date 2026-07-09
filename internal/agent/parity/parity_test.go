@@ -208,8 +208,11 @@ func TestNewFakeBackendIsDeterministic(t *testing.T) {
 
 // TestCasesBuildsUniqueIDsCoveringAllSixTools proves the fixed case set
 // (consumed by internal/http's TestAgentMCPParity) builds without error, has
-// unique case IDs, and exercises every one of the six governed tools at
+// unique case IDs, and exercises every one of the seven core governed tools
+// (the query-execution tools that go through the parity comparison path) at
 // least once as either the direct MCP call or a step in the agent script.
+// dry_plan and dry_run are registered governed tools but are compile-only
+// (no execution), so they are verified in contract_test.go, not here.
 func TestCasesBuildsUniqueIDsCoveringAllSixTools(t *testing.T) {
 	cases, err := Cases()
 	if err != nil {

@@ -33,6 +33,9 @@ const (
 	ToolWebRunLogicalQuery     ToolName = ToolName(toolcontract.ToolRunLogicalQuery)
 	ToolWebListSkills          ToolName = ToolName(toolcontract.ToolListSkills)
 	ToolWebRunSkill            ToolName = ToolName(toolcontract.ToolRunSkill)
+	ToolWebDryPlan             ToolName = ToolName(toolcontract.ToolDryPlan)
+	ToolWebDryRun              ToolName = ToolName(toolcontract.ToolDryRun)
+	ToolWebMetricQuery         ToolName = ToolName(toolcontract.ToolMetricQuery)
 )
 
 // Proposal is a planner's request to invoke one tool with the given
@@ -237,7 +240,8 @@ func (*PolicyEngine) Evaluate(ctx context.Context, run RunContext, proposal Prop
 	case ToolCatalog, ToolSemantic, ToolMemoryRecall:
 		return Decision{Allowed: true, Arguments: proposal.Arguments}
 	case ToolWebListDatasources, ToolWebListModels, ToolWebListPromptTemplates,
-		ToolWebRunQuestion, ToolWebRunLogicalQuery, ToolWebListSkills, ToolWebRunSkill:
+		ToolWebRunQuestion, ToolWebRunLogicalQuery, ToolWebListSkills, ToolWebRunSkill,
+		ToolWebDryPlan, ToolWebDryRun, ToolWebMetricQuery:
 		return Decision{Allowed: true, Arguments: proposal.Arguments}
 	default:
 		return deny(ReasonToolNotAllowlisted)
@@ -249,6 +253,7 @@ func (*PolicyEngine) Evaluate(ctx context.Context, run RunContext, proposal Prop
 var webAgentTools = []ToolName{
 	ToolWebListDatasources, ToolWebListModels, ToolWebListPromptTemplates,
 	ToolWebRunQuestion, ToolWebRunLogicalQuery, ToolWebListSkills, ToolWebRunSkill,
+	ToolWebDryPlan, ToolWebDryRun, ToolWebMetricQuery,
 }
 
 // isWebAgentTool reports whether tool is one of the MCP-parity web agent tools.

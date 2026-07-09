@@ -149,6 +149,14 @@ func (c *mockConn) Begin() (driver.Tx, error) {
 	return &mockTx{conn: c}, nil
 }
 
+func (*mockConn) CheckNamedValue(value *driver.NamedValue) error {
+	if _, ok := value.Value.([]string); ok {
+		value.Value = nil
+		return nil
+	}
+	return driver.ErrSkip
+}
+
 func (c *mockConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	vals := make([]driver.Value, len(args))
 	for i, arg := range args {

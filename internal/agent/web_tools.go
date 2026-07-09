@@ -35,6 +35,9 @@ func (w *WebTools) All() []Tool {
 		webTool{w, ToolWebRunLogicalQuery, webRunLogicalQuery},
 		webTool{w, ToolWebListSkills, webListSkills},
 		webTool{w, ToolWebRunSkill, webRunSkill},
+		webTool{w, ToolWebDryPlan, webDryPlan},
+		webTool{w, ToolWebDryRun, webDryRun},
+		webTool{w, ToolWebMetricQuery, webMetricQuery},
 	}
 }
 
@@ -183,6 +186,48 @@ func webRunSkill(ctx context.Context, disp toolcontract.Dispatcher, cred toolcon
 		return toolcontract.DispatchResult{}, err
 	}
 	return toolcontract.DispatchRunSkill(ctx, disp, in, cred, toolcontract.ChannelAgent)
+}
+
+func webDryPlan(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, run RunContext, args json.RawMessage) (toolcontract.DispatchResult, error) {
+	in, err := decodeArgs[toolcontract.RunLogicalQueryInput](args)
+	if err != nil {
+		return toolcontract.DispatchResult{}, err
+	}
+	if in.DatasourceID == "" {
+		in.DatasourceID = run.DatasourceID
+	}
+	if in.ModelID == "" {
+		in.ModelID = run.ModelID
+	}
+	return toolcontract.DispatchDryPlan(ctx, disp, in, cred, toolcontract.ChannelAgent)
+}
+
+func webDryRun(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, run RunContext, args json.RawMessage) (toolcontract.DispatchResult, error) {
+	in, err := decodeArgs[toolcontract.RunLogicalQueryInput](args)
+	if err != nil {
+		return toolcontract.DispatchResult{}, err
+	}
+	if in.DatasourceID == "" {
+		in.DatasourceID = run.DatasourceID
+	}
+	if in.ModelID == "" {
+		in.ModelID = run.ModelID
+	}
+	return toolcontract.DispatchDryRun(ctx, disp, in, cred, toolcontract.ChannelAgent)
+}
+
+func webMetricQuery(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, run RunContext, args json.RawMessage) (toolcontract.DispatchResult, error) {
+	in, err := decodeArgs[toolcontract.MetricQueryInput](args)
+	if err != nil {
+		return toolcontract.DispatchResult{}, err
+	}
+	if in.DatasourceID == "" {
+		in.DatasourceID = run.DatasourceID
+	}
+	if in.ModelID == "" {
+		in.ModelID = run.ModelID
+	}
+	return toolcontract.DispatchMetricQuery(ctx, disp, in, cred, toolcontract.ChannelAgent)
 }
 
 // decodeArgs unmarshals JSON arguments into a typed input struct, tolerating

@@ -46,6 +46,12 @@ func newMCPServer(dispatch http.Handler, authorization, apiKey string) *mcp.Serv
 			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.listSkills)
 		case toolcontract.ToolRunSkill:
 			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.runSkill)
+		case toolcontract.ToolDryPlan:
+			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.dryPlan)
+		case toolcontract.ToolDryRun:
+			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.dryRun)
+		case toolcontract.ToolMetricQuery:
+			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.metricQuery)
 		}
 	}
 
@@ -92,6 +98,21 @@ func (d *mcpToolDispatcher) listSkills(ctx context.Context, _ *mcp.CallToolReque
 
 func (d *mcpToolDispatcher) runSkill(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.RunSkillInput) (*mcp.CallToolResult, any, error) {
 	res, err := toolcontract.DispatchRunSkill(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
+	return toMCPResult(res), nil, err
+}
+
+func (d *mcpToolDispatcher) dryPlan(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.RunLogicalQueryInput) (*mcp.CallToolResult, any, error) {
+	res, err := toolcontract.DispatchDryPlan(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
+	return toMCPResult(res), nil, err
+}
+
+func (d *mcpToolDispatcher) dryRun(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.RunLogicalQueryInput) (*mcp.CallToolResult, any, error) {
+	res, err := toolcontract.DispatchDryRun(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
+	return toMCPResult(res), nil, err
+}
+
+func (d *mcpToolDispatcher) metricQuery(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.MetricQueryInput) (*mcp.CallToolResult, any, error) {
+	res, err := toolcontract.DispatchMetricQuery(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
 	return toMCPResult(res), nil, err
 }
 

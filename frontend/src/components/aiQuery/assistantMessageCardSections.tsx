@@ -33,6 +33,7 @@ import {
   vizHintClass,
 } from './aiQueryClasses'
 import { deriveClarificationStage, MAX_CLARIFICATION_ROUNDS } from './clarificationStage'
+import { CompiledSQLPreview } from './CompiledSQLPreview'
 import { GenerationTracePanel } from './generationTrace'
 import { formatGrainValue } from './grainLabels'
 import {
@@ -413,10 +414,12 @@ export function AssistantMessageQueryDetails({
           <pre className={sqlPreviewClass}>{JSON.stringify(result.logical_query, null, 2)}</pre>
         </Collapsible>
       )}
-      {result.sql && (
-        <Collapsible title={t('ai_query.collapsible_sql')} defaultOpen>
-          <pre className={sqlPreviewClass}>{result.sql}</pre>
-        </Collapsible>
+      {(result.logical_query ?? result.sql) && (
+        <CompiledSQLPreview
+          key={JSON.stringify(result.logical_query)}
+          logicalQuery={result.logical_query}
+          initialSQL={result.sql}
+        />
       )}
       <PromptCollapsible result={result} t={t} localeTag={localeTag} />
       <WarningsPanel result={result} t={t} />

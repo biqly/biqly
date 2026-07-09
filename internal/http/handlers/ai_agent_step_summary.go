@@ -57,9 +57,17 @@ func webAgentStepSummary(step agent.RuntimeStep) string {
 		summary = summarizeRunQuestionPayload(payload)
 	case agent.ToolWebRunLogicalQuery:
 		summary = summarizeQueryResultPayload(payload)
+	case agent.ToolWebMetricQuery:
+		var wrapped struct {
+			Result json.RawMessage `json:"result"`
+		}
+		if err := sonic.Unmarshal(payload, &wrapped); err == nil && len(wrapped.Result) > 0 {
+			summary = summarizeQueryResultPayload(wrapped.Result)
+		}
 	case agent.ToolWebRunSkill:
 		summary = summarizeRunSkillPayload(payload)
-	case agent.ToolCatalog, agent.ToolSemantic, agent.ToolQueryCompile, agent.ToolQueryExecute, agent.ToolMemoryRecall:
+	case agent.ToolCatalog, agent.ToolSemantic, agent.ToolQueryCompile, agent.ToolQueryExecute, agent.ToolMemoryRecall,
+		agent.ToolWebDryPlan, agent.ToolWebDryRun:
 		summary = ""
 	}
 	return truncateSummaryRunes(summary)

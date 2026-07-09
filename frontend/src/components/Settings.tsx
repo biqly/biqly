@@ -28,6 +28,7 @@ import {
   cardLeadMarginClass,
 } from './admin/adminClasses'
 import { useAuth } from './auth/AuthProvider'
+import { DbtImportPanel } from './dbt/DbtImportPanel'
 import { AccountProfileSection } from './settings/AccountProfileSection'
 import { AIMemorySection } from './settings/AIMemorySection'
 import { AIModelPreferencesSection } from './settings/AIModelPreferencesSection'
@@ -426,6 +427,7 @@ export default function Settings() {
             >
               {t('settings.configuration_group')}
             </h2>
+            <DbtImportPanel />
             <AIModelPreferencesSection />
             <AIMemorySection />
             {(canManageAISettings || canManageProviders) && (

@@ -37,7 +37,7 @@ func fakeBackend(t *testing.T, status int, respBody string) (http.Handler, *reco
 	return handler, rec
 }
 
-func TestAllTools_HasExactlySevenTools(t *testing.T) {
+func TestAllTools_HasExactlyTenTools(t *testing.T) {
 	want := map[ToolName]bool{
 		ToolListDatasources:     true,
 		ToolListModels:          true,
@@ -46,9 +46,12 @@ func TestAllTools_HasExactlySevenTools(t *testing.T) {
 		ToolRunLogicalQuery:     true,
 		ToolListSkills:          true,
 		ToolRunSkill:            true,
+		ToolDryPlan:             true,
+		ToolDryRun:              true,
+		ToolMetricQuery:         true,
 	}
-	if len(AllTools) != 7 {
-		t.Fatalf("expected 7 tools, got %d", len(AllTools))
+	if len(AllTools) != 10 {
+		t.Fatalf("expected 10 tools, got %d", len(AllTools))
 	}
 	for _, spec := range AllTools {
 		if !want[spec.Name] {
@@ -312,6 +315,68 @@ func TestDispatchRunLogicalQuery_PreservesExistingModelID(t *testing.T) {
 	}
 	if lq["model_id"] != "model-from-lq" {
 		t.Errorf("model_id = %v, want model-from-lq (planner value wins)", lq["model_id"])
+	}
+}
+
+func TestDispatchDryPlan_DispatchesToCompile(t *testing.T) {
+	backend, rec := fakeBackend(t, http.StatusOK, `{}`)
+	disp := &HTTPDispatcher{API: backend}
+
+	lq := map[string]any{"datasource_id": "ds", "select": []any{}}
+	_, err := DispatchDryPlan(context.Background(), disp, RunLogicalQueryInput{LogicalQuery: lq}, Credential{}, ChannelAgent)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	if rec.method != http.MethodPost || rec.path != "/api/query/compile" {
+		t.Errorf("dispatch = %s %s, want POST /api/query/compile", rec.method, rec.path)
+	}
+	var body map[string]any
+	_ = sonic.Unmarshal([]byte(rec.body), &body)
+	if _, ok := body["logical_query"]; !ok {
+		t.Error("expected logical_query in body")
+	}
+}
+
+func TestDispatchDryRun_DispatchesToDryRun(t *testing.T) {
+	backend, rec := fakeBackend(t, http.StatusOK, `{}`)
+	disp := &HTTPDispatcher{API: backend}
+
+	lq := map[string]any{"datasource_id": "ds", "select": []any{}}
+	_, err := DispatchDryRun(context.Background(), disp, RunLogicalQueryInput{LogicalQuery: lq}, Credential{}, ChannelAgent)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	if rec.method != http.MethodPost || rec.path != "/api/query/dry-run" {
+		t.Errorf("dispatch = %s %s, want POST /api/query/dry-run", rec.method, rec.path)
+	}
+	var body map[string]any
+	_ = sonic.Unmarshal([]byte(rec.body), &body)
+	if _, ok := body["logical_query"]; !ok {
+		t.Error("expected logical_query in body")
+	}
+}
+
+func TestDispatchMetricQuery_DispatchesToMetric(t *testing.T) {
+	backend, rec := fakeBackend(t, http.StatusOK, `{}`)
+	disp := &HTTPDispatcher{API: backend}
+
+	_, err := DispatchMetricQuery(context.Background(), disp, MetricQueryInput{
+		DatasourceID: "ds",
+		ModelID:      "m",
+		Measures:     []string{"revenue"},
+		Dimensions:   []string{"region"},
+		Limit:        25,
+	}, Credential{}, ChannelAgent)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	if rec.method != http.MethodPost || rec.path != "/api/query/metric" {
+		t.Errorf("dispatch = %s %s, want POST /api/query/metric", rec.method, rec.path)
+	}
+	var body map[string]any
+	_ = sonic.Unmarshal([]byte(rec.body), &body)
+	if body["datasource_id"] != "ds" || body["model_id"] != "m" {
+		t.Errorf("body = %+v", body)
 	}
 }
 

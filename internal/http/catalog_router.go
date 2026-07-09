@@ -76,6 +76,8 @@ func registerCatalogDatasourceRoutes(r chi.Router, deps *app.CatalogDeps, authCl
 	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Get("/datasources/{id}", dsHandler.Get)
 	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Put("/datasources/{id}", dsHandler.Update)
 	r.With(bimw.RequireDatasourceAccess(authClient, "admin")).Delete("/datasources/{id}", dsHandler.Delete)
+	r.With(bimw.RequireDatasourceAccess(authClient, "admin")).Get("/datasources/{id}/function-blocklist", dsHandler.GetFunctionBlocklist)
+	r.With(bimw.RequireDatasourceAccess(authClient, "admin")).Put("/datasources/{id}/function-blocklist", dsHandler.ReplaceFunctionBlocklist)
 	r.With(bimw.RequireDatasourceAccess(authClient, "read")).Post("/datasources/{id}/test", dsHandler.Test)
 	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Post("/datasources/{id}/sync-metadata", dsHandler.SyncMetadata)
 
@@ -106,6 +108,7 @@ func registerCatalogSemanticRoutes(r chi.Router, deps *app.CatalogDeps, authClie
 	r.With(dsWrite).Post("/semantic/models", semHandler.CreateModel)
 	r.With(dsWrite).Post("/semantic/models/generate", semHandler.GenerateModel)
 	r.With(dsWrite).Post("/semantic/models/import", semHandler.ImportModel)
+	r.With(dsWrite).Post("/catalog/dbt/import", semHandler.ImportDbtProject)
 	r.Get("/semantic/models", semHandler.ListModels)
 	r.With(modelRead).Get("/semantic/models/{id}", semHandler.GetModel)
 	r.With(modelRead).Get("/semantic/models/{id}/export", semHandler.ExportModel)

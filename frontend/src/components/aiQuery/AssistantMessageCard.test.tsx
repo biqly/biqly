@@ -186,12 +186,11 @@ describe('AssistantMessageCard rendering an agent-mode result message', () => {
   it('renders the SQL preview and the run trace once details are expanded', async () => {
     renderCard(agentMessage())
     fireEvent.click(screen.getByText('ai_query.details_show'))
+    fireEvent.click(screen.getByRole('button', { name: 'ai_query.sql_preview_title' }))
 
-    expect(
-      screen.getByText(
-        "SELECT date_trunc('quarter', ordered_at) AS quarter, sum(amount) AS revenue FROM orders GROUP BY 1",
-      ),
-    ).toBeTruthy()
+    expect(screen.getByLabelText('ai_query.sql_preview_code_aria').textContent).toBe(
+      "SELECT date_trunc('quarter', ordered_at) AS quarter, sum(amount) AS revenue FROM orders GROUP BY 1",
+    )
     // run_steps is empty on the agent-mode result (see agentModeResult's
     // comment) but run_id is set, so RunTracePanel re-hydrates via
     // getAgentRun (mocked above) instead of showing nothing.

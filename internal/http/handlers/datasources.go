@@ -19,6 +19,7 @@ import (
 	"github.com/biqly/biqly/internal/security"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/internal/semantic/drift"
+	pkgmetadata "github.com/biqly/biqly/pkg/metadata"
 	"github.com/google/uuid"
 )
 
@@ -54,6 +55,15 @@ type createDatasourceRequest struct {
 	DSN        string             `json:"dsn,omitempty"`
 	Connection *connectionRequest `json:"connection,omitempty"`
 	Config     string             `json:"config,omitempty"`
+}
+
+type functionBlocklistRequest struct {
+	Custom []string `json:"custom"`
+}
+
+type functionBlocklistResponse struct {
+	Defaults []string `json:"defaults"`
+	Custom   []string `json:"custom"`
 }
 
 func resolveCreateDatasourceMode(req *createDatasourceRequest) string {
@@ -97,6 +107,9 @@ func optionalStringPtr(s string) *string {
 func (h *DatasourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	req, ok := decodeJSON[createDatasourceRequest](w, r)
 	if !ok {
+		return
+	}
+	if !rejectFunctionBlocklistConfig(w, req.Config) {
 		return
 	}
 	ctx := r.Context()
@@ -371,6 +384,71 @@ func (h *DatasourceHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, ds)
 }
 
+// GetFunctionBlocklist returns immutable defaults and datasource-specific
+// function denials. It deliberately never serializes the datasource itself.
+func (h *DatasourceHandler) GetFunctionBlocklist(w http.ResponseWriter, r *http.Request) {
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ds, err := h.deps.MetaRepo.GetDatasource(r.Context(), id)
+	if err != nil {
+		writeEntityNotFound(w, "datasource")
+		return
+	}
+	custom, err := pkgmetadata.ParseDatasourceFunctionBlocklist(ds.Config)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "invalid datasource function blocklist configuration", err)
+		return
+	}
+	custom, err = security.NormalizeCustomFunctionBlocklist(custom)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "invalid datasource function blocklist configuration", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, functionBlocklistResponse{
+		Defaults: security.DefaultDeniedFunctions(),
+		Custom:   custom,
+	})
+}
+
+// ReplaceFunctionBlocklist replaces datasource-specific function denials while
+// retaining unrelated datasource configuration and immutable defaults.
+func (h *DatasourceHandler) ReplaceFunctionBlocklist(w http.ResponseWriter, r *http.Request) {
+	id, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	req, ok := decodeJSON[functionBlocklistRequest](w, r)
+	if !ok {
+		return
+	}
+	custom, err := security.NormalizeCustomFunctionBlocklist(req.Custom)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	ds, err := h.deps.MetaRepo.GetDatasource(r.Context(), id)
+	if err != nil {
+		writeEntityNotFound(w, "datasource")
+		return
+	}
+	config, err := pkgmetadata.WithDatasourceFunctionBlocklist(ds.Config, custom)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "invalid datasource configuration", err)
+		return
+	}
+	ds.Config = config
+	if err := h.deps.MetaRepo.UpdateDatasource(r.Context(), ds); err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to update datasource function blocklist", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, functionBlocklistResponse{
+		Defaults: security.DefaultDeniedFunctions(),
+		Custom:   custom,
+	})
+}
+
 // Update changes connection settings for an existing datasource.
 func (h *DatasourceHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := requireURLParam(w, r, "id")
@@ -379,6 +457,9 @@ func (h *DatasourceHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	req, ok := decodeJSON[createDatasourceRequest](w, r)
 	if !ok {
+		return
+	}
+	if !rejectFunctionBlocklistConfig(w, req.Config) {
 		return
 	}
 	ctx := r.Context()
@@ -394,6 +475,9 @@ func (h *DatasourceHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeDatasourcePayloadError(ctx, w, status, message, err)
 		return
 	}
+	if !preserveFunctionBlocklist(ctx, existing, ds, w) {
+		return
+	}
 
 	if err := h.deps.MetaRepo.UpdateDatasource(ctx, ds); err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to update datasource", err)
@@ -402,6 +486,34 @@ func (h *DatasourceHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	maskDatasourceSecrets(ds)
 	writeJSON(w, http.StatusOK, ds)
+}
+
+func rejectFunctionBlocklistConfig(w http.ResponseWriter, config string) bool {
+	hasBlocklist, err := pkgmetadata.DatasourceConfigHasFunctionBlocklist(config)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid datasource configuration")
+		return false
+	}
+	if hasBlocklist {
+		writeError(w, http.StatusBadRequest, "function_blocklist can only be changed through the datasource governance endpoint")
+		return false
+	}
+	return true
+}
+
+func preserveFunctionBlocklist(ctx context.Context, existing, updated *metadata.Datasource, w http.ResponseWriter) bool {
+	custom, err := pkgmetadata.ParseDatasourceFunctionBlocklist(existing.Config)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "invalid datasource function blocklist configuration", err)
+		return false
+	}
+	config, err := pkgmetadata.WithDatasourceFunctionBlocklist(updated.Config, custom)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "invalid datasource configuration", err)
+		return false
+	}
+	updated.Config = config
+	return true
 }
 
 // Delete removes a datasource by ID. Cascade FKs (migration 027a) make the

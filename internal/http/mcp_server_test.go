@@ -68,13 +68,14 @@ func TestMCPServer_ListsExpectedTools(t *testing.T) {
 	for _, want := range []string{
 		"list_datasources", "list_models", "list_prompt_templates",
 		"run_question", "run_logical_query", "list_skills", "run_skill",
+		"dry_plan", "dry_run", "metric_query",
 	} {
 		if !got[want] {
 			t.Errorf("missing tool %q in %v", want, res.Tools)
 		}
 	}
-	if len(res.Tools) != 7 {
-		t.Errorf("expected exactly 7 tools (default-deny allow-list), got %d", len(res.Tools))
+	if len(res.Tools) != 10 {
+		t.Errorf("expected exactly 10 tools (default-deny allow-list), got %d", len(res.Tools))
 	}
 }
 

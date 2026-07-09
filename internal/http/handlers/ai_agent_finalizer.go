@@ -190,6 +190,15 @@ func webAgentQueryDataFromStep(step agent.RuntimeStep) (extractedQueryData, bool
 			logicalQuery: logicalQueryFromRunLogicalQueryArgs(step.Proposal.Arguments),
 			result:       &result,
 		}, true
+	case agent.ToolWebMetricQuery:
+		var wrapped struct {
+			LogicalQuery *query.LogicalQuery `json:"logical_query"`
+			Result       *query.Result       `json:"result"`
+		}
+		if err := sonic.Unmarshal(step.Observation.Payload, &wrapped); err != nil || wrapped.Result == nil {
+			return extractedQueryData{}, false
+		}
+		return extractedQueryData{logicalQuery: wrapped.LogicalQuery, result: wrapped.Result}, true
 	case agent.ToolWebRunSkill:
 		var wrapped struct {
 			SQL    string        `json:"sql"`
@@ -201,7 +210,8 @@ func webAgentQueryDataFromStep(step agent.RuntimeStep) (extractedQueryData, bool
 		return extractedQueryData{sql: wrapped.SQL, result: wrapped.Result}, true
 	case agent.ToolWebListDatasources, agent.ToolWebListModels, agent.ToolWebListPromptTemplates,
 		agent.ToolWebListSkills, agent.ToolCatalog, agent.ToolSemantic, agent.ToolQueryCompile,
-		agent.ToolQueryExecute, agent.ToolMemoryRecall:
+		agent.ToolQueryExecute, agent.ToolMemoryRecall,
+		agent.ToolWebDryPlan, agent.ToolWebDryRun:
 		return extractedQueryData{}, false
 	default:
 		return extractedQueryData{}, false
