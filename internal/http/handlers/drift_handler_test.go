@@ -35,6 +35,10 @@ type queryMock struct {
 	Cols    []string
 	Rows    [][]driver.Value
 	Err     error
+	// Once consumes this mock after its first match, letting a later entry
+	// with the same Pattern serve subsequent calls (e.g. fail-then-succeed
+	// retry sequences). Default false = every matching call reuses it.
+	Once bool
 }
 
 type execMock struct {
@@ -61,8 +65,11 @@ func (s *mockDBState) nextQueryRows(query string, _ []driver.Value) (driver.Rows
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	qNorm := strings.ToLower(strings.Join(strings.Fields(query), " "))
-	for _, qm := range s.queries {
+	for i, qm := range s.queries {
 		if strings.Contains(qNorm, strings.ToLower(qm.Pattern)) {
+			if qm.Once {
+				s.queries = append(s.queries[:i:i], s.queries[i+1:]...)
+			}
 			if qm.Err != nil {
 				return nil, qm.Err
 			}

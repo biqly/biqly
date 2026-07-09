@@ -326,7 +326,7 @@ func (h *AIHandler) createWebAgentRun(ctx context.Context, req webAgentRequest) 
 		return "", errors.New("metadata repository is not configured")
 	}
 	question := firstNonEmpty(req.Message, req.ClarificationAnswer)
-	return h.deps.MetaRepo.CreateAgentRun(ctx, metadata.AgentRunInsert{
+	insert := metadata.AgentRunInsert{
 		ConversationID: req.ConversationID,
 		DatasourceID:   req.DatasourceID,
 		UserID:         bimw.UserID(ctx),
@@ -334,7 +334,22 @@ func (h *AIHandler) createWebAgentRun(ctx context.Context, req webAgentRequest) 
 		QuestionHash:   metadata.QuestionHash(question),
 		Mode:           webAgentMode,
 		Status:         metadata.AgentRunStatusRunning,
-	})
+	}
+	id, err := h.deps.MetaRepo.CreateAgentRun(ctx, insert)
+	if err != nil && insert.ConversationID != "" &&
+		metadata.IsForeignKeyViolation(err, "agent_runs_conversation_id_fkey") {
+		// The client is the single conversation writer (design doc: snapshot +
+		// idempotency flow), so the client-supplied conversation id can point
+		// at a row its snapshot hasn't persisted yet. The linkage is
+		// best-effort — the result payload carries run_id regardless — so
+		// retry without it instead of failing the whole run, mirroring the
+		// legacy pipeline's best-effort persistAgentRun.
+		slog.WarnContext(ctx, "web agent run created without conversation linkage",
+			"conversation_id", insert.ConversationID)
+		insert.ConversationID = ""
+		id, err = h.deps.MetaRepo.CreateAgentRun(ctx, insert)
+	}
+	return id, err
 }
 
 // persistWebAgentSteps durably records a completed web agent run's step

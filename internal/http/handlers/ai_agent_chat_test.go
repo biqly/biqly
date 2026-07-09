@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -946,4 +947,85 @@ func TestResumeWebAgentRunRejectsAlreadyTerminalRun(t *testing.T) {
 
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, agent.ErrRunAlreadyTerminal))
+}
+
+// TestCreateWebAgentRunFallsBackWithoutConversationLinkage reproduces the
+// production incident where every agent run failed with "could not create
+// agent run": the client is the single conversation writer (snapshot +
+// idempotency flow), so the client-supplied conversation id can reference an
+// ai_conversations row that doesn't exist yet server-side, and the
+// agent_runs.conversation_id FK insert then fails with SQLSTATE 23503. The
+// linkage is best-effort — the handler must retry without it, not fail the
+// whole run.
+func TestCreateWebAgentRunFallsBackWithoutConversationLinkage(t *testing.T) {
+	db, state := setupMockDB(t)
+	state.queries = []queryMock{
+		{
+			Pattern: "INSERT INTO agent_runs",
+			Err: &pgconn.PgError{
+				Code:           "23503",
+				ConstraintName: "agent_runs_conversation_id_fkey",
+			},
+			Once: true,
+		},
+		{
+			Pattern: "INSERT INTO agent_runs",
+			Cols:    []string{"id"},
+			Rows:    [][]driver.Value{{"run-1"}},
+		},
+	}
+	h := newAIHandlerWithRepo(metadata.NewRepository(db))
+
+	ctx := bimw.WithUserID(context.Background(), "user-1")
+	id, err := h.createWebAgentRun(ctx, webAgentRequest{
+		Message:        "show revenue",
+		DatasourceID:   "ds-1",
+		ConversationID: "conv_client_local_id",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "run-1", id)
+
+	var inserts []mockCall
+	for _, call := range state.calls {
+		if strings.Contains(call.Op, "INSERT INTO agent_runs") {
+			inserts = append(inserts, call)
+		}
+	}
+	require.Len(t, inserts, 2, "expected the failed insert plus one linkage-free retry")
+	assert.Equal(t, "conv_client_local_id", inserts[0].Args[0])
+	assert.Nil(t, inserts[1].Args[0], "retry must drop the conversation linkage (NULL)")
+}
+
+// TestCreateWebAgentRunDoesNotRetryOtherErrors proves the FK fallback is
+// scoped to exactly the conversation-linkage constraint: any other insert
+// failure (here a different FK) still fails the run.
+func TestCreateWebAgentRunDoesNotRetryOtherErrors(t *testing.T) {
+	db, state := setupMockDB(t)
+	state.queries = []queryMock{
+		{
+			Pattern: "INSERT INTO agent_runs",
+			Err: &pgconn.PgError{
+				Code:           "23503",
+				ConstraintName: "agent_runs_datasource_id_fkey",
+			},
+		},
+	}
+	h := newAIHandlerWithRepo(metadata.NewRepository(db))
+
+	ctx := bimw.WithUserID(context.Background(), "user-1")
+	_, err := h.createWebAgentRun(ctx, webAgentRequest{
+		Message:        "show revenue",
+		DatasourceID:   "ds-missing",
+		ConversationID: "conv-1",
+	})
+
+	require.Error(t, err)
+	var inserts int
+	for _, call := range state.calls {
+		if strings.Contains(call.Op, "INSERT INTO agent_runs") {
+			inserts++
+		}
+	}
+	assert.Equal(t, 1, inserts, "non-conversation FK errors must not trigger a retry")
 }

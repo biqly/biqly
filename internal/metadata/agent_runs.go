@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
+
 	platformdb "github.com/biqly/biqly/internal/platform/db"
 )
 
@@ -74,6 +76,17 @@ type AgentRunInsert struct {
 const agentRunColumns = `id::text, COALESCE(conversation_id, ''), datasource_id::text,
 	COALESCE(model_id::text, ''), user_id, question, question_hash, mode, status,
 	confidence, answer, created_at, updated_at`
+
+// pgForeignKeyViolation is SQLSTATE class 23 code 503 (foreign_key_violation).
+const pgForeignKeyViolation = "23503"
+
+// IsForeignKeyViolation reports whether err is a Postgres foreign-key
+// violation (SQLSTATE 23503) on the named constraint. Constraint matching is
+// exact; an empty pgErr.ConstraintName never matches.
+func IsForeignKeyViolation(err error, constraint string) bool {
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	return ok && pgErr.Code == pgForeignKeyViolation && pgErr.ConstraintName == constraint
+}
 
 // CreateAgentRun inserts a new run and returns its generated id.
 func (r *Repository) CreateAgentRun(ctx context.Context, in AgentRunInsert) (string, error) {

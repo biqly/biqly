@@ -2,7 +2,11 @@ package metadata
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/biqly/biqly/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -305,4 +309,20 @@ func TestFindOpenRunResumesAcrossClarification(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, runID, open.ID)
 	assert.Equal(t, AgentRunStatusWaitingClarification, open.Status)
+}
+
+func TestIsForeignKeyViolation(t *testing.T) {
+	fk := &pgconn.PgError{Code: "23503", ConstraintName: "agent_runs_conversation_id_fkey"}
+
+	assert.True(t, IsForeignKeyViolation(fk, "agent_runs_conversation_id_fkey"))
+	// Wrapped the way repository methods return it.
+	assert.True(t, IsForeignKeyViolation(
+		fmt.Errorf("create agent run: %w", fk), "agent_runs_conversation_id_fkey"))
+
+	assert.False(t, IsForeignKeyViolation(fk, "agent_runs_datasource_id_fkey"), "different constraint")
+	assert.False(t, IsForeignKeyViolation(
+		&pgconn.PgError{Code: "23505", ConstraintName: "agent_runs_conversation_id_fkey"},
+		"agent_runs_conversation_id_fkey"), "unique violation is not an FK violation")
+	assert.False(t, IsForeignKeyViolation(errors.New("plain error"), "agent_runs_conversation_id_fkey"))
+	assert.False(t, IsForeignKeyViolation(nil, "agent_runs_conversation_id_fkey"))
 }
