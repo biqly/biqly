@@ -75,7 +75,7 @@ func main() {
 		Addr:         cfg.HTTPAddr(),
 		Handler:      router,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: cfg.MaxQueryRuntime() + 15*time.Second,
+		WriteTimeout: cfg.HTTPWriteTimeout(),
 		IdleTimeout:  120 * time.Second,
 	}
 
