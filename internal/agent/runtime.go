@@ -20,6 +20,11 @@ type RuntimeStep struct {
 	Observation  *Observation `json:"observation,omitempty"`
 	DeniedReason string       `json:"denied_reason,omitempty"`
 	Error        string       `json:"error,omitempty"`
+	// DurationMs is the tool dispatch's wall time (policy evaluation +
+	// execution), 0 while the step is still in flight. omitempty keeps
+	// previously-persisted runtime_state blobs (which predate the field)
+	// unmarshaling identically.
+	DurationMs int64 `json:"duration_ms,omitempty"`
 }
 
 // TerminalResult is a run's immutable final outcome: DecisionFinal or
@@ -276,8 +281,10 @@ func (rt *Runtime) runToolStep(
 
 	dispatchStart := time.Now()
 	obs, err := rt.registry.Execute(ctx, run, *proposal)
-	rt.metrics.RecordAgentStepDuration(string(proposal.Tool), time.Since(dispatchStart))
+	elapsed := time.Since(dispatchStart)
+	rt.metrics.RecordAgentStepDuration(string(proposal.Tool), elapsed)
 	idx := len(state.Steps) - 1
+	state.Steps[idx].DurationMs = elapsed.Milliseconds()
 	if err != nil {
 		if denied, ok := errors.AsType[*PolicyDeniedError](err); ok {
 			state.Steps[idx].DeniedReason = denied.ReasonCode

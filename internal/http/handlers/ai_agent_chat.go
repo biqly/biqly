@@ -139,7 +139,7 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case state.Terminal != nil && state.Terminal.Final != nil:
-		result := h.composeWebAgentFinalResult(r.Context(), req, runID, state)
+		result := h.composeWebAgentFinalResult(r.Context(), req, resume, runID, state)
 		// context.WithoutCancel: same reasoning as failWebAgentRun above — a
 		// client abort must not stop the already-completed run's step trace
 		// from being durably persisted.
@@ -159,7 +159,7 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 		// don't show an empty trace on reload. Mirrors the legacy pipeline's
 		// persistAgentRun call from its own failure branch (ai_job_exec.go).
 		h.persistWebAgentSteps(context.WithoutCancel(r.Context()), runID, &ai.Response{
-			Metadata: &ai.AIMetadata{RunSteps: webAgentRunSteps(state.Steps)},
+			Metadata: &ai.AIMetadata{RunSteps: webAgentRunSteps(state.Steps, state.ClarificationHistory)},
 		})
 		sendAgentError(send, state.Terminal.Failure.ReasonCode, state.Terminal.Failure.Message)
 	default:
@@ -629,12 +629,32 @@ func webAgentStepEvent(step agent.RuntimeStep) map[string]any {
 	case step.Observation == nil:
 		status = "started"
 	}
-	return map[string]any{
+	event := map[string]any{
 		"seq":    step.Seq,
 		"kind":   "tool_call_" + status,
 		"tool":   step.Proposal.Tool,
 		"status": status,
 	}
+	// The proposal's (truncated) raw arguments ride on every step event —
+	// they are known from the "started" notification onward and feed the
+	// live trace's expandable per-step details (they are NOT persisted;
+	// summary below is what lands in agent_steps.detail).
+	if args := webAgentStepArgs(step); args != "" {
+		event["args"] = args
+	}
+	// Only terminal step states carry a measured duration (the "started"
+	// notification fires before dispatch, when DurationMs is still 0), per
+	// the design doc's SSE contract: duration_ms appears on
+	// tool_call_completed, not tool_call_started. The human summary follows
+	// the same rule — there is nothing to summarize before the observation
+	// (or denial/error) exists.
+	if status != "started" {
+		event["duration_ms"] = step.DurationMs
+		if summary := webAgentStepSummary(step); summary != "" {
+			event["summary"] = summary
+		}
+	}
+	return event
 }
 
 type webAgentStateStore struct {

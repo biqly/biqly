@@ -555,6 +555,11 @@ export interface RunStep {
   attempt?: number
   duration_ms: number
   detail?: string
+  /** Raw tool-call arguments (truncated server-side) for a live web-agent
+   * step — a client-only field carried by the SSE step event, never
+   * persisted to agent_steps: a reloaded trace omits it and the row renders
+   * without an expandable details section (RunTrace.tsx). */
+  args?: string
 }
 
 export type QueryColumnSemanticType = 'dimension' | 'metric'

@@ -614,3 +614,37 @@ func TestRuntimePersistsBeforeAndAfterEveryExternalCall(t *testing.T) {
 	// One save before dispatch, one after, one for the final terminal write.
 	assert.Equal(t, 3, store.saves)
 }
+
+// TestRuntimeRecordsStepDuration proves a tool step's measured wall time
+// lands on the step itself (RuntimeStep.DurationMs), not only in the
+// Prometheus histogram — this is what the SSE step events, the finalizer's
+// run_steps trace, and agent_steps persistence all read, and it was 0
+// everywhere before the field existed.
+func TestRuntimeRecordsStepDuration(t *testing.T) {
+	fake := &fakeCatalogResolver{
+		result: []CatalogEntity{{Table: "orders"}},
+		delay:  10 * time.Millisecond,
+	}
+	registry := NewRegistry(&PolicyEngine{}, NewCatalogTool(fake))
+	run := runtimeTestRun()
+	planner := &scriptedPlanner{decisions: []PlannerDecision{
+		toolDecision(ToolCatalog, identityJSON(run)),
+		finalDecision("42"),
+	}}
+	store := newFakeStateStore()
+	rt := NewRuntime(planner, registry, store)
+
+	state, err := rt.Run(context.Background(), run, "run-duration")
+	require.NoError(t, err)
+	require.Len(t, state.Steps, 1)
+	// time.Sleep guarantees at-least semantics and Milliseconds() floors, so
+	// a 10ms tool can never measure below 10.
+	assert.GreaterOrEqual(t, state.Steps[0].DurationMs, int64(10))
+
+	// The persisted (resumable) state carries it too.
+	saved, ok, err := store.Load(context.Background(), "run-duration")
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Len(t, saved.Steps, 1)
+	assert.Equal(t, state.Steps[0].DurationMs, saved.Steps[0].DurationMs)
+}

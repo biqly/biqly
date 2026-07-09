@@ -30,23 +30,50 @@ function mapAgentStepStatus(status: AgentStepEvent['status']): RunStep['status']
 // single STEP_LABEL_KEYS entry per tool name (RunTrace.tsx) labels both the
 // live and the reloaded trace with no further branching needed.
 //
-// duration_ms is always 0 here: the web agent runtime does not yet track
-// per-step timing (RuntimeStep has no start/end timestamps), so persisted
-// steps carry duration_ms: 0 too (webAgentRunSteps never sets it) — this is
-// a pre-existing backend gap, not something introduced by the live view.
+// duration_ms arrives only on terminal step events (tool_call_completed /
+// denied / failed) — the "started" event fires before dispatch, so it
+// carries none and the row shows 0 until the terminal event replaces it.
 export function mergeAgentStepEvent(steps: RunStep[], event: AgentStepEvent): RunStep[] {
+  const idx = steps.findIndex((s) => s.seq === event.seq)
   const next: RunStep = {
     seq: event.seq,
     kind: event.tool ?? event.kind,
     status: mapAgentStepStatus(event.status),
     duration_ms: event.duration_ms ?? 0,
     detail: event.summary,
+    // Defensive: keep the started event's args if a terminal event ever
+    // arrives without them (the handler sends them on both today).
+    args: event.args ?? (idx === -1 ? undefined : steps[idx]?.args),
   }
-  const idx = steps.findIndex((s) => s.seq === event.seq)
   if (idx === -1) {
     return [...steps, next]
   }
   const merged = steps.slice()
   merged[idx] = next
   return merged
+}
+
+// appendAgentClarificationStep appends a client-synthesized `clarification`
+// row to the live trace at the moment the user answers a pending
+// clarification (see AIQuery.tsx), so the clarify round-trip stays visible
+// in the run's history exactly where it happened. The synthetic seq is
+// NEGATIVE (-1, -2, … per synthesized row): server-emitted step seqs are
+// always positive, so a later real step event can neither collide with nor
+// replace this row in mergeAgentStepEvent's seq-keyed merge — and rows
+// render in array order, so the negative seq never affects placement.
+// The persisted counterpart is webAgentRunSteps' appended clarification
+// RunSteps (ai_agent_finalizer.go), which land at the END of the reloaded
+// trace instead (the backend records no step position for a clarification).
+export function appendAgentClarificationStep(steps: RunStep[], detail: string): RunStep[] {
+  const syntheticCount = steps.filter((s) => s.seq < 0).length
+  return [
+    ...steps,
+    {
+      seq: -(syntheticCount + 1),
+      kind: 'clarification',
+      status: 'ok',
+      duration_ms: 0,
+      detail,
+    },
+  ]
 }

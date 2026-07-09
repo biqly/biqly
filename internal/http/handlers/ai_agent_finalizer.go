@@ -29,12 +29,12 @@ import (
 // before the web agent ever sees the observation) — this function only
 // derives the visualization hint and anomaly warnings from it, exactly like
 // enrichAIRunResponse does; it never re-runs EnrichResult itself.
-func (h *AIHandler) composeWebAgentFinalResult(ctx context.Context, req webAgentRequest, runID string, state agent.RuntimeState) *ai.Response {
+func (h *AIHandler) composeWebAgentFinalResult(ctx context.Context, req webAgentRequest, resume webAgentResumeInfo, runID string, state agent.RuntimeState) *ai.Response {
 	resp := &ai.Response{
 		Result: &ai.AIResult{},
 		Metadata: &ai.AIMetadata{
 			RunID:    runID,
-			RunSteps: webAgentRunSteps(state.Steps),
+			RunSteps: webAgentRunSteps(state.Steps, state.ClarificationHistory),
 		},
 	}
 	if state.Terminal != nil && state.Terminal.Final != nil {
@@ -60,7 +60,7 @@ func (h *AIHandler) composeWebAgentFinalResult(ctx context.Context, req webAgent
 		resp.Result.Warnings = append(resp.Result.Warnings, anomalyWarnings...)
 	}
 
-	question := firstNonEmpty(req.Message, req.ClarificationAnswer)
+	question := webAgentFinalQuestion(req, resume)
 	// Same helpers, same gating, as the legacy job pipeline: both are
 	// no-ops unless resp.Result.Result is set (true here) and h.service is
 	// configured, so this is safe to call unconditionally.
@@ -69,30 +69,55 @@ func (h *AIHandler) composeWebAgentFinalResult(ctx context.Context, req webAgent
 	return resp
 }
 
+// webAgentFinalQuestion picks the question the business summary and
+// follow-up suggestions are generated for. On a resumed run req.Message is
+// empty and req.ClarificationAnswer is just the user's disambiguation choice
+// (e.g. a datasource name) — using it produced nonsense summaries like
+// "The count for 'zlitter' is 1,126". The run's ORIGINAL question
+// (resume.OriginalQuestion, persisted at run creation) always wins, exactly
+// as it does for the resumed planner prompt (webAgentRunContext).
+func webAgentFinalQuestion(req webAgentRequest, resume webAgentResumeInfo) string {
+	return firstNonEmpty(resume.OriginalQuestion, req.Message, req.ClarificationAnswer)
+}
+
 // webAgentRunSteps converts a web agent run's recorded steps into the same
 // ai.RunStep shape agentStepsFromResponse (ai_agent_run.go) produces for the
 // legacy job pipeline's run_steps/run_id trace, so the frontend's
-// RunTracePanel renders a web agent run the same way. DurationMs stays 0:
-// agent.RuntimeStep does not currently record per-step wall time (only the
-// Prometheus histogram in Runtime.runToolStep does).
-func webAgentRunSteps(steps []agent.RuntimeStep) []ai.RunStep {
-	out := make([]ai.RunStep, 0, len(steps))
+// RunTracePanel renders a web agent run the same way. Detail carries
+// webAgentStepSummary's output — the bare reason code / error text for
+// denied/failed steps (preserving RunTrace.tsx's reason-code i18n mapping)
+// and the tool-aware human summary for completed ones — matching what the
+// live SSE trace showed while the run streamed.
+//
+// Each answered clarification round (clarifications, oldest first) is
+// appended after the tool steps as a `clarification`-kind RunStep.
+// ClarificationHistory records no step position (the runtime pauses BETWEEN
+// steps), so appending in exchange order — with seqs continuing past the
+// highest recorded step seq — is the documented placement choice; the live
+// trace interleaves the same rows at their true position client-side.
+func webAgentRunSteps(steps []agent.RuntimeStep, clarifications []agent.ClarificationExchange) []ai.RunStep {
+	out := make([]ai.RunStep, 0, len(steps)+len(clarifications))
+	maxSeq := 0
 	for _, step := range steps {
 		status := ai.RunStepStatusOK
-		detail := ""
-		switch {
-		case step.DeniedReason != "":
+		if step.DeniedReason != "" || step.Error != "" {
 			status = ai.RunStepStatusFailed
-			detail = step.DeniedReason
-		case step.Error != "":
-			status = ai.RunStepStatusFailed
-			detail = step.Error
 		}
+		maxSeq = max(maxSeq, step.Seq)
 		out = append(out, ai.RunStep{
-			Seq:    step.Seq,
-			Kind:   string(step.Proposal.Tool),
-			Status: status,
-			Detail: detail,
+			Seq:        step.Seq,
+			Kind:       string(step.Proposal.Tool),
+			Status:     status,
+			DurationMs: step.DurationMs,
+			Detail:     webAgentStepSummary(step),
+		})
+	}
+	for i, exchange := range clarifications {
+		out = append(out, ai.RunStep{
+			Seq:    maxSeq + i + 1,
+			Kind:   "clarification",
+			Status: ai.RunStepStatusOK,
+			Detail: webAgentClarificationDetail(exchange),
 		})
 	}
 	return out
