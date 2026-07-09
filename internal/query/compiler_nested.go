@@ -90,6 +90,10 @@ func (c *Compiler) compileStatement(
 	rowFilters []security.RowFilter,
 ) (*CompiledQuery, error) {
 	c = c.withCompileCtx(ctx)
+	prevDerived := c.derivedSource
+	c.derivedSource = lq != nil && (strings.TrimSpace(lq.FromCTE) != "" || lq.FromSubquery != nil)
+	defer func() { c.derivedSource = prevDerived }()
+
 	lq.EnsureGroupBySelected()
 
 	dimMap, metricMap, joinMap := buildCompilerMaps(lq, model)
@@ -186,7 +190,13 @@ func (c *Compiler) buildInSubqueryFilter(lhsSQL string, f Filter, model *semanti
 		return "", nil, err
 	}
 	if len(f.Subquery.Body.Select) != 1 {
-		return "", nil, errors.New("subquery filter body must select exactly one field")
+		return "", nil, validationErrWithCode(
+			"filters",
+			"subquery filter body must select exactly one field",
+			errmsg.CodeInvalidSubqueryFilter,
+			f.Subquery.ResultField,
+			nil,
+		)
 	}
 	sel := f.Subquery.Body.Select[0]
 	if sel.Name != f.Subquery.ResultField && sel.Alias != f.Subquery.ResultField {

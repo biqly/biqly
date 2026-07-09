@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -1844,5 +1845,138 @@ func TestCompiler_WindowFirstValue(t *testing.T) {
 	}
 	if !strings.Contains(cq.SQL, `FIRST_VALUE("orders"."total_amount") OVER (ORDER BY `) {
 		t.Errorf("expected FIRST_VALUE head, got:\n%s", cq.SQL)
+	}
+}
+
+func TestCompiler_WindowSumOverCountStar(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "tweets", BaseSchema: "public", BaseTable: "timeline_tweets",
+		Dimensions: []semantic.Dimension{
+			{Name: "created_at_month", ColumnRef: "timeline_tweets.created_at_ts", Type: "timestamp", TimeGrain: TimeGrainMonth},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "count", Expression: "*", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "created_at_month"},
+			{
+				Type: SelectTypeWindow, Name: "running_count", Alias: "running_count",
+				Window: &WindowSpec{
+					Aggregation: "sum",
+					Metric:      "count",
+					OrderBy:     []OrderBy{{Field: "created_at_month", Direction: "asc"}},
+					Frame:       "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+				},
+			},
+		},
+		GroupBy: []GroupBy{{Field: "created_at_month", TimeGrain: TimeGrainMonth}},
+		Limit:   100,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	want := `SUM(COUNT(*)) OVER (ORDER BY `
+	if !strings.Contains(cq.SQL, want) {
+		t.Errorf("expected %q in SQL, got:\n%s", want, cq.SQL)
+	}
+}
+
+func TestCompiler_CTEFromCTECountStarFilter(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "tweets", BaseSchema: "public", BaseTable: "timeline_tweets",
+		Dimensions: []semantic.Dimension{
+			{Name: "lang", ColumnRef: "timeline_tweets.lang", Type: "string"},
+			{Name: "created_at_ts_year", ColumnRef: "timeline_tweets.created_at_ts", Type: "timestamp", TimeGrain: TimeGrainYear},
+		},
+		Metrics: []semantic.Metric{
+			{Name: "count", Expression: "*", Aggregation: "count"},
+		},
+	}
+	lq := LogicalQuery{
+		CTEs: []CTE{{
+			Name: "langs_2026",
+			Select: []SelectItem{
+				{Type: SelectTypeDimension, Name: "lang"},
+				{Type: SelectTypeMetric, Name: "count"},
+			},
+			Filters: []Filter{{Field: "created_at_ts_year", Operator: OpEq, Value: 2026}},
+			GroupBy: []GroupBy{{Field: "lang"}},
+		}},
+		FromCTE: "langs_2026",
+		Select: []SelectItem{
+			{Type: SelectTypeDimension, Name: "lang"},
+			{Type: SelectTypeMetric, Name: "count"},
+		},
+		Filters: []Filter{{Field: "count", Operator: OpGt, Value: 3000}},
+		OrderBy: []OrderBy{{Field: "count", Direction: OrderDesc}},
+		Limit:   10,
+	}
+	cq, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if strings.Contains(cq.SQL, `WHERE * >`) || strings.Contains(cq.SQL, `WHERE "*" >`) {
+		t.Fatalf("expected derived count column in WHERE, got:\n%s", cq.SQL)
+	}
+	if !strings.Contains(cq.SQL, `WHERE "count" >`) {
+		t.Errorf("expected WHERE on derived count column, got:\n%s", cq.SQL)
+	}
+	if !strings.Contains(cq.SQL, `FROM "langs_2026"`) || !strings.Contains(cq.SQL, `"lang" AS "lang", "count" AS "count"`) {
+		t.Errorf("expected passthrough select from CTE, got:\n%s", cq.SQL)
+	}
+}
+
+func TestCompiler_InvalidWindowFrameReturnsValidationError(t *testing.T) {
+	lq := LogicalQuery{
+		Select: []SelectItem{{
+			Type: SelectTypeWindow, Name: "bad_frame",
+			Window: &WindowSpec{
+				Aggregation: "sum",
+				Metric:      "total_revenue",
+				Frame:       "ROWS UNBOUNDED PRECEDING",
+			},
+		}},
+	}
+	_, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, windowFnModel())
+	if err == nil {
+		t.Fatal("expected compile error")
+	}
+	var valErrs ValidationErrors
+	if !errors.As(err, &valErrs) {
+		t.Fatalf("expected ValidationErrors, got %T: %v", err, err)
+	}
+}
+
+func TestCompiler_SubqueryFilterRequiresSingleSelect(t *testing.T) {
+	model := &semantic.SemanticModel{
+		Name: "orders", BaseSchema: "public", BaseTable: "orders",
+		Dimensions: []semantic.Dimension{{Name: "country", ColumnRef: "orders.country", Type: "text"}},
+		Metrics:    []semantic.Metric{{Name: "order_count", Expression: "orders.id", Aggregation: "count"}},
+	}
+	lq := LogicalQuery{
+		Select: []SelectItem{{Type: SelectTypeMetric, Name: "order_count"}},
+		Filters: []Filter{{
+			Field: "country", Operator: OpIn,
+			Subquery: &SubqueryFilter{
+				ResultField: "country",
+				Body: SubqueryBody{
+					Select: []SelectItem{
+						{Type: SelectTypeDimension, Name: "country"},
+						{Type: SelectTypeMetric, Name: "order_count"},
+					},
+				},
+			},
+		}},
+	}
+	_, err := NewCompiler(dialect.PostgresDialect{}).Compile(context.Background(), &lq, model)
+	if err == nil {
+		t.Fatal("expected compile error")
+	}
+	var valErrs ValidationErrors
+	if !errors.As(err, &valErrs) {
+		t.Fatalf("expected ValidationErrors, got %T: %v", err, err)
 	}
 }

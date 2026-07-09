@@ -29,11 +29,12 @@ var reBracket = regexp.MustCompile(`\[([^\]]+)\]`)
 
 // Compiler compiles a LogicalQuery into dialect-specific SQL.
 type Compiler struct {
-	dialect    dialect.Dialect
-	pii        *PIIMaskingConfig
-	compileCtx context.Context
-	rowFilters []security.RowFilter
-	err        error
+	dialect       dialect.Dialect
+	pii           *PIIMaskingConfig
+	compileCtx    context.Context
+	rowFilters    []security.RowFilter
+	derivedSource bool
+	err           error
 }
 
 // NewCompiler creates a new SQL compiler for the given dialect.
@@ -832,11 +833,17 @@ func (c *Compiler) buildSelectDimension(item SelectItem, dimMap map[string]*sema
 		}
 		return "", validationErrWithCode("select", errmsg.UnknownDimensionMsg(item.Name), errmsg.CodeUnknownDimension, item.Name, suggestAlternatives(item.Name, dimKeys))
 	}
-	dimSQL := c.dimensionOutputSQL(dim, resolver)
-	if c.err != nil {
-		return "", c.err
+	alias := selectItemAlias(item.Alias, dim.Name)
+	var dimSQL string
+	if c.derivedSource {
+		dimSQL = c.derivedFieldSQL(alias)
+	} else {
+		dimSQL = c.dimensionOutputSQL(dim, resolver)
+		if c.err != nil {
+			return "", c.err
+		}
 	}
-	return selectItemSQL(dimSQL, selectItemAlias(item.Alias, dim.Name), c.dialect), nil
+	return selectItemSQL(dimSQL, alias, c.dialect), nil
 }
 
 func (c *Compiler) buildSelectMetric(
@@ -855,18 +862,22 @@ func (c *Compiler) buildSelectMetric(
 		}
 		return "", validationErrWithCode("select", errmsg.UnknownMetricMsg(item.Name), errmsg.CodeUnknownMetric, item.Name, suggestAlternatives(item.Name, metricKeys))
 	}
+	alias := selectItemAlias(item.Alias, metric.Name)
+	if c.derivedSource {
+		return selectItemSQL(c.derivedFieldSQL(alias), alias, c.dialect), nil
+	}
 	if len(item.Filters) > 0 {
 		agg, err := c.metricFilteredAggregate(metric, item.Filters, resolver, dimMap, metricMap, model, args)
 		if err != nil {
 			return "", err
 		}
-		return selectItemSQL(agg, selectItemAlias(item.Alias, metric.Name), c.dialect), nil
+		return selectItemSQL(agg, alias, c.dialect), nil
 	}
 	agg := c.metricAggregate(metric, resolver, dimMap, metricMap, model)
 	if c.err != nil {
 		return "", c.err
 	}
-	return selectItemSQL(agg, selectItemAlias(item.Alias, metric.Name), c.dialect), nil
+	return selectItemSQL(agg, alias, c.dialect), nil
 }
 
 // buildSelectFormula renders a `formula` select item: an arithmetic operation
@@ -1025,6 +1036,12 @@ func (c *Compiler) buildWindowExpr(
 	if err != nil {
 		return "", err
 	}
+	if nested, ok, err := c.tryBuildNestedMetricWindow(w, agg, dimMap, metricMap, model, resolver); err != nil {
+		return "", err
+	} else if ok {
+		return nested, nil
+	}
+
 	if expr != "" && expr != "*" && !exprFromAST {
 		expr = c.metricExpressionRef(nil, expr, resolver, dimMap, metricMap, model)
 	}
@@ -1037,6 +1054,52 @@ func (c *Compiler) buildWindowExpr(
 		return "", err
 	}
 
+	return c.finishWindowOver(head, w, dimMap, metricMap, model, resolver)
+}
+
+func (c *Compiler) tryBuildNestedMetricWindow(
+	w *WindowSpec,
+	agg string,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	model *semantic.SemanticModel,
+	resolver *SchemaResolver,
+) (sql string, ok bool, err error) {
+	mname := strings.TrimSpace(w.Metric)
+	if mname == "" {
+		return "", false, nil
+	}
+	m, found := metricMap[mname]
+	if !found {
+		return "", false, nil
+	}
+	metricAgg := strings.ToLower(strings.TrimSpace(m.Aggregation))
+	if metricAgg == "" || agg == metricAgg || analyticWindowFuncs[agg] {
+		return "", false, nil
+	}
+	inner := c.metricAggregate(m, resolver, dimMap, metricMap, model)
+	if c.err != nil {
+		return "", false, c.err
+	}
+	head, err := c.buildWindowHead(agg, inner, true, w.Offset)
+	if err != nil {
+		return "", false, err
+	}
+	finished, err := c.finishWindowOver(head, w, dimMap, metricMap, model, resolver)
+	if err != nil {
+		return "", false, err
+	}
+	return finished, true, nil
+}
+
+func (c *Compiler) finishWindowOver(
+	head string,
+	w *WindowSpec,
+	dimMap map[string]*semantic.Dimension,
+	metricMap map[string]*semantic.Metric,
+	model *semantic.SemanticModel,
+	resolver *SchemaResolver,
+) (string, error) {
 	clauses := make([]string, 0, 4)
 	if partBy, err := c.buildWindowPartitionBy(w.PartitionBy, dimMap, resolver); err != nil {
 		return "", err
@@ -1050,11 +1113,15 @@ func (c *Compiler) buildWindowExpr(
 	}
 	if frame := strings.TrimSpace(w.Frame); frame != "" {
 		if !isValidFrame(frame) {
-			return "", fmt.Errorf("invalid window frame clause: %q", frame)
+			return "", validationErrWithCode("select", fmt.Sprintf("invalid window frame clause: %q", frame), errmsg.CodeInvalidWindowFrame, frame, nil)
 		}
 		clauses = append(clauses, frame)
 	}
 	return head + " OVER (" + strings.Join(clauses, " ") + ")", nil
+}
+
+func (c *Compiler) derivedFieldSQL(name string) string {
+	return c.dialect.QuoteIdent(name)
 }
 
 // analyticWindowFuncs are the non-aggregate window functions whose spelling is
@@ -1076,7 +1143,7 @@ func (c *Compiler) buildWindowHead(agg, expr string, exprFromAST bool, offset in
 		return "", errors.New("count_distinct is not supported as a window function (no portable SQL across engines); use a plain count window or a distinct subquery instead")
 	}
 	if !analyticWindowFuncs[agg] {
-		if exprFromAST {
+		if exprFromAST || expr == "*" {
 			return c.aggregateExpr(agg, expr), nil
 		}
 		return c.dialect.Aggregate(agg, expr), nil
@@ -1238,7 +1305,12 @@ func (c *Compiler) buildHaving(
 		if !ok {
 			return "", nil, fmt.Errorf("unknown having field (must be a metric): %s", f.Field)
 		}
-		aggSQL := c.metricAggregate(metric, resolver, dimMap, metricMap, model)
+		var aggSQL string
+		if c.derivedSource {
+			aggSQL = c.derivedFieldSQL(f.Field)
+		} else {
+			aggSQL = c.metricAggregate(metric, resolver, dimMap, metricMap, model)
+		}
 		switch f.Operator {
 		case OpEq, OpNeq, OpGt, OpGte, OpLt, OpLte:
 			args = append(args, f.Value)
@@ -1464,6 +1536,14 @@ func (c *Compiler) calendarGrainFilterExpr(
 
 // resolveFilterLHS returns SQL for the left-hand side of a filter (quoted column, metric expression, or date_trunc).
 func (c *Compiler) resolveFilterLHS(field string, dimMap map[string]*semantic.Dimension, metricMap map[string]*semantic.Metric, model *semantic.SemanticModel, resolver *SchemaResolver) (string, error) {
+	if c.derivedSource {
+		if _, ok := dimMap[field]; ok {
+			return c.derivedFieldSQL(field), nil
+		}
+		if _, ok := metricMap[field]; ok {
+			return c.derivedFieldSQL(field), nil
+		}
+	}
 	if dim, ok := dimMap[field]; ok {
 		if c.filterFieldHidden(dim, resolver) {
 			return "", validationErrWithCode("filters", errmsg.HiddenPIIFieldMsg(field), errmsg.CodeHiddenPIIField, field, nil)
@@ -1538,6 +1618,10 @@ func (c *Compiler) buildGroupBy(groupBy []GroupBy, dimMap map[string]*semantic.D
 		}
 		if c.dimensionFullyHidden(dim, resolver) {
 			return "", validationErrWithCode("group_by", errmsg.HiddenPIIFieldMsg(gb.Field), errmsg.CodeHiddenPIIField, gb.Field, nil)
+		}
+		if c.derivedSource {
+			parts = append(parts, c.derivedFieldSQL(gb.Field))
+			continue
 		}
 		parts = append(parts, c.dimensionOutputSQL(dim, resolver))
 	}

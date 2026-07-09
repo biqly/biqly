@@ -7,14 +7,14 @@ const (
 	UnknownMetric    = "unknown metric"
 	UnknownField     = "unknown field"
 
-	PermissionPolicyUnknownField = "permission policy references unknown field"
+	PermissionPolicyUnknownField    = "permission policy references unknown field"
 	PermissionRowFilterUnknownField = "permission row filter references unknown field"
-	RowFilterUnknownFieldPrefix    = "row filter references unknown field"
+	RowFilterUnknownFieldPrefix     = "row filter references unknown field"
 
-	DimensionUnknownColumn          = "dimension references unknown column"
-	MetricExpressionUnknownColumn   = "metric expression references unknown column"
-	JoinUnknownFromColumn           = "join references unknown from column"
-	JoinUnknownToColumn             = "join references unknown to column"
+	DimensionUnknownColumn        = "dimension references unknown column"
+	MetricExpressionUnknownColumn = "metric expression references unknown column"
+	JoinUnknownFromColumn         = "join references unknown from column"
+	JoinUnknownToColumn           = "join references unknown to column"
 
 	CodeUnknownDimension      = "UNKNOWN_DIMENSION"
 	CodeUnknownMetric         = "UNKNOWN_METRIC"
@@ -28,7 +28,9 @@ const (
 	CodeDateValueTypeMismatch = "DATE_VALUE_TYPE_MISMATCH"
 	CodeAmbiguousYearCoverage = "AMBIGUOUS_YEAR_COVERAGE"
 	CodeHiddenPIIField        = "HIDDEN_PII_FIELD"
-	CodeUnreachableTable     = "UNREACHABLE_TABLE"
+	CodeUnreachableTable      = "UNREACHABLE_TABLE"
+	CodeInvalidWindowFrame    = "INVALID_WINDOW_FRAME"
+	CodeInvalidSubqueryFilter = "INVALID_SUBQUERY_FILTER"
 )
 
 // HiddenPIIField is the message prefix for filters referencing PII columns
