@@ -1,11 +1,13 @@
 import type { RequestOptions } from '../../api/apiClient'
 import type { TrackedAIJob } from '../../hooks/useAIJobs'
 import type { Locale, TranslationKey } from '../../i18n'
+import type { PendingAgentClarification } from '../../types/agent'
 import type {
   AIQueryResponse,
   AIRuntimeSettings,
   Conversation,
   ConversationMessage,
+  RunStep,
 } from '../../types/ai'
 import type { Datasource, Table } from '../../types/metadata'
 
@@ -103,6 +105,18 @@ export interface ChatPanelProps {
   onContextEnabledChange: (conversationId: string, enabled: boolean) => void
   autoFindEnabled: boolean
   onAutoFindEnabledChange: (enabled: boolean) => void
+  agentModeEnabled: boolean
+  onAgentModeEnabledChange: (enabled: boolean) => void
+  /** Live step trace for the in-flight (or clarification-paused) Agent Mode
+   * turn, if any — rendered via AgentTraceCard while non-empty. Reset to []
+   * once the turn resolves to a persisted result/error message. */
+  agentTraceSteps: RunStep[]
+  /** Set while an Agent Mode run is paused on a clarification_required
+   * event, waiting for the user to pick a choice, skip, or type a free-text
+   * answer in the composer. */
+  agentClarification: PendingAgentClarification | null
+  onAgentClarificationChoice: (choiceId: string) => void
+  onAgentClarificationSkip: () => void
   selectedSavedQueryIds: string[]
   onSelectedSavedQueryIdsChange: (ids: string[]) => void
   onSendQuery: (q: string, execute: boolean, clarificationChoice?: string) => void

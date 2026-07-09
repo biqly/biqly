@@ -457,6 +457,9 @@ export const core = {
     auto_find_toggle: 'Auto-find skills',
     auto_find_toggle_title:
       'Automatically ground answers with the best-matching saved queries (embedding search)',
+    agent_mode_toggle: 'Agent mode',
+    agent_mode_toggle_title:
+      'Experimental: let the AI plan and run multiple steps autonomously instead of answering in one pass',
     saved_query_hint: 'Type @ for a field · / to add a saved query',
     saved_query_picker_aria: 'Saved query suggestions',
     saved_query_picker_label: 'Saved queries',
@@ -503,6 +506,13 @@ export const core = {
     run_trace_step_clarification: 'Clarification',
     run_trace_step_final_response: 'Final response',
     run_trace_step_shadow_comparison: 'Shadow comparison',
+    run_trace_step_list_datasources: 'List datasources',
+    run_trace_step_list_models: 'List models',
+    run_trace_step_run_question: 'Run question',
+    run_trace_step_run_logical_query: 'Run logical query',
+    run_trace_step_list_skills: 'List skills',
+    run_trace_step_run_skill: 'Run skill',
+    run_trace_running: 'running…',
     run_trace_reason_tool_not_allowlisted: 'Tool not allowed for this run',
     run_trace_reason_retry_budget_exhausted: 'Retry budget exhausted',
     run_trace_reason_airgapped_egress_denied: 'Blocked: external access denied in airgapped mode',
@@ -556,6 +566,19 @@ export const core = {
     clarify_default: 'Please clarify.',
     assistant_sql_preview: 'SQL: {{snippet}}…',
     assistant_executed: 'Query executed',
+    agent_clarification_fallback:
+      'The agent needs more information before it can continue — please rephrase your question.',
+    // Sent as the literal clarification_answer when the user clicks "Skip" on
+    // an in-progress agent run's clarification card. The web agent runtime has
+    // no structured skip sentinel (unlike the legacy pipeline's
+    // ClarificationSkipChoice) — clarification_answer flows straight into the
+    // planner's prompt as free text, so a natural-language instruction is the
+    // correct "skip" signal for this path.
+    agent_clarification_skip_answer:
+      'No strong preference — please proceed with your best judgment.',
+    agent_clarification_free_text_hint:
+      'You can also type your own answer in the message box below.',
+    err_agent_stream: 'Agent run failed',
     job_failed_message: 'The AI job failed: {{error}}',
     job_cancelled_message: 'Query cancelled: {{question}}',
     filter_by_value: '{{column}} = "{{value}}" filter',

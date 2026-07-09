@@ -38,6 +38,24 @@ type RuntimeState struct {
 	ClarificationRounds int             `json:"clarification_rounds"`
 	QueryExecuteStarted bool            `json:"query_execute_started"`
 	Terminal            *TerminalResult `json:"terminal,omitempty"`
+	// PendingClarification is the question (and options) the planner most
+	// recently asked, set by runClarificationStep right before Run pauses.
+	// A caller resuming the run (T8: resume_run_id + clarification_answer)
+	// reads this to render the clarification_required SSE event's
+	// question/choices and to pair it with the caller's answer into a new
+	// ClarificationExchange for RunContext.ClarificationHistory. Run clears
+	// it at the top of the next Run call — once a resume is in flight, the
+	// question is being addressed, so a stale value never lingers in
+	// persisted state past that point.
+	PendingClarification *Clarification `json:"pending_clarification,omitempty"`
+	// ClarificationHistory accumulates every clarification round resolved so
+	// far, oldest first: Run adopts run.ClarificationHistory (built by the
+	// caller from this same field plus the round it just resumed — see
+	// resumeWebAgentRun) as the new durable baseline at the top of each Run
+	// call, so a genuine multi-round flow (pause on Q1 -> resume with A1 ->
+	// pause on Q2 -> resume with A2) never loses round 1's Q1/A1 by the time
+	// round 2 resumes.
+	ClarificationHistory []ClarificationExchange `json:"clarification_history,omitempty"`
 }
 
 // toolStepCount returns how many steps in state proposed a tool call — the
@@ -72,6 +90,7 @@ type Runtime struct {
 	registry *Registry
 	store    StateStore
 	metrics  *observability.Metrics
+	stepHook func(RuntimeStep)
 }
 
 // NewRuntime builds a Runtime backed by planner, registry, and store.
@@ -85,6 +104,24 @@ func NewRuntime(planner Planner, registry *Registry, store StateStore) *Runtime 
 // convention.
 func (rt *Runtime) SetMetrics(m *observability.Metrics) {
 	rt.metrics = m
+}
+
+// SetStepHook installs fn as the callback invoked, synchronously and in
+// order, every time a RuntimeStep's persisted state changes: once right
+// after a tool proposal is recorded (before dispatch — observers see a
+// "started" step), and again after its outcome is known (denied, failed, or
+// completed). This lets a caller (the web agent's SSE handler, T6) stream
+// steps live instead of waiting for Run to return the final state.
+// Optional: a nil hook (the default) is a no-op. fn must not block — it runs
+// on Run's own goroutine, so a slow hook stalls the run itself.
+func (rt *Runtime) SetStepHook(fn func(RuntimeStep)) {
+	rt.stepHook = fn
+}
+
+func (rt *Runtime) notifyStep(step RuntimeStep) {
+	if rt.stepHook != nil {
+		rt.stepHook(step)
+	}
 }
 
 // Run executes (or resumes) runID's bounded planning loop until it reaches a
@@ -107,6 +144,20 @@ func (rt *Runtime) Run(ctx context.Context, run RunContext, runID string) (Runti
 	}
 	if state.Terminal != nil {
 		return state, ErrRunAlreadyTerminal
+	}
+	// A resumed run is, by definition, addressing whatever clarification
+	// paused it last time — clear it now so a stale question never lingers
+	// in persisted state once the loop moves past it (runClarificationStep
+	// sets a fresh one if the planner asks again).
+	state.PendingClarification = nil
+	// run.ClarificationHistory is the caller's up-to-date accumulated view
+	// (state's own prior history plus the round it just resumed with an
+	// answer — see resumeWebAgentRun). Adopting it here, before the loop
+	// starts, makes it the new durable baseline: it flows into every
+	// planner.Decide call via run, and survives to the next resume because
+	// every Save call below persists this same state value.
+	if len(run.ClarificationHistory) > 0 {
+		state.ClarificationHistory = run.ClarificationHistory
 	}
 
 	var deadline time.Time
@@ -152,7 +203,7 @@ func (rt *Runtime) step(
 
 	switch decision.Kind {
 	case DecisionClarification:
-		return rt.runClarificationStep(ctx, run, runID, state)
+		return rt.runClarificationStep(ctx, run, runID, state, decision.Clarification)
 	case DecisionFinal:
 		final, err := rt.finalizeOK(ctx, runID, state, decision.Final)
 		return final, true, err
@@ -179,14 +230,18 @@ func (rt *Runtime) step(
 	}
 }
 
-func (rt *Runtime) runClarificationStep(ctx context.Context, run RunContext, runID string, state RuntimeState) (RuntimeState, bool, error) {
+func (rt *Runtime) runClarificationStep(ctx context.Context, run RunContext, runID string, state RuntimeState, clarification *Clarification) (RuntimeState, bool, error) {
 	state.ClarificationRounds++
 	rt.metrics.RecordAgentClarificationRound(state.ClarificationRounds)
 	if state.ClarificationRounds > run.MaxClarificationRounds {
+		// The run is failing terminally, not pausing — there is nothing left
+		// pending for a caller to resume.
+		state.PendingClarification = nil
 		final, err := rt.finalizeFail(ctx, runID, state, "max_clarification_rounds_exceeded",
 			"exceeded the maximum number of clarification rounds")
 		return final, true, err
 	}
+	state.PendingClarification = clarification
 	if err := rt.store.Save(ctx, runID, state); err != nil {
 		return state, true, fmt.Errorf("save runtime state: %w", err)
 	}
@@ -217,6 +272,7 @@ func (rt *Runtime) runToolStep(
 	if err := rt.store.Save(ctx, runID, state); err != nil {
 		return state, true, fmt.Errorf("save runtime state before dispatch: %w", err)
 	}
+	rt.notifyStep(step)
 
 	dispatchStart := time.Now()
 	obs, err := rt.registry.Execute(ctx, run, *proposal)
@@ -229,9 +285,11 @@ func (rt *Runtime) runToolStep(
 			if serr := rt.store.Save(ctx, runID, state); serr != nil {
 				return state, true, fmt.Errorf("save runtime state after denial: %w", serr)
 			}
+			rt.notifyStep(state.Steps[idx])
 			return state, false, nil // let the planner see the denial and correct course
 		}
 		state.Steps[idx].Error = err.Error()
+		rt.notifyStep(state.Steps[idx])
 		final, ferr := rt.finalizeFail(ctx, runID, state, "tool_error", err.Error())
 		return final, true, ferr
 	}
@@ -242,6 +300,7 @@ func (rt *Runtime) runToolStep(
 	if err := rt.store.Save(ctx, runID, state); err != nil {
 		return state, true, fmt.Errorf("save runtime state after dispatch: %w", err)
 	}
+	rt.notifyStep(state.Steps[idx])
 	return state, false, nil
 }
 

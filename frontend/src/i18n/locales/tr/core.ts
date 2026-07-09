@@ -465,6 +465,9 @@ export const core: CoreDictionary = {
     auto_find_toggle: 'Otomatik beceri bul',
     auto_find_toggle_title:
       'Yanıtları en iyi eşleşen kayıtlı sorgularla otomatik temellendir (gömme araması)',
+    agent_mode_toggle: 'Ajan modu',
+    agent_mode_toggle_title:
+      'Deneysel: yapay zeka tek seferde yanıtlamak yerine birden çok adımı kendi kendine planlayıp çalıştırsın',
     saved_query_hint: 'Alan için @ · kayıtlı sorgu eklemek için / yazın',
     saved_query_picker_aria: 'Kayıtlı sorgu önerileri',
     saved_query_picker_label: 'Kayıtlı sorgular',
@@ -511,6 +514,13 @@ export const core: CoreDictionary = {
     run_trace_step_clarification: 'Netleştirme',
     run_trace_step_final_response: 'Nihai yanıt',
     run_trace_step_shadow_comparison: 'Gölge karşılaştırma',
+    run_trace_step_list_datasources: 'Veri kaynaklarını listele',
+    run_trace_step_list_models: 'Modelleri listele',
+    run_trace_step_run_question: 'Soruyu çalıştır',
+    run_trace_step_run_logical_query: 'Mantıksal sorguyu çalıştır',
+    run_trace_step_list_skills: 'Becerileri listele',
+    run_trace_step_run_skill: 'Beceriyi çalıştır',
+    run_trace_running: 'çalışıyor…',
     run_trace_reason_tool_not_allowlisted: 'Bu çalıştırma için araca izin verilmiyor',
     run_trace_reason_retry_budget_exhausted: 'Yeniden deneme bütçesi tükendi',
     run_trace_reason_airgapped_egress_denied:
@@ -564,6 +574,13 @@ export const core: CoreDictionary = {
     clarify_default: 'Lütfen netleştirin.',
     assistant_sql_preview: 'SQL: {{snippet}}…',
     assistant_executed: 'Sorgu çalıştırıldı',
+    agent_clarification_fallback:
+      'Ajanın devam edebilmesi için daha fazla bilgiye ihtiyacı var — lütfen sorunuzu yeniden ifade edin.',
+    agent_clarification_skip_answer:
+      'Belirli bir tercihim yok — lütfen en iyi değerlendirmenle devam et.',
+    agent_clarification_free_text_hint:
+      'Aşağıdaki mesaj kutusuna kendi yanıtınızı da yazabilirsiniz.',
+    err_agent_stream: 'Ajan çalıştırması başarısız oldu',
     job_failed_message: 'Yapay zeka işi başarısız oldu: {{error}}',
     job_cancelled_message: 'Sorgu iptal edildi: {{question}}',
     filter_by_value: '{{column}} = "{{value}}" ile filtrele',

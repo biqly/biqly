@@ -174,6 +174,45 @@ func TestProviderPlannerWebHappyPathListModelsRunQuestionFinal(t *testing.T) {
 	assert.Contains(t, provider.prompts[2], `"rows"`)
 }
 
+// TestBuildPlannerPromptDescribesPriorClarification proves a resumed run's
+// answered clarification round-trip reaches the planner prompt (T8: "the
+// resumed run's next planner call sees the Q&A"), and that a fresh run
+// (ClarificationHistory empty) renders no such section.
+func TestBuildPlannerPromptDescribesPriorClarification(t *testing.T) {
+	run := baseRunContext()
+	run.Question = "revenue by region"
+	run.ClarificationHistory = []ClarificationExchange{{Question: "which metric?", Answer: "net_revenue"}}
+
+	prompt := buildPlannerPrompt(run, nil)
+	assert.Contains(t, prompt, "which metric?")
+	assert.Contains(t, prompt, "net_revenue")
+	assert.Contains(t, prompt, "do not ask the same question again")
+
+	fresh := buildPlannerPrompt(baseRunContext(), nil)
+	assert.NotContains(t, fresh, "previously asked these clarifications")
+}
+
+// TestBuildPlannerPromptDescribesFullClarificationHistory proves a SECOND
+// resume round's planner prompt sees BOTH round 1's Q1/A1 and round 2's
+// Q2/A2 — not just the latest round — closing the gap where
+// RuntimeState.PendingClarification (a single field) used to be
+// unconditionally overwritten each round, silently dropping round 1's
+// resolution by the time round 2's resume happened.
+func TestBuildPlannerPromptDescribesFullClarificationHistory(t *testing.T) {
+	run := baseRunContext()
+	run.Question = "revenue by region"
+	run.ClarificationHistory = []ClarificationExchange{
+		{Question: "which metric?", Answer: "net_revenue"},
+		{Question: "which quarter?", Answer: "Q2"},
+	}
+
+	prompt := buildPlannerPrompt(run, nil)
+	assert.Contains(t, prompt, "which metric?")
+	assert.Contains(t, prompt, "net_revenue")
+	assert.Contains(t, prompt, "which quarter?")
+	assert.Contains(t, prompt, "Q2")
+}
+
 func TestTruncateLongObservationPayload(t *testing.T) {
 	long := make([]byte, 600)
 	for i := range long {

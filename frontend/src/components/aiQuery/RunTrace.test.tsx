@@ -44,6 +44,35 @@ describe('RunTracePanel', () => {
     }
   })
 
+  it('labels every web agent tool step kind (live-remapped kind and reloaded-persisted kind alike)', () => {
+    const kinds = [
+      'list_datasources',
+      'list_models',
+      'run_question',
+      'run_logical_query',
+      'list_skills',
+      'run_skill',
+    ]
+    const steps = kinds.map((kind, i) => step({ seq: i + 1, kind }))
+    const markup = renderToStaticMarkup(<RunTracePanel steps={steps} t={t} />)
+    for (const kind of kinds) {
+      expect(markup).toContain(`ai_query.run_trace_step_${kind}`)
+    }
+  })
+
+  it('shows a running indicator instead of a duration or failed/cancelled badge for an in-progress step', () => {
+    const markup = renderToStaticMarkup(
+      <RunTracePanel
+        steps={[step({ kind: 'run_question', status: 'running', duration_ms: 10 })]}
+        t={t}
+      />,
+    )
+    expect(markup).toContain('ai_query.run_trace_running')
+    expect(markup).not.toContain('10ms')
+    expect(markup).not.toContain('ai_query.run_trace_failed')
+    expect(markup).not.toContain('ai_query.run_trace_cancelled')
+  })
+
   it('still labels legacy pipeline step kinds', () => {
     const markup = renderToStaticMarkup(
       <RunTracePanel steps={[step({ kind: 'sql_dry_run' })]} t={t} />,

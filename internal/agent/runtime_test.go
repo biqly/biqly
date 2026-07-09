@@ -53,12 +53,14 @@ type scriptedPlanner struct {
 	errs       []error
 	calls      int
 	gotHistory [][]RuntimeStep
+	gotRun     []RunContext
 }
 
 var errPlannerFailure = errors.New("planner failure")
 
-func (p *scriptedPlanner) Decide(_ context.Context, _ RunContext, history []RuntimeStep) (PlannerDecision, error) {
+func (p *scriptedPlanner) Decide(_ context.Context, run RunContext, history []RuntimeStep) (PlannerDecision, error) {
 	p.gotHistory = append(p.gotHistory, history)
+	p.gotRun = append(p.gotRun, run)
 	i := p.calls
 	p.calls++
 	if i < len(p.errs) && p.errs[i] != nil {
@@ -159,6 +161,8 @@ func TestRuntimeClarificationPauses(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, state.Terminal, "clarification pauses without a terminal result")
 	assert.Equal(t, 1, state.ClarificationRounds)
+	require.NotNil(t, state.PendingClarification, "the paused question survives for a caller to surface")
+	assert.Equal(t, "which metric?", state.PendingClarification.Question)
 
 	// Resuming re-loads the paused state and continues the loop.
 	planner.decisions = append(planner.decisions, finalDecision("resumed"))
@@ -166,6 +170,108 @@ func TestRuntimeClarificationPauses(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, state.Terminal)
 	assert.Equal(t, "resumed", state.Terminal.Final.Answer)
+	assert.Nil(t, state.PendingClarification, "resuming past the clarification clears it")
+}
+
+// TestRuntimeAccumulatesClarificationHistoryAcrossTwoResumes is the genuine
+// 2-round flow T8 must support: round 1 pauses on Q1, is resumed with A1
+// (mirroring resumeWebAgentRun's job of pairing the persisted pending
+// question with the caller's answer and feeding the accumulated history
+// back in via RunContext), round 2 pauses on Q2 and is resumed with A2. It
+// proves round 1's Q1/A1 is never lost by the time round 2's planner call
+// happens — the exact gap RuntimeState.PendingClarification's single-field
+// overwrite used to create — and that RuntimeState.ClarificationHistory
+// durably accumulates both rounds across the persisted state.
+func TestRuntimeAccumulatesClarificationHistoryAcrossTwoResumes(t *testing.T) {
+	registry := NewRegistry(&PolicyEngine{}, NewCatalogTool(&fakeCatalogResolver{}))
+	run := runtimeTestRun()
+	store := newFakeStateStore()
+	planner := &scriptedPlanner{decisions: []PlannerDecision{clarificationDecision("which metric?")}}
+	rt := NewRuntime(planner, registry, store)
+
+	// Round 1: pause on Q1.
+	state, err := rt.Run(context.Background(), run, "run-accum")
+	require.NoError(t, err)
+	require.NotNil(t, state.PendingClarification)
+	assert.Equal(t, "which metric?", state.PendingClarification.Question)
+	assert.Empty(t, state.ClarificationHistory)
+
+	// Resume 1: caller pairs the persisted pending question with the user's
+	// answer (A1) and passes the accumulated history back via RunContext for
+	// round 2's planner call — this is resumeWebAgentRun's job in production.
+	run.ClarificationHistory = []ClarificationExchange{{Question: "which metric?", Answer: "net_revenue"}}
+	planner.decisions = append(planner.decisions, clarificationDecision("which quarter?"))
+	state, err = rt.Run(context.Background(), run, "run-accum")
+	require.NoError(t, err)
+	require.NotNil(t, state.PendingClarification)
+	assert.Equal(t, "which quarter?", state.PendingClarification.Question)
+	// Round 1's Q1/A1 must survive into the persisted state, not be
+	// overwritten by round 2's new pending question.
+	require.Len(t, state.ClarificationHistory, 1)
+	assert.Equal(t, "which metric?", state.ClarificationHistory[0].Question)
+	assert.Equal(t, "net_revenue", state.ClarificationHistory[0].Answer)
+	// Round 2's planner call must have seen round 1's Q1/A1.
+	require.Len(t, planner.gotRun, 2)
+	require.Len(t, planner.gotRun[1].ClarificationHistory, 1)
+	assert.Equal(t, "net_revenue", planner.gotRun[1].ClarificationHistory[0].Answer)
+
+	// Resume 2: round 2 resolves too — the caller now carries BOTH rounds.
+	run.ClarificationHistory = append(run.ClarificationHistory,
+		ClarificationExchange{Question: "which quarter?", Answer: "Q2"})
+	planner.decisions = append(planner.decisions, finalDecision("net revenue for Q2"))
+	state, err = rt.Run(context.Background(), run, "run-accum")
+	require.NoError(t, err)
+	require.NotNil(t, state.Terminal)
+	assert.Equal(t, "net revenue for Q2", state.Terminal.Final.Answer)
+	require.Len(t, state.ClarificationHistory, 2)
+	assert.Equal(t, "which quarter?", state.ClarificationHistory[1].Question)
+	assert.Equal(t, "Q2", state.ClarificationHistory[1].Answer)
+	// The FINAL planner call must have seen BOTH rounds' Q&A, not just the
+	// latest one.
+	require.Len(t, planner.gotRun, 3)
+	require.Len(t, planner.gotRun[2].ClarificationHistory, 2)
+	assert.Equal(t, "net_revenue", planner.gotRun[2].ClarificationHistory[0].Answer)
+	assert.Equal(t, "Q2", planner.gotRun[2].ClarificationHistory[1].Answer)
+}
+
+// TestRuntimeClarificationCarriesOptionsThroughPendingState proves the
+// planner's clarification options (not just the question) survive into
+// RuntimeState.PendingClarification, since T8's clarification_required SSE
+// event renders both question and choices from this field.
+func TestRuntimeClarificationCarriesOptionsThroughPendingState(t *testing.T) {
+	registry := NewRegistry(&PolicyEngine{}, NewCatalogTool(&fakeCatalogResolver{}))
+	run := runtimeTestRun()
+	planner := &scriptedPlanner{decisions: []PlannerDecision{
+		{Kind: DecisionClarification, Clarification: &Clarification{
+			Question: "which metric?",
+			Options:  []string{"net_revenue", "gross_revenue"},
+		}},
+	}}
+	store := newFakeStateStore()
+	rt := NewRuntime(planner, registry, store)
+
+	state, err := rt.Run(context.Background(), run, "run-9")
+	require.NoError(t, err)
+	require.NotNil(t, state.PendingClarification)
+	assert.Equal(t, []string{"net_revenue", "gross_revenue"}, state.PendingClarification.Options)
+}
+
+// TestRuntimeMaxClarificationRoundsExceededClearsPending proves that once a
+// run fails terminally for exhausting its clarification budget, there is no
+// stale "pending" question left behind for a caller to (incorrectly) resume.
+func TestRuntimeMaxClarificationRoundsExceededClearsPending(t *testing.T) {
+	registry := NewRegistry(&PolicyEngine{}, NewCatalogTool(&fakeCatalogResolver{}))
+	run := runtimeTestRun()
+	run.MaxClarificationRounds = 0
+	store := newFakeStateStore()
+	planner := &scriptedPlanner{decisions: []PlannerDecision{clarificationDecision("q1")}}
+	rt := NewRuntime(planner, registry, store)
+
+	state, err := rt.Run(context.Background(), run, "run-10")
+	require.NoError(t, err)
+	require.NotNil(t, state.Terminal)
+	assert.Equal(t, "max_clarification_rounds_exceeded", state.Terminal.Failure.ReasonCode)
+	assert.Nil(t, state.PendingClarification)
 }
 
 func TestRuntimeMaxTwoClarificationRoundsExceeded(t *testing.T) {
@@ -426,6 +532,70 @@ func TestUnmarshalStateEmptyIsZeroValue(t *testing.T) {
 	got, err := UnmarshalState(nil)
 	require.NoError(t, err)
 	assert.Equal(t, RuntimeState{}, got)
+}
+
+// TestRuntimeStepHookObservesStartedThenCompleted proves the live event sink
+// (T6 item 1): SetStepHook fires once when a tool proposal is persisted
+// (Observation still nil — a "started" event) and once more after the
+// outcome is known (Observation set — a "completed" event), in that order,
+// synchronously as Run executes rather than only after Run returns.
+func TestRuntimeStepHookObservesStartedThenCompleted(t *testing.T) {
+	fake := &fakeCatalogResolver{result: []CatalogEntity{{Table: "orders"}}}
+	registry := NewRegistry(&PolicyEngine{}, NewCatalogTool(fake))
+	run := runtimeTestRun()
+	planner := &scriptedPlanner{decisions: []PlannerDecision{
+		toolDecision(ToolCatalog, identityJSON(run)),
+		finalDecision("42"),
+	}}
+	store := newFakeStateStore()
+	rt := NewRuntime(planner, registry, store)
+
+	var seen []RuntimeStep
+	rt.SetStepHook(func(step RuntimeStep) {
+		// Deep-copy so a later mutation of the shared underlying step (the
+		// runtime reuses state.Steps[idx] in place) cannot retroactively
+		// change what this test already observed.
+		seen = append(seen, step)
+	})
+
+	state, err := rt.Run(context.Background(), run, "run-hook-1")
+	require.NoError(t, err)
+	require.NotNil(t, state.Terminal)
+
+	require.Len(t, seen, 2, "one 'started' event and one 'completed' event")
+	assert.Nil(t, seen[0].Observation, "first event fires before dispatch")
+	assert.Equal(t, 1, seen[0].Seq)
+	assert.NotNil(t, seen[1].Observation, "second event fires after the outcome is known")
+	assert.Equal(t, 1, seen[1].Seq)
+}
+
+// TestRuntimeStepHookObservesDenial proves a policy-denied step is also
+// surfaced live: a "started" event (proposal persisted, pre-dispatch) then a
+// second event once the policy denial is known (DeniedReason set).
+func TestRuntimeStepHookObservesDenial(t *testing.T) {
+	fake := &fakeCatalogResolver{result: []CatalogEntity{{Table: "orders"}}}
+	registry := NewRegistry(&PolicyEngine{}, NewCatalogTool(fake))
+	run := runtimeTestRun()
+	run.AllowedTools = []ToolName{ToolSemantic, ToolCatalog}
+	planner := &scriptedPlanner{decisions: []PlannerDecision{
+		toolDecision(ToolQueryExecute, identityJSON(run)), // not allowlisted -> denied
+		toolDecision(ToolCatalog, identityJSON(run)),
+		finalDecision("corrected"),
+	}}
+	store := newFakeStateStore()
+	rt := NewRuntime(planner, registry, store)
+
+	var seen []RuntimeStep
+	rt.SetStepHook(func(step RuntimeStep) {
+		seen = append(seen, step)
+	})
+
+	_, err := rt.Run(context.Background(), run, "run-hook-2")
+	require.NoError(t, err)
+
+	require.GreaterOrEqual(t, len(seen), 2)
+	assert.Empty(t, seen[0].DeniedReason, "first event is the pre-dispatch 'started' step")
+	assert.Equal(t, ReasonToolNotAllowlisted, seen[1].DeniedReason, "second event carries the policy denial")
 }
 
 func TestRuntimePersistsBeforeAndAfterEveryExternalCall(t *testing.T) {

@@ -79,6 +79,7 @@ func buildPlannerPrompt(run RunContext, history []RuntimeStep) string {
 
 	fmt.Fprintf(&b, "Question: %s\n", run.Question)
 	writePriorTurns(&b, run.PriorTurns)
+	writeClarificationHistory(&b, run.ClarificationHistory)
 	b.WriteString("Available tools: ")
 	for i, tool := range run.AllowedTools {
 		if i > 0 {
@@ -117,6 +118,21 @@ func writePriorTurns(b *strings.Builder, priorTurns []PriorTurn) {
 		b.WriteString("\n")
 	}
 	b.WriteString("\n")
+}
+
+// writeClarificationHistory renders every clarification round a resumed run
+// has resolved so far, oldest first, so the planner sees the FULL round-trip
+// history — not just the latest round — and does not re-ask a question any
+// prior round already answered. A no-op for a fresh run (history is empty).
+func writeClarificationHistory(b *strings.Builder, history []ClarificationExchange) {
+	if len(history) == 0 {
+		return
+	}
+	b.WriteString("You previously asked these clarifications; the user answered each in turn:\n")
+	for i, exchange := range history {
+		fmt.Fprintf(b, "%d. asked=%q answered=%q\n", i+1, exchange.Question, exchange.Answer)
+	}
+	b.WriteString("Use these answers to continue; do not ask the same question again unless a new ambiguity requires it.\n\n")
 }
 
 func writeWebToolDescriptors(b *strings.Builder, allowed []ToolName) {

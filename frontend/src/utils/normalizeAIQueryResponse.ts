@@ -1,3 +1,4 @@
+import type { AgentResultEvent } from '../types/agent'
 import type { AIQueryResponse } from '../types/ai'
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -92,6 +93,19 @@ function assignQueryFields(flat: AIQueryResponse, source: Record<string, unknown
     flat.visualization_hint =
       source.visualization_hint as unknown as AIQueryResponse['visualization_hint']
   }
+  // run_id must survive a second pass through normalizeAIQueryResponse: an
+  // agent-mode message's ai_response is ALREADY the flat shape
+  // normalizeAgentResultEvent produced (run_id backfilled from the SSE
+  // envelope), but AssistantMessageCard re-normalizes message.ai_response on
+  // every render (`normalizeAIQueryResponse(message.ai_response)`), taking
+  // this same flat-passthrough branch again. Without copying it here, that
+  // second pass silently dropped run_id (it was previously only ever
+  // assigned in assignMetadataFields, reached solely by the nested-envelope
+  // unwrap branch) — which broke RunTracePanel's reload-via-run_id path for
+  // every agent-mode result (T11 review finding).
+  if (typeof source.run_id === 'string') {
+    flat.run_id = source.run_id
+  }
 }
 
 function assignMetadataFields(flat: AIQueryResponse, metadata: Record<string, unknown>): void {
@@ -161,5 +175,25 @@ export function normalizeAIQueryResponse(raw: unknown): AIQueryResponse | null {
     assignMetadataFields(flat, metadata)
   }
 
+  return flat
+}
+
+// normalizeAgentResultEvent converts a "result" SSE event (T9's
+// streamAgentChat) into the same flat AIQueryResponse shape the job/polling
+// path produces, so agent-mode turns land in the conversation through the
+// identical persistence contract. AgentResultPayload's fields (sql,
+// logical_query, warnings, result, answer, caveat, confidence,
+// visualization_hint, suggested_followups) already mirror ai.AIResult's JSON
+// shape by design (T9), so this is normalizeAIQueryResponse's existing
+// already-flat passthrough branch, not a bespoke re-implementation. Falls
+// back to the event's top-level answer/confidence when no `result` payload
+// is present (e.g. a small-talk reply with no query run).
+export function normalizeAgentResultEvent(event: AgentResultEvent): AIQueryResponse | null {
+  const source = event.result ?? { answer: event.answer, confidence: event.confidence ?? 0 }
+  const flat = normalizeAIQueryResponse(source)
+  if (!flat) {
+    return null
+  }
+  flat.run_id ??= event.run_id
   return flat
 }

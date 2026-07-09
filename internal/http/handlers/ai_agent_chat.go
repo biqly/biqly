@@ -19,6 +19,7 @@ import (
 	"github.com/biqly/biqly/internal/config"
 	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/security/pii"
 	"github.com/biqly/biqly/internal/toolcontract"
 )
 
@@ -27,6 +28,12 @@ const webAgentMode = "web"
 var (
 	errWebAgentConcurrencyLimit       = errors.New("web agent concurrency limit reached")
 	errWebAgentConcurrencyUnavailable = errors.New("web agent concurrency guard unavailable")
+	// errWebAgentResumeForbidden is returned by resumeWebAgentRun for both
+	// "no such run" and "run belongs to someone else" — deliberately not
+	// distinguished so a caller probing run ids cannot learn which case
+	// applies (T8: "do not leak whether the run exists to an unauthorized
+	// caller").
+	errWebAgentResumeForbidden = errors.New("agent run not found")
 )
 
 type webAgentRequest struct {
@@ -69,7 +76,7 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	send, ok := newAgentSSESender(r.Context(), w)
+	send, heartbeat, ok := newAgentSSESender(r.Context(), w)
 	if !ok {
 		writeError(w, http.StatusInternalServerError, "streaming unsupported")
 		return
@@ -113,40 +120,50 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 	}
 	defer release(context.WithoutCancel(r.Context()))
 
-	runID, err := h.createWebAgentRun(r.Context(), req)
-	if err != nil {
-		slog.WarnContext(r.Context(), "create web agent run failed", "error", err)
-		sendAgentError(send, "run_create_failed", "could not create agent run")
-		sendAgentDone(send)
+	runID, resume, started := h.startOrResumeWebAgentRun(r.Context(), req, send)
+	if !started {
 		return
 	}
 	sendAgentEvent(send, "run_started", map[string]any{"run_id": runID})
 
-	state, err := h.runWebAgent(r.Context(), req, runID)
+	state, err := h.runWebAgent(r.Context(), req, runID, send, heartbeat, resume)
 	if err != nil {
-		h.failWebAgentRun(r.Context(), runID, err)
+		// context.WithoutCancel: a client abort (T6 item 2) cancels
+		// r.Context(), but the run must still be durably marked failed
+		// rather than left stuck "running" forever — same reasoning as the
+		// concurrency-slot release above.
+		h.failWebAgentRun(context.WithoutCancel(r.Context()), runID, err)
 		sendAgentError(send, "runtime_error", err.Error())
 		sendAgentDone(send)
 		return
 	}
-	for _, step := range state.Steps {
-		sendAgentEvent(send, "step", webAgentStepEvent(step))
-	}
 	switch {
 	case state.Terminal != nil && state.Terminal.Final != nil:
+		result := h.composeWebAgentFinalResult(r.Context(), req, runID, state)
+		// context.WithoutCancel: same reasoning as failWebAgentRun above — a
+		// client abort must not stop the already-completed run's step trace
+		// from being durably persisted.
+		h.persistWebAgentSteps(context.WithoutCancel(r.Context()), runID, result)
 		sendAgentEvent(send, "result", map[string]any{
 			"run_id":     runID,
-			"answer":     state.Terminal.Final.Answer,
-			"confidence": state.Terminal.Final.Confidence,
-			"steps":      webAgentStepEvents(state.Steps),
+			"answer":     result.Result.Answer,
+			"confidence": result.Result.Confidence,
+			"result":     result.Result,
+			"metadata":   result.Metadata,
 		})
 	case state.Terminal != nil && state.Terminal.Failure != nil:
+		// A failed run (max_steps_exceeded, tool_error, timeout,
+		// max_clarification_rounds_exceeded, ...) may still have executed one
+		// or more real tool steps before failing — persist that partial trace
+		// the same way the success path does, so GetAgentRun/RunTracePanel
+		// don't show an empty trace on reload. Mirrors the legacy pipeline's
+		// persistAgentRun call from its own failure branch (ai_job_exec.go).
+		h.persistWebAgentSteps(context.WithoutCancel(r.Context()), runID, &ai.Response{
+			Metadata: &ai.AIMetadata{RunSteps: webAgentRunSteps(state.Steps)},
+		})
 		sendAgentError(send, state.Terminal.Failure.ReasonCode, state.Terminal.Failure.Message)
 	default:
-		sendAgentEvent(send, "clarification_required", map[string]any{
-			"run_id":          runID,
-			"allow_free_text": true,
-		})
+		sendAgentEvent(send, "clarification_required", webAgentClarificationEvent(runID, state.PendingClarification))
 	}
 	sendAgentDone(send)
 }
@@ -183,6 +200,127 @@ func workspaceAllowed(workspaceID string, allowlist []string) bool {
 	return slices.Contains(allowlist, workspaceID)
 }
 
+// webAgentClarificationEvent builds the clarification_required SSE payload's
+// question/choices from the paused run's pending clarification. clarification
+// is nil only defensively (the default case in WebAgentChat is only reached
+// after a DecisionClarification pause, which always sets it) — in that case
+// the event still carries run_id/allow_free_text so the client can fall back
+// to free-text input.
+func webAgentClarificationEvent(runID string, clarification *agent.Clarification) map[string]any {
+	event := map[string]any{
+		"run_id":          runID,
+		"allow_free_text": true,
+	}
+	if clarification == nil {
+		return event
+	}
+	event["question"] = clarification.Question
+	choices := make([]map[string]string, 0, len(clarification.Options))
+	for _, opt := range clarification.Options {
+		// Clarification.Options is a flat []string — the planner does not
+		// model a separate choice id distinct from its label, so both are
+		// set to the option text itself, matching the design doc's
+		// {"id":..., "label":...} shape without inventing an id scheme the
+		// rest of the system has no use for.
+		choices = append(choices, map[string]string{"id": opt, "label": opt})
+	}
+	event["choices"] = choices
+	return event
+}
+
+// webAgentResumeInfo carries what a resumed run needs beyond req itself.
+// Both fields are zero-valued for a fresh (non-resumed) run.
+type webAgentResumeInfo struct {
+	// OriginalQuestion is run.Question as persisted at run creation (see
+	// createWebAgentRun) — the user's ORIGINAL ask, never recomputed from
+	// the resume request, which typically carries only clarification_answer
+	// and an empty message.
+	OriginalQuestion string
+	// ClarificationHistory is every clarification round resolved so far,
+	// oldest first, including the round this resume just answered. See
+	// resumeWebAgentRun.
+	ClarificationHistory []agent.ClarificationExchange
+}
+
+// resumeWebAgentRun loads a previously paused run for req.ResumeRunID and
+// identity-checks it before continuing: a run only resumes for the user who
+// created it (mirrors metadata.ConversationBelongsToUser's ownership check —
+// agent_runs has no workspace/tenant column to check instead), and, when the
+// request still carries a datasource_id, it must match the run's original
+// one too. Both failure modes collapse to errWebAgentResumeForbidden so a
+// caller cannot distinguish "wrong owner" from "run does not exist". The
+// returned webAgentResumeInfo carries the run's ORIGINAL question (T8 review
+// finding: must not be recomputed from the resume request alone) plus the
+// full clarification history to date — the persisted history from earlier
+// rounds plus the round this resume just answered — so the caller can build
+// a resumed RunContext the planner has everything it needs from.
+func (h *AIHandler) resumeWebAgentRun(ctx context.Context, req webAgentRequest) (string, webAgentResumeInfo, error) {
+	if h == nil || h.deps == nil || h.deps.MetaRepo == nil {
+		return "", webAgentResumeInfo{}, errors.New("metadata repository is not configured")
+	}
+	run, _, err := h.deps.MetaRepo.GetAgentRun(ctx, req.ResumeRunID)
+	if err != nil {
+		if errors.Is(err, metadata.ErrAgentRunNotFound) {
+			return "", webAgentResumeInfo{}, errWebAgentResumeForbidden
+		}
+		return "", webAgentResumeInfo{}, err
+	}
+	if run.UserID != bimw.UserID(ctx) || (req.DatasourceID != "" && run.DatasourceID != req.DatasourceID) {
+		return "", webAgentResumeInfo{}, errWebAgentResumeForbidden
+	}
+	state, ok, err := (&webAgentStateStore{repo: h.deps.MetaRepo}).Load(ctx, req.ResumeRunID)
+	if err != nil {
+		return "", webAgentResumeInfo{}, err
+	}
+	if !ok {
+		return "", webAgentResumeInfo{}, errWebAgentResumeForbidden
+	}
+	if state.Terminal != nil {
+		return "", webAgentResumeInfo{}, agent.ErrRunAlreadyTerminal
+	}
+	history := slices.Clone(state.ClarificationHistory)
+	if state.PendingClarification != nil {
+		history = append(history, agent.ClarificationExchange{
+			Question: state.PendingClarification.Question,
+			Answer:   req.ClarificationAnswer,
+		})
+	}
+	return run.ID, webAgentResumeInfo{OriginalQuestion: run.Question, ClarificationHistory: history}, nil
+}
+
+// startOrResumeWebAgentRun creates a new run, or — when req.ResumeRunID is
+// set — resumes a previously paused one, sending a clean SSE error frame
+// (and closing the stream) itself on any failure. started reports whether
+// the caller should continue; on false, WebAgentChat must return
+// immediately without sending anything else.
+func (h *AIHandler) startOrResumeWebAgentRun(ctx context.Context, req webAgentRequest, send agentSSESender) (runID string, resume webAgentResumeInfo, started bool) {
+	if req.ResumeRunID == "" {
+		runID, err := h.createWebAgentRun(ctx, req)
+		if err != nil {
+			slog.WarnContext(ctx, "create web agent run failed", "error", err)
+			sendAgentError(send, "run_create_failed", "could not create agent run")
+			sendAgentDone(send)
+			return "", webAgentResumeInfo{}, false
+		}
+		return runID, webAgentResumeInfo{}, true
+	}
+	runID, resume, err := h.resumeWebAgentRun(ctx, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, errWebAgentResumeForbidden):
+			sendAgentError(send, "not_found", "agent run not found")
+		case errors.Is(err, agent.ErrRunAlreadyTerminal):
+			sendAgentError(send, "already_terminal", "agent run has already finished")
+		default:
+			slog.WarnContext(ctx, "resume web agent run failed", "error", err)
+			sendAgentError(send, "run_resume_failed", "could not resume agent run")
+		}
+		sendAgentDone(send)
+		return "", webAgentResumeInfo{}, false
+	}
+	return runID, resume, true
+}
+
 func (h *AIHandler) createWebAgentRun(ctx context.Context, req webAgentRequest) (string, error) {
 	if h == nil || h.deps == nil || h.deps.MetaRepo == nil {
 		return "", errors.New("metadata repository is not configured")
@@ -199,6 +337,26 @@ func (h *AIHandler) createWebAgentRun(ctx context.Context, req webAgentRequest) 
 	})
 }
 
+// persistWebAgentSteps durably records a completed web agent run's step
+// trace in agent_steps, mirroring the legacy job pipeline's persistAgentRun
+// (ai_agent_run.go), so a web agent run's steps are queryable after the SSE
+// stream ends (page reload, GET run-by-id) exactly like a legacy pipeline
+// run's steps are today (design doc commitment: "Full fidelity persists in
+// agent_steps as today"). Best-effort: any error only logs a warning and
+// never fails the already-completed run. resp is the ai.Response built by
+// composeWebAgentFinalResult, whose Metadata.RunSteps is exactly the shape
+// agentStepsFromResponse converts.
+func (h *AIHandler) persistWebAgentSteps(ctx context.Context, runID string, resp *ai.Response) {
+	if h == nil || h.deps == nil || h.deps.MetaRepo == nil || runID == "" || resp == nil {
+		return
+	}
+	if steps := agentStepsFromResponse(resp); len(steps) > 0 {
+		if err := h.deps.MetaRepo.ReplaceAgentSteps(ctx, runID, steps); err != nil {
+			slog.WarnContext(ctx, "persist web agent steps failed", "run_id", runID, "error", err)
+		}
+	}
+}
+
 func (h *AIHandler) failWebAgentRun(ctx context.Context, runID string, cause error) {
 	if h == nil || h.deps == nil || h.deps.MetaRepo == nil || runID == "" || cause == nil {
 		return
@@ -208,9 +366,28 @@ func (h *AIHandler) failWebAgentRun(ctx context.Context, runID string, cause err
 	}
 }
 
-func (h *AIHandler) runWebAgent(ctx context.Context, req webAgentRequest, runID string) (agent.RuntimeState, error) {
+// webAgentHeartbeatInterval matches the design doc's SSE heartbeat cadence:
+// a comment frame every 15s keeps the gateway (and any other HTTP
+// intermediary) from treating a long planner/tool call as an idle
+// connection and closing it early — the same 1800s HTTPRoute timeout only
+// covers total request duration, not idle gaps.
+const webAgentHeartbeatInterval = 15 * time.Second
+
+// runWebAgent executes one run — the h.webAgentRunner test seam or, in
+// production, the real agent.Runtime — and streams its steps live over send
+// as they happen (T6 item 1) via streamAgentSteps, instead of buffering them
+// until the run finishes.
+func (h *AIHandler) runWebAgent(ctx context.Context, req webAgentRequest, runID string, send agentSSESender, heartbeat func(), resume webAgentResumeInfo) (agent.RuntimeState, error) {
 	if h.webAgentRunner != nil {
-		return h.webAgentRunner(ctx, req, runID)
+		runner := h.webAgentRunner
+		return streamAgentSteps(ctx, send, heartbeat, webAgentHeartbeatInterval,
+			func(ctx context.Context, emit func(agent.RuntimeStep)) (agent.RuntimeState, error) {
+				state, err := runner(ctx, req, runID)
+				for _, step := range state.Steps {
+					emit(step)
+				}
+				return state, err
+			})
 	}
 	if h.webAgentDispatcher == nil {
 		return agent.RuntimeState{}, errors.New("web agent dispatcher is not configured")
@@ -228,21 +405,85 @@ func (h *AIHandler) runWebAgent(ctx context.Context, req webAgentRequest, runID 
 	planner := agent.NewProviderPlanner(provider)
 	webTools := agent.NewWebTools(h.webAgentDispatcher, req.Credential)
 	registry := agent.NewRegistry(&agent.PolicyEngine{}, webTools.All()...)
-	rt := agent.NewRuntime(planner, registry, &webAgentStateStore{repo: h.deps.MetaRepo})
-	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
-	defer cancel()
-	return rt.Run(ctx, h.webAgentRunContext(ctx, req), runID)
+	return streamAgentSteps(ctx, send, heartbeat, webAgentHeartbeatInterval,
+		func(ctx context.Context, emit func(agent.RuntimeStep)) (agent.RuntimeState, error) {
+			rt := agent.NewRuntime(planner, registry, &webAgentStateStore{repo: h.deps.MetaRepo})
+			rt.SetStepHook(emit)
+			ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
+			defer cancel()
+			return rt.Run(ctx, h.webAgentRunContext(ctx, req, resume), runID)
+		})
 }
 
-func (h *AIHandler) webAgentRunContext(ctx context.Context, req webAgentRequest) agent.RunContext {
+// streamAgentSteps runs runFn on a background goroutine and relays every
+// step it emits to send as a live "step" SSE event, in order, from the
+// calling goroutine (the only goroutine that ever writes to send — runFn's
+// goroutine only ever pushes to the internal channel). While runFn is still
+// running, heartbeat fires every heartbeatEvery so a slow planner/tool call
+// never leaves the connection looking idle. runFn's ctx is exactly the ctx
+// passed in here: an already-canceled or later-canceled context propagates
+// straight through, relying on the runtime's own cancellation semantics to
+// make runFn return promptly — streamAgentSteps itself does not time out.
+func streamAgentSteps(
+	ctx context.Context,
+	send agentSSESender,
+	heartbeat func(),
+	heartbeatEvery time.Duration,
+	runFn func(ctx context.Context, emit func(agent.RuntimeStep)) (agent.RuntimeState, error),
+) (agent.RuntimeState, error) {
+	type runResult struct {
+		state agent.RuntimeState
+		err   error
+	}
+	stepCh := make(chan agent.RuntimeStep, 32)
+	resultCh := make(chan runResult, 1)
+	go func() {
+		state, err := runFn(ctx, func(step agent.RuntimeStep) {
+			select {
+			case stepCh <- step:
+			case <-ctx.Done():
+			}
+		})
+		close(stepCh)
+		resultCh <- runResult{state: state, err: err}
+	}()
+
+	ticker := time.NewTicker(heartbeatEvery)
+	defer ticker.Stop()
+	for {
+		select {
+		case step, ok := <-stepCh:
+			if !ok {
+				// runFn returned and closed stepCh: the result is already
+				// waiting (send happens strictly after close, in program
+				// order, on the same goroutine).
+				res := <-resultCh
+				return res.state, res.err
+			}
+			sendAgentEvent(send, "step", webAgentStepEvent(step))
+		case <-ticker.C:
+			if heartbeat != nil {
+				heartbeat()
+			}
+		}
+	}
+}
+
+func (h *AIHandler) webAgentRunContext(ctx context.Context, req webAgentRequest, resume webAgentResumeInfo) agent.RunContext {
 	cfg := normalizeWebAgentConfig(h.deps.Config.WebAgent)
 	return agent.RunContext{
-		TenantID:               bimw.WorkspaceID(ctx),
-		UserID:                 bimw.UserID(ctx),
-		DatasourceID:           req.DatasourceID,
-		Question:               firstNonEmpty(req.Message, req.ClarificationAnswer),
+		TenantID:     bimw.WorkspaceID(ctx),
+		UserID:       bimw.UserID(ctx),
+		DatasourceID: req.DatasourceID,
+		// resume.OriginalQuestion (the run's ORIGINAL question, persisted at
+		// creation) takes priority over the current request's message/answer:
+		// on a real resume, req.Message is typically empty and
+		// req.ClarificationAnswer is just the answer text, neither of which
+		// is the original ask the planner needs to keep pursuing.
+		Question:               firstNonEmpty(resume.OriginalQuestion, req.Message, req.ClarificationAnswer),
 		PriorTurns:             agentPriorTurns(req.PriorTurns),
-		AllowedTools:           webAgentAllowedTools(),
+		ClarificationHistory:   resume.ClarificationHistory,
+		AllowedTools:           webAgentAllowedTools(pii.PrimaryRole(bimw.UserRoles(ctx))),
 		RetryBudget:            webAgentRetryBudget(),
 		DeploymentMode:         h.deps.Config.DeploymentMode,
 		Timeout:                cfg.Timeout,
@@ -275,15 +516,24 @@ func agentPriorTurns(in []priorTurnPayload) []agent.PriorTurn {
 	return out
 }
 
-func webAgentAllowedTools() []agent.ToolName {
-	return []agent.ToolName{
+// webAgentAllowedTools returns the role-narrowed tool allowlist (T6/T4:
+// "role-based allowlist (viewer vs analyst) from auth context"). This is a
+// cheap first gate mirroring /api/* RBAC — the HTTP middleware chain the
+// tools loop back through remains the authority — so an unrecognized or
+// empty role fails closed to the viewer set, same as pii.PrimaryRole's
+// documented default.
+func webAgentAllowedTools(role string) []agent.ToolName {
+	tools := []agent.ToolName{
 		agent.ToolWebListDatasources,
 		agent.ToolWebListModels,
 		agent.ToolWebRunQuestion,
-		agent.ToolWebRunLogicalQuery,
 		agent.ToolWebListSkills,
 		agent.ToolWebRunSkill,
 	}
+	if role == pii.RoleAnalyst || role == pii.RoleAdmin {
+		tools = append(tools, agent.ToolWebRunLogicalQuery)
+	}
+	return tools
 }
 
 func webAgentRetryBudget() map[agent.ToolName]int {
@@ -299,16 +549,21 @@ func webAgentRetryBudget() map[agent.ToolName]int {
 
 type agentSSESender func(string, any)
 
-func newAgentSSESender(ctx context.Context, w http.ResponseWriter) (agentSSESender, bool) {
+// newAgentSSESender returns the SSE event writer plus a heartbeat writer
+// that emits a bare SSE comment frame (a line starting with ':' — ignored by
+// every conforming SSE/EventSource parser, so it never becomes a spurious
+// "step"/"result" the client has to filter out) to keep the connection alive
+// during a long planner/tool call.
+func newAgentSSESender(ctx context.Context, w http.ResponseWriter) (send agentSSESender, heartbeat func(), ok bool) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		return nil, false
+		return nil, nil, false
 	}
-	return func(eventType string, payload any) {
+	send = func(eventType string, payload any) {
 		if eventType == "done" {
 			_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 			flusher.Flush()
@@ -329,7 +584,12 @@ func newAgentSSESender(ctx context.Context, w http.ResponseWriter) (agentSSESend
 		}
 		_, _ = fmt.Fprintf(w, "data: %s\n\n", raw)
 		flusher.Flush()
-	}, true
+	}
+	heartbeat = func() {
+		_, _ = fmt.Fprint(w, ": heartbeat\n\n")
+		flusher.Flush()
+	}
+	return send, heartbeat, true
 }
 
 func sendAgentEvent(send agentSSESender, eventType string, payload map[string]any) {
@@ -342,14 +602,6 @@ func sendAgentError(send agentSSESender, code, message string) {
 
 func sendAgentDone(send agentSSESender) {
 	send("done", nil)
-}
-
-func webAgentStepEvents(steps []agent.RuntimeStep) []map[string]any {
-	out := make([]map[string]any, 0, len(steps))
-	for _, step := range steps {
-		out = append(out, webAgentStepEvent(step))
-	}
-	return out
 }
 
 func webAgentStepEvent(step agent.RuntimeStep) map[string]any {
@@ -374,9 +626,18 @@ type webAgentStateStore struct {
 	repo *metadata.Repository
 }
 
+// spendChecker is the subset of *ai.SpendLimiter that spendLimitedProvider
+// needs. Narrowing to an interface (rather than depending on the concrete
+// Redis-backed type directly) lets tests inject a fake that forces a
+// rejection deterministically, without a real Redis instance.
+type spendChecker interface {
+	Check(ctx context.Context, workspace string) error
+	Record(ctx context.Context, workspace string, tokens int)
+}
+
 type spendLimitedProvider struct {
 	next      providerpkg.Provider
-	limiter   *ai.SpendLimiter
+	limiter   spendChecker
 	workspace string
 }
 

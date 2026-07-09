@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { normalizeAIQueryResponse } from './normalizeAIQueryResponse'
+import type { AgentResultEvent } from '../types/agent'
+import { normalizeAgentResultEvent, normalizeAIQueryResponse } from './normalizeAIQueryResponse'
 
 describe('normalizeAIQueryResponse', () => {
   it('unwraps nested ai.Response from job result_json', () => {
@@ -139,5 +140,80 @@ describe('normalizeAIQueryResponse', () => {
     }
     const flat = normalizeAIQueryResponse(nested)
     expect(flat?.clarification_options).toEqual(['orders', 'customers'])
+  })
+})
+
+describe('normalizeAgentResultEvent', () => {
+  it('maps a full agent result payload onto the flat AIQueryResponse shape', () => {
+    const event: AgentResultEvent = {
+      type: 'result',
+      run_id: 'run-1',
+      result: {
+        sql: 'SELECT COUNT(*) FROM tweets',
+        confidence: 0.9,
+        logical_query: { datasource_id: 'ds1', model_id: 'm1', select: [], limit: 100 },
+        result: { columns: [{ name: 'count', type: 'number' }], rows: [[3]] },
+        answer: '3 tweets found.',
+        suggested_followups: [
+          { id: 'f1', kind: 'trend', label: 'Trend', question: 'How did this trend?' },
+        ],
+      },
+    }
+    const flat = normalizeAgentResultEvent(event)
+    expect(flat?.sql).toBe('SELECT COUNT(*) FROM tweets')
+    expect(flat?.confidence).toBe(0.9)
+    expect(flat?.result?.rows).toEqual([[3]])
+    expect(flat?.answer).toBe('3 tweets found.')
+    expect(flat?.suggested_followups).toHaveLength(1)
+    // run_id isn't part of AgentResultPayload — it's carried on the envelope
+    // event, so the adapter must backfill it after normalizing.
+    expect(flat?.run_id).toBe('run-1')
+  })
+
+  it('falls back to the top-level answer/confidence when result is absent', () => {
+    const event: AgentResultEvent = {
+      type: 'result',
+      run_id: 'run-2',
+      answer: 'Hello there.',
+      confidence: 0.5,
+    }
+    const flat = normalizeAgentResultEvent(event)
+    expect(flat?.answer).toBe('Hello there.')
+    expect(flat?.confidence).toBe(0.5)
+    expect(flat?.run_id).toBe('run-2')
+  })
+
+  it('does not overwrite a run_id already present on the result payload', () => {
+    const event: AgentResultEvent = {
+      type: 'result',
+      run_id: 'run-envelope',
+      result: {
+        confidence: 1,
+        sql: 'SELECT 1',
+        // AIResult itself has no run_id field today, but guard against the
+        // adapter clobbering one if the backend ever adds it there too.
+      },
+    }
+    const flat = normalizeAgentResultEvent(event)
+    expect(flat?.run_id).toBe('run-envelope')
+  })
+
+  it('survives a second normalizeAIQueryResponse pass (AssistantMessageCard re-normalizes on every render)', () => {
+    const event: AgentResultEvent = {
+      type: 'result',
+      run_id: 'run-3',
+      result: { confidence: 1, sql: 'SELECT 1', answer: 'One.' },
+    }
+    const onceFlat = normalizeAgentResultEvent(event)
+    expect(onceFlat?.run_id).toBe('run-3')
+
+    // AssistantMessageCard does `normalizeAIQueryResponse(message.ai_response)`
+    // on every render — message.ai_response IS onceFlat here. Re-running it
+    // must not drop run_id (regression: it previously did, since run_id was
+    // only ever assigned by assignMetadataFields, reached solely via the
+    // nested-envelope unwrap branch — the flat passthrough branch this
+    // already-flat object takes never copied it).
+    const twiceFlat = normalizeAIQueryResponse(onceFlat)
+    expect(twiceFlat?.run_id).toBe('run-3')
   })
 })
