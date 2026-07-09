@@ -536,6 +536,12 @@ ai:
     BI_CATALOG_SERVICE_URL: http://biqly-catalog:8080
     BI_QUERY_SERVICE_URL: http://biqly-query:8081
     BI_AUTH_SERVICE_URL: http://biqly-auth:8889
+    # Web agent tools loop back through the API gateway (same pattern as MCP's
+    # BI_API_SERVICE_URL below) — must carry the gateway hostname so the
+    # HTTPRoutes match; set per environment. Without this, webAgentDispatcher
+    # is never wired and /api/agent/chat fails with "web agent runtime is not
+    # configured".
+    BI_API_SERVICE_URL: ""
     # AI provider/model selection is managed in the database (Administration →
     # AI Providers), not via environment variables.
   resources:

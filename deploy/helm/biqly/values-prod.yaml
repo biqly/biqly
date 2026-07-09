@@ -282,6 +282,12 @@ ai:
     BI_AI_JOBS_ENABLED: "true"
     BI_NATS_URL: nats://biqly-nats:4222
     BI_WEB_AGENT_ENABLED: "true"
+    # Web agent tools loop back through the API gateway, same pattern and same
+    # hostname as MCP's BI_API_SERVICE_URL below — must match the gateway
+    # HTTPRoutes (see global.gateway.hostnames). Without this, webAgentDispatcher
+    # is never wired and /api/agent/chat fails with "web agent runtime is not
+    # configured" (BI_WEB_AGENT_ENABLED=true alone is not sufficient).
+    BI_API_SERVICE_URL: https://abi.il1.nl
   ambiguity:
     tieredEnabled: true
     maxLLMTierPerQuestion: 1
