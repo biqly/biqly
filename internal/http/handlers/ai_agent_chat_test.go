@@ -196,6 +196,7 @@ func TestWebAgentChatStreamsRunStartedStepAndResult(t *testing.T) {
 					Arguments: []byte(`{"datasource_id":"ds-1"}`),
 				},
 				Observation: &agent.Observation{Tool: agent.ToolWebListModels, Payload: []byte(`{"models":[]}`)},
+				DurationMs:  412,
 			}},
 			Terminal: &agent.TerminalResult{
 				Kind:  agent.DecisionFinal,
@@ -222,6 +223,8 @@ func TestWebAgentChatStreamsRunStartedStepAndResult(t *testing.T) {
 	assert.Contains(t, body, `"run_id":"run-1"`)
 	assert.Contains(t, body, `"type":"step"`)
 	assert.Contains(t, body, `"tool":"list_models"`)
+	assert.Contains(t, body, `"duration_ms":412`,
+		"terminal step events must carry the measured tool duration")
 	assert.Contains(t, body, `"type":"result"`)
 	assert.Contains(t, body, `"answer":"done"`)
 	assert.Contains(t, body, "data: [DONE]")

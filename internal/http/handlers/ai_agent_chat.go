@@ -629,12 +629,20 @@ func webAgentStepEvent(step agent.RuntimeStep) map[string]any {
 	case step.Observation == nil:
 		status = "started"
 	}
-	return map[string]any{
+	event := map[string]any{
 		"seq":    step.Seq,
 		"kind":   "tool_call_" + status,
 		"tool":   step.Proposal.Tool,
 		"status": status,
 	}
+	// Only terminal step states carry a measured duration (the "started"
+	// notification fires before dispatch, when DurationMs is still 0), per
+	// the design doc's SSE contract: duration_ms appears on
+	// tool_call_completed, not tool_call_started.
+	if status != "started" {
+		event["duration_ms"] = step.DurationMs
+	}
+	return event
 }
 
 type webAgentStateStore struct {

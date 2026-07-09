@@ -278,15 +278,15 @@ func TestComposeWebAgentFinalResultSkipsDeniedStepInFavorOfEarlierSuccess(t *tes
 // mapping in isolation from the full finalizer.
 func TestWebAgentRunSteps(t *testing.T) {
 	steps := []agent.RuntimeStep{
-		{Seq: 1, Proposal: agent.Proposal{Tool: agent.ToolWebListDatasources}, Observation: &agent.Observation{}},
+		{Seq: 1, Proposal: agent.Proposal{Tool: agent.ToolWebListDatasources}, Observation: &agent.Observation{}, DurationMs: 412},
 		{Seq: 2, Proposal: agent.Proposal{Tool: agent.ToolWebRunLogicalQuery}, DeniedReason: "tool_not_allowlisted"},
-		{Seq: 3, Proposal: agent.Proposal{Tool: agent.ToolWebRunQuestion}, Error: "upstream timeout"},
+		{Seq: 3, Proposal: agent.Proposal{Tool: agent.ToolWebRunQuestion}, Error: "upstream timeout", DurationMs: 8069},
 	}
 
 	got := webAgentRunSteps(steps)
 
 	require.Len(t, got, 3)
-	assert.Equal(t, ai.RunStep{Seq: 1, Kind: "list_datasources", Status: ai.RunStepStatusOK}, got[0])
+	assert.Equal(t, ai.RunStep{Seq: 1, Kind: "list_datasources", Status: ai.RunStepStatusOK, DurationMs: 412}, got[0])
 	assert.Equal(t, ai.RunStep{Seq: 2, Kind: "run_logical_query", Status: ai.RunStepStatusFailed, Detail: "tool_not_allowlisted"}, got[1])
-	assert.Equal(t, ai.RunStep{Seq: 3, Kind: "run_question", Status: ai.RunStepStatusFailed, Detail: "upstream timeout"}, got[2])
+	assert.Equal(t, ai.RunStep{Seq: 3, Kind: "run_question", Status: ai.RunStepStatusFailed, Detail: "upstream timeout", DurationMs: 8069}, got[2])
 }

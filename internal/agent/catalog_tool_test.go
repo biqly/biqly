@@ -19,9 +19,15 @@ type fakeCatalogResolver struct {
 	failuresLeft int
 	failWith     error
 	result       []CatalogEntity
+	// delay makes each ResolveEntities call take at least this long, for
+	// tests asserting measured step durations.
+	delay time.Duration
 }
 
 func (f *fakeCatalogResolver) ResolveEntities(ctx context.Context, datasourceID, modelID string) ([]CatalogEntity, error) {
+	if f.delay > 0 {
+		time.Sleep(f.delay)
+	}
 	f.calls++
 	f.gotCtx = append(f.gotCtx, ctx)
 	f.gotDS = datasourceID

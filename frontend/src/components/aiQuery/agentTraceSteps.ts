@@ -30,10 +30,9 @@ function mapAgentStepStatus(status: AgentStepEvent['status']): RunStep['status']
 // single STEP_LABEL_KEYS entry per tool name (RunTrace.tsx) labels both the
 // live and the reloaded trace with no further branching needed.
 //
-// duration_ms is always 0 here: the web agent runtime does not yet track
-// per-step timing (RuntimeStep has no start/end timestamps), so persisted
-// steps carry duration_ms: 0 too (webAgentRunSteps never sets it) — this is
-// a pre-existing backend gap, not something introduced by the live view.
+// duration_ms arrives only on terminal step events (tool_call_completed /
+// denied / failed) — the "started" event fires before dispatch, so it
+// carries none and the row shows 0 until the terminal event replaces it.
 export function mergeAgentStepEvent(steps: RunStep[], event: AgentStepEvent): RunStep[] {
   const next: RunStep = {
     seq: event.seq,

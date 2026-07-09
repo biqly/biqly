@@ -72,9 +72,7 @@ func (h *AIHandler) composeWebAgentFinalResult(ctx context.Context, req webAgent
 // webAgentRunSteps converts a web agent run's recorded steps into the same
 // ai.RunStep shape agentStepsFromResponse (ai_agent_run.go) produces for the
 // legacy job pipeline's run_steps/run_id trace, so the frontend's
-// RunTracePanel renders a web agent run the same way. DurationMs stays 0:
-// agent.RuntimeStep does not currently record per-step wall time (only the
-// Prometheus histogram in Runtime.runToolStep does).
+// RunTracePanel renders a web agent run the same way.
 func webAgentRunSteps(steps []agent.RuntimeStep) []ai.RunStep {
 	out := make([]ai.RunStep, 0, len(steps))
 	for _, step := range steps {
@@ -89,10 +87,11 @@ func webAgentRunSteps(steps []agent.RuntimeStep) []ai.RunStep {
 			detail = step.Error
 		}
 		out = append(out, ai.RunStep{
-			Seq:    step.Seq,
-			Kind:   string(step.Proposal.Tool),
-			Status: status,
-			Detail: detail,
+			Seq:        step.Seq,
+			Kind:       string(step.Proposal.Tool),
+			Status:     status,
+			DurationMs: step.DurationMs,
+			Detail:     detail,
 		})
 	}
 	return out
