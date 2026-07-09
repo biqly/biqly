@@ -18,7 +18,9 @@ Every task ends with its focused tests green plus `gofmt` + `make lint-go` (Go) 
 - [x] T7 — Finalizer
 - [x] T8 — Clarification round-trip
 - [x] T9-T12 — Frontend Agent Mode
-- [ ] T13-T15 — Hardening, parity, rollout
+- [x] T13 — Parity harness
+- [x] T14 — Docs + full local gate (dev-cluster deploy/smoke test handled separately)
+- [ ] T15 — Rollout
 
 ---
 
@@ -203,6 +205,22 @@ gate green.
 - **Done when:** parity report for the golden question set shows no governed-path or
   model-selection divergence.
 
+T13 complete (commits `081d0ffa`, `cb747e57`). `internal/agent/parity` holds a
+transport-agnostic 8-case bilingual question set, a shared deterministic fake
+backend, and comparison logic (independently unit-tested); `internal/http/
+agent_mcp_parity_test.go` wires it to the real, unmodified production
+`newMCPServer` and `agent.Runtime` — living in package `http` only because
+`newMCPServer` is unexported, so no production code changed to make the harness
+possible. Result: zero governed-path or datasource-selection divergence across all
+8 cases. Disclosed limitation: the fixture's `handleListModels` returns exactly one
+model per datasource, so the 0-divergence result for *model* selection specifically
+is a structural fact of the fixture, not empirical proof the two paths agree when a
+real choice between models exists — the divergence-comparison logic itself is real
+and separately unit-tested with synthetic multi-model data. Not wired into `make
+eval-regression` (dev tooling only, per plan; the stub-provider eval harness drives
+the legacy single-shot pipeline, not the agent planner loop — same gap already
+documented for the NATS agent runner).
+
 ### T14 — Docs + full gate + dev deploy
 - `docs/configuration.md` (BI_WEB_AGENT_*), `CONTEXT.md`/agents docs touchpoints;
   update `tasks/todo.md` statuses.
@@ -212,6 +230,19 @@ gate green.
 - Deploy to dev (`helm dependency build` first — stale-tgz gotcha), verify SSE
   through the gateway (no buffering, heartbeats, 401 propagation).
 - **Done when:** all gates green; dev-cluster smoke of the full flow passes.
+
+Docs + full local gate portion complete (this dispatch's scope; dev-cluster deploy
+and gateway SSE smoke test handled separately). `docs/configuration.md`'s Web Agent
+Mode row corrected (two "Primary Load / Override Point" cells pointed at a
+nonexistent `internal/agent.Runtime`; fixed to the real
+`internal/http/handlers/ai_agent_chat.go` call sites). `CONTEXT.md` got a Web agent
+mode / Tool contract touchpoint (Product boundary, glossary, Key flows, Where-to-
+look). Full local gate green except `make verify-main`'s `govulncheck` sub-step,
+which fails only on two Go **stdlib** CVEs fixed in go1.26.5 (repo pinned to
+go1.26.4 in `go.mod`) — pre-existing and unrelated to Web Agent Mode; every other
+sub-step (vet, lint-go, test-go, coverage-gate, eval-regression, check-frontend,
+helm-lint/template, semgrep-scan 0 findings) passed. See `tasks/todo.md`'s T14 note
+for full detail.
 
 ### T15 — Rollout
 - Ship dark: `BI_WEB_AGENT_ENABLED=false` in prod values.
