@@ -65,12 +65,12 @@ import (
 	"github.com/biqly/biqly/internal/toolcontract"
 )
 
-// allWebAgentTools is the fixed six-tool allowlist every parity case's
+// allWebAgentTools is the fixed tool allowlist every parity case's
 // RunContext grants — mirrors webAgentAllowedTools' unrestricted case in
 // production (internal/http/handlers/ai_agent_chat.go).
 var allWebAgentTools = []agent.ToolName{
-	agent.ToolWebListDatasources, agent.ToolWebListModels, agent.ToolWebRunQuestion,
-	agent.ToolWebRunLogicalQuery, agent.ToolWebListSkills, agent.ToolWebRunSkill,
+	agent.ToolWebListDatasources, agent.ToolWebListModels, agent.ToolWebListPromptTemplates,
+	agent.ToolWebRunQuestion, agent.ToolWebRunLogicalQuery, agent.ToolWebListSkills, agent.ToolWebRunSkill,
 }
 
 // TestAgentMCPParity runs internal/agent/parity.Cases() through the real MCP

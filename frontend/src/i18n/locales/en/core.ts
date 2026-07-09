@@ -508,6 +508,7 @@ export const core = {
     run_trace_step_shadow_comparison: 'Shadow comparison',
     run_trace_step_list_datasources: 'List datasources',
     run_trace_step_list_models: 'List models',
+    run_trace_step_list_prompt_templates: 'List prompt templates',
     run_trace_step_run_question: 'Run question',
     run_trace_step_run_logical_query: 'Run logical query',
     run_trace_step_list_skills: 'List skills',

@@ -27,7 +27,7 @@ func newMCPServer(dispatch http.Handler, authorization, apiKey string) *mcp.Serv
 	}
 	s := mcp.NewServer(&mcp.Implementation{Name: "biqly", Title: "Biqly governed BI", Version: "1.0.0"}, nil)
 
-	// Register the six governed tools from the shared toolcontract package.
+	// Register governed tools from the shared toolcontract package.
 	// Tool names/descriptions come from toolcontract.AllTools; the MCP-specific
 	// handler functions below call the shared dispatch helpers.
 	for _, spec := range toolcontract.AllTools {
@@ -36,6 +36,8 @@ func newMCPServer(dispatch http.Handler, authorization, apiKey string) *mcp.Serv
 			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.listDatasources)
 		case toolcontract.ToolListModels:
 			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.listModels)
+		case toolcontract.ToolListPromptTemplates:
+			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.listPromptTemplates)
 		case toolcontract.ToolRunQuestion:
 			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.runQuestion)
 		case toolcontract.ToolRunLogicalQuery:
@@ -65,6 +67,11 @@ func (d *mcpToolDispatcher) listDatasources(ctx context.Context, _ *mcp.CallTool
 
 func (d *mcpToolDispatcher) listModels(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.ListModelsInput) (*mcp.CallToolResult, any, error) {
 	res, err := toolcontract.DispatchListModels(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
+	return toMCPResult(res), nil, err
+}
+
+func (d *mcpToolDispatcher) listPromptTemplates(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.ListPromptTemplatesInput) (*mcp.CallToolResult, any, error) {
+	res, err := toolcontract.DispatchListPromptTemplates(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
 	return toMCPResult(res), nil, err
 }
 

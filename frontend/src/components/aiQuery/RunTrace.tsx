@@ -35,6 +35,7 @@ const STEP_LABEL_KEYS: Record<string, TranslationKey> = {
   // paths.
   list_datasources: 'ai_query.run_trace_step_list_datasources',
   list_models: 'ai_query.run_trace_step_list_models',
+  list_prompt_templates: 'ai_query.run_trace_step_list_prompt_templates',
   run_question: 'ai_query.run_trace_step_run_question',
   run_logical_query: 'ai_query.run_trace_step_run_logical_query',
   list_skills: 'ai_query.run_trace_step_list_skills',

@@ -24,14 +24,15 @@ const (
 	ToolQueryExecute ToolName = "query.execute"
 	ToolMemoryRecall ToolName = "memory.recall"
 
-	// Web agent tools (MCP-parity 6-tool set). These map 1:1 to the
+	// Web agent tools (MCP-parity governed set). These map 1:1 to the
 	// toolcontract package's governed tools.
-	ToolWebListDatasources ToolName = ToolName(toolcontract.ToolListDatasources)
-	ToolWebListModels      ToolName = ToolName(toolcontract.ToolListModels)
-	ToolWebRunQuestion     ToolName = ToolName(toolcontract.ToolRunQuestion)
-	ToolWebRunLogicalQuery ToolName = ToolName(toolcontract.ToolRunLogicalQuery)
-	ToolWebListSkills      ToolName = ToolName(toolcontract.ToolListSkills)
-	ToolWebRunSkill        ToolName = ToolName(toolcontract.ToolRunSkill)
+	ToolWebListDatasources     ToolName = ToolName(toolcontract.ToolListDatasources)
+	ToolWebListModels          ToolName = ToolName(toolcontract.ToolListModels)
+	ToolWebListPromptTemplates ToolName = ToolName(toolcontract.ToolListPromptTemplates)
+	ToolWebRunQuestion         ToolName = ToolName(toolcontract.ToolRunQuestion)
+	ToolWebRunLogicalQuery     ToolName = ToolName(toolcontract.ToolRunLogicalQuery)
+	ToolWebListSkills          ToolName = ToolName(toolcontract.ToolListSkills)
+	ToolWebRunSkill            ToolName = ToolName(toolcontract.ToolRunSkill)
 )
 
 // Proposal is a planner's request to invoke one tool with the given
@@ -235,8 +236,8 @@ func (*PolicyEngine) Evaluate(ctx context.Context, run RunContext, proposal Prop
 		return evaluateQuery(run, proposal)
 	case ToolCatalog, ToolSemantic, ToolMemoryRecall:
 		return Decision{Allowed: true, Arguments: proposal.Arguments}
-	case ToolWebListDatasources, ToolWebListModels, ToolWebRunQuestion,
-		ToolWebRunLogicalQuery, ToolWebListSkills, ToolWebRunSkill:
+	case ToolWebListDatasources, ToolWebListModels, ToolWebListPromptTemplates,
+		ToolWebRunQuestion, ToolWebRunLogicalQuery, ToolWebListSkills, ToolWebRunSkill:
 		return Decision{Allowed: true, Arguments: proposal.Arguments}
 	default:
 		return deny(ReasonToolNotAllowlisted)
@@ -246,8 +247,8 @@ func (*PolicyEngine) Evaluate(ctx context.Context, run RunContext, proposal Prop
 // webAgentTools is the set of MCP-parity web agent tools, for fast membership
 // testing without triggering the exhaustive linter on a switch statement.
 var webAgentTools = []ToolName{
-	ToolWebListDatasources, ToolWebListModels, ToolWebRunQuestion,
-	ToolWebRunLogicalQuery, ToolWebListSkills, ToolWebRunSkill,
+	ToolWebListDatasources, ToolWebListModels, ToolWebListPromptTemplates,
+	ToolWebRunQuestion, ToolWebRunLogicalQuery, ToolWebListSkills, ToolWebRunSkill,
 }
 
 // isWebAgentTool reports whether tool is one of the MCP-parity web agent tools.

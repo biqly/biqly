@@ -516,6 +516,7 @@ export const core: CoreDictionary = {
     run_trace_step_shadow_comparison: 'Gölge karşılaştırma',
     run_trace_step_list_datasources: 'Veri kaynaklarını listele',
     run_trace_step_list_models: 'Modelleri listele',
+    run_trace_step_list_prompt_templates: 'Prompt şablonlarını listele',
     run_trace_step_run_question: 'Soruyu çalıştır',
     run_trace_step_run_logical_query: 'Mantıksal sorguyu çalıştır',
     run_trace_step_list_skills: 'Becerileri listele',

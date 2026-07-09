@@ -11,7 +11,7 @@ import (
 	"github.com/biqly/biqly/internal/toolcontract"
 )
 
-// WebTools bundles the six MCP-parity web agent tools and the dispatcher they
+// WebTools bundles the MCP-parity web agent tools and the dispatcher they
 // share. The web handler (T6) builds one per request from the caller's
 // credentials and registers them in a Registry.
 type WebTools struct {
@@ -25,11 +25,12 @@ func NewWebTools(disp toolcontract.Dispatcher, cred toolcontract.Credential) *We
 	return &WebTools{disp: disp, cred: cred}
 }
 
-// All returns the six web tool adapters, ready to register in a Registry.
+// All returns the web tool adapters, ready to register in a Registry.
 func (w *WebTools) All() []Tool {
 	return []Tool{
 		webTool{w, ToolWebListDatasources, webListDatasources},
 		webTool{w, ToolWebListModels, webListModels},
+		webTool{w, ToolWebListPromptTemplates, webListPromptTemplates},
 		webTool{w, ToolWebRunQuestion, webRunQuestion},
 		webTool{w, ToolWebRunLogicalQuery, webRunLogicalQuery},
 		webTool{w, ToolWebListSkills, webListSkills},
@@ -66,29 +67,37 @@ func (t webTool) Execute(ctx context.Context, run RunContext, args json.RawMessa
 // the next step.
 const maxPlannerRows = 100
 
+// maxPlannerPayloadRunes caps non-row JSON tool payloads (e.g. full semantic
+// models, prompt templates) so a single observation cannot blow the planner
+// context. list_models with include=full is typically well under this.
+const maxPlannerPayloadRunes = 120_000
+
 // truncateForPlanner trims a JSON tool response to keep the planner's context
 // window bounded: if the response is a JSON object with a "rows" array, it caps
-// the array at maxPlannerRows; otherwise it truncates the raw string at a
-// generous rune limit. The original governed result is preserved in the SSE
-// final payload — this only affects planner visibility.
+// the array at maxPlannerRows; otherwise it leaves structured JSON intact up to
+// maxPlannerPayloadRunes (so list_models dimensions survive). The original
+// governed result is preserved in the SSE final payload — this only affects
+// planner visibility.
 func truncateForPlanner(raw json.RawMessage) json.RawMessage {
 	if len(raw) == 0 {
 		return raw
 	}
 	var obj map[string]json.RawMessage
 	if err := sonic.Unmarshal(raw, &obj); err != nil {
-		return truncateRunes(raw, 5000)
+		// Bare JSON arrays (list_models, list_prompt_templates) must stay intact
+		// for the planner — only hard-cap pathological sizes.
+		return truncatePlannerPayload(raw)
 	}
 	rowsRaw, ok := obj["rows"]
 	if !ok {
-		return raw
+		return truncatePlannerPayload(raw)
 	}
 	var rows []json.RawMessage
 	if err := sonic.Unmarshal(rowsRaw, &rows); err != nil {
-		return raw
+		return truncatePlannerPayload(raw)
 	}
 	if len(rows) <= maxPlannerRows {
-		return raw
+		return truncatePlannerPayload(raw)
 	}
 	truncated, err := sonic.Marshal(rows[:maxPlannerRows])
 	if err != nil {
@@ -100,16 +109,16 @@ func truncateForPlanner(raw json.RawMessage) json.RawMessage {
 	if err != nil {
 		return raw
 	}
-	return out
+	return truncatePlannerPayload(out)
 }
 
-func truncateRunes(raw json.RawMessage, maxRunes int) json.RawMessage {
+func truncatePlannerPayload(raw json.RawMessage) json.RawMessage {
 	s := string(raw)
-	if len([]rune(s)) <= maxRunes {
+	if len([]rune(s)) <= maxPlannerPayloadRunes {
 		return raw
 	}
 	runes := []rune(s)
-	truncated := string(runes[:maxRunes])
+	truncated := string(runes[:maxPlannerPayloadRunes])
 	return json.RawMessage(truncated + `,"_truncated":true}`)
 }
 
@@ -125,6 +134,14 @@ func webListModels(ctx context.Context, disp toolcontract.Dispatcher, cred toolc
 		return toolcontract.DispatchResult{}, err
 	}
 	return toolcontract.DispatchListModels(ctx, disp, in, cred, toolcontract.ChannelAgent)
+}
+
+func webListPromptTemplates(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, _ RunContext, args json.RawMessage) (toolcontract.DispatchResult, error) {
+	in, err := decodeArgs[toolcontract.ListPromptTemplatesInput](args)
+	if err != nil {
+		return toolcontract.DispatchResult{}, err
+	}
+	return toolcontract.DispatchListPromptTemplates(ctx, disp, in, cred, toolcontract.ChannelAgent)
 }
 
 func webRunQuestion(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, _ RunContext, args json.RawMessage) (toolcontract.DispatchResult, error) {

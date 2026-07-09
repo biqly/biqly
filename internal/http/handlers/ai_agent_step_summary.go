@@ -49,6 +49,8 @@ func webAgentStepSummary(step agent.RuntimeStep) string {
 		summary = summarizeNamedList(payload, "datasources")
 	case agent.ToolWebListModels:
 		summary = summarizeNamedList(payload, "models")
+	case agent.ToolWebListPromptTemplates:
+		summary = summarizeNamedList(payload, "templates")
 	case agent.ToolWebListSkills:
 		summary = summarizeNamedList(payload, "skills")
 	case agent.ToolWebRunQuestion:

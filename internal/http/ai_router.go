@@ -316,6 +316,10 @@ func registerAIExamplesGlossaryAndTemplatesRoutes(
 	requireAISettings := bimw.RequirePermission(authClient, "ai:settings")
 
 	promptTemplatesHandler := handlers.NewAIPromptTemplatesHandler(deps)
+	// Active read is available to any authenticated caller (MCP/agent need
+	// system_rules + output_format to author LogicalQuery). Mutations stay
+	// behind ai:settings. Auth is already enforced by the /api group.
+	r.Get("/ai/prompt-templates/active", promptTemplatesHandler.ListActivePromptTemplates)
 	r.With(requireAISettings).Get("/ai/prompt-templates", promptTemplatesHandler.ListPromptTemplates)
 	r.With(requireAISettings).Put("/ai/prompt-templates/{name}/{locale}", promptTemplatesHandler.UpdatePromptTemplate)
 	r.With(requireAISettings).Post("/ai/prompt-templates/restore", promptTemplatesHandler.RestorePromptTemplate)

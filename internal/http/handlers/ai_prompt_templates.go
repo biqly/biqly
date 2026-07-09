@@ -51,6 +51,34 @@ func (h *AIPromptTemplatesHandler) ListPromptTemplates(w http.ResponseWriter, r 
 	writeJSON(w, http.StatusOK, rows)
 }
 
+// ListActivePromptTemplates returns only active prompt sections for a locale.
+// Authenticated callers (MCP/agent) use this to learn NL→LogicalQuery rules
+// without needing ai:settings. Defaults to English when locale is omitted.
+func (h *AIPromptTemplatesHandler) ListActivePromptTemplates(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	locFilter := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("locale")))
+	if locFilter == "" {
+		locFilter = string(i18n.DefaultLocale)
+	}
+	if _, ok := promptTemplateLocale(locFilter); !ok {
+		writeError(w, http.StatusBadRequest, "unsupported locale")
+		return
+	}
+	rows, err := h.deps.MetaRepo.ListPromptTemplates(ctx)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list prompt templates", err)
+		return
+	}
+	out := make([]metadata.PromptTemplate, 0, len(prompt.KnownPromptTemplateNames()))
+	for _, row := range rows {
+		if !row.IsActive || row.Locale != locFilter {
+			continue
+		}
+		out = append(out, row)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 // UpdatePromptTemplate upserts content for name/locale path params.
 func (h *AIPromptTemplatesHandler) UpdatePromptTemplate(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(chi.URLParam(r, "name"))

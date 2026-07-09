@@ -199,8 +199,9 @@ func webAgentQueryDataFromStep(step agent.RuntimeStep) (extractedQueryData, bool
 			return extractedQueryData{}, false
 		}
 		return extractedQueryData{sql: wrapped.SQL, result: wrapped.Result}, true
-	case agent.ToolWebListDatasources, agent.ToolWebListModels, agent.ToolWebListSkills,
-		agent.ToolCatalog, agent.ToolSemantic, agent.ToolQueryCompile, agent.ToolQueryExecute, agent.ToolMemoryRecall:
+	case agent.ToolWebListDatasources, agent.ToolWebListModels, agent.ToolWebListPromptTemplates,
+		agent.ToolWebListSkills, agent.ToolCatalog, agent.ToolSemantic, agent.ToolQueryCompile,
+		agent.ToolQueryExecute, agent.ToolMemoryRecall:
 		return extractedQueryData{}, false
 	default:
 		return extractedQueryData{}, false

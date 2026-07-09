@@ -17,6 +17,7 @@ const codeBlockClass =
 const MCP_TOOLS = [
   'list_datasources',
   'list_models',
+  'list_prompt_templates',
   'run_question',
   'run_logical_query',
   'list_skills',

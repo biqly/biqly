@@ -221,6 +221,11 @@ func (h *SemanticHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 // When auth is enabled and the caller is not super_admin, results are scoped
 // to the user's accessible datasources and further intersected with the
 // active workspace's attached datasources.
+//
+// Pass ?include=full to hydrate each published model with dimensions, metrics,
+// and joins (published snapshot). Used by MCP/agent list_models so callers can
+// author LogicalQuery documents; the modeling UI omits the flag and gets
+// headers only.
 func (h *SemanticHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	dsID := strings.TrimSpace(r.URL.Query().Get("datasource_id"))
@@ -245,7 +250,31 @@ func (h *SemanticHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 		models = filtered
 	}
 
+	if strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("include")), "full") {
+		models = h.hydratePublishedModels(ctx, models)
+	}
+
 	writeJSON(w, http.StatusOK, models)
+}
+
+// hydratePublishedModels replaces published model headers with full published
+// snapshots (dimensions/metrics/joins). Draft/unpublished headers are dropped —
+// agents and MCP only need queryable published context.
+func (h *SemanticHandler) hydratePublishedModels(ctx context.Context, models []semantic.SemanticModel) []semantic.SemanticModel {
+	out := make([]semantic.SemanticModel, 0, len(models))
+	for i := range models {
+		m := models[i]
+		if m.Status != semantic.ModelStatusPublished {
+			continue
+		}
+		full, err := h.deps.SemanticRepo.GetPublishedFullModel(ctx, m.ID)
+		if err != nil {
+			continue
+		}
+		h.applyModelTranslations(ctx, full)
+		out = append(out, *full)
+	}
+	return out
 }
 
 // GetModel returns a semantic model with its dimensions, metrics, and joins.

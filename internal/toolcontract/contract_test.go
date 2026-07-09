@@ -37,17 +37,18 @@ func fakeBackend(t *testing.T, status int, respBody string) (http.Handler, *reco
 	return handler, rec
 }
 
-func TestAllTools_HasExactlySixTools(t *testing.T) {
+func TestAllTools_HasExactlySevenTools(t *testing.T) {
 	want := map[ToolName]bool{
-		ToolListDatasources: true,
-		ToolListModels:      true,
-		ToolRunQuestion:     true,
-		ToolRunLogicalQuery: true,
-		ToolListSkills:      true,
-		ToolRunSkill:        true,
+		ToolListDatasources:     true,
+		ToolListModels:          true,
+		ToolListPromptTemplates: true,
+		ToolRunQuestion:         true,
+		ToolRunLogicalQuery:     true,
+		ToolListSkills:          true,
+		ToolRunSkill:            true,
 	}
-	if len(AllTools) != 6 {
-		t.Fatalf("expected 6 tools, got %d", len(AllTools))
+	if len(AllTools) != 7 {
+		t.Fatalf("expected 7 tools, got %d", len(AllTools))
 	}
 	for _, spec := range AllTools {
 		if !want[spec.Name] {
@@ -161,8 +162,8 @@ func TestDispatchListModels_DatasourceFilterQuery(t *testing.T) {
 	if rec.path != "/api/semantic/models" {
 		t.Errorf("path = %q", rec.path)
 	}
-	if rec.query != "datasource_id=ds+1" {
-		t.Errorf("query = %q, want datasource_id=ds+1", rec.query)
+	if rec.query != "datasource_id=ds+1&include=full" && rec.query != "include=full&datasource_id=ds+1" {
+		t.Errorf("query = %q, want datasource_id + include=full", rec.query)
 	}
 	if got := rec.headers.Get("X-Biqly-Channel"); got != ChannelAgent {
 		t.Errorf("channel = %q, want %q", got, ChannelAgent)
@@ -177,8 +178,24 @@ func TestDispatchListModels_NoFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dispatch: %v", err)
 	}
-	if rec.query != "" {
-		t.Errorf("expected empty query, got %q", rec.query)
+	if rec.query != "include=full" {
+		t.Errorf("query = %q, want include=full", rec.query)
+	}
+}
+
+func TestDispatchListPromptTemplates_LocaleQuery(t *testing.T) {
+	backend, rec := fakeBackend(t, http.StatusOK, "[]")
+	disp := &HTTPDispatcher{API: backend}
+
+	_, err := DispatchListPromptTemplates(context.Background(), disp, ListPromptTemplatesInput{Locale: "tr"}, Credential{}, ChannelMCP)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	if rec.path != "/api/ai/prompt-templates/active" {
+		t.Errorf("path = %q", rec.path)
+	}
+	if rec.query != "locale=tr" {
+		t.Errorf("query = %q, want locale=tr", rec.query)
 	}
 }
 

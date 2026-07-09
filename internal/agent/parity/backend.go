@@ -55,6 +55,7 @@ func NewFakeBackend() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/datasources", handleListDatasources)
 	mux.HandleFunc("GET /api/semantic/models", handleListModels)
+	mux.HandleFunc("GET /api/ai/prompt-templates/active", handleListPromptTemplates)
 	mux.HandleFunc("POST /api/ai/query/run", handleRunQuestion)
 	mux.HandleFunc("POST /api/query/run", handleRunLogicalQuery)
 	mux.HandleFunc("GET /api/ai/skills", handleListSkills)
@@ -102,6 +103,12 @@ func handleListModels(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, []map[string]string{
 		{"id": ModelOrders, "name": "Orders", "datasource_id": DatasourceOrders},
+	})
+}
+
+func handleListPromptTemplates(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, []map[string]any{
+		{"name": "system_rules", "locale": "en", "version": 1, "content": "rules", "is_active": true},
 	})
 }
 

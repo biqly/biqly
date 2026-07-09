@@ -65,13 +65,16 @@ func TestMCPServer_ListsExpectedTools(t *testing.T) {
 	for _, tool := range res.Tools {
 		got[tool.Name] = true
 	}
-	for _, want := range []string{"list_datasources", "list_models", "run_question", "run_logical_query", "list_skills", "run_skill"} {
+	for _, want := range []string{
+		"list_datasources", "list_models", "list_prompt_templates",
+		"run_question", "run_logical_query", "list_skills", "run_skill",
+	} {
 		if !got[want] {
 			t.Errorf("missing tool %q in %v", want, res.Tools)
 		}
 	}
-	if len(res.Tools) != 6 {
-		t.Errorf("expected exactly 6 tools (default-deny allow-list), got %d", len(res.Tools))
+	if len(res.Tools) != 7 {
+		t.Errorf("expected exactly 7 tools (default-deny allow-list), got %d", len(res.Tools))
 	}
 }
 
@@ -119,7 +122,8 @@ func TestMCPServer_ListModelsPassesDatasourceFilter(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("call tool: %v", err)
 	}
-	if rec.path != "/api/semantic/models" || rec.query != "datasource_id=ds+1" {
+	if rec.path != "/api/semantic/models" ||
+		(rec.query != "datasource_id=ds+1&include=full" && rec.query != "include=full&datasource_id=ds+1") {
 		t.Errorf("unexpected dispatch: %s?%s", rec.path, rec.query)
 	}
 }

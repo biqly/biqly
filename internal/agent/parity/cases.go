@@ -18,7 +18,7 @@ const (
 
 // caseCount is the number of cases Cases returns — kept in sync with the
 // literal case list below so the result slice can be preallocated.
-const caseCount = 8
+const caseCount = 9
 
 // Case is one fixed question/tool-call run through both governed paths.
 //
@@ -131,9 +131,9 @@ func cancelledOrdersTotal() query.LogicalQuery {
 
 // Cases returns the fixed parity question set: 4 run_question cases
 // (bilingual, exercising model auto-selection), 1 run_logical_query case
-// (direct dispatch-contract equivalence), 1 list_datasources case,
-// 1 list_models case, and 1 list_skills+run_skill case — covering all six
-// governed tools. An error can only occur if one of this function's own
+// (direct dispatch-contract equivalence), list_datasources / list_models /
+// list_prompt_templates cases, and 1 list_skills+run_skill case — covering
+// all governed tools. An error can only occur if one of this function's own
 // static literals is not JSON-safe, which every caller here already is.
 func Cases() ([]Case, error) {
 	cases := make([]Case, 0, caseCount)
@@ -146,7 +146,11 @@ func Cases() ([]Case, error) {
 	if err != nil {
 		return nil, err
 	}
-	cases = append(cases, listDatasources, listModels)
+	listPromptTemplates, err := newListPromptTemplatesCase()
+	if err != nil {
+		return nil, err
+	}
+	cases = append(cases, listDatasources, listModels, listPromptTemplates)
 
 	for _, q := range []string{
 		"kaç sipariş var",
@@ -210,6 +214,25 @@ func newListModelsCase() (Case, error) {
 		MCPArgs:      map[string]any{"datasource_id": DatasourceOrders},
 		AgentScript:  []string{list, final},
 		CompareTool:  toolcontract.ToolListModels,
+	}, nil
+}
+
+func newListPromptTemplatesCase() (Case, error) {
+	list, err := toolStep(toolcontract.ToolListPromptTemplates, map[string]any{"locale": "en"})
+	if err != nil {
+		return Case{}, err
+	}
+	final, err := finalStep("Listed active prompt templates.")
+	if err != nil {
+		return Case{}, err
+	}
+	return Case{
+		ID:          "list-prompt-templates",
+		Question:    "prompt kurallarını göster",
+		MCPTool:     toolcontract.ToolListPromptTemplates,
+		MCPArgs:     map[string]any{"locale": "en"},
+		AgentScript: []string{list, final},
+		CompareTool: toolcontract.ToolListPromptTemplates,
 	}, nil
 }
 

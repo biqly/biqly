@@ -563,6 +563,7 @@ func TestWebAgentAllowedToolsNarrowsByRole(t *testing.T) {
 	assert.Contains(t, viewerTools, agent.ToolWebRunSkill)
 	assert.Contains(t, viewerTools, agent.ToolWebListDatasources)
 	assert.Contains(t, viewerTools, agent.ToolWebListModels)
+	assert.Contains(t, viewerTools, agent.ToolWebListPromptTemplates)
 	assert.Contains(t, viewerTools, agent.ToolWebListSkills)
 
 	analystTools := webAgentAllowedTools("analyst")

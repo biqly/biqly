@@ -551,6 +551,7 @@ func webAgentAllowedTools(role string) []agent.ToolName {
 	tools := []agent.ToolName{
 		agent.ToolWebListDatasources,
 		agent.ToolWebListModels,
+		agent.ToolWebListPromptTemplates,
 		agent.ToolWebRunQuestion,
 		agent.ToolWebListSkills,
 		agent.ToolWebRunSkill,
@@ -563,12 +564,13 @@ func webAgentAllowedTools(role string) []agent.ToolName {
 
 func webAgentRetryBudget() map[agent.ToolName]int {
 	return map[agent.ToolName]int{
-		agent.ToolWebListDatasources: 2,
-		agent.ToolWebListModels:      2,
-		agent.ToolWebRunQuestion:     3,
-		agent.ToolWebRunLogicalQuery: 2,
-		agent.ToolWebListSkills:      2,
-		agent.ToolWebRunSkill:        2,
+		agent.ToolWebListDatasources:     2,
+		agent.ToolWebListModels:          2,
+		agent.ToolWebListPromptTemplates: 2,
+		agent.ToolWebRunQuestion:         3,
+		agent.ToolWebRunLogicalQuery:     2,
+		agent.ToolWebListSkills:          2,
+		agent.ToolWebRunSkill:            2,
 	}
 }
 

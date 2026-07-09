@@ -171,11 +171,22 @@ func describeStep(step RuntimeStep) string {
 	case step.Error != "":
 		fmt.Fprintf(&b, " ERROR=%s\n", step.Error)
 	case step.Observation != nil:
-		fmt.Fprintf(&b, " observation=%s\n", truncate(string(step.Observation.Payload), 500))
+		fmt.Fprintf(&b, " observation=%s\n", truncate(string(step.Observation.Payload), observationBudget(step.Proposal.Tool)))
 	default:
 		b.WriteString(" (pending)\n")
 	}
 	return b.String()
+}
+
+// observationBudget is how much of a tool observation is re-injected into the
+// next planner turn. list_models / list_prompt_templates must keep dimensions
+// and system rules intact so the planner can author LogicalQuery; query-result
+// tools stay short (rows are already capped by truncateForPlanner).
+func observationBudget(tool ToolName) int {
+	if tool == ToolWebListModels || tool == ToolWebListPromptTemplates {
+		return 100_000
+	}
+	return 500
 }
 
 func truncate(s string, maxLen int) string {

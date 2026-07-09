@@ -233,8 +233,9 @@ func TestCasesBuildsUniqueIDsCoveringAllSixTools(t *testing.T) {
 	}
 
 	for _, want := range []toolcontract.ToolName{
-		toolcontract.ToolListDatasources, toolcontract.ToolListModels, toolcontract.ToolRunQuestion,
-		toolcontract.ToolRunLogicalQuery, toolcontract.ToolListSkills, toolcontract.ToolRunSkill,
+		toolcontract.ToolListDatasources, toolcontract.ToolListModels, toolcontract.ToolListPromptTemplates,
+		toolcontract.ToolRunQuestion, toolcontract.ToolRunLogicalQuery, toolcontract.ToolListSkills,
+		toolcontract.ToolRunSkill,
 	} {
 		if !seenTools[want] && !scriptMentionsTool(cases, want) {
 			t.Errorf("no case exercises tool %q", want)

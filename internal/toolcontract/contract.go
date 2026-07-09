@@ -39,16 +39,17 @@ type Credential struct {
 	APIKey        string // raw PAT or ""
 }
 
-// ToolName identifies one of the six governed tools.
+// ToolName identifies one of the governed tools.
 type ToolName string
 
 const (
-	ToolListDatasources ToolName = "list_datasources"
-	ToolListModels      ToolName = "list_models"
-	ToolRunQuestion     ToolName = "run_question"
-	ToolRunLogicalQuery ToolName = "run_logical_query"
-	ToolListSkills      ToolName = "list_skills"
-	ToolRunSkill        ToolName = "run_skill"
+	ToolListDatasources     ToolName = "list_datasources"
+	ToolListModels          ToolName = "list_models"
+	ToolListPromptTemplates ToolName = "list_prompt_templates"
+	ToolRunQuestion         ToolName = "run_question"
+	ToolRunLogicalQuery     ToolName = "run_logical_query"
+	ToolListSkills          ToolName = "list_skills"
+	ToolRunSkill            ToolName = "run_skill"
 )
 
 // ToolSpec is the static definition of one governed tool: its name,
@@ -60,7 +61,7 @@ type ToolSpec struct {
 	Path        string
 }
 
-// AllTools lists the six governed tools in stable order.
+// AllTools lists the governed tools in stable order.
 var AllTools = []ToolSpec{
 	{
 		Name: ToolListDatasources,
@@ -71,10 +72,21 @@ var AllTools = []ToolSpec{
 	},
 	{
 		Name: ToolListModels,
-		Description: "List published semantic models (dimensions, metrics, joins) the " +
-			"caller can query, optionally filtered by datasource.",
+		Description: "List published semantic models the caller can query, optionally " +
+			"filtered by datasource. Each model includes dimensions, metrics, and " +
+			"joins (name, type/aggregation, synonyms, descriptions) needed to author " +
+			"a LogicalQuery for run_logical_query.",
 		Method: http.MethodGet,
 		Path:   "/api/semantic/models",
+	},
+	{
+		Name: ToolListPromptTemplates,
+		Description: "List active NL→LogicalQuery prompt template sections (system " +
+			"rules, output format, retry, clarification, etc.) for a locale. Use " +
+			"these when authoring LogicalQuery JSON yourself via run_logical_query; " +
+			"skip when using run_question (backend applies them).",
+		Method: http.MethodGet,
+		Path:   "/api/ai/prompt-templates/active",
 	},
 	{
 		Name: ToolRunQuestion,
@@ -90,7 +102,8 @@ var AllTools = []ToolSpec{
 		Description: "Compile and execute a Biqly LogicalQuery JSON document " +
 			"(datasource_id, model_id, select, filters, group_by, order_by, limit). " +
 			"The backend enforces the semantic model, permissions and read-only " +
-			"execution; raw SQL is never accepted.",
+			"execution; raw SQL is never accepted. Call list_models (and optionally " +
+			"list_prompt_templates) first to learn valid field names and rules.",
 		Method: http.MethodPost,
 		Path:   "/api/query/run",
 	},
@@ -118,6 +131,11 @@ var AllTools = []ToolSpec{
 // ListModelsInput filters models by datasource.
 type ListModelsInput struct {
 	DatasourceID string `json:"datasource_id,omitempty" jsonschema:"optional datasource id to filter models by"`
+}
+
+// ListPromptTemplatesInput selects active prompt sections by locale.
+type ListPromptTemplatesInput struct {
+	Locale string `json:"locale,omitempty" jsonschema:"optional locale code (en|tr); default en"`
 }
 
 // RunQuestionInput answers a natural-language question.
@@ -235,11 +253,22 @@ func DispatchListDatasources(ctx context.Context, disp Dispatcher, cred Credenti
 	return disp.Dispatch(ctx, http.MethodGet, "/api/datasources", nil, cred, channel)
 }
 
-// DispatchListModels calls GET /api/semantic/models, optionally filtered by datasource.
+// DispatchListModels calls GET /api/semantic/models?include=full, optionally
+// filtered by datasource. include=full hydrates dimensions/metrics/joins.
 func DispatchListModels(ctx context.Context, disp Dispatcher, in ListModelsInput, cred Credential, channel string) (DispatchResult, error) {
-	path := "/api/semantic/models"
+	q := url.Values{"include": {"full"}}
 	if ds := strings.TrimSpace(in.DatasourceID); ds != "" {
-		path += "?datasource_id=" + url.QueryEscape(ds)
+		q.Set("datasource_id", ds)
+	}
+	path := "/api/semantic/models?" + q.Encode()
+	return disp.Dispatch(ctx, http.MethodGet, path, nil, cred, channel)
+}
+
+// DispatchListPromptTemplates calls GET /api/ai/prompt-templates/active.
+func DispatchListPromptTemplates(ctx context.Context, disp Dispatcher, in ListPromptTemplatesInput, cred Credential, channel string) (DispatchResult, error) {
+	path := "/api/ai/prompt-templates/active"
+	if loc := strings.TrimSpace(in.Locale); loc != "" {
+		path += "?locale=" + url.QueryEscape(loc)
 	}
 	return disp.Dispatch(ctx, http.MethodGet, path, nil, cred, channel)
 }
