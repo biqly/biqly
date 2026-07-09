@@ -129,6 +129,7 @@ type RunQuestionInput struct {
 
 // RunLogicalQueryInput compiles and executes a LogicalQuery document.
 type RunLogicalQueryInput struct {
+	DatasourceID string         `json:"datasource_id,omitempty" jsonschema:"datasource id; auto-injected into the logical query when missing"`
 	LogicalQuery map[string]any `json:"logical_query" jsonschema:"the LogicalQuery document to compile and execute"`
 }
 
@@ -256,7 +257,24 @@ func DispatchRunQuestion(ctx context.Context, disp Dispatcher, in RunQuestionInp
 
 // DispatchRunLogicalQuery calls POST /api/query/run.
 func DispatchRunLogicalQuery(ctx context.Context, disp Dispatcher, in RunLogicalQueryInput, cred Credential, channel string) (DispatchResult, error) {
-	return disp.Dispatch(ctx, http.MethodPost, "/api/query/run", map[string]any{"logical_query": in.LogicalQuery}, cred, channel)
+	lq := in.LogicalQuery
+	if lq == nil {
+		lq = make(map[string]any)
+	}
+	// Inject datasource_id from the top-level input when the logical_query
+	// document doesn't have one set (the planner may omit it). The query
+	// service requires datasource_id on the LogicalQuery struct itself,
+	// not as a separate top-level field.
+	if _, ok := lq["datasource_id"]; !ok && in.DatasourceID != "" {
+		// Clone to avoid mutating the caller's map.
+		cloned := make(map[string]any, len(lq)+1)
+		for k, v := range lq {
+			cloned[k] = v
+		}
+		cloned["datasource_id"] = in.DatasourceID
+		lq = cloned
+	}
+	return disp.Dispatch(ctx, http.MethodPost, "/api/query/run", map[string]any{"logical_query": lq}, cred, channel)
 }
 
 // DispatchListSkills calls GET /api/ai/skills, optionally filtered by datasource.

@@ -330,12 +330,7 @@ func upsertConversationInTx(
 	expectedVersion int64,
 ) error {
 	if conv.ID == "" {
-		return tx.QueryRowContext(ctx, `
-			INSERT INTO ai_conversations (user_id, datasource_id, model_id, context_enabled, title, snapshot_version)
-			VALUES ($1, $2, NULLIF($3, '')::uuid, $4, NULLIF($5, ''), 1)
-			RETURNING id::text, snapshot_version, created_at, updated_at
-		`, userID, conv.DatasourceID, derefStringOrEmpty(conv.ModelID), conv.ContextEnabled, derefStringOrEmpty(conv.Title),
-		).Scan(&conv.ID, &conv.SnapshotVersion, &conv.CreatedAt, &conv.UpdatedAt)
+		return insertConversationInTx(ctx, tx, userID, conv)
 	}
 	// Existing conversation — lock, check version, bump.
 	var currentVersion int64
@@ -345,6 +340,11 @@ func upsertConversationInTx(
 		FOR UPDATE
 	`, conv.ID, userID).Scan(&currentVersion)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Client-provided ID is set but doesn't exist yet — create it
+			// (e.g. client-side conversation hydration before first server save).
+			return insertConversationInTx(ctx, tx, userID, conv)
+		}
 		return ErrConversationVersionConflict
 	}
 	if currentVersion != expectedVersion {
@@ -361,6 +361,22 @@ func upsertConversationInTx(
 	}
 	conv.SnapshotVersion = currentVersion + 1
 	return nil
+}
+
+// insertConversationInTx inserts a new conversation row, accepting either a
+// client-generated ID or an empty ID (DB generates via gen_random_uuid).
+func insertConversationInTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	userID string,
+	conv *AIConversation,
+) error {
+	return tx.QueryRowContext(ctx, `
+		INSERT INTO ai_conversations (id, user_id, datasource_id, model_id, context_enabled, title, snapshot_version)
+		VALUES (COALESCE(NULLIF($1, ''), gen_random_uuid()::text), $2, $3, NULLIF($4, '')::uuid, $5, NULLIF($6, ''), 1)
+		RETURNING id::text, snapshot_version, created_at, updated_at
+	`, conv.ID, userID, conv.DatasourceID, derefStringOrEmpty(conv.ModelID), conv.ContextEnabled, derefStringOrEmpty(conv.Title),
+	).Scan(&conv.ID, &conv.SnapshotVersion, &conv.CreatedAt, &conv.UpdatedAt)
 }
 
 func upsertMessagesInTx(ctx context.Context, tx *sql.Tx, conv *AIConversation) error {

@@ -130,6 +130,7 @@ describe('conversation API sync', () => {
     const api = async (conversationToSave: Conversation) => {
       await Promise.resolve()
       calls.push(conversationToSave)
+      return conversationToSave
     }
 
     await saveConversationSnapshot(conv, { api })

@@ -6,7 +6,10 @@ import type { AIQueryResponse, Conversation, ConversationMessage } from '../type
 const STORAGE_KEY = 'biqly_conversations'
 type ConversationStorage = Pick<Storage, 'getItem' | 'setItem'>
 type ConversationLoader = (token?: string | null) => Promise<Conversation[]>
-type ConversationSaver = (conversation: Conversation, token?: string | null) => Promise<void>
+type ConversationSaver = (
+  conversation: Conversation,
+  token?: string | null,
+) => Promise<Conversation | undefined>
 type ConversationDeleter = (id: string, token?: string | null) => Promise<void>
 type ConversationScope = Pick<Conversation, 'datasource_id' | 'model_id'>
 
@@ -126,14 +129,14 @@ async function defaultLoadConversationsAPI(token?: string | null): Promise<Conve
 async function defaultSaveConversationAPI(
   conversation: Conversation,
   token?: string | null,
-): Promise<void> {
+): Promise<Conversation> {
   if (!conversation.datasource_id) {
-    return
+    throw new Error('datasource_id is required')
   }
   // Generate an idempotency key stable across retries of the same payload.
   const payload = JSON.stringify(conversation)
   const idempotencyKey = await sha256Hex(`save-${conversation.id}-${payload}`)
-  await apiFetch<Conversation>('POST', '/api/ai/conversations', conversation, {
+  return apiFetch<Conversation>('POST', '/api/ai/conversations', conversation, {
     token: token ?? undefined,
     headers: { 'Idempotency-Key': idempotencyKey },
   })
@@ -194,15 +197,16 @@ export async function loadConversationSnapshot(
 export async function saveConversationSnapshot(
   conversation: Conversation,
   options: ConversationSaveOptions = {},
-): Promise<void> {
+): Promise<Conversation | undefined> {
   try {
-    await (options.api ?? defaultSaveConversationAPI)(
+    return await (options.api ?? defaultSaveConversationAPI)(
       normalizeConversation(conversation),
       options.token,
     )
   } catch {
     // Local storage remains the fallback source of truth when the backend is
     // temporarily unavailable or auth is not configured.
+    return undefined
   }
 }
 
@@ -267,7 +271,29 @@ export function useConversation(accessToken?: string | null) {
         return
       }
       for (const conversation of updated) {
-        void saveConversationSnapshot(conversation, { token: accessToken })
+        void saveConversationSnapshot(conversation, { token: accessToken }).then((saved) => {
+          if (!saved) {
+            return
+          }
+          if (saved.snapshot_version === conversation.snapshot_version) {
+            return
+          }
+          const updatedVersion = saved.snapshot_version ?? 1
+          setConversations((prev) => {
+            const idx = prev.findIndex((c) => c.id === saved.id)
+            if (idx === -1) {
+              return prev
+            }
+            const entry = prev[idx]!
+            if (entry.snapshot_version === updatedVersion) {
+              return prev
+            }
+            const next = [...prev]
+            const updated = { ...entry, snapshot_version: updatedVersion } as Conversation
+            next[idx] = updated
+            return next
+          })
+        })
       }
     },
     [accessToken],

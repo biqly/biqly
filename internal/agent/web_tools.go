@@ -39,18 +39,18 @@ func (w *WebTools) All() []Tool {
 
 // webTool is a generic adapter that implements Tool for any web dispatch
 // function, eliminating per-tool duplication. The dispatch fn receives the
-// caller's credential and channel, performs the loopback call, and returns the
-// raw response.
+// caller's credential, channel, and run context, performs the loopback call,
+// and returns the raw response.
 type webTool struct {
 	w        *WebTools
 	name     ToolName
-	dispatch func(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, args json.RawMessage) (toolcontract.DispatchResult, error)
+	dispatch func(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, run RunContext, args json.RawMessage) (toolcontract.DispatchResult, error)
 }
 
 func (t webTool) Name() ToolName { return t.name }
 
-func (t webTool) Execute(ctx context.Context, _ RunContext, args json.RawMessage) (Observation, error) {
-	res, err := t.dispatch(ctx, t.w.disp, t.w.cred, args)
+func (t webTool) Execute(ctx context.Context, run RunContext, args json.RawMessage) (Observation, error) {
+	res, err := t.dispatch(ctx, t.w.disp, t.w.cred, run, args)
 	if err != nil {
 		return Observation{}, err
 	}
@@ -115,11 +115,11 @@ func truncateRunes(raw json.RawMessage, maxRunes int) json.RawMessage {
 
 // --- Per-tool dispatch functions ---
 
-func webListDatasources(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, _ json.RawMessage) (toolcontract.DispatchResult, error) {
+func webListDatasources(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, _ RunContext, _ json.RawMessage) (toolcontract.DispatchResult, error) {
 	return toolcontract.DispatchListDatasources(ctx, disp, cred, toolcontract.ChannelAgent)
 }
 
-func webListModels(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, args json.RawMessage) (toolcontract.DispatchResult, error) {
+func webListModels(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, _ RunContext, args json.RawMessage) (toolcontract.DispatchResult, error) {
 	in, err := decodeArgs[toolcontract.ListModelsInput](args)
 	if err != nil {
 		return toolcontract.DispatchResult{}, err
@@ -127,7 +127,7 @@ func webListModels(ctx context.Context, disp toolcontract.Dispatcher, cred toolc
 	return toolcontract.DispatchListModels(ctx, disp, in, cred, toolcontract.ChannelAgent)
 }
 
-func webRunQuestion(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, args json.RawMessage) (toolcontract.DispatchResult, error) {
+func webRunQuestion(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, _ RunContext, args json.RawMessage) (toolcontract.DispatchResult, error) {
 	in, err := decodeArgs[toolcontract.RunQuestionInput](args)
 	if err != nil {
 		return toolcontract.DispatchResult{}, err
@@ -135,15 +135,21 @@ func webRunQuestion(ctx context.Context, disp toolcontract.Dispatcher, cred tool
 	return toolcontract.DispatchRunQuestion(ctx, disp, in, cred, toolcontract.ChannelAgent)
 }
 
-func webRunLogicalQuery(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, args json.RawMessage) (toolcontract.DispatchResult, error) {
+func webRunLogicalQuery(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, run RunContext, args json.RawMessage) (toolcontract.DispatchResult, error) {
 	in, err := decodeArgs[toolcontract.RunLogicalQueryInput](args)
 	if err != nil {
 		return toolcontract.DispatchResult{}, err
 	}
+	// Inject the datasource_id from RunContext when the planner omitted it
+	// from the tool arguments (web tools skip identity validation — the
+	// datasource context is held by RunContext instead).
+	if in.DatasourceID == "" {
+		in.DatasourceID = run.DatasourceID
+	}
 	return toolcontract.DispatchRunLogicalQuery(ctx, disp, in, cred, toolcontract.ChannelAgent)
 }
 
-func webListSkills(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, args json.RawMessage) (toolcontract.DispatchResult, error) {
+func webListSkills(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, _ RunContext, args json.RawMessage) (toolcontract.DispatchResult, error) {
 	in, err := decodeArgs[toolcontract.ListSkillsInput](args)
 	if err != nil {
 		return toolcontract.DispatchResult{}, err
@@ -151,7 +157,7 @@ func webListSkills(ctx context.Context, disp toolcontract.Dispatcher, cred toolc
 	return toolcontract.DispatchListSkills(ctx, disp, in, cred, toolcontract.ChannelAgent)
 }
 
-func webRunSkill(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, args json.RawMessage) (toolcontract.DispatchResult, error) {
+func webRunSkill(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, _ RunContext, args json.RawMessage) (toolcontract.DispatchResult, error) {
 	in, err := decodeArgs[toolcontract.RunSkillInput](args)
 	if err != nil {
 		return toolcontract.DispatchResult{}, err

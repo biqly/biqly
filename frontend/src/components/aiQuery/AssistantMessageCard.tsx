@@ -319,7 +319,13 @@ export function AssistantMessageCard({
     setLoading(true)
     setError(null)
     try {
-      const res = await postData<QueryResultPayload>('/api/query/run', result.logical_query, {
+      // Ensure datasource_id is set on the logical query before dispatching;
+      // the AI response may omit it depending on the model.
+      const queryBody = {
+        ...result.logical_query,
+        datasource_id: result.logical_query.datasource_id || datasourceId,
+      }
+      const res = await postData<QueryResultPayload>('/api/query/run', queryBody, {
         timeout: AI_QUERY_TIMEOUT_MS,
       })
       if (!res) {
