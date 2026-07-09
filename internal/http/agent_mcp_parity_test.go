@@ -76,6 +76,16 @@ var allWebAgentTools = []agent.ToolName{
 // TestAgentMCPParity runs internal/agent/parity.Cases() through the real MCP
 // tool surface and the real web-agent planner/tool loop and asserts no
 // divergence — this is T13's "Done when" criterion.
+//
+// Caveat on model-selection divergence specifically: parity.NewFakeBackend's
+// handleListModels (internal/agent/parity/backend.go) returns exactly one
+// model per datasource, so the MCP path's auto-selection and the agent path's
+// explicit list_models -> pick can never disagree here — this run's "no
+// model-selection divergence" result is a structural fact of the fixture, not
+// proof the two paths would agree given a real choice between models. The
+// comparison logic for that case is real and unit-tested with synthetic data
+// (internal/agent/parity/parity_test.go), it just isn't exercised end-to-end
+// by this fixed case set.
 func TestAgentMCPParity(t *testing.T) {
 	backend := parity.NewFakeBackend()
 	cred := toolcontract.Credential{Authorization: "Bearer test-token", APIKey: "test-key"}

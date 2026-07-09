@@ -81,6 +81,19 @@ func handleListDatasources(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
+// handleListModels returns exactly one model for DatasourceOrders and an
+// empty list for any other datasource_id. Because every datasource in this
+// fixture has at most one candidate model, the MCP path's auto-selection
+// (see handleRunQuestion) and the agent path's explicit list_models -> pick
+// (see runQuestionCase in cases.go) can never land on different models — the
+// parity harness's "no model-selection divergence" result is a structural
+// fact of this fixture, not an empirical finding from a run that could have
+// gone the other way. The comparison logic that would catch a real
+// model-selection mismatch is real and independently unit-tested with
+// synthetic data (parity_test.go's TestCompareDetectsModelSelectionDivergence),
+// but TestAgentMCPParity cannot currently exercise it end-to-end; that would
+// need a datasource here with 2+ candidate models, which this fixture does
+// not set up today.
 func handleListModels(w http.ResponseWriter, r *http.Request) {
 	ds := r.URL.Query().Get("datasource_id")
 	if ds != "" && ds != DatasourceOrders {
