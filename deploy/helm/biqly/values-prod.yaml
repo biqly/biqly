@@ -281,6 +281,7 @@ ai:
     BI_AI_ROUTE_SLIM_NUMERIC_METRICS: "true"
     BI_AI_JOBS_ENABLED: "true"
     BI_NATS_URL: nats://biqly-nats:4222
+    BI_WEB_AGENT_ENABLED: "true"
   ambiguity:
     tieredEnabled: true
     maxLLMTierPerQuestion: 1
