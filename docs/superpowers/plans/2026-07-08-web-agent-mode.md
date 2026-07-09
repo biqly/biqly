@@ -19,7 +19,8 @@ Every task ends with its focused tests green plus `gofmt` + `make lint-go` (Go) 
 - [x] T8 — Clarification round-trip
 - [x] T9-T12 — Frontend Agent Mode
 - [x] T13 — Parity harness
-- [x] T14 — Docs + full local gate (dev-cluster deploy/smoke test handled separately)
+- [~] T14 — Docs + full local gate complete; dev-cluster deploy + SSE gateway smoke
+      test deferred (see note below T14)
 - [ ] T15 — Rollout
 
 ---
@@ -231,18 +232,39 @@ documented for the NATS agent runner).
   through the gateway (no buffering, heartbeats, 401 propagation).
 - **Done when:** all gates green; dev-cluster smoke of the full flow passes.
 
-Docs + full local gate portion complete (this dispatch's scope; dev-cluster deploy
-and gateway SSE smoke test handled separately). `docs/configuration.md`'s Web Agent
-Mode row corrected (two "Primary Load / Override Point" cells pointed at a
-nonexistent `internal/agent.Runtime`; fixed to the real
+Docs + full local gate portion complete (commit `0cee180d`, reviewed clean).
+`docs/configuration.md`'s Web Agent Mode row corrected (two "Primary Load / Override
+Point" cells pointed at a nonexistent `internal/agent.Runtime`; fixed to the real
 `internal/http/handlers/ai_agent_chat.go` call sites). `CONTEXT.md` got a Web agent
 mode / Tool contract touchpoint (Product boundary, glossary, Key flows, Where-to-
 look). Full local gate green except `make verify-main`'s `govulncheck` sub-step,
 which fails only on two Go **stdlib** CVEs fixed in go1.26.5 (repo pinned to
-go1.26.4 in `go.mod`) — pre-existing and unrelated to Web Agent Mode; every other
-sub-step (vet, lint-go, test-go, coverage-gate, eval-regression, check-frontend,
-helm-lint/template, semgrep-scan 0 findings) passed. See `tasks/todo.md`'s T14 note
-for full detail.
+go1.26.4 in `go.mod`) — pre-existing and unrelated to Web Agent Mode, independently
+reproduced by the reviewer; every other sub-step (vet, lint-go, test-go,
+coverage-gate, eval-regression, check-frontend, helm-lint/template, semgrep-scan 0
+findings) passed.
+
+**Dev-cluster deploy + gateway SSE smoke test: deferred, not done.** Before touching
+anything, checked the actual cluster state: the `prag` cluster has exactly one
+namespace/Helm release (`biqly`, revision 82), currently running with
+`values-prod.yaml`'s pinned image tags. `values-dev.yaml` has no tag overrides at
+all — it inherits the base chart's `tag: latest` for every service. Running `helm
+upgrade -f values-dev.yaml` against this cluster would revert the live release's
+images to `latest` in place, on the only environment that exists — there is no
+isolated dev sandbox to deploy into. Raised this with the user; they chose to skip
+the cluster deploy rather than accept that tradeoff right now. Attempted a local
+smoke test instead (`make watch SVC="api auth mail"` + `make dev-frontend`, with
+`BI_WEB_AGENT_ENABLED=true` set locally in the gitignored `.env.dev`) — got the
+stack running, but had no local dev login credentials to actually drive a request
+through the browser, and no PAT/bearer token to drive it via curl either; the user
+chose to skip that too rather than provide/mint one. Local dev processes were
+stopped and the temporary `.env.dev` line was reverted — no lasting changes from
+this attempt. **This means the full live-request flow (real SSE through the
+gateway, or even through a local server) has not been exercised end-to-end by a
+human or an agent in this session** — only in-process Go tests (httptest,
+`internal/agent/parity`) and frontend component tests have verified the wire
+protocol and UI behavior. Recommend a manual pass (with real credentials) before
+any rollout decision.
 
 ### T15 — Rollout
 - Ship dark: `BI_WEB_AGENT_ENABLED=false` in prod values.
