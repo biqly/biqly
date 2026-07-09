@@ -40,6 +40,7 @@ type webAgentRequest struct {
 	Message             string                  `json:"message"`
 	ConversationID      string                  `json:"conversation_id,omitempty"`
 	DatasourceID        string                  `json:"datasource_id,omitempty"`
+	ModelID             string                  `json:"model_id,omitempty"`
 	PriorTurns          []priorTurnPayload      `json:"prior_turns,omitempty"`
 	ResumeRunID         string                  `json:"resume_run_id,omitempty"`
 	ClarificationAnswer string                  `json:"clarification_answer,omitempty"`
@@ -90,6 +91,13 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Message = strings.TrimSpace(req.Message)
 	req.DatasourceID = strings.TrimSpace(req.DatasourceID)
+	req.ModelID = strings.TrimSpace(req.ModelID)
+	// Composite ids are synthetic and not valid semantic_models FKs /
+	// LogicalQuery.model_id values — drop them so run_logical_query can
+	// auto-route instead of failing FK/load.
+	if strings.HasPrefix(req.ModelID, "composite:") {
+		req.ModelID = ""
+	}
 	req.ResumeRunID = strings.TrimSpace(req.ResumeRunID)
 	req.ClarificationAnswer = strings.TrimSpace(req.ClarificationAnswer)
 	req.Credential = requestCredential(r)
@@ -329,6 +337,7 @@ func (h *AIHandler) createWebAgentRun(ctx context.Context, req webAgentRequest) 
 	insert := metadata.AgentRunInsert{
 		ConversationID: req.ConversationID,
 		DatasourceID:   req.DatasourceID,
+		ModelID:        req.ModelID,
 		UserID:         bimw.UserID(ctx),
 		Question:       question,
 		QuestionHash:   metadata.QuestionHash(question),
@@ -490,6 +499,7 @@ func (h *AIHandler) webAgentRunContext(ctx context.Context, req webAgentRequest,
 		TenantID:     bimw.WorkspaceID(ctx),
 		UserID:       bimw.UserID(ctx),
 		DatasourceID: req.DatasourceID,
+		ModelID:      req.ModelID,
 		// resume.OriginalQuestion (the run's ORIGINAL question, persisted at
 		// creation) takes priority over the current request's message/answer:
 		// on a real resume, req.Message is typically empty and

@@ -663,12 +663,22 @@ export default function AIQuery() {
           resume_run_id: pending.runId,
           clarification_answer: answer,
           datasource_id: datasourceId,
+          model_id: semanticModelId.startsWith('composite:')
+            ? undefined
+            : semanticModelId || undefined,
           conversation_id: convId,
         },
         convId,
       )
     },
-    [agentTurnsByConversation, activeConversation, addMessage, runAgentTurn, datasourceId],
+    [
+      agentTurnsByConversation,
+      activeConversation,
+      addMessage,
+      runAgentTurn,
+      datasourceId,
+      semanticModelId,
+    ],
   )
 
   const handleAgentClarificationChoice = useCallback(
@@ -719,6 +729,9 @@ export default function AIQuery() {
             resume_run_id: pendingClarification.runId,
             clarification_answer: q,
             datasource_id: datasourceId,
+            model_id: semanticModelId.startsWith('composite:')
+              ? undefined
+              : semanticModelId || undefined,
             conversation_id: convId,
           },
           convId,
@@ -736,6 +749,9 @@ export default function AIQuery() {
         message: q,
         conversation_id: convId,
         datasource_id: datasourceId,
+        model_id: semanticModelId.startsWith('composite:')
+          ? undefined
+          : semanticModelId || undefined,
         // Mirrors buildAIQueryRequest's context gating: the per-conversation
         // "link context" toggle controls whether prior turns are sent.
         prior_turns: activeConversation?.context_enabled !== false ? recentPriorTurns : undefined,

@@ -246,6 +246,58 @@ func TestDispatchRunLogicalQuery(t *testing.T) {
 	}
 }
 
+func TestDispatchRunLogicalQuery_InjectsDatasourceAndModelID(t *testing.T) {
+	backend, rec := fakeBackend(t, http.StatusOK, `{}`)
+	disp := &HTTPDispatcher{API: backend}
+
+	_, err := DispatchRunLogicalQuery(context.Background(), disp, RunLogicalQueryInput{
+		DatasourceID: "ds-from-input",
+		ModelID:      "model-from-input",
+		LogicalQuery: map[string]any{"select": []any{}},
+	}, Credential{}, ChannelAgent)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	var body map[string]any
+	_ = sonic.Unmarshal([]byte(rec.body), &body)
+	lq, ok := body["logical_query"].(map[string]any)
+	if !ok {
+		t.Fatalf("logical_query type = %T", body["logical_query"])
+	}
+	if lq["datasource_id"] != "ds-from-input" {
+		t.Errorf("datasource_id = %v, want ds-from-input", lq["datasource_id"])
+	}
+	if lq["model_id"] != "model-from-input" {
+		t.Errorf("model_id = %v, want model-from-input", lq["model_id"])
+	}
+}
+
+func TestDispatchRunLogicalQuery_PreservesExistingModelID(t *testing.T) {
+	backend, rec := fakeBackend(t, http.StatusOK, `{}`)
+	disp := &HTTPDispatcher{API: backend}
+
+	_, err := DispatchRunLogicalQuery(context.Background(), disp, RunLogicalQueryInput{
+		ModelID: "model-from-input",
+		LogicalQuery: map[string]any{
+			"datasource_id": "ds",
+			"model_id":      "model-from-lq",
+			"select":        []any{},
+		},
+	}, Credential{}, ChannelAgent)
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	var body map[string]any
+	_ = sonic.Unmarshal([]byte(rec.body), &body)
+	lq, ok := body["logical_query"].(map[string]any)
+	if !ok {
+		t.Fatalf("logical_query type = %T", body["logical_query"])
+	}
+	if lq["model_id"] != "model-from-lq" {
+		t.Errorf("model_id = %v, want model-from-lq (planner value wins)", lq["model_id"])
+	}
+}
+
 func TestDispatchListSkills_DatasourceFilter(t *testing.T) {
 	backend, rec := fakeBackend(t, http.StatusOK, "[]")
 	disp := &HTTPDispatcher{API: backend}

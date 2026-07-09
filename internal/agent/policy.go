@@ -100,6 +100,10 @@ type RunContext struct {
 	TenantID     string
 	UserID       string
 	DatasourceID string
+	// ModelID is the optional published semantic model selected in the UI.
+	// Injected into run_logical_query when the planner omits it — same
+	// pattern as DatasourceID. Empty means auto-routing / no pinned model.
+	ModelID string
 	// Question is the user's original natural-language question. Policy
 	// does not use it; the Planner does (see internal/agent/provider_planner.go).
 	Question string

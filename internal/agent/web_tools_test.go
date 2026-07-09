@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 
@@ -21,6 +22,10 @@ func webTestBackend(t *testing.T, status int, respBody string) (http.Handler, *w
 		rec.path = r.URL.Path
 		rec.query = r.URL.RawQuery
 		rec.headers = r.Header.Clone()
+		if r.Body != nil {
+			b, _ := io.ReadAll(r.Body)
+			rec.body = string(b)
+		}
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(respBody))
 	})
@@ -31,6 +36,7 @@ type webRecordedReq struct {
 	method  string
 	path    string
 	query   string
+	body    string
 	headers http.Header
 }
 
@@ -151,6 +157,47 @@ func TestWebRunLogicalQueryTool(t *testing.T) {
 	}
 	if rec.method != http.MethodPost || rec.path != "/api/query/run" {
 		t.Errorf("dispatch = %s %s", rec.method, rec.path)
+	}
+}
+
+func TestWebRunLogicalQuery_InjectsDatasourceAndModelIDFromRunContext(t *testing.T) {
+	backend, rec := webTestBackend(t, http.StatusOK, `{"rows":[]}`)
+	disp := &toolcontract.HTTPDispatcher{API: backend}
+	wt := NewWebTools(disp, toolcontract.Credential{})
+
+	// Planner omitted both ids — only the select clause.
+	args := mustMarshal(t, toolcontract.RunLogicalQueryInput{
+		LogicalQuery: map[string]any{"select": []any{}},
+	})
+
+	var runLogicalQueryTool Tool
+	for _, tool := range wt.All() {
+		if tool.Name() == ToolWebRunLogicalQuery {
+			runLogicalQueryTool = tool
+			break
+		}
+	}
+	if runLogicalQueryTool == nil {
+		t.Fatal("run_logical_query tool not found")
+	}
+	_, err := runLogicalQueryTool.Execute(context.Background(), RunContext{
+		DatasourceID: "ds-from-run",
+		ModelID:      "model-from-run",
+	}, args)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var body map[string]any
+	_ = sonic.Unmarshal([]byte(rec.body), &body)
+	lq, ok := body["logical_query"].(map[string]any)
+	if !ok {
+		t.Fatalf("logical_query type = %T body=%s", body["logical_query"], rec.body)
+	}
+	if lq["datasource_id"] != "ds-from-run" {
+		t.Errorf("datasource_id = %v, want ds-from-run", lq["datasource_id"])
+	}
+	if lq["model_id"] != "model-from-run" {
+		t.Errorf("model_id = %v, want model-from-run", lq["model_id"])
 	}
 }
 

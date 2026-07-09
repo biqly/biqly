@@ -140,11 +140,14 @@ func webRunLogicalQuery(ctx context.Context, disp toolcontract.Dispatcher, cred 
 	if err != nil {
 		return toolcontract.DispatchResult{}, err
 	}
-	// Inject the datasource_id from RunContext when the planner omitted it
-	// from the tool arguments (web tools skip identity validation — the
-	// datasource context is held by RunContext instead).
+	// Inject datasource_id / model_id from RunContext when the planner omitted
+	// them from the tool arguments (web tools skip identity validation — the
+	// UI selection is held by RunContext instead).
 	if in.DatasourceID == "" {
 		in.DatasourceID = run.DatasourceID
+	}
+	if in.ModelID == "" {
+		in.ModelID = run.ModelID
 	}
 	return toolcontract.DispatchRunLogicalQuery(ctx, disp, in, cred, toolcontract.ChannelAgent)
 }

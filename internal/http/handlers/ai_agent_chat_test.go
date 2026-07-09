@@ -908,9 +908,11 @@ func TestResumeWebAgentRunAccumulatesClarificationHistoryAcrossTwoRounds(t *test
 	// carries both resolved rounds — not just the latest one.
 	runCtx := h.webAgentRunContext(ctx, webAgentRequest{
 		DatasourceID:        "ds-1",
+		ModelID:             "model-zlitter",
 		ClarificationAnswer: "Q2",
 	}, resume)
 	assert.Equal(t, "show revenue", runCtx.Question)
+	assert.Equal(t, "model-zlitter", runCtx.ModelID)
 	require.Len(t, runCtx.ClarificationHistory, 2)
 	assert.Equal(t, "Q2", runCtx.ClarificationHistory[1].Answer)
 }

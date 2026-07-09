@@ -14,6 +14,8 @@ export interface AgentChatRequest {
   message?: string
   conversation_id?: string
   datasource_id: string
+  /** Published semantic model id; omitted for composite / auto-routing. */
+  model_id?: string
   prior_turns?: PriorTurn[]
   resume_run_id?: string
   clarification_answer?: string

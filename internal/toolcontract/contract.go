@@ -130,6 +130,7 @@ type RunQuestionInput struct {
 // RunLogicalQueryInput compiles and executes a LogicalQuery document.
 type RunLogicalQueryInput struct {
 	DatasourceID string         `json:"datasource_id,omitempty" jsonschema:"datasource id; auto-injected into the logical query when missing"`
+	ModelID      string         `json:"model_id,omitempty" jsonschema:"semantic model id; auto-injected into the logical query when missing"`
 	LogicalQuery map[string]any `json:"logical_query" jsonschema:"the LogicalQuery document to compile and execute"`
 }
 
@@ -261,20 +262,33 @@ func DispatchRunLogicalQuery(ctx context.Context, disp Dispatcher, in RunLogical
 	if lq == nil {
 		lq = make(map[string]any)
 	}
-	// Inject datasource_id from the top-level input when the logical_query
-	// document doesn't have one set (the planner may omit it). The query
-	// service requires datasource_id on the LogicalQuery struct itself,
-	// not as a separate top-level field.
-	if _, ok := lq["datasource_id"]; !ok && in.DatasourceID != "" {
-		// Clone to avoid mutating the caller's map.
-		cloned := make(map[string]any, len(lq)+1)
-		for k, v := range lq {
-			cloned[k] = v
-		}
-		cloned["datasource_id"] = in.DatasourceID
-		lq = cloned
-	}
+	// Inject datasource_id / model_id from the top-level input when the
+	// logical_query document doesn't have them set (the planner may omit
+	// them). The query service requires these on the LogicalQuery struct
+	// itself, not as separate top-level fields.
+	lq = injectLogicalQueryField(lq, "datasource_id", in.DatasourceID)
+	lq = injectLogicalQueryField(lq, "model_id", in.ModelID)
 	return disp.Dispatch(ctx, http.MethodPost, "/api/query/run", map[string]any{"logical_query": lq}, cred, channel)
+}
+
+// injectLogicalQueryField clones lq and sets key when missing/blank and value
+// is non-empty. Returns lq unchanged when no injection is needed.
+func injectLogicalQueryField(lq map[string]any, key, value string) map[string]any {
+	if value == "" {
+		return lq
+	}
+	if existing, ok := lq[key]; ok {
+		s, isStr := existing.(string)
+		if !isStr || strings.TrimSpace(s) != "" {
+			return lq
+		}
+	}
+	cloned := make(map[string]any, len(lq)+1)
+	for k, v := range lq {
+		cloned[k] = v
+	}
+	cloned[key] = value
+	return cloned
 }
 
 // DispatchListSkills calls GET /api/ai/skills, optionally filtered by datasource.
