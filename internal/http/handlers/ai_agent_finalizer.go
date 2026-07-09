@@ -34,7 +34,7 @@ func (h *AIHandler) composeWebAgentFinalResult(ctx context.Context, req webAgent
 		Result: &ai.AIResult{},
 		Metadata: &ai.AIMetadata{
 			RunID:    runID,
-			RunSteps: webAgentRunSteps(state.Steps),
+			RunSteps: webAgentRunSteps(state.Steps, state.ClarificationHistory),
 		},
 	}
 	if state.Terminal != nil && state.Terminal.Final != nil {
@@ -83,26 +83,41 @@ func webAgentFinalQuestion(req webAgentRequest, resume webAgentResumeInfo) strin
 // webAgentRunSteps converts a web agent run's recorded steps into the same
 // ai.RunStep shape agentStepsFromResponse (ai_agent_run.go) produces for the
 // legacy job pipeline's run_steps/run_id trace, so the frontend's
-// RunTracePanel renders a web agent run the same way.
-func webAgentRunSteps(steps []agent.RuntimeStep) []ai.RunStep {
-	out := make([]ai.RunStep, 0, len(steps))
+// RunTracePanel renders a web agent run the same way. Detail carries
+// webAgentStepSummary's output — the bare reason code / error text for
+// denied/failed steps (preserving RunTrace.tsx's reason-code i18n mapping)
+// and the tool-aware human summary for completed ones — matching what the
+// live SSE trace showed while the run streamed.
+//
+// Each answered clarification round (clarifications, oldest first) is
+// appended after the tool steps as a `clarification`-kind RunStep.
+// ClarificationHistory records no step position (the runtime pauses BETWEEN
+// steps), so appending in exchange order — with seqs continuing past the
+// highest recorded step seq — is the documented placement choice; the live
+// trace interleaves the same rows at their true position client-side.
+func webAgentRunSteps(steps []agent.RuntimeStep, clarifications []agent.ClarificationExchange) []ai.RunStep {
+	out := make([]ai.RunStep, 0, len(steps)+len(clarifications))
+	maxSeq := 0
 	for _, step := range steps {
 		status := ai.RunStepStatusOK
-		detail := ""
-		switch {
-		case step.DeniedReason != "":
+		if step.DeniedReason != "" || step.Error != "" {
 			status = ai.RunStepStatusFailed
-			detail = step.DeniedReason
-		case step.Error != "":
-			status = ai.RunStepStatusFailed
-			detail = step.Error
 		}
+		maxSeq = max(maxSeq, step.Seq)
 		out = append(out, ai.RunStep{
 			Seq:        step.Seq,
 			Kind:       string(step.Proposal.Tool),
 			Status:     status,
 			DurationMs: step.DurationMs,
-			Detail:     detail,
+			Detail:     webAgentStepSummary(step),
+		})
+	}
+	for i, exchange := range clarifications {
+		out = append(out, ai.RunStep{
+			Seq:    maxSeq + i + 1,
+			Kind:   "clarification",
+			Status: ai.RunStepStatusOK,
+			Detail: webAgentClarificationDetail(exchange),
 		})
 	}
 	return out

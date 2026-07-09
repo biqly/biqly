@@ -27,16 +27,24 @@ export interface AgentRunStartedEvent {
 export type AgentStepStatus = 'started' | 'completed' | 'denied' | 'failed'
 
 // AgentStepEvent mirrors webAgentStepEvent (ai_agent_chat.go): kind is always
-// "tool_call_<status>" today. summary/duration_ms are part of the SSE event
-// contract documented in the design doc but not yet populated by the
-// handler — kept optional so the client doesn't break once they are.
+// "tool_call_<status>" today. summary and duration_ms arrive only on
+// terminal events (completed/denied/failed); args rides on every event from
+// "started" onward.
 export interface AgentStepEvent {
   type: 'step'
   seq: number
   kind: string
   tool?: string
   status?: AgentStepStatus
+  /** Compact human summary of a terminal step — counts/names/durations for
+   * completed steps, the bare reason code / error text for denied/failed
+   * ones (webAgentStepSummary). The same string is persisted server-side as
+   * the step's agent_steps.detail. */
   summary?: string
+  /** The proposal's raw JSON arguments, truncated server-side (~200 runes).
+   * Live-trace only: the persisted agent_steps row carries no arguments, so
+   * a reloaded trace renders without an expandable args section. */
+  args?: string
   duration_ms?: number
 }
 

@@ -108,7 +108,10 @@ func TestComposeWebAgentFinalResultRunQuestionGolden(t *testing.T) {
 
 	assert.Equal(t, "run-1", got.Metadata.RunID)
 	require.Len(t, got.Metadata.RunSteps, 1)
-	assert.Equal(t, ai.RunStep{Seq: 1, Kind: "run_question", Status: ai.RunStepStatusOK}, got.Metadata.RunSteps[0])
+	assert.Equal(t,
+		ai.RunStep{Seq: 1, Kind: "run_question", Status: ai.RunStepStatusOK, Detail: "2 rows in 12ms"},
+		got.Metadata.RunSteps[0],
+		"a completed step's Detail carries the tool-aware summary")
 
 	// Round-trip through JSON and confirm the shape normalizeAIQueryResponse
 	// (frontend/src/utils/normalizeAIQueryResponse.ts) expects: result.sql,
@@ -283,12 +286,77 @@ func TestWebAgentRunSteps(t *testing.T) {
 		{Seq: 3, Proposal: agent.Proposal{Tool: agent.ToolWebRunQuestion}, Error: "upstream timeout", DurationMs: 8069},
 	}
 
-	got := webAgentRunSteps(steps)
+	got := webAgentRunSteps(steps, nil)
 
 	require.Len(t, got, 3)
 	assert.Equal(t, ai.RunStep{Seq: 1, Kind: "list_datasources", Status: ai.RunStepStatusOK, DurationMs: 412}, got[0])
 	assert.Equal(t, ai.RunStep{Seq: 2, Kind: "run_logical_query", Status: ai.RunStepStatusFailed, Detail: "tool_not_allowlisted"}, got[1])
 	assert.Equal(t, ai.RunStep{Seq: 3, Kind: "run_question", Status: ai.RunStepStatusFailed, Detail: "upstream timeout", DurationMs: 8069}, got[2])
+}
+
+// TestWebAgentRunStepsAppendsClarificationRows proves each answered
+// clarification round becomes a `clarification`-kind RunStep appended after
+// the tool steps (ClarificationHistory records no step position — see
+// webAgentRunSteps), with seqs continuing past the highest recorded step seq
+// so the persisted agent_steps rows stay unique per (run, seq).
+func TestWebAgentRunStepsAppendsClarificationRows(t *testing.T) {
+	steps := []agent.RuntimeStep{
+		{Seq: 1, Proposal: agent.Proposal{Tool: agent.ToolWebListDatasources}, Observation: &agent.Observation{}, DurationMs: 12},
+		{Seq: 2, Proposal: agent.Proposal{Tool: agent.ToolWebRunQuestion}, Observation: &agent.Observation{}, DurationMs: 90},
+	}
+	history := []agent.ClarificationExchange{
+		{Question: "Which datasource?", Answer: "zlitter"},
+		{Question: "Which quarter?", Answer: "Q2"},
+	}
+
+	got := webAgentRunSteps(steps, history)
+
+	require.Len(t, got, 4)
+	assert.Equal(t, ai.RunStep{
+		Seq:    3,
+		Kind:   "clarification",
+		Status: ai.RunStepStatusOK,
+		Detail: "asked: Which datasource? — answered: zlitter",
+	}, got[2])
+	assert.Equal(t, ai.RunStep{
+		Seq:    4,
+		Kind:   "clarification",
+		Status: ai.RunStepStatusOK,
+		Detail: "asked: Which quarter? — answered: Q2",
+	}, got[3])
+}
+
+// TestComposeWebAgentFinalResultIncludesClarificationSteps proves the
+// composed result payload's metadata.run_steps — what the frontend renders
+// and what persistWebAgentSteps writes to agent_steps — carries the run's
+// clarification history, so the clarify round-trip stays visible after the
+// live trace is gone.
+func TestComposeWebAgentFinalResultIncludesClarificationSteps(t *testing.T) {
+	h := newAIHandlerWithRepo(nil)
+
+	state := agent.RuntimeState{
+		Steps: []agent.RuntimeStep{{
+			Seq:         1,
+			Proposal:    agent.Proposal{Tool: agent.ToolWebListModels, Arguments: []byte(`{}`)},
+			Observation: &agent.Observation{Tool: agent.ToolWebListModels, Payload: []byte(`{"models":[]}`)},
+		}},
+		ClarificationHistory: []agent.ClarificationExchange{
+			{Question: "Which datasource?", Answer: "zlitter"},
+		},
+		Terminal: &agent.TerminalResult{
+			Kind:  agent.DecisionFinal,
+			Final: &agent.FinalResponse{Answer: "done", Confidence: 0.9},
+		},
+	}
+
+	got := h.composeWebAgentFinalResult(context.Background(),
+		webAgentRequest{ClarificationAnswer: "zlitter", ResumeRunID: "run-6"},
+		webAgentResumeInfo{OriginalQuestion: "how many tweets?", ClarificationHistory: state.ClarificationHistory},
+		"run-6", state)
+
+	require.Len(t, got.Metadata.RunSteps, 2)
+	assert.Equal(t, "clarification", got.Metadata.RunSteps[1].Kind)
+	assert.Equal(t, "asked: Which datasource? — answered: zlitter", got.Metadata.RunSteps[1].Detail)
 }
 
 // TestWebAgentFinalQuestionPrefersOriginalOnResume reproduces the production

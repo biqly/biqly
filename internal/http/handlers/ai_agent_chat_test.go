@@ -225,6 +225,10 @@ func TestWebAgentChatStreamsRunStartedStepAndResult(t *testing.T) {
 	assert.Contains(t, body, `"tool":"list_models"`)
 	assert.Contains(t, body, `"duration_ms":412`,
 		"terminal step events must carry the measured tool duration")
+	assert.Contains(t, body, `"summary":"0 models"`,
+		"terminal step events must carry the tool-aware human summary")
+	assert.Contains(t, body, `"args":"{\"datasource_id\":\"ds-1\"}"`,
+		"step events must carry the proposal's (truncated) arguments for the expandable step details")
 	assert.Contains(t, body, `"type":"result"`)
 	assert.Contains(t, body, `"answer":"done"`)
 	assert.Contains(t, body, "data: [DONE]")
