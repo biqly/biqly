@@ -29,7 +29,7 @@ import (
 // before the web agent ever sees the observation) — this function only
 // derives the visualization hint and anomaly warnings from it, exactly like
 // enrichAIRunResponse does; it never re-runs EnrichResult itself.
-func (h *AIHandler) composeWebAgentFinalResult(ctx context.Context, req webAgentRequest, runID string, state agent.RuntimeState) *ai.Response {
+func (h *AIHandler) composeWebAgentFinalResult(ctx context.Context, req webAgentRequest, resume webAgentResumeInfo, runID string, state agent.RuntimeState) *ai.Response {
 	resp := &ai.Response{
 		Result: &ai.AIResult{},
 		Metadata: &ai.AIMetadata{
@@ -60,13 +60,24 @@ func (h *AIHandler) composeWebAgentFinalResult(ctx context.Context, req webAgent
 		resp.Result.Warnings = append(resp.Result.Warnings, anomalyWarnings...)
 	}
 
-	question := firstNonEmpty(req.Message, req.ClarificationAnswer)
+	question := webAgentFinalQuestion(req, resume)
 	// Same helpers, same gating, as the legacy job pipeline: both are
 	// no-ops unless resp.Result.Result is set (true here) and h.service is
 	// configured, so this is safe to call unconditionally.
 	h.attachAINaturalLanguageAnswer(ctx, resp, question)
 	h.attachSuggestedFollowUps(ctx, resp, aiQueryRequest{Question: question, PriorTurns: req.PriorTurns})
 	return resp
+}
+
+// webAgentFinalQuestion picks the question the business summary and
+// follow-up suggestions are generated for. On a resumed run req.Message is
+// empty and req.ClarificationAnswer is just the user's disambiguation choice
+// (e.g. a datasource name) — using it produced nonsense summaries like
+// "The count for 'zlitter' is 1,126". The run's ORIGINAL question
+// (resume.OriginalQuestion, persisted at run creation) always wins, exactly
+// as it does for the resumed planner prompt (webAgentRunContext).
+func webAgentFinalQuestion(req webAgentRequest, resume webAgentResumeInfo) string {
+	return firstNonEmpty(resume.OriginalQuestion, req.Message, req.ClarificationAnswer)
 }
 
 // webAgentRunSteps converts a web agent run's recorded steps into the same

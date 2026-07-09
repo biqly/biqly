@@ -74,10 +74,14 @@ func buildPlannerPrompt(run RunContext, history []RuntimeStep) string {
 	b.WriteString("- Never write raw SQL, ask the user to run SQL, or accept SQL as execution input.\n")
 	b.WriteString("- Use governed LogicalQuery JSON only through the provided tools.\n")
 	b.WriteString("- Prefer list_skills then run_skill when a saved skill matches the task.\n")
-	b.WriteString("- If metric, grain, datasource, model, or date scope is ambiguous, ask a structured clarification instead of guessing.\n")
-	b.WriteString("- For follow-up questions, inherit prior filters, date ranges, groupings and datasource/model choices unless the user changes them.\n\n")
+	b.WriteString("- If metric, grain, or date scope is ambiguous, ask a structured clarification instead of guessing.\n")
+	b.WriteString("- The datasource is already selected by the user (see Datasource below); never ask which datasource or database to use, and pass it to tools as-is.\n")
+	b.WriteString("- For follow-up questions, inherit prior filters, date ranges, groupings and model choices unless the user changes them.\n\n")
 
 	fmt.Fprintf(&b, "Question: %s\n", run.Question)
+	if run.DatasourceID != "" {
+		fmt.Fprintf(&b, "Datasource: %s (preselected — use for every tool call)\n", run.DatasourceID)
+	}
 	writePriorTurns(&b, run.PriorTurns)
 	writeClarificationHistory(&b, run.ClarificationHistory)
 	b.WriteString("Available tools: ")

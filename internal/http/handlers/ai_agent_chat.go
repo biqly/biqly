@@ -139,7 +139,7 @@ func (h *AIHandler) WebAgentChat(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case state.Terminal != nil && state.Terminal.Final != nil:
-		result := h.composeWebAgentFinalResult(r.Context(), req, runID, state)
+		result := h.composeWebAgentFinalResult(r.Context(), req, resume, runID, state)
 		// context.WithoutCancel: same reasoning as failWebAgentRun above — a
 		// client abort must not stop the already-completed run's step trace
 		// from being durably persisted.

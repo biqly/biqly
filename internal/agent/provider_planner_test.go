@@ -143,6 +143,28 @@ func TestBuildPlannerPromptDescribesWebToolsAndPriorTurns(t *testing.T) {
 	assert.NotContains(t, prompt, "list_datasources:")
 }
 
+// TestBuildPlannerPromptDatasourceIsPreselected reproduces the production
+// misbehavior where the planner asked the user which datasource to use even
+// though the UI already carries a selected one on every request: the prompt
+// must state the preselected datasource and forbid asking for it, and must
+// not list "datasource" among the things worth a clarification.
+func TestBuildPlannerPromptDatasourceIsPreselected(t *testing.T) {
+	run := baseRunContext()
+	run.Question = "dün toplam kaç adet tweet atılmıştır?"
+	run.DatasourceID = "ds-zlitter"
+
+	prompt := buildPlannerPrompt(run, nil)
+
+	assert.Contains(t, prompt, "Datasource: ds-zlitter (preselected")
+	assert.Contains(t, prompt, "never ask which datasource")
+	assert.NotContains(t, prompt, "datasource, model, or date scope is ambiguous")
+
+	// Without a datasource in the run context (defensive: the handler always
+	// sets one), no misleading "Datasource:" line is rendered.
+	run.DatasourceID = ""
+	assert.NotContains(t, buildPlannerPrompt(run, nil), "Datasource: ")
+}
+
 func TestProviderPlannerWebHappyPathListModelsRunQuestionFinal(t *testing.T) {
 	provider := &queuedProvider{results: []providerpkg.GenerationResult{
 		{Content: `{"tool":{"name":"list_models","arguments":{"datasource_id":"ds-1"}}}`},

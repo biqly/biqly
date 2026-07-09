@@ -84,7 +84,7 @@ func TestComposeWebAgentFinalResultRunQuestionGolden(t *testing.T) {
 	}
 
 	req := webAgentRequest{Message: "revenue by month", DatasourceID: "ds-1"}
-	got := h.composeWebAgentFinalResult(context.Background(), req, "run-1", state)
+	got := h.composeWebAgentFinalResult(context.Background(), req, webAgentResumeInfo{}, "run-1", state)
 
 	require.NotNil(t, got.Result)
 	require.NotNil(t, got.Metadata)
@@ -164,7 +164,7 @@ func TestComposeWebAgentFinalResultRunLogicalQueryHasNoSQLPreview(t *testing.T) 
 		},
 	}
 
-	got := h.composeWebAgentFinalResult(context.Background(), webAgentRequest{Message: "q"}, "run-2", state)
+	got := h.composeWebAgentFinalResult(context.Background(), webAgentRequest{Message: "q"}, webAgentResumeInfo{}, "run-2", state)
 
 	assert.Equal(t, lq, got.Result.LogicalQuery)
 	assert.Empty(t, got.Result.SQL, "run_logical_query's /api/query/run response never echoes SQL back")
@@ -197,7 +197,7 @@ func TestComposeWebAgentFinalResultRunSkillIncludesSQL(t *testing.T) {
 		Terminal: &agent.TerminalResult{Kind: agent.DecisionFinal, Final: &agent.FinalResponse{Answer: "done"}},
 	}
 
-	got := h.composeWebAgentFinalResult(context.Background(), webAgentRequest{Message: "q"}, "run-3", state)
+	got := h.composeWebAgentFinalResult(context.Background(), webAgentRequest{Message: "q"}, webAgentResumeInfo{}, "run-3", state)
 
 	assert.Equal(t, "SELECT * FROM revenue_by_month", got.Result.SQL)
 	assert.Nil(t, got.Result.LogicalQuery, "run_skill's response never echoes a LogicalQuery back")
@@ -225,7 +225,7 @@ func TestComposeWebAgentFinalResultNoQueryToolFallsBackToPlannerAnswer(t *testin
 		},
 	}
 
-	got := h.composeWebAgentFinalResult(context.Background(), webAgentRequest{Message: "what models exist?"}, "run-4", state)
+	got := h.composeWebAgentFinalResult(context.Background(), webAgentRequest{Message: "what models exist?"}, webAgentResumeInfo{}, "run-4", state)
 
 	assert.Equal(t, "There are no models yet.", got.Result.Answer)
 	assert.Equal(t, 0.99, got.Result.Confidence)
@@ -264,7 +264,7 @@ func TestComposeWebAgentFinalResultSkipsDeniedStepInFavorOfEarlierSuccess(t *tes
 		Terminal: &agent.TerminalResult{Kind: agent.DecisionFinal, Final: &agent.FinalResponse{Answer: "done"}},
 	}
 
-	got := h.composeWebAgentFinalResult(context.Background(), webAgentRequest{Message: "q"}, "run-5", state)
+	got := h.composeWebAgentFinalResult(context.Background(), webAgentRequest{Message: "q"}, webAgentResumeInfo{}, "run-5", state)
 
 	require.NotNil(t, got.Result.Result)
 	assert.Equal(t, result, got.Result.Result)
@@ -289,4 +289,22 @@ func TestWebAgentRunSteps(t *testing.T) {
 	assert.Equal(t, ai.RunStep{Seq: 1, Kind: "list_datasources", Status: ai.RunStepStatusOK, DurationMs: 412}, got[0])
 	assert.Equal(t, ai.RunStep{Seq: 2, Kind: "run_logical_query", Status: ai.RunStepStatusFailed, Detail: "tool_not_allowlisted"}, got[1])
 	assert.Equal(t, ai.RunStep{Seq: 3, Kind: "run_question", Status: ai.RunStepStatusFailed, Detail: "upstream timeout", DurationMs: 8069}, got[2])
+}
+
+// TestWebAgentFinalQuestionPrefersOriginalOnResume reproduces the production
+// bug where a resumed run's summary was generated for the clarification
+// answer instead of the original question ("The count for 'zlitter' is
+// 1,126"): on resume, Message is empty and only ClarificationAnswer is set,
+// so the persisted original question must win.
+func TestWebAgentFinalQuestionPrefersOriginalOnResume(t *testing.T) {
+	resumed := webAgentRequest{ClarificationAnswer: "zlitter", ResumeRunID: "run-1"}
+	assert.Equal(t, "dün toplam kaç adet tweet atılmıştır?",
+		webAgentFinalQuestion(resumed, webAgentResumeInfo{OriginalQuestion: "dün toplam kaç adet tweet atılmıştır?"}))
+
+	// Fresh (non-resumed) runs keep today's behavior.
+	fresh := webAgentRequest{Message: "revenue by month"}
+	assert.Equal(t, "revenue by month", webAgentFinalQuestion(fresh, webAgentResumeInfo{}))
+
+	// Defensive last resort: nothing else available.
+	assert.Equal(t, "zlitter", webAgentFinalQuestion(resumed, webAgentResumeInfo{}))
 }
