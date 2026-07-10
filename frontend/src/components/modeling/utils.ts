@@ -269,6 +269,40 @@ export function patchJoinForm(
   return next
 }
 
+// Splits a dimension column_ref into its table key and column name, mirroring
+// the backend generator's format (internal/semanticgen/generator.go columnRef):
+// base-schema tables use `table.column`, others `schema.table.column`.
+export function splitColumnRef(
+  ref: string | undefined | null,
+  baseSchema: string,
+): { tableKey: string; column: string } | null {
+  const parts = (ref ?? '').trim().split('.')
+  if (parts.length === 3) {
+    return { tableKey: tableKey(parts[0]!, parts[1]!), column: parts[2]! }
+  }
+  if (parts.length === 2) {
+    return { tableKey: tableKey(baseSchema, parts[0]!), column: parts[1]! }
+  }
+  return null
+}
+
+// Mirrors the backend generator's semanticType (internal/semanticgen): the
+// dimension type a raw column maps to when added to the model.
+export function dimensionTypeFromDataType(dataType: string): string {
+  switch (normalizeJoinDataType(dataType)) {
+    case 'timestamp':
+    case 'date':
+      return 'date'
+    case 'boolean':
+      return 'boolean'
+    case 'integer':
+    case 'decimal':
+      return 'number'
+    default:
+      return 'text'
+  }
+}
+
 export function columnRefMatchesTable(
   ref: string | undefined | null,
   schema: string,

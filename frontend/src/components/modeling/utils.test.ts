@@ -7,9 +7,45 @@ import {
   canSaveJoinForm,
   columnsAreJoinCompatible,
   defaultJoinForm,
+  dimensionTypeFromDataType,
   joinName,
   patchJoinForm,
+  splitColumnRef,
 } from './utils'
+
+describe('splitColumnRef', () => {
+  it('parses a base-schema two-part ref', () => {
+    expect(splitColumnRef('orders.amount', 'public')).toEqual({
+      tableKey: 'public.orders',
+      column: 'amount',
+    })
+  })
+
+  it('parses a fully qualified three-part ref', () => {
+    expect(splitColumnRef('sales.orders.amount', 'public')).toEqual({
+      tableKey: 'sales.orders',
+      column: 'amount',
+    })
+  })
+
+  it('rejects empty or unqualified refs', () => {
+    expect(splitColumnRef('', 'public')).toBeNull()
+    expect(splitColumnRef('amount', 'public')).toBeNull()
+    expect(splitColumnRef(null, 'public')).toBeNull()
+  })
+})
+
+describe('dimensionTypeFromDataType', () => {
+  it('mirrors the backend semanticType mapping', () => {
+    expect(dimensionTypeFromDataType('timestamp with time zone')).toBe('date')
+    expect(dimensionTypeFromDataType('date')).toBe('date')
+    expect(dimensionTypeFromDataType('bool')).toBe('boolean')
+    expect(dimensionTypeFromDataType('bigint')).toBe('number')
+    expect(dimensionTypeFromDataType('numeric')).toBe('number')
+    expect(dimensionTypeFromDataType('character varying')).toBe('text')
+    expect(dimensionTypeFromDataType('uuid')).toBe('text')
+  })
+})
 
 const tables: TableRow[] = [
   {

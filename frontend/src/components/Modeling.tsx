@@ -174,6 +174,11 @@ export default function Modeling() {
               highlightedTables={s.highlightedTables}
               highlightedColumns={s.highlightedColumns}
               highlightedJoinColumns={s.highlightedJoinColumns}
+              modelColumnsByTable={s.modelColumnsByTable}
+              pendingColumnKeys={s.pendingColumnKeys}
+              onToggleColumnDimension={(table, columnName) => {
+                void s.toggleColumnDimension(table, columnName)
+              }}
               onOpenTableDetail={s.setDetailTable}
               onAddCalcField={() => s.setAddMetricOpen(true)}
               onAddRelationship={() => s.setEditorOpen(true)}
