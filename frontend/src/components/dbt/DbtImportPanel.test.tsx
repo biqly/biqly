@@ -30,6 +30,10 @@ vi.mock('../../i18n', async (importOriginal) => ({
 
 import { DbtImportPanel } from './DbtImportPanel'
 
+// jsdom does not implement scrollIntoView; the Select popover calls it when
+// the active option changes.
+Element.prototype.scrollIntoView = vi.fn()
+
 afterEach(() => {
   cleanup()
   mockImportDbtProject.mockReset()
@@ -79,9 +83,8 @@ describe('DbtImportPanel', () => {
     })
     render(<DbtImportPanel />)
 
-    fireEvent.change(screen.getByLabelText('dbt_import.datasource_label'), {
-      target: { value: 'warehouse' },
-    })
+    fireEvent.click(screen.getByLabelText('dbt_import.datasource_label'))
+    fireEvent.click(screen.getByRole('option', { name: 'Warehouse · postgres' }))
     fireEvent.change(screen.getByLabelText('dbt_import.manifest_label'), {
       target: {
         files: [new File(['{"nodes":{}}'], 'manifest.json', { type: 'application/json' })],

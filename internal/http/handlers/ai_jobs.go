@@ -308,6 +308,7 @@ func (h *AIJobsHandler) AdminList(w http.ResponseWriter, r *http.Request) {
 		Status: r.URL.Query().Get("status"),
 		Kind:   r.URL.Query().Get("kind"),
 		UserID: r.URL.Query().Get("user_id"),
+		Search: r.URL.Query().Get("search"),
 		Limit:  limit,
 		Offset: pag.Offset,
 	}

@@ -72,7 +72,10 @@ func registerQueryAPIRoutes(r chi.Router, deps *app.QueryDeps, authClient *bimw.
 	// Query-audit prove-ability endpoints: admin-only view of which policy
 	// decisions were applied to which executed query.
 	auditHandler := handlers.NewAuditQueryHandler(deps)
-	r.With(bimw.RequirePermission(authClient, "admin:audit")).Get("/audit/query", auditHandler.List)
+	r.With(
+		bimw.RequirePermission(authClient, "admin:audit"),
+		bimw.Paginate(bimw.PaginationConfig{DefaultPageSize: 25, MaxPageSize: 200}),
+	).Get("/audit/query", auditHandler.List)
 	r.With(bimw.RequirePermission(authClient, "admin:audit")).Get("/audit/query/{id}", auditHandler.Detail)
 }
 

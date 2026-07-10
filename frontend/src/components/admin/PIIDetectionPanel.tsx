@@ -247,23 +247,18 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                       </td>
                       <td className="text-foreground p-[12px_16px]">
                         {canEdit && !col.reviewed_by ? (
-                          <select
+                          <Select
                             value={pendingType[col.column_id] ?? col.pii_type}
-                            onChange={(e) =>
+                            onChange={(v) =>
                               setPendingType((prev) => ({
                                 ...prev,
-                                [col.column_id]: e.target.value,
+                                [col.column_id]: v,
                               }))
                             }
-                            className="border-border bg-card text-foreground rounded border p-1 px-2 text-xs focus-visible:outline-none"
-                            aria-label={t('admin.pii.col_type')}
-                          >
-                            {PII_TYPES.map((typ) => (
-                              <option key={typ} value={typ}>
-                                {typ}
-                              </option>
-                            ))}
-                          </select>
+                            size="sm"
+                            options={PII_TYPES.map((typ) => ({ value: typ, label: typ }))}
+                            ariaLabel={t('admin.pii.col_type')}
+                          />
                         ) : (
                           <span className="bg-accent/15 text-accent inline-block rounded px-2 py-0.5 text-xs font-semibold">
                             {col.pii_type}
@@ -276,23 +271,21 @@ export function PIIDetectionPanel({ token }: { token: string }) {
                       <td className="text-foreground p-[12px_16px]">
                         {canEdit ? (
                           <>
-                            <select
+                            <Select
                               value={selectedStrategy}
-                              onChange={(e) =>
+                              onChange={(v) =>
                                 setPendingStrategy((prev) => ({
                                   ...prev,
-                                  [col.column_id]: e.target.value,
+                                  [col.column_id]: v,
                                 }))
                               }
-                              className="border-border bg-card text-foreground rounded border p-1 px-2 text-xs focus-visible:outline-none"
-                              aria-label={t('admin.pii.col_strategy')}
-                            >
-                              {PII_MASKING_STRATEGIES.map((strategy) => (
-                                <option key={strategy} value={strategy}>
-                                  {t(piiMaskingStrategyLabelKey(strategy))}
-                                </option>
-                              ))}
-                            </select>
+                              size="sm"
+                              options={PII_MASKING_STRATEGIES.map((strategy) => ({
+                                value: strategy,
+                                label: t(piiMaskingStrategyLabelKey(strategy)),
+                              }))}
+                              ariaLabel={t('admin.pii.col_strategy')}
+                            />
                             {hasRawPIIAccess && (
                               <div className="text-foreground-muted text-2xs mt-1 leading-normal">
                                 {t('admin.pii.strategy_raw_access_note')}

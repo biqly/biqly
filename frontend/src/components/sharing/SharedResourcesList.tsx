@@ -17,6 +17,29 @@ import type { ColumnDef } from '../ui/DataTable'
 import { DataTable } from '../ui/DataTable'
 import { EmptyState } from '../ui/EmptyState'
 import { Pagination } from '../ui/Pagination'
+function SharingEmptyIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="40"
+      height="40"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="6" cy="12" r="2.5" />
+      <circle cx="18" cy="5" r="2.5" />
+      <circle cx="18" cy="19" r="2.5" />
+      <path d="M8.2 10.8 15.8 6.7" />
+      <path d="M8.2 13.2 15.8 17.3" />
+    </svg>
+  )
+}
+
 interface Props {
   resourceType?: string
   refreshKey?: number
@@ -170,7 +193,13 @@ export function SharedResourcesList({ resourceType, refreshKey }: Props) {
           loading={loading}
           error={error}
           empty={displayedItems.length === 0}
-          emptyState={<EmptyState description={t('admin.sharing.empty')} />}
+          emptyState={
+            <EmptyState
+              title={t('admin.sharing.empty_title')}
+              description={t('admin.sharing.empty')}
+              icon={<SharingEmptyIcon />}
+            />
+          }
         >
           <DataTable
             columns={shareColumns}

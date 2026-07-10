@@ -4,6 +4,7 @@ import { useConfirm } from '../../hooks/useConfirm'
 import type { TFunction } from '../../i18n'
 import { cn } from '../../lib/cn'
 import type { Conversation } from '../../types/ai'
+import { formatDateOnly, formatTimeOnly } from '../../utils/formatters'
 import {
   btnConvActionClass,
   convActionsClass,
@@ -18,16 +19,32 @@ interface SidebarConversationItemProps {
   conv: Conversation
   isActive: boolean
   isBusy: boolean
+  localeTag: string
   onSelect: () => void
   onRename: (id: string, newTitle: string) => void
   onDelete: (id: string) => void
   t: TFunction
 }
 
+// Today's conversations show the clock time; older ones the date.
+function conversationTimeLabel(updatedAt: string | undefined, localeTag: string): string {
+  if (!updatedAt || Number.isNaN(new Date(updatedAt).getTime())) {
+    return ''
+  }
+  const updated = new Date(updatedAt)
+  const today = new Date()
+  const sameDay =
+    updated.getFullYear() === today.getFullYear() &&
+    updated.getMonth() === today.getMonth() &&
+    updated.getDate() === today.getDate()
+  return sameDay ? formatTimeOnly(updated, localeTag) : formatDateOnly(updated, localeTag)
+}
+
 export function SidebarConversationItem({
   conv,
   isActive,
   isBusy,
+  localeTag,
   onSelect,
   onRename,
   onDelete,
@@ -126,6 +143,8 @@ export function SidebarConversationItem({
             <span className={convTitleClass}>{conv.title ?? t('ai_query.conv_current')}</span>
           </span>
           <span className={convTimeClass}>
+            {conversationTimeLabel(conv.updated_at, localeTag)}
+            {' · '}
             {t('ai_query.conv_messages', { count: conv.messages.length })}
           </span>
         </button>

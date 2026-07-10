@@ -664,6 +664,20 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Objects dropped at the source must leave the catalog too, or stale
+	// tables keep surfacing in the UI and AI describe 42P01s sampling them.
+	// Skipped when introspection saw no tables at all — that smells like a
+	// permission problem, and wiping the whole catalog over it would be worse.
+	pruned := 0
+	if len(result.Tables) > 0 {
+		pruneResult, err := h.deps.MetaRepo.PruneStaleMetadata(ctx, ds.ID, syncSnapshotKeys(result))
+		if err != nil {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to prune stale metadata", err)
+			return
+		}
+		pruned = pruneResult.Total()
+	}
+
 	if err := h.deps.MetaRepo.UpdateDatasourceSync(ctx, ds.ID); err != nil {
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to update sync timestamp", err)
 		return
@@ -677,10 +691,35 @@ func (h *DatasourceHandler) SyncMetadata(w http.ResponseWriter, r *http.Request)
 		"tables":    len(result.Tables),
 		"columns":   len(result.Columns),
 		"relations": len(result.Relations),
+		"pruned":    pruned,
 	}
 	h.appendPostSyncPIIScan(ctx, r, resolved, response)
 
 	writeJSON(w, http.StatusOK, response)
+}
+
+// syncSnapshotKeys flattens the introspection result into the natural keys
+// PruneStaleMetadata matches catalog rows against.
+func syncSnapshotKeys(result *datasource.IntrospectionResult) metadata.SyncSnapshotKeys {
+	keys := metadata.SyncSnapshotKeys{
+		SchemaNames:         make([]string, 0, len(result.Schemas)),
+		TableKeys:           make([]string, 0, len(result.Tables)),
+		ColumnKeys:          make([]string, 0, len(result.Columns)),
+		RelationConstraints: make([]string, 0, len(result.Relations)),
+	}
+	for _, s := range result.Schemas {
+		keys.SchemaNames = append(keys.SchemaNames, s.Name)
+	}
+	for _, t := range result.Tables {
+		keys.TableKeys = append(keys.TableKeys, t.SchemaName+"."+t.TableName)
+	}
+	for _, c := range result.Columns {
+		keys.ColumnKeys = append(keys.ColumnKeys, c.SchemaName+"."+c.TableName+"."+c.ColumnName)
+	}
+	for _, rel := range result.Relations {
+		keys.RelationConstraints = append(keys.RelationConstraints, rel.ConstraintName)
+	}
+	return keys
 }
 
 // storeSchemas upserts introspected schemas and returns a name→id map. The bool

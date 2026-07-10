@@ -3,10 +3,11 @@ import { useLocation } from 'react-router-dom'
 
 import { fetchOwnAIJobs, jobIsActive, useAIJobs } from '../hooks/useAIJobs'
 import { useApi } from '../hooks/useApi'
-import { useConversation } from '../hooks/useConversation'
+import { suggestConversationTitle, useConversation } from '../hooks/useConversation'
 import { useDatasources } from '../hooks/useDatasources'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useSemanticModels } from '../hooks/useSemanticModels'
+import type { TranslationKey } from '../i18n'
 import { useLocale, useT } from '../i18n'
 import { buttonClass } from '../lib/buttonClasses'
 import { cn } from '../lib/cn'
@@ -37,6 +38,10 @@ import {
   sidebarHeaderTitleClass,
 } from './aiQuery/aiQueryClasses'
 import { ChatPanel } from './aiQuery/ChatPanel'
+import {
+  type ConversationGroupKey,
+  groupConversationsByRecency,
+} from './aiQuery/conversationGroups'
 import { RoutingPanel } from './aiQuery/RoutingPanel'
 import { embeddingSummary } from './aiQuery/routingViz'
 import { SidebarConversationItem } from './aiQuery/SidebarConversationItem'
@@ -45,6 +50,51 @@ import { AI_METADATA_EMBED_TIMEOUT_MS, AI_QUERY_TIMEOUT_MS } from './aiQuery/typ
 import { useAuth } from './auth/AuthProvider'
 
 const AUTO_FIND_STORAGE_KEY = 'biqly.aiQuery.autoFindSkills'
+const DATASOURCE_STORAGE_KEY = 'biqly.aiQuery.datasourceId'
+const MODEL_STORAGE_PREFIX = 'biqly.aiQuery.semanticModelId.'
+
+// The page remembers the last datasource + semantic model (per datasource) so
+// navigating away and back resumes where the user left off instead of
+// falling back to the first option. Guarded for storage-less environments.
+function loadStoredDatasourceId(): string {
+  try {
+    return window.localStorage.getItem(DATASOURCE_STORAGE_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function saveStoredDatasourceId(id: string): void {
+  try {
+    window.localStorage.setItem(DATASOURCE_STORAGE_KEY, id)
+  } catch {
+    // Non-fatal: selection just won't persist.
+  }
+}
+
+function loadStoredModelId(datasourceId: string): string {
+  try {
+    return window.localStorage.getItem(MODEL_STORAGE_PREFIX + datasourceId) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function saveStoredModelId(datasourceId: string, modelId: string): void {
+  try {
+    window.localStorage.setItem(MODEL_STORAGE_PREFIX + datasourceId, modelId)
+  } catch {
+    // Non-fatal.
+  }
+}
+
+const CONVERSATION_GROUP_LABEL_KEYS: Record<ConversationGroupKey, TranslationKey> = {
+  today: 'ai_query.group_today',
+  yesterday: 'ai_query.group_yesterday',
+  week: 'ai_query.group_this_week',
+  month: 'ai_query.group_this_month',
+  older: 'ai_query.group_older',
+}
 
 // AgentTurnState is one conversation's ephemeral Agent Mode trace: the live
 // step list plus a paused clarification, if any. See agentTurnsByConversation
@@ -142,17 +192,86 @@ export default function AIQuery() {
     updateMessageResponse,
   } = useConversation(accessToken)
 
+  // AI-picked sidebar titles: once the active conversation has its first
+  // exchange and still carries the default truncated-question title, ask the
+  // backend for a short topic title. One attempt per conversation per session;
+  // opening an old default-titled conversation upgrades it too.
+  const titleSuggestAttemptedRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const conv = activeConversation
+    if (!conv || titleSuggestAttemptedRef.current.has(conv.id)) {
+      return
+    }
+    const firstUser = conv.messages.find((m) => m.role === 'user')
+    const firstAssistant = conv.messages.find((m) => m.role === 'assistant')
+    if (!firstUser || !firstAssistant) {
+      return
+    }
+    if (conv.title && conv.title !== firstUser.content.slice(0, 60)) {
+      return
+    }
+    titleSuggestAttemptedRef.current.add(conv.id)
+    const answer = firstAssistant.ai_response?.answer ?? firstAssistant.content
+    void suggestConversationTitle(firstUser.content, answer, accessToken ?? undefined).then(
+      (title) => {
+        if (title) {
+          renameConversation(conv.id, title)
+        }
+      },
+    )
+  }, [accessToken, activeConversation, renameConversation])
+
   const location = useLocation()
   const { datasources } = useDatasources()
   const [tables, setTables] = useState<TableOption[]>([])
   const [dsParam, setDsParam] = useQueryParam('ds')
-  const [selectedDatasourceId, setSelectedDatasourceId] = useState(dsParam)
+  const [selectedDatasourceId, setSelectedDatasourceId] = useState(
+    dsParam || loadStoredDatasourceId(),
+  )
   const datasourceId = useMemo(
     () => pickValidIdOrFirst(selectedDatasourceId, datasources),
     [selectedDatasourceId, datasources],
   )
   const { models: semanticModels } = useSemanticModels(datasourceId)
+  const datasourceIdRef = useRef(datasourceId)
+  useEffect(() => {
+    datasourceIdRef.current = datasourceId
+  }, [datasourceId])
   const [semanticModelId, setSemanticModelId] = useState<string>('')
+  const selectSemanticModelId = useCallback((id: string) => {
+    setSemanticModelId(id)
+    if (datasourceIdRef.current) {
+      saveStoredModelId(datasourceIdRef.current, id)
+    }
+  }, [])
+  // Restore the remembered model once per datasource resolve (covers the
+  // initial mount, where pickValidIdOrFirst may settle on a different id than
+  // the raw selection). Validated against the loaded model list below.
+  const restoredModelDsRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!datasourceId || restoredModelDsRef.current === datasourceId) {
+      return
+    }
+    restoredModelDsRef.current = datasourceId
+    saveStoredDatasourceId(datasourceId)
+    const stored = loadStoredModelId(datasourceId)
+    if (stored) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSemanticModelId(stored)
+    }
+  }, [datasourceId])
+  // A remembered model that no longer exists (deleted/unpublished) falls back
+  // to auto-detect once the list arrives.
+  useEffect(() => {
+    if (!semanticModelId || semanticModels.length === 0) {
+      return
+    }
+    const isComposite = semanticModelId.startsWith('composite:')
+    if (!isComposite && !semanticModels.some((m) => m.id === semanticModelId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSemanticModelId('')
+    }
+  }, [semanticModels, semanticModelId])
   const [composites, setComposites] = useState<CompositeModelSummary[]>([])
   const [question, setQuestion] = useState(
     () => (location.state as { question?: string } | null)?.question ?? '',
@@ -344,9 +463,10 @@ export default function AIQuery() {
     (id: string) => {
       setSelectedDatasourceId(id)
       setDsParam(id)
+      saveStoredDatasourceId(id)
       setTables([])
       setEmbeddingStatus(null)
-      setSemanticModelId('')
+      setSemanticModelId(loadStoredModelId(id))
       setComposites([])
     },
     [setDsParam],
@@ -930,17 +1050,25 @@ export default function AIQuery() {
         <div
           className={cn(conversationsListClass, !isConversationsExpanded && 'max-[900px]:hidden')}
         >
-          {conversations.map((c) => (
-            <SidebarConversationItem
-              key={c.id}
-              conv={c}
-              isActive={c.id === activeConversationId}
-              isBusy={busyConversationIds.has(c.id)}
-              onSelect={() => setActiveConversationId(c.id)}
-              onRename={renameConversation}
-              onDelete={deleteConversation}
-              t={t}
-            />
+          {groupConversationsByRecency(conversations, new Date()).map((group) => (
+            <div key={group.key} className="flex flex-col gap-2">
+              <h4 className="text-foreground-faint m-0 mt-1 px-1 text-[0.68rem] font-bold tracking-widest uppercase">
+                {t(CONVERSATION_GROUP_LABEL_KEYS[group.key])}
+              </h4>
+              {group.items.map((c) => (
+                <SidebarConversationItem
+                  key={c.id}
+                  conv={c}
+                  isActive={c.id === activeConversationId}
+                  isBusy={busyConversationIds.has(c.id)}
+                  localeTag={localeTag}
+                  onSelect={() => setActiveConversationId(c.id)}
+                  onRename={renameConversation}
+                  onDelete={deleteConversation}
+                  t={t}
+                />
+              ))}
+            </div>
           ))}
         </div>
       </aside>
@@ -955,7 +1083,7 @@ export default function AIQuery() {
           setDatasourceId={setDatasourceId}
           semanticModels={semanticModels}
           semanticModelId={semanticModelId}
-          setSemanticModelId={setSemanticModelId}
+          setSemanticModelId={selectSemanticModelId}
           composites={composites}
           embeddingStatus={embeddingStatus}
           embeddingError={embeddingError}

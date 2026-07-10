@@ -1,5 +1,39 @@
 # Todo list
 
+## Wave 23 — Site-wide UI standardization (2026-07-10)
+
+User feedback (screenshots 35-53); license granted to decide + implement.
+
+Standards already in place: DataTable<T>, usePaginatedList (server-side `page`/`page_size` → `{items,total}`), Pagination, DataState/EmptyState, ui/Select. Users page = reference.
+
+### P1 Backend — DONE
+- [x] Query audit list: limit-only → page/page_size + total + search (handlers/audit_query.go, audit/reader.go ListQueryExecutionEventsPage, fixed-placeholder SQL to satisfy gosec G202; unit+integration tests added, passing against local Postgres)
+- [x] AI jobs admin list: add `search` param (handlers/ai_jobs.go AdminList, metadata/ai_jobs.go AIJobsAdminFilter.Search)
+
+### P2 Shared frontend — SKIPPED (not needed)
+- [ ] TableToolbar component — each converted panel reused the existing debounced-search + adminInputClass pattern from UserListPage inline; no shared extraction needed this wave
+
+### P3 Panel conversions — DONE (this wave's scope)
+- [x] QueryAuditPanel: usePaginatedList + server search + nowrap cells (h-scroll) — fixes both "no pagination/not server-side" and "rows wrap" complaints
+- [x] AIUsageAdminPanel: converted to DataTable; token column split into Prompt|Completion|Total, consistent font/size with other admin tables
+- [x] ReportSchedulesPanel: full EmptyState (icon+title+description+action) replacing title-only
+- [x] ConfirmedQueriesPanel: full EmptyState (icon+title+description) + count badge in header action slot
+- [x] SharedResourcesList (Sharing): full EmptyState (icon+title+description) replacing bare "No shared resources."
+- [x] NLLexiconPanel: consolidated action cluster (Reset/Add/Save all header, same size) + client-side search filter + full EmptyState
+- [ ] AIJobsAdminPanel → DataTable conversion — deferred (already has pagination/filters; raw table is functional, not explicitly flagged as broken)
+- [ ] ABExperimentList → DataTable — deferred (already has a good EmptyState per user; raw table not flagged)
+
+### P4 Admin nav IA — DEFERRED to a future wave
+- [ ] AI & SHARING consolidation into tabbed sub-pages — structural/routing change, higher risk; not started this wave
+
+### P5 Select standardization (native <select> → ui/Select) — DONE for flagged instances
+- [x] FunctionBlocklistPanel, DbtImportPanel, KnowledgeBasePage, NewFileModal, ApiTokensCard, FieldPermissionPanel, PIIDetectionPanel (×2) — all converted; fixed 2 test files (FunctionBlocklistPanel.test.tsx, DbtImportPanel.test.tsx) that drove the native select via fireEvent.change — now click-to-open + click-option, plus an Element.prototype.scrollIntoView stub for jsdom
+- [ ] Skipped intentionally: ExpressionBuilder (8×, modeling-internal, separate wave), AdminNav mobile (native optgroup is the correct a11y/responsive pattern)
+
+### P6 i18n (tr+en) + gates — DONE
+- [x] All new labels/placeholders/empty-state copy added to both locales
+- [x] make lint-go, make test-go, make check-frontend all green after every change in this wave
+
 ## Web Agent Mode for AI Chat (2026-07-08)
 
 **Status:** in progress — Phase 0-2 complete (T1-T12, backend + frontend); Phase 3's T13 (parity harness) complete and T14's docs + full local gate complete, but T14's dev-cluster deploy + SSE smoke test is deferred (no isolated dev cluster to deploy into; no local dev credentials to smoke-test with — see T14 note). T15 (staged rollout) not started; prod rollout steps require explicit go-ahead.

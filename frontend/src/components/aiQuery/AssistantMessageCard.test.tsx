@@ -200,7 +200,7 @@ describe('AssistantMessageCard rendering an agent-mode result message', () => {
     // comment) but run_id is set, so RunTracePanel re-hydrates via
     // getAgentRun (mocked above) instead of showing nothing. The panel lives
     // directly on the card (collapsed), not inside the details section.
-    expect(await screen.findByText('ai_query.thinking_steps_title')).toBeTruthy()
+    expect(await screen.findByText(/ai_query\.thinking_steps_title/)).toBeTruthy()
   })
 
   it('does not render a clarification card for a completed (non-clarification) agent result', () => {

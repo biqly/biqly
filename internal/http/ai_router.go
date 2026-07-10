@@ -141,6 +141,8 @@ func registerAIAPIRoutes(
 	// AI-generated join descriptions for the modeling canvas tooltips; uses the
 	// describe-purpose provider like metadata descriptions.
 	r.With(aiUserMW).Post("/ai/semantic/models/{id}/describe-joins", aiHandler.DescribeJoins)
+	// Short AI-picked conversation titles for the chat sidebar.
+	r.With(aiUserMW).Post("/ai/conversations/suggest-title", aiHandler.SuggestConversationTitle)
 	r.Get("/ai/settings", aiHandler.RuntimeSettings)
 	r.Get("/ai/user-models", aiHandler.UserAIModels)
 	r.Put("/ai/user-preferences", aiHandler.PutUserAIPreferences)

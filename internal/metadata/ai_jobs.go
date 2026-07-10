@@ -108,11 +108,13 @@ func (r *Repository) listAIJobs(ctx context.Context, baseQuery, value string, ac
 }
 
 // AIJobsAdminFilter narrows the cross-user admin job listing. Empty fields
-// match everything.
+// match everything. Search matches case-insensitively against the request
+// JSON (e.g. the table/question the job describes) and the user id.
 type AIJobsAdminFilter struct {
 	Status string
 	Kind   string
 	UserID string
+	Search string
 	Limit  int
 	Offset int
 }
@@ -124,28 +126,29 @@ func (r *Repository) ListAIJobsAdmin(ctx context.Context, f AIJobsAdminFilter) (
 	if limit <= 0 || limit > 500 {
 		limit = 200
 	}
-	offset := f.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(f.Offset, 0)
+	search := "%" + f.Search + "%"
 	q := aiJobsSelect + `
 	WHERE ($1 = '' OR status = $1)
 	  AND ($2 = '' OR kind = $2)
 	  AND ($3 = '' OR user_id = $3)
+	  AND ($6 = '%' OR request_json::text ILIKE $6 OR COALESCE(user_id::text, '') ILIKE $6)
 	ORDER BY (status IN ('pending', 'queued', 'running')) DESC, created_at DESC
 	LIMIT $4 OFFSET $5`
-	return r.queryAIJobs(ctx, limit, q, f.Status, f.Kind, f.UserID, limit, offset)
+	return r.queryAIJobs(ctx, limit, q, f.Status, f.Kind, f.UserID, limit, offset, search)
 }
 
 // CountAIJobsAdmin returns how many jobs match the admin list filters.
 func (r *Repository) CountAIJobsAdmin(ctx context.Context, f AIJobsAdminFilter) (int, error) {
+	search := "%" + f.Search + "%"
 	var n int
 	err := r.db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM ai_jobs
 		WHERE ($1 = '' OR status = $1)
 		  AND ($2 = '' OR kind = $2)
-		  AND ($3 = '' OR user_id = $3)`,
-		f.Status, f.Kind, f.UserID,
+		  AND ($3 = '' OR user_id = $3)
+		  AND ($4 = '%' OR request_json::text ILIKE $4 OR COALESCE(user_id::text, '') ILIKE $4)`,
+		f.Status, f.Kind, f.UserID, search,
 	).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("count ai jobs: %w", err)

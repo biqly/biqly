@@ -50,10 +50,22 @@ export interface QueryAuditDetail {
   audit: QueryAuditEvent | null
 }
 
-export async function listQueryAudit(limit?: number): Promise<{ entries: QueryAuditEvent[] }> {
-  return apiFetch<{ entries: QueryAuditEvent[] }>(
+export interface QueryAuditListParams {
+  page?: number
+  pageSize?: number
+  search?: string
+}
+
+export async function listQueryAudit(
+  params: QueryAuditListParams = {},
+): Promise<{ entries: QueryAuditEvent[]; total: number }> {
+  return apiFetch<{ entries: QueryAuditEvent[]; total: number }>(
     'GET',
-    `/api/audit/query${buildQueryString({ limit })}`,
+    `/api/audit/query${buildQueryString({
+      page: params.page,
+      page_size: params.pageSize,
+      search: params.search ?? undefined,
+    })}`,
   )
 }
 

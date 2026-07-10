@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import {
   type FunctionBlocklist,
@@ -12,6 +12,7 @@ import { cn } from '../../lib/cn'
 import { formControlClass, formHintClass, formLabelClass } from '../../lib/formClasses'
 import type { Datasource } from '../../types/metadata'
 import { ErrorAlert } from '../ui/ErrorAlert'
+import { Select } from '../ui/Select'
 
 const SQL_FUNCTION_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/
 
@@ -34,6 +35,11 @@ export function FunctionBlocklistPanel({ datasources }: FunctionBlocklistPanelPr
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  const datasourceOptions = useMemo(
+    () => datasources.map((ds) => ({ value: ds.id, label: `${ds.name} · ${ds.type}` })),
+    [datasources],
+  )
 
   const loadBlocklist = async (id: string) => {
     const requestId = requestSequence.current + 1
@@ -131,20 +137,15 @@ export function FunctionBlocklistPanel({ datasources }: FunctionBlocklistPanelPr
         <label className={formLabelClass} htmlFor="function-blocklist-datasource">
           {t('datasources.function_blocklist.datasource_label')}
         </label>
-        <select
+        <Select
           id="function-blocklist-datasource"
-          className={formControlClass}
           value={datasourceId}
-          onChange={(event) => selectDatasource(event.target.value)}
+          onChange={selectDatasource}
+          options={datasourceOptions}
+          placeholder={t('datasources.function_blocklist.datasource_placeholder')}
           disabled={datasources.length === 0}
-        >
-          <option value="">{t('datasources.function_blocklist.datasource_placeholder')}</option>
-          {datasources.map((datasource) => (
-            <option key={datasource.id} value={datasource.id}>
-              {datasource.name} · {datasource.type}
-            </option>
-          ))}
-        </select>
+          ariaLabel={t('datasources.function_blocklist.datasource_label')}
+        />
       </div>
 
       {!datasourceId && (

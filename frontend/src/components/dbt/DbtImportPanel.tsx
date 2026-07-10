@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { type DbtImportResult, importDbtProject } from '../../api/dbt'
@@ -9,6 +9,7 @@ import { cardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import { formLabelClass } from '../../lib/formClasses'
 import { ErrorAlert } from '../ui/ErrorAlert'
+import { Select } from '../ui/Select'
 import { dbtManifestModelNames } from './dbtManifestPreview'
 
 // Native file inputs restyled to match the card language: bordered field with
@@ -31,6 +32,11 @@ export function DbtImportPanel() {
   const [result, setResult] = useState<DbtImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
+
+  const datasourceOptions = useMemo(
+    () => datasources.map((ds) => ({ value: ds.id, label: `${ds.name} · ${ds.type}` })),
+    [datasources],
+  )
 
   const handleManifestChange = (file: File | null) => {
     setManifest(file)
@@ -77,20 +83,15 @@ export function DbtImportPanel() {
           <label className={formLabelClass} htmlFor="dbt-import-datasource">
             {t('dbt_import.datasource_label')}
           </label>
-          <select
+          <Select
             id="dbt-import-datasource"
-            className="border-border bg-card-raised h-10 rounded-md border px-3 text-sm"
             value={datasourceId}
-            onChange={(event) => setDatasourceId(event.target.value)}
+            onChange={setDatasourceId}
+            options={datasourceOptions}
+            placeholder={t('dbt_import.datasource_placeholder')}
             disabled={datasourcesLoading}
-          >
-            <option value="">{t('dbt_import.datasource_placeholder')}</option>
-            {datasources.map((datasource) => (
-              <option key={datasource.id} value={datasource.id}>
-                {datasource.name} · {datasource.type}
-              </option>
-            ))}
-          </select>
+            ariaLabel={t('dbt_import.datasource_label')}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className={formLabelClass} htmlFor="dbt-import-manifest">

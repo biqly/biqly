@@ -12,8 +12,10 @@ import {
 import { useConfirmedMutation } from '../../hooks/useConfirmedMutation'
 import { useToast } from '../../hooks/useToast'
 import { type TranslationKey, useT } from '../../i18n'
+import { cn } from '../../lib/cn'
 import { errorMessage } from '../../utils/error'
 import { Button } from '../ui/Button'
+import { EmptyState } from '../ui/EmptyState'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { Select } from '../ui/Select'
 import {
@@ -21,12 +23,33 @@ import {
   adminTableClass,
   adminTableContainerClass,
   adminTdClass,
-  adminTextMutedClass,
   adminThClass,
   adminTheadRowClass,
   adminTrClass,
 } from './adminClasses'
 import { AdminPanelShell } from './AdminPanelShell'
+
+function NLLexiconEmptyIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="40"
+      height="40"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+      <path d="M9 7h7" />
+      <path d="M9 11h5" />
+    </svg>
+  )
+}
 
 const DOMAIN_LABEL_KEYS: Record<LexiconDomain, TranslationKey> = {
   temporal_phrase: 'admin.nl_lexicon.domain.temporal_phrase',
@@ -94,6 +117,7 @@ export function NLLexiconPanel() {
   const [drafts, setDrafts] = useState<DraftRow[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [search, setSearch] = useState('')
 
   const load = useCallback(
     async (d: LexiconDomain) => {
@@ -129,11 +153,23 @@ export function NLLexiconPanel() {
   const updateDraft = (uid: number, patch: Partial<DraftRow>) =>
     setDrafts((ds) => ds.map((d) => (d.uid === uid ? { ...d, ...patch } : d)))
   const removeDraft = (uid: number) => setDrafts((ds) => ds.filter((d) => d.uid !== uid))
-  const addDraft = () =>
+  const addDraft = () => {
+    setSearch('')
     setDrafts((ds) => [
       ...ds,
       { uid: nextUid(), locale: 'en', key: '', values: '', isActive: true },
     ])
+  }
+
+  const filteredDrafts = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) {
+      return drafts
+    }
+    return drafts.filter(
+      (d) => d.key.toLowerCase().includes(q) || d.values.toLowerCase().includes(q),
+    )
+  }, [drafts, search])
 
   const handleSave = async () => {
     const entries = drafts
@@ -181,6 +217,9 @@ export function NLLexiconPanel() {
           >
             {t('admin.nl_lexicon.reset')}
           </Button>
+          <Button variant="secondary" size="sm" onClick={addDraft} disabled={saving || loading}>
+            {t('admin.nl_lexicon.add')}
+          </Button>
           <Button
             variant="primary"
             size="sm"
@@ -192,18 +231,36 @@ export function NLLexiconPanel() {
         </div>
       }
     >
-      <label className="flex max-w-sm flex-col gap-1">
-        <span className="text-foreground-muted text-xs">{t('admin.nl_lexicon.domain_label')}</span>
-        <Select<LexiconDomain>
-          value={domain}
-          onChange={setDomain}
-          options={domainOptions}
-          ariaLabel={t('admin.nl_lexicon.domain_label')}
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex max-w-sm flex-col gap-1">
+          <span className="text-foreground-muted text-xs">
+            {t('admin.nl_lexicon.domain_label')}
+          </span>
+          <Select<LexiconDomain>
+            value={domain}
+            onChange={setDomain}
+            options={domainOptions}
+            ariaLabel={t('admin.nl_lexicon.domain_label')}
+          />
+        </label>
+        <input
+          type="text"
+          placeholder={t('admin.nl_lexicon.search_placeholder')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className={cn(adminInputClass, 'max-w-xs')}
         />
-      </label>
+      </div>
 
       {loading ? (
         <LoadingScreen minHeight="160px" />
+      ) : drafts.length === 0 ? (
+        <EmptyState
+          title={t('admin.nl_lexicon.empty_title')}
+          description={t('admin.nl_lexicon.empty')}
+          icon={<NLLexiconEmptyIcon />}
+          action={{ label: t('admin.nl_lexicon.add'), onClick: addDraft }}
+        />
       ) : (
         <div className={adminTableContainerClass}>
           <table className={adminTableClass} style={{ fontSize: 13, minWidth: 720 }}>
@@ -223,7 +280,7 @@ export function NLLexiconPanel() {
               </tr>
             </thead>
             <tbody>
-              {drafts.map((d) => (
+              {filteredDrafts.map((d) => (
                 <tr key={d.uid} className={adminTrClass}>
                   <td className={adminTdClass}>
                     <input
@@ -265,20 +322,15 @@ export function NLLexiconPanel() {
                   </td>
                 </tr>
               ))}
-              {drafts.length === 0 && (
+              {filteredDrafts.length === 0 && (
                 <tr>
-                  <td className={adminTextMutedClass} colSpan={5}>
-                    {t('admin.nl_lexicon.empty')}
+                  <td className="text-foreground-muted px-4 py-3 text-sm" colSpan={5}>
+                    {t('admin.nl_lexicon.no_matches')}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-          <div className="mt-3">
-            <Button variant="secondary" size="sm" onClick={addDraft}>
-              {t('admin.nl_lexicon.add')}
-            </Button>
-          </div>
         </div>
       )}
     </AdminPanelShell>

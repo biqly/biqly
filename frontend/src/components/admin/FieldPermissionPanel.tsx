@@ -483,22 +483,24 @@ export function FieldPermissionPanel({ token }: { token: string }) {
                             </span>
                           </td>
                           <td className="text-foreground p-[12px_16px]">
-                            <select
+                            <Select
                               value={piiAccessFor(col)}
-                              onChange={(e) => handlePIIAccessChange(col, e.target.value)}
+                              onChange={(v) => handlePIIAccessChange(col, v)}
                               disabled={!canEdit}
-                              className="border-border bg-card text-foreground min-w-45 rounded border p-[6px_10px] text-sm focus-visible:outline-none"
-                              aria-label={t('admin.field_permissions.access', {
+                              size="sm"
+                              options={[
+                                {
+                                  value: '',
+                                  label: `${t('admin.pii.policy_default')} (${roleDefaultAccess(col.pii_type)})`,
+                                },
+                                { value: 'raw', label: t('admin.pii.access_raw') },
+                                { value: 'masked', label: t('admin.pii.access_masked') },
+                                { value: 'hidden', label: t('admin.pii.access_hidden') },
+                              ]}
+                              ariaLabel={t('admin.field_permissions.access', {
                                 column: col.column,
                               })}
-                            >
-                              <option value="">
-                                {t('admin.pii.policy_default')} ({roleDefaultAccess(col.pii_type)})
-                              </option>
-                              <option value="raw">{t('admin.pii.access_raw')}</option>
-                              <option value="masked">{t('admin.pii.access_masked')}</option>
-                              <option value="hidden">{t('admin.pii.access_hidden')}</option>
-                            </select>
+                            />
                           </td>
                         </tr>
                       ))}

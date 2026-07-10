@@ -47,33 +47,29 @@ export function formatTimeOnly(value: string | Date, languageTag: string): strin
 }
 
 /** Safe display string for unknown cell/query values (avoids implicit object toString). */
-/** Human-readable duration from milliseconds (ms, s, or min as appropriate). */
-export function formatDurationMs(ms: number): string {
+/** Human-readable duration from milliseconds — ms, seconds, or minutes as
+ * appropriate, localized when a language tag is given ("34,4 sn", "2,6 dk."). */
+export function formatDurationMs(ms: number, languageTag = 'en'): string {
   if (!Number.isFinite(ms) || ms <= 0) {
     return '—'
   }
-  const rounded = Math.round(ms)
-  if (rounded < 1000) {
-    return `${rounded} ms`
+  const unitFormat = (value: number, unit: string, maxFraction: number) =>
+    new Intl.NumberFormat(languageTag, {
+      style: 'unit',
+      unit,
+      unitDisplay: 'short',
+      maximumFractionDigits: maxFraction,
+    }).format(value)
+  if (ms < 1000) {
+    return unitFormat(Math.round(ms), 'millisecond', 0)
   }
-  const totalSeconds = rounded / 1000
-  if (totalSeconds < 60) {
-    return totalSeconds < 10 ? `${totalSeconds.toFixed(1)} s` : `${Math.round(totalSeconds)} s`
+  if (ms < 60_000) {
+    return unitFormat(ms / 1000, 'second', 1)
   }
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = Math.round(totalSeconds % 60)
-  if (minutes < 60) {
-    if (seconds === 0) {
-      return `${minutes} min`
-    }
-    return `${minutes} min ${seconds} s`
+  if (ms < 3_600_000) {
+    return unitFormat(ms / 60_000, 'minute', 1)
   }
-  const hours = Math.floor(minutes / 60)
-  const remMinutes = minutes % 60
-  if (remMinutes === 0) {
-    return `${hours} h`
-  }
-  return `${hours} h ${remMinutes} min`
+  return unitFormat(ms / 3_600_000, 'hour', 1)
 }
 
 export function unknownToDisplayString(value: unknown): string {

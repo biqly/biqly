@@ -3,10 +3,10 @@ package handlers
 import (
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/audit"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	"github.com/biqly/biqly/internal/query"
 )
 
@@ -22,31 +22,37 @@ func NewAuditQueryHandler(deps *app.QueryDeps) *AuditQueryHandler {
 	return &AuditQueryHandler{deps: deps}
 }
 
-// List returns recent query execution audit events, newest first, scoped to
-// the caller's workspace datasources.
+// List returns one page of query execution audit events, newest first, scoped
+// to the caller's workspace datasources. Pagination and free-text search run
+// in SQL so large logs stay browsable (`page`, `page_size`, `search`).
 func (h *AuditQueryHandler) List(w http.ResponseWriter, r *http.Request) {
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	events, err := h.deps.AuditReader.ListQueryExecutionEvents(r.Context(), limit)
+	ctx := r.Context()
+	wsFilter, applied, err := resolveDatasourceScope(ctx, h.deps.Config, true)
 	if err != nil {
-		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list query audit events", err)
-		return
-	}
-	wsFilter, applied, err := resolveDatasourceScope(r.Context(), h.deps.Config, true)
-	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to resolve datasource scope", "err", err)
+		slog.ErrorContext(ctx, "failed to resolve datasource scope", "err", err)
 		wsFilter = map[string]struct{}{}
 		applied = true
 	}
-	if applied {
-		scoped := make([]audit.Event, 0, len(events))
-		for i := range events {
-			if _, ok := wsFilter[events[i].DatasourceID]; ok {
-				scoped = append(scoped, events[i])
-			}
-		}
-		events = scoped
+	datasourceIDs := make([]string, 0, len(wsFilter))
+	for id := range wsFilter {
+		datasourceIDs = append(datasourceIDs, id)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"entries": events})
+	pag := bimw.PaginationFromContext(ctx)
+	events, total, err := h.deps.AuditReader.ListQueryExecutionEventsPage(ctx, audit.QueryEventPage{
+		Limit:         pag.Limit,
+		Offset:        pag.Offset,
+		Search:        r.URL.Query().Get("search"),
+		Scoped:        applied,
+		DatasourceIDs: datasourceIDs,
+	})
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list query audit events", err)
+		return
+	}
+	if events == nil {
+		events = []audit.Event{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"entries": events, "total": total})
 }
 
 // Detail returns the audit event and the linked query history row for one

@@ -48,6 +48,8 @@ export const admin = {
     deactivate_confirm_message:
       'The pair stays in history but will no longer be recalled as a few-shot example.',
     deactivated: 'Confirmed query deactivated.',
+    empty_title: 'No confirmed queries yet',
+    row_count: '{{count}} pairs',
     empty: 'No confirmed queries for this datasource yet.',
   },
   nl_lexicon: {
@@ -82,6 +84,9 @@ export const admin = {
     reset_confirm_message:
       'Every entry in this domain will be replaced by the built-in defaults. Custom edits will be lost.',
     reset_done: 'Domain reset to defaults.',
+    search_placeholder: 'Search key or terms...',
+    empty_title: 'No entries yet',
+    no_matches: 'No entries match your search.',
     empty: 'No entries in this domain yet. Add one or reset to defaults.',
   },
   pii: {
@@ -333,6 +338,7 @@ export const admin = {
     copied: 'Copied',
     error: 'Error',
     empty: 'No query audit records found.',
+    search_placeholder: 'Search user, datasource, or channel...',
   },
   mcp: {
     title: 'MCP Integration',
@@ -394,6 +400,7 @@ export const admin = {
     last_run: 'Last run',
     never_run: 'Never run',
     actions: 'Actions',
+    empty_title: 'No schedules yet',
     empty: 'No report schedules yet.',
     save_failed: 'Failed to save the schedule.',
     delete_confirm: 'Delete this schedule?',
@@ -428,7 +435,9 @@ export const admin = {
     col_user: 'User',
     col_model: 'LLM model',
     col_queries: 'Queries',
-    col_tokens: 'Tokens (prompt + completion)',
+    col_prompt_tokens: 'Prompt tokens',
+    col_completion_tokens: 'Completion tokens',
+    col_total_tokens: 'Total tokens',
     col_cost: 'Cost',
     col_latency: 'Avg latency',
     empty: 'No AI usage in this period.',
@@ -619,6 +628,7 @@ export const admin = {
     user_id_placeholder: 'Search and select a user…',
     workspace_id_placeholder: 'Search and select a workspace…',
     confirm_revoke: 'Revoke this share?',
+    empty_title: 'No shares yet',
     empty: 'No shared resources.',
     my_shares: 'My Shares',
     shared_with_me: 'Shared with Me',

@@ -21,6 +21,10 @@ vi.mock('../../i18n', async (importOriginal) => ({
 
 import { FunctionBlocklistPanel } from './FunctionBlocklistPanel'
 
+// jsdom does not implement scrollIntoView; the Select popover calls it when
+// the active option changes.
+Element.prototype.scrollIntoView = vi.fn()
+
 const datasources = [{ id: 'warehouse', name: 'Warehouse', type: 'postgres' }]
 
 afterEach(() => {
@@ -36,9 +40,8 @@ describe('FunctionBlocklistPanel', () => {
     })
     render(<FunctionBlocklistPanel datasources={datasources} />)
 
-    fireEvent.change(screen.getByLabelText('datasources.function_blocklist.datasource_label'), {
-      target: { value: 'warehouse' },
-    })
+    fireEvent.click(screen.getByLabelText('datasources.function_blocklist.datasource_label'))
+    fireEvent.click(screen.getByRole('option', { name: 'Warehouse · postgres' }))
 
     expect(await screen.findByText('pg_read_file')).toBeTruthy()
     expect(screen.getByText('unsafe_function')).toBeTruthy()
@@ -49,9 +52,8 @@ describe('FunctionBlocklistPanel', () => {
     getFunctionBlocklist.mockResolvedValue({ defaults: ['pg_read_file'], custom: [] })
     render(<FunctionBlocklistPanel datasources={datasources} />)
 
-    fireEvent.change(screen.getByLabelText('datasources.function_blocklist.datasource_label'), {
-      target: { value: 'warehouse' },
-    })
+    fireEvent.click(screen.getByLabelText('datasources.function_blocklist.datasource_label'))
+    fireEvent.click(screen.getByRole('option', { name: 'Warehouse · postgres' }))
     await screen.findByText('pg_read_file')
 
     fireEvent.change(screen.getByLabelText('datasources.function_blocklist.function_name_label'), {
@@ -71,9 +73,8 @@ describe('FunctionBlocklistPanel', () => {
     getFunctionBlocklist.mockResolvedValue({ defaults: [], custom: [] })
     render(<FunctionBlocklistPanel datasources={datasources} />)
 
-    fireEvent.change(screen.getByLabelText('datasources.function_blocklist.datasource_label'), {
-      target: { value: 'warehouse' },
-    })
+    fireEvent.click(screen.getByLabelText('datasources.function_blocklist.datasource_label'))
+    fireEvent.click(screen.getByRole('option', { name: 'Warehouse · postgres' }))
     await screen.findByText('datasources.function_blocklist.defaults_empty')
 
     fireEvent.change(screen.getByLabelText('datasources.function_blocklist.function_name_label'), {
@@ -94,9 +95,8 @@ describe('FunctionBlocklistPanel', () => {
     })
     render(<FunctionBlocklistPanel datasources={datasources} />)
 
-    fireEvent.change(screen.getByLabelText('datasources.function_blocklist.datasource_label'), {
-      target: { value: 'warehouse' },
-    })
+    fireEvent.click(screen.getByLabelText('datasources.function_blocklist.datasource_label'))
+    fireEvent.click(screen.getByRole('option', { name: 'Warehouse · postgres' }))
     await screen.findByText('pg_read_file')
     fireEvent.change(screen.getByLabelText('datasources.function_blocklist.function_name_label'), {
       target: { value: 'unsafe_function' },

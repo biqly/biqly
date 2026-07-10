@@ -78,6 +78,30 @@ function scheduleToForm(s: ReportSchedule): FormState {
   }
 }
 
+function ReportScheduleEmptyIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="40"
+      height="40"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="17" rx="2" />
+      <path d="M3 9h18" />
+      <path d="M8 2v4" />
+      <path d="M16 2v4" />
+      <path d="M8 13h3" />
+      <path d="M8 17h6" />
+    </svg>
+  )
+}
+
 function ReportSchedulesPanel() {
   const t = useT()
   const { get, postData, putData, deleteData, loading, error } = useAdminApi()
@@ -266,7 +290,12 @@ function ReportSchedulesPanel() {
           </div>
         </div>
       ) : schedules.length === 0 ? (
-        <EmptyState title={t('admin.reports.empty')} />
+        <EmptyState
+          title={t('admin.reports.empty_title')}
+          description={t('admin.reports.empty')}
+          icon={<ReportScheduleEmptyIcon />}
+          action={{ label: t('admin.reports.new_schedule'), onClick: () => setForm(emptyForm) }}
+        />
       ) : (
         <div className={adminTableContainerClass}>
           <table className={adminTableClass}>

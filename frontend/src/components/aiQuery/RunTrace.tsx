@@ -2,8 +2,10 @@ import { useContext, useEffect, useState } from 'react'
 
 import { getAgentRun } from '../../api/agentRuns'
 import type { TFunction, TranslationKey } from '../../i18n'
+import { localeLanguageTag } from '../../i18n'
 import { I18nContext } from '../../i18n/context'
 import type { RunStep } from '../../types/ai'
+import { formatDurationMs } from '../../utils/formatters'
 import { Collapsible } from './routingViz'
 
 const identityT: TFunction = (key) => key
@@ -116,6 +118,7 @@ export function RunTracePanel({
   // useT() throws in that case; useContext never does.
   const ctx = useContext(I18nContext)
   const t = tProp ?? ctx?.t ?? identityT
+  const languageTag = localeLanguageTag(ctx?.locale ?? 'en')
   const [hydrated, setHydrated] = useState<RunStep[] | null>(null)
 
   useEffect(() => {
@@ -141,8 +144,15 @@ export function RunTracePanel({
   if (effectiveSteps.length === 0) {
     return null
   }
+  // Total wall time of the run, shown next to the title so the cost of the
+  // whole thinking pass is visible without expanding the panel.
+  const totalMs = effectiveSteps.reduce((sum, step) => sum + step.duration_ms, 0)
+  const panelTitle =
+    totalMs > 0
+      ? `${title ?? t('ai_query.run_trace_title')} · ${formatDurationMs(totalMs, languageTag)}`
+      : (title ?? t('ai_query.run_trace_title'))
   return (
-    <Collapsible title={title ?? t('ai_query.run_trace_title')} defaultOpen={defaultOpen}>
+    <Collapsible title={panelTitle} defaultOpen={defaultOpen}>
       <ol className="text-foreground-muted m-0 mt-3 flex list-none flex-col gap-0 p-0 text-[0.88rem]">
         {effectiveSteps.map((step) => {
           const labelKey = STEP_LABEL_KEYS[step.kind]
@@ -174,7 +184,9 @@ export function RunTracePanel({
                   {t('ai_query.run_trace_running')}
                 </span>
               ) : (
-                <span className="text-foreground-faint text-[0.78rem]">{step.duration_ms}ms</span>
+                <span className="text-foreground-faint text-[0.78rem]">
+                  {formatDurationMs(step.duration_ms, languageTag)}
+                </span>
               )}
               {cancelled ? (
                 <span className="text-foreground-faint text-[0.78rem] font-semibold">

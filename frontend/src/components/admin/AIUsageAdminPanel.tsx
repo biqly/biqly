@@ -6,29 +6,28 @@ import { usePaginatedList } from '../../hooks/usePaginatedList'
 import { useT } from '../../i18n'
 import type { PageQuery } from '../../types/pagination'
 import { formatDurationMs } from '../../utils/formatters'
-import {
-  aiHistoryMonoClass,
-  aiHistoryTableClass,
-  aiHistoryTableWrapClass,
-} from '../ai/aiJobsClasses'
 import { useAuth } from '../auth/AuthProvider'
+import { DataState } from '../ui/DataState'
+import type { ColumnDef } from '../ui/DataTable'
+import { DataTable } from '../ui/DataTable'
+import { EmptyState } from '../ui/EmptyState'
 import { KPICard } from '../ui/KPICard'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
-import { adminFormLabelClass, adminLabelTextClass, adminTableContainerClass } from './adminClasses'
+import {
+  adminFormLabelClass,
+  adminLabelTextClass,
+  adminTableContainerClass,
+  adminTdClass,
+  adminTdMonoClass,
+} from './adminClasses'
 import { AdminPanelShell } from './AdminPanelShell'
 const DEFAULT_PAGE_SIZE = 25
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
-function formatTokens(prompt: number, completion: number, total: number): string {
-  if (prompt > 0 || completion > 0) {
-    return `${prompt.toLocaleString()} + ${completion.toLocaleString()} = ${total.toLocaleString()}`
-  }
-  if (total > 0) {
-    return total.toLocaleString()
-  }
-  return '—'
+function formatTokenCount(n: number): string {
+  return n > 0 ? n.toLocaleString() : '—'
 }
 
 function formatUSD(v: number): string {
@@ -94,20 +93,62 @@ export function AIUsageAdminPanel() {
     return map
   }, [users])
 
-  const thStyle: React.CSSProperties = {
-    textAlign: 'left',
-    padding: '0.6rem 0.75rem',
-    fontSize: '0.75rem',
-    fontWeight: 600,
-    color: 'var(--text-muted)',
-    borderBottom: '1px solid var(--border)',
-  }
-  const tdStyle: React.CSSProperties = {
-    padding: '0.65rem 0.75rem',
-    fontSize: '0.875rem',
-    borderBottom: '1px solid var(--border-subtle, var(--border))',
-    verticalAlign: 'top',
-  }
+  const columns: ColumnDef<AIUsageBreakdownRow>[] = [
+    {
+      key: 'user',
+      header: t('admin.ai_usage.col_user'),
+      className: adminTdClass,
+      cell: (row) => (row.user_id ? (userLabelByID.get(row.user_id) ?? row.user_id) : '—'),
+    },
+    {
+      key: 'model',
+      header: t('admin.ai_usage.col_model'),
+      className: adminTdMonoClass,
+      cell: (row) => row.model_used,
+    },
+    {
+      key: 'queries',
+      header: t('admin.ai_usage.col_queries'),
+      align: 'right',
+      className: adminTdMonoClass,
+      cell: (row) => row.query_count.toLocaleString(),
+    },
+    {
+      key: 'prompt_tokens',
+      header: t('admin.ai_usage.col_prompt_tokens'),
+      align: 'right',
+      className: adminTdMonoClass,
+      cell: (row) => formatTokenCount(row.prompt_tokens),
+    },
+    {
+      key: 'completion_tokens',
+      header: t('admin.ai_usage.col_completion_tokens'),
+      align: 'right',
+      className: adminTdMonoClass,
+      cell: (row) => formatTokenCount(row.completion_tokens),
+    },
+    {
+      key: 'total_tokens',
+      header: t('admin.ai_usage.col_total_tokens'),
+      align: 'right',
+      className: adminTdMonoClass,
+      cell: (row) => formatTokenCount(row.total_tokens),
+    },
+    {
+      key: 'cost',
+      header: t('admin.ai_usage.col_cost'),
+      align: 'right',
+      className: adminTdMonoClass,
+      cell: (row) => formatUSD(row.total_cost_usd),
+    },
+    {
+      key: 'latency',
+      header: t('admin.ai_usage.col_latency'),
+      align: 'right',
+      className: adminTdMonoClass,
+      cell: (row) => formatDurationMs(row.avg_latency_ms),
+    },
+  ]
 
   return (
     <AdminPanelShell
@@ -172,49 +213,22 @@ export function AIUsageAdminPanel() {
           </div>
         )}
 
-        <div className={`${aiHistoryTableWrapClass} ${adminTableContainerClass}`}>
-          <table className={aiHistoryTableClass}>
-            <thead>
-              <tr>
-                <th style={thStyle}>{t('admin.ai_usage.col_user')}</th>
-                <th style={thStyle}>{t('admin.ai_usage.col_model')}</th>
-                <th style={thStyle}>{t('admin.ai_usage.col_queries')}</th>
-                <th style={thStyle}>{t('admin.ai_usage.col_tokens')}</th>
-                <th style={thStyle}>{t('admin.ai_usage.col_cost')}</th>
-                <th style={thStyle}>{t('admin.ai_usage.col_latency')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {!loading && totalItems === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ ...tdStyle, color: 'var(--text-muted)' }}>
-                    {t('admin.ai_usage.empty')}
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row) => {
-                  const userLabel = row.user_id
-                    ? (userLabelByID.get(row.user_id) ?? row.user_id)
-                    : '—'
-                  const key = `${row.user_id}:${row.model_used}`
-                  return (
-                    <tr key={key}>
-                      <td style={tdStyle}>{userLabel}</td>
-                      <td className={aiHistoryMonoClass} style={tdStyle}>
-                        {row.model_used}
-                      </td>
-                      <td style={tdStyle}>{row.query_count.toLocaleString()}</td>
-                      <td style={tdStyle}>
-                        {formatTokens(row.prompt_tokens, row.completion_tokens, row.total_tokens)}
-                      </td>
-                      <td style={tdStyle}>{formatUSD(row.total_cost_usd)}</td>
-                      <td style={tdStyle}>{formatDurationMs(row.avg_latency_ms)}</td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
+        <div className={adminTableContainerClass}>
+          <DataState
+            loading={loading}
+            error={null}
+            empty={!loading && totalItems === 0}
+            emptyState={<EmptyState description={t('admin.ai_usage.empty')} />}
+            className="overflow-x-auto"
+          >
+            <DataTable
+              columns={columns}
+              rows={rows}
+              rowKey={(row) => `${row.user_id}:${row.model_used}`}
+              loading={loading}
+              tableStyle={{ fontSize: 13, minWidth: 980 }}
+            />
+          </DataState>
           {totalItems > 0 && (
             <Pagination
               currentPage={currentPage}

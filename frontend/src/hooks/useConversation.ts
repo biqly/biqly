@@ -222,6 +222,30 @@ export async function deleteConversationSnapshot(
   }
 }
 
+/** Ask the backend AI to name a conversation from its first exchange. Returns
+ * undefined on any failure so the default truncated-question title stays. */
+export async function suggestConversationTitle(
+  question: string,
+  answer: string | undefined,
+  token?: string,
+): Promise<string | undefined> {
+  try {
+    const res = await apiFetch<{ title?: string }>(
+      'POST',
+      '/api/ai/conversations/suggest-title',
+      { question, answer },
+      { token },
+    )
+    const title = res.title?.trim()
+    if (!title) {
+      return undefined
+    }
+    return title
+  } catch {
+    return undefined
+  }
+}
+
 /** Append a job's assistant message to its conversation, or return null when
  * nothing should change: unknown conversation, no user turn tagged with the
  * job (legacy turns), or the result was already applied (idempotency). */

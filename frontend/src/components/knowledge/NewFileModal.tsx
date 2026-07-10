@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { draftKnowledgeFile } from '../../api/knowledge'
 import type { TFunction } from '../../i18n'
@@ -7,6 +7,7 @@ import { cn } from '../../lib/cn'
 import { formLabelClass } from '../../lib/formClasses'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { Modal } from '../ui/Modal'
+import { Select } from '../ui/Select'
 import { KNOWLEDGE_FOLDERS } from './knowledgeTree'
 import { MarkdownEditor } from './MarkdownEditor'
 import { loadNewFileDraft, saveNewFileDraft } from './newFileDraftStorage'
@@ -91,6 +92,14 @@ export function NewFileModal({
     }, 500)
     return () => window.clearInterval(id)
   }, [drafting])
+
+  const folderOptions = useMemo(() => {
+    const names = [...new Set([...KNOWLEDGE_FOLDERS, ...extraFolders])].sort()
+    return [
+      ...names.map((name) => ({ value: name, label: `${name}/` })),
+      { value: '', label: t('knowledge_base.kb_folder_root') },
+    ]
+  }, [extraFolders, t])
 
   const applyFolder = (next: string) => {
     setFolder(next)
@@ -208,19 +217,13 @@ export function NewFileModal({
             <label className={formLabelClass} htmlFor="kb-new-folder">
               {t('knowledge_base.kb_folder_label')}
             </label>
-            <select
+            <Select
               id="kb-new-folder"
-              className="border-border bg-card-raised h-9 rounded-md border px-2 text-[0.82rem]"
               value={folder}
-              onChange={(e) => applyFolder(e.target.value)}
-            >
-              {[...new Set([...KNOWLEDGE_FOLDERS, ...extraFolders])].sort().map((name) => (
-                <option key={name} value={name}>
-                  {name}/
-                </option>
-              ))}
-              <option value="">{t('knowledge_base.kb_folder_root')}</option>
-            </select>
+              onChange={applyFolder}
+              options={folderOptions}
+              ariaLabel={t('knowledge_base.kb_folder_label')}
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className={formLabelClass} htmlFor="kb-new-path">

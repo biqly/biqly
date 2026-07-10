@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import {
   type ApiToken,
@@ -12,6 +12,7 @@ import { useConfirmedMutation } from '../../hooks/useConfirmedMutation'
 import { useFetch } from '../../hooks/useFetch'
 import { useT } from '../../i18n'
 import { ErrorAlert } from '../ui/ErrorAlert'
+import { Select } from '../ui/Select'
 import {
   adminBtnPrimaryClass,
   adminBtnRevokeClass,
@@ -20,7 +21,6 @@ import {
   adminFormLabelClass,
   adminInputClass,
   adminLabelTextClass,
-  adminSelectWideClass,
   adminTableClass,
   adminTableContainerClass,
   adminTableRowHoverClass,
@@ -54,6 +54,15 @@ export function ApiTokensCard() {
   const [reloadKey, setReloadKey] = useState(0)
   const [name, setName] = useState('')
   const [expiry, setExpiry] = useState<ExpiryOption>('90')
+  const expiryOptions = useMemo(
+    () => [
+      { value: '30', label: t('admin.mcp.tokens.expiry_30_days') },
+      { value: '90', label: t('admin.mcp.tokens.expiry_90_days') },
+      { value: '365', label: t('admin.mcp.tokens.expiry_1_year') },
+      { value: 'never', label: t('admin.mcp.tokens.expiry_never') },
+    ],
+    [t],
+  )
   const [revealed, setRevealed] = useState<CreatedApiToken | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -194,16 +203,12 @@ export function ApiTokensCard() {
           </label>
           <label className={adminFormLabelClass}>
             {t('admin.mcp.tokens.expiry_label')}
-            <select
-              className={adminSelectWideClass}
+            <Select
               value={expiry}
-              onChange={(e) => setExpiry(e.target.value as ExpiryOption)}
-            >
-              <option value="30">{t('admin.mcp.tokens.expiry_30_days')}</option>
-              <option value="90">{t('admin.mcp.tokens.expiry_90_days')}</option>
-              <option value="365">{t('admin.mcp.tokens.expiry_1_year')}</option>
-              <option value="never">{t('admin.mcp.tokens.expiry_never')}</option>
-            </select>
+              onChange={(v) => setExpiry(v as ExpiryOption)}
+              options={expiryOptions}
+              ariaLabel={t('admin.mcp.tokens.expiry_label')}
+            />
           </label>
           <button
             type="button"

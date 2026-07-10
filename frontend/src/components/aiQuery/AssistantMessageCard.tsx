@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 
-import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { infoNoticeClass } from '../../lib/feedbackClasses'
 import type { QueryResultPayload } from '../../types/ai'
@@ -97,20 +95,14 @@ function AssistantPlainNote({ content }: { content: string }) {
 function AssistantMessageFeedbackRow({
   userQuestion,
   datasourceId,
-  hasLogicalQuery,
   submitFeedback,
-  handleSaveToLibrary,
-  handleSaveAsSkill,
   t,
 }: {
   userQuestion: string
   datasourceId: string
-  hasLogicalQuery: boolean
   submitFeedback: (
     body: Record<string, unknown>,
   ) => Promise<{ status: string; learned?: boolean } | null>
-  handleSaveToLibrary: () => void
-  handleSaveAsSkill: () => void
   t: AssistantMessageCardProps['t']
 }) {
   return (
@@ -134,37 +126,6 @@ function AssistantMessageFeedbackRow({
           })
         }}
       />
-      {hasLogicalQuery && (
-        <>
-          <button
-            type="button"
-            className={buttonClass('ghost', { size: 'sm' })}
-            style={{
-              marginLeft: 'auto',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-            }}
-            onClick={handleSaveToLibrary}
-            title={t('saved_questions.new')}
-          >
-            💾 {t('saved_questions.new')}
-          </button>
-          <button
-            type="button"
-            className={buttonClass('ghost', { size: 'sm' })}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-            }}
-            onClick={handleSaveAsSkill}
-            title={t('skills.new')}
-          >
-            ⚡ {t('skills.new')}
-          </button>
-        </>
-      )}
     </div>
   )
 }
@@ -265,7 +226,6 @@ export function AssistantMessageCard({
   priorQuestions,
   isLatest,
 }: AssistantMessageCardProps) {
-  const navigate = useNavigate()
   const result = useMemo(() => normalizeAIQueryResponse(message.ai_response), [message.ai_response])
 
   const followUps = useMemo(() => {
@@ -375,29 +335,6 @@ export function AssistantMessageCard({
     }
   }
 
-  const buildSavePrefillParams = () =>
-    new URLSearchParams({
-      prefill: '1',
-      question: userQuestion,
-      logical_query: JSON.stringify(result.logical_query),
-      datasource_id: datasourceId,
-      model_id: String(result.logical_query?.model_id ?? ''),
-    })
-
-  const handleSaveToLibrary = () => {
-    if (!result.logical_query) {
-      return
-    }
-    void navigate(`/saved?${buildSavePrefillParams().toString()}`)
-  }
-
-  const handleSaveAsSkill = () => {
-    if (!result.logical_query) {
-      return
-    }
-    void navigate(`/knowledge?tab=saved_queries&${buildSavePrefillParams().toString()}`)
-  }
-
   const resultWithPayload = result.result
     ? (result as typeof result & { result: NonNullable<typeof result.result> })
     : null
@@ -466,10 +403,7 @@ export function AssistantMessageCard({
         <AssistantMessageFeedbackRow
           userQuestion={userQuestion}
           datasourceId={datasourceId}
-          hasLogicalQuery={!!result.logical_query}
           submitFeedback={submitFeedback}
-          handleSaveToLibrary={handleSaveToLibrary}
-          handleSaveAsSkill={handleSaveAsSkill}
           t={t}
         />
         <SampleDataModal

@@ -17,6 +17,7 @@ import { useQueryParam } from '../../hooks/useQueryParam'
 import { localeLanguageTag, useLocale, useT } from '../../i18n'
 import { adminAlertSuccessClass } from '../admin/adminClasses'
 import { ErrorAlert } from '../ui/ErrorAlert'
+import { Select } from '../ui/Select'
 import { FileMetaPanel } from './FileMetaPanel'
 import { FileTree } from './FileTree'
 import { FileView } from './FileView'
@@ -44,6 +45,10 @@ export function KnowledgeBasePage() {
     }
     return datasources[0]?.id ?? ''
   }, [dsParam, datasources])
+  const datasourceSelectOptions = useMemo(
+    () => datasources.map((ds) => ({ value: ds.id, label: ds.name })),
+    [datasources],
+  )
 
   const [files, setFiles] = useState<KnowledgeFileMeta[]>([])
   const [selected, setSelected] = useState<KnowledgeFile | null>(null)
@@ -222,17 +227,13 @@ export function KnowledgeBasePage() {
         </p>
         <label className="text-foreground-muted flex items-center gap-2 text-[0.8rem]">
           {t('knowledge_base.kb_datasource')}
-          <select
-            className="border-border bg-card-raised h-9 rounded-md border px-2 text-[0.82rem]"
+          <Select
             value={datasourceId}
-            onChange={(e) => setDsParam(e.target.value)}
-          >
-            {datasources.map((ds) => (
-              <option key={ds.id} value={ds.id}>
-                {ds.name}
-              </option>
-            ))}
-          </select>
+            onChange={setDsParam}
+            options={datasourceSelectOptions}
+            size="sm"
+            ariaLabel={t('knowledge_base.kb_datasource')}
+          />
         </label>
       </div>
 

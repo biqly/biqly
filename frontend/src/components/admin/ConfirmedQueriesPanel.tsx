@@ -17,6 +17,7 @@ import { DEFAULT_TABLE_PAGE_SIZE_OPTIONS } from '../../utils/paging'
 import { Button } from '../ui/Button'
 import type { ColumnDef } from '../ui/DataTable'
 import { DataTable } from '../ui/DataTable'
+import { EmptyState } from '../ui/EmptyState'
 import { LoadingScreen } from '../ui/LoadingScreen'
 import { Pagination } from '../ui/Pagination'
 import { Select } from '../ui/Select'
@@ -26,10 +27,29 @@ import {
   adminLabelTextClass,
   adminTableContainerClass,
   adminTdMonoClass,
-  adminTextMutedClass,
 } from './adminClasses'
 import { AdminPanelShell } from './AdminPanelShell'
 import { datasourceSelectOptions } from './adminSelectOptions'
+
+function ConfirmedQueryEmptyIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="40"
+      height="40"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  )
+}
 
 // ConfirmedQueriesPanel lists the NL→SQL pairs learned from thumbs-up feedback
 // (the AI memory store) and lets admins pull a pair out of few-shot recall.
@@ -184,6 +204,13 @@ export function ConfirmedQueriesPanel() {
     <AdminPanelShell
       title={t('admin.confirmed_queries.title')}
       description={t('admin.confirmed_queries.description')}
+      action={
+        totalItems > 0 && (
+          <span className="text-foreground-muted text-caption">
+            {t('admin.confirmed_queries.row_count', { count: totalItems })}
+          </span>
+        )
+      }
     >
       <label className={adminFormLabelClass} style={{ gap: 4, maxWidth: 360 }}>
         <span className={adminLabelTextClass}>{t('admin.confirmed_queries.datasource')}</span>
@@ -198,7 +225,11 @@ export function ConfirmedQueriesPanel() {
       {loading ? (
         <LoadingScreen minHeight="160px" />
       ) : totalItems === 0 ? (
-        <p className={adminTextMutedClass}>{t('admin.confirmed_queries.empty')}</p>
+        <EmptyState
+          title={t('admin.confirmed_queries.empty_title')}
+          description={t('admin.confirmed_queries.empty')}
+          icon={<ConfirmedQueryEmptyIcon />}
+        />
       ) : (
         <div className={adminTableContainerClass}>
           <DataTable

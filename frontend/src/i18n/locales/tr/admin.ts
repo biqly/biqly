@@ -50,6 +50,8 @@ export const admin: AdminDictionary = {
     deactivate_confirm_message:
       'Çift geçmişte kalır ancak artık few-shot örnek olarak geri çağrılmaz.',
     deactivated: 'Onaylanmış sorgu pasifleştirildi.',
+    empty_title: 'Henüz onaylanmış sorgu yok',
+    row_count: '{{count}} çift',
     empty: 'Bu veri kaynağı için henüz onaylanmış sorgu yok.',
   },
   nl_lexicon: {
@@ -84,6 +86,9 @@ export const admin: AdminDictionary = {
     reset_confirm_message:
       'Bu alandaki tüm girdiler yerleşik varsayılanlarla değiştirilecek. Özel düzenlemeler kaybolacak.',
     reset_done: 'Alan varsayılanlara sıfırlandı.',
+    search_placeholder: 'Anahtar veya terim ara...',
+    empty_title: 'Henüz kayıt yok',
+    no_matches: 'Aramanızla eşleşen kayıt yok.',
     empty: 'Bu alanda henüz girdi yok. Bir girdi ekleyin veya varsayılanlara sıfırlayın.',
   },
   pii: {
@@ -336,6 +341,7 @@ export const admin: AdminDictionary = {
     copied: 'Kopyalandı',
     error: 'Hata',
     empty: 'Sorgu denetim kaydı bulunamadı.',
+    search_placeholder: 'Kullanıcı, veri kaynağı veya kanal ara...',
   },
   mcp: {
     title: 'MCP Entegrasyonu',
@@ -398,6 +404,7 @@ export const admin: AdminDictionary = {
     last_run: 'Son çalışma',
     never_run: 'Hiç çalışmadı',
     actions: 'İşlemler',
+    empty_title: 'Henüz zamanlama yok',
     empty: 'Henüz rapor zamanlaması yok.',
     save_failed: 'Zamanlama kaydedilemedi.',
     delete_confirm: 'Bu zamanlama silinsin mi?',
@@ -432,7 +439,9 @@ export const admin: AdminDictionary = {
     col_user: 'Kullanıcı',
     col_model: 'LLM modeli',
     col_queries: 'Sorgular',
-    col_tokens: 'Token (prompt + tamamlama)',
+    col_prompt_tokens: 'Girdi token',
+    col_completion_tokens: 'Çıktı token',
+    col_total_tokens: 'Toplam token',
     col_cost: 'Maliyet',
     col_latency: 'Ort. gecikme',
     empty: 'Bu dönemde AI kullanımı yok.',
@@ -625,6 +634,7 @@ export const admin: AdminDictionary = {
     user_id_placeholder: 'Kullanıcı ara ve seç…',
     workspace_id_placeholder: 'Workspace ara ve seç…',
     confirm_revoke: 'Bu paylaşımı kaldırmak istediğinden emin misin?',
+    empty_title: 'Henüz paylaşım yok',
     empty: 'Paylaşılan kaynak yok.',
     my_shares: 'Paylaşımlarım',
     shared_with_me: 'Benimle Paylaşılanlar',
