@@ -119,6 +119,7 @@ type Join struct {
 	ToColumn     string    `json:"to_column" db:"to_column"`
 	JoinType     string    `json:"join_type" db:"join_type"`       // LEFT, INNER, RIGHT
 	Relationship string    `json:"relationship" db:"relationship"` // many_to_one, one_to_many, one_to_one, many_to_many
+	Description  string    `json:"description,omitempty" db:"description"`
 	IsActive     bool      `json:"is_active" db:"is_active"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 }

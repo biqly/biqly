@@ -80,12 +80,16 @@ export interface KnowledgeDraft {
 // draftKnowledgeFile asks the backend (describe-purpose model — the same one
 // that writes metadata descriptions) to write a markdown draft for the folder.
 // Nothing is persisted; the caller opens the draft in the editor for review.
-export async function draftKnowledgeFile(req: {
-  datasource_id: string
-  folder: string
-  prompt: string
-}): Promise<KnowledgeDraft> {
+export async function draftKnowledgeFile(
+  req: {
+    datasource_id: string
+    folder: string
+    prompt: string
+  },
+  signal?: AbortSignal,
+): Promise<KnowledgeDraft> {
   return apiFetch<KnowledgeDraft>('POST', '/api/ai/knowledge/draft', req, {
     timeout: KNOWLEDGE_DRAFT_TIMEOUT_MS,
+    signal,
   })
 }

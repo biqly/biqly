@@ -143,6 +143,7 @@ export interface SemanticJoin {
   to_column: string
   join_type: 'LEFT' | 'INNER' | 'RIGHT'
   relationship: 'many_to_one' | 'one_to_many' | 'one_to_one' | 'many_to_many'
+  description?: string | null
   is_active?: boolean
 }
 

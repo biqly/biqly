@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 import type { TranslationKey } from '../../i18n'
+import { buttonClass } from '../../lib/buttonClasses'
+import { cn } from '../../lib/cn'
 import {
   modelingCanvasClass,
   modelingCanvasWrapClass,
@@ -20,6 +22,7 @@ import {
   modelingZoomReadoutClass,
 } from '../../lib/modelingClasses'
 import type { ColumnRow, SemanticJoin, TableRow } from '../../types/semantic'
+import { cardinalityMarkers } from './canvasMath'
 import { ModelingTableCard } from './ModelingTableCard'
 import type { ModelingCanvasState } from './useModelingCanvas'
 import { columnOptions, relationshipLabel, tableKey } from './utils'
@@ -49,6 +52,7 @@ interface ModelingCanvasProps {
   // `${tableKey}::${column}` keys with an in-flight dimension toggle request.
   pendingColumnKeys: Set<string>
   onToggleColumnDimension: (table: TableRow, columnName: string) => void
+  onDeleteJoin: (joinId: string) => void
   onOpenTableDetail: (table: TableRow) => void
   onAddCalcField: (table: TableRow) => void
   onAddRelationship: (table: TableRow) => void
@@ -129,6 +133,94 @@ function ModelFieldsMenu({
   )
 }
 
+// JoinActionPopover is the interactive twin of the hover tooltip: opened by
+// clicking a join line, it shows the relationship facts (incl. the optional
+// AI description) and lets the user delete the join right on the graph.
+function JoinActionPopover({
+  join,
+  x,
+  y,
+  onDelete,
+  onClose,
+  t,
+}: {
+  join: SemanticJoin
+  x: number
+  y: number
+  onDelete: () => void
+  onClose: () => void
+  t: (key: TranslationKey, vars?: Record<string, string | number>) => string
+}) {
+  const ref = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+    const onPointerDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onPointerDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onPointerDown)
+    }
+  }, [onClose])
+
+  return (
+    <div
+      ref={ref}
+      className={cn(modelingJoinTooltipClass, 'pointer-events-auto')}
+      style={{ left: x + 12, top: y + 12 }}
+      role="dialog"
+      aria-label={t('modeling.join_tooltip_title')}
+    >
+      <span className={modelingJoinTooltipTitleClass}>{t('modeling.join_tooltip_title')}</span>
+      <span className={modelingJoinTooltipRowClass}>
+        <span className={modelingJoinTooltipLabelClass}>{t('modeling.join_tooltip_from')}</span>
+        <span className={modelingJoinTooltipValueClass}>
+          {join.from_table}.{join.from_column}
+        </span>
+      </span>
+      <span className={modelingJoinTooltipRowClass}>
+        <span className={modelingJoinTooltipLabelClass}>{t('modeling.join_tooltip_to')}</span>
+        <span className={modelingJoinTooltipValueClass}>
+          {join.to_table}.{join.to_column}
+        </span>
+      </span>
+      <span className={modelingJoinTooltipRowClass}>
+        <span className={modelingJoinTooltipLabelClass}>{t('modeling.join_tooltip_type')}</span>
+        <span className={modelingJoinTooltipValueClass}>
+          {relationshipLabel(t, join.relationship)}
+        </span>
+      </span>
+      {join.description?.trim() ? (
+        <span className={modelingJoinTooltipRowClass}>
+          <span className={modelingJoinTooltipLabelClass}>
+            {t('modeling.join_tooltip_description')}
+          </span>
+          <span className={modelingJoinTooltipValueClass}>{join.description}</span>
+        </span>
+      ) : null}
+      <button
+        type="button"
+        className={cn(
+          buttonClass('ghost', { size: 'sm' }),
+          'text-error mt-1.5 w-full! justify-center',
+        )}
+        onClick={onDelete}
+      >
+        🗑 {t('modeling.delete_join_title')}
+      </button>
+    </div>
+  )
+}
+
 export function ModelingCanvas({
   canvas,
   tableCards,
@@ -142,6 +234,7 @@ export function ModelingCanvas({
   modelColumnsByTable,
   pendingColumnKeys,
   onToggleColumnDimension,
+  onDeleteJoin,
   onOpenTableDetail,
   onAddCalcField,
   onAddRelationship,
@@ -164,6 +257,9 @@ export function ModelingCanvas({
   } = canvas
 
   const [joinHover, setJoinHover] = useState<JoinHoverState | null>(null)
+  // Clicking a join line opens an interactive popover (info + delete) at the
+  // click point — the hover tooltip is read-only, this one takes actions.
+  const [joinMenu, setJoinMenu] = useState<JoinHoverState | null>(null)
   const [columnsMenu, setColumnsMenu] = useState<ColumnsMenuState | null>(null)
 
   const emptyModelColumns = new Set<string>()
@@ -226,6 +322,7 @@ export function ModelingCanvas({
               if (!path) {
                 return null
               }
+              const cardinality = cardinalityMarkers(join.relationship)
               return (
                 <g key={join.id} className={modelingJoinLineClass(isHi)}>
                   <path
@@ -235,10 +332,22 @@ export function ModelingCanvas({
                     onMouseEnter={(e) => setJoinHover({ join, x: e.clientX, y: e.clientY })}
                     onMouseMove={(e) => setJoinHover({ join, x: e.clientX, y: e.clientY })}
                     onMouseLeave={() => setJoinHover(null)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setJoinHover(null)
+                      setJoinMenu({ join, x: e.clientX, y: e.clientY })
+                    }}
                   />
                   <path d={path.d} markerEnd="url(#modeling-arrow)" />
                   <circle cx={path.x1} cy={path.y1} r={4} />
                   <circle cx={path.x2} cy={path.y2} r={4} />
+                  <text x={path.x1} y={path.y1 - 7} textAnchor="middle">
+                    {cardinality.from}
+                  </text>
+                  <text x={path.x2} y={path.y2 - 7} textAnchor="middle">
+                    {cardinality.to}
+                  </text>
                 </g>
               )
             })}
@@ -307,7 +416,28 @@ export function ModelingCanvas({
               {relationshipLabel(t, joinHover.join.relationship)}
             </span>
           </span>
+          {joinHover.join.description?.trim() ? (
+            <span className={modelingJoinTooltipRowClass}>
+              <span className={modelingJoinTooltipLabelClass}>
+                {t('modeling.join_tooltip_description')}
+              </span>
+              <span className={modelingJoinTooltipValueClass}>{joinHover.join.description}</span>
+            </span>
+          ) : null}
         </div>
+      ) : null}
+      {joinMenu ? (
+        <JoinActionPopover
+          join={joinMenu.join}
+          x={joinMenu.x}
+          y={joinMenu.y}
+          onDelete={() => {
+            onDeleteJoin(joinMenu.join.id)
+            setJoinMenu(null)
+          }}
+          onClose={() => setJoinMenu(null)}
+          t={t}
+        />
       ) : null}
       {columnsMenu && modelColumnsByTable && menuTable ? (
         <ModelFieldsMenu

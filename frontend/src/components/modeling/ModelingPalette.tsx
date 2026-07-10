@@ -95,41 +95,115 @@ interface ModelingPaletteProps {
   t: Translate
 }
 
-interface CollapsibleGroupProps {
-  title: string
-  meta?: string
-  count: number
-  defaultOpen?: boolean
-  children: ReactNode
+// dimTypeGlyph maps a dimension's semantic type to the tiny leading tag shown
+// in the model tree (WrenAI-style field markers).
+function dimTypeGlyph(type: string): string {
+  switch (type) {
+    case 'number':
+      return '123'
+    case 'date':
+    case 'timestamp':
+      return '🕒'
+    case 'boolean':
+      return '✓'
+    default:
+      return 'Az'
+  }
 }
 
-// CollapsibleGroup renders one table's entities (dimensions/metrics) behind a
-// click-to-expand header with a count badge, so large schemas stay scannable
-// instead of an endless flat list.
-function CollapsibleGroup({
+// ModelTreeNode is one table in the merged model tree: an expandable header
+// carrying the table-level actions, with the table's dimensions and metrics
+// as child rows.
+function ModelTreeNode({
   title,
   meta,
   count,
+  isBase,
+  baseBadgeTitle,
+  actions,
   defaultOpen = false,
   children,
-}: CollapsibleGroupProps) {
+}: {
+  title: string
+  meta?: string
+  count: number
+  isBase: boolean
+  baseBadgeTitle: string
+  actions: ReactNode
+  defaultOpen?: boolean
+  children: ReactNode
+}) {
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div className={modelingGroupClass(open)}>
-      <button
-        type="button"
-        className={modelingGroupHeaderClass}
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <span className={modelingGroupChevronClass} aria-hidden="true">
-          {open ? '▾' : '▸'}
-        </span>
-        <span className={modelingGroupTitleClass}>{title}</span>
-        {meta && <span className={modelingGroupMetaClass}>{meta}</span>}
-        <span className={modelingGroupCountClass}>{count}</span>
-      </button>
+      <div className={cn(modelingGroupHeaderClass, 'cursor-default')}>
+        <button
+          type="button"
+          className="font-inherit flex min-w-0 flex-1 cursor-pointer items-center gap-[0.4rem] border-0 bg-transparent p-0 text-left text-inherit"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <span className={modelingGroupChevronClass} aria-hidden="true">
+            {open ? '▾' : '▸'}
+          </span>
+          <span className={modelingGroupTitleClass}>
+            {title}
+            {isBase && (
+              <span className={modelingBaseBadgeClass} title={baseBadgeTitle}>
+                {' '}
+                ★
+              </span>
+            )}
+          </span>
+          {meta && <span className={modelingGroupMetaClass}>{meta}</span>}
+          <span className={modelingGroupCountClass}>{count}</span>
+        </button>
+        <span className={modelingPillActionsClass}>{actions}</span>
+      </div>
       {open && <div className={modelingGroupBodyClass}>{children}</div>}
+    </div>
+  )
+}
+
+// TreeLeafRow is one field (dimension or metric) under a table node: a slim
+// single-line row with a type glyph and hover-revealed actions.
+function TreeLeafRow({
+  glyph,
+  title,
+  subtitle,
+  actions,
+}: {
+  glyph: string
+  title: string
+  subtitle?: string
+  actions: ReactNode
+}) {
+  return (
+    <div className="group/leaf flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-[var(--surface-hover)]">
+      <span
+        className="text-foreground-faint w-6 shrink-0 text-center text-[0.58rem] font-bold"
+        aria-hidden="true"
+      >
+        {glyph}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="text-foreground block overflow-hidden text-[0.78rem] leading-tight text-ellipsis whitespace-nowrap">
+          {title}
+        </span>
+        {subtitle && (
+          <span className="text-foreground-faint block overflow-hidden text-[0.65rem] text-ellipsis whitespace-nowrap">
+            {subtitle}
+          </span>
+        )}
+      </span>
+      <span
+        className={cn(
+          modelingPillActionsClass,
+          'opacity-0 group-focus-within/leaf:opacity-100 group-hover/leaf:opacity-100',
+        )}
+      >
+        {actions}
+      </span>
     </div>
   )
 }
@@ -241,19 +315,6 @@ export function ModelingPalette({
     return table?.table_name ?? fallback
   }
 
-  // Meta repeats the physical name only when the displayed title is a custom
-  // label; otherwise the schema alone is enough and leaves room for the title.
-  const tableGroupMeta = (table: TableRow | undefined): string | undefined => {
-    if (!table) {
-      return undefined
-    }
-    const label = table.label?.trim()
-    if (label && label.length > 0 && label !== table.table_name) {
-      return `${table.schema_name}.${table.table_name}`
-    }
-    return table.schema_name
-  }
-
   const groupByTable = <T,>(items: T[], resolveKey: (item: T) => string | null) => {
     const grouped = new Map<string, T[]>()
     items.forEach((item) => {
@@ -288,8 +349,8 @@ export function ModelingPalette({
   const metricGroups = groupByTable(metrics, resolveMetricTableKey)
   const inactiveMetricGroups = groupByTable(inactiveMetrics, resolveMetricTableKey)
 
-  const visibleDimsCount = dimGroups.reduce((sum, group) => sum + group.values.length, 0)
-  const visibleMetricsCount = metricGroups.reduce((sum, group) => sum + group.values.length, 0)
+  const dimsByTable = new Map(dimGroups.map((group) => [group.key, group.values]))
+  const metricsByTable = new Map(metricGroups.map((group) => [group.key, group.values]))
 
   // Only suggest FK joins between tables already in the model/canvas. The
   // backend includes any FK with one endpoint in the model (to invite adding
@@ -323,27 +384,16 @@ export function ModelingPalette({
           <p>{t('modeling.semantic_description')}</p>
         </div>
         <div className={modelingTabsClass}>
-          {(['tables', 'joins', 'dimensions', 'metrics'] as const).map((tab) => {
-            const count =
-              tab === 'tables'
-                ? usedTableCount
-                : tab === 'joins'
-                  ? joins.length
-                  : tab === 'dimensions'
-                    ? visibleDimsCount
-                    : visibleMetricsCount
+          {(['model', 'joins'] as const).map((tab) => {
+            const count = tab === 'model' ? usedTableCount : joins.length
             return (
               <button
                 className={modelingTabClass(activeTab === tab)}
                 key={tab}
                 onClick={() => onTabChange(tab)}
-                title={t(`modeling.${tab}_tab`)}
+                title={t(tab === 'model' ? 'modeling.model_tab_title' : 'modeling.joins_tab')}
               >
-                {t(
-                  tab === 'joins'
-                    ? 'modeling.tab_short_rel'
-                    : `modeling.tab_short_${tab === 'dimensions' ? 'dim' : tab === 'metrics' ? 'metric' : 'tables'}`,
-                )}
+                {t(tab === 'model' ? 'modeling.tab_short_model' : 'modeling.tab_short_rel')}
                 <span className={modelingTabCountClass(count === 0, activeTab === tab)}>
                   {count}
                 </span>
@@ -353,7 +403,7 @@ export function ModelingPalette({
         </div>
 
         <div className={modelingTabContentClass}>
-          {activeTab === 'tables' && (
+          {activeTab === 'model' && (
             <div className={modelingJoinListClass}>
               <h3>{t('modeling.schemas_heading')}</h3>
               <div className={modelingSchemaTagListClass}>
@@ -386,7 +436,31 @@ export function ModelingPalette({
                   })}
               </div>
 
-              <h3>{t('modeling.datasource_tables_heading')}</h3>
+              <div className={modelingSectionHeaderClass}>
+                <h3>{t('modeling.model_tree_heading')}</h3>
+                <span className="flex gap-1.5">
+                  <button
+                    className={cn(buttonClass('ghost', { size: 'sm' }), modelingSectionAddBtnClass)}
+                    type="button"
+                    onClick={onSyncDimensions}
+                    disabled={!model}
+                    title={t('modeling.sync_dimensions_title')}
+                  >
+                    {t('modeling.sync_dimensions_btn')}
+                  </button>
+                  <button
+                    className={cn(
+                      buttonClass('primary', { size: 'sm' }),
+                      modelingSectionAddBtnClass,
+                    )}
+                    type="button"
+                    onClick={onOpenAddMetric}
+                    disabled={!model}
+                  >
+                    {t('modeling.add_metric_btn')}
+                  </button>
+                </span>
+              </div>
               {tables.length === 0 ? (
                 <p className={modelingEmptyClass}>{t('modeling.no_tables_sync')}</p>
               ) : (
@@ -403,22 +477,19 @@ export function ModelingPalette({
                     : { joins: 0, dims: 0, metrics: 0 }
                   const inModel =
                     isBase || impact.joins > 0 || impact.dims > 0 || impact.metrics > 0
+                  const tableDims = dimsByTable.get(key) ?? []
+                  const tableMetrics = metricsByTable.get(key) ?? []
                   return (
-                    <div className={modelingJoinPillClass({ active: isOnCanvas })} key={table.id}>
-                      <div className={modelingJoinPillHeaderClass}>
-                        <strong>
-                          {table.label ?? table.table_name}
-                          {isBase && (
-                            <span
-                              className={modelingBaseBadgeClass}
-                              title={t('modeling.base_table_label')}
-                            >
-                              {' '}
-                              ★
-                            </span>
-                          )}
-                        </strong>
-                        <span className={modelingPillActionsClass}>
+                    <ModelTreeNode
+                      key={table.id}
+                      title={table.label ?? table.table_name}
+                      meta={isOnCanvas ? t('modeling.on_canvas') : t('modeling.not_visible')}
+                      count={tableDims.length + tableMetrics.length}
+                      isBase={isBase}
+                      baseBadgeTitle={t('modeling.base_table_label')}
+                      defaultOpen={isBase}
+                      actions={
+                        <>
                           <button
                             className={modelingRenameBtnClass}
                             onClick={() => onRenameTable(table)}
@@ -468,17 +539,123 @@ export function ModelingPalette({
                               ×
                             </button>
                           )}
-                        </span>
-                      </div>
-                      <span className={modelingJoinMetaClass}>
-                        {table.schema_name}.{table.table_name}
-                      </span>
-                      <span className={modelingJoinMetaClass}>
-                        {isOnCanvas ? t('modeling.on_canvas') : t('modeling.not_visible')}
-                      </span>
-                    </div>
+                        </>
+                      }
+                    >
+                      {tableDims.length === 0 && tableMetrics.length === 0 ? (
+                        <p className={modelingEmptyClass}>{t('modeling.tree_no_fields')}</p>
+                      ) : (
+                        <>
+                          {tableDims.map((dimension) => (
+                            <TreeLeafRow
+                              key={dimension.id}
+                              glyph={dimTypeGlyph(dimension.type)}
+                              title={dimension.label ?? dimension.name}
+                              subtitle={dimension.column_ref}
+                              actions={
+                                <>
+                                  <button
+                                    className={modelingRenameBtnClass}
+                                    onClick={() => onEditDimension(dimension)}
+                                    title={t('modeling.edit_display_name_title')}
+                                  >
+                                    ✎
+                                  </button>
+                                  <button
+                                    className={modelingRenameBtnClass}
+                                    onClick={() => onEditDimensionValues(dimension)}
+                                    title={t('modeling.enum_values_edit_title')}
+                                  >
+                                    ≣
+                                  </button>
+                                  <button
+                                    className={modelingDeleteBtnClass}
+                                    onClick={() => onDeleteDimension(dimension.id)}
+                                    title={t('modeling.delete_dimension_title')}
+                                  >
+                                    ×
+                                  </button>
+                                </>
+                              }
+                            />
+                          ))}
+                          {tableMetrics.map((metric) => (
+                            <TreeLeafRow
+                              key={metric.id}
+                              glyph="ƒ"
+                              title={metric.label ?? metric.name}
+                              subtitle={`${metric.aggregation}(${metric.expression})`}
+                              actions={
+                                <>
+                                  <button
+                                    className={modelingRenameBtnClass}
+                                    onClick={() => onEditMetric(metric)}
+                                    title={t('modeling.edit_display_name_title')}
+                                  >
+                                    ✎
+                                  </button>
+                                  <button
+                                    className={modelingDeleteBtnClass}
+                                    onClick={() => onDeleteMetric(metric.id)}
+                                    title={t('modeling.delete_metric_title')}
+                                  >
+                                    ×
+                                  </button>
+                                </>
+                              }
+                            />
+                          ))}
+                        </>
+                      )}
+                    </ModelTreeNode>
                   )
                 })
+              )}
+              {(inactiveDimGroups.length > 0 || inactiveMetricGroups.length > 0) && (
+                <>
+                  <h3>{t('modeling.inactive_fields_heading')}</h3>
+                  {inactiveDimGroups.map((group) => (
+                    <div className={modelingGroupBodyClass} key={`dim-${group.key}`}>
+                      {group.values.map((dimension) => (
+                        <div
+                          className={modelingJoinPillClass({ suggested: true })}
+                          key={dimension.id}
+                        >
+                          <div className={modelingJoinPillHeaderClass}>
+                            <strong>{dimension.label ?? dimension.name}</strong>
+                            <button
+                              className={modelingAddBtnClass}
+                              onClick={() => onReactivateDimension(dimension)}
+                              title={t('modeling.reactivate_title')}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span>{dimension.column_ref}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  {inactiveMetricGroups.map((group) => (
+                    <div className={modelingGroupBodyClass} key={`metric-${group.key}`}>
+                      {group.values.map((metric) => (
+                        <div className={modelingJoinPillClass({ suggested: true })} key={metric.id}>
+                          <div className={modelingJoinPillHeaderClass}>
+                            <strong>{metric.label ?? metric.name}</strong>
+                            <button
+                              className={modelingAddBtnClass}
+                              onClick={() => onReactivateMetric(metric)}
+                              title={t('modeling.reactivate_title')}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span>{metric.expression}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           )}
@@ -562,183 +739,6 @@ export function ModelingPalette({
                       <span>
                         {join.from_table}.{join.from_column} → {join.to_table}.{join.to_column}
                       </span>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'dimensions' && (
-            <div className={modelingJoinListClass}>
-              <div className={modelingSectionHeaderClass}>
-                <h3>{t('modeling.dimensions_tab')}</h3>
-                <button
-                  className={cn(buttonClass('primary', { size: 'sm' }), modelingSectionAddBtnClass)}
-                  type="button"
-                  onClick={onSyncDimensions}
-                  disabled={!model}
-                  title={t('modeling.sync_dimensions_title')}
-                >
-                  {t('modeling.sync_dimensions_btn')}
-                </button>
-              </div>
-              {visibleDimsCount === 0 ? (
-                <p className={modelingEmptyClass}>{t('modeling.no_dimensions')}</p>
-              ) : (
-                dimGroups.map((group) => {
-                  const table = tableByKey.get(group.key)
-                  const tableLabel = tableDisplayLabel(table, group.key)
-                  return (
-                    <CollapsibleGroup
-                      key={group.key}
-                      title={tableLabel}
-                      meta={tableGroupMeta(table)}
-                      count={group.values.length}
-                      defaultOpen={dimGroups.length === 1}
-                    >
-                      {group.values.map((dimension) => (
-                        <div className={modelingJoinPillClass()} key={dimension.id}>
-                          <div className={modelingJoinPillHeaderClass}>
-                            <strong>{dimension.label ?? dimension.name}</strong>
-                            <span className={modelingPillActionsClass}>
-                              <button
-                                className={modelingRenameBtnClass}
-                                onClick={() => onEditDimension(dimension)}
-                                title={t('modeling.edit_display_name_title')}
-                              >
-                                ✎
-                              </button>
-                              <button
-                                className={modelingRenameBtnClass}
-                                onClick={() => onEditDimensionValues(dimension)}
-                                title={t('modeling.enum_values_edit_title')}
-                              >
-                                ≣
-                              </button>
-                              <button
-                                className={modelingDeleteBtnClass}
-                                onClick={() => onDeleteDimension(dimension.id)}
-                                title={t('modeling.delete_dimension_title')}
-                              >
-                                ×
-                              </button>
-                            </span>
-                          </div>
-                          <span>{dimension.column_ref}</span>
-                          <span className={modelingJoinMetaClass}>{dimension.type}</span>
-                        </div>
-                      ))}
-                    </CollapsibleGroup>
-                  )
-                })
-              )}
-              {inactiveDimGroups.length > 0 && (
-                <>
-                  <h3>{t('modeling.inactive_dimensions_heading')}</h3>
-                  {inactiveDimGroups.map((group) => (
-                    <div className={modelingGroupBodyClass} key={group.key}>
-                      {group.values.map((dimension) => (
-                        <div
-                          className={modelingJoinPillClass({ suggested: true })}
-                          key={dimension.id}
-                        >
-                          <div className={modelingJoinPillHeaderClass}>
-                            <strong>{dimension.label ?? dimension.name}</strong>
-                            <button
-                              className={modelingAddBtnClass}
-                              onClick={() => onReactivateDimension(dimension)}
-                              title={t('modeling.reactivate_title')}
-                            >
-                              +
-                            </button>
-                          </div>
-                          <span>{dimension.column_ref}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'metrics' && (
-            <div className={modelingJoinListClass}>
-              <div className={modelingSectionHeaderClass}>
-                <h3>{t('modeling.metrics_tab')}</h3>
-                <button
-                  className={cn(buttonClass('primary', { size: 'sm' }), modelingSectionAddBtnClass)}
-                  type="button"
-                  onClick={onOpenAddMetric}
-                  disabled={!model}
-                >
-                  {t('modeling.add_metric_btn')}
-                </button>
-              </div>
-              {visibleMetricsCount === 0 ? (
-                <p className={modelingEmptyClass}>{t('modeling.no_metrics')}</p>
-              ) : (
-                metricGroups.map((group) => {
-                  const table = tableByKey.get(group.key)
-                  const tableLabel = tableDisplayLabel(table, group.key)
-                  return (
-                    <CollapsibleGroup
-                      key={group.key}
-                      title={tableLabel}
-                      meta={tableGroupMeta(table)}
-                      count={group.values.length}
-                      defaultOpen={metricGroups.length === 1}
-                    >
-                      {group.values.map((metric) => (
-                        <div className={modelingJoinPillClass()} key={metric.id}>
-                          <div className={modelingJoinPillHeaderClass}>
-                            <strong>{metric.label ?? metric.name}</strong>
-                            <span className={modelingPillActionsClass}>
-                              <button
-                                className={modelingRenameBtnClass}
-                                onClick={() => onEditMetric(metric)}
-                                title={t('modeling.edit_display_name_title')}
-                              >
-                                ✎
-                              </button>
-                              <button
-                                className={modelingDeleteBtnClass}
-                                onClick={() => onDeleteMetric(metric.id)}
-                                title={t('modeling.delete_metric_title')}
-                              >
-                                ×
-                              </button>
-                            </span>
-                          </div>
-                          <span>{metric.expression}</span>
-                          <span className={modelingJoinMetaClass}>{metric.aggregation}</span>
-                        </div>
-                      ))}
-                    </CollapsibleGroup>
-                  )
-                })
-              )}
-              {inactiveMetricGroups.length > 0 && (
-                <>
-                  <h3>{t('modeling.inactive_metrics_heading')}</h3>
-                  {inactiveMetricGroups.map((group) => (
-                    <div className={modelingGroupBodyClass} key={group.key}>
-                      {group.values.map((metric) => (
-                        <div className={modelingJoinPillClass({ suggested: true })} key={metric.id}>
-                          <div className={modelingJoinPillHeaderClass}>
-                            <strong>{metric.label ?? metric.name}</strong>
-                            <button
-                              className={modelingAddBtnClass}
-                              onClick={() => onReactivateMetric(metric)}
-                              title={t('modeling.reactivate_title')}
-                            >
-                              +
-                            </button>
-                          </div>
-                          <span>{metric.expression}</span>
-                        </div>
-                      ))}
                     </div>
                   ))}
                 </>

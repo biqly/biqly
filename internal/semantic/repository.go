@@ -416,14 +416,27 @@ func (r *Repository) CreateJoin(ctx context.Context, j *Join) error {
 
 // GetJoins returns all active joins for a model.
 func (r *Repository) GetJoins(ctx context.Context, modelID string) ([]Join, error) {
-	query := `SELECT id::text, model_id::text, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active, created_at FROM semantic_joins WHERE model_id = $1::uuid AND is_active = true ORDER BY name`
+	query := `SELECT id::text, model_id::text, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, description, is_active, created_at FROM semantic_joins WHERE model_id = $1::uuid AND is_active = true ORDER BY name`
 	return platformdb.QuerySliceErr(ctx, r.db, "get joins", query, []any{modelID}, scanJoin)
 }
 
 // ListAllJoins returns every join (active and inactive) for a model.
 func (r *Repository) ListAllJoins(ctx context.Context, modelID string) ([]Join, error) {
-	query := `SELECT id::text, model_id::text, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, is_active, created_at FROM semantic_joins WHERE model_id = $1::uuid ORDER BY is_active DESC, name`
+	query := `SELECT id::text, model_id::text, name, from_schema, from_table, from_column, to_schema, to_table, to_column, join_type, relationship, description, is_active, created_at FROM semantic_joins WHERE model_id = $1::uuid ORDER BY is_active DESC, name`
 	return platformdb.QuerySliceErr(ctx, r.db, "list all joins", query, []any{modelID}, scanJoin)
+}
+
+// UpdateJoinDescription sets a join's natural-language description without
+// touching the join definition or draft status (descriptions are metadata,
+// not model shape).
+func (r *Repository) UpdateJoinDescription(ctx context.Context, modelID, joinID, description string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE semantic_joins SET description = $3 WHERE id = $1::uuid AND model_id = $2::uuid`,
+		joinID, modelID, description)
+	if err != nil {
+		return fmt.Errorf("update join description: %w", err)
+	}
+	return nil
 }
 
 // DeleteJoin soft-deletes a join by setting is_active = false.
@@ -838,7 +851,7 @@ func scanMetric(s platformdb.Scanner) (Metric, error) {
 
 func scanJoin(s platformdb.Scanner) (Join, error) {
 	var j Join
-	if err := s.Scan(&j.ID, &j.ModelID, &j.Name, &j.FromSchema, &j.FromTable, &j.FromColumn, &j.ToSchema, &j.ToTable, &j.ToColumn, &j.JoinType, &j.Relationship, &j.IsActive, &j.CreatedAt); err != nil {
+	if err := s.Scan(&j.ID, &j.ModelID, &j.Name, &j.FromSchema, &j.FromTable, &j.FromColumn, &j.ToSchema, &j.ToTable, &j.ToColumn, &j.JoinType, &j.Relationship, &j.Description, &j.IsActive, &j.CreatedAt); err != nil {
 		return j, fmt.Errorf("scan join: %w", err)
 	}
 	return j, nil

@@ -21,7 +21,9 @@ import { FileMetaPanel } from './FileMetaPanel'
 import { FileTree } from './FileTree'
 import { FileView } from './FileView'
 import { buildKnowledgeTree } from './knowledgeTree'
+import { clearNewFileDraft } from './newFileDraftStorage'
 import { NewFileModal } from './NewFileModal'
+import { STARTER_FILES } from './starterFiles'
 
 // KnowledgeBasePage is the WrenAI-style markdown knowledge base: a file tree
 // of datasource-scoped .md documents (glossary/, instructions/, metrics/,
@@ -51,7 +53,11 @@ export function KnowledgeBasePage() {
   const [publishing, setPublishing] = useState(false)
   const [creating, setCreating] = useState(false)
   const [backfilling, setBackfilling] = useState(false)
+  const [seeding, setSeeding] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  // User-created folders that don't have files yet — virtual until the first
+  // file lands in them (folders are derived from file paths server-side).
+  const [extraFolders, setExtraFolders] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -139,9 +145,32 @@ export function KnowledgeBasePage() {
         path,
         content_md: content,
       })
+      clearNewFileDraft(datasourceId)
       setModalOpen(false)
       await refresh()
       setSelected(await getKnowledgeFile(id))
+    })
+
+  // Seeds the "day one" files (README, data-location guide, metric/glossary/
+  // sql-pair skeletons) — skipping any path that already exists, so it is
+  // safe to run on a non-empty tree.
+  const handleSeedStarters = () =>
+    runAction(setSeeding, async () => {
+      const existing = new Set(files.map((f) => f.path))
+      let created = 0
+      for (const starter of STARTER_FILES) {
+        if (existing.has(starter.path)) {
+          continue
+        }
+        await createKnowledgeFile({
+          datasource_id: datasourceId,
+          path: starter.path,
+          content_md: starter.content,
+        })
+        created++
+      }
+      await refresh()
+      setMessage(t('knowledge_base.kb_starters_done', { count: created }))
     })
 
   const handleDelete = async () => {
@@ -170,7 +199,20 @@ export function KnowledgeBasePage() {
       setMessage(t('knowledge_base.kb_backfill_done', { count: created }))
     })
 
-  const tree = useMemo(() => buildKnowledgeTree(files, search), [files, search])
+  const tree = useMemo(() => {
+    const built = buildKnowledgeTree(files, search)
+    if (search.trim()) {
+      return built
+    }
+    const known = new Set(built.folders.map((f) => f.name))
+    const extras = extraFolders
+      .filter((name) => !known.has(name))
+      .map((name) => ({ name, files: [] }))
+    return {
+      ...built,
+      folders: [...built.folders, ...extras].sort((a, b) => a.name.localeCompare(b.name)),
+    }
+  }, [files, search, extraFolders])
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -201,8 +243,8 @@ export function KnowledgeBasePage() {
         </div>
       )}
 
-      <div className="grid min-h-128 grid-cols-1 items-start gap-4 lg:grid-cols-[15rem_minmax(0,1fr)_16rem]">
-        <div className="border-border bg-card flex max-h-[calc(100vh-16rem)] min-h-96 flex-col rounded-xl border p-3">
+      <div className="border-border bg-card divide-border grid grid-cols-1 divide-y overflow-hidden rounded-xl border lg:grid-cols-[15rem_minmax(0,1fr)_17rem] lg:divide-x lg:divide-y-0">
+        <div className="flex max-h-[calc(100vh-16rem)] min-h-96 flex-col p-3">
           <FileTree
             tree={tree}
             totalCount={files.length}
@@ -211,34 +253,43 @@ export function KnowledgeBasePage() {
             onSearchChange={setSearch}
             onSelect={(meta) => void openFile(meta)}
             onNewFile={() => setModalOpen(true)}
+            onNewFolder={(name) =>
+              setExtraFolders((prev) => (prev.includes(name) ? prev : [...prev, name]))
+            }
             onBackfill={files.length === 0 ? () => void handleBackfill() : null}
             backfilling={backfilling}
+            onSeedStarters={() => void handleSeedStarters()}
+            seeding={seeding}
             t={t}
           />
         </div>
 
         {selected ? (
           <>
-            <FileView
-              file={selected}
-              editing={editing}
-              saving={saving}
-              publishing={publishing}
-              onCancelEdit={() => setEditing(false)}
-              onSave={(content) => void handleSave(content)}
-              onPublish={() => void handlePublish()}
-              t={t}
-            />
-            <FileMetaPanel
-              file={selected}
-              localeTag={localeTag}
-              onEdit={() => setEditing(true)}
-              onDelete={() => void handleDelete()}
-              t={t}
-            />
+            <div className="flex max-h-[calc(100vh-16rem)] min-h-96 min-w-0 flex-col">
+              <FileView
+                file={selected}
+                editing={editing}
+                saving={saving}
+                publishing={publishing}
+                onCancelEdit={() => setEditing(false)}
+                onSave={(content) => void handleSave(content)}
+                onPublish={() => void handlePublish()}
+                t={t}
+              />
+            </div>
+            <div className="custom-scrollbar max-h-[calc(100vh-16rem)] overflow-y-auto p-3">
+              <FileMetaPanel
+                file={selected}
+                localeTag={localeTag}
+                onEdit={() => setEditing(true)}
+                onDelete={() => void handleDelete()}
+                t={t}
+              />
+            </div>
           </>
         ) : (
-          <div className="text-foreground-muted border-border bg-card flex min-h-96 items-center justify-center rounded-xl border text-[0.85rem] lg:col-span-2">
+          <div className="text-foreground-muted flex min-h-96 items-center justify-center text-[0.85rem] lg:col-span-2">
             {t('knowledge_base.kb_select_file')}
           </div>
         )}
@@ -247,6 +298,7 @@ export function KnowledgeBasePage() {
       <NewFileModal
         open={modalOpen}
         datasourceId={datasourceId}
+        extraFolders={extraFolders}
         creating={creating}
         onClose={() => setModalOpen(false)}
         onCreate={(path, content) => void handleCreate(path, content)}

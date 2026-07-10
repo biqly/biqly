@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useApi } from '../hooks/useApi'
 import { useDatasources } from '../hooks/useDatasources'
@@ -12,6 +12,12 @@ import { legacyLayoutClass } from '../lib/layoutClasses'
 import { modalActionsBorderedClass } from '../lib/modalClasses'
 import type { LogicalQuery, SelectField } from '../types/ai'
 import { DashboardWidgetRenderer } from './dashboard/DashboardWidgetRenderer'
+import {
+  heightFromDrag,
+  spanFromDrag,
+  type WidgetHeight,
+  widgetHeightPx,
+} from './dashboard/widgetResize'
 import { ErrorAlert } from './ui/ErrorAlert'
 import { LoadingOverlay } from './ui/LoadingOverlay'
 import { LoadingScreen } from './ui/LoadingScreen'
@@ -23,7 +29,8 @@ interface Widget {
   type: 'chart' | 'table' | 'kpi' | 'text'
   title: string
   w: number // column span (1-12)
-  h: 'small' | 'medium' | 'large'
+  // Legacy dashboards carry a size class; drag-resized widgets store pixels.
+  h: WidgetHeight
   saved_query_id?: string
   logical_query?: LogicalQuery
   chart_type?: 'line' | 'bar' | 'pie'
@@ -73,7 +80,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
   const [configChartType, setConfigChartType] = useState<'line' | 'bar' | 'pie'>('line')
   const [configContent, setConfigContent] = useState('')
   const [configWidth, setConfigWidth] = useState(6)
-  const [configHeight, setConfigHeight] = useState<'small' | 'medium' | 'large'>('medium')
+  const [configHeight, setConfigHeight] = useState<string>('medium')
 
   // Saved query linking
   const { datasources } = useDatasources()
@@ -185,7 +192,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
     setConfigChartType(w.chart_type ?? 'line')
     setConfigContent(w.content ?? '')
     setConfigWidth(w.w || 6)
-    setConfigHeight(w.h)
+    setConfigHeight(String(w.h))
 
     // Prefill linking query states if present
     if (w.saved_query_id) {
@@ -231,7 +238,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
       title: configTitle,
       type: configType,
       w: configWidth,
-      h: configHeight,
+      h: /^\d+$/.test(configHeight) ? Number(configHeight) : (configHeight as WidgetHeight),
       content: configType === 'text' ? configContent : undefined,
       chart_type: configType === 'chart' ? configChartType : undefined,
       saved_query_id: configType !== 'text' ? selQuestionId : undefined,
@@ -250,6 +257,50 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
     setWidgets(widgets.map((w) => (w.id === activeConfigWidget.id ? updated : w)))
     setIsConfigModalOpen(false)
     setIsDirty(true)
+  }
+
+  const gridRef = useRef<HTMLDivElement>(null)
+
+  // Drag-to-resize: the right edge snaps the column span to the 12-col grid,
+  // the bottom edge sets a free pixel height, the corner does both. Pointer
+  // events (not HTML5 drag) so the reorder-drag on the card stays untouched.
+  const startResize = (
+    e: React.PointerEvent,
+    widget: Widget,
+    resizeWidth: boolean,
+    resizeHeight: boolean,
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startY = e.clientY
+    const startSpan = widget.w || 6
+    const startHeight = widgetHeightPx(widget.h)
+    const containerWidth = gridRef.current?.clientWidth ?? 1200
+    const onMove = (ev: PointerEvent) => {
+      setWidgets((prev) =>
+        prev.map((w) => {
+          if (w.id !== widget.id) {
+            return w
+          }
+          const next = { ...w }
+          if (resizeWidth) {
+            next.w = spanFromDrag(startSpan, ev.clientX - startX, containerWidth)
+          }
+          if (resizeHeight) {
+            next.h = heightFromDrag(startHeight, ev.clientY - startY)
+          }
+          return next
+        }),
+      )
+      setIsDirty(true)
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
   }
 
   // HTML5 Drag and drop reordering
@@ -276,17 +327,6 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
     nextWidgets.splice(toIdx, 0, moved!)
     setWidgets(nextWidgets)
     setIsDirty(true)
-  }
-
-  const heightPixels = (h: 'small' | 'medium' | 'large') => {
-    switch (h) {
-      case 'small':
-        return '180px'
-      case 'large':
-        return '440px'
-      default:
-        return '300px'
-    }
   }
 
   if (loading && !dashboard) {
@@ -354,34 +394,34 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
 
           {/* Toolbox */}
           {isEditMode && (
-            <div className="border-border mt-6 flex gap-3 border-t pt-4">
-              <span className="text-foreground-faint self-center text-[0.9rem] font-semibold">
+            <div className="border-border mt-6 flex flex-wrap items-center gap-2 border-t pt-4">
+              <span className="text-foreground-faint text-[0.85rem] font-semibold">
                 Add Widget:
               </span>
               <button
                 type="button"
-                className={buttonClass('secondary', { size: 'sm' })}
+                className={buttonClass('secondary', { size: 'sm', autoWidth: true })}
                 onClick={() => handleAddWidget('kpi')}
               >
                 ➕ KPI
               </button>
               <button
                 type="button"
-                className={buttonClass('secondary', { size: 'sm' })}
+                className={buttonClass('secondary', { size: 'sm', autoWidth: true })}
                 onClick={() => handleAddWidget('chart')}
               >
                 ➕ Chart
               </button>
               <button
                 type="button"
-                className={buttonClass('secondary', { size: 'sm' })}
+                className={buttonClass('secondary', { size: 'sm', autoWidth: true })}
                 onClick={() => handleAddWidget('table')}
               >
                 ➕ Table
               </button>
               <button
                 type="button"
-                className={buttonClass('secondary', { size: 'sm' })}
+                className={buttonClass('secondary', { size: 'sm', autoWidth: true })}
                 onClick={() => handleAddWidget('text')}
               >
                 ➕ Text
@@ -419,7 +459,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-12 gap-6">
+          <div ref={gridRef} className="grid grid-cols-12 gap-6">
             {widgets.map((widget, idx) => (
               <div
                 key={widget.id}
@@ -430,7 +470,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                 className={cn(cardClass({ elevated: true }), 'relative flex flex-col p-5')}
                 style={{
                   gridColumn: `span ${widget.w || 6}`,
-                  minHeight: heightPixels(widget.h),
+                  minHeight: `${widgetHeightPx(widget.h)}px`,
                   border: isEditMode ? '2px dashed var(--accent-light, var(--border))' : undefined,
                   cursor: isEditMode ? 'grab' : 'default',
                 }}
@@ -440,45 +480,6 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                   <h3 className="text-foreground m-0 text-base font-semibold">{widget.title}</h3>
                   {isEditMode && (
                     <div className="flex items-center gap-1">
-                      {/* Width Resize */}
-                      <button
-                        type="button"
-                        className={cn(
-                          buttonClass('secondary', { size: 'sm' }),
-                          'px-[0.3rem] py-[0.1rem] text-xs',
-                        )}
-                        onClick={() => {
-                          const newW = Math.max(2, (widget.w || 6) - 1)
-                          setWidgets(
-                            widgets.map((w) => (w.id === widget.id ? { ...w, w: newW } : w)),
-                          )
-                          setIsDirty(true)
-                        }}
-                        title={t('customDashboards.builder_shrink_width_aria')}
-                        aria-label={t('customDashboards.builder_shrink_width_aria')}
-                      >
-                        ◀
-                      </button>
-                      <span className="text-foreground-faint text-xs">{widget.w || 6}</span>
-                      <button
-                        type="button"
-                        className={cn(
-                          buttonClass('secondary', { size: 'sm' }),
-                          'px-[0.3rem] py-[0.1rem] text-xs',
-                        )}
-                        onClick={() => {
-                          const newW = Math.min(12, (widget.w || 6) + 1)
-                          setWidgets(
-                            widgets.map((w) => (w.id === widget.id ? { ...w, w: newW } : w)),
-                          )
-                          setIsDirty(true)
-                        }}
-                        title={t('customDashboards.builder_expand_width_aria')}
-                        aria-label={t('customDashboards.builder_expand_width_aria')}
-                      >
-                        ▶
-                      </button>
-
                       {/* Config / Delete */}
                       <button
                         type="button"
@@ -512,6 +513,31 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                 <div className="flex-1 overflow-hidden">
                   <DashboardWidgetRenderer widget={widget} />
                 </div>
+
+                {isEditMode && (
+                  <>
+                    <div
+                      role="presentation"
+                      className="hover:bg-accent/30 absolute top-2 -right-1 bottom-6 w-2 cursor-ew-resize touch-none rounded"
+                      title={t('customDashboards.builder_resize_aria')}
+                      onPointerDown={(e) => startResize(e, widget, true, false)}
+                    />
+                    <div
+                      role="presentation"
+                      className="hover:bg-accent/30 absolute right-6 -bottom-1 left-2 h-2 cursor-ns-resize touch-none rounded"
+                      title={t('customDashboards.builder_resize_aria')}
+                      onPointerDown={(e) => startResize(e, widget, false, true)}
+                    />
+                    <div
+                      role="presentation"
+                      className="text-foreground-faint hover:text-accent absolute right-0 bottom-0 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end pr-0.5 pb-0.5 text-[0.6rem] select-none"
+                      title={t('customDashboards.builder_resize_aria')}
+                      onPointerDown={(e) => startResize(e, widget, true, true)}
+                    >
+                      ◢
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -565,6 +591,9 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                   { value: 'small', label: 'Small (180px)' },
                   { value: 'medium', label: 'Medium (300px)' },
                   { value: 'large', label: 'Large (440px)' },
+                  ...(/^\d+$/.test(configHeight)
+                    ? [{ value: configHeight, label: `Custom (${configHeight}px)` }]
+                    : []),
                 ]}
               />
             </div>

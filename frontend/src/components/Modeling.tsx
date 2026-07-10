@@ -48,6 +48,8 @@ export default function Modeling() {
         onPublishModel={() => void s.publishModel()}
         onRemoveModel={() => void s.removeModel()}
         onExportModel={() => void s.exportModel()}
+        onDescribeJoins={() => void s.describeJoins()}
+        describingJoins={s.describingJoins}
         onImportModel={(file) => void s.importModel(file)}
         importing={s.importing}
         onOpenVersions={() => setVersionsOpen(true)}
@@ -179,6 +181,9 @@ export default function Modeling() {
               onToggleColumnDimension={(table, columnName) => {
                 void s.toggleColumnDimension(table, columnName)
               }}
+              onDeleteJoin={(joinId) => {
+                void s.deleteJoin(joinId)
+              }}
               onOpenTableDetail={s.setDetailTable}
               onAddCalcField={() => s.setAddMetricOpen(true)}
               onAddRelationship={() => s.setEditorOpen(true)}
@@ -214,6 +219,10 @@ export default function Modeling() {
           modelId={s.model.id}
           modelName={s.model.name}
           onClose={() => setVersionsOpen(false)}
+          onRolledBack={() => {
+            void s.refreshModels(s.model!.id)
+            s.setMessage(s.t('modeling.versions_restored'))
+          }}
         />
       )}
       {s.model && (

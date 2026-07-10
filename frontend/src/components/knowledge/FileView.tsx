@@ -7,6 +7,7 @@ import type { TFunction } from '../../i18n'
 import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { parseFrontmatter } from '../../utils/frontmatter'
+import { MarkdownEditor } from './MarkdownEditor'
 
 type ViewMode = 'rendered' | 'source'
 
@@ -37,27 +38,6 @@ const markdownBodyClass = cn(
   '[&_blockquote]:border-border [&_blockquote]:text-foreground-muted [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:pl-3',
 )
 
-function SourceView({ content }: { content: string }) {
-  const lines = content.split('\n')
-  return (
-    <div className="custom-scrollbar overflow-x-auto">
-      <pre className="m-0 flex flex-col bg-transparent p-0 text-[0.8rem] leading-normal">
-        {lines.map((line, i) => (
-          <span key={i} className="flex gap-3">
-            <span
-              aria-hidden="true"
-              className="text-foreground-faint w-8 shrink-0 text-right tabular-nums select-none"
-            >
-              {i + 1}
-            </span>
-            <code className="whitespace-pre">{line || ' '}</code>
-          </span>
-        ))}
-      </pre>
-    </div>
-  )
-}
-
 export function FileView({
   file,
   editing,
@@ -79,8 +59,8 @@ export function FileView({
   const { body } = parseFrontmatter(file.content_md)
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3" aria-label={file.path}>
-      <div className="flex flex-wrap items-center gap-2">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label={file.path}>
+      <div className="border-border flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
         <span className="text-foreground text-[0.85rem] font-semibold">{file.path}</span>
         <span
           className={cn(
@@ -156,21 +136,25 @@ export function FileView({
         </div>
       </div>
 
-      <div className="border-border bg-card custom-scrollbar min-h-0 flex-1 overflow-y-auto rounded-xl border p-4">
+      <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-5">
         {editing ? (
-          <textarea
+          <MarkdownEditor
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            aria-label={t('knowledge_base.kb_content_label')}
-            className="border-border bg-card-raised h-full min-h-80 w-full resize-y rounded-md border p-3 font-mono text-[0.8rem] leading-normal"
-            spellCheck={false}
+            onChange={setDraft}
+            folder={file.folder}
+            ariaLabel={t('knowledge_base.kb_content_label')}
           />
         ) : mode === 'rendered' ? (
           <div className={markdownBodyClass}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
           </div>
         ) : (
-          <SourceView content={file.content_md} />
+          <MarkdownEditor
+            value={file.content_md}
+            readOnly
+            folder={file.folder}
+            ariaLabel={t('knowledge_base.kb_source')}
+          />
         )}
       </div>
     </section>

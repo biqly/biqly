@@ -26,7 +26,7 @@ export interface DashboardWidget {
   type: 'chart' | 'table' | 'kpi' | 'text'
   title: string
   w: number
-  h: 'small' | 'medium' | 'large'
+  h: 'small' | 'medium' | 'large' | number
   saved_query_id?: string
   logical_query?: LogicalQuery
   chart_type?: 'line' | 'bar' | 'pie'

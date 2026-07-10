@@ -35,6 +35,8 @@ export function ModelingToolbar({
   onPublishModel,
   onRemoveModel,
   onExportModel,
+  onDescribeJoins,
+  describingJoins,
   onImportModel,
   importing,
   onOpenVersions,
@@ -54,6 +56,8 @@ export function ModelingToolbar({
   onPublishModel: () => void
   onRemoveModel: () => void
   onExportModel: () => void
+  onDescribeJoins: () => void
+  describingJoins: boolean
   onImportModel: (file: File) => void
   importing: boolean
   onOpenVersions: () => void
@@ -101,12 +105,14 @@ export function ModelingToolbar({
         <label className={formLabelClass}>{t('modeling.actions_label')}</label>
         <div className={modelingToolbarActionsClass}>
           <button
-            className={buttonClass('primary', { className: 'mt-0! w-auto!' })}
+            className={buttonClass('primary', {
+              className: 'mt-0! inline-flex w-auto! items-center gap-1.5',
+            })}
             type="button"
             onClick={onCreateModel}
             disabled={!datasourceId || creatingModel}
           >
-            <span aria-hidden="true">✨</span>{' '}
+            <span aria-hidden="true">✨</span>
             {creatingModel ? t('modeling.creating') : t('modeling.create_from_metadata')}
           </button>
           <input
@@ -124,12 +130,14 @@ export function ModelingToolbar({
             }}
           />
           <button
-            className={buttonClass('secondary', { className: 'mt-0! w-auto!' })}
+            className={buttonClass('secondary', {
+              className: 'mt-0! inline-flex w-auto! items-center gap-1.5',
+            })}
             type="button"
             onClick={() => importInputRef.current?.click()}
             disabled={!datasourceId || importing}
           >
-            <span aria-hidden="true">📥</span>{' '}
+            <span aria-hidden="true">📥</span>
             {importing ? t('modeling.importing') : t('modeling.import_model')}
           </button>
           {model && (
@@ -169,6 +177,15 @@ export function ModelingToolbar({
                   icon: '📤',
                   label: t('modeling.export_model'),
                   onSelect: onExportModel,
+                },
+                {
+                  key: 'describe-joins',
+                  icon: '✨',
+                  label: describingJoins
+                    ? t('modeling.describing_joins')
+                    : t('modeling.describe_joins_btn'),
+                  disabled: describingJoins,
+                  onSelect: onDescribeJoins,
                 },
                 {
                   key: 'versions',

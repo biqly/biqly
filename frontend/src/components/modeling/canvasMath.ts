@@ -298,6 +298,25 @@ export function buildCardSections(
   return sections
 }
 
+// cardinalityMarkers maps a relationship to the crow's-foot style end labels
+// drawn next to the join line's endpoints: '*' on the many side, '1' on the
+// one side (from → x1/y1, to → x2/y2).
+export function cardinalityMarkers(relationship: SemanticJoin['relationship']): {
+  from: string
+  to: string
+} {
+  switch (relationship) {
+    case 'many_to_one':
+      return { from: '*', to: '1' }
+    case 'one_to_many':
+      return { from: '1', to: '*' }
+    case 'many_to_many':
+      return { from: '*', to: '*' }
+    default:
+      return { from: '1', to: '1' }
+  }
+}
+
 export function computeJoinPath(
   join: SemanticJoin,
   baseSchema: string,

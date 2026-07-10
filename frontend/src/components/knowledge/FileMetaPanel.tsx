@@ -16,8 +16,11 @@ interface FileMetaPanelProps {
 export function FileMetaPanel({ file, localeTag, onEdit, onDelete, t }: FileMetaPanelProps) {
   const { frontmatter, raw } = parseFrontmatter(file.content_md)
   return (
-    <aside className="flex w-full flex-col gap-3" aria-label={t('knowledge_base.kb_file_panel')}>
-      <div className="border-border bg-card rounded-xl border p-3">
+    <aside
+      className="divide-border flex w-full flex-col divide-y"
+      aria-label={t('knowledge_base.kb_file_panel')}
+    >
+      <div className="pb-3">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h4 className="text-foreground-muted m-0 text-[0.7rem] font-bold tracking-widest uppercase">
             {t('knowledge_base.kb_file_panel')}
@@ -53,7 +56,7 @@ export function FileMetaPanel({ file, localeTag, onEdit, onDelete, t }: FileMeta
         </dl>
       </div>
 
-      <div className="border-border bg-card rounded-xl border p-3">
+      <div className="pt-3">
         <h4 className="text-foreground-muted m-0 mb-2 flex items-center gap-1.5 text-[0.7rem] font-bold tracking-widest uppercase">
           <span aria-hidden="true" className="text-accent">
             ✦

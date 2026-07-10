@@ -192,6 +192,46 @@ export async function fetchJSON<T>(
   }
 }
 
+// apiFetchText performs an authenticated request whose response body is plain
+// text (YAML exports, downloads) — fetchJSON would reject those with
+// "Expected JSON response". Same headers/CSRF/timeout handling.
+export async function apiFetchText(
+  method: string,
+  url: string,
+  options: RequestOptions = {},
+): Promise<string> {
+  const timeout = options.timeout ?? 30_000
+  const controller = new AbortController()
+  let timedOut = false
+  const startedAt = Date.now()
+  const timeoutId = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeout)
+  const signal = mergeAbortSignals(controller, options.signal)
+  try {
+    const headers = buildFetchHeaders(options, undefined)
+    const res = await csrfFetch(url, {
+      ...stripRequestOptions({ ...options, method }),
+      method,
+      headers,
+      signal,
+    })
+    const text = await res.text()
+    if (!res.ok) {
+      throw new ApiError(responseError(res.status, parseResponseBody(text)), res.status)
+    }
+    return text
+  } catch (err) {
+    if (err instanceof ApiError) {
+      throw err
+    }
+    throw new ApiError(fetchNetworkErrorMessage(err, timedOut, startedAt, timeout), 0)
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 export async function apiFetch<T>(
   method: string,
   url: string,

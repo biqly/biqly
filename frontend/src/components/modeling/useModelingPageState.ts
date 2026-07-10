@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
+import { apiFetchText } from '../../api/apiClient'
 import { useApi } from '../../hooks/useApi'
 import { useConfirm } from '../../hooks/useConfirm'
 import { useDatasources } from '../../hooks/useDatasources'
@@ -125,7 +126,7 @@ export function useModelingPageState() {
   const [creatingModel, setCreatingModel] = useState(false)
   const [savingJoin, setSavingJoin] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<Tab>('joins')
+  const [activeTab, setActiveTab] = useState<Tab>('model')
   const [suggestedJoins, setSuggestedJoins] = useState<SuggestedJoin[]>([])
   const [publishing, setPublishing] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -559,13 +560,41 @@ export function useModelingPageState() {
     }
   }
 
+  const [describingJoins, setDescribingJoins] = useState(false)
+
+  // AI-generated one-liners for every active join (describe-purpose model);
+  // shown in the canvas relationship tooltips after the refresh.
+  const describeJoins = async () => {
+    if (!model || describingJoins) {
+      return
+    }
+    setDescribingJoins(true)
+    setMessage(null)
+    try {
+      const res = await postData<{ updated: number }>(
+        `/api/ai/semantic/models/${model.id}/describe-joins`,
+        {},
+      )
+      if (res) {
+        await refreshModels(model.id)
+        setMessage(t('modeling.joins_described', { count: res.updated }))
+      }
+    } finally {
+      setDescribingJoins(false)
+    }
+  }
+
   const exportModel = async () => {
     if (!model) {
       return
     }
-    const yaml = await get<string>(`/api/semantic/models/${model.id}/export`)
-    if (yaml != null) {
+    // The export endpoint returns raw YAML (application/yaml), not JSON —
+    // fetchJSON would reject it with "Expected JSON response".
+    try {
+      const yaml = await apiFetchText('GET', `/api/semantic/models/${model.id}/export`)
       downloadTextFile(`${model.name}.yaml`, yaml)
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : t('common.unknown_error'))
     }
   }
 
@@ -888,6 +917,8 @@ export function useModelingPageState() {
     renameModel,
     publishModel,
     exportModel,
+    describeJoins,
+    describingJoins,
     importModel,
     importing,
     syncDimensions,

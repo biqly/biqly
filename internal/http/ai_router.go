@@ -138,6 +138,9 @@ func registerAIAPIRoutes(
 	// posture, and the endpoint discloses no model data (returns only a count)
 	// while writes are an idempotent, bounded TR rendering of the model's own text.
 	r.With(aiUserMW).Post("/ai/semantic/models/{id}/translate", aiHandler.TranslateSemanticModel)
+	// AI-generated join descriptions for the modeling canvas tooltips; uses the
+	// describe-purpose provider like metadata descriptions.
+	r.With(aiUserMW).Post("/ai/semantic/models/{id}/describe-joins", aiHandler.DescribeJoins)
 	r.Get("/ai/settings", aiHandler.RuntimeSettings)
 	r.Get("/ai/user-models", aiHandler.UserAIModels)
 	r.Put("/ai/user-preferences", aiHandler.PutUserAIPreferences)

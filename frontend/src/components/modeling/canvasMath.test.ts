@@ -7,6 +7,7 @@ import {
   buildCardLayouts,
   buildCardSections,
   cardHeight,
+  cardinalityMarkers,
   computeCanvasBounds,
   computeJoinPath,
   continuousZoomScale,
@@ -315,6 +316,15 @@ describe('computeJoinPath with a scrolled column list', () => {
     expect(path!.y1).toBeCloseTo(40 + HEADER_HEIGHT, 5)
     // The unscrolled side is unaffected.
     expect(path!.y2).toBeCloseTo(40 + HEADER_HEIGHT + CARD_PAD_Y + ROW_HEIGHT / 2, 5)
+  })
+})
+
+describe('cardinalityMarkers', () => {
+  it('places * on the many side and 1 on the one side', () => {
+    expect(cardinalityMarkers('many_to_one')).toEqual({ from: '*', to: '1' })
+    expect(cardinalityMarkers('one_to_many')).toEqual({ from: '1', to: '*' })
+    expect(cardinalityMarkers('one_to_one')).toEqual({ from: '1', to: '1' })
+    expect(cardinalityMarkers('many_to_many')).toEqual({ from: '*', to: '*' })
   })
 })
 

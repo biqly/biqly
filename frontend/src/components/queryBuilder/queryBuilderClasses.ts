@@ -27,12 +27,10 @@ export const qbCardClass = 'rounded-2xl border border-border bg-card p-5 pb-[1.6
 
 // Header is now a vertical stack of two labeled-group rows (data/saved, then
 // options). Each row groups controls with a shared visual rhythm.
-export const qbHeaderClass = 'mb-6 flex flex-col gap-[1.1rem] border-b border-border pb-5'
+export const qbHeaderClass =
+  'mb-6 flex flex-wrap items-end gap-x-6 gap-y-4 border-b border-border pb-5 max-[720px]:flex-col max-[720px]:items-stretch'
 
 // A row that lays several labeled groups side by side, wrapping on small screens.
-// items-start keeps the caption labels on one line even when a group's controls wrap.
-export const qbHeaderRowClass =
-  'flex min-w-0 flex-wrap items-start gap-x-6 gap-y-3 max-[720px]:flex-col max-[720px]:items-stretch'
 
 // A labeled group shell: uppercase caption label above the control(s).
 export const qbHeaderGroupClass =

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { draftKnowledgeFile } from '../../api/knowledge'
 import type { TFunction } from '../../i18n'
@@ -8,10 +8,14 @@ import { formLabelClass } from '../../lib/formClasses'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { Modal } from '../ui/Modal'
 import { KNOWLEDGE_FOLDERS } from './knowledgeTree'
+import { MarkdownEditor } from './MarkdownEditor'
+import { loadNewFileDraft, saveNewFileDraft } from './newFileDraftStorage'
 
 interface NewFileModalProps {
   open: boolean
   datasourceId: string
+  /** Virtual folders created in the tree that have no files yet. */
+  extraFolders?: string[]
   creating: boolean
   onClose: () => void
   onCreate: (path: string, contentMD: string) => void
@@ -34,6 +38,7 @@ const TEMPLATES: Record<string, string> = {
 export function NewFileModal({
   open,
   datasourceId,
+  extraFolders = [],
   creating,
   onClose,
   onCreate,
@@ -44,7 +49,48 @@ export function NewFileModal({
   const [content, setContent] = useState(TEMPLATES.instructions ?? '')
   const [aiPrompt, setAiPrompt] = useState('')
   const [drafting, setDrafting] = useState(false)
+  const [draftElapsedS, setDraftElapsedS] = useState(0)
+  const [restored, setRestored] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const draftAbortRef = useRef<AbortController | null>(null)
+
+  // Restore a persisted draft when the modal opens; abort any in-flight
+  // generation when it closes or unmounts.
+  useEffect(() => {
+    if (!open) {
+      draftAbortRef.current?.abort()
+      return
+    }
+    const persisted = loadNewFileDraft(datasourceId)
+    if (persisted && (persisted.content.trim() || persisted.aiPrompt.trim())) {
+      /* eslint-disable react-hooks/set-state-in-effect */
+      setFolder(persisted.folder)
+      setPath(persisted.path)
+      setAiPrompt(persisted.aiPrompt)
+      setContent(persisted.content || (TEMPLATES[persisted.folder] ?? ''))
+      setRestored(true)
+      /* eslint-enable react-hooks/set-state-in-effect */
+    }
+    return () => draftAbortRef.current?.abort()
+  }, [open, datasourceId])
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    saveNewFileDraft(datasourceId, { folder, path, aiPrompt, content })
+  }, [open, datasourceId, folder, path, aiPrompt, content])
+
+  useEffect(() => {
+    if (!drafting) {
+      return
+    }
+    const startedAt = Date.now()
+    const id = window.setInterval(() => {
+      setDraftElapsedS(Math.round((Date.now() - startedAt) / 1000))
+    }, 500)
+    return () => window.clearInterval(id)
+  }, [drafting])
 
   const applyFolder = (next: string) => {
     setFolder(next)
@@ -58,23 +104,36 @@ export function NewFileModal({
     if (!aiPrompt.trim() || drafting) {
       return
     }
+    const controller = new AbortController()
+    draftAbortRef.current = controller
     setDrafting(true)
+    setDraftElapsedS(0)
     setError(null)
     try {
-      const draft = await draftKnowledgeFile({
-        datasource_id: datasourceId,
-        folder,
-        prompt: aiPrompt.trim(),
-      })
+      const draft = await draftKnowledgeFile(
+        { datasource_id: datasourceId, folder, prompt: aiPrompt.trim() },
+        controller.signal,
+      )
       setContent(draft.content_md)
       if (!path.trim()) {
         setPath(draft.path)
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t('common.unknown_error'))
+      if (!controller.signal.aborted) {
+        setError(err instanceof Error ? err.message : t('common.unknown_error'))
+      }
     } finally {
+      if (draftAbortRef.current === controller) {
+        draftAbortRef.current = null
+      }
       setDrafting(false)
     }
+  }
+
+  const cancelDraft = () => {
+    draftAbortRef.current?.abort()
+    draftAbortRef.current = null
+    setDrafting(false)
   }
 
   const effectivePath = path.trim() || (folder ? `${folder}/new-file.md` : 'new-file.md')
@@ -85,6 +144,7 @@ export function NewFileModal({
       title={t('knowledge_base.kb_new_file_title')}
       onClose={onClose}
       className="max-w-2xl"
+      closeOnBackdrop={!drafting}
     >
       <div className="flex flex-col gap-4">
         <div className="border-border bg-card-raised flex flex-col gap-2 rounded-lg border p-3">
@@ -95,21 +155,52 @@ export function NewFileModal({
             placeholder={t('knowledge_base.kb_ai_prompt_placeholder')}
             aria-label={t('knowledge_base.kb_ai_section')}
             rows={2}
+            disabled={drafting}
             className="border-border bg-card w-full resize-y rounded-md border p-2 text-[0.82rem]"
           />
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className={cn(buttonClass('secondary', { size: 'sm' }), 'w-auto!')}
-              onClick={() => void handleDraft()}
-              disabled={drafting || !aiPrompt.trim() || !datasourceId}
-            >
-              {drafting ? t('knowledge_base.kb_ai_generating') : t('knowledge_base.kb_ai_generate')}
-            </button>
-            <span className="text-foreground-muted text-[0.75rem]">
-              {t('knowledge_base.kb_ai_hint')}
-            </span>
+          <div className="flex flex-wrap items-center gap-3">
+            {drafting ? (
+              <>
+                <span
+                  className="text-accent inline-flex items-center gap-2 text-[0.8rem] font-medium"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span className="border-accent inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-t-transparent" />
+                  {t('knowledge_base.kb_ai_generating')}
+                  <span className="text-foreground-muted tabular-nums">
+                    {t('knowledge_base.kb_ai_elapsed', { s: draftElapsedS })}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className={cn(buttonClass('ghost', { size: 'sm' }), 'w-auto!')}
+                  onClick={cancelDraft}
+                >
+                  {t('knowledge_base.kb_cancel')}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={cn(buttonClass('secondary', { size: 'sm' }), 'w-auto!')}
+                  onClick={() => void handleDraft()}
+                  disabled={!aiPrompt.trim() || !datasourceId}
+                >
+                  {t('knowledge_base.kb_ai_generate')}
+                </button>
+                <span className="text-foreground-muted text-[0.75rem]">
+                  {t('knowledge_base.kb_ai_hint')}
+                </span>
+              </>
+            )}
           </div>
+          {restored && !drafting && (
+            <p className="text-foreground-faint m-0 text-[0.72rem]">
+              {t('knowledge_base.kb_draft_restored')}
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(8rem,auto)_1fr]">
@@ -123,7 +214,7 @@ export function NewFileModal({
               value={folder}
               onChange={(e) => applyFolder(e.target.value)}
             >
-              {KNOWLEDGE_FOLDERS.map((name) => (
+              {[...new Set([...KNOWLEDGE_FOLDERS, ...extraFolders])].sort().map((name) => (
                 <option key={name} value={name}>
                   {name}/
                 </option>
@@ -146,17 +237,17 @@ export function NewFileModal({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className={formLabelClass} htmlFor="kb-new-content">
-            {t('knowledge_base.kb_content_label')}
-          </label>
-          <textarea
-            id="kb-new-content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={12}
-            spellCheck={false}
-            className="border-border bg-card-raised w-full resize-y rounded-md border p-3 font-mono text-[0.8rem] leading-normal"
-          />
+          <span className={formLabelClass}>{t('knowledge_base.kb_content_label')}</span>
+          <div className="border-border bg-card-raised max-h-[45vh] overflow-y-auto rounded-md border">
+            <MarkdownEditor
+              value={content}
+              onChange={setContent}
+              readOnly={drafting}
+              folder={folder}
+              ariaLabel={t('knowledge_base.kb_content_label')}
+              minHeight="14rem"
+            />
+          </div>
         </div>
 
         <ErrorAlert error={error} />
@@ -174,7 +265,7 @@ export function NewFileModal({
             type="button"
             className={cn(buttonClass('primary', { size: 'sm' }), 'w-auto!')}
             onClick={() => onCreate(effectivePath, content)}
-            disabled={creating || !content.trim()}
+            disabled={creating || drafting || !content.trim()}
           >
             {creating ? t('knowledge_base.kb_creating') : t('knowledge_base.kb_create')}
           </button>

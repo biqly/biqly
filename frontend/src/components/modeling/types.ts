@@ -19,7 +19,9 @@ export interface JoinForm {
   relationship: 'many_to_one' | 'one_to_many' | 'one_to_one' | 'many_to_many'
 }
 
-export type Tab = 'joins' | 'dimensions' | 'metrics' | 'tables'
+// The palette shows the whole model as one tree (tables → dimensions/metrics)
+// plus the relationships list — the former Tables/Dims/Metrics tabs merged.
+export type Tab = 'model' | 'joins'
 
 export type RenameTarget =
   | { kind: 'model'; current: string; title: string; subtitle: string }

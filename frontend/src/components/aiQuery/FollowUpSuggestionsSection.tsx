@@ -23,16 +23,18 @@ export function FollowUpSuggestions({ suggestions, onSelect, t }: FollowUpSugges
 
   return (
     <section
-      className="border-border/70 mt-4 border-t pt-3"
+      className="border-border/70 mt-1 flex flex-wrap items-center gap-2 border-t pt-2.5"
       aria-label={t('ai_query.followups_title')}
     >
-      <p className="text-text mb-2 text-sm font-medium">{t('ai_query.followups_title')}</p>
-      <div className="flex flex-wrap gap-2">
+      <p className="text-foreground-muted m-0 text-[0.78rem] font-medium">
+        {t('ai_query.followups_title')}
+      </p>
+      <div className="flex min-w-0 flex-wrap gap-1.5">
         {suggestions.map((suggestion) => (
           <button
             key={suggestion.id}
             type="button"
-            className="border-border bg-surface-2 text-text hover:border-accent hover:text-accent focus-visible:ring-accent rounded-md border px-3 py-1.5 text-sm transition focus-visible:ring-2 focus-visible:outline-none"
+            className="border-border bg-surface-2 text-text hover:border-accent hover:text-accent focus-visible:ring-accent rounded-md border px-2.5 py-1 text-[0.78rem] transition focus-visible:ring-2 focus-visible:outline-none"
             aria-label={t('ai_query.followups_apply_aria', { question: suggestion.question })}
             onClick={() => onSelect(suggestion.question)}
           >

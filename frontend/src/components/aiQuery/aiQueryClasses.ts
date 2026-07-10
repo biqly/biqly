@@ -94,7 +94,7 @@ export const userBubbleContentClass =
 export const userBubbleTimeClass = 'text-[0.68rem] opacity-85 self-end mt-[0.35rem]'
 
 export const assistantCardClass =
-  'bg-card border border-border rounded-[1rem_0.35rem_1rem_1rem] p-5 shadow-card flex flex-col gap-4 w-full transition-all duration-200 backdrop-blur-md hover:border-border-strong'
+  'bg-card border border-border rounded-[1rem_0.35rem_1rem_1rem] p-4 shadow-card flex flex-col gap-2 w-full transition-all duration-200 backdrop-blur-md hover:border-border-strong'
 
 // Streamed natural-language answer shown to the left of the ✦ avatar column,
 // above the bordered result card.
@@ -536,10 +536,10 @@ export const routingDebugCodeClass =
 export const btnSampleClass = 'mt-2.5 text-[0.75rem] p-[0.3rem_0.75rem]'
 
 export const collapsibleSectionClass =
-  'mb-3 bg-card border border-border rounded-lg overflow-hidden shadow-card-sm transition-all duration-150'
+  'mb-0 bg-card border border-border rounded-lg overflow-hidden shadow-card-sm transition-all duration-150'
 
 export const collapsibleSectionSummaryClass =
-  'cursor-pointer font-semibold text-[0.84rem] text-foreground p-[0.65rem_0.95rem] bg-black/2 border-b border-transparent list-none flex justify-between items-center transition-all duration-180 select-none hover:bg-canvas-subtle hover:text-foreground'
+  'cursor-pointer font-semibold text-[0.8rem] text-foreground p-[0.45rem_0.8rem] bg-black/2 border-b border-transparent list-none flex justify-between items-center transition-all duration-180 select-none hover:bg-canvas-subtle hover:text-foreground'
 
 export const collapsibleContentClass = 'p-[0.9rem]'
 
@@ -561,7 +561,7 @@ export const recoveryOptionsClass = 'flex gap-2'
 export const recoveryOptionsButtonClass =
   'p-[0.35rem_0.7rem] bg-card-raised border border-border-strong text-foreground rounded-[0.35rem] cursor-pointer text-[0.8rem] hover:border-accent'
 
-export const resultsSectionClass = 'mt-4'
+export const resultsSectionClass = 'mt-0'
 
 export const resultsHeaderClass = 'flex items-center gap-3 flex-wrap mb-3'
 
