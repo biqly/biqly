@@ -41,7 +41,7 @@ function SourceView({ content }: { content: string }) {
   const lines = content.split('\n')
   return (
     <div className="custom-scrollbar overflow-x-auto">
-      <pre className="m-0 flex flex-col bg-transparent p-0 text-[0.8rem] leading-[1.5]">
+      <pre className="m-0 flex flex-col bg-transparent p-0 text-[0.8rem] leading-normal">
         {lines.map((line, i) => (
           <span key={i} className="flex gap-3">
             <span
@@ -162,7 +162,7 @@ export function FileView({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             aria-label={t('knowledge_base.kb_content_label')}
-            className="border-border bg-card-raised h-full min-h-[20rem] w-full resize-y rounded-md border p-3 font-mono text-[0.8rem] leading-[1.5]"
+            className="border-border bg-card-raised h-full min-h-80 w-full resize-y rounded-md border p-3 font-mono text-[0.8rem] leading-normal"
             spellCheck={false}
           />
         ) : mode === 'rendered' ? (

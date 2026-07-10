@@ -61,7 +61,7 @@ export function FileMetaPanel({ file, localeTag, onEdit, onDelete, t }: FileMeta
           {t('knowledge_base.kb_summary_title')}
         </h4>
         {frontmatter ? (
-          <pre className="bg-canvas-subtle custom-scrollbar m-0 max-h-64 overflow-auto rounded-md p-2.5 text-[0.72rem] leading-[1.5] whitespace-pre-wrap">
+          <pre className="bg-canvas-subtle custom-scrollbar m-0 max-h-64 overflow-auto rounded-md p-2.5 text-[0.72rem] leading-normal whitespace-pre-wrap">
             {`---\n${raw.trim()}\n---`}
           </pre>
         ) : (

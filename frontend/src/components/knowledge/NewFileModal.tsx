@@ -155,7 +155,7 @@ export function NewFileModal({
             onChange={(e) => setContent(e.target.value)}
             rows={12}
             spellCheck={false}
-            className="border-border bg-card-raised w-full resize-y rounded-md border p-3 font-mono text-[0.8rem] leading-[1.5]"
+            className="border-border bg-card-raised w-full resize-y rounded-md border p-3 font-mono text-[0.8rem] leading-normal"
           />
         </div>
 

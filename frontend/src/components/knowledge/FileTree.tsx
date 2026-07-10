@@ -35,7 +35,7 @@ function FileRow({
         aria-current={selected ? 'true' : undefined}
         className={cn(
           'flex w-full cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-2 py-1 text-left text-[0.8rem]',
-          'text-foreground-muted hover:text-foreground hover:bg-[var(--control-hover-bg)]',
+          'text-foreground-muted hover:text-foreground hover:bg-(--control-hover-bg)',
           selected &&
             'text-foreground bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] font-medium',
         )}

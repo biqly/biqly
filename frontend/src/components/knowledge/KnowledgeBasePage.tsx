@@ -201,8 +201,8 @@ export function KnowledgeBasePage() {
         </div>
       )}
 
-      <div className="grid min-h-[32rem] grid-cols-1 items-start gap-4 lg:grid-cols-[15rem_minmax(0,1fr)_16rem]">
-        <div className="border-border bg-card flex max-h-[calc(100vh-16rem)] min-h-[24rem] flex-col rounded-xl border p-3">
+      <div className="grid min-h-128 grid-cols-1 items-start gap-4 lg:grid-cols-[15rem_minmax(0,1fr)_16rem]">
+        <div className="border-border bg-card flex max-h-[calc(100vh-16rem)] min-h-96 flex-col rounded-xl border p-3">
           <FileTree
             tree={tree}
             totalCount={files.length}
@@ -238,7 +238,7 @@ export function KnowledgeBasePage() {
             />
           </>
         ) : (
-          <div className="text-foreground-muted border-border bg-card flex min-h-[24rem] items-center justify-center rounded-xl border text-[0.85rem] lg:col-span-2">
+          <div className="text-foreground-muted border-border bg-card flex min-h-96 items-center justify-center rounded-xl border text-[0.85rem] lg:col-span-2">
             {t('knowledge_base.kb_select_file')}
           </div>
         )}
