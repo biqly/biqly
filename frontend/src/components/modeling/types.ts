@@ -61,7 +61,8 @@ export interface CardLayout {
   columnsShown: ColumnRow[]
   columnIndex: Map<string, number>
   height: number
-  hiddenCount: number
+  // Rows visible at once in the card's scrollable column list window.
+  visibleRowCount: number
   calcFieldCount: number
   relatedTables: string[]
 }

@@ -2,6 +2,8 @@ export const CARD_WIDTH = 280
 export const HEADER_HEIGHT = 61.8
 export const ROW_HEIGHT = 25.8
 export const CARD_PAD_Y = 5.6
+// Max rows visible at once in a card's column list; longer lists scroll inside
+// a window of this many rows instead of being truncated.
 export const COL_LIMIT = 10
 export const GRID_X = 340
 export const GRID_Y = 72

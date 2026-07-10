@@ -14,12 +14,16 @@ import {
   keyboardDeltaFromKey,
   layoutInitialPositions,
   panViewport,
+  resolveOverlaps,
   zoomStep,
   zoomViewportAtPoint,
 } from './canvasMath'
 import {
   CALC_SECTION_HEIGHT,
   CARD_BOTTOM_PAD,
+  CARD_PAD_Y,
+  GRID_Y,
+  HEADER_HEIGHT,
   MAX_SCALE,
   MIN_SCALE,
   REL_SECTION_LABEL_HEIGHT,
@@ -207,7 +211,7 @@ describe('canvas layout', () => {
           columnsShown: [columns[0]!],
           columnIndex: new Map([['customer_id', 0]]),
           height: 120,
-          hiddenCount: 0,
+          visibleRowCount: 1,
           calcFieldCount: 0,
           relatedTables: [],
         },
@@ -218,7 +222,7 @@ describe('canvas layout', () => {
           columnsShown: [columns[1]!],
           columnIndex: new Map([['id', 0]]),
           height: 120,
-          hiddenCount: 0,
+          visibleRowCount: 1,
           calcFieldCount: 0,
           relatedTables: [],
         },
@@ -245,6 +249,109 @@ describe('canvas layout', () => {
     )
     expect(path).not.toBeNull()
     expect(path!.d).toContain('M ')
+  })
+})
+
+describe('buildCardLayouts column window', () => {
+  it('lists every column but clamps the window to the column limit', () => {
+    const wide = mkTable('public', 'wide')
+    const manyColumns: ColumnRow[] = Array.from({ length: 12 }, (_, i) => ({
+      id: `w${i}`,
+      schema_name: 'public',
+      table_name: 'wide',
+      column_name: `col_${String(i).padStart(2, '0')}`,
+      data_type: 'text',
+      nullable: true,
+      description: null,
+      is_primary_key: false,
+      is_foreign_key: false,
+      referenced_table: null,
+      referenced_column: null,
+    }))
+    const layouts = buildCardLayouts([wide], manyColumns, new Map(), 10, new Map())
+    const layout = layouts.get(tableKey('public', 'wide'))!
+    expect(layout.columnsShown).toHaveLength(12)
+    expect(layout.visibleRowCount).toBe(10)
+    expect(layout.height).toBe(cardHeight(10, { calcFieldCount: 0, relatedTables: [] }))
+  })
+})
+
+describe('computeJoinPath with a scrolled column list', () => {
+  const layout = (colName: string): CardLayout => ({
+    columnsShown: [],
+    columnIndex: new Map([[colName, 0]]),
+    height: 120,
+    visibleRowCount: 1,
+    calcFieldCount: 0,
+    relatedTables: [],
+  })
+  const join = {
+    id: 'j1',
+    name: 'orders_customer',
+    from_table: 'orders',
+    from_column: 'customer_id',
+    to_table: 'customers',
+    to_column: 'id',
+    join_type: 'LEFT',
+    relationship: 'many_to_one',
+  } as const
+  const layouts = new Map<string, CardLayout>([
+    [tableKey('public', 'orders'), layout('customer_id')],
+    [tableKey('public', 'customers'), layout('id')],
+  ])
+  const positions = {
+    [tableKey('public', 'orders')]: { x: 40, y: 40 },
+    [tableKey('public', 'customers')]: { x: 420, y: 40 },
+  }
+
+  it('anchors to the row center when the list is not scrolled', () => {
+    const path = computeJoinPath(join, 'public', positions, layouts, new Map())
+    expect(path!.y1).toBeCloseTo(40 + HEADER_HEIGHT + CARD_PAD_Y + ROW_HEIGHT / 2, 5)
+  })
+
+  it('clamps the anchor to the list window when the row is scrolled out', () => {
+    const scrollTops = new Map([[tableKey('public', 'orders'), 100]])
+    const path = computeJoinPath(join, 'public', positions, layouts, scrollTops)
+    expect(path!.y1).toBeCloseTo(40 + HEADER_HEIGHT, 5)
+    // The unscrolled side is unaffected.
+    expect(path!.y2).toBeCloseTo(40 + HEADER_HEIGHT + CARD_PAD_Y + ROW_HEIGHT / 2, 5)
+  })
+})
+
+describe('resolveOverlaps', () => {
+  const layoutWithHeight = (height: number): CardLayout => ({
+    columnsShown: [],
+    columnIndex: new Map(),
+    height,
+    visibleRowCount: 0,
+    calcFieldCount: 0,
+    relatedTables: [],
+  })
+  const layouts = new Map<string, CardLayout>([
+    ['a', layoutWithHeight(200)],
+    ['b', layoutWithHeight(150)],
+    ['c', layoutWithHeight(100)],
+  ])
+
+  it('pushes an overlapping lower card below the upper card', () => {
+    const resolved = resolveOverlaps({ a: { x: 40, y: 40 }, b: { x: 60, y: 120 } }, layouts)
+    expect(resolved.a).toEqual({ x: 40, y: 40 })
+    expect(resolved.b!.x).toBe(60)
+    expect(resolved.b!.y).toBe(40 + 200 + GRID_Y / 2)
+  })
+
+  it('returns the input untouched when nothing overlaps', () => {
+    const positions = { a: { x: 40, y: 40 }, b: { x: 400, y: 40 } }
+    expect(resolveOverlaps(positions, layouts)).toBe(positions)
+  })
+
+  it('cascades pushes through stacked overlaps', () => {
+    const resolved = resolveOverlaps(
+      { a: { x: 40, y: 40 }, b: { x: 40, y: 100 }, c: { x: 40, y: 160 } },
+      layouts,
+    )
+    expect(resolved.b!.y).toBeGreaterThanOrEqual(resolved.a!.y + 200)
+    expect(resolved.c!.y).toBeGreaterThanOrEqual(resolved.b!.y + 150)
   })
 })
 

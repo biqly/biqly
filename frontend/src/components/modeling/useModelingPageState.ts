@@ -18,7 +18,7 @@ import type {
 } from '../../types/semantic'
 import { downloadTextFile } from '../../utils/downloadFile'
 import { pickPublishedModelId, pickValidIdOrFirst } from '../../utils/effectiveSelection'
-import { activeEntities, inactiveEntities } from './entityActions'
+import { activeEntities, inactiveEntities, reactivateDimensionPayload } from './entityActions'
 import { tableImpact } from './modelingImpact'
 import {
   runAddSuggestedJoin,
@@ -40,8 +40,10 @@ import {
   columnsAreJoinCompatible,
   columnSelectOptions,
   defaultJoinForm,
+  dimensionTypeFromDataType,
   findColumn,
   patchJoinForm,
+  splitColumnRef,
   splitTableKey,
   tableKey,
 } from './utils'
@@ -291,6 +293,95 @@ export function useModelingPageState() {
       persistVisibility(nextShown, nextHidden)
     },
     [manualShown, manualHidden, persistVisibility, visibilityStorageKey],
+  )
+
+  // Column names backed by an active dimension, per table key. This is what
+  // the canvas cards/menus show and toggle, keeping them in sync with the
+  // palette's dimensions tab (both read model.dimensions).
+  const modelColumnsByTable = useMemo(() => {
+    if (!model) {
+      return null
+    }
+    const out = new Map<string, Set<string>>()
+    for (const dim of model.dimensions ?? []) {
+      if (dim.is_active === false) {
+        continue
+      }
+      const ref = splitColumnRef(dim.column_ref, model.base_schema)
+      if (!ref) {
+        continue
+      }
+      let cols = out.get(ref.tableKey)
+      if (!cols) {
+        cols = new Set()
+        out.set(ref.tableKey, cols)
+      }
+      cols.add(ref.column)
+    }
+    return out
+  }, [model])
+
+  const [pendingColumnKeys, setPendingColumnKeys] = useState<Set<string>>(new Set())
+
+  // Checkbox semantics in the card menu: checked = the column backs at least
+  // one active dimension. Unchecking soft-deactivates every dimension derived
+  // from the column (date-grain variants included); re-checking reactivates
+  // them, or creates a fresh dimension when none ever existed.
+  const toggleColumnDimension = useCallback(
+    async (table: TableRow, columnName: string) => {
+      if (!model) {
+        return
+      }
+      const cardKey = tableKey(table.schema_name, table.table_name)
+      const pendingKey = `${cardKey}::${columnName}`
+      if (pendingColumnKeys.has(pendingKey)) {
+        return
+      }
+      setPendingColumnKeys((prev) => new Set(prev).add(pendingKey))
+      setMessage(null)
+      try {
+        const matching = (model.dimensions ?? []).filter((dim) => {
+          const ref = splitColumnRef(dim.column_ref, model.base_schema)
+          return ref !== null && ref.tableKey === cardKey && ref.column === columnName
+        })
+        const activeDims = matching.filter((dim) => dim.is_active !== false)
+        if (activeDims.length > 0) {
+          for (const dim of activeDims) {
+            await deleteData(`/api/semantic/models/${model.id}/dimensions/${dim.id}`)
+          }
+          setMessage(t('modeling.dimension_deleted'))
+        } else if (matching.length > 0) {
+          for (const dim of matching) {
+            await putData(
+              `/api/semantic/models/${model.id}/dimensions/${dim.id}`,
+              reactivateDimensionPayload(dim),
+            )
+          }
+          setMessage(t('modeling.reactivate_dimension'))
+        } else {
+          const column = findColumn(columns, cardKey, columnName)
+          const usedNames = new Set((model.dimensions ?? []).map((dim) => dim.name))
+          const name = usedNames.has(columnName) ? `${table.table_name}_${columnName}` : columnName
+          await postData(`/api/semantic/models/${model.id}/dimensions`, {
+            name,
+            column_ref:
+              table.schema_name === model.base_schema
+                ? `${table.table_name}.${columnName}`
+                : `${cardKey}.${columnName}`,
+            type: dimensionTypeFromDataType(column?.data_type ?? ''),
+          })
+          setMessage(t('modeling.dimension_added'))
+        }
+        await refreshModels(model.id)
+      } finally {
+        setPendingColumnKeys((prev) => {
+          const next = new Set(prev)
+          next.delete(pendingKey)
+          return next
+        })
+      }
+    },
+    [model, columns, pendingColumnKeys, deleteData, putData, postData, refreshModels, t],
   )
 
   const requestMakeBase = useCallback(
@@ -766,6 +857,9 @@ export function useModelingPageState() {
     setEnumDimension,
     deleteDimension,
     reactivateDimension,
+    modelColumnsByTable,
+    pendingColumnKeys,
+    toggleColumnDimension,
     setAddMetricOpen,
     setEditingMetric,
     deleteMetric,

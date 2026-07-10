@@ -43,16 +43,26 @@ interface ModelingCanvasProps {
   highlightedTables: Set<string> | null
   highlightedColumns: Map<string, Set<string>>
   highlightedJoinColumns: { from: string; to: string } | null
+  // Column names that back an active model dimension, per table key; null when
+  // no model is loaded (membership cannot be shown or edited).
+  modelColumnsByTable: Map<string, Set<string>> | null
+  // `${tableKey}::${column}` keys with an in-flight dimension toggle request.
+  pendingColumnKeys: Set<string>
+  onToggleColumnDimension: (table: TableRow, columnName: string) => void
   onOpenTableDetail: (table: TableRow) => void
   onAddCalcField: (table: TableRow) => void
   onAddRelationship: (table: TableRow) => void
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string
 }
 
-function ColumnVisibilityMenu({
+// Per-table model-field picker: a checked column is backed by an active
+// dimension in the semantic model, so toggles here edit the model itself and
+// stay in sync with the palette's dimensions tab.
+function ModelFieldsMenu({
   tableKey: key,
   columns,
-  visible,
+  checked,
+  pendingColumnKeys,
   anchor,
   onToggle,
   onClose,
@@ -60,7 +70,8 @@ function ColumnVisibilityMenu({
 }: {
   tableKey: string
   columns: ColumnRow[]
-  visible: Set<string>
+  checked: Set<string>
+  pendingColumnKeys: Set<string>
   anchor: DOMRect
   onToggle: (columnName: string) => void
   onClose: () => void
@@ -105,7 +116,8 @@ function ColumnVisibilityMenu({
               <input
                 id={id}
                 type="checkbox"
-                checked={visible.has(column.column_name)}
+                checked={checked.has(column.column_name)}
+                disabled={pendingColumnKeys.has(`${key}::${column.column_name}`)}
                 onChange={() => onToggle(column.column_name)}
               />
               <span>{column.column_name}</span>
@@ -127,6 +139,9 @@ export function ModelingCanvas({
   highlightedTables,
   highlightedColumns,
   highlightedJoinColumns,
+  modelColumnsByTable,
+  pendingColumnKeys,
+  onToggleColumnDimension,
   onOpenTableDetail,
   onAddCalcField,
   onAddRelationship,
@@ -145,28 +160,16 @@ export function ModelingCanvas({
     fitView,
     resetView,
     getJoinPath,
-    visibleByTable,
-    setTableVisibleColumns,
+    setCardScrollTop,
   } = canvas
 
   const [joinHover, setJoinHover] = useState<JoinHoverState | null>(null)
   const [columnsMenu, setColumnsMenu] = useState<ColumnsMenuState | null>(null)
 
-  // Names checked in the menu: an explicit selection once the user has toggled,
-  // otherwise the currently auto-shown columns (seeds the first toggle).
-  const menuVisibleColumns = (key: string): Set<string> =>
-    visibleByTable.get(key) ??
-    new Set(cardLayouts.get(key)?.columnsShown.map((column) => column.column_name) ?? [])
-
-  const toggleMenuColumn = (key: string, columnName: string) => {
-    const next = new Set(menuVisibleColumns(key))
-    if (next.has(columnName)) {
-      next.delete(columnName)
-    } else {
-      next.add(columnName)
-    }
-    setTableVisibleColumns(key, [...next])
-  }
+  const emptyModelColumns = new Set<string>()
+  const menuTable = columnsMenu
+    ? tableCards.find((table) => tableKey(table.schema_name, table.table_name) === columnsMenu.key)
+    : undefined
 
   return (
     <>
@@ -261,10 +264,16 @@ export function ModelingCanvas({
                 isHi={isHi}
                 highlightedColumns={highlightedColumns.get(key)}
                 highlightedJoinColumns={highlightedJoinColumns}
+                modelColumns={
+                  modelColumnsByTable
+                    ? (modelColumnsByTable.get(key) ?? emptyModelColumns)
+                    : undefined
+                }
                 onDragStart={onCardDragStart(key)}
                 onKeyDown={onCardKeyDown(key)}
                 onOpenDetail={() => onOpenTableDetail(table)}
                 onOpenColumnsMenu={(anchor) => setColumnsMenu({ key, anchor })}
+                onColumnsScroll={(top) => setCardScrollTop(key, top)}
                 onAddCalcField={() => onAddCalcField(table)}
                 onAddRelationship={() => onAddRelationship(table)}
                 t={t}
@@ -300,13 +309,14 @@ export function ModelingCanvas({
           </span>
         </div>
       ) : null}
-      {columnsMenu ? (
-        <ColumnVisibilityMenu
+      {columnsMenu && modelColumnsByTable && menuTable ? (
+        <ModelFieldsMenu
           tableKey={columnsMenu.key}
           columns={columnOptions(columns, columnsMenu.key)}
-          visible={menuVisibleColumns(columnsMenu.key)}
+          checked={modelColumnsByTable.get(columnsMenu.key) ?? emptyModelColumns}
+          pendingColumnKeys={pendingColumnKeys}
           anchor={columnsMenu.anchor}
-          onToggle={(columnName) => toggleMenuColumn(columnsMenu.key, columnName)}
+          onToggle={(columnName) => onToggleColumnDimension(menuTable, columnName)}
           onClose={() => setColumnsMenu(null)}
           t={t}
         />

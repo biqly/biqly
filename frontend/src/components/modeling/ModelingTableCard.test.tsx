@@ -31,34 +31,47 @@ describe('ModelingTableCard', () => {
       ],
       columnIndex: new Map([['amount', 0]]),
       height: 200,
-      hiddenCount: 0,
+      visibleRowCount: 1,
       calcFieldCount: 2,
       relatedTables: ['users'],
     }
     const t = (key: TranslationKey) => key
 
-    const markup = renderToStaticMarkup(
-      <ModelingTableCard
-        table={table}
-        layout={layout}
-        pos={{ x: 0, y: 0 }}
-        isBase
-        isHi={false}
-        highlightedColumns={undefined}
-        highlightedJoinColumns={null}
-        onDragStart={vi.fn()}
-        onKeyDown={vi.fn()}
-        onOpenDetail={vi.fn()}
-        onOpenColumnsMenu={vi.fn()}
-        onAddCalcField={vi.fn()}
-        onAddRelationship={vi.fn()}
-        t={t}
-      />,
-    )
+    const render = (modelColumns: Set<string> | undefined) =>
+      renderToStaticMarkup(
+        <ModelingTableCard
+          table={table}
+          layout={layout}
+          pos={{ x: 0, y: 0 }}
+          isBase
+          isHi={false}
+          highlightedColumns={undefined}
+          highlightedJoinColumns={null}
+          modelColumns={modelColumns}
+          onDragStart={vi.fn()}
+          onKeyDown={vi.fn()}
+          onOpenDetail={vi.fn()}
+          onOpenColumnsMenu={vi.fn()}
+          onColumnsScroll={vi.fn()}
+          onAddCalcField={vi.fn()}
+          onAddRelationship={vi.fn()}
+          t={t}
+        />,
+      )
+
+    const markup = render(new Set(['amount']))
 
     expect(markup).toContain('123')
     expect(markup).toContain('modeling.calc_fields_section')
     expect(markup).toContain('modeling.relationships_section')
     expect(markup).toContain('users')
+    // Column list scrolls inside a fixed window instead of truncating.
+    expect(markup).toContain('modeling-card-columns')
+
+    // A column without a backing model dimension renders dimmed; a model field
+    // (or an unknown membership when no model is loaded) does not.
+    expect(markup).not.toContain('opacity-45')
+    expect(render(new Set())).toContain('opacity-45')
+    expect(render(undefined)).not.toContain('opacity-45')
   })
 })

@@ -347,14 +347,19 @@ export function modelingTableCardClass(opts?: { base?: boolean; hi?: boolean }):
 export function modelingTableRowClass(opts?: {
   joined?: boolean
   active?: boolean
-  more?: boolean
+  muted?: boolean
 }): string {
   return cn(
     opts?.joined && 'bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-foreground',
     opts?.active && 'bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] font-bold text-accent',
-    opts?.more && 'justify-center text-[0.7rem] text-foreground-muted italic',
+    opts?.muted && 'opacity-45',
   )
 }
+
+// Scrollable column-list window inside a table card; the class name is also a
+// marker the canvas wheel handler uses to let wheel input scroll the list
+// instead of zooming.
+export const modelingCardColumnsClass = 'modeling-card-columns overflow-y-auto'
 
 export const modelingColumnNameClass = cn(
   'flex min-w-0 items-center gap-[0.28rem] overflow-hidden text-ellipsis whitespace-nowrap',
@@ -527,7 +532,6 @@ const LEGACY_MODELING_CLASS_MAP: Record<string, string> = {
   'modeling-table-card--hi': modelingTableCardClass({ hi: true }),
   'modeling-row--joined': modelingTableRowClass({ joined: true }),
   'modeling-row--active': modelingTableRowClass({ active: true }),
-  'modeling-row--more': modelingTableRowClass({ more: true }),
   'modeling-status-pill': modelingStatusPillClass(),
   'modeling-status-pill--published': modelingStatusPillClass(true),
   'modeling-palette': modelingPaletteClass(true),

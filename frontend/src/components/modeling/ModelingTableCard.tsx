@@ -1,7 +1,8 @@
-import type { KeyboardEvent, MouseEvent } from 'react'
+import type { KeyboardEvent, MouseEvent, UIEvent } from 'react'
 
 import type { TranslationKey } from '../../i18n'
 import {
+  modelingCardColumnsClass,
   modelingCardHeaderRowClass,
   modelingCardSectionAddClass,
   modelingCardSectionClass,
@@ -14,7 +15,7 @@ import {
 } from '../../lib/modelingClasses'
 import type { TableRow } from '../../types/semantic'
 import { columnTypeIcon } from './columnTypeIcon'
-import { CARD_WIDTH } from './constants'
+import { CARD_PAD_Y, CARD_WIDTH, ROW_HEIGHT } from './constants'
 import type { CardLayout } from './types'
 import { formatDataType } from './utils'
 
@@ -26,10 +27,12 @@ interface ModelingTableCardProps {
   isHi: boolean
   highlightedColumns: Set<string> | undefined
   highlightedJoinColumns: { from: string; to: string } | null
+  modelColumns: Set<string> | undefined
   onDragStart: (event: MouseEvent) => void
   onKeyDown: (event: KeyboardEvent) => void
   onOpenDetail: () => void
   onOpenColumnsMenu: (anchor: DOMRect) => void
+  onColumnsScroll: (scrollTop: number) => void
   onAddCalcField: () => void
   onAddRelationship: () => void
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string
@@ -43,15 +46,18 @@ export function ModelingTableCard({
   isHi,
   highlightedColumns,
   highlightedJoinColumns,
+  modelColumns,
   onDragStart,
   onKeyDown,
   onOpenDetail,
   onOpenColumnsMenu,
+  onColumnsScroll,
   onAddCalcField,
   onAddRelationship,
   t,
 }: ModelingTableCardProps) {
   const key = `${table.schema_name}.${table.table_name}`
+  const columnListHeight = CARD_PAD_Y * 2 + layout.visibleRowCount * ROW_HEIGHT
 
   return (
     <article
@@ -88,18 +94,31 @@ export function ModelingTableCard({
         ⋮
       </button>
 
-      <ul>
+      <ul
+        className={modelingCardColumnsClass}
+        style={{ maxHeight: columnListHeight }}
+        onScroll={(event: UIEvent<HTMLUListElement>) =>
+          onColumnsScroll(event.currentTarget.scrollTop)
+        }
+      >
         {layout.columnsShown.map((column) => {
           const isJoinCol = highlightedColumns?.has(column.column_name)
           const colKey = `${key}::${column.column_name}`
           const isActiveJoinCol =
             highlightedJoinColumns !== null &&
             (highlightedJoinColumns.from === colKey || highlightedJoinColumns.to === colKey)
+          // Without a loaded model there is no membership to signal — show all
+          // rows at full strength instead of dimming everything.
+          const isModelField = modelColumns ? modelColumns.has(column.column_name) : true
           const icon = columnTypeIcon(column.data_type)
           return (
             <li
               key={column.id}
-              className={modelingTableRowClass({ joined: isJoinCol, active: isActiveJoinCol })}
+              className={modelingTableRowClass({
+                joined: isJoinCol,
+                active: isActiveJoinCol,
+                muted: !isModelField,
+              })}
             >
               <span className={modelingColumnNameClass}>
                 <span className={modelingTypeIconClass} aria-hidden="true">
@@ -129,11 +148,6 @@ export function ModelingTableCard({
             </li>
           )
         })}
-        {layout.hiddenCount > 0 && (
-          <li className={modelingTableRowClass({ more: true })}>
-            +{layout.hiddenCount} {t('modeling.more_columns')}
-          </li>
-        )}
       </ul>
 
       <div className={modelingCardSectionClass}>

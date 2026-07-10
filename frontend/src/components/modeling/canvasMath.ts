@@ -76,8 +76,18 @@ export const cardHeight = (count: number, section?: CardSection) => {
     CARD_BOTTOM_PAD
   )
 }
-export const rowCenterY = (idx: number) =>
-  HEADER_HEIGHT + CARD_PAD_Y + idx * ROW_HEIGHT + ROW_HEIGHT / 2
+// Y offset (within a card) of a column row's center, accounting for the
+// scrollable list window: rows scrolled out of view clamp to the window edge
+// so join lines stay attached to the visible list area.
+export function rowCenterY(idx: number, layout?: CardLayout, scrollTop = 0) {
+  const contentY = CARD_PAD_Y + idx * ROW_HEIGHT + ROW_HEIGHT / 2
+  if (!layout) {
+    return HEADER_HEIGHT + contentY
+  }
+  const listHeight = CARD_PAD_Y * 2 + layout.visibleRowCount * ROW_HEIGHT
+  const clamped = Math.min(Math.max(contentY - scrollTop, 0), listHeight)
+  return HEADER_HEIGHT + clamped
+}
 
 export function applyDragDelta(startPos: Pt, dx: number, dy: number, scale: number): Pt {
   return {
@@ -148,6 +158,45 @@ export function layoutInitialPositions(
   return next
 }
 
+// Pushes overlapping cards downward until no two cards intersect. Card heights
+// change after the initial grid layout (model detail loads, column windows
+// resize), and preserved positions can then collide; this reopens the gaps
+// deterministically (only y grows, top-most card of a pair never moves).
+export function resolveOverlaps(
+  positions: Record<string, Pt>,
+  cardLayouts: Map<string, CardLayout>,
+  gap = GRID_Y / 2,
+): Record<string, Pt> {
+  const keys = Object.keys(positions).filter((key) => cardLayouts.has(key))
+  const next: Record<string, Pt> = { ...positions }
+  const heightOf = (key: string) => cardLayouts.get(key)?.height ?? 0
+  let movedAny = false
+  const maxPasses = 10
+  for (let pass = 0; pass < maxPasses; pass++) {
+    keys.sort((a, b) => next[a]!.y - next[b]!.y || next[a]!.x - next[b]!.x)
+    let moved = false
+    for (let i = 0; i < keys.length; i++) {
+      const upper = keys[i]!
+      const up = next[upper]!
+      for (let j = i + 1; j < keys.length; j++) {
+        const lower = keys[j]!
+        const lp = next[lower]!
+        const xOverlap = up.x < lp.x + CARD_WIDTH && lp.x < up.x + CARD_WIDTH
+        const yOverlap = up.y < lp.y + heightOf(lower) && lp.y < up.y + heightOf(upper)
+        if (xOverlap && yOverlap) {
+          next[lower] = { x: lp.x, y: up.y + heightOf(upper) + gap }
+          moved = true
+          movedAny = true
+        }
+      }
+    }
+    if (!moved) {
+      break
+    }
+  }
+  return movedAny ? next : positions
+}
+
 export function computeCanvasBounds(
   tableCards: TableRow[],
   positions: Record<string, Pt>,
@@ -174,36 +223,25 @@ export function buildCardLayouts(
   joinColumns: Map<string, Set<string>>,
   colLimit: number,
   sections: Map<string, CardSection>,
-  visibleByTable?: Map<string, Set<string>>,
 ): Map<string, CardLayout> {
   const out = new Map<string, CardLayout>()
   for (const tbl of tableCards) {
     const key = tableKey(tbl.schema_name, tbl.table_name)
     const linked = joinColumns.get(key) ?? new Set<string>()
-    const allCols = columnOptions(columns, key)
-    const explicit = visibleByTable?.get(key)
     const section = sections.get(key) ?? { calcFieldCount: 0, relatedTables: [] }
 
-    // An explicit, non-empty selection overrides the auto-picked top-N subset:
-    // show exactly the checked columns in natural order, with no "+N more" row.
-    let cols: ColumnRow[]
-    let hidden: number
-    if (explicit && explicit.size > 0) {
-      cols = allCols.filter((c) => explicit.has(c.column_name))
-      hidden = 0
-    } else {
-      cols = [...allCols].sort((a, b) => compareColumns(a, b, linked)).slice(0, colLimit)
-      hidden = Math.max(0, allCols.length - cols.length)
-    }
+    // All columns are listed (PK/FK/join columns first); lists longer than
+    // colLimit scroll inside a fixed window instead of being truncated.
+    const cols = [...columnOptions(columns, key)].sort((a, b) => compareColumns(a, b, linked))
+    const visibleRowCount = Math.min(cols.length, colLimit)
 
     const idx = new Map<string, number>()
     cols.forEach((c, i) => idx.set(c.column_name, i))
-    const rowCount = cols.length + (hidden > 0 ? 1 : 0)
     out.set(key, {
       columnsShown: cols,
       columnIndex: idx,
-      height: cardHeight(rowCount, section),
-      hiddenCount: hidden,
+      height: cardHeight(visibleRowCount, section),
+      visibleRowCount,
       calcFieldCount: section.calcFieldCount,
       relatedTables: section.relatedTables,
     })
@@ -265,6 +303,7 @@ export function computeJoinPath(
   baseSchema: string,
   positions: Record<string, Pt>,
   cardLayouts: Map<string, CardLayout>,
+  scrollTops?: Map<string, number>,
 ): JoinPath | null {
   const fromKey = tableKey(join.from_schema ?? baseSchema, join.from_table)
   const toKey = tableKey(join.to_schema ?? baseSchema, join.to_table)
@@ -281,8 +320,8 @@ export function computeJoinPath(
   if (fromIdx === undefined || toIdx === undefined) {
     return null
   }
-  const fromY = fromPos.y + rowCenterY(fromIdx)
-  const toY = toPos.y + rowCenterY(toIdx)
+  const fromY = fromPos.y + rowCenterY(fromIdx, fromLayout, scrollTops?.get(fromKey) ?? 0)
+  const toY = toPos.y + rowCenterY(toIdx, toLayout, scrollTops?.get(toKey) ?? 0)
 
   const fromCenterX = fromPos.x + CARD_WIDTH / 2
   const toCenterX = toPos.x + CARD_WIDTH / 2
