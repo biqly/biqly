@@ -140,11 +140,11 @@ auth:
       memory: 128Mi
   image:
     repository: auth
-    tag: sha-3ac631aa36fe3309dafcb18bb29aae06ebb5c5ab
+    tag: sha-14c45c813a6d559e9f50009346de3b5fcde91044
   migrate:
     image:
       repository: auth
-      tag: sha-3ac631aa36fe3309dafcb18bb29aae06ebb5c5ab
+      tag: sha-14c45c813a6d559e9f50009346de3b5fcde91044
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -171,11 +171,11 @@ mail:
     BI_MAIL_SMTP_SENDER_NAME: "ABI"
   image:
     repository: mail
-    tag: sha-3ac631aa36fe3309dafcb18bb29aae06ebb5c5ab
+    tag: sha-14c45c813a6d559e9f50009346de3b5fcde91044
   migrate:
     image:
       repository: mail
-      tag: sha-3ac631aa36fe3309dafcb18bb29aae06ebb5c5ab
+      tag: sha-14c45c813a6d559e9f50009346de3b5fcde91044
 frontend:
   replicaCount: 1
   resources:
@@ -197,7 +197,7 @@ catalog:
       cpu: 500m
       memory: 256Mi
   image:
-    tag: sha-3ac631aa36fe3309dafcb18bb29aae06ebb5c5ab
+    tag: sha-14c45c813a6d559e9f50009346de3b5fcde91044
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
@@ -211,13 +211,13 @@ query:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-3ac631aa36fe3309dafcb18bb29aae06ebb5c5ab
+    tag: sha-14c45c813a6d559e9f50009346de3b5fcde91044
   autoscaling:
     minReplicas: 1
     maxReplicas: 2
 worker:
   image:
-    tag: sha-3ac631aa36fe3309dafcb18bb29aae06ebb5c5ab
+    tag: sha-14c45c813a6d559e9f50009346de3b5fcde91044
 # Re-deployed 2026-07-07: ConnectNATS fixed to merge subjects instead of
 # replacing them (b98ace38). Agent runs in shadow mode observing/comparing
 # results alongside the legacy pipeline, with its own job subject
@@ -225,7 +225,7 @@ worker:
 agent:
   enabled: true
   image:
-    tag: sha-3ac631aa36fe3309dafcb18bb29aae06ebb5c5ab
+    tag: sha-14c45c813a6d559e9f50009346de3b5fcde91044
 mcp:
   replicaCount: 1
   resources:
@@ -260,7 +260,7 @@ ai:
       # execution concurrently. 1Gi matches the base chart's default.
       memory: 1Gi
   image:
-    tag: sha-3ac631aa36fe3309dafcb18bb29aae06ebb5c5ab
+    tag: sha-14c45c813a6d559e9f50009346de3b5fcde91044
   rollout:
     enabled: false
   autoscaling:
