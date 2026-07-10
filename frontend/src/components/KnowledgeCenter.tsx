@@ -2,13 +2,11 @@ import { useQueryParam } from '../hooks/useQueryParam'
 import { useT } from '../i18n'
 import { legacyLayoutClass } from '../lib/layoutClasses'
 import { toggleGroupClass } from '../lib/toggleClasses'
-import Glossary from './Glossary'
-import { InstructionsSection } from './knowledgeCenter/InstructionsSection'
-import { AIMemorySection } from './settings/AIMemorySection'
+import { KnowledgeBasePage } from './knowledge/KnowledgeBasePage'
 import Skills from './Skills'
 import { ToggleButtonGroup } from './ui/ToggleButtonGroup'
 
-const SECTIONS = ['instructions', 'glossary', 'saved_queries', 'memory'] as const
+const SECTIONS = ['files', 'saved_queries'] as const
 type KnowledgeSection = (typeof SECTIONS)[number]
 
 function isKnowledgeSection(value: string): value is KnowledgeSection {
@@ -16,23 +14,23 @@ function isKnowledgeSection(value: string): value is KnowledgeSection {
 }
 
 /**
- * KnowledgeCenter is the single, unified governed-context surface (SP1). It
- * consolidates the formerly separate Instructions (new), Glossary, Saved
- * Queries (skills), and Memory surfaces into one datasource-scoped destination
- * with a section switcher. Each section embeds the existing, unchanged
- * component; only Instructions is net-new UI. The active section is mirrored to
- * the `?tab=` URL param so links deep-link into a section.
+ * KnowledgeCenter hosts the markdown Knowledge base (WrenAI-style file tree of
+ * glossary/instructions/metrics/sql-pairs documents — the primary surface) and
+ * the runnable Skills library (parameterized LogicalQuery templates, which
+ * markdown cannot express). The former Instructions/Glossary form tabs were
+ * replaced by the knowledge files themselves: publishing a file extracts the
+ * equivalent structured records. Memory lives in Settings → Configuration.
+ * The active section mirrors to `?tab=` so existing deep links
+ * (`?tab=saved_queries`) keep working.
  */
 export default function KnowledgeCenter() {
   const t = useT()
   const [tabParam, setTabParam] = useQueryParam('tab')
-  const active: KnowledgeSection = isKnowledgeSection(tabParam) ? tabParam : 'instructions'
+  const active: KnowledgeSection = isKnowledgeSection(tabParam) ? tabParam : 'files'
 
   const options = [
-    { value: 'instructions', label: t('knowledge_center.tab_instructions') },
-    { value: 'glossary', label: t('knowledge_center.tab_glossary') },
-    { value: 'saved_queries', label: t('knowledge_center.tab_saved_queries') },
-    { value: 'memory', label: t('knowledge_center.tab_memory') },
+    { value: 'files', label: t('knowledge_base.kb_tab_files') },
+    { value: 'saved_queries', label: t('knowledge_base.kb_tab_skills') },
   ] as const
 
   return (
@@ -46,10 +44,8 @@ export default function KnowledgeCenter() {
         options={options}
       />
 
-      {active === 'instructions' && <InstructionsSection />}
-      {active === 'glossary' && <Glossary />}
+      {active === 'files' && <KnowledgeBasePage />}
       {active === 'saved_queries' && <Skills />}
-      {active === 'memory' && <AIMemorySection />}
     </div>
   )
 }

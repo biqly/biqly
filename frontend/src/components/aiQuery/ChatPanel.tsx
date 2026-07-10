@@ -343,6 +343,7 @@ function ChatMessageFeed({
                   }
                   onSelectFollowUp={onSelectFollowUp}
                   priorQuestions={priorQuestions}
+                  isLatest={index === messages.length - 1}
                 />
               </div>
             </div>

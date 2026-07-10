@@ -128,7 +128,7 @@ export default function TimeGrains() {
               type="button"
               className={buttonClass('back')}
               onClick={() => {
-                void navigate('/settings')
+                void navigate('/settings?tab=config')
               }}
             >
               ← {t('time_grains.back_to_settings') || 'Back to Settings'}

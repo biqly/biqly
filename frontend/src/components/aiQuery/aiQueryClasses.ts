@@ -16,7 +16,7 @@ export const conversationItemBaseClass =
   'group relative flex items-center justify-between w-full shrink-0 text-left bg-card-raised border border-border rounded-[0.6rem] text-foreground transition-all duration-200 overflow-hidden hover:bg-[var(--control-hover-bg)] hover:border-[var(--control-hover-border)]'
 
 export const conversationItemActiveClass =
-  'border-accent! bg-[#5b8eff]/8! shadow-[inset_3px_0_0_var(--accent)]'
+  'border-accent! bg-[#5b8eff]/14! shadow-[inset_3px_0_0_var(--accent)]'
 
 export function conversationItemClass(active: boolean): string {
   return active
@@ -27,9 +27,9 @@ export function conversationItemClass(active: boolean): string {
 export const convItemContentClass = 'flex-1 min-w-0 flex flex-col gap-[0.15rem] pr-6'
 
 export const convTitleClass =
-  'block text-[0.85rem] font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap'
+  'block min-w-0 text-[0.9rem] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap'
 
-export const convTimeClass = 'block text-[0.72rem] text-foreground-faint'
+export const convTimeClass = 'block text-[0.74rem] text-foreground-muted'
 
 export const convActionsClass =
   'absolute right-[0.4rem] top-1/2 -translate-y-1/2 flex gap-[0.15rem] items-center opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity duration-150 bg-card border border-border rounded-[0.45rem] p-[0.1rem_0.2rem] shadow-card-sm'

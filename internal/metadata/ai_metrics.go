@@ -17,24 +17,24 @@ const (
 
 // AIMetricsSummary is the centralized AI text-to-SQL operations dashboard.
 type AIMetricsSummary struct {
-	TotalQueries       int     `json:"total_queries"`
-	SuccessCount       int     `json:"success_count"`
-	FailedCount        int     `json:"failed_count"`
-	PartialCount       int     `json:"partial_count"`
-	ClarificationCount int     `json:"clarification_count"`
-	SuccessRate        float64 `json:"success_rate"`
-	FailureRate        float64 `json:"failure_rate"`
-	AvgRetryCount      float64 `json:"avg_retry_count"`
-	AvgLatencyMs       float64 `json:"avg_latency_ms"`
-	TotalCost          float64 `json:"total_cost"`
-	TotalTokens        int     `json:"total_tokens"`
-	PositiveFeedback   int     `json:"positive_feedback"`
-	NegativeFeedback   int     `json:"negative_feedback"`
-	RecallUsedPositive int     `json:"recall_used_positive_feedback"`
-	RecallUsedNegative int     `json:"recall_used_negative_feedback"`
-	NoRecallPositive   int     `json:"no_recall_positive_feedback"`
-	NoRecallNegative   int     `json:"no_recall_negative_feedback"`
-	RecallThumbsUpRate float64 `json:"recall_thumbs_up_rate"`
+	TotalQueries         int     `json:"total_queries"`
+	SuccessCount         int     `json:"success_count"`
+	FailedCount          int     `json:"failed_count"`
+	PartialCount         int     `json:"partial_count"`
+	ClarificationCount   int     `json:"clarification_count"`
+	SuccessRate          float64 `json:"success_rate"`
+	FailureRate          float64 `json:"failure_rate"`
+	AvgRetryCount        float64 `json:"avg_retry_count"`
+	AvgLatencyMs         float64 `json:"avg_latency_ms"`
+	TotalCost            float64 `json:"total_cost"`
+	TotalTokens          int     `json:"total_tokens"`
+	PositiveFeedback     int     `json:"positive_feedback"`
+	NegativeFeedback     int     `json:"negative_feedback"`
+	RecallUsedPositive   int     `json:"recall_used_positive_feedback"`
+	RecallUsedNegative   int     `json:"recall_used_negative_feedback"`
+	NoRecallPositive     int     `json:"no_recall_positive_feedback"`
+	NoRecallNegative     int     `json:"no_recall_negative_feedback"`
+	RecallThumbsUpRate   float64 `json:"recall_thumbs_up_rate"`
 	NoRecallThumbsUpRate float64 `json:"no_recall_thumbs_up_rate"`
 }
 

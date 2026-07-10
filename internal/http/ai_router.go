@@ -262,6 +262,41 @@ func registerAISkillsRoutes(r chi.Router, deps *app.AIDeps, aiHandler *handlers.
 	r.Post("/ai/memory/entries", memoryHandler.Create)
 	r.Put("/ai/memory/entries/{id}", memoryHandler.Update)
 	r.Delete("/ai/memory/entries/{id}", memoryHandler.Delete)
+
+	registerAIKnowledgeRoutes(r, deps, authClient, aiUserMW)
+}
+
+// registerAIKnowledgeRoutes wires the markdown knowledge base: datasource-
+// scoped .md files whose published content grounds the AI (publish-extraction
+// into instructions/glossary/examples + direct agent reads). Mutating routes
+// resolve the file {id} to its owning datasource before the access check,
+// mirroring the glossary/instructions routes.
+func registerAIKnowledgeRoutes(
+	r chi.Router,
+	deps *app.AIDeps,
+	authClient *bimw.AuthClient,
+	aiUserMW func(http.Handler) http.Handler,
+) {
+	knowledgeHandler := handlers.NewAIKnowledgeHandler(deps)
+	fileDS := func(ctx context.Context, id string) (string, error) {
+		return deps.MetaRepo.DatasourceForKnowledgeFile(ctx, id)
+	}
+	fileRead := bimw.RequireResolvedDatasourceAccess(authClient, "read", fileDS)
+	fileWrite := bimw.RequireResolvedDatasourceAccess(authClient, "write", fileDS)
+
+	r.Get("/ai/knowledge/files", knowledgeHandler.List)
+	// by-path is the agent read tool's lookup; register before {id} so chi
+	// doesn't treat "by-path" as a file id.
+	r.Get("/ai/knowledge/files/by-path", knowledgeHandler.GetByPath)
+	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Post("/ai/knowledge/files", knowledgeHandler.Create)
+	r.With(fileRead).Get("/ai/knowledge/files/{id}", knowledgeHandler.Get)
+	r.With(fileWrite).Put("/ai/knowledge/files/{id}", knowledgeHandler.Update)
+	r.With(fileWrite).Delete("/ai/knowledge/files/{id}", knowledgeHandler.Delete)
+	r.With(fileWrite).Post("/ai/knowledge/files/{id}/publish", knowledgeHandler.Publish)
+	r.With(bimw.RequireDatasourceAccess(authClient, "write")).Post("/ai/knowledge/backfill", knowledgeHandler.Backfill)
+	// AI-assisted drafting uses the describe-purpose model (same as metadata
+	// descriptions); spend limiter + access mirror the skills draft route.
+	r.With(aiUserMW, bimw.RequireDatasourceAccess(authClient, "read")).Post("/ai/knowledge/draft", knowledgeHandler.DraftKnowledgeFile)
 }
 
 func registerAIExamplesGlossaryAndTemplatesRoutes(

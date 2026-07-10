@@ -13,6 +13,8 @@ import {
   apiPasskeyRename,
 } from '../api/auth'
 import { usePasskeyRegistration } from '../hooks/usePasskeyRegistration'
+import { useQueryParam } from '../hooks/useQueryParam'
+import type { TranslationKey } from '../i18n'
 import { localeLanguageTag, useLocale, useT } from '../i18n'
 import { buttonClass } from '../lib/buttonClasses'
 import { cardClass } from '../lib/cardClasses'
@@ -25,6 +27,8 @@ import {
   adminAlertCloseBtnClass,
   adminAlertSuccessClass,
   adminBtnAutoWidthClass,
+  adminTabButtonClass,
+  adminTabContainerClass,
   cardLeadMarginClass,
 } from './admin/adminClasses'
 import { useAuth } from './auth/AuthProvider'
@@ -38,6 +42,19 @@ import { SettingsAuthModals } from './settings/SettingsAuthModals'
 import { SettingsLinkCard } from './settings/SettingsLinkCard'
 import { ErrorAlert } from './ui/ErrorAlert'
 
+const SETTINGS_TABS = ['profile', 'security', 'config'] as const
+type SettingsTab = (typeof SETTINGS_TABS)[number]
+
+function isSettingsTab(value: string): value is SettingsTab {
+  return (SETTINGS_TABS as readonly string[]).includes(value)
+}
+
+const SETTINGS_TAB_LABEL_KEYS: Record<SettingsTab, TranslationKey> = {
+  profile: 'settings.profile_group',
+  security: 'settings.security_group',
+  config: 'settings.configuration_group',
+}
+
 export default function Settings() {
   const navigate = useNavigate()
   const t = useT()
@@ -47,6 +64,9 @@ export default function Settings() {
   // the backend enforces the same permissions on their routes.
   const canManageAISettings = hasPermission('ai:settings')
   const canManageProviders = hasPermission('admin:settings')
+
+  const [tabParam, setTabParam] = useQueryParam('tab')
+  const activeTab: SettingsTab = isSettingsTab(tabParam) ? tabParam : 'profile'
 
   const [passkeys, setPasskeys] = useState<PasskeyInfo[]>([])
   const [loading, setLoading] = useState(false)
@@ -327,111 +347,114 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="grid w-full grid-cols-1 items-start gap-x-8 gap-y-6 lg:grid-cols-[minmax(300px,22rem)_minmax(0,1fr)] lg:gap-x-10 lg:gap-y-7 xl:grid-cols-[minmax(340px,24rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(380px,28rem)_minmax(0,1fr)]">
-        <aside
-          className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:self-start"
-          aria-labelledby="settings-profile-group-heading"
-        >
-          <h2
-            id="settings-profile-group-heading"
-            className="text-foreground-muted m-0 font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-widest uppercase"
+      <div className={adminTabContainerClass} role="tablist" aria-label={t('settings.title')}>
+        {SETTINGS_TABS.map((tabId) => (
+          <button
+            key={tabId}
+            type="button"
+            role="tab"
+            id={`settings-tab-${tabId}`}
+            aria-selected={activeTab === tabId}
+            aria-controls={`settings-tabpanel-${tabId}`}
+            className={adminTabButtonClass(activeTab === tabId)}
+            onClick={() => setTabParam(tabId)}
           >
-            {t('settings.profile_group')}
-          </h2>
-          <AccountProfileSection />
-        </aside>
+            {t(SETTINGS_TAB_LABEL_KEYS[tabId])}
+          </button>
+        ))}
+      </div>
 
-        <div className="flex min-w-0 flex-col gap-8">
-          <section className="flex flex-col gap-4" aria-labelledby="settings-security-heading">
-            <h2
-              id="settings-security-heading"
-              className="text-foreground-muted m-0 font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-widest uppercase"
+      <div
+        role="tabpanel"
+        id={`settings-tabpanel-${activeTab}`}
+        aria-labelledby={`settings-tab-${activeTab}`}
+        className="flex w-full flex-col"
+      >
+        {activeTab === 'profile' && (
+          <div className="mx-auto flex w-full max-w-184 flex-col gap-4">
+            <AccountProfileSection />
+          </div>
+        )}
+
+        {activeTab === 'security' && (
+          <div className="mx-auto flex w-full max-w-184 flex-col gap-4">
+            <MFASection
+              className="mb-0"
+              status={mfaStatus}
+              recoveryCodes={mfaNewRecoveryCodes}
+              onEnable={() => {
+                void handleMFAEnrollStart()
+              }}
+              onDisable={openMFADisableModal}
+              onRegenerate={openMFARegenModal}
+            />
+
+            <section
+              className={cn(
+                cardClass({ className: 'mb-0', elevated: true }),
+                settingsPrefsCardClass,
+              )}
+              aria-labelledby="passkeys-heading"
             >
-              {t('settings.security_group')}
-            </h2>
-            <div className="grid grid-cols-1 items-stretch gap-4 min-[900px]:grid-cols-2 min-[1400px]:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)]">
-              <MFASection
-                className="mb-0"
-                status={mfaStatus}
-                recoveryCodes={mfaNewRecoveryCodes}
-                onEnable={() => {
-                  void handleMFAEnrollStart()
-                }}
-                onDisable={openMFADisableModal}
-                onRegenerate={openMFARegenModal}
-              />
-
-              <section
-                className={cn(
-                  cardClass({ className: 'mb-0', elevated: true }),
-                  settingsPrefsCardClass,
-                )}
-                aria-labelledby="passkeys-heading"
-              >
-                <div className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-                  <div>
-                    <h2 id="passkeys-heading">{t('passkeys.title')}</h2>
-                    <p className="text-foreground-muted mt-[0.35rem] mr-0 mb-0 ml-0 max-w-2xl flex-[1_1_100%] text-[0.875rem] leading-[1.45]">
-                      {t('passkeys.subtitle')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
-                    onClick={openAddModal}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+                <div>
+                  <h2 id="passkeys-heading">{t('passkeys.title')}</h2>
+                  <p className="text-foreground-muted mt-[0.35rem] mr-0 mb-0 ml-0 max-w-2xl flex-[1_1_100%] text-[0.875rem] leading-[1.45]">
+                    {t('passkeys.subtitle')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={cn(buttonClass('primary', { size: 'sm' }), adminBtnAutoWidthClass)}
+                  onClick={openAddModal}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="lucide lucide-fingerprint"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="lucide lucide-fingerprint"
-                    >
-                      <path d="M2 12a10 10 0 0 1 13-9.54" />
-                      <path d="M22 12c0 2.2-1.4 4.5-2.5 6.5" />
-                      <path d="M12 12.5a3.5 3.5 0 1 0 7 0c0-1.8-1.5-3.5-3.5-3.5" />
-                      <path d="M9.5 12a6.5 6.5 0 0 1 13 0c0 3.2-2.2 6.1-3.6 8.5" />
-                      <path d="M5.8 12a9.4 9.4 0 0 1 17.6-.8" />
-                      <path d="M8 15a4.5 4.5 0 0 0 9 0" />
-                    </svg>
-                    {t('passkeys.add_btn')}
-                  </button>
-                </div>
+                    <path d="M2 12a10 10 0 0 1 13-9.54" />
+                    <path d="M22 12c0 2.2-1.4 4.5-2.5 6.5" />
+                    <path d="M12 12.5a3.5 3.5 0 1 0 7 0c0-1.8-1.5-3.5-3.5-3.5" />
+                    <path d="M9.5 12a6.5 6.5 0 0 1 13 0c0 3.2-2.2 6.1-3.6 8.5" />
+                    <path d="M5.8 12a9.4 9.4 0 0 1 17.6-.8" />
+                    <path d="M8 15a4.5 4.5 0 0 0 9 0" />
+                  </svg>
+                  {t('passkeys.add_btn')}
+                </button>
+              </div>
 
-                <div className="custom-scrollbar max-h-40 overflow-y-auto pr-1">
-                  <PasskeyTable
-                    passkeys={passkeys}
-                    loading={loading}
-                    locale={locale}
-                    onRename={(passkey) => {
-                      setRenameTarget(passkey)
-                      setRenamingName(passkey.name)
-                    }}
-                    onDelete={setDeleteTarget}
-                  />
-                </div>
-              </section>
-            </div>
-          </section>
+              <div className="custom-scrollbar max-h-40 overflow-y-auto pr-1">
+                <PasskeyTable
+                  passkeys={passkeys}
+                  loading={loading}
+                  locale={locale}
+                  onRename={(passkey) => {
+                    setRenameTarget(passkey)
+                    setRenamingName(passkey.name)
+                  }}
+                  onDelete={setDeleteTarget}
+                />
+              </div>
+            </section>
+          </div>
+        )}
 
-          <section className="flex flex-col gap-4" aria-labelledby="settings-config-heading">
-            <h2
-              id="settings-config-heading"
-              className="text-foreground-muted m-0 font-['Plus_Jakarta_Sans',sans-serif] text-[0.72rem] font-bold tracking-widest uppercase"
-            >
-              {t('settings.configuration_group')}
-            </h2>
+        {activeTab === 'config' && (
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
             <DbtImportPanel />
             <AIModelPreferencesSection />
             <AIMemorySection />
             {(canManageAISettings || canManageProviders) && (
-              <div className="grid grid-cols-1 gap-[0.85rem] min-[1500px]:grid-cols-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-[0.85rem] sm:grid-cols-2">
                 {canManageAISettings && (
                   <SettingsLinkCard
                     title={t('settings.prompt_templates_section')}
@@ -561,11 +584,11 @@ export default function Settings() {
                 )}
               </div>
             )}
-          </section>
-
-          <p className={settingsFootnoteClass}>{t('settings.persist_hint')}</p>
-        </div>
+          </div>
+        )}
       </div>
+
+      <p className={settingsFootnoteClass}>{t('settings.persist_hint')}</p>
 
       <SettingsAuthModals
         t={t}

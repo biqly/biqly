@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -555,6 +556,8 @@ func webAgentAllowedTools(role string) []agent.ToolName {
 		agent.ToolWebRunQuestion,
 		agent.ToolWebListSkills,
 		agent.ToolWebRunSkill,
+		agent.ToolWebListKnowledgeFiles,
+		agent.ToolWebReadKnowledgeFile,
 	}
 	if role == pii.RoleAnalyst || role == pii.RoleAdmin {
 		tools = append(tools, agent.ToolWebRunLogicalQuery)
@@ -571,6 +574,8 @@ func webAgentRetryBudget() map[agent.ToolName]int {
 		agent.ToolWebRunLogicalQuery:     2,
 		agent.ToolWebListSkills:          2,
 		agent.ToolWebRunSkill:            2,
+		agent.ToolWebListKnowledgeFiles:  2,
+		agent.ToolWebReadKnowledgeFile:   3,
 	}
 }
 
@@ -598,9 +603,7 @@ func newAgentSSESender(ctx context.Context, w http.ResponseWriter) (send agentSS
 		}
 		body := map[string]any{"type": eventType}
 		if payloadMap, ok := payload.(map[string]any); ok {
-			for k, v := range payloadMap {
-				body[k] = v
-			}
+			maps.Copy(body, payloadMap)
 		} else if payload != nil {
 			body["payload"] = payload
 		}

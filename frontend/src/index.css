@@ -446,7 +446,10 @@ body.modeling-grabbing * {
   user-select: none;
 }
 
-.modeling-join-line path {
+/* :not(.modeling-join-hit) keeps the invisible wide hover-hit path (see
+   modelingJoinHitClass) out of this rule; it must keep its transparent
+   14px stroke to stay an easy hover target for the join tooltip. */
+.modeling-join-line path:not(.modeling-join-hit) {
   fill: none;
   stroke: color-mix(in srgb, var(--accent) 70%, var(--text-muted));
   stroke-width: 1.6;
@@ -467,7 +470,7 @@ body.modeling-grabbing * {
     fill 120ms ease;
 }
 
-.modeling-join-line--hi path {
+.modeling-join-line--hi path:not(.modeling-join-hit) {
   stroke: var(--accent);
   stroke-width: 2.8;
   filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 50%, transparent));

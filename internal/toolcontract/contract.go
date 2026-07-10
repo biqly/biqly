@@ -14,6 +14,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -53,6 +54,8 @@ const (
 	ToolDryPlan             ToolName = "dry_plan"
 	ToolDryRun              ToolName = "dry_run"
 	ToolMetricQuery         ToolName = "metric_query"
+	ToolListKnowledgeFiles  ToolName = "list_knowledge_files"
+	ToolReadKnowledgeFile   ToolName = "read_knowledge_file"
 )
 
 // ToolSpec is the static definition of one governed tool: its name,
@@ -143,6 +146,25 @@ var AllTools = []ToolSpec{
 		Path:   "/api/query/dry-run",
 	},
 	{
+		Name: ToolListKnowledgeFiles,
+		Description: "List the datasource's published knowledge-base markdown files " +
+			"(business rules, metric definitions, calculation guides, worked SQL " +
+			"examples). Returns path, title and a one-line description per file. " +
+			"Check this early: when a question involves a calculation, business " +
+			"term or convention, read the matching file before answering.",
+		Method: http.MethodGet,
+		Path:   "/api/ai/knowledge/files",
+	},
+	{
+		Name: ToolReadKnowledgeFile,
+		Description: "Read one published knowledge-base markdown file by path " +
+			"(from list_knowledge_files). The content documents how a calculation, " +
+			"rule or term works — follow it when generating queries or explaining " +
+			"results.",
+		Method: http.MethodGet,
+		Path:   "/api/ai/knowledge/files/by-path",
+	},
+	{
 		Name: ToolMetricQuery,
 		Description: "Run a structured metric query (measures, dimensions, optional " +
 			"time grain and filters) without natural language. Compiles to a " +
@@ -189,6 +211,17 @@ type ListSkillsInput struct {
 type RunSkillInput struct {
 	SkillID    string         `json:"skill_id" jsonschema:"id of the skill to run"`
 	Parameters map[string]any `json:"parameters,omitempty" jsonschema:"parameter values keyed by parameter name"`
+}
+
+// ListKnowledgeFilesInput scopes the knowledge listing to a datasource.
+type ListKnowledgeFilesInput struct {
+	DatasourceID string `json:"datasource_id" jsonschema:"datasource id whose knowledge base to list"`
+}
+
+// ReadKnowledgeFileInput reads one knowledge file by path.
+type ReadKnowledgeFileInput struct {
+	DatasourceID string `json:"datasource_id" jsonschema:"datasource id the file belongs to"`
+	Path         string `json:"path" jsonschema:"file path from list_knowledge_files, e.g. instructions/rounding.md"`
 }
 
 // MetricQueryInput is a structured metric query (no NL).
@@ -407,9 +440,7 @@ func injectLogicalQueryField(lq map[string]any, key, value string) map[string]an
 		}
 	}
 	cloned := make(map[string]any, len(lq)+1)
-	for k, v := range lq {
-		cloned[k] = v
-	}
+	maps.Copy(cloned, lq)
 	cloned[key] = value
 	return cloned
 }
@@ -421,6 +452,24 @@ func DispatchListSkills(ctx context.Context, disp Dispatcher, in ListSkillsInput
 		path += "?datasource_id=" + url.QueryEscape(ds)
 	}
 	return disp.Dispatch(ctx, http.MethodGet, path, nil, cred, channel)
+}
+
+// DispatchListKnowledgeFiles calls GET /api/ai/knowledge/files?published=true.
+func DispatchListKnowledgeFiles(ctx context.Context, disp Dispatcher, in ListKnowledgeFilesInput, cred Credential, channel string) (DispatchResult, error) {
+	q := url.Values{
+		"datasource_id": {strings.TrimSpace(in.DatasourceID)},
+		"published":     {"true"},
+	}
+	return disp.Dispatch(ctx, http.MethodGet, "/api/ai/knowledge/files?"+q.Encode(), nil, cred, channel)
+}
+
+// DispatchReadKnowledgeFile calls GET /api/ai/knowledge/files/by-path.
+func DispatchReadKnowledgeFile(ctx context.Context, disp Dispatcher, in ReadKnowledgeFileInput, cred Credential, channel string) (DispatchResult, error) {
+	q := url.Values{
+		"datasource_id": {strings.TrimSpace(in.DatasourceID)},
+		"path":          {strings.TrimSpace(in.Path)},
+	}
+	return disp.Dispatch(ctx, http.MethodGet, "/api/ai/knowledge/files/by-path?"+q.Encode(), nil, cred, channel)
 }
 
 // DispatchRunSkill calls POST /api/ai/skills/{id}/run.

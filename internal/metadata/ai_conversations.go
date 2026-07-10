@@ -119,7 +119,8 @@ func (r *Repository) ListAIConversations(ctx context.Context, userID string, lim
 		)
 		SELECT c.id, c.user_id, c.datasource_id, c.model_id, c.context_enabled, c.title,
 		       c.snapshot_version, c.created_at, c.updated_at,
-		       m.id AS message_id, m.role AS message_role, m.content AS message_content,
+		       m.id AS message_id, m.remote_id AS message_remote_id, m.ordinal AS message_ordinal,
+		       m.role AS message_role, m.content AS message_content,
 		       m.ai_response AS message_ai_response, m.result_summary AS message_result_summary,
 		       m.created_at AS message_created_at
 		FROM limited_conversations c
@@ -185,13 +186,15 @@ func (r *Repository) ConversationBelongsToUser(ctx context.Context, id, userID s
 func scanAIConversationRow(s platformdb.Scanner) (AIConversation, *AIConversationMessage, error) {
 	var conv AIConversation
 	var modelID, title sql.NullString
-	var msgID, msgRole, msgContent, msgResultSummary sql.NullString
+	var msgID, msgRemoteID, msgRole, msgContent, msgResultSummary sql.NullString
+	var msgOrdinal sql.NullInt64
 	var msgAIResponse []byte
 	var msgCreatedAt sql.NullTime
 	if err := s.Scan(
 		&conv.ID, &conv.UserID, &conv.DatasourceID, &modelID, &conv.ContextEnabled, &title,
 		&conv.SnapshotVersion, &conv.CreatedAt, &conv.UpdatedAt,
-		&msgID, &msgRole, &msgContent, &msgAIResponse, &msgResultSummary, &msgCreatedAt,
+		&msgID, &msgRemoteID, &msgOrdinal, &msgRole, &msgContent, &msgAIResponse,
+		&msgResultSummary, &msgCreatedAt,
 	); err != nil {
 		return conv, nil, fmt.Errorf("scan AI conversation row: %w", err)
 	}
@@ -204,9 +207,14 @@ func scanAIConversationRow(s platformdb.Scanner) (AIConversation, *AIConversatio
 	if !msgID.Valid {
 		return conv, nil, nil
 	}
+	// remote_id/ordinal must round-trip: the client dedupes snapshot upserts by
+	// remote_id, and regenerating it on every load re-inserts the whole history
+	// (replay-chain duplication).
 	msg := &AIConversationMessage{
 		ID:             msgID.String,
+		RemoteID:       msgRemoteID.String,
 		ConversationID: conv.ID,
+		Ordinal:        int(msgOrdinal.Int64),
 		Role:           msgRole.String,
 		Content:        msgContent.String,
 		CreatedAt:      msgCreatedAt.Time,

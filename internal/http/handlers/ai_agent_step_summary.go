@@ -53,6 +53,10 @@ func webAgentStepSummary(step agent.RuntimeStep) string {
 		summary = summarizeNamedList(payload, "templates")
 	case agent.ToolWebListSkills:
 		summary = summarizeNamedList(payload, "skills")
+	case agent.ToolWebListKnowledgeFiles:
+		summary = summarizeKnowledgeFileList(payload)
+	case agent.ToolWebReadKnowledgeFile:
+		summary = summarizeKnowledgeFileRead(payload)
 	case agent.ToolWebRunQuestion:
 		summary = summarizeRunQuestionPayload(payload)
 	case agent.ToolWebRunLogicalQuery:
@@ -96,6 +100,42 @@ func webAgentStepArgs(step agent.RuntimeStep) string {
 func webAgentClarificationDetail(exchange agent.ClarificationExchange) string {
 	return truncateSummaryRunes(
 		fmt.Sprintf("asked: %s — answered: %s", exchange.Question, exchange.Answer))
+}
+
+// summarizeKnowledgeFileList reports how many knowledge files were listed and
+// their paths — never file contents.
+func summarizeKnowledgeFileList(payload json.RawMessage) string {
+	var wrapped struct {
+		Files []struct {
+			Path string `json:"path"`
+		} `json:"files"`
+	}
+	if err := sonic.Unmarshal(payload, &wrapped); err != nil {
+		return ""
+	}
+	paths := make([]string, 0, len(wrapped.Files))
+	for _, f := range wrapped.Files {
+		paths = append(paths, f.Path)
+	}
+	return fmt.Sprintf("%d files: %s", len(wrapped.Files), strings.Join(paths, ", "))
+}
+
+// summarizeKnowledgeFileRead reports which file was read (path + title), not
+// its content.
+func summarizeKnowledgeFileRead(payload json.RawMessage) string {
+	var wrapped struct {
+		File struct {
+			Path  string `json:"path"`
+			Title string `json:"title"`
+		} `json:"file"`
+	}
+	if err := sonic.Unmarshal(payload, &wrapped); err != nil || wrapped.File.Path == "" {
+		return ""
+	}
+	if wrapped.File.Title != "" {
+		return fmt.Sprintf("read %s (%s)", wrapped.File.Path, wrapped.File.Title)
+	}
+	return "read " + wrapped.File.Path
 }
 
 // namedListItem is the minimal element shape shared by the three governed

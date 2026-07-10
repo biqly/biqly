@@ -11,6 +11,14 @@ import { formLabelClass } from '../../lib/formClasses'
 import { ErrorAlert } from '../ui/ErrorAlert'
 import { dbtManifestModelNames } from './dbtManifestPreview'
 
+// Native file inputs restyled to match the card language: bordered field with
+// a button-like trigger. Keeps the native control for accessibility.
+const dbtFileInputClass = cn(
+  'border-border bg-card-raised text-foreground-muted w-full cursor-pointer rounded-md border text-sm',
+  'file:bg-surface-hover file:text-foreground file:mr-3 file:cursor-pointer file:rounded-l-[5px]',
+  'file:border-0 file:px-3 file:py-2.5 file:text-sm file:font-medium',
+)
+
 export function DbtImportPanel() {
   const t = useT()
   const navigate = useNavigate()
@@ -92,6 +100,7 @@ export function DbtImportPanel() {
             id="dbt-import-manifest"
             type="file"
             accept="application/json,.json"
+            className={dbtFileInputClass}
             onChange={(event) => handleManifestChange(event.target.files?.[0] ?? null)}
           />
         </div>
@@ -103,6 +112,7 @@ export function DbtImportPanel() {
             id="dbt-import-catalog"
             type="file"
             accept="application/json,.json"
+            className={dbtFileInputClass}
             onChange={(event) => setCatalog(event.target.files?.[0] ?? null)}
           />
           <span className="text-foreground-muted text-xs">{t('dbt_import.catalog_hint')}</span>

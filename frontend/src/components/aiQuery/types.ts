@@ -60,6 +60,9 @@ export interface AssistantMessageCardProps {
   onCellDrillDown: (column: string, value: string) => void
   onSelectFollowUp: (question: string) => void
   priorQuestions: string[]
+  /** The newest assistant message opens its result body expanded; older
+   * messages start collapsed to keep the thread compact. */
+  isLatest: boolean
 }
 
 export interface RoutingPanelProps {

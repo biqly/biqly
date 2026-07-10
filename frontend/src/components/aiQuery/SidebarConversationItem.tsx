@@ -17,6 +17,7 @@ import {
 interface SidebarConversationItemProps {
   conv: Conversation
   isActive: boolean
+  isBusy: boolean
   onSelect: () => void
   onRename: (id: string, newTitle: string) => void
   onDelete: (id: string) => void
@@ -26,6 +27,7 @@ interface SidebarConversationItemProps {
 export function SidebarConversationItem({
   conv,
   isActive,
+  isBusy,
   onSelect,
   onRename,
   onDelete,
@@ -112,7 +114,17 @@ export function SidebarConversationItem({
           }}
           aria-label={conv.title ?? t('ai_query.conv_current')}
         >
-          <span className={convTitleClass}>{conv.title ?? t('ai_query.conv_current')}</span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            {isBusy && (
+              <span
+                className="bg-accent inline-block h-2 w-2 shrink-0 animate-pulse rounded-full"
+                role="status"
+                aria-label={t('ai_query.conv_busy')}
+                title={t('ai_query.conv_busy')}
+              />
+            )}
+            <span className={convTitleClass}>{conv.title ?? t('ai_query.conv_current')}</span>
+          </span>
           <span className={convTimeClass}>
             {t('ai_query.conv_messages', { count: conv.messages.length })}
           </span>

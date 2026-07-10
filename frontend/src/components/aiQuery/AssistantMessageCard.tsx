@@ -27,6 +27,7 @@ import { FeedbackSection } from './FeedbackSection'
 import { buildFallbackFollowUps, filterFollowUpSuggestions } from './followUpSuggestions'
 import { FollowUpSuggestions } from './FollowUpSuggestionsSection'
 import { buildResultInsight } from './resultInsight'
+import { RunTracePanel } from './RunTrace'
 import { SampleDataModal } from './SampleDataModal'
 import type { AssistantMessageCardProps, FeedbackCatKey } from './types'
 import { AI_QUERY_TIMEOUT_MS } from './types'
@@ -199,6 +200,27 @@ function AssistantMessageDetailsSection({
   )
 }
 
+// The step summary the live trace showed while running survives here as a
+// collapsed timeline instead of disappearing with the answer.
+function AssistantThinkingSteps({
+  result,
+  t,
+}: {
+  result: NonNullable<ReturnType<typeof normalizeAIQueryResponse>>
+  t: AssistantMessageCardProps['t']
+}) {
+  if ((result.run_steps?.length ?? 0) === 0 && !result.run_id) {
+    return null
+  }
+  return (
+    <RunTracePanel
+      steps={result.run_steps ?? []}
+      runId={result.run_id}
+      title={t('ai_query.thinking_steps_title')}
+    />
+  )
+}
+
 function mapChartSuggestion(raw: string | undefined): 'bar' | 'line' | 'pie' | 'table' | null {
   if (!raw) {
     return null
@@ -241,6 +263,7 @@ export function AssistantMessageCard({
   onCellDrillDown,
   onSelectFollowUp,
   priorQuestions,
+  isLatest,
 }: AssistantMessageCardProps) {
   const navigate = useNavigate()
   const result = useMemo(() => normalizeAIQueryResponse(message.ai_response), [message.ai_response])
@@ -405,6 +428,7 @@ export function AssistantMessageCard({
           t={t}
           localeTag={localeTag}
         />
+        <AssistantThinkingSteps result={result} t={t} />
         <AssistantMessageClarificationSections
           result={result}
           userQuestion={result.resolved_question ?? userQuestion}
@@ -433,6 +457,7 @@ export function AssistantMessageCard({
             userQuestion={userQuestion}
             onFilterByValue={onFilterByValue}
             onCellDrillDown={onCellDrillDown}
+            defaultOpen={isLatest}
             t={t}
             localeTag={localeTag}
           />

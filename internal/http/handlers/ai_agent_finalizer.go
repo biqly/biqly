@@ -167,6 +167,9 @@ func lastWebAgentQueryData(steps []agent.RuntimeStep) (extractedQueryData, bool)
 // a query.Result and is rejected.
 func webAgentQueryDataFromStep(step agent.RuntimeStep) (extractedQueryData, bool) {
 	switch step.Proposal.Tool {
+	case agent.ToolWebListKnowledgeFiles, agent.ToolWebReadKnowledgeFile:
+		// Knowledge reads carry markdown, never a query.Result.
+		return extractedQueryData{}, false
 	case agent.ToolWebRunQuestion:
 		var wrapped struct {
 			Result *ai.AIResult `json:"result"`

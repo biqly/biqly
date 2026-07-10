@@ -52,6 +52,10 @@ func newMCPServer(dispatch http.Handler, authorization, apiKey string) *mcp.Serv
 			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.dryRun)
 		case toolcontract.ToolMetricQuery:
 			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.metricQuery)
+		case toolcontract.ToolListKnowledgeFiles:
+			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.listKnowledgeFiles)
+		case toolcontract.ToolReadKnowledgeFile:
+			mcp.AddTool(s, &mcp.Tool{Name: string(spec.Name), Description: spec.Description}, d.readKnowledgeFile)
 		}
 	}
 
@@ -113,6 +117,16 @@ func (d *mcpToolDispatcher) dryRun(ctx context.Context, _ *mcp.CallToolRequest, 
 
 func (d *mcpToolDispatcher) metricQuery(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.MetricQueryInput) (*mcp.CallToolResult, any, error) {
 	res, err := toolcontract.DispatchMetricQuery(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
+	return toMCPResult(res), nil, err
+}
+
+func (d *mcpToolDispatcher) listKnowledgeFiles(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.ListKnowledgeFilesInput) (*mcp.CallToolResult, any, error) {
+	res, err := toolcontract.DispatchListKnowledgeFiles(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
+	return toMCPResult(res), nil, err
+}
+
+func (d *mcpToolDispatcher) readKnowledgeFile(ctx context.Context, _ *mcp.CallToolRequest, in toolcontract.ReadKnowledgeFileInput) (*mcp.CallToolResult, any, error) {
+	res, err := toolcontract.DispatchReadKnowledgeFile(ctx, d.disp, in, d.cred, toolcontract.ChannelMCP)
 	return toMCPResult(res), nil, err
 }
 

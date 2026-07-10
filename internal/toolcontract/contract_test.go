@@ -37,7 +37,7 @@ func fakeBackend(t *testing.T, status int, respBody string) (http.Handler, *reco
 	return handler, rec
 }
 
-func TestAllTools_HasExactlyTenTools(t *testing.T) {
+func TestAllTools_HasExactlyTwelveTools(t *testing.T) {
 	want := map[ToolName]bool{
 		ToolListDatasources:     true,
 		ToolListModels:          true,
@@ -49,9 +49,11 @@ func TestAllTools_HasExactlyTenTools(t *testing.T) {
 		ToolDryPlan:             true,
 		ToolDryRun:              true,
 		ToolMetricQuery:         true,
+		ToolListKnowledgeFiles:  true,
+		ToolReadKnowledgeFile:   true,
 	}
-	if len(AllTools) != 10 {
-		t.Fatalf("expected 10 tools, got %d", len(AllTools))
+	if len(AllTools) != 12 {
+		t.Fatalf("expected 12 tools, got %d", len(AllTools))
 	}
 	for _, spec := range AllTools {
 		if !want[spec.Name] {

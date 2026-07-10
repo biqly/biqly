@@ -40,6 +40,8 @@ const STEP_LABEL_KEYS: Record<string, TranslationKey> = {
   run_logical_query: 'ai_query.run_trace_step_run_logical_query',
   list_skills: 'ai_query.run_trace_step_list_skills',
   run_skill: 'ai_query.run_trace_step_run_skill',
+  list_knowledge_files: 'ai_query.run_trace_step_list_knowledge_files',
+  read_knowledge_file: 'ai_query.run_trace_step_read_knowledge_file',
 }
 
 // REASON_CODE_LABEL_KEYS maps the agent runtime's bounded reason-code
@@ -94,6 +96,7 @@ export function RunTracePanel({
   steps,
   runId,
   defaultOpen = false,
+  title,
   t: tProp,
 }: {
   steps: RunStep[]
@@ -101,6 +104,9 @@ export function RunTracePanel({
    * the panel re-hydrates the timeline from the persisted run. */
   runId?: string
   defaultOpen?: boolean
+  /** Overrides the default "run timeline" heading (e.g. the persistent
+   * "thinking steps" panel on an answered message). */
+  title?: string
   /** Overrides the useT() hook — for tests that render outside an
    * <I18nProvider>. Production callers should never pass this. */
   t?: TFunction
@@ -136,7 +142,7 @@ export function RunTracePanel({
     return null
   }
   return (
-    <Collapsible title={t('ai_query.run_trace_title')} defaultOpen={defaultOpen}>
+    <Collapsible title={title ?? t('ai_query.run_trace_title')} defaultOpen={defaultOpen}>
       <ol className="text-foreground-muted m-0 mt-3 flex list-none flex-col gap-0 p-0 text-[0.88rem]">
         {effectiveSteps.map((step) => {
           const labelKey = STEP_LABEL_KEYS[step.kind]

@@ -34,12 +34,12 @@ func TestAIConversationsCreateListDelete(t *testing.T) {
 			Cols: []string{
 				"id", "user_id", "datasource_id", "model_id", "context_enabled", "title",
 				"snapshot_version", "created_at", "updated_at",
-				"message_id", "message_role", "message_content",
+				"message_id", "message_remote_id", "message_ordinal", "message_role", "message_content",
 				"message_ai_response", "message_result_summary", "message_created_at",
 			},
 			Rows: [][]driver.Value{{
 				"conv-1", "user-1", "ds-1", "model-1", true, "Tweets",
-				int64(1), now, now, nil, nil, nil, nil, nil, nil,
+				int64(1), now, now, nil, nil, nil, nil, nil, nil, nil, nil,
 			}},
 		},
 	}

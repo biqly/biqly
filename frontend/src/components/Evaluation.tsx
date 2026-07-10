@@ -259,10 +259,10 @@ export default function Evaluation() {
         <ErrorAlert error={t('evaluation.admin_key_missing_ui')}>
           {' '}
           <a
-            href="/settings"
+            href="/settings?tab=config"
             onClick={(e) => {
               e.preventDefault()
-              void navigate('/settings')
+              void navigate('/settings?tab=config')
             }}
           >
             {t('evaluation.admin_key_open_settings')}

@@ -47,7 +47,6 @@ import {
   TableRoutingViz,
 } from './routingViz'
 import { warningBodyKey } from './routingVizUtils'
-import { RunTracePanel } from './RunTrace'
 import type { AssistantMessageCardProps } from './types'
 import { useTypewriter } from './useTypewriter'
 
@@ -402,9 +401,6 @@ export function AssistantMessageQueryDetails({
       {result.generation_trace && !result.needs_clarification ? (
         <GenerationTracePanel trace={result.generation_trace} />
       ) : null}
-      {(result.run_steps?.length || result.run_id) && !result.needs_clarification ? (
-        <RunTracePanel steps={result.run_steps ?? []} runId={result.run_id} />
-      ) : null}
       <AssistantTableRoutingSection result={result} onSampleData={onSampleData} t={t} />
       <ValidationPlanSection result={result} t={t} />
       <WindowFieldBadges result={result} t={t} />
@@ -476,7 +472,6 @@ function ResultsHeaderHints({
 }) {
   return (
     <div className={resultsHeaderClass}>
-      <h3>{t('ai_query.results_title', { rows: result.result.stats?.row_count ?? 0 })}</h3>
       {result.visualization_hint && (
         <span className={vizHintClass} title={result.visualization_hint.reason}>
           💡 {result.visualization_hint.chart_type}
@@ -536,6 +531,7 @@ export function AssistantMessageResults({
   userQuestion,
   onFilterByValue,
   onCellDrillDown,
+  defaultOpen = true,
   t,
   localeTag,
 }: {
@@ -548,6 +544,9 @@ export function AssistantMessageResults({
   userQuestion: string
   onFilterByValue: AssistantMessageCardProps['onFilterByValue']
   onCellDrillDown: AssistantMessageCardProps['onCellDrillDown']
+  /** Older messages collapse their result body so the thread stays scannable;
+   * the latest answer opens expanded. */
+  defaultOpen?: boolean
   t: AssistantT
   localeTag: string
 }) {
@@ -560,37 +559,60 @@ export function AssistantMessageResults({
     return label ? { ...d, name: label } : d
   })
   const tableData = tableView === 'pivot' && pivotTable ? pivotTable : result.result
+  const totalRows = result.result.stats?.row_count ?? result.result.rows.length
+
+  // A result without rows must not render the full table/chart shell: either
+  // the query genuinely matched nothing, or a reloaded snapshot kept only the
+  // stats. One compact line says which.
+  if (result.result.rows.length === 0) {
+    return (
+      <div className={resultsSectionClass}>
+        <p className="text-foreground-muted m-0 text-[0.85rem]" role="status">
+          {totalRows > 0
+            ? t('ai_query.results_rows_unavailable', { rows: totalRows })
+            : t('ai_query.results_empty')}
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className={resultsSectionClass}>
-      <ResultsHeaderHints
-        result={result}
-        pivotTable={pivotTable}
-        tableView={tableView}
-        setTableView={setTableView}
-        chartType={chartType}
-        setChartType={setChartType}
-        t={t}
-      />
-      {chartType !== 'table' && chartData.length > 0 && (
-        <ChartContainer data={chartData} type={chartType} />
-      )}
-      {chartType === 'table' && (
-        <ResultTable
-          columns={tableData.columns}
-          rows={tableData.rows}
-          rowCount={tableData.rows.length}
-          durationMs={result.result.stats?.duration_ms}
-          question={userQuestion}
-          anomalies={tableView === 'flat' ? result.result.anomalies : undefined}
-          onFilterByValue={tableView === 'flat' ? onFilterByValue : undefined}
-          onCellClick={
-            tableView === 'flat'
-              ? (colName, value) => onCellDrillDown(colName, String(value))
-              : undefined
-          }
+      <Collapsible
+        title={t('ai_query.results_title', { rows: totalRows })}
+        defaultOpen={defaultOpen}
+      >
+        <ResultsHeaderHints
+          result={result}
+          pivotTable={pivotTable}
+          tableView={tableView}
+          setTableView={setTableView}
+          chartType={chartType}
+          setChartType={setChartType}
+          t={t}
         />
-      )}
+        {chartType !== 'table' && chartData.length > 0 && (
+          <ChartContainer data={chartData} type={chartType} />
+        )}
+        {chartType === 'table' && (
+          <div className="custom-scrollbar max-h-96 overflow-y-auto">
+            <ResultTable
+              columns={tableData.columns}
+              rows={tableData.rows}
+              rowCount={tableData.rows.length}
+              durationMs={result.result.stats?.duration_ms}
+              question={userQuestion}
+              anomalies={tableView === 'flat' ? result.result.anomalies : undefined}
+              onFilterByValue={tableView === 'flat' ? onFilterByValue : undefined}
+              onCellClick={
+                tableView === 'flat'
+                  ? (colName, value) => onCellDrillDown(colName, String(value))
+                  : undefined
+              }
+            />
+          </div>
+        )}
+      </Collapsible>
     </div>
   )
 }

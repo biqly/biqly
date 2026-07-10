@@ -161,7 +161,32 @@ export default function AIQuery() {
   const [aiRuntimeErr, setAiRuntimeErr] = useState<string | null>(null)
   const [embeddingStatus, setEmbeddingStatus] = useState<string | null>(null)
   const [embeddingRunning, setEmbeddingRunning] = useState(false)
-  const [queryAction, setQueryAction] = useState<'preview' | 'execute' | null>(null)
+  // In-flight send state, keyed by conversation id: the "AI is working"
+  // indicator must follow the conversation that is actually running, not a
+  // single global flag (which showed in the wrong thread after a switch and
+  // vanished for the running one).
+  const [pendingByConversation, setPendingByConversation] = useState<
+    Record<string, 'preview' | 'execute'>
+  >({})
+  const setConversationPending = useCallback(
+    (convId: string, action: 'preview' | 'execute' | null) => {
+      setPendingByConversation((prev) => {
+        if (action === null) {
+          if (!(convId in prev)) {
+            return prev
+          }
+          const next = { ...prev }
+          delete next[convId]
+          return next
+        }
+        if (prev[convId] === action) {
+          return prev
+        }
+        return { ...prev, [convId]: action }
+      })
+    },
+    [],
+  )
   // Auto-find (embedding-RAG grounding) defaults on and persists across sessions
   // as a composer preference. Selected saved-query grounding is per-question and
   // clears after each send.
@@ -264,13 +289,41 @@ export default function AIQuery() {
     )
   }, [jobs, activeConversationId])
 
+  const localPendingAction = activeConversationId
+    ? (pendingByConversation as Partial<Record<string, 'preview' | 'execute'>>)[
+        activeConversationId
+      ]
+    : undefined
   const effectiveQueryAction =
-    queryAction ??
+    localPendingAction ??
     (activeConversationJob
       ? activeConversationJob.kind === 'preview'
         ? 'preview'
         : 'execute'
       : null)
+
+  // Conversations with any in-flight work (local send or a queued/running
+  // job), for the sidebar activity dot.
+  const busyConversationIds = useMemo(() => {
+    const ids = new Set(Object.keys(pendingByConversation))
+    for (const job of jobs) {
+      if (job.kind !== 'run' && job.kind !== 'preview' && job.kind !== 'query') {
+        continue
+      }
+      if (!jobIsActive(job)) {
+        continue
+      }
+      const req = job.request_json
+      const convId =
+        req && typeof req === 'object'
+          ? (req as { conversation_id?: unknown }).conversation_id
+          : undefined
+      if (typeof convId === 'string' && convId) {
+        ids.add(convId)
+      }
+    }
+    return ids
+  }, [pendingByConversation, jobs])
   const aiBusy = effectiveQueryAction !== null
   const displayElapsedMs = aiBusy ? aiElapsedMs : 0
 
@@ -632,11 +685,19 @@ export default function AIQuery() {
       } finally {
         if (isCurrent()) {
           aborts.delete(convId)
-          setQueryAction(null)
+          setConversationPending(convId, null)
         }
       }
     },
-    [accessToken, t, addMessage, assistantContentFor, updateAgentTurn, clearAgentTurn],
+    [
+      accessToken,
+      t,
+      addMessage,
+      assistantContentFor,
+      updateAgentTurn,
+      clearAgentTurn,
+      setConversationPending,
+    ],
   )
 
   // answerAgentClarification resumes the paused run identified by
@@ -655,7 +716,7 @@ export default function AIQuery() {
       if (!pending || !convId) {
         return
       }
-      setQueryAction('execute')
+      setConversationPending(convId, 'execute')
       setJobError(null)
       addMessage({ role: 'user', content: displayLabel }, convId)
       await runAgentTurn(
@@ -675,6 +736,7 @@ export default function AIQuery() {
       agentTurnsByConversation,
       activeConversation,
       addMessage,
+      setConversationPending,
       runAgentTurn,
       datasourceId,
       semanticModelId,
@@ -709,7 +771,7 @@ export default function AIQuery() {
     // The selected grounding is now captured in the request; clear the chips so
     // the next question starts fresh.
     setSelectedSavedQueryIds([])
-    setQueryAction(execute ? 'execute' : 'preview')
+    setConversationPending(convId, execute ? 'execute' : 'preview')
     setJobError(null)
 
     if (agentModeEnabled) {
@@ -791,7 +853,7 @@ export default function AIQuery() {
       // Job outcomes (success, failure, cancellation) reach the conversation
       // through the job sweep above.
     } finally {
-      setQueryAction(null)
+      setConversationPending(convId, null)
     }
   }
 
@@ -873,6 +935,7 @@ export default function AIQuery() {
               key={c.id}
               conv={c}
               isActive={c.id === activeConversationId}
+              isBusy={busyConversationIds.has(c.id)}
               onSelect={() => setActiveConversationId(c.id)}
               onRename={renameConversation}
               onDelete={deleteConversation}

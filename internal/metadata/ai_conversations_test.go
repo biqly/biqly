@@ -32,13 +32,14 @@ func TestAIConversationRepositoryCRUD(t *testing.T) {
 			Cols: []string{
 				"id", "user_id", "datasource_id", "model_id", "context_enabled", "title",
 				"snapshot_version", "created_at", "updated_at",
-				"message_id", "message_role", "message_content",
-				"message_ai_response", "message_result_summary", "message_created_at",
+				"message_id", "message_remote_id", "message_ordinal", "message_role",
+				"message_content", "message_ai_response", "message_result_summary",
+				"message_created_at",
 			},
 			Rows: [][]driver.Value{{
 				"conv-1", "user-1", "ds-1", "model-1", true, "Tweets",
-				int64(0), now, now, "msg-1", "assistant", "May 20 won", []byte(`{"sql":"SELECT 1"}`),
-				"date=2026-05-20, tweet_count=2932", now,
+				int64(0), now, now, "msg-1", "remote-1", int64(3), "assistant", "May 20 won",
+				[]byte(`{"sql":"SELECT 1"}`), "date=2026-05-20, tweet_count=2932", now,
 			}},
 		},
 	}
@@ -70,6 +71,10 @@ func TestAIConversationRepositoryCRUD(t *testing.T) {
 	assert.Equal(t, "conv-1", conversations[0].ID)
 	require.Len(t, conversations[0].Messages, 1)
 	assert.Equal(t, "assistant", conversations[0].Messages[0].Role)
+	// remote_id/ordinal must round-trip; a lost remote_id makes the client mint
+	// a new one and re-insert the whole history on the next snapshot save.
+	assert.Equal(t, "remote-1", conversations[0].Messages[0].RemoteID)
+	assert.Equal(t, 3, conversations[0].Messages[0].Ordinal)
 	assert.Equal(t, map[string]any{"sql": "SELECT 1"}, conversations[0].Messages[0].AIResponse)
 	assert.Equal(t, "date=2026-05-20, tweet_count=2932", *conversations[0].Messages[0].ResultSummary)
 

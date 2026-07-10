@@ -291,7 +291,10 @@ export function modelingJoinLineClass(hi?: boolean): string {
 // Invisible wide stroke laid over each join line so the thin visible path is
 // easy to hover; it opts back into pointer events while the container <svg>
 // stays pointer-events-none so empty areas pass through to canvas pan/drag.
-export const modelingJoinHitClass = 'pointer-events-[stroke] fill-none stroke-transparent'
+// `modeling-join-hit` is a marker excluding it from the index.css rule that
+// styles the visible join path (which would shrink its stroke back to 1.6px).
+export const modelingJoinHitClass =
+  'modeling-join-hit [pointer-events:stroke] fill-none stroke-transparent'
 
 export const modelingJoinTooltipClass = cn(
   'pointer-events-none fixed z-50 flex max-w-[18rem] flex-col gap-1 rounded-lg border border-border',

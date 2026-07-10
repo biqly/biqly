@@ -38,6 +38,8 @@ func (w *WebTools) All() []Tool {
 		webTool{w, ToolWebDryPlan, webDryPlan},
 		webTool{w, ToolWebDryRun, webDryRun},
 		webTool{w, ToolWebMetricQuery, webMetricQuery},
+		webTool{w, ToolWebListKnowledgeFiles, webListKnowledgeFiles},
+		webTool{w, ToolWebReadKnowledgeFile, webReadKnowledgeFile},
 	}
 }
 
@@ -228,6 +230,28 @@ func webMetricQuery(ctx context.Context, disp toolcontract.Dispatcher, cred tool
 		in.ModelID = run.ModelID
 	}
 	return toolcontract.DispatchMetricQuery(ctx, disp, in, cred, toolcontract.ChannelAgent)
+}
+
+func webListKnowledgeFiles(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, run RunContext, args json.RawMessage) (toolcontract.DispatchResult, error) {
+	in, err := decodeArgs[toolcontract.ListKnowledgeFilesInput](args)
+	if err != nil {
+		return toolcontract.DispatchResult{}, err
+	}
+	if in.DatasourceID == "" {
+		in.DatasourceID = run.DatasourceID
+	}
+	return toolcontract.DispatchListKnowledgeFiles(ctx, disp, in, cred, toolcontract.ChannelAgent)
+}
+
+func webReadKnowledgeFile(ctx context.Context, disp toolcontract.Dispatcher, cred toolcontract.Credential, run RunContext, args json.RawMessage) (toolcontract.DispatchResult, error) {
+	in, err := decodeArgs[toolcontract.ReadKnowledgeFileInput](args)
+	if err != nil {
+		return toolcontract.DispatchResult{}, err
+	}
+	if in.DatasourceID == "" {
+		in.DatasourceID = run.DatasourceID
+	}
+	return toolcontract.DispatchReadKnowledgeFile(ctx, disp, in, cred, toolcontract.ChannelAgent)
 }
 
 // decodeArgs unmarshals JSON arguments into a typed input struct, tolerating

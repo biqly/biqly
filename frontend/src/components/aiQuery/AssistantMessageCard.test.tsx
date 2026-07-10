@@ -143,6 +143,7 @@ function renderCard(message: ConversationMessage) {
       onCellDrillDown={vi.fn()}
       onSelectFollowUp={vi.fn()}
       priorQuestions={[]}
+      isLatest
     />,
   )
 }
@@ -183,7 +184,7 @@ describe('AssistantMessageCard rendering an agent-mode result message', () => {
     expect(screen.getByText('Break down by region')).toBeTruthy()
   })
 
-  it('renders the SQL preview and the run trace once details are expanded', async () => {
+  it('renders the SQL preview once details are expanded', () => {
     renderCard(agentMessage())
     fireEvent.click(screen.getByText('ai_query.details_show'))
     fireEvent.click(screen.getByRole('button', { name: 'ai_query.sql_preview_title' }))
@@ -191,10 +192,15 @@ describe('AssistantMessageCard rendering an agent-mode result message', () => {
     expect(screen.getByLabelText('ai_query.sql_preview_code_aria').textContent).toBe(
       "SELECT date_trunc('quarter', ordered_at) AS quarter, sum(amount) AS revenue FROM orders GROUP BY 1",
     )
+  })
+
+  it('renders the persistent thinking-steps panel without expanding details', async () => {
+    renderCard(agentMessage())
     // run_steps is empty on the agent-mode result (see agentModeResult's
     // comment) but run_id is set, so RunTracePanel re-hydrates via
-    // getAgentRun (mocked above) instead of showing nothing.
-    expect(await screen.findByText('ai_query.run_trace_title')).toBeTruthy()
+    // getAgentRun (mocked above) instead of showing nothing. The panel lives
+    // directly on the card (collapsed), not inside the details section.
+    expect(await screen.findByText('ai_query.thinking_steps_title')).toBeTruthy()
   })
 
   it('does not render a clarification card for a completed (non-clarification) agent result', () => {
