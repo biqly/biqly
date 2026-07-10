@@ -6,7 +6,7 @@
 // flight. This suite drives the real ChatPanel (not a stub) to prove the
 // fixed gating and the new AgentTraceCard slot, with an empty conversation
 // so AssistantMessageCard's own (much larger) dependency tree never mounts.
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type * as I18nModule from '../../i18n'
@@ -42,6 +42,14 @@ vi.mock('../../i18n', async (importOriginal) => ({
 // jsdom has no scrollTo implementation; ChatPanel's message-feed
 // autoscroll effect calls it unconditionally on mount.
 Element.prototype.scrollTo = vi.fn()
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockReturnValue({
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }),
+})
 
 const identityT: ChatPanelProps['t'] = (key, params) =>
   params ? `${key}:${JSON.stringify(params)}` : key
@@ -178,5 +186,56 @@ describe('ChatPanel AgentTraceCard slot', () => {
     expect(screen.getByText('Which region did you mean?')).toBeTruthy()
     fireEvent.click(screen.getByText('EMEA'))
     expect(onChoice).toHaveBeenCalledWith('emea')
+  })
+})
+
+describe('ChatPanel Phase 3 composer', () => {
+  it('uses one configuration trigger instead of loose toggles', () => {
+    render(<ChatPanel {...baseProps()} />)
+    expect(screen.getByRole('button', { name: /ai_query.agent_config/ })).toBeTruthy()
+    expect(screen.queryByRole('checkbox')).toBeNull()
+  })
+
+  it('previews without execution and runs analysis as the primary action', () => {
+    const onSendQuery = vi.fn()
+    render(
+      <ChatPanel
+        {...baseProps({ datasourceId: 'ds-1', question: 'Revenue by month', onSendQuery })}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'ai_query.preview_plan_query' }))
+    fireEvent.click(screen.getByRole('button', { name: /ai_query.run_analysis/ }))
+    expect(onSendQuery).toHaveBeenNthCalledWith(1, 'Revenue by month', false)
+    expect(onSendQuery).toHaveBeenNthCalledWith(2, 'Revenue by month', true)
+  })
+
+  it('keeps both actions disabled for whitespace-only input', () => {
+    render(<ChatPanel {...baseProps({ datasourceId: 'ds-1', question: '   ' })} />)
+    expect(
+      screen.getByRole('button', { name: 'ai_query.preview_plan_query' }).hasAttribute('disabled'),
+    ).toBe(true)
+    expect(
+      screen.getByRole('button', { name: /ai_query.run_analysis/ }).hasAttribute('disabled'),
+    ).toBe(true)
+  })
+
+  it('presents AI Data Analyst onboarding and capability cards', () => {
+    render(<ChatPanel {...baseProps()} />)
+    expect(screen.getByText('ai_query.empty_analyst_title')).toBeTruthy()
+    expect(screen.getByText('ai_query.empty_capability_explore_title')).toBeTruthy()
+    expect(screen.getByText('ai_query.empty_capability_explain_title')).toBeTruthy()
+    expect(screen.getByText('ai_query.empty_capability_visualize_title')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /ai_query.suggestion_/ })).toHaveLength(4)
+  })
+
+  it('rotates prompt guidance while the composer is idle', () => {
+    vi.useFakeTimers()
+    render(<ChatPanel {...baseProps()} />)
+    expect(screen.getByRole('textbox').getAttribute('placeholder')).toBe('ai_query.placeholder')
+    void act(() => vi.advanceTimersByTime(4_000))
+    expect(screen.getByRole('textbox').getAttribute('placeholder')).toBe(
+      'ai_query.placeholder_compare',
+    )
+    vi.useRealTimers()
   })
 })

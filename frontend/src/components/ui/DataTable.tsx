@@ -81,6 +81,7 @@ export function DataTable<T>({
               <th
                 key={col.key}
                 className={headerCellClassName}
+                style={col.align && col.align !== 'left' ? { textAlign: col.align } : undefined}
                 aria-sort={col.sortable && onSortToggle ? ariaSortFor(sort, col.key) : undefined}
               >
                 {col.sortable && onSortToggle ? (

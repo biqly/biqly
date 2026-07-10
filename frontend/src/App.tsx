@@ -25,7 +25,6 @@ import { authAvatarClass, authCardClass, authPageClass } from './lib/authClasses
 import { buttonClass } from './lib/buttonClasses'
 import { cardClass } from './lib/cardClasses'
 import { cn } from './lib/cn'
-import { legacyFeedbackClass } from './lib/feedbackClasses'
 import { sidebarFooterControlsClass, sidebarLogoutBtnClass } from './lib/headerControlClasses'
 import {
   mainClass,
@@ -465,21 +464,15 @@ interface SidebarFooterProps {
 
 function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
   const t = useT()
-  const isLocalApi =
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  const apiLabel = isLocalApi
-    ? t('common.local_api')
-    : `API · ${typeof window !== 'undefined' ? window.location.host : ''}/api`
 
   return (
     <div
-      className={`border-border text-foreground-muted mt-auto flex flex-col items-stretch gap-[0.65rem] border-t px-2 pt-3 pb-0 text-[0.74rem]`}
+      className={`border-border text-foreground-muted mt-auto flex flex-col items-stretch gap-2 border-t px-2 pt-2.5 pb-0 text-[0.74rem]`}
     >
       {user && (
         <Link
           to="/settings"
-          className="color-inherit hover:bg-canvas-subtle relative mb-0 flex cursor-pointer items-center gap-3 rounded-lg p-[10px_12px] no-underline transition-colors duration-200"
+          className="color-inherit hover:bg-canvas-subtle relative mb-0 flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 no-underline transition-colors duration-200"
           onMouseEnter={() => handleNavHover(Settings)}
           onFocus={() => handleNavHover(Settings)}
         >
@@ -526,15 +519,6 @@ function SidebarFooter({ user, roleLabel, onLogout }: SidebarFooterProps) {
             </svg>
           </button>
         )}
-      </div>
-      <div className="inline-flex items-center gap-2">
-        <span
-          className={legacyFeedbackClass(
-            'bg-success h-2 w-2 rounded-full shadow-[0_0_8px_var(--success)]',
-          )}
-          aria-hidden="true"
-        />
-        <span>{apiLabel}</span>
       </div>
     </div>
   )
@@ -864,7 +848,7 @@ function App() {
                 aria-label={t('common.primary_nav')}
               >
                 <a
-                  className="mb-2 flex min-w-0 items-center gap-3 rounded-lg px-[0.4rem] pt-1 pb-3 font-['Plus_Jakarta_Sans',sans-serif]"
+                  className="mb-1 flex min-w-0 items-center gap-3 rounded-lg px-[0.4rem] pt-1 pb-2 font-['Plus_Jakarta_Sans',sans-serif]"
                   href={DEFAULT_PATH}
                   onClick={(event) => handleNavClick(event, DEFAULT_PATH)}
                   onMouseEnter={() => handleNavHover(Home)}
@@ -892,7 +876,7 @@ function App() {
                 >
                   {accessToken && <WorkspaceSelector token={accessToken} />}
                   {homeRoute && (
-                    <div className="grid gap-[0.2rem]">
+                    <div className="mb-2.5 grid gap-[0.15rem]">
                       <a
                         className={navLinkClass}
                         href={homeRoute.path}
@@ -913,16 +897,16 @@ function App() {
                   {sidebarSections.map((section) => (
                     <section
                       key={section.sectionKey}
-                      className="mb-[1.1rem] last:mb-0"
+                      className="mb-2.5 last:mb-0"
                       aria-labelledby={`nav-heading-${section.sectionKey}`}
                     >
                       <div
-                        className="text-foreground-muted px-[0.6rem] py-[0.15rem] pb-2 font-['Plus_Jakarta_Sans',sans-serif] text-[0.64rem] font-bold tracking-wider uppercase"
+                        className="text-foreground-muted px-[0.6rem] pt-[0.15rem] pb-1 font-['Plus_Jakarta_Sans',sans-serif] text-[0.64rem] font-bold tracking-wider uppercase"
                         id={`nav-heading-${section.sectionKey}`}
                       >
                         {section.heading}
                       </div>
-                      <div className="grid gap-[0.2rem]">
+                      <div className="grid gap-[0.15rem]">
                         {section.routes.map((route) => (
                           <a
                             key={route.path}
@@ -959,7 +943,6 @@ function App() {
               <main id="main-content" className={mainClass} tabIndex={-1}>
                 <header className={pageHeaderClass}>
                   <Breadcrumbs items={breadcrumbs} ariaLabel={t('common.primary_nav')} />
-                  <p>{activeRoute?.eyebrow ?? t('common.not_found_eyebrow')}</p>
                   <div>
                     <h1>{activeRoute?.label ?? t('common.page_not_found')}</h1>
                     <span>{activeRoute?.description ?? t('common.not_found_desc')}</span>

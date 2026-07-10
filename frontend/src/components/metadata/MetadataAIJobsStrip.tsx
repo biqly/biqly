@@ -70,7 +70,12 @@ function StripJobHints({ job }: { job: TrackedAIJob }) {
       {scopeLine && (
         <p className={aiJobCardHintClass}>{t('ai_jobs.scope_schemas', { schemas: scopeLine })}</p>
       )}
-      {job.phase_message && active && <p className={aiJobCardHintClass}>{job.phase_message}</p>}
+      {/* phase_message duplicates the "Current: <table>" line for batch
+          describes ("describing public.x") — show it only when there is no
+          structured queue info. */}
+      {job.phase_message && active && !queueLine?.current && (
+        <p className={aiJobCardHintClass}>{job.phase_message}</p>
+      )}
       {queueLine?.current && (
         <p className={aiJobCardHintClass}>
           {t('ai_jobs.queue_current', { table: queueLine.current })}
@@ -132,7 +137,10 @@ function StripJobCard({
         {active ? (
           <button
             type="button"
-            className={cn(buttonClass('ghost', { size: 'sm' }), aiJobCardCancelClass)}
+            className={cn(
+              buttonClass('ghost', { size: 'sm', autoWidth: true }),
+              aiJobCardCancelClass,
+            )}
             onClick={onCancel}
             disabled={cancelling}
           >
@@ -141,7 +149,7 @@ function StripJobCard({
         ) : (
           <button
             type="button"
-            className={buttonClass('ghost', { size: 'sm' })}
+            className={buttonClass('ghost', { size: 'sm', autoWidth: true })}
             onClick={onDismiss}
             aria-label={t('ai_jobs.dismiss')}
           >

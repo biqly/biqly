@@ -1,5 +1,29 @@
 # Todo list
 
+## AI Query agent redesign — Phase 3: Composer & context (2026-07-10)
+
+Source of truth: `tasks/ai-query-agent-redesign.md`, Phase 3.
+
+### Success criteria
+
+- [ ] Three loose composer checkboxes are replaced by one accessible Agent Configuration status chip + popover.
+- [ ] The composer communicates `@` field, `/` saved-query, and `#` business-term grounding with visible context tokens.
+- [ ] Placeholder guidance rotates without overriding typed text; reduced-motion users receive a stable prompt.
+- [ ] Primary action reads “Run analysis”; secondary action previews the governed plan/query without execution.
+- [ ] An empty conversation presents AI Data Analyst onboarding, datasource-aware sample prompts, and capability cards.
+- [ ] New copy is translated in English and Turkish; focused tests and `make check-frontend` pass.
+
+### Execution
+
+- [ ] T1 — Agent Configuration popover with context, skill, agent-mode controls and execution-cap summary.
+- [ ] T2 — Composer command-center copy, rotating placeholders, `#` glossary picker, and context-token hints.
+- [ ] T3 — AI Data Analyst empty state with datasource-aware prompt starters and capability cards.
+- [ ] T4 — Focused unit/component coverage, frontend quality gate, and review evidence.
+
+### Review
+
+- Pending implementation and verification.
+
 ## Wave 23 — Site-wide UI standardization (2026-07-10)
 
 User feedback (screenshots 35-53); license granted to decide + implement.

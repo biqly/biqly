@@ -17,22 +17,22 @@ export const skipLinkClass = cn(
   'focus-visible:translate-y-0',
 )
 
+// Compact page header: breadcrumb row, then title + description sharing one
+// baseline row (description wraps under the title on narrow screens).
 export const pageHeaderClass = cn(
-  'grid gap-[0.35rem] mb-8',
+  'grid gap-1 mb-5',
   'max-[980px]:pl-12',
-  '[&>p]:text-accent [&>p]:font-[family-name:var(--font-display)]',
-  '[&>p]:text-[0.72rem] [&>p]:font-bold [&>p]:tracking-[0.12em] [&>p]:uppercase',
   '[&_h1]:text-foreground [&_h1]:font-[family-name:var(--font-display)]',
-  '[&_h1]:text-[clamp(1.8rem,2.4vw,2.1rem)] [&_h1]:font-extrabold',
-  '[&_h1]:tracking-[-0.035em] [&_h1]:leading-[1.12] [&_h1]:text-balance',
-  '[&>div]:flex [&>div]:flex-col [&>div]:gap-[0.6rem]',
-  '[&_span]:block [&_span]:max-w-[min(96rem,100%)] [&_span]:mt-0',
-  '[&_span]:text-foreground-muted [&_span]:text-[0.9rem] [&_span]:leading-[1.45] [&_span]:text-pretty',
+  '[&_h1]:text-[1.25rem] [&_h1]:font-bold',
+  '[&_h1]:tracking-[-0.02em] [&_h1]:leading-[1.25] [&_h1]:m-0',
+  '[&>div]:flex [&>div]:flex-wrap [&>div]:items-baseline [&>div]:gap-x-3 [&>div]:gap-y-0.5',
+  '[&_span]:max-w-[min(96rem,100%)]',
+  '[&_span]:text-foreground-muted [&_span]:text-[0.82rem] [&_span]:leading-[1.45] [&_span]:text-pretty',
 )
 
 export const navLinkClass = cn(
-  'group flex items-center gap-[0.7rem] min-w-0 rounded-lg text-foreground-muted py-2 px-3',
-  'font-[family-name:var(--font-display)] text-[0.86rem] font-medium',
+  'group flex items-center gap-[0.65rem] min-w-0 rounded-lg text-foreground-muted py-[0.4rem] px-3',
+  'font-[family-name:var(--font-display)] text-[0.84rem] font-medium',
   'border-l-2 border-transparent',
   'transition-all duration-180 ease-in-out',
   'hover:bg-card hover:text-foreground hover:translate-x-[2px]',
@@ -64,7 +64,7 @@ export const mobileNavScrimVisibleClass = 'max-[980px]:block'
 
 export function mobileNavSidebarClass(open: boolean): string {
   return cn(
-    'sticky top-0 flex flex-col gap-[0.85rem] h-screen border-r border-border bg-bg-secondary py-6 px-4 min-w-0',
+    'sticky top-0 flex flex-col gap-[0.6rem] h-screen border-r border-border bg-bg-secondary pt-4 pb-3 px-3.5 min-w-0',
     'max-[980px]:fixed max-[980px]:left-0 max-[980px]:top-0 max-[980px]:z-50',
     'max-[980px]:w-[min(18rem,86vw)] max-[980px]:border-r max-[980px]:border-[color:var(--mobile-nav-panel-edge)]',
     'max-[980px]:bg-[var(--mobile-nav-panel-bg)] max-[980px]:shadow-[var(--mobile-nav-panel-shadow)]',

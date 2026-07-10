@@ -41,7 +41,7 @@ export const aiJobCardMetaClass = 'text-[0.72rem] text-foreground-muted'
 export const aiJobCardBodyClass = 'mt-[0.65rem] grid gap-[0.55rem]'
 
 export const aiJobCardTotalClass =
-  'm-0 flex items-center justify-between gap-2 border-t border-dashed border-border pt-[0.45rem] text-[0.75rem] text-foreground-muted'
+  'm-0 flex items-center gap-2 border-t border-dashed border-border pt-[0.45rem] text-[0.75rem] text-foreground-muted'
 
 export const aiJobCardTotalTimeClass = 'font-semibold text-foreground tabular-nums'
 

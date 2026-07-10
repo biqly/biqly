@@ -6,7 +6,7 @@ import type { CompositeModelDetail } from '../types/composite'
 import type { SemanticDimension, SemanticMetric, SemanticModelDetail } from '../types/semantic'
 import { request, useApi } from './useApi'
 
-export type CatalogEntryType = 'dimension' | 'metric' | 'table'
+export type CatalogEntryType = 'dimension' | 'metric' | 'table' | 'term'
 
 export interface CatalogEntry {
   type: CatalogEntryType

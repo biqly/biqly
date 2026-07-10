@@ -7,9 +7,7 @@ import { suggestConversationTitle, useConversation } from '../hooks/useConversat
 import { useDatasources } from '../hooks/useDatasources'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { useSemanticModels } from '../hooks/useSemanticModels'
-import type { TranslationKey } from '../i18n'
 import { useLocale, useT } from '../i18n'
-import { buttonClass } from '../lib/buttonClasses'
 import { cn } from '../lib/cn'
 import type { AgentChatRequest, PendingAgentClarification } from '../types/agent'
 import type {
@@ -35,13 +33,12 @@ import {
   aiQueryMainClass,
   conversationSidebarClass,
   conversationsListClass,
-  sidebarHeaderTitleClass,
 } from './aiQuery/aiQueryClasses'
 import { ChatPanel } from './aiQuery/ChatPanel'
-import {
-  type ConversationGroupKey,
-  groupConversationsByRecency,
-} from './aiQuery/conversationGroups'
+import { groupConversationsByRecency } from './aiQuery/conversationGroups'
+import { ConversationList } from './aiQuery/ConversationList'
+import { loadPinnedIds, savePinnedIds, togglePinnedId } from './aiQuery/conversationPins'
+import { ConversationSidebarHeader } from './aiQuery/ConversationSidebarHeader'
 import { RoutingPanel } from './aiQuery/RoutingPanel'
 import { embeddingSummary } from './aiQuery/routingViz'
 import { SidebarConversationItem } from './aiQuery/SidebarConversationItem'
@@ -52,6 +49,10 @@ import { useAuth } from './auth/AuthProvider'
 const AUTO_FIND_STORAGE_KEY = 'biqly.aiQuery.autoFindSkills'
 const DATASOURCE_STORAGE_KEY = 'biqly.aiQuery.datasourceId'
 const MODEL_STORAGE_PREFIX = 'biqly.aiQuery.semanticModelId.'
+
+function shouldRunAgentMode(enabled: boolean, execute: boolean): boolean {
+  return enabled && execute
+}
 
 // The page remembers the last datasource + semantic model (per datasource) so
 // navigating away and back resumes where the user left off instead of
@@ -86,14 +87,6 @@ function saveStoredModelId(datasourceId: string, modelId: string): void {
   } catch {
     // Non-fatal.
   }
-}
-
-const CONVERSATION_GROUP_LABEL_KEYS: Record<ConversationGroupKey, TranslationKey> = {
-  today: 'ai_query.group_today',
-  yesterday: 'ai_query.group_yesterday',
-  week: 'ai_query.group_this_week',
-  month: 'ai_query.group_this_month',
-  older: 'ai_query.group_older',
 }
 
 // AgentTurnState is one conversation's ephemeral Agent Mode trace: the live
@@ -355,6 +348,15 @@ export default function AIQuery() {
   const [jobError, setJobError] = useState<string | null>(null)
   const [aiElapsedMs, setAiElapsedMs] = useState(0)
   const [isConversationsExpanded, setIsConversationsExpanded] = useState(false)
+  const [conversationSearch, setConversationSearch] = useState('')
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(loadPinnedIds)
+  const togglePin = useCallback((id: string) => {
+    setPinnedIds((prev) => {
+      const next = togglePinnedId(prev, id)
+      savePinnedIds(next)
+      return next
+    })
+  }, [])
   // Tracks the in-flight Agent Mode SSE stream(s), keyed by conversation id,
   // so starting a fresh turn in one conversation aborts only that
   // conversation's own previous turn (an explicit resend/supersede) without
@@ -443,6 +445,57 @@ export default function AIQuery() {
     }
     return ids
   }, [pendingByConversation, jobs])
+
+  // Conversations whose most recent query job terminally failed — surfaced as
+  // a red dot in the sidebar (unless the conversation is currently busy again).
+  const failedConversationIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const job of jobs) {
+      if (job.kind !== 'run' && job.kind !== 'preview' && job.kind !== 'query') {
+        continue
+      }
+      if (job.status !== 'failed') {
+        continue
+      }
+      const req = job.request_json
+      const convId =
+        req && typeof req === 'object'
+          ? (req as { conversation_id?: unknown }).conversation_id
+          : undefined
+      if (typeof convId === 'string' && convId && !busyConversationIds.has(convId)) {
+        ids.add(convId)
+      }
+    }
+    return ids
+  }, [jobs, busyConversationIds])
+
+  // Search + pin ordering for the sidebar. Search filters on title and message
+  // text; pinned conversations get their own group above the recency groups.
+  const filteredConversations = useMemo(() => {
+    const q = conversationSearch.trim().toLowerCase()
+    if (!q) {
+      return conversations
+    }
+    return conversations.filter((c) => {
+      if ((c.title ?? '').toLowerCase().includes(q)) {
+        return true
+      }
+      return c.messages.some((m) => m.content.toLowerCase().includes(q))
+    })
+  }, [conversations, conversationSearch])
+
+  const pinnedConversations = useMemo(
+    () => filteredConversations.filter((c) => pinnedIds.has(c.id)),
+    [filteredConversations, pinnedIds],
+  )
+  const unpinnedGroups = useMemo(
+    () =>
+      groupConversationsByRecency(
+        filteredConversations.filter((c) => !pinnedIds.has(c.id)),
+        new Date(),
+      ),
+    [filteredConversations, pinnedIds],
+  )
   const aiBusy = effectiveQueryAction !== null
   const displayElapsedMs = aiBusy ? aiElapsedMs : 0
 
@@ -894,7 +947,7 @@ export default function AIQuery() {
     setConversationPending(convId, execute ? 'execute' : 'preview')
     setJobError(null)
 
-    if (agentModeEnabled) {
+    if (shouldRunAgentMode(agentModeEnabled, execute)) {
       // A clarification is pending for this conversation: whatever the user
       // just typed and hit Send on is their free-text answer, not a new
       // question — mirrors the legacy pipeline's own behavior (any send
@@ -977,6 +1030,23 @@ export default function AIQuery() {
     }
   }
 
+  const renderConversationItem = (c: (typeof conversations)[number]) => (
+    <SidebarConversationItem
+      key={c.id}
+      conv={c}
+      isActive={c.id === activeConversationId}
+      isBusy={busyConversationIds.has(c.id)}
+      isFailed={failedConversationIds.has(c.id)}
+      isPinned={pinnedIds.has(c.id)}
+      localeTag={localeTag}
+      onSelect={() => setActiveConversationId(c.id)}
+      onRename={renameConversation}
+      onDelete={deleteConversation}
+      onTogglePin={togglePin}
+      t={t}
+    />
+  )
+
   return (
     <div className={aiQueryLayoutClass}>
       <aside
@@ -986,90 +1056,32 @@ export default function AIQuery() {
           'max-[900px]:p-4',
         )}
       >
-        <div
-          className={cn(
-            'border-border mb-4 flex flex-col gap-3 border-b pb-3',
-            'max-[900px]:mb-0 max-[900px]:flex-row max-[900px]:items-center max-[900px]:justify-between max-[900px]:gap-2 max-[900px]:border-b-0 max-[900px]:pb-0',
-            isConversationsExpanded && 'max-[900px]:mb-4 max-[900px]:border-b max-[900px]:pb-3',
-          )}
-        >
-          <div className="flex min-w-0 items-center gap-2">
-            <h3 className={sidebarHeaderTitleClass}>{t('ai_query.conv_title')}</h3>
-            {conversations.length > 0 && (
-              <span className="bg-canvas-subtle border-border text-foreground-muted shrink-0 rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold">
-                {conversations.length}
-              </span>
-            )}
-          </div>
-          <div className="flex w-full shrink-0 flex-col items-center gap-2 max-[900px]:w-auto max-[900px]:flex-row">
-            <button
-              className={cn(
-                buttonClass('primary', { size: 'sm' }),
-                'w-full justify-center max-[900px]:w-auto',
-              )}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-              }}
-              onClick={() => {
-                createConversation({
-                  datasource_id: datasourceId,
-                  model_id: semanticModelId.startsWith('composite:')
-                    ? null
-                    : semanticModelId || null,
-                })
-                setQuestion('')
-                setIsConversationsExpanded(true)
-              }}
-            >
-              {t('ai_query.conv_new')}
-            </button>
-            <button
-              type="button"
-              className="border-border bg-card-raised text-foreground hidden h-8 w-8 cursor-pointer items-center justify-center rounded-lg border transition-colors hover:bg-(--control-hover-bg) max-[900px]:inline-flex"
-              onClick={() => setIsConversationsExpanded(!isConversationsExpanded)}
-              aria-label={
-                isConversationsExpanded ? t('common.collapse_panel') : t('common.expand_panel')
-              }
-            >
-              <svg
-                className={cn(
-                  'h-4 w-4 transition-transform duration-200',
-                  isConversationsExpanded && 'rotate-180',
-                )}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-          </div>
-        </div>
+        <ConversationSidebarHeader
+          conversationCount={conversations.length}
+          search={conversationSearch}
+          onSearchChange={setConversationSearch}
+          isExpanded={isConversationsExpanded}
+          onToggleExpanded={() => setIsConversationsExpanded(!isConversationsExpanded)}
+          onNewConversation={() => {
+            createConversation({
+              datasource_id: datasourceId,
+              model_id: semanticModelId.startsWith('composite:') ? null : semanticModelId || null,
+            })
+            setQuestion('')
+            setIsConversationsExpanded(true)
+          }}
+          t={t}
+        />
         <div
           className={cn(conversationsListClass, !isConversationsExpanded && 'max-[900px]:hidden')}
         >
-          {groupConversationsByRecency(conversations, new Date()).map((group) => (
-            <div key={group.key} className="flex flex-col gap-2">
-              <h4 className="text-foreground-faint m-0 mt-1 px-1 text-[0.68rem] font-bold tracking-widest uppercase">
-                {t(CONVERSATION_GROUP_LABEL_KEYS[group.key])}
-              </h4>
-              {group.items.map((c) => (
-                <SidebarConversationItem
-                  key={c.id}
-                  conv={c}
-                  isActive={c.id === activeConversationId}
-                  isBusy={busyConversationIds.has(c.id)}
-                  localeTag={localeTag}
-                  onSelect={() => setActiveConversationId(c.id)}
-                  onRename={renameConversation}
-                  onDelete={deleteConversation}
-                  t={t}
-                />
-              ))}
-            </div>
-          ))}
+          <ConversationList
+            emptySearch={filteredConversations.length === 0 && conversationSearch.trim() !== ''}
+            pinnedConversations={pinnedConversations}
+            unpinnedGroups={unpinnedGroups}
+            renderItem={renderConversationItem}
+            t={t}
+          />
         </div>
       </aside>
 

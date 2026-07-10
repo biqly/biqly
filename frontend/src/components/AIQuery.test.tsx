@@ -29,24 +29,32 @@ import type { AgentTurnOutcome, RunAgentModeTurnOptions } from './aiQuery/agentM
 // remounting the component — remounting would reset AIQuery's own internal
 // agentTurnsByConversation state, which is exactly what these tests need to
 // observe surviving a conversation switch.
-const { mockRunAgentModeTurn, mockAddMessage, conversationHarness, mockSetActiveConversationId } =
-  vi.hoisted(() => {
-    const conversationHarness = {
-      activeConversationId: 'conv-1',
-      conversations: {
-        'conv-1': { id: 'conv-1', messages: [], context_enabled: true },
-        'conv-2': { id: 'conv-2', messages: [], context_enabled: true },
-      } as Record<string, { id: string; messages: unknown[]; context_enabled: boolean }>,
-    }
-    return {
-      mockRunAgentModeTurn: vi.fn(),
-      mockAddMessage: vi.fn(),
-      conversationHarness,
-      mockSetActiveConversationId: vi.fn((id: string) => {
-        conversationHarness.activeConversationId = id
-      }),
-    }
-  })
+const {
+  mockRunAgentModeTurn,
+  mockRunJob,
+  mockAddMessage,
+  mockPostData,
+  conversationHarness,
+  mockSetActiveConversationId,
+} = vi.hoisted(() => {
+  const conversationHarness = {
+    activeConversationId: 'conv-1',
+    conversations: {
+      'conv-1': { id: 'conv-1', messages: [], context_enabled: true },
+      'conv-2': { id: 'conv-2', messages: [], context_enabled: true },
+    } as Record<string, { id: string; messages: unknown[]; context_enabled: boolean }>,
+  }
+  return {
+    mockRunAgentModeTurn: vi.fn(),
+    mockRunJob: vi.fn(() => Promise.resolve('queued')),
+    mockAddMessage: vi.fn(),
+    mockPostData: vi.fn(() => Promise.resolve(null)),
+    conversationHarness,
+    mockSetActiveConversationId: vi.fn((id: string) => {
+      conversationHarness.activeConversationId = id
+    }),
+  }
+})
 
 vi.mock('react-router-dom', () => ({
   useLocation: () => ({ state: null }),
@@ -56,7 +64,7 @@ vi.mock('../hooks/useAIJobs', () => ({
   fetchOwnAIJobs: vi.fn(() => Promise.resolve(null)),
   jobIsActive: () => false,
   useAIJobs: () => ({
-    runJob: vi.fn(),
+    runJob: mockRunJob,
     cancelJob: vi.fn(),
     jobs: [],
     queueStatus: null,
@@ -67,7 +75,7 @@ vi.mock('../hooks/useAIJobs', () => ({
 vi.mock('../hooks/useApi', () => ({
   useApi: () => ({
     get: vi.fn(() => Promise.resolve(null)),
-    postData: vi.fn(() => Promise.resolve(null)),
+    postData: mockPostData,
     loading: false,
     error: null,
     abort: vi.fn(),
@@ -150,6 +158,7 @@ vi.mock('./aiQuery/ChatPanel', () => ({
   }) => (
     <div>
       <button onClick={() => props.onSendQuery('How many orders?', true)}>send</button>
+      <button onClick={() => props.onSendQuery('How many orders?', false)}>preview</button>
       <button onClick={props.onAbort}>abort</button>
       <button onClick={() => props.onAgentClarificationChoice('emea')}>select-choice</button>
       <button onClick={props.onAgentClarificationSkip}>skip-clarification</button>
@@ -168,12 +177,25 @@ import AIQuery from './AIQuery'
 afterEach(() => {
   cleanup()
   mockRunAgentModeTurn.mockReset()
+  mockRunJob.mockClear()
   mockAddMessage.mockReset()
+  mockPostData.mockClear()
   mockSetActiveConversationId.mockClear()
   conversationHarness.activeConversationId = 'conv-1'
 })
 
 describe('AIQuery Agent Mode stream cleanup', () => {
+  it('uses the governed preview path instead of starting an agent run', async () => {
+    render(<AIQuery />)
+    fireEvent.click(screen.getByText('preview'))
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(mockRunAgentModeTurn).not.toHaveBeenCalled()
+    expect(mockRunJob).toHaveBeenCalledWith('preview', expect.anything(), expect.anything())
+    expect(mockPostData).not.toHaveBeenCalled()
+  })
+
   it('aborts the in-flight Agent Mode stream when the component unmounts mid-stream', () => {
     let capturedSignal: AbortSignal | undefined
     mockRunAgentModeTurn.mockImplementation(

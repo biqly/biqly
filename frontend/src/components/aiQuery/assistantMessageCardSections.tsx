@@ -1,3 +1,6 @@
+import { useState } from 'react'
+
+import { localeLanguageTag, useLocale } from '../../i18n'
 import { promptWarningClass, wfBadgeClass } from '../../lib/badgeClasses'
 import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
@@ -11,6 +14,7 @@ import {
 } from '../../lib/feedbackClasses'
 import type { AIQueryResponse, AIRuntimeSettings, SelectField } from '../../types/ai'
 import { rowsToChartData } from '../../utils/chartData'
+import { formatDurationMs } from '../../utils/formatters'
 import type { PivotTableData } from '../../utils/pivotTable'
 import { ResultTable } from '../ResultTable'
 import { ChartContainer } from '../ui/ChartContainer'
@@ -32,6 +36,7 @@ import {
   retryBadgeClass,
   vizHintClass,
 } from './aiQueryClasses'
+import { chartTypeOptions } from './chartRelevance'
 import { deriveClarificationStage, MAX_CLARIFICATION_ROUNDS } from './clarificationStage'
 import { CompiledSQLPreview } from './CompiledSQLPreview'
 import { GenerationTracePanel } from './generationTrace'
@@ -62,12 +67,23 @@ function confidenceLevel(value: number): 'high' | 'mid' | 'low' {
 // Compact one-line summary shown on every response; the rest lives behind
 // the details toggle.
 export function AssistantMessageSummary({ result, t }: { result: AIQueryResponse; t: AssistantT }) {
+  const [locale] = useLocale()
+  const runSteps = result.run_steps ?? []
+  const runTotalMs = runSteps.reduce((sum, step) => sum + step.duration_ms, 0)
   return (
     <div className={assistantSummaryClass}>
       {result.confidence !== undefined && (
         <span className={assistantConfidenceClass(confidenceLevel(result.confidence))}>
           {t('ai_query.summary_confidence', {
             pct: Math.round(result.confidence * 100),
+          })}
+        </span>
+      )}
+      {runSteps.length > 0 && runTotalMs > 0 && (
+        <span className="text-foreground-muted text-[0.78rem]">
+          {t('ai_query.run_summary', {
+            duration: formatDurationMs(runTotalMs, localeLanguageTag(locale)),
+            steps: runSteps.length,
           })}
         </span>
       )}
@@ -508,7 +524,7 @@ function ResultsHeaderHints({
       <ChartTypeSelector
         value={chartType}
         onChange={setChartType}
-        options={['bar', 'line', 'pie', 'table'] as const}
+        options={chartTypeOptions(result.result, chartType)}
         ariaLabel={t('ai_query.chart_type_aria')}
         labels={{
           bar: t('ai_query.chart_bar'),
@@ -517,6 +533,65 @@ function ResultsHeaderHints({
           table: t('ai_query.chart_table'),
         }}
       />
+    </div>
+  )
+}
+
+/** A result is KPI-shaped when it is exactly one numeric value (1 row × 1
+ * column) — the "single number → KPI card, not a table" rule. */
+function kpiSingleValue(payload: NonNullable<AIQueryResponse['result']>): number | null {
+  if (payload.rows.length !== 1 || payload.columns.length !== 1) {
+    return null
+  }
+  const raw = payload.rows[0]?.[0]
+  const num = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN
+  return Number.isFinite(num) ? num : null
+}
+
+/** Big-number tile for single-value results, with the raw table one click
+ * away. Chart-type tabs are hidden here — no chart is relevant to 1×1. */
+function ResultKPICard({
+  payload,
+  value,
+  userQuestion,
+  localeTag,
+  t,
+}: {
+  payload: NonNullable<AIQueryResponse['result']>
+  value: number
+  userQuestion: string
+  localeTag: string
+  t: AssistantT
+}) {
+  const [showTable, setShowTable] = useState(false)
+  const label = payload.columns[0]?.name ?? ''
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <div className="border-border bg-card-raised flex min-w-56 flex-col gap-1 rounded-xl border px-6 py-5">
+        <span className="text-foreground-muted text-[0.78rem] font-medium">{label}</span>
+        <span className="text-foreground font-display text-[2.1rem] leading-tight font-bold tabular-nums">
+          {new Intl.NumberFormat(localeTag).format(value)}
+        </span>
+      </div>
+      <button
+        type="button"
+        className="text-foreground-faint hover:text-foreground cursor-pointer border-0 bg-transparent p-0 text-[0.75rem] underline decoration-dotted"
+        aria-expanded={showTable}
+        onClick={() => setShowTable((v) => !v)}
+      >
+        {showTable ? t('ai_query.kpi_hide_table') : t('ai_query.kpi_show_table')}
+      </button>
+      {showTable && (
+        <div className="custom-scrollbar max-h-96 w-full overflow-y-auto">
+          <ResultTable
+            columns={payload.columns}
+            rows={payload.rows}
+            rowCount={payload.rows.length}
+            durationMs={payload.stats?.duration_ms}
+            question={userQuestion}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -572,6 +647,28 @@ export function AssistantMessageResults({
             ? t('ai_query.results_rows_unavailable', { rows: totalRows })
             : t('ai_query.results_empty')}
         </p>
+      </div>
+    )
+  }
+
+  // Single-number results render as a KPI tile; chart tabs and the full
+  // table shell would be noise for a 1×1 answer.
+  const kpi = kpiSingleValue(result.result)
+  if (kpi !== null) {
+    return (
+      <div className={resultsSectionClass}>
+        <Collapsible
+          title={t('ai_query.results_title', { rows: totalRows })}
+          defaultOpen={defaultOpen}
+        >
+          <ResultKPICard
+            payload={result.result}
+            value={kpi}
+            userQuestion={userQuestion}
+            localeTag={localeTag}
+            t={t}
+          />
+        </Collapsible>
       </div>
     )
   }

@@ -133,7 +133,21 @@ export function FileTree({
           aria-label={t('knowledge_base.kb_new_folder')}
           title={t('knowledge_base.kb_new_folder')}
         >
-          🗀+
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+            <path d="M12 10v6" />
+            <path d="M9 13h6" />
+          </svg>
         </button>
         <button
           type="button"
@@ -142,7 +156,22 @@ export function FileTree({
           aria-label={t('knowledge_base.kb_new_file')}
           title={t('knowledge_base.kb_new_file')}
         >
-          🗎+
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+            <path d="M14 2v6h6" />
+            <path d="M12 12v6" />
+            <path d="M9 15h6" />
+          </svg>
         </button>
       </div>
       {newFolderOpen && (

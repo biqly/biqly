@@ -34,6 +34,10 @@ describe('findActiveMention', () => {
   it('matches an empty query right after @', () => {
     expect(findActiveMention('by @', 4)).toEqual({ at: 3, query: '' })
   })
+
+  it('detects a # business-term token', () => {
+    expect(findActiveMention('explain #revenue', 16)).toEqual({ at: 8, query: 'revenue' })
+  })
 })
 
 describe('score', () => {
@@ -69,6 +73,13 @@ describe('splitMentionTokens', () => {
   it('recognizes dotted table names', () => {
     expect(splitMentionTokens('@public.orders', names)).toEqual([
       { text: '@public.orders', name: 'public.orders' },
+    ])
+  })
+
+  it('marks a recognized # business term', () => {
+    expect(splitMentionTokens('explain #net_revenue', new Set(['net_revenue']))).toEqual([
+      { text: 'explain ' },
+      { text: '#net_revenue', name: 'net_revenue' },
     ])
   })
 

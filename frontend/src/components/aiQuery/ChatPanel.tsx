@@ -15,6 +15,7 @@ import type { SemanticModelDetail } from '../../types/semantic'
 import { formatTimeOnly } from '../../utils/formatters'
 import { JobPhaseSteps } from '../ai/JobPhaseSteps'
 import { ErrorAlert } from '../ui/ErrorAlert'
+import { AgentConfigurationPopover } from './AgentConfigurationPopover'
 import { AgentTraceCard } from './AgentTraceCard'
 import {
   chatBubbleClass,
@@ -48,7 +49,6 @@ import {
   chatTypingElapsedClass,
   chatTypingHintLabelClass,
   chatTypingLabelClass,
-  pastQueriesToggleClass,
   userBubbleClass,
   userBubbleContentClass,
   userBubbleTimeClass,
@@ -109,6 +109,7 @@ interface TypingIndicatorProps {
   aiElapsedMs: number
   activeJob: TrackedAIJob | null
   queueNotice: string | null
+  onAbort: () => void
   t: (key: TranslationKey, params?: Record<string, string | number>) => string
 }
 
@@ -117,6 +118,7 @@ function TypingIndicator({
   aiElapsedMs,
   activeJob,
   queueNotice,
+  onAbort,
   t,
 }: TypingIndicatorProps) {
   const jobRunning = activeJob != null && jobIsActive(activeJob)
@@ -136,8 +138,15 @@ function TypingIndicator({
             <i className={chatTypingDot2Class} />
             <i className={chatTypingDot3Class} />
           </span>
-          <span className={chatTypingLabelClass}>{t('ai_query.loading_thinking')}</span>
+          <span className={chatTypingLabelClass}>{t('ai_query.agent_working')}</span>
           <span className={chatTypingElapsedClass}>{formatAiWaitElapsed(aiElapsedMs, t)}</span>
+          <button
+            type="button"
+            className="border-border text-foreground-muted hover:text-error hover:border-error/50 ml-1 cursor-pointer rounded-md border bg-transparent px-2 py-0.5 text-[0.72rem] font-semibold transition-colors"
+            onClick={onAbort}
+          >
+            {t('ai_query.stop_run')}
+          </button>
         </div>
         {jobRunning && (
           <div className="border-border bg-canvas-subtle mt-2 max-w-xs rounded-lg border px-3 py-2.5">
@@ -168,6 +177,29 @@ const suggestionCategoryKeys: Record<string, TranslationKey> = {
   comparison: 'ai_query.suggest_cat_comparison',
 }
 
+const placeholderKeys = [
+  'ai_query.placeholder',
+  'ai_query.placeholder_compare',
+  'ai_query.placeholder_explain',
+  'ai_query.placeholder_forecast',
+] as const satisfies readonly TranslationKey[]
+
+function useRotatingPlaceholder(t: ChatPanelProps['t'], paused: boolean): string {
+  const [index, setIndex] = useState(0)
+  useEffect(() => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (paused || reduceMotion) {
+      return
+    }
+    const timer = window.setInterval(
+      () => setIndex((current) => (current + 1) % placeholderKeys.length),
+      4_000,
+    )
+    return () => window.clearInterval(timer)
+  }, [paused])
+  return t(placeholderKeys[index] ?? 'ai_query.placeholder')
+}
+
 function ChatEmptyState({ t, setQuestion, suggested }: ChatEmptyStateProps) {
   const staticSuggestions = [
     t('ai_query.suggestion_1'),
@@ -175,50 +207,95 @@ function ChatEmptyState({ t, setQuestion, suggested }: ChatEmptyStateProps) {
     t('ai_query.suggestion_3'),
     t('ai_query.suggestion_4'),
   ]
+  const selectPrompt = (prompt: string) => {
+    setQuestion(prompt)
+    window.requestAnimationFrame(() => document.getElementById('ai-question')?.focus())
+  }
+  const capabilityCards = [
+    ['✦', 'ai_query.empty_capability_explore_title', 'ai_query.empty_capability_explore_desc'],
+    ['⌁', 'ai_query.empty_capability_explain_title', 'ai_query.empty_capability_explain_desc'],
+    ['▥', 'ai_query.empty_capability_visualize_title', 'ai_query.empty_capability_visualize_desc'],
+  ] as const satisfies readonly (readonly [string, TranslationKey, TranslationKey])[]
   return (
     <div className={chatEmptyStateClass}>
-      <h3 className={chatEmptyStateTitleClass}>✨ {t('ai_query.workspace_title')}</h3>
-      <p className={chatEmptyStateDescClass}>{t('ai_query.subtitle')}</p>
       <div
-        className={chatEmptyStateSuggestionsClass}
-        role="list"
-        aria-label={t('ai_query.suggestions_aria')}
+        className="bg-accent/15 text-accent flex h-11 w-11 items-center justify-center rounded-xl text-xl"
+        aria-hidden="true"
       >
+        ✦
+      </div>
+      <h3 className={chatEmptyStateTitleClass}>{t('ai_query.empty_analyst_title')}</h3>
+      <p className={chatEmptyStateDescClass}>{t('ai_query.empty_analyst_desc')}</p>
+      <div className="grid w-full max-w-2xl grid-cols-3 gap-2 max-[700px]:grid-cols-1">
+        {capabilityCards.map(([icon, title, description]) => (
+          <div
+            key={title}
+            className="border-border bg-card/60 flex items-start gap-2.5 rounded-xl border p-3 text-left"
+          >
+            <span className="text-accent mt-0.5" aria-hidden="true">
+              {icon}
+            </span>
+            <span>
+              <strong className="text-foreground block text-xs font-semibold">{t(title)}</strong>
+              <span className="text-foreground-muted mt-0.5 block text-[0.72rem] leading-relaxed">
+                {t(description)}
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="text-foreground-faint mt-2 mb-0 text-[0.7rem] font-semibold tracking-wide uppercase">
+        {t('ai_query.empty_try_prompt')}
+      </p>
+      <ul className={chatEmptyStateSuggestionsClass} aria-label={t('ai_query.suggestions_aria')}>
         {suggested.length > 0
           ? suggested.map((q) => {
               const catKey = suggestionCategoryKeys[q.category]
               const catLabel = catKey ? t(catKey) : ''
               return (
-                <button
-                  key={`${q.category}:${q.text}`}
-                  type="button"
-                  role="listitem"
-                  className={chatEmptyStateChipClass}
-                  onClick={() => setQuestion(q.text)}
-                >
-                  {catLabel && (
-                    <span className="text-foreground-faint mr-1.5 text-[0.72rem] font-medium tracking-wide uppercase">
-                      {catLabel}
-                    </span>
-                  )}
-                  {q.text}
-                </button>
+                <li key={`${q.category}:${q.text}`}>
+                  <button
+                    type="button"
+                    className={chatEmptyStateChipClass}
+                    onClick={() => selectPrompt(q.text)}
+                  >
+                    {catLabel && (
+                      <span className="text-foreground-faint mr-1.5 text-[0.72rem] font-medium tracking-wide uppercase">
+                        {catLabel}
+                      </span>
+                    )}
+                    {q.text}
+                  </button>
+                </li>
               )
             })
           : staticSuggestions.map((s) => (
-              <button
-                key={s}
-                type="button"
-                role="listitem"
-                className={chatEmptyStateChipClass}
-                onClick={() => setQuestion(s)}
-              >
-                {s}
-              </button>
+              <li key={s}>
+                <button
+                  type="button"
+                  className={chatEmptyStateChipClass}
+                  onClick={() => selectPrompt(s)}
+                >
+                  {s}
+                </button>
+              </li>
             ))}
-      </div>
+      </ul>
     </div>
   )
+}
+
+interface BusinessGlossaryTerm {
+  term: string
+  definition?: string
+}
+
+function trimmedOrUndefined(value: string | undefined): string | undefined {
+  const trimmed = value?.trim()
+  if (!trimmed) {
+    return undefined
+  }
+  return trimmed
 }
 
 interface ChatMessageFeedProps {
@@ -246,6 +323,7 @@ interface ChatMessageFeedProps {
   aiElapsedMs: number
   activeJob: TrackedAIJob | null
   queueNotice: string | null
+  onAbort: ChatPanelProps['onAbort']
 }
 
 // ChatMessageFeed renders the message list (or the empty-state suggestions),
@@ -279,6 +357,7 @@ function ChatMessageFeed({
   aiElapsedMs,
   activeJob,
   queueNotice,
+  onAbort,
 }: ChatMessageFeedProps) {
   const formatMessageTime = (timestamp: string) => formatTimeOnly(timestamp, localeTag)
 
@@ -366,6 +445,7 @@ function ChatMessageFeed({
         aiElapsedMs={aiElapsedMs}
         activeJob={activeJob}
         queueNotice={queueNotice}
+        onAbort={onAbort}
         t={t}
       />
     </>
@@ -436,6 +516,60 @@ export function ChatPanel({
 
   const [model, setModel] = useState<SemanticModelDetail | null>(null)
   const [savedQueries, setSavedQueries] = useState<SavedQueryOption[]>([])
+  const [glossaryResult, setGlossaryResult] = useState<{
+    key: string
+    rows: BusinessGlossaryTerm[]
+  }>({ key: '', rows: [] })
+
+  useEffect(() => {
+    if (!datasourceId) {
+      return
+    }
+    let cancelled = false
+    const params = new URLSearchParams({ datasource_id: datasourceId })
+    if (semanticModelId && !semanticModelId.startsWith('composite:')) {
+      params.set('model_id', semanticModelId)
+    }
+    const key = params.toString()
+    void get<BusinessGlossaryTerm[]>(`/api/ai/glossary?${params.toString()}`)
+      .then((rows) => {
+        if (!cancelled) {
+          setGlossaryResult({ key, rows: rows ?? [] })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGlossaryResult({ key, rows: [] })
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [datasourceId, semanticModelId, get])
+
+  const glossaryKey = useMemo(() => {
+    if (!datasourceId) {
+      return ''
+    }
+    const params = new URLSearchParams({ datasource_id: datasourceId })
+    if (semanticModelId && !semanticModelId.startsWith('composite:')) {
+      params.set('model_id', semanticModelId)
+    }
+    return params.toString()
+  }, [datasourceId, semanticModelId])
+  const composerItems = useMemo(() => {
+    const glossaryTerms = glossaryResult.key === glossaryKey ? glossaryResult.rows : []
+    return [
+      ...catalogItems,
+      ...glossaryTerms.map((entry) => ({
+        type: 'term' as const,
+        name: entry.term.trim().replaceAll(/\s+/g, '_'),
+        label: entry.term,
+        description: trimmedOrUndefined(entry.definition),
+        group: t('ai_query.term_group'),
+      })),
+    ]
+  }, [catalogItems, glossaryKey, glossaryResult, t])
 
   // Load the datasource's saved queries for the "/" grounding picker.
   // listSavedQueries returns [] for an empty datasource, so the reset flows
@@ -502,10 +636,11 @@ export function ChatPanel({
 
   const loadingLabel = loading && queryAction !== null ? t('ai_query.loading_thinking') : ''
 
-  const previewButtonLabel =
-    loading && queryAction === 'preview' ? loadingLabel : t('ai_query.preview_btn')
   const executeButtonLabel =
-    loading && queryAction === 'execute' ? loadingLabel : t('ai_query.execute_btn')
+    loading && queryAction === 'execute' ? loadingLabel : t('ai_query.run_analysis')
+  const previewButtonLabel =
+    loading && queryAction === 'preview' ? loadingLabel : t('ai_query.preview_plan_query')
+  const composerPlaceholder = useRotatingPlaceholder(t, question.length > 0 || queryAction !== null)
 
   return (
     <>
@@ -535,6 +670,7 @@ export function ChatPanel({
           aiElapsedMs={aiElapsedMs}
           activeJob={activeJob}
           queueNotice={queueNotice}
+          onAbort={onAbort}
         />
       </div>
 
@@ -546,9 +682,9 @@ export function ChatPanel({
             onSubmit={() => onSendQuery(question, true)}
             onAbort={onAbort}
             disabled={queryAction !== null}
-            loading={loading}
-            placeholder={t('ai_query.placeholder')}
-            items={catalogItems}
+            inFlight={queryAction !== null}
+            placeholder={composerPlaceholder}
+            items={composerItems}
             savedQueries={savedQueries}
             selectedSavedQueryIds={selectedSavedQueryIds}
             onSelectedSavedQueryIdsChange={onSelectedSavedQueryIdsChange}
@@ -556,43 +692,20 @@ export function ChatPanel({
           />
           <div className={chatComposerBarClass}>
             <div className={chatComposerOptionsClass}>
-              {activeConversation && messages.length > 0 && (
-                <div className={pastQueriesToggleClass}>
-                  <input
-                    type="checkbox"
-                    id={`conversation-context-${activeConversation.id}`}
-                    checked={contextEnabled}
-                    onChange={(e) =>
-                      onContextEnabledChange(activeConversation.id, e.target.checked)
-                    }
-                  />
-                  <label htmlFor={`conversation-context-${activeConversation.id}`}>
-                    {t('ai_query.context_toggle')}
-                  </label>
-                </div>
-              )}
-              <div className={pastQueriesToggleClass}>
-                <input
-                  type="checkbox"
-                  id="ai-auto-find-skills"
-                  checked={autoFindEnabled}
-                  onChange={(e) => onAutoFindEnabledChange(e.target.checked)}
-                />
-                <label htmlFor="ai-auto-find-skills" title={t('ai_query.auto_find_toggle_title')}>
-                  {t('ai_query.auto_find_toggle')}
-                </label>
-              </div>
-              <div className={pastQueriesToggleClass}>
-                <input
-                  type="checkbox"
-                  id="ai-agent-mode"
-                  checked={agentModeEnabled}
-                  onChange={(e) => onAgentModeEnabledChange(e.target.checked)}
-                />
-                <label htmlFor="ai-agent-mode" title={t('ai_query.agent_mode_toggle_title')}>
-                  {t('ai_query.agent_mode_toggle')}
-                </label>
-              </div>
+              <AgentConfigurationPopover
+                t={t}
+                contextAvailable={Boolean(activeConversation && messages.length > 0)}
+                contextEnabled={contextEnabled}
+                onContextEnabledChange={(enabled) => {
+                  if (activeConversation) {
+                    onContextEnabledChange(activeConversation.id, enabled)
+                  }
+                }}
+                autoFindEnabled={autoFindEnabled}
+                onAutoFindEnabledChange={onAutoFindEnabledChange}
+                agentModeEnabled={agentModeEnabled}
+                onAgentModeEnabledChange={onAgentModeEnabledChange}
+              />
               <span className={chatComposerHintClass}>{t('ai_query.saved_query_hint')}</span>
               {canRetranslate && (
                 <button
@@ -623,7 +736,7 @@ export function ChatPanel({
               <button
                 className={cn(buttonClass('secondary'), chatComposerActionBtnClass)}
                 onClick={() => onSendQuery(question, false)}
-                disabled={loading || !question || !datasourceId}
+                disabled={loading || !question.trim() || !datasourceId}
               >
                 {previewButtonLabel}
               </button>
@@ -634,7 +747,7 @@ export function ChatPanel({
                   chatComposerSendClass,
                 )}
                 onClick={() => onSendQuery(question, true)}
-                disabled={loading || !question || !datasourceId}
+                disabled={loading || !question.trim() || !datasourceId}
               >
                 {executeButtonLabel}
                 <span className={chatComposerSendIconClass} aria-hidden="true">

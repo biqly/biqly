@@ -486,6 +486,14 @@ body.modeling-grabbing * {
   caret-color: var(--accent);
 }
 
+/* CodeMirror draws the blinking cursor as a .cm-cursor element (border-left),
+   not the native caret — its default black is invisible in dark mode. */
+.cm-knowledge .cm-cursor,
+.cm-knowledge .cm-dropCursor {
+  border-left-color: var(--accent);
+  border-left-width: 2px;
+}
+
 .cm-knowledge .cm-tooltip {
   background: var(--bg-card);
   border: 1px solid var(--border);

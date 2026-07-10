@@ -101,13 +101,40 @@ describe('filterFollowUpSuggestions', () => {
 })
 
 describe('buildFallbackFollowUps', () => {
-  it('builds chart fallback for metric results', () => {
+  it('builds contextual follow-ups for time series results', () => {
     const response: AIQueryResponse = { result: metricResult() }
 
     const result = buildFallbackFollowUps({ response, priorQuestions: [], t })
 
+    expect(result.some((s) => s.kind === 'comparison')).toBe(true)
+    expect(result.some((s) => s.kind === 'explain')).toBe(true)
+  })
+
+  it('offers a top-N of the actual dimension for categorical results', () => {
+    const response: AIQueryResponse = {
+      result: metricResult({
+        columns: [
+          { name: 'region', semantic_type: 'dimension' },
+          { name: 'revenue', semantic_type: 'metric' },
+        ],
+      }),
+    }
+
+    const result = buildFallbackFollowUps({ response, priorQuestions: [], t })
+
+    expect(result.some((s) => s.kind === 'breakdown')).toBe(true)
     expect(result.some((s) => s.kind === 'chart')).toBe(true)
-    expect(result.some((s) => s.kind === 'trend')).toBe(true)
+  })
+
+  it('suggests period comparison and breakdown for single-value results', () => {
+    const response: AIQueryResponse = {
+      result: { columns: [{ name: 'count', semantic_type: 'metric' }], rows: [[1127]] },
+    }
+
+    const result = buildFallbackFollowUps({ response, priorQuestions: [], t })
+
+    expect(result.some((s) => s.kind === 'comparison')).toBe(true)
+    expect(result.some((s) => s.kind === 'breakdown')).toBe(true)
   })
 
   it('returns no fallback for empty results', () => {

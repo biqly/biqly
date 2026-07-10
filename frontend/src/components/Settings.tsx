@@ -324,7 +324,9 @@ export default function Settings() {
   }
 
   return (
-    <div className="mx-0 flex w-full max-w-none flex-col gap-5">
+    // min-h fills the viewport under the page chrome so the footnote's
+    // mt-auto pins it to the bottom even on short tabs.
+    <div className="mx-0 flex min-h-[calc(100vh-11rem)] w-full max-w-none flex-col gap-5">
       {(error ?? successMessage) && (
         <div className="flex flex-col gap-3">
           {error && (
@@ -588,7 +590,7 @@ export default function Settings() {
         )}
       </div>
 
-      <p className={settingsFootnoteClass}>{t('settings.persist_hint')}</p>
+      <p className={cn(settingsFootnoteClass, 'mt-auto')}>{t('settings.persist_hint')}</p>
 
       <SettingsAuthModals
         t={t}

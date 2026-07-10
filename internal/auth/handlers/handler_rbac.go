@@ -263,8 +263,13 @@ func (h *RBACHandler) handleListWorkspaces(w http.ResponseWriter, r *http.Reques
 		writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	// scope=member restricts the list to workspaces the caller belongs to —
+	// the sidebar switcher uses it, because switching (SetActiveWorkspace)
+	// requires membership even for super admins. Without it, super admins get
+	// the full admin listing.
+	memberScope := r.URL.Query().Get("scope") == "member"
 	var list []workspace.Workspace
-	if isSuper {
+	if isSuper && !memberScope {
 		list, err = h.deps.Ws.ListAll(r.Context())
 	} else {
 		list, err = h.deps.Ws.ListForUser(r.Context(), userID)

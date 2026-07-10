@@ -11,6 +11,7 @@ import {
   assistantCardDetailsToggleClass,
   assistantCardTopClass,
 } from './aiQueryClasses'
+import { AnswerArtifactActions } from './AnswerArtifactActions'
 import {
   AssistantMessageAnswer,
   AssistantMessageCaveat,
@@ -400,6 +401,14 @@ export function AssistantMessageCard({
           />
         )}
         <FollowUpSuggestions suggestions={followUps} onSelect={onSelectFollowUp} t={t} />
+        {resultWithPayload && (
+          <AnswerArtifactActions
+            result={result}
+            datasourceId={datasourceId}
+            userQuestion={userQuestion}
+            t={t}
+          />
+        )}
         <AssistantMessageFeedbackRow
           userQuestion={userQuestion}
           datasourceId={datasourceId}

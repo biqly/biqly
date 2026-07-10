@@ -109,6 +109,18 @@ func (r *Repository) ListAIConversations(ctx context.Context, userID string, lim
 	if limit <= 0 {
 		limit = 50
 	}
+	// Self-heal legacy rows saved before remote_id existed: give them a stable
+	// remote_id (their own row id) so clients stop regenerating random ids on
+	// every load — regenerated ids bypass the (conversation_id, remote_id)
+	// upsert and duplicated the message on each snapshot save.
+	if _, err := r.db.ExecContext(ctx, `
+		UPDATE ai_conversation_messages m
+		SET remote_id = m.id::text
+		FROM ai_conversations c
+		WHERE m.conversation_id = c.id AND c.user_id = $1 AND m.remote_id IS NULL
+	`, userID); err != nil {
+		return nil, fmt.Errorf("backfill message remote ids: %w", err)
+	}
 	const query = `
 		WITH limited_conversations AS (
 			SELECT id, user_id, datasource_id, model_id, context_enabled, title, snapshot_version, created_at, updated_at

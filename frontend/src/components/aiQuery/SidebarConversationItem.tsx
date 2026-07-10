@@ -19,10 +19,13 @@ interface SidebarConversationItemProps {
   conv: Conversation
   isActive: boolean
   isBusy: boolean
+  isFailed: boolean
+  isPinned: boolean
   localeTag: string
   onSelect: () => void
   onRename: (id: string, newTitle: string) => void
   onDelete: (id: string) => void
+  onTogglePin: (id: string) => void
   t: TFunction
 }
 
@@ -44,10 +47,13 @@ export function SidebarConversationItem({
   conv,
   isActive,
   isBusy,
+  isFailed,
+  isPinned,
   localeTag,
   onSelect,
   onRename,
   onDelete,
+  onTogglePin,
   t,
 }: SidebarConversationItemProps) {
   const [isEditing, setIsEditing] = useState(false)
@@ -132,13 +138,25 @@ export function SidebarConversationItem({
           aria-label={conv.title ?? t('ai_query.conv_current')}
         >
           <span className="flex min-w-0 items-center gap-1.5">
-            {isBusy && (
+            {isBusy ? (
               <span
                 className="bg-accent inline-block h-2 w-2 shrink-0 animate-pulse rounded-full"
                 role="status"
                 aria-label={t('ai_query.conv_busy')}
                 title={t('ai_query.conv_busy')}
               />
+            ) : isFailed ? (
+              <span
+                className="bg-error inline-block h-2 w-2 shrink-0 rounded-full"
+                role="status"
+                aria-label={t('ai_query.conv_failed')}
+                title={t('ai_query.conv_failed')}
+              />
+            ) : null}
+            {isPinned && (
+              <span className="text-accent shrink-0 text-[0.7rem]" aria-hidden="true">
+                ★
+              </span>
             )}
             <span className={convTitleClass}>{conv.title ?? t('ai_query.conv_current')}</span>
           </span>
@@ -151,6 +169,27 @@ export function SidebarConversationItem({
       )}
       {!isEditing && (
         <div className={convActionsClass}>
+          <button
+            type="button"
+            className={cn(btnConvActionClass, isPinned && 'text-accent')}
+            onClick={(e) => {
+              e.stopPropagation()
+              onTogglePin(conv.id)
+            }}
+            aria-label={isPinned ? t('ai_query.conv_unpin') : t('ai_query.conv_pin')}
+            aria-pressed={isPinned}
+            title={isPinned ? t('ai_query.conv_unpin') : t('ai_query.conv_pin')}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                fill={isPinned ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinejoin="round"
+                d="m12 3 2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.2-4.1 5.8-.8z"
+              />
+            </svg>
+          </button>
           <button
             type="button"
             className={btnConvActionClass}

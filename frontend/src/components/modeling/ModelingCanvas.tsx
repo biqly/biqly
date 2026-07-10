@@ -175,7 +175,10 @@ function JoinActionPopover({
   return (
     <div
       ref={ref}
-      className={cn(modelingJoinTooltipClass, 'pointer-events-auto')}
+      className={cn(
+        modelingJoinTooltipClass,
+        'pointer-events-auto max-w-88 gap-1.5 px-4 py-3 text-[0.8rem]',
+      )}
       style={{ left: x + 12, top: y + 12 }}
       role="dialog"
       aria-label={t('modeling.join_tooltip_title')}
@@ -206,7 +209,11 @@ function JoinActionPopover({
           </span>
           <span className={modelingJoinTooltipValueClass}>{join.description}</span>
         </span>
-      ) : null}
+      ) : (
+        <span className="text-foreground-faint text-[0.72rem] italic">
+          {t('modeling.join_no_description')}
+        </span>
+      )}
       <button
         type="button"
         className={cn(

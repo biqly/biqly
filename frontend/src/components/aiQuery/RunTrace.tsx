@@ -7,6 +7,7 @@ import { I18nContext } from '../../i18n/context'
 import type { RunStep } from '../../types/ai'
 import { formatDurationMs } from '../../utils/formatters'
 import { Collapsible } from './routingViz'
+import { analyzeRunRecovery, hasRecoveryStory } from './runRecovery'
 
 const identityT: TFunction = (key) => key
 
@@ -94,6 +95,102 @@ function isTerminalStepKind(kind: string): boolean {
   return kind === 'final_response' || kind === 'fail'
 }
 
+/** Timeline status marker: ✓ done, ✕ failed, pulsing dot while running. */
+function StepStatusIcon({ failed, running }: { failed: boolean; running: boolean }) {
+  if (running) {
+    return (
+      <span
+        aria-hidden="true"
+        className="bg-accent absolute top-[0.3rem] left-[-0.32rem] h-2.5 w-2.5 animate-pulse rounded-full"
+      />
+    )
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className={`absolute top-[0.12rem] left-[-0.55rem] grid h-4 w-4 place-items-center rounded-full text-[0.6rem] leading-none font-bold ${
+        failed ? 'bg-error/15 text-error' : 'bg-success/15 text-success'
+      }`}
+    >
+      {failed ? '✕' : '✓'}
+    </span>
+  )
+}
+
+/** One timeline row: status icon, label, duration, human detail, and — for
+ * live web-agent tool steps — an expandable raw-arguments section. Only
+ * observable actions are shown; never model chain-of-thought. */
+function RunTraceStepRow({
+  step,
+  t,
+  languageTag,
+}: {
+  step: RunStep
+  t: TFunction
+  languageTag: string
+}) {
+  const [argsOpen, setArgsOpen] = useState(false)
+  const labelKey = STEP_LABEL_KEYS[step.kind]
+  const failed = step.status === 'failed'
+  const running = step.status === 'running'
+  const cancelled = failed && step.detail === 'context_canceled'
+  const terminal = isTerminalStepKind(step.kind)
+  return (
+    <li
+      key={step.seq}
+      className="border-border relative flex flex-wrap items-baseline gap-x-2 gap-y-1 border-l-2 pb-2.5 pl-4 last:pb-0"
+    >
+      <StepStatusIcon failed={failed} running={running} />
+      <span className={`text-foreground font-semibold ${terminal ? 'underline' : ''}`}>
+        {labelKey ? t(labelKey) : step.kind}
+      </span>
+      {step.attempt != null && step.attempt > 0 ? (
+        <span className="text-foreground-faint text-[0.78rem]">
+          {t('ai_query.run_trace_attempt', { n: step.attempt })}
+        </span>
+      ) : null}
+      {running ? (
+        <span className="text-foreground-faint text-[0.78rem]">
+          {t('ai_query.run_trace_running')}
+        </span>
+      ) : (
+        <span className="text-foreground-faint text-[0.78rem]">
+          {formatDurationMs(step.duration_ms, languageTag)}
+        </span>
+      )}
+      {cancelled ? (
+        <span className="text-foreground-faint text-[0.78rem] font-semibold">
+          {t('ai_query.run_trace_cancelled')}
+        </span>
+      ) : failed ? (
+        <span className="text-error text-[0.78rem] font-semibold">
+          {t('ai_query.run_trace_failed')}
+        </span>
+      ) : null}
+      {step.args ? (
+        <button
+          type="button"
+          className="text-foreground-faint hover:text-foreground cursor-pointer border-0 bg-transparent p-0 text-[0.72rem] underline decoration-dotted"
+          aria-expanded={argsOpen}
+          onClick={() => setArgsOpen((v) => !v)}
+        >
+          {argsOpen ? t('ai_query.run_trace_args_hide') : t('ai_query.run_trace_args_show')}
+        </button>
+      ) : null}
+      {step.detail ? (
+        <span className="text-foreground-faint basis-full text-[0.78rem] wrap-break-word">
+          {renderDetail(t, step.detail)}
+        </span>
+      ) : null}
+      {argsOpen && step.args ? (
+        <pre className="bg-card-raised border-border text-foreground-muted m-0 max-h-40 basis-full overflow-auto rounded-md border p-2 font-mono text-[0.7rem] wrap-break-word whitespace-pre-wrap">
+          {step.args}
+        </pre>
+      ) : null}
+    </li>
+  )
+}
+
 export function RunTracePanel({
   steps,
   runId,
@@ -151,60 +248,24 @@ export function RunTracePanel({
     totalMs > 0
       ? `${title ?? t('ai_query.run_trace_title')} · ${formatDurationMs(totalMs, languageTag)}`
       : (title ?? t('ai_query.run_trace_title'))
+  const recovery = analyzeRunRecovery(effectiveSteps)
   return (
     <Collapsible title={panelTitle} defaultOpen={defaultOpen}>
+      {hasRecoveryStory(recovery) && (
+        <p
+          className="border-success/40 bg-success/10 text-success mt-3 mb-0 flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-[0.78rem]"
+          role="status"
+        >
+          <span aria-hidden="true">↻</span>
+          {recovery.plannerPasses > 1
+            ? t('ai_query.run_recovery_replanned')
+            : t('ai_query.run_recovery_retried')}
+        </p>
+      )}
       <ol className="text-foreground-muted m-0 mt-3 flex list-none flex-col gap-0 p-0 text-[0.88rem]">
-        {effectiveSteps.map((step) => {
-          const labelKey = STEP_LABEL_KEYS[step.kind]
-          const failed = step.status === 'failed'
-          const running = step.status === 'running'
-          const cancelled = failed && step.detail === 'context_canceled'
-          const terminal = isTerminalStepKind(step.kind)
-          return (
-            <li
-              key={step.seq}
-              className="border-border relative flex flex-wrap items-baseline gap-x-2 gap-y-1 border-l-2 pb-2.5 pl-4 last:pb-0"
-            >
-              <span
-                aria-hidden="true"
-                className={`absolute top-[0.3rem] left-[-0.32rem] h-2.5 w-2.5 rounded-full ${
-                  failed ? 'bg-error' : running ? 'bg-accent animate-pulse' : 'bg-success'
-                }`}
-              />
-              <span className={`text-foreground font-semibold ${terminal ? 'underline' : ''}`}>
-                {labelKey ? t(labelKey) : step.kind}
-              </span>
-              {step.attempt != null && step.attempt > 0 ? (
-                <span className="text-foreground-faint text-[0.78rem]">
-                  {t('ai_query.run_trace_attempt', { n: step.attempt })}
-                </span>
-              ) : null}
-              {running ? (
-                <span className="text-foreground-faint text-[0.78rem]">
-                  {t('ai_query.run_trace_running')}
-                </span>
-              ) : (
-                <span className="text-foreground-faint text-[0.78rem]">
-                  {formatDurationMs(step.duration_ms, languageTag)}
-                </span>
-              )}
-              {cancelled ? (
-                <span className="text-foreground-faint text-[0.78rem] font-semibold">
-                  {t('ai_query.run_trace_cancelled')}
-                </span>
-              ) : failed ? (
-                <span className="text-error text-[0.78rem] font-semibold">
-                  {t('ai_query.run_trace_failed')}
-                </span>
-              ) : null}
-              {step.detail ? (
-                <span className="text-foreground-faint basis-full text-[0.78rem] wrap-break-word">
-                  {renderDetail(t, step.detail)}
-                </span>
-              ) : null}
-            </li>
-          )
-        })}
+        {effectiveSteps.map((step) => (
+          <RunTraceStepRow key={step.seq} step={step} t={t} languageTag={languageTag} />
+        ))}
       </ol>
     </Collapsible>
   )

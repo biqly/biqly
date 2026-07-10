@@ -208,10 +208,12 @@ export async function listWorkspaces(
   token: string,
   page?: number,
   pageSize?: number,
+  /** 'member' returns only workspaces the caller belongs to (switchable ones). */
+  scope?: 'member',
 ): Promise<{ workspaces: Workspace[]; total: number }> {
   return apiFetch<{ workspaces: Workspace[]; total: number }>(
     'GET',
-    `${AUTH_API_BASE}/workspaces${buildQueryString({ page, page_size: pageSize })}`,
+    `${AUTH_API_BASE}/workspaces${buildQueryString({ page, page_size: pageSize, scope })}`,
     undefined,
     { token },
   )

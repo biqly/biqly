@@ -107,9 +107,13 @@ function normalizeConversation(conversation: Conversation): Conversation {
   const raw = conversation as Omit<Conversation, 'messages'> & {
     messages?: ConversationMessage[]
   }
+  // remote_id fallbacks must be STABLE across loads: a regenerated random id
+  // bypasses the server's (conversation_id, remote_id) upsert and duplicates
+  // the message on the next snapshot save. Server-loaded rows reuse their own
+  // row id; only genuinely new local messages get a fresh id.
   const messages = (raw.messages ?? []).map((msg, idx) => ({
     ...msg,
-    remote_id: msg.remote_id ?? generateRemoteId(),
+    remote_id: msg.remote_id ?? (msg.id ? `srv-${msg.id}` : generateRemoteId()),
     ordinal: msg.ordinal ?? idx,
   }))
   return {
@@ -289,45 +293,51 @@ export function useConversation(accessToken?: string | null) {
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null
 
+  // persistRemote saves ONLY the changed conversation. Re-saving every
+  // conversation on any change stamped the server's updated_at (= now()) on
+  // all of them, so the sidebar showed one identical time everywhere — and it
+  // multiplied the legacy-message duplication bug with every keystroke.
   const persistRemote = useCallback(
-    (updated: Conversation[]) => {
-      if (!accessToken) {
+    (updated: Conversation[], changedId: string | null) => {
+      if (!accessToken || !changedId) {
         return
       }
-      for (const conversation of updated) {
-        void saveConversationSnapshot(conversation, { token: accessToken }).then((saved) => {
-          if (!saved) {
-            return
-          }
-          if (saved.snapshot_version === conversation.snapshot_version) {
-            return
-          }
-          const updatedVersion = saved.snapshot_version ?? 1
-          setConversations((prev) => {
-            const idx = prev.findIndex((c) => c.id === saved.id)
-            if (idx === -1) {
-              return prev
-            }
-            const entry = prev[idx]!
-            if (entry.snapshot_version === updatedVersion) {
-              return prev
-            }
-            const next = [...prev]
-            const updated = { ...entry, snapshot_version: updatedVersion } as Conversation
-            next[idx] = updated
-            return next
-          })
-        })
+      const conversation = updated.find((c) => c.id === changedId)
+      if (!conversation) {
+        return
       }
+      void saveConversationSnapshot(conversation, { token: accessToken }).then((saved) => {
+        if (!saved) {
+          return
+        }
+        if (saved.snapshot_version === conversation.snapshot_version) {
+          return
+        }
+        const updatedVersion = saved.snapshot_version ?? 1
+        setConversations((prev) => {
+          const idx = prev.findIndex((c) => c.id === saved.id)
+          if (idx === -1) {
+            return prev
+          }
+          const entry = prev[idx]!
+          if (entry.snapshot_version === updatedVersion) {
+            return prev
+          }
+          const next = [...prev]
+          const updated = { ...entry, snapshot_version: updatedVersion } as Conversation
+          next[idx] = updated
+          return next
+        })
+      })
     },
     [accessToken],
   )
 
   const persist = useCallback(
-    (updated: Conversation[]) => {
+    (updated: Conversation[], changedId: string | null) => {
       setConversations(updated)
       saveConversations(updated)
-      persistRemote(updated)
+      persistRemote(updated, changedId)
     },
     [persistRemote],
   )
@@ -361,7 +371,7 @@ export function useConversation(accessToken?: string | null) {
       setConversations((prev) => {
         const updated = [conv, ...prev]
         saveConversations(updated)
-        persistRemote(updated)
+        persistRemote(updated, conv.id)
         return updated
       })
       return conv
@@ -405,7 +415,7 @@ export function useConversation(accessToken?: string | null) {
           }
         })
         saveConversations(updated)
-        persistRemote(updated)
+        persistRemote(updated, targetId)
         return updated
       })
       return targetId
@@ -425,7 +435,7 @@ export function useConversation(accessToken?: string | null) {
           return prev
         }
         saveConversations(updated)
-        persistRemote(updated)
+        persistRemote(updated, conversationId)
         return updated
       })
     },
@@ -435,7 +445,7 @@ export function useConversation(accessToken?: string | null) {
   const deleteConversation = useCallback(
     (id: string) => {
       const updated = conversations.filter((c) => c.id !== id)
-      persist(updated)
+      persist(updated, null)
       if (accessToken) {
         void deleteConversationSnapshot(id, { token: accessToken })
       }
@@ -451,7 +461,7 @@ export function useConversation(accessToken?: string | null) {
       const updated = conversations.map((c) =>
         c.id === id ? { ...c, title, updated_at: new Date().toISOString() } : c,
       )
-      persist(updated)
+      persist(updated, id)
     },
     [conversations, persist],
   )
@@ -465,7 +475,7 @@ export function useConversation(accessToken?: string | null) {
         ? { ...c, messages: [], updated_at: new Date().toISOString() }
         : c,
     )
-    persist(updated)
+    persist(updated, activeConversationId)
   }, [activeConversationId, conversations, persist])
 
   const updateConversationContext = useCallback(
@@ -475,7 +485,7 @@ export function useConversation(accessToken?: string | null) {
           ? { ...c, context_enabled: contextEnabled, updated_at: new Date().toISOString() }
           : c,
       )
-      persist(updated)
+      persist(updated, id)
     },
     [conversations, persist],
   )
@@ -493,7 +503,7 @@ export function useConversation(accessToken?: string | null) {
           return { ...c, messages: newMessages, updated_at: new Date().toISOString() }
         })
         saveConversations(updated)
-        persistRemote(updated)
+        persistRemote(updated, conversationId)
         return updated
       })
     },

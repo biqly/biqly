@@ -8,14 +8,14 @@ export interface ActiveMention {
 }
 
 /**
- * Finds an active `@`-mention at the given cursor, or null when none is open.
+ * Finds an active `@` field or `#` business-term token at the given cursor.
  * The trigger must sit at the start of the input or follow whitespace /
  * punctuation so that email-style strings like "a@b" do not fire, and the text
  * between the `@` and the cursor must contain no whitespace.
  */
 export function findActiveMention(value: string, cursor: number): ActiveMention | null {
   const before = value.slice(0, cursor)
-  const atIdx = before.lastIndexOf('@')
+  const atIdx = Math.max(before.lastIndexOf('@'), before.lastIndexOf('#'))
   if (atIdx === -1) {
     return null
   }
@@ -46,7 +46,7 @@ export interface MentionSegment {
  */
 export function splitMentionTokens(value: string, names: Set<string>): MentionSegment[] {
   const segments: MentionSegment[] = []
-  const re = /@\S+/g
+  const re = /[@#]\S+/g
   let last = 0
   let m: RegExpExecArray | null
   while ((m = re.exec(value)) !== null) {

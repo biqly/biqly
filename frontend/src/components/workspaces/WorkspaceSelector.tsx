@@ -19,7 +19,12 @@ export function WorkspaceSelector({ token }: { token: string }) {
     () => user?.active_workspace_id ?? localStorage.getItem(storageKey),
   )
 
-  const { data: workspacesRes, loading } = useFetch(() => listWorkspaces(token), [token])
+  // scope=member: only workspaces the user can actually switch to (switching
+  // requires membership server-side, even for super admins).
+  const { data: workspacesRes, loading } = useFetch(
+    () => listWorkspaces(token, 1, 100, 'member'),
+    [token],
+  )
   const workspaces = workspacesRes?.workspaces ?? EMPTY_WORKSPACES
 
   const { loading: switching, run: runSwitch } = useAsyncState()
@@ -67,12 +72,12 @@ export function WorkspaceSelector({ token }: { token: string }) {
   }
 
   return (
-    <label className="mb-4 flex min-w-0 flex-col gap-[0.35rem]">
+    <label className="mb-3 flex min-w-0 flex-col gap-1">
       <span className="text-foreground-faint text-[0.68rem] font-extrabold tracking-normal uppercase">
         {t('admin.workspaces.selector_label')}
       </span>
       <Select
-        className="[&_.ui-select-trigger--stacked]:min-h-[2.65rem] [&_.ui-select-trigger--stacked]:items-start [&_.ui-select-trigger--stacked]:pt-[0.42rem] [&_.ui-select-trigger--stacked]:pb-[0.42rem] [&_.ui-select-trigger--stacked_.ui-select-chevron]:mt-[0.2rem]"
+        className="[&_.ui-select-trigger--stacked]:min-h-[2.9rem] [&_.ui-select-trigger--stacked]:items-center [&_.ui-select-trigger--stacked]:py-[0.45rem]"
         value={active?.id ?? ''}
         options={workspaceOptions}
         onChange={(v) => void handleChange(v)}
