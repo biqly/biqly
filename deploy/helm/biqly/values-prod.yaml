@@ -186,7 +186,7 @@ frontend:
       cpu: 200m
       memory: 64Mi
   image:
-    tag: sha-3ac631aa36fe3309dafcb18bb29aae06ebb5c5ab
+    tag: sha-14c45c813a6d559e9f50009346de3b5fcde91044
 catalog:
   replicaCount: 1
   resources:
@@ -236,7 +236,7 @@ mcp:
       cpu: 300m
       memory: 192Mi
   image:
-    tag: sha-3ac631aa36fe3309dafcb18bb29aae06ebb5c5ab
+    tag: sha-14c45c813a6d559e9f50009346de3b5fcde91044
   config:
     # MCP proxies tool calls to the API gateway; the hostname must match the
     # gateway HTTPRoutes (see global.gateway.hostnames).
