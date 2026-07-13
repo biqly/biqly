@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -94,7 +93,7 @@ func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 	r.Body = http.MaxBytesReader(w, r.Body, response.MaxJSONRequestBytes)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		if isMaxBytesError(err) {
+		if response.IsMaxBytesError(err) {
 			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
 		} else {
 			writeError(w, http.StatusBadRequest, "invalid request body")
@@ -102,11 +101,6 @@ func readRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 		return nil, false
 	}
 	return body, true
-}
-
-func isMaxBytesError(err error) bool {
-	_, ok := errors.AsType[*http.MaxBytesError](err)
-	return ok
 }
 
 func requireURLParam(w http.ResponseWriter, r *http.Request, key string) (string, bool) {

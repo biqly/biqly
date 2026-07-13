@@ -86,7 +86,7 @@ func decodeJSON[T any](w http.ResponseWriter, r *http.Request, allowEmpty bool) 
 		if allowEmpty && errors.Is(err, io.EOF) {
 			return &v, true
 		}
-		if isMaxBytesError(err) {
+		if IsMaxBytesError(err) {
 			WriteError(w, http.StatusRequestEntityTooLarge, "request body too large")
 		} else {
 			WriteError(w, http.StatusBadRequest, "invalid request body")
@@ -96,7 +96,10 @@ func decodeJSON[T any](w http.ResponseWriter, r *http.Request, allowEmpty bool) 
 	return &v, true
 }
 
-func isMaxBytesError(err error) bool {
+// IsMaxBytesError reports whether err is the sentinel returned when a request
+// body exceeds an http.MaxBytesReader limit (→ 413). Exported so the handlers
+// package shares one implementation.
+func IsMaxBytesError(err error) bool {
 	_, ok := errors.AsType[*http.MaxBytesError](err)
 	return ok
 }

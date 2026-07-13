@@ -14,7 +14,22 @@ Severity: **CRITICAL** yok. **HIGH** 2, **MEDIUM** 7, **LOW** 10 (güvenlik) + d
 | 2 | S3, S4, S5, S6 (MEDIUM authz/IDOR/spend) | ✅ tamamlandı (lint 0, testler + helm render yeşil, commit bekliyor) |
 | 3 | S7, S8 (query/SQL) | ✅ tamamlandı (lint 0, testler + go vet yeşil, commit bekliyor) |
 | 4 | S9–S19 (LOW) | ✅ tamamlandı (lint 0, testler + go vet yeşil, commit bekliyor) |
-| 5 | D1–D16 (kod tekrarı) | 🔄 D1, D2, D12 tamam; kalan refactor'lar devam ediyor |
+| 5 | D1–D16 (kod tekrarı) | ✅ yüksek değerli/contained olanlar tamam (D1,D2,D5*,D7,D9–D12,D15,D16); D6/D13/D14 bilinçli atlandı; D3/D4/D8 ayrı PR'a |
+
+### Batch 5 (duplikasyon) — durum
+
+**Tamamlandı (5 commit):** D1 (env helper konsolidasyonu → `internal/env`), D2 (UTF-8 truncation bug fix), D5-part (`response.IsMaxBytesError` export + handlers kopyası silindi), D7 (LIKE filter builder'ları), D9 (auth route mount closure), D10 (SHA-256 token-hash helper'ı), D11 (oauth upsert helper'ı), D12 (IDOR resolver'ları), D15 (`dialect.Normalize`), D16 (case-sensitive LIKE dedup).
+
+**Bilinçli atlandı (farklı sözleşmeler → konsolidasyon riskli, kazanç düşük):**
+- **D6** `aggregateExpr` (no-quote, compiled expr) vs `dialect.Aggregate` (identifier'ı quote'lar) — double-quoting/golden-test riski.
+- **D13** per-driver DSN compose — postgres özel `sslmode` koruması, MySQL url.URL-tabanlı değil; DSN doğruluğu müşteri bağlantıları için kritik.
+- **D14** security SQL parser'ları — biri Builder+error ile rewrite, diğeri pure-scan; imza/amaç farklı.
+
+**Ayrı PR'a bırakıldı (büyük mekanik refactor, orantısız regresyon yüzeyi):**
+- **D3** servis bootstrap 9 main.go → `app.RunHTTPService` (her servis başlangıcını etkiler).
+- **D4** AI settings struct drift → tipleri public SDK'ya taşımak (public API yüzeyi).
+- **D8** `observability.Metrics` 87-alanlı god-object → per-domain bundle'lar (her metrik erişimini etkiler).
+- **D5-rest** auth'un 3 error-writing konvansiyonunun tek forma indirilmesi (geniş handler churn'ü).
 
 - **S1** ✅ `internal/auth/handlers/handler.go:1239` → `requireSuperAdmin` guard; test: `handler_resend_verification_test.go`.
 - **S2** ✅ `internal/http/handlers/composite.go:76` → `resolveDatasourceScope` + `filterCompositesByScope`; test: `composite_test.go`.
