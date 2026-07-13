@@ -371,7 +371,9 @@ func (r *Repository) TouchSavedQueryVerified(ctx context.Context, id string) err
 // DatasourceForSavedQuery resolves a saved-query id to its owning datasource for
 // access-control middleware.
 func (r *Repository) DatasourceForSavedQuery(ctx context.Context, id string) (string, error) {
-	return r.datasourceForEntity(ctx, "ai_saved_queries", "saved query", id, ErrSavedQueryNotFound)
+	return r.datasourceForEntity(ctx,
+		`SELECT datasource_id::text FROM ai_saved_queries WHERE id = $1::uuid`,
+		"saved query", id, ErrSavedQueryNotFound)
 }
 
 // ListActiveSavedQueryExamples returns recent active embedding-bearing example

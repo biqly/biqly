@@ -2,12 +2,13 @@ package workspace
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/bytedance/sonic"
 
 	"github.com/biqly/biqly/pkg/internalapi"
 )
@@ -54,7 +55,7 @@ func (r *HTTPResourceResolver) ResolveDatasource(ctx context.Context, resourceTy
 	switch resp.StatusCode {
 	case http.StatusOK:
 		var out internalapi.ResourceDatasourceResponse
-		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		if err := sonic.ConfigStd.NewDecoder(resp.Body).Decode(&out); err != nil {
 			return "", fmt.Errorf("decode resolve response: %w", err)
 		}
 		if strings.TrimSpace(out.DatasourceID) == "" {

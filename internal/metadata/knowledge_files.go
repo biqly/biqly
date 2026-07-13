@@ -169,7 +169,9 @@ func (r *Repository) DeleteKnowledgeFile(ctx context.Context, id string) error {
 // DatasourceForKnowledgeFile resolves a file id to its owning datasource for
 // access-control middleware.
 func (r *Repository) DatasourceForKnowledgeFile(ctx context.Context, id string) (string, error) {
-	return r.datasourceForEntity(ctx, "ai_knowledge_files", "knowledge file", id, ErrKnowledgeFileNotFound)
+	return r.datasourceForEntity(ctx,
+		`SELECT datasource_id::text FROM ai_knowledge_files WHERE id = $1::uuid`,
+		"knowledge file", id, ErrKnowledgeFileNotFound)
 }
 
 // DeactivateExtractionsForKnowledgeFile soft-disables every structured record
