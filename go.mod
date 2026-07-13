@@ -8,7 +8,7 @@ require (
 	github.com/bytedance/sonic v1.15.2
 	github.com/databricks/databricks-sql-go v1.13.0
 	github.com/fxamacker/cbor/v2 v2.9.2
-	github.com/go-chi/chi/v5 v5.3.0
+	github.com/go-chi/chi/v5 v5.3.1
 	github.com/go-chi/cors v1.2.2
 	github.com/go-ldap/ldap/v3 v3.4.13
 	github.com/go-sql-driver/mysql v1.10.0
