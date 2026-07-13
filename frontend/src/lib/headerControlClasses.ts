@@ -1,6 +1,8 @@
 import { cn } from './cn'
 
-export const sidebarFooterControlsClass = 'flex w-full min-w-0 flex-nowrap items-center gap-1.5'
+// Row 1 of the sidebar footer: the language toggle (left) and theme toggle
+// (right) spread to the edges so neither is cramped in the narrow sidebar.
+export const sidebarFooterControlsClass = 'flex w-full min-w-0 items-center justify-between gap-2'
 
 export const segmentedControlShellClass =
   'inline-flex shrink-0 items-center bg-card-raised border border-border rounded-full p-[0.18rem] gap-[0.1rem]'
@@ -22,8 +24,12 @@ export function segmentedControlBtnClass(
   )
 }
 
+// Row 2 of the sidebar footer: a full-width, labeled logout control. An
+// icon-only button was ambiguous; pairing the log-out glyph with the "Sign out"
+// label makes the destructive action legible, and the red hover keeps the
+// affordance clear.
 export const sidebarLogoutBtnClass = cn(
-  'inline-flex shrink-0 items-center justify-center w-8 h-8 rounded-full border border-border bg-transparent text-foreground-muted cursor-pointer transition-[background,color,border-color] duration-140 ease-in-out ml-auto',
+  'flex w-full items-center justify-center gap-2 h-8 rounded-lg border border-border bg-transparent text-foreground-muted cursor-pointer text-[0.76rem] font-medium transition-[background,color,border-color] duration-140 ease-in-out',
   'hover:border-[rgba(248,113,113,0.55)] hover:text-[#f87171] hover:bg-[rgba(239,68,68,0.1)]',
-  '[&_svg]:w-[0.95rem] [&_svg]:h-[0.95rem]',
+  '[&_svg]:w-[0.9rem] [&_svg]:h-[0.9rem]',
 )

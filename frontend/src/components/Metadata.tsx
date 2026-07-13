@@ -361,7 +361,6 @@ export default function Metadata() {
   return (
     <div className={legacyLayoutClass('page-stack')}>
       <div className={cardClass()}>
-        <h2>{t('metadata.page_title')}</h2>
         <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-3">
           <div className={legacyFormClass('form-group mb-0')}>
             <label>{t('metadata.datasource_label')}</label>

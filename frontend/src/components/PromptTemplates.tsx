@@ -5,14 +5,7 @@ import { useConfirm } from '../hooks/useConfirm'
 import type { Locale, TranslationKey } from '../i18n'
 import { LOCALE_OPTIONS, localeLanguageTag, SUPPORTED_LOCALES, useLocale, useT } from '../i18n'
 import { buttonClass } from '../lib/buttonClasses'
-import {
-  cardClass,
-  cardHeaderRowClass,
-  cardIntroClass,
-  cardLeadClass,
-  cardLeadSingleLineClass,
-  cardSubtitleClass,
-} from '../lib/cardClasses'
+import { cardClass, cardSubtitleClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { formRowClass, legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
@@ -552,18 +545,6 @@ export default function PromptTemplates() {
       {saveOk && <p className={cardSubtitleClass}>{saveOk}</p>}
 
       <div className={cardClass()}>
-        <div className={cardIntroClass}>
-          <div className={cardHeaderRowClass}>
-            <h2>{t('prompt_templates.title')}</h2>
-          </div>
-          <p
-            className={cn(cardLeadClass, cardLeadSingleLineClass)}
-            title={t('prompt_templates.manage_hint')}
-          >
-            {t('prompt_templates.manage_hint')}
-          </p>
-        </div>
-
         <div className={formRowClass}>
           <label className={cn(legacyFormClass('form-field'), 'min-w-40')}>
             <span className={legacyFormClass('form-label')}>

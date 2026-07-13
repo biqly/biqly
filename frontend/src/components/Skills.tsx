@@ -8,7 +8,7 @@ import { useDatasources } from '../hooks/useDatasources'
 import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useT } from '../i18n'
 import { buttonClass } from '../lib/buttonClasses'
-import { cardClass, cardHeaderRowClass, cardIntroClass, cardLeadClass } from '../lib/cardClasses'
+import { cardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { formRowClass, legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
@@ -338,18 +338,14 @@ export default function Skills() {
   return (
     <div className={legacyLayoutClass('page-stack')}>
       <div className={cardClass()}>
-        <div className={cardIntroClass}>
-          <div className={cardHeaderRowClass}>
-            <h2>{t('skills.title')}</h2>
-            <button
-              type="button"
-              className={buttonClass('primary', { size: 'sm' })}
-              onClick={openAdd}
-            >
-              {t('skills.new')}
-            </button>
-          </div>
-          <p className={cardLeadClass}>{t('skills.intro')}</p>
+        <div className="mb-[1.35rem] flex justify-end">
+          <button
+            type="button"
+            className={buttonClass('primary', { size: 'sm' })}
+            onClick={openAdd}
+          >
+            {t('skills.new')}
+          </button>
         </div>
 
         <div className={cn(formRowClass, 'mt-5')}>

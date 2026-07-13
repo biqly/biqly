@@ -9,12 +9,7 @@ import { useSemanticModels } from '../hooks/useSemanticModels'
 import { useToast } from '../hooks/useToast'
 import { localeLanguageTag, useLocale, useT } from '../i18n'
 import { buttonClass } from '../lib/buttonClasses'
-import {
-  cardClass,
-  cardIntroClass,
-  cardLeadClass,
-  cardLeadSingleLineClass,
-} from '../lib/cardClasses'
+import { cardClass } from '../lib/cardClasses'
 import { cn } from '../lib/cn'
 import { formRowClass, legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
@@ -189,13 +184,6 @@ export default function QueryHistory() {
   return (
     <div className={legacyLayoutClass('page-stack')}>
       <div className={cardClass()}>
-        <div className={cardIntroClass}>
-          <h2>{t('query_history.title')}</h2>
-          <p className={cn(cardLeadClass, cardLeadSingleLineClass)}>
-            {t('app.nav.query_history_desc')}
-          </p>
-        </div>
-
         <div className={cn(formRowClass, 'mb-5')}>
           <label className={cn(legacyFormClass('form-field'), 'min-w-52')}>
             <span className={legacyFormClass('form-label')}>{t('glossary.label_datasource')}</span>

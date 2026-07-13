@@ -492,8 +492,19 @@ export default function SavedQuestions() {
     <div className={legacyLayoutClass('page-stack')}>
       <div className={cardClass()}>
         <div className={cardIntroClass}>
-          <div className={cn(cardHeaderRowClass, cardHeaderRowClass)}>
-            <h2>{t('saved_questions.title')}</h2>
+          <div className={cardHeaderRowClass}>
+            <p
+              className={cn(cardLeadClass, cardLeadSingleLineClass, 'mb-0! min-w-0')}
+              title={
+                fewShotCount > 0
+                  ? t('saved_questions.intro_fewshot_active', { count: fewShotCount })
+                  : t('saved_questions.intro_fewshot_none')
+              }
+            >
+              {fewShotCount > 0
+                ? t('saved_questions.intro_fewshot_active', { count: fewShotCount })
+                : t('saved_questions.intro_fewshot_none')}
+            </p>
             <button
               type="button"
               className={buttonClass('primary', { size: 'sm' })}
@@ -502,18 +513,6 @@ export default function SavedQuestions() {
               {t('saved_questions.new')}
             </button>
           </div>
-          <p
-            className={cn(cardLeadClass, cardLeadClass, cardLeadSingleLineClass)}
-            title={
-              fewShotCount > 0
-                ? t('saved_questions.intro_fewshot_active', { count: fewShotCount })
-                : t('saved_questions.intro_fewshot_none')
-            }
-          >
-            {fewShotCount > 0
-              ? t('saved_questions.intro_fewshot_active', { count: fewShotCount })
-              : t('saved_questions.intro_fewshot_none')}
-          </p>
         </div>
 
         {/* Filters Top Bar */}

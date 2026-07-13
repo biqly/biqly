@@ -4,14 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { request, useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
 import { buttonClass } from '../lib/buttonClasses'
-import {
-  cardClass,
-  cardHeaderRowClass,
-  cardIntroClass,
-  cardLeadClass,
-  cardLeadSingleLineClass,
-} from '../lib/cardClasses'
-import { cn } from '../lib/cn'
+import { cardClass } from '../lib/cardClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
 import { TimeGrainsEditModal } from './TimeGrainsEditModal'
 import { TimeGrainsTable } from './TimeGrainsTable'
@@ -121,29 +114,16 @@ export default function TimeGrains() {
   return (
     <div className={legacyLayoutClass('page-stack')}>
       <div className={cardClass()}>
-        <div className={cardIntroClass}>
-          <div className={cardHeaderRowClass}>
-            <h2>{t('time_grains.title') || 'Time Grains'}</h2>
-            <button
-              type="button"
-              className={buttonClass('back')}
-              onClick={() => {
-                void navigate('/settings?tab=config')
-              }}
-            >
-              ← {t('time_grains.back_to_settings') || 'Back to Settings'}
-            </button>
-          </div>
-          <p
-            className={cn(cardLeadClass, cardLeadSingleLineClass)}
-            title={
-              t('time_grains.subtitle') ||
-              'Customize how the AI recognizes and handles time/date query grains (e.g., daily, monthly, yearly).'
-            }
+        <div className="mb-[1.35rem] flex">
+          <button
+            type="button"
+            className={buttonClass('back')}
+            onClick={() => {
+              void navigate('/settings?tab=config')
+            }}
           >
-            {t('time_grains.subtitle') ||
-              'Customize how the AI recognizes and handles time/date query grains (e.g., daily, monthly, yearly).'}
-          </p>
+            ← {t('time_grains.back_to_settings') || 'Back to Settings'}
+          </button>
         </div>
 
         {error && <ErrorAlert error={error} />}
