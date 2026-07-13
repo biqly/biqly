@@ -107,6 +107,14 @@ spec:
                   name: {{ .Values.global.secretNames.mailSecret }}
                   key: BI_MAIL_INTERNAL_TOKEN
                   optional: true
+            # Shared peer-service token so the sharing ownership guard can call
+            # the catalog service's /internal/resource-datasource endpoint.
+            - name: BI_INTERNAL_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.secretNames.security }}
+                  key: BI_INTERNAL_API_TOKEN
+                  optional: true
             - name: BI_AUTH_JWT_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:

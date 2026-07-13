@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -33,6 +34,23 @@ func NewDashboardHandler(repo *dashboard.Repository) *DashboardHandler {
 	return &DashboardHandler{repo: repo}
 }
 
+// dashboardScope resolves the workspace filter to apply to a dashboard request
+// and whether the caller is authorized to proceed. The dashboard repository
+// treats an empty workspace filter as "unscoped" (all workspaces + global
+// dashboards); that is only legitimate for a super admin acting without an
+// active workspace. A regular caller with no active workspace must NOT receive
+// that cross-workspace view, so it returns ok=false — callers translate that to
+// an empty result (list) or not-found (single-resource) rather than granting
+// full access. All other cases preserve the prior behavior: a workspace-scoped
+// caller (super admin or not) is scoped to that workspace.
+func dashboardScope(ctx context.Context) (workspaceID string, ok bool) {
+	wsID := bimw.WorkspaceID(ctx)
+	if wsID == "" && !bimw.HasRole(ctx, bimw.RoleSuperAdmin) {
+		return "", false
+	}
+	return wsID, true
+}
+
 // Create handles POST /api/dashboards
 func (h *DashboardHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -49,9 +67,14 @@ func (h *DashboardHandler) Create(w http.ResponseWriter, r *http.Request) {
 		widgets = json.RawMessage("[]")
 	}
 
+	scope, ok := dashboardScope(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "an active workspace is required")
+		return
+	}
 	var wsID *string
-	if val := bimw.WorkspaceID(ctx); val != "" {
-		wsID = &val
+	if scope != "" {
+		wsID = &scope
 	}
 
 	d := &dashboard.Dashboard{
@@ -72,7 +95,12 @@ func (h *DashboardHandler) Create(w http.ResponseWriter, r *http.Request) {
 // List handles GET /api/dashboards
 func (h *DashboardHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	wsID := bimw.WorkspaceID(ctx)
+	wsID, ok := dashboardScope(ctx)
+	if !ok {
+		// Regular caller with no active workspace: no cross-workspace view.
+		writeJSON(w, http.StatusOK, []dashboard.Dashboard{})
+		return
+	}
 
 	dashboards, err := h.repo.List(ctx, wsID)
 	if err != nil {
@@ -91,7 +119,11 @@ func (h *DashboardHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wsID := bimw.WorkspaceID(ctx)
+	wsID, ok := dashboardScope(ctx)
+	if !ok {
+		writeEntityNotFound(w, "dashboard")
+		return
+	}
 	d, err := h.repo.Get(ctx, id, wsID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -125,7 +157,11 @@ func (h *DashboardHandler) Update(w http.ResponseWriter, r *http.Request) {
 		widgets = json.RawMessage("[]")
 	}
 
-	wsID := bimw.WorkspaceID(ctx)
+	wsID, ok := dashboardScope(ctx)
+	if !ok {
+		writeEntityNotFound(w, "dashboard")
+		return
+	}
 
 	d := &dashboard.Dashboard{
 		ID:          id,
@@ -154,7 +190,11 @@ func (h *DashboardHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wsID := bimw.WorkspaceID(ctx)
+	wsID, ok := dashboardScope(ctx)
+	if !ok {
+		writeEntityNotFound(w, "dashboard")
+		return
+	}
 
 	if err := h.repo.Delete(ctx, id, wsID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

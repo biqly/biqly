@@ -13,10 +13,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// fakeResolver stubs the cross-service resource→datasource lookup.
+type fakeResolver struct {
+	datasource string
+	err        error
+}
+
+func (f *fakeResolver) ResolveDatasource(context.Context, string, string) (string, error) {
+	return f.datasource, f.err
+}
+
+// fakeAccess stubs the caller's datasource-access check and records its inputs.
+type fakeAccess struct {
+	err      error
+	gotUser  string
+	gotDS    string
+	gotLevel string
+}
+
+func (f *fakeAccess) CheckAccess(_ context.Context, userID, datasourceID, level string) error {
+	f.gotUser, f.gotDS, f.gotLevel = userID, datasourceID, level
+	return f.err
+}
+
 type sharingIDORFixture struct {
 	ctx           context.Context
 	dbPool        *sql.DB
 	sharingSvc    *SharingService
+	resolver      *fakeResolver
+	access        *fakeAccess
 	wsSvc         *Service
 	aliceID       string
 	bobID         string
@@ -68,10 +93,18 @@ func setupSharingIDORTest(t *testing.T) *sharingIDORFixture {
 	bobPersonal, err := userRepo.GetPersonalWorkspaceID(ctx, bobResp.UserID)
 	require.NoError(t, err)
 
+	// Default fakes: the resource resolves to a datasource and the caller has
+	// access, so the pre-existing workspace/permission cases behave as before.
+	// Ownership-guard cases below override these per-test.
+	resolver := &fakeResolver{datasource: "00000000-0000-0000-0000-0000000000ds"}
+	access := &fakeAccess{}
+
 	return &sharingIDORFixture{
 		ctx:           ctx,
 		dbPool:        dbPool,
-		sharingSvc:    NewSharingService(dbPool, wsSvc),
+		sharingSvc:    NewSharingService(dbPool, wsSvc, resolver, access),
+		resolver:      resolver,
+		access:        access,
 		wsSvc:         wsSvc,
 		aliceID:       aliceResp.UserID,
 		bobID:         bobResp.UserID,
@@ -193,6 +226,67 @@ func TestShare_IDOR_Guards(t *testing.T) {
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "either shared_with or workspace_id must be provided")
+	})
+}
+
+func TestShare_OwnershipGuard(t *testing.T) {
+	f := setupSharingIDORTest(t)
+
+	t.Run("caller without resource access is rejected", func(t *testing.T) {
+		f.cleanupShares(t)
+		f.access.err = ErrResourceAccessDenied
+		t.Cleanup(func() { f.access.err = nil })
+
+		share, err := f.sharingSvc.Share(f.ctx, f.aliceID, ShareRequest{
+			ResourceType: "model",
+			ResourceID:   "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+			WorkspaceID:  &f.alicePersonal,
+			Permission:   "view",
+		})
+		require.ErrorIs(t, err, ErrResourceAccessDenied)
+		assert.Nil(t, share)
+	})
+
+	t.Run("unresolvable resource fails closed", func(t *testing.T) {
+		f.cleanupShares(t)
+		f.resolver.err = ErrResourceNotFound
+		t.Cleanup(func() { f.resolver.err = nil })
+
+		share, err := f.sharingSvc.Share(f.ctx, f.aliceID, ShareRequest{
+			ResourceType: "model",
+			ResourceID:   "b1c2d3e4-f5a6-7890-abcd-ef1234567890",
+			WorkspaceID:  &f.alicePersonal,
+			Permission:   "view",
+		})
+		require.ErrorIs(t, err, ErrResourceNotFound)
+		assert.Nil(t, share)
+	})
+
+	t.Run("edit permission requires write access level", func(t *testing.T) {
+		f.cleanupShares(t)
+
+		_, err := f.sharingSvc.Share(f.ctx, f.aliceID, ShareRequest{
+			ResourceType: "model",
+			ResourceID:   "c1d2e3f4-a5b6-7890-abcd-ef1234567890",
+			WorkspaceID:  &f.alicePersonal,
+			Permission:   "edit",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "write", f.access.gotLevel)
+		assert.Equal(t, f.aliceID, f.access.gotUser)
+	})
+
+	t.Run("view permission requires only read access level", func(t *testing.T) {
+		f.cleanupShares(t)
+
+		_, err := f.sharingSvc.Share(f.ctx, f.aliceID, ShareRequest{
+			ResourceType: "query",
+			ResourceID:   "d1e2f3a4-b5c6-7890-abcd-ef1234567890",
+			WorkspaceID:  &f.alicePersonal,
+			Permission:   "view",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "read", f.access.gotLevel)
 	})
 }
 

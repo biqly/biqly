@@ -81,7 +81,29 @@ func (h *CompositeHandler) ListComposites(w http.ResponseWriter, r *http.Request
 		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list composite models", err)
 		return
 	}
+
+	allowedSet, scoped, err := resolveDatasourceScope(ctx, h.deps.Config, false)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to scope composite models", err)
+		return
+	}
+	if scoped {
+		composites = filterCompositesByScope(composites, allowedSet)
+	}
+
 	writeJSON(w, http.StatusOK, composites)
+}
+
+// filterCompositesByScope keeps only composites whose datasource is in the
+// caller's allowed set, enforcing per-datasource access on list results.
+func filterCompositesByScope(composites []semantic.CompositeModel, allowed map[string]struct{}) []semantic.CompositeModel {
+	filtered := make([]semantic.CompositeModel, 0, len(composites))
+	for _, c := range composites {
+		if _, ok := allowed[c.DatasourceID]; ok {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
 }
 
 // GetComposite returns a composite model with components, cross-joins, canonical

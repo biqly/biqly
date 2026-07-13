@@ -130,17 +130,7 @@ func registerAIAPIRoutes(
 	r.With(aiUserMW, dsAccess).Post("/agent/chat", aiHandler.WebAgentChat)
 	r.With(aiUserMW, dsAccess).Post("/ai/metadata/describe", aiHandler.Describe)
 	r.With(aiUserMW, dsAccess).Post("/ai/metadata/embed", aiHandler.EmbedMetadata)
-	// Backfills locale translations for a semantic model's label/description and
-	// those of its dimensions/metrics into entity_translations (LLM only when
-	// missing); the catalog model-read overlays them. Authenticated via the
-	// /api group's authMW; aiUserMW keeps it consistent with the AI-user route
-	// family. No per-model datasource ACL — matches the unguarded GetModel read
-	// posture, and the endpoint discloses no model data (returns only a count)
-	// while writes are an idempotent, bounded TR rendering of the model's own text.
-	r.With(aiUserMW).Post("/ai/semantic/models/{id}/translate", aiHandler.TranslateSemanticModel)
-	// AI-generated join descriptions for the modeling canvas tooltips; uses the
-	// describe-purpose provider like metadata descriptions.
-	r.With(aiUserMW).Post("/ai/semantic/models/{id}/describe-joins", aiHandler.DescribeJoins)
+	registerAISemanticModelRoutes(r, deps, aiHandler, authClient, aiUserMW)
 	// Short AI-picked conversation titles for the chat sidebar.
 	r.With(aiUserMW).Post("/ai/conversations/suggest-title", aiHandler.SuggestConversationTitle)
 	r.Get("/ai/settings", aiHandler.RuntimeSettings)
@@ -225,6 +215,38 @@ func registerAIRunRoutes(
 	}
 	r.With(aiUserMW).Get("/ai/runs", aiHandler.ListAgentRuns)
 	r.With(aiUserMW, bimw.RequireResolvedDatasourceAccess(authClient, "read", runDS)).Get("/ai/runs/{id}", aiHandler.GetAgentRun)
+}
+
+// registerAISemanticModelRoutes mounts the per-model AI actions (locale
+// translation backfill and canvas join descriptions). Both trigger LLM spend
+// and persist rows keyed to the {id} model, so they require per-model
+// datasource authorization for "write". The {id} is a model, not a datasource,
+// and the monolith proxy does not resolve it (these paths are not in
+// aiProxyDatasourceGuardedPaths), so — like the history/replay route — the
+// resolved-datasource check is enforced here unconditionally rather than
+// relying on the proxy.
+func registerAISemanticModelRoutes(
+	r chi.Router,
+	deps *app.AIDeps,
+	aiHandler *handlers.AIHandler,
+	authClient *bimw.AuthClient,
+	aiUserMW func(http.Handler) http.Handler,
+) {
+	modelDS := func(ctx context.Context, id string) (string, error) {
+		m, err := deps.SemanticRepo.GetModel(ctx, id)
+		if err != nil {
+			return "", err
+		}
+		return m.DatasourceID, nil
+	}
+	modelWrite := bimw.RequireResolvedDatasourceAccess(authClient, "write", modelDS)
+	// Backfills locale translations for a semantic model's label/description and
+	// those of its dimensions/metrics into entity_translations (LLM only when
+	// missing); the catalog model-read overlays them.
+	r.With(aiUserMW, modelWrite).Post("/ai/semantic/models/{id}/translate", aiHandler.TranslateSemanticModel)
+	// AI-generated join descriptions for the modeling canvas tooltips; uses the
+	// describe-purpose provider like metadata descriptions.
+	r.With(aiUserMW, modelWrite).Post("/ai/semantic/models/{id}/describe-joins", aiHandler.DescribeJoins)
 }
 
 // registerAISkillsRoutes wires the skills library: saved parameterized

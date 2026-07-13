@@ -21,11 +21,13 @@ type internalMetaRepo interface {
 	ListBusinessGlossary(ctx context.Context, datasourceID, modelID string) ([]metadata.BusinessGlossaryRow, error)
 	CreateAIQueryHistory(ctx context.Context, entry *metadata.AIQueryHistoryEntry) error
 	CreateQueryHistory(ctx context.Context, entry *query.HistoryEntry) error
+	GetAIQueryHistoryByID(ctx context.Context, id string) (*metadata.AIQueryHistoryEntry, error)
 }
 
 type internalSemanticRepo interface {
 	GetPublishedFullModel(ctx context.Context, id string) (*semantic.SemanticModel, error)
 	ListModels(ctx context.Context, datasourceID string) ([]semantic.SemanticModel, error)
+	GetModel(ctx context.Context, id string) (*semantic.SemanticModel, error)
 }
 
 type internalEvalRepo interface {

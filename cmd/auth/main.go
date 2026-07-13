@@ -166,7 +166,18 @@ func buildAuthHandlers(cfg *biqauth.Config, db *sql.DB, redisClient *redis.Clien
 	aiModelAccessSvc := rbac.NewAIModelAccessService(db, rbacSvc)
 	workspaceSvc := workspace.NewWorkspaceService(db, dsAccessSvc)
 	authSvc.SetWorkspaceService(workspaceSvc)
-	sharingSvc := workspace.NewSharingService(db, workspaceSvc)
+	// Sharing ownership guard: resolve a shared resource to its datasource via
+	// the catalog service, then verify the caller's datasource access locally.
+	// Only wired when both the catalog URL and the shared internal token are
+	// configured; without them the guard is skipped (local dev). In production
+	// both are set, so Share fails closed for resources the caller cannot access.
+	var resourceResolver workspace.ResourceOwnershipResolver
+	if cfg.CatalogServiceURL != "" && cfg.InternalAPIToken != "" {
+		resourceResolver = workspace.NewHTTPResourceResolver(cfg.CatalogServiceURL, cfg.InternalAPIToken)
+	} else {
+		slog.Warn("sharing ownership guard disabled: BI_AUTH_CATALOG_SERVICE_URL or BI_INTERNAL_API_TOKEN unset")
+	}
+	sharingSvc := workspace.NewSharingService(db, workspaceSvc, resourceResolver, dsAccessSvc)
 	auditSvc := biqauth.NewAuditService(db)
 
 	mfaRepo := mfa.NewMFARepository(db, tokenEnc)

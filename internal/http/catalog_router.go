@@ -234,6 +234,7 @@ func registerCatalogInternalRoutes(r chi.Router, deps *app.CatalogDeps, serviceN
 	r.Get("/datasources/{id}/relations", internalHandler.ListRelations)
 	r.Get("/few-shot", internalHandler.ListFewShot)
 	r.Get("/glossary", internalHandler.ListGlossary)
+	r.Get("/resource-datasource", internalHandler.ResolveResourceDatasource)
 
 	r.Post("/history/ai", internalHandler.CreateAIHistory)
 	r.Post("/history/query", internalHandler.CreateQueryHistory)

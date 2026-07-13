@@ -11,7 +11,47 @@ import (
 
 type SharePermission string
 
-var ErrShareNotFound = errors.New("share not found")
+var (
+	ErrShareNotFound = errors.New("share not found")
+	// ErrResourceNotFound is returned by a ResourceOwnershipResolver when the
+	// resource being shared does not exist.
+	ErrResourceNotFound = errors.New("resource not found")
+	// ErrResourceTypeUnsupported is returned by a ResourceOwnershipResolver for
+	// a resource_type whose ownership cannot be verified. Share fails closed on
+	// it rather than persisting an unverifiable grant.
+	ErrResourceTypeUnsupported = errors.New("resource type not supported for sharing")
+	// ErrResourceAccessDenied is returned when the caller lacks access to the
+	// resource they are trying to share.
+	ErrResourceAccessDenied = errors.New("caller does not have access to the resource")
+)
+
+// ResourceOwnershipResolver resolves a shareable resource to the datasource that
+// governs access to it. The shareable resources (semantic models, AI query
+// history, …) live in another service's database, so this is implemented as an
+// HTTP call out to that service and stubbed in tests. Implementations must
+// return ErrResourceNotFound / ErrResourceTypeUnsupported for the respective
+// cases so Share can map them to the right status.
+type ResourceOwnershipResolver interface {
+	ResolveDatasource(ctx context.Context, resourceType, resourceID string) (string, error)
+}
+
+// DatasourceAccessChecker verifies a user's access to a datasource at a given
+// level ("read"/"write"). The auth service's rbac.DatasourceAccessService
+// satisfies this; a returned error means access is denied or could not be
+// verified.
+type DatasourceAccessChecker interface {
+	CheckAccess(ctx context.Context, userID, datasourceID, level string) error
+}
+
+// datasourceLevelForPermission maps a share permission to the datasource access
+// level the caller must already hold to be allowed to grant it: read is enough
+// to share a view/execute grant, write is required to share an edit grant.
+func datasourceLevelForPermission(permission string) string {
+	if strings.EqualFold(permission, "edit") {
+		return "write"
+	}
+	return "read"
+}
 
 type ResourceShare struct {
 	ID           string          `json:"id"`
@@ -33,12 +73,19 @@ type ShareRequest struct {
 }
 
 type SharingService struct {
-	db *sql.DB
-	ws *Service
+	db       *sql.DB
+	ws       *Service
+	resolver ResourceOwnershipResolver
+	access   DatasourceAccessChecker
 }
 
-func NewSharingService(db *sql.DB, ws *Service) *SharingService {
-	return &SharingService{db: db, ws: ws}
+// NewSharingService builds the sharing service. resolver+access enforce the
+// ownership guard on Share: the caller may only share a resource they can
+// access. Both may be nil (e.g. local dev without the resource-owning service
+// reachable), in which case the ownership guard is skipped — production wiring
+// must supply them so Share fails closed for resources the caller cannot access.
+func NewSharingService(db *sql.DB, ws *Service, resolver ResourceOwnershipResolver, access DatasourceAccessChecker) *SharingService {
+	return &SharingService{db: db, ws: ws, resolver: resolver, access: access}
 }
 
 func (s *SharingService) Share(ctx context.Context, callerID string, req ShareRequest) (*ResourceShare, error) {
@@ -50,6 +97,21 @@ func (s *SharingService) Share(ctx context.Context, callerID string, req ShareRe
 	}
 	if !isValidPermission(req.Permission) {
 		return nil, fmt.Errorf("invalid permission: %s", req.Permission)
+	}
+
+	// Ownership guard: the caller may only create a share for a resource they can
+	// access. The resource lives in another service, so resolve it to its
+	// governing datasource and verify the caller holds access at the level this
+	// share grants. Fails closed on unresolvable/unsupported resources. Skipped
+	// only when no resolver is wired (local dev) — see NewSharingService.
+	if s.resolver != nil && s.access != nil {
+		datasourceID, err := s.resolver.ResolveDatasource(ctx, req.ResourceType, req.ResourceID)
+		if err != nil {
+			return nil, fmt.Errorf("resolve resource for sharing: %w", err)
+		}
+		if err := s.access.CheckAccess(ctx, callerID, datasourceID, datasourceLevelForPermission(req.Permission)); err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrResourceAccessDenied, err)
+		}
 	}
 
 	// IDOR guard: caller must be a member of the target workspace

@@ -1237,7 +1237,7 @@ func (h *AuthHandler) handleAdminResendInvitation(w http.ResponseWriter, r *http
 }
 
 func (h *AuthHandler) handleAdminResendUserVerification(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.requireUserID(w, r); !ok {
+	if _, ok := h.requireSuperAdmin(w, r); !ok {
 		return
 	}
 

@@ -17,6 +17,7 @@ import (
 	"github.com/bytedance/sonic"
 
 	"github.com/biqly/biqly/internal/agent"
+	"github.com/biqly/biqly/internal/ai"
 	"github.com/biqly/biqly/internal/app"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/metadata"
@@ -143,6 +144,11 @@ func processJob(ctx context.Context, deps *agent.AgentDependencies, payload []by
 	}
 
 	runCtx, runCancel := context.WithCancel(ctx)
+	// Tag the run context with the job's workspace so the spend-limited planner
+	// provider (wired in NewAgentDependencies) charges the planner's LLM calls
+	// against this workspace's daily token budget. Empty workspace disables the
+	// cap for this run, matching SpendLimiter's own guard.
+	runCtx = ai.WithWorkspace(runCtx, job.WorkspaceID)
 	deps.Runs.Register(run.ID, runCancel)
 	defer func() {
 		runCancel()

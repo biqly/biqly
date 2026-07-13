@@ -63,7 +63,18 @@ func NewAgentDependencies(ctx context.Context, cfg *config.Config) (*agent.Agent
 	// natural-language question into a structured decision" tasks. Adding a
 	// dedicated purpose would touch ProviderStore's purpose enum and admin UI
 	// across several files — out of scope for standing up this service.
-	planner := agent.NewProviderPlanner(ai.NewPurposeProvider(providerStore, ai.PurposeQuery, nil, nil))
+	//
+	// Enforce the per-workspace daily token budget on the planner's LLM calls,
+	// matching the web-agent path (internal/http/handlers/ai_agent_chat.go):
+	// without this the NATS agent runner would spend planner tokens with no
+	// budget accounting. The workspace rides on each job's context (see
+	// cmd/agent processJob → ai.WithWorkspace). BI_REDIS_DSN already reaches this
+	// pod via the shared config; a missing Redis or zero budget is a safe
+	// pass-through (SpendLimiter self-disables).
+	aiRedis := newAIRedisClient(ctx, cfg.Redis.DSN)
+	spendLimiter := ai.NewSpendLimiter(aiRedis, cfg.AI.Generation.WorkspaceDailyTokenBudget)
+	baseProvider := ai.NewPurposeProvider(providerStore, ai.PurposeQuery, nil, nil)
+	planner := agent.NewProviderPlanner(ai.NewSpendLimitedProvider(baseProvider, spendLimiter))
 
 	policy := &agent.PolicyEngine{}
 	registry := agent.NewRegistry(policy,
@@ -93,6 +104,9 @@ func NewAgentDependencies(ctx context.Context, cfg *config.Config) (*agent.Agent
 		Metrics:  metrics,
 		Close: func() error {
 			_ = nq.Close()
+			if aiRedis != nil {
+				_ = aiRedis.Close()
+			}
 			return db.Close()
 		},
 		Ready: &atomic.Bool{},

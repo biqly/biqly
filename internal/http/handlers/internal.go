@@ -9,11 +9,14 @@ package handlers
 
 import (
 	"context"
-	"github.com/bytedance/sonic"
+	"database/sql"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/bytedance/sonic"
 
 	evalpkg "github.com/biqly/biqly/internal/ai/eval"
 	"github.com/biqly/biqly/internal/app"
@@ -61,6 +64,63 @@ func (h *InternalHandler) healthServiceName() string {
 		return "biqly-monolith"
 	}
 	return h.serviceName
+}
+
+// errUnsupportedResourceType marks a resource_type the resolver cannot map to a
+// datasource, so ResolveResourceDatasource can answer 400 rather than 500.
+var errUnsupportedResourceType = errors.New("unsupported resource type")
+
+// ResolveResourceDatasource returns the datasource id that governs access to a
+// shareable resource, identified by the resource_type and resource_id query
+// parameters. The auth service's sharing ownership guard calls this: the
+// shareable resources live in this service's database (not auth's), so auth
+// cannot resolve them itself. Supported types: "model" (semantic model),
+// "query" (AI query history). Answers 400 for unsupported types and 404 when
+// the resource does not exist.
+func (h *InternalHandler) ResolveResourceDatasource(w http.ResponseWriter, r *http.Request) {
+	resourceType, ok := requireInternalQueryParam(w, r, "resource_type")
+	if !ok {
+		return
+	}
+	resourceID, ok := requireInternalQueryParam(w, r, "resource_id")
+	if !ok {
+		return
+	}
+	datasourceID, err := h.resolveResourceDatasource(r.Context(), resourceType, resourceID)
+	switch {
+	case errors.Is(err, errUnsupportedResourceType):
+		writeInternalAPIErrorMsg(w, http.StatusBadRequest, internalapi.CodeInvalidRequest,
+			"unsupported resource_type: "+resourceType)
+		return
+	case errors.Is(err, sql.ErrNoRows):
+		writeInternalAPIError(r.Context(), w, http.StatusNotFound,
+			internalapi.CodeNotFound, "resource not found", err)
+		return
+	case err != nil:
+		writeInternalAPIError(r.Context(), w, http.StatusInternalServerError,
+			internalapi.CodeInternal, "failed to resolve resource datasource", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, internalapi.ResourceDatasourceResponse{DatasourceID: datasourceID})
+}
+
+func (h *InternalHandler) resolveResourceDatasource(ctx context.Context, resourceType, resourceID string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(resourceType)) {
+	case "model":
+		m, err := h.semantic.GetModel(ctx, resourceID)
+		if err != nil {
+			return "", err
+		}
+		return m.DatasourceID, nil
+	case "query":
+		row, err := h.meta.GetAIQueryHistoryByID(ctx, resourceID)
+		if err != nil {
+			return "", err
+		}
+		return row.DatasourceID, nil
+	default:
+		return "", errUnsupportedResourceType
+	}
 }
 
 // GetDatasource returns the full datasource record including the encrypted
@@ -351,13 +411,10 @@ func evalResultsFromWire(results []internalapi.EvalResultMetrics) []evalpkg.Resu
 
 // --- helpers (scoped to the /internal/* surface) ----------------------------
 
-// requireInternalQueryParam writes a 400 and returns ok=false when the named query
-// parameter is missing or blank. Mirrors requireURLParam's contract.
-//
-// future required params (model_id, schema_name, ...) without touching call
-// sites.
-//
-//nolint:unparam // name is always "datasource_id" today but kept generic for
+// requireInternalQueryParam writes a 400 and returns ok=false when the named
+// query parameter is missing or blank. Mirrors requireURLParam's contract and
+// is used for datasource_id, resource_type, resource_id, and similar required
+// query params across the /internal/* surface.
 func requireInternalQueryParam(w http.ResponseWriter, r *http.Request, name string) (string, bool) {
 	v := strings.TrimSpace(r.URL.Query().Get(name))
 	if v == "" {

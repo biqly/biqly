@@ -36,6 +36,8 @@ type Config struct {
 	FrontendBaseURL      string
 	MailServiceURL       string
 	MailInternalToken    string
+	CatalogServiceURL    string
+	InternalAPIToken     string
 	MaxActiveSessions    int
 	PasswordMaxAgeDays   int
 	GDPRPurgeAfterDays   int
@@ -51,31 +53,36 @@ type Config struct {
 func LoadConfig() (*Config, error) {
 	webAuthnOrigins := splitEnvDefault("BI_AUTH_WEBAUTHN_RP_ORIGINS", []string{"http://localhost:5173", "http://localhost:3333"})
 	cfg := &Config{
-		Port:                 intEnv("BI_AUTH_PORT", 8889),
-		DBDSN:                stringEnv("BI_AUTH_DB_DSN", "postgres://bi_auth_user:bi_auth_password@localhost:5434/bi_auth?sslmode=disable"),
-		RedisDSN:             stringEnv("BI_AUTH_REDIS_DSN", "redis://localhost:6379"),
-		JWTPrivateKeyPath:    os.Getenv("BI_AUTH_JWT_PRIVATE_KEY_PATH"),
-		JWTPublicKeyPath:     os.Getenv("BI_AUTH_JWT_PUBLIC_KEY_PATH"),
-		JWTAccessTTL:         durationEnv("BI_AUTH_JWT_ACCESS_TTL", 15*time.Minute),
-		JWTRefreshTTL:        durationEnv("BI_AUTH_JWT_REFRESH_TTL", 7*24*time.Hour),
-		JWTIssuer:            stringEnv("BI_AUTH_JWT_ISSUER", DefaultJWTIssuer),
-		JWTAudience:          stringEnv("BI_AUTH_JWT_AUDIENCE", DefaultJWTAudience),
-		InternalToken:        os.Getenv("BI_AUTH_INTERNAL_TOKEN"),
-		EncryptionKey:        os.Getenv("BI_AUTH_ENCRYPTION_KEY"),
-		RateLimitPerMin:      intEnv("BI_AUTH_RATE_LIMIT_PER_MINUTE", 60),
-		CORSAllowedOrigins:   splitEnv("BI_AUTH_CORS_ALLOWED_ORIGINS"),
-		GitHubClientID:       os.Getenv("BI_AUTH_GITHUB_CLIENT_ID"),
-		GitHubClientSecret:   os.Getenv("BI_AUTH_GITHUB_CLIENT_SECRET"),
-		GitHubRedirectURL:    stringEnv("BI_AUTH_GITHUB_REDIRECT_URL", "http://localhost:8889/api/auth/oauth/github/callback"),
-		GoogleClientID:       os.Getenv("BI_AUTH_GOOGLE_CLIENT_ID"),
-		GoogleClientSecret:   os.Getenv("BI_AUTH_GOOGLE_CLIENT_SECRET"),
-		GoogleRedirectURL:    stringEnv("BI_AUTH_GOOGLE_REDIRECT_URL", "http://localhost:8889/api/auth/oauth/google/callback"),
-		WebAuthnRPID:         stringEnv("BI_AUTH_WEBAUTHN_RP_ID", "localhost"),
-		WebAuthnRPName:       stringEnv("BI_AUTH_WEBAUTHN_RP_NAME", "Biqly"),
-		WebAuthnOrigins:      webAuthnOrigins,
-		FrontendBaseURL:      stringEnv("BI_AUTH_FRONTEND_BASE_URL", "http://localhost:3333"),
-		MailServiceURL:       stringEnv("BI_AUTH_MAIL_SERVICE_URL", "http://localhost:8890"),
-		MailInternalToken:    os.Getenv("BI_AUTH_MAIL_INTERNAL_TOKEN"),
+		Port:               intEnv("BI_AUTH_PORT", 8889),
+		DBDSN:              stringEnv("BI_AUTH_DB_DSN", "postgres://bi_auth_user:bi_auth_password@localhost:5434/bi_auth?sslmode=disable"),
+		RedisDSN:           stringEnv("BI_AUTH_REDIS_DSN", "redis://localhost:6379"),
+		JWTPrivateKeyPath:  os.Getenv("BI_AUTH_JWT_PRIVATE_KEY_PATH"),
+		JWTPublicKeyPath:   os.Getenv("BI_AUTH_JWT_PUBLIC_KEY_PATH"),
+		JWTAccessTTL:       durationEnv("BI_AUTH_JWT_ACCESS_TTL", 15*time.Minute),
+		JWTRefreshTTL:      durationEnv("BI_AUTH_JWT_REFRESH_TTL", 7*24*time.Hour),
+		JWTIssuer:          stringEnv("BI_AUTH_JWT_ISSUER", DefaultJWTIssuer),
+		JWTAudience:        stringEnv("BI_AUTH_JWT_AUDIENCE", DefaultJWTAudience),
+		InternalToken:      os.Getenv("BI_AUTH_INTERNAL_TOKEN"),
+		EncryptionKey:      os.Getenv("BI_AUTH_ENCRYPTION_KEY"),
+		RateLimitPerMin:    intEnv("BI_AUTH_RATE_LIMIT_PER_MINUTE", 60),
+		CORSAllowedOrigins: splitEnv("BI_AUTH_CORS_ALLOWED_ORIGINS"),
+		GitHubClientID:     os.Getenv("BI_AUTH_GITHUB_CLIENT_ID"),
+		GitHubClientSecret: os.Getenv("BI_AUTH_GITHUB_CLIENT_SECRET"),
+		GitHubRedirectURL:  stringEnv("BI_AUTH_GITHUB_REDIRECT_URL", "http://localhost:8889/api/auth/oauth/github/callback"),
+		GoogleClientID:     os.Getenv("BI_AUTH_GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("BI_AUTH_GOOGLE_CLIENT_SECRET"),
+		GoogleRedirectURL:  stringEnv("BI_AUTH_GOOGLE_REDIRECT_URL", "http://localhost:8889/api/auth/oauth/google/callback"),
+		WebAuthnRPID:       stringEnv("BI_AUTH_WEBAUTHN_RP_ID", "localhost"),
+		WebAuthnRPName:     stringEnv("BI_AUTH_WEBAUTHN_RP_NAME", "Biqly"),
+		WebAuthnOrigins:    webAuthnOrigins,
+		FrontendBaseURL:    stringEnv("BI_AUTH_FRONTEND_BASE_URL", "http://localhost:3333"),
+		MailServiceURL:     stringEnv("BI_AUTH_MAIL_SERVICE_URL", "http://localhost:8890"),
+		MailInternalToken:  os.Getenv("BI_AUTH_MAIL_INTERNAL_TOKEN"),
+		// CatalogServiceURL + InternalAPIToken let the sharing ownership guard
+		// resolve a shared resource to its datasource via the catalog service's
+		// /internal endpoint (the resources live there, not in the auth DB).
+		CatalogServiceURL:    stringEnv("BI_AUTH_CATALOG_SERVICE_URL", "http://localhost:8888"),
+		InternalAPIToken:     os.Getenv("BI_INTERNAL_API_TOKEN"),
 		MaxActiveSessions:    positiveIntEnv("BI_AUTH_MAX_SESSIONS", 5),
 		PasswordMaxAgeDays:   nonNegativeIntEnv("BI_AUTH_PASSWORD_MAX_AGE_DAYS", 0),
 		GDPRPurgeAfterDays:   positiveIntEnv("BI_AUTH_GDPR_PURGE_AFTER_DAYS", 30),

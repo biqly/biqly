@@ -59,6 +59,17 @@ func (c integrationCatalog) GetPublishedFullModel(_ context.Context, id string) 
 	return c.model, nil
 }
 
+func (c integrationCatalog) GetModel(_ context.Context, id string) (*semantic.SemanticModel, error) {
+	if c.model == nil || id != c.model.ID {
+		return nil, sql.ErrNoRows
+	}
+	return c.model, nil
+}
+
+func (integrationCatalog) GetAIQueryHistoryByID(context.Context, string) (*metadata.AIQueryHistoryEntry, error) {
+	return nil, sql.ErrNoRows
+}
+
 func (c integrationCatalog) ListModels(_ context.Context, datasourceID string) ([]semantic.SemanticModel, error) {
 	if datasourceID != integrationDSID {
 		return nil, nil
