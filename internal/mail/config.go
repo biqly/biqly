@@ -2,7 +2,8 @@ package mail
 
 import (
 	"os"
-	"strconv"
+
+	"github.com/biqly/biqly/internal/env"
 )
 
 // Config holds the SMTP connection settings, transactional-email policy knobs,
@@ -53,36 +54,13 @@ func NewConfigFromEnv() *Config {
 	}
 }
 
-func stringEnv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
+// These thin wrappers delegate to internal/env so the mail loader shares one
+// env-parsing policy with the other services (was a byte-identical copy).
 
-func intEnv(key string, def int) int {
-	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			return n
-		}
-	}
-	return def
-}
+func stringEnv(key, def string) string { return env.String(key, def) }
 
-func positiveIntEnv(key string, def int) int {
-	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			return n
-		}
-	}
-	return def
-}
+func intEnv(key string, def int) int { return env.Int(key, def) }
 
-func nonNegativeIntEnv(key string, def int) int {
-	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			return n
-		}
-	}
-	return def
-}
+func positiveIntEnv(key string, def int) int { return env.PositiveInt(key, def) }
+
+func nonNegativeIntEnv(key string, def int) int { return env.NonNegativeInt(key, def) }

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/biqly/biqly/internal/env"
@@ -114,73 +113,31 @@ func (c *Config) HTTPAddr() string {
 	return ":" + strconv.Itoa(c.Port)
 }
 
-func stringEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
+// These thin wrappers delegate to internal/env so the auth loader shares one
+// env-parsing policy with the other services (was a byte-identical copy).
 
-func intEnv(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if n, err := strconv.Atoi(value); err == nil {
-			return n
-		}
-	}
-	return defaultValue
-}
+func stringEnv(key, defaultValue string) string { return env.String(key, defaultValue) }
 
-func positiveIntEnv(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if n, err := strconv.Atoi(value); err == nil && n > 0 {
-			return n
-		}
-	}
-	return defaultValue
-}
+func intEnv(key string, defaultValue int) int { return env.Int(key, defaultValue) }
+
+func positiveIntEnv(key string, defaultValue int) int { return env.PositiveInt(key, defaultValue) }
 
 func nonNegativeIntEnv(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if n, err := strconv.Atoi(value); err == nil && n >= 0 {
-			return n
-		}
-	}
-	return defaultValue
+	return env.NonNegativeInt(key, defaultValue)
 }
 
 func durationEnv(key string, defaultValue time.Duration) time.Duration {
-	if value := os.Getenv(key); value != "" {
-		if d, err := time.ParseDuration(value); err == nil {
-			return d
-		}
-	}
-	return defaultValue
+	return env.Duration(key, defaultValue)
 }
 
 func positiveDurationEnv(key string, defaultValue time.Duration) time.Duration {
-	if value := os.Getenv(key); value != "" {
-		if d, err := time.ParseDuration(value); err == nil && d > 0 {
-			return d
-		}
-	}
-	return defaultValue
+	return env.PositiveDuration(key, defaultValue)
 }
 
-func splitEnv(key string) []string {
-	var values []string
-	for value := range strings.SplitSeq(strings.TrimSpace(os.Getenv(key)), ",") {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			values = append(values, trimmed)
-		}
-	}
-	return values
-}
+func splitEnv(key string) []string { return env.CSV(key) }
 
 func splitEnvDefault(key string, defaultValue []string) []string {
-	if strings.TrimSpace(os.Getenv(key)) == "" {
-		return defaultValue
-	}
-	return splitEnv(key)
+	return env.CSVDefault(key, defaultValue)
 }
 
 func passwordPolicyFromEnv() PasswordPolicy {

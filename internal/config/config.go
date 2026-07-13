@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -820,64 +818,17 @@ func resolveTranslationBaseURL(c AIConfig) string {
 	return strings.TrimRight(strings.TrimSpace(c.Connection.BaseURL), "/")
 }
 
-func getEnv(key, defaultVal string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return defaultVal
-}
+// These thin wrappers delegate to internal/env, the single source of truth for
+// env parsing, so this loader and the per-service loaders (auth/mail/ai-eval)
+// share one parsing/invalid-value policy that cannot drift.
 
-// splitCSV parses a comma-separated string into a slice of trimmed,
-// non-empty values. Returns nil for an empty input so callers can
-// distinguish "unset" from "set to empty list".
-func splitCSV(raw string) []string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil
-	}
-	parts := strings.Split(raw, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
+func getEnv(key, defaultVal string) string { return env.String(key, defaultVal) }
 
-func getEnvAsInt(key string, defaultVal int) int {
-	valStr := os.Getenv(key)
-	if valStr == "" {
-		return defaultVal
-	}
-	val, err := strconv.Atoi(valStr)
-	if err != nil {
-		slog.Warn("ignoring invalid int env var; using default",
-			"key", key, "value", valStr, "default", defaultVal, "error", err,
-		)
-		return defaultVal
-	}
-	return val
-}
+func splitCSV(raw string) []string { return env.SplitCSV(raw) }
 
-func getEnvAsFloat(key string, defaultVal float64) float64 {
-	valStr := os.Getenv(key)
-	if valStr == "" {
-		return defaultVal
-	}
-	val, err := strconv.ParseFloat(valStr, 64)
-	if err != nil {
-		slog.Warn("ignoring invalid float env var; using default",
-			"key", key, "value", valStr, "default", defaultVal, "error", err,
-		)
-		return defaultVal
-	}
-	return val
-}
+func getEnvAsInt(key string, defaultVal int) int { return env.Int(key, defaultVal) }
+
+func getEnvAsFloat(key string, defaultVal float64) float64 { return env.Float(key, defaultVal) }
 
 // validateAgentConfig enforces the same bounds internal/agent's job
 // validation applies, checked once at load time so a misconfigured
@@ -921,20 +872,7 @@ func validateFloatRange(key string, val, minVal, maxVal float64) error {
 	return nil
 }
 
-func getEnvAsBool(key string, defaultVal bool) bool {
-	valStr := strings.TrimSpace(os.Getenv(key))
-	if valStr == "" {
-		return defaultVal
-	}
-	switch strings.ToLower(valStr) {
-	case "1", "true", "yes", "on":
-		return true
-	case "0", "false", "no", "off":
-		return false
-	default:
-		return defaultVal
-	}
-}
+func getEnvAsBool(key string, defaultVal bool) bool { return env.Bool(key, defaultVal) }
 
 // HTTPAddr returns the full HTTP listen address.
 func (c *Config) HTTPAddr() string {
@@ -969,16 +907,5 @@ func (c *Config) HTTPWriteTimeout() time.Duration {
 }
 
 func getEnvAsDuration(key string, defaultVal time.Duration) time.Duration {
-	valStr := os.Getenv(key)
-	if valStr == "" {
-		return defaultVal
-	}
-	val, err := time.ParseDuration(valStr)
-	if err != nil {
-		slog.Warn("ignoring invalid duration env var; using default",
-			"key", key, "value", valStr, "default", defaultVal, "error", err,
-		)
-		return defaultVal
-	}
-	return val
+	return env.Duration(key, defaultVal)
 }

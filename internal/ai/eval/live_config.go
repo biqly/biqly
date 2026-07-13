@@ -2,10 +2,10 @@ package eval
 
 import (
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/biqly/biqly/internal/config"
+	"github.com/biqly/biqly/internal/env"
 )
 
 // LiveAIConfigFromEnv builds an AIConfig for opt-in live eval from BI_AI_QUERY_* with
@@ -51,26 +51,9 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func envIntDefault(key string, def int) int {
-	v := strings.TrimSpace(os.Getenv(key))
-	if v == "" {
-		return def
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		return def
-	}
-	return n
-}
+// Delegate to internal/env so eval shares one env-parsing policy with the
+// service config loaders.
 
-func envFloatDefault(key string, def float64) float64 {
-	v := strings.TrimSpace(os.Getenv(key))
-	if v == "" {
-		return def
-	}
-	f, err := strconv.ParseFloat(v, 64)
-	if err != nil {
-		return def
-	}
-	return f
-}
+func envIntDefault(key string, def int) int { return env.Int(key, def) }
+
+func envFloatDefault(key string, def float64) float64 { return env.Float(key, def) }
