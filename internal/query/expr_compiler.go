@@ -106,7 +106,7 @@ func compileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaR
 			*args = append(*args, e.Value)
 			return d.Placeholder(len(*args)), nil
 		}
-		return literalSQL(e.Value), nil
+		return literalSQL(e.Value, d), nil
 	case *pkgsemantic.ColumnRefExpr:
 		colPath := e.Column
 		if e.Table != "" {
@@ -141,12 +141,12 @@ func compileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaR
 	}
 }
 
-func literalSQL(value any) string {
+func literalSQL(value any, d dialect.Dialect) string {
 	switch v := value.(type) {
 	case nil:
 		return "NULL"
 	case string:
-		return "'" + strings.ReplaceAll(v, "'", "''") + "'"
+		return d.QuoteStringLiteral(v)
 	case bool:
 		if v {
 			return "TRUE"
@@ -159,7 +159,7 @@ func literalSQL(value any) string {
 	case float64:
 		return strconv.FormatFloat(v, 'f', -1, 64)
 	default:
-		return "'" + strings.ReplaceAll(fmt.Sprint(v), "'", "''") + "'"
+		return d.QuoteStringLiteral(fmt.Sprint(v))
 	}
 }
 

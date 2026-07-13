@@ -24,6 +24,13 @@ func (DatabricksDialect) Name() string {
 	return "databricks"
 }
 
+// QuoteStringLiteral escapes backslash (a string escape in Spark SQL by
+// default) before doubling single quotes, so a value ending in "\" cannot
+// break out.
+func (DatabricksDialect) QuoteStringLiteral(value string) string {
+	return quoteBackslashEscapedLiteral(value)
+}
+
 // Placeholder returns the parameter placeholder for the given index.
 func (DatabricksDialect) Placeholder(_ int) string {
 	return "?"

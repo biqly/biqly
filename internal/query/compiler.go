@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
@@ -524,14 +525,28 @@ func (c *Compiler) resolveBracketExpressions(
 	if expr == "*" {
 		return expr
 	}
-	if !strings.Contains(expr, "[") {
-		return c.resolveBareCustomExpression(expr, resolver, model)
+	var resolved string
+	if strings.Contains(expr, "[") {
+		resolved = reBracket.ReplaceAllStringFunc(expr, func(match string) string {
+			token := match[1 : len(match)-1]
+			return c.resolveCustomToken(token, resolver, dimMap, metricMap, model)
+		})
+	} else {
+		resolved = c.resolveBareCustomExpression(expr, resolver, model)
 	}
-
-	return reBracket.ReplaceAllStringFunc(expr, func(match string) string {
-		token := match[1 : len(match)-1]
-		return c.resolveCustomToken(token, resolver, dimMap, metricMap, model)
-	})
+	// Raw-string metric expressions (custom/none aggregation, or literal text
+	// between [tokens]) never pass through the AST compiler, so they miss the
+	// exprReadOnlyChecker that CompileExpr applies. Run the same read-only guard
+	// on the resolved SQL so a metric's Expression cannot smuggle DML or other
+	// unsafe SQL into the SELECT — matching the AST path's protection.
+	if c.err == nil && resolved != "" {
+		if err := exprReadOnlyChecker.Check("SELECT " + resolved); err != nil {
+			slog.Error("metric expression compiled to unsafe SQL, aborting compilation", "error", err)
+			c.err = fmt.Errorf("metric expression failed read-only check: %w", err)
+			return ""
+		}
+	}
+	return resolved
 }
 
 func (c *Compiler) resolveBareCustomExpression(

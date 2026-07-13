@@ -21,6 +21,13 @@ func (SnowflakeDialect) Name() string {
 	return "snowflake"
 }
 
+// QuoteStringLiteral escapes backslash (a string escape in Snowflake by
+// default) before doubling single quotes, so a value ending in "\" cannot
+// break out.
+func (SnowflakeDialect) QuoteStringLiteral(value string) string {
+	return quoteBackslashEscapedLiteral(value)
+}
+
 // Placeholder returns the parameter placeholder for the given index.
 func (SnowflakeDialect) Placeholder(_ int) string {
 	return "?"

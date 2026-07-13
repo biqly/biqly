@@ -20,6 +20,13 @@ var ClickHouse = ClickHouseDialect{
 	},
 }
 
+// QuoteStringLiteral escapes backslash (a string escape in ClickHouse by
+// default) before doubling single quotes, so a value ending in "\" cannot
+// break out.
+func (ClickHouseDialect) QuoteStringLiteral(value string) string {
+	return quoteBackslashEscapedLiteral(value)
+}
+
 // Name returns the dialect name.
 func (ClickHouseDialect) Name() string {
 	return "clickhouse"

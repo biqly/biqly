@@ -9,6 +9,13 @@ type CoreDialect interface {
 	// QuoteIdent quotes an identifier (table name, column name) to prevent SQL injection.
 	QuoteIdent(identifier string) string
 
+	// QuoteStringLiteral renders a string value as a safe single-quoted SQL
+	// literal. The default doubles embedded single quotes (standard SQL);
+	// dialects that treat backslash as a C-style string escape by default
+	// (MySQL, ClickHouse, Snowflake, Databricks) also escape backslash so a
+	// trailing "\" cannot break out of the quoted literal.
+	QuoteStringLiteral(value string) string
+
 	// QuoteIdentSegment quotes a single catalog name as returned by the database (e.g. a
 	// column "Emp.StartDate") without splitting on '.' . Use QuoteIdent for qualified
 	// refs like schema.table expressed as one string with dot separators.

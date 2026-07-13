@@ -33,6 +33,24 @@ func (b BaseDialect) QuoteIdent(identifier string) string {
 	return QuoteIdentQualified(b, identifier)
 }
 
+// QuoteStringLiteral renders value as a single-quoted SQL string literal using
+// standard-SQL escaping: embedded single quotes are doubled. Dialects where
+// backslash is a C-style escape character override this (see
+// quoteBackslashEscapedLiteral).
+func (BaseDialect) QuoteStringLiteral(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
+}
+
+// quoteBackslashEscapedLiteral renders a single-quoted SQL string literal for
+// dialects (MySQL, ClickHouse, Snowflake, Databricks) that treat backslash as a
+// string escape by default: backslash is escaped first, then single quotes are
+// doubled, so a value ending in "\" cannot escape the closing quote.
+func quoteBackslashEscapedLiteral(value string) string {
+	value = strings.ReplaceAll(value, "\\", "\\\\")
+	value = strings.ReplaceAll(value, "'", "''")
+	return "'" + value + "'"
+}
+
 // CastType returns the upper-cased SQL type name.
 func (BaseDialect) CastType(sqlType string) string {
 	return CastTypeUpper(sqlType)

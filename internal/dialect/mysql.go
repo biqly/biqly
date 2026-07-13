@@ -24,6 +24,12 @@ func (MySQLDialect) Name() string {
 	return "mysql"
 }
 
+// QuoteStringLiteral escapes backslash (a string escape in MySQL by default)
+// before doubling single quotes, so a value ending in "\" cannot break out.
+func (MySQLDialect) QuoteStringLiteral(value string) string {
+	return quoteBackslashEscapedLiteral(value)
+}
+
 // Placeholder returns the parameter placeholder for the given index.
 func (MySQLDialect) Placeholder(_ int) string {
 	return "?"
