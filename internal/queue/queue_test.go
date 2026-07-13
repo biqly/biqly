@@ -114,19 +114,30 @@ func TestLocalAIJobQueue_CloseBehavior(t *testing.T) {
 	assert.Equal(t, []string{"job_1"}, processed)
 }
 
-func TestLocalAIJobQueue_HandlerError(t *testing.T) {
+func TestLocalAIJobQueue_HandlerErrorDoesNotStopConsumer(t *testing.T) {
 	q := NewLocalAIJobQueue(5)
-	assert.NoError(t, q.Publish(context.Background(), "job_1"))
+	assert.NoError(t, q.Publish(context.Background(), "job_fail"))
+	assert.NoError(t, q.Publish(context.Background(), "job_ok"))
 
-	expectedErr := errors.New("something went wrong in worker")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	err := q.Subscribe(ctx, "worker-group", func(_ context.Context, _ string) error {
-		return expectedErr
+	var processed []string
+	err := q.Subscribe(ctx, "worker-group", func(_ context.Context, jobID string) error {
+		processed = append(processed, jobID)
+		if jobID == "job_fail" {
+			return errors.New("something went wrong in worker")
+		}
+		// Cancel only after the job that follows the failing one is handled,
+		// proving a handler error did not tear down the consumer.
+		cancel()
+		return nil
 	})
 
-	assert.ErrorIs(t, err, expectedErr)
+	// Subscribe returns because the context was cancelled, not because of the
+	// handler error: a failing job is logged and consumption continues.
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, []string{"job_fail", "job_ok"}, processed)
 	assert.NoError(t, q.Close())
 }
 

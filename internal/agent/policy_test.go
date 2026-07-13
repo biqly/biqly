@@ -170,6 +170,18 @@ func TestPolicyEngineDeniesInvalidJoin(t *testing.T) {
 	assert.Equal(t, ReasonInvalidJoinDenied, decision.ReasonCode)
 }
 
+func TestPolicyEngineAllowsJoinsWhenAllowlistUnset(t *testing.T) {
+	var p PolicyEngine
+	run := baseRunContext()
+	run.AllowedJoins = nil // not configured (e.g. the NATS agent path)
+	args := baseQueryArgs()
+	args.Joins = []JoinEdge{{Left: "users", Right: "payments"}}
+	decision := p.Evaluate(context.Background(), run, Proposal{Tool: ToolQueryCompile, Arguments: marshalArgs(t, args)})
+	// An unset allowlist means "join restriction not configured", not "deny all
+	// joins" — join validity is enforced authoritatively by the Query service.
+	assert.True(t, decision.Allowed)
+}
+
 func TestPolicyEngineAllowsJoinRegardlessOfDeclaredOrder(t *testing.T) {
 	var p PolicyEngine
 	run := baseRunContext()

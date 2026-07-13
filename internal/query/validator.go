@@ -400,6 +400,13 @@ func (v *Validator) validateLimitOffset(lq *LogicalQuery) ValidationErrors {
 			Message: "offset must be non-negative",
 		})
 	}
+	// Floor an omitted/zero limit to the configured ceiling. Without this a
+	// missing limit compiles to a LIMIT-less full-table scan; since no query may
+	// exceed maxRows anyway, defaulting to maxRows bounds resource use without
+	// changing the result of any query that would have stayed under the cap.
+	if len(errs) == 0 && lq.Limit == 0 && v.maxRows > 0 {
+		lq.Limit = v.maxRows
+	}
 	return errs
 }
 

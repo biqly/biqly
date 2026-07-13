@@ -277,6 +277,12 @@ func evaluateQuery(run RunContext, proposal Proposal) Decision {
 	if isWriteOrDDL(args.SQL) {
 		return deny(ReasonWriteOrDDLDenied)
 	}
+	// The hidden-column / PII / allowed-join / row-filter checks below are
+	// defense-in-depth that only fire when the corresponding RunContext fields
+	// are populated (they are empty on the NATS agent path today). They are NOT
+	// the authoritative control: the Query service re-validates columns, joins,
+	// PII masking, and row-level security at compile time. Each check is inert
+	// (allows) when its RunContext slice is empty, deferring to that enforcement.
 	if col := firstHiddenColumn(args.Columns, run.HiddenColumns); col != "" {
 		return deny(ReasonHiddenColumnDenied)
 	}
@@ -320,9 +326,12 @@ func strictDecode(raw json.RawMessage, v any) error {
 	return nil
 }
 
-// promptInjectionMarkers are deterministic substring signals of an attempt
-// to override the run's system instructions via tool arguments. This is a
-// coarse first line of defense, not a substitute for prompt-level hardening.
+// promptInjectionMarkers are deterministic substring signals of an attempt to
+// override the run's system instructions via tool arguments. This is a coarse,
+// NON-AUTHORITATIVE signal (trivially bypassed by rewording/translation), not a
+// security control: it runs only for non-web tools and the authoritative
+// protection is the strict tool contract plus the governed /api/* enforcement
+// that every web tool's arguments pass through. Treat a match as telemetry.
 var promptInjectionMarkers = []string{
 	"ignore previous instructions",
 	"ignore all previous instructions",
@@ -392,6 +401,14 @@ func containsFold(list []string, target string) bool {
 }
 
 func firstInvalidJoin(requested, allowed []JoinEdge) *JoinEdge {
+	// An empty allowlist means the join restriction is not configured for this
+	// run (e.g. RunContext.AllowedJoins not populated on the NATS agent path),
+	// NOT "deny every join". Treating it as deny-all would reject any join a
+	// planner proposes; join validity is enforced authoritatively downstream by
+	// the Query service at compile time. Only enforce when an allowlist exists.
+	if len(allowed) == 0 {
+		return nil
+	}
 	allowedKeys := make(map[string]struct{}, len(allowed))
 	for _, j := range allowed {
 		allowedKeys[j.key()] = struct{}{}

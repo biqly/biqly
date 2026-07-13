@@ -13,7 +13,7 @@ Severity: **CRITICAL** yok. **HIGH** 2, **MEDIUM** 7, **LOW** 10 (güvenlik) + d
 | 1 | S1, S2 (HIGH) + regresyon testleri | ✅ tamamlandı (lint 0, testler yeşil, commit bekliyor) |
 | 2 | S3, S4, S5, S6 (MEDIUM authz/IDOR/spend) | ✅ tamamlandı (lint 0, testler + helm render yeşil, commit bekliyor) |
 | 3 | S7, S8 (query/SQL) | ✅ tamamlandı (lint 0, testler + go vet yeşil, commit bekliyor) |
-| 4 | S9–S19 (LOW) | ⏳ |
+| 4 | S9–S19 (LOW) | ✅ tamamlandı (lint 0, testler + go vet yeşil, commit bekliyor) |
 | 5 | D1–D16 (kod tekrarı) | ⏳ |
 
 - **S1** ✅ `internal/auth/handlers/handler.go:1239` → `requireSuperAdmin` guard; test: `handler_resend_verification_test.go`.
@@ -26,6 +26,20 @@ Severity: **CRITICAL** yok. **HIGH** 2, **MEDIUM** 7, **LOW** 10 (güvenlik) + d
 - **S6** ✅ **Tamamlandı.** Keşif, `BI_REDIS_DSN`'in zaten shared `biqly-config` ConfigMap'i üzerinden agent pod'una ulaştığını gösterdi — Helm/infra değişikliği gerekmedi. Yeni `internal/ai/SpendLimitedProvider` (ctx-workspace tabanlı, `ai.WithWorkspace`); `NewAgentDependencies` planner provider'ını sarıyor (`newAIRedisClient` + `NewSpendLimiter`, Close'da Redis kapatılıyor); `cmd/agent` processJob runCtx'e `job.WorkspaceID` ekliyor. Test: `internal/ai/spend_provider_test.go` (4 case). SpendLimiter fail-safe (nil client/redis error → pass-through). **Not:** cap yalnızca `BI_AI_WORKSPACE_DAILY_TOKEN_BUDGET` set edilince aktif (şu an her yerde 0/dormant — AI servisi dahil); aktivasyon ops kararı.
 
 ---
+
+### Batch 4 (LOW) — tamamlandı
+
+- **S9** ✅ `config.go` — `BI_ENCRYPTION_KEY` default'u boş (validation zaten required).
+- **S10** ✅ `internal/agent/policy.go` — `firstInvalidJoin` boş allowlist'i "kısıtlama yok" olarak ele alıyor (deny-all over-blocking bug'ı düzeltildi); RunContext-driven kontrollerin advisory olduğu belgelendi.
+- **S11** ✅ `internal/agent/policy.go` — prompt-injection heuristic'i non-authoritative telemetri olarak açıkça belgelendi.
+- **S12** ✅ `internal/ai/provider/egress.go` — deployment-mode-aware `CheckProviderBaseURL`: cloud modda private/metadata host'ları reddediyor (SSRF), private/airgapped'te self-hosted'a izin. Create/UpdateProvider'da uygulanıyor. Test: `egress_provider_url_test.go`.
+- **S13** ✅ `internal/query/validator.go` — sıfır/atlanmış limit maxRows'a floor'lanıyor. Test: `TestValidator_ZeroLimitFlooredToMaxRows`.
+- **S14** ✅ `internal/http/handlers/ai_conversations.go` — `decodeJSON` (1 MiB cap).
+- **S15** ✅ catalog/query/ai router'ları `/metrics`'i `APIKeyAuth(MetricsAPIKey)` ile gate ediyor (monolith ile aynı; boş key'de fail-open).
+- **S16** ✅ `config.go` — prod'da `sslmode=disable` uyarısı.
+- **S17** ✅ `internal/audit/db_writer.go` — non-UUID actor artık details JSON'ında ("actor") korunuyor (NULL'a atılmıyor). (Backpressure drop'u kasıtlı non-blocking tasarım — metric+alert var — değiştirilmedi.)
+- **S18** ✅ `internal/queue/local.go` — handler hatasında log-and-continue (consumer ölmüyor). Test güncellendi.
+- **S19** ✅ `internal/dbmigrate/migrate.go` — her migration dosyası transaction içinde; `isAlreadyAppliedError`'dan `23505` çıkarıldı.
 
 ## Güvenlik Bulguları
 

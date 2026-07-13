@@ -311,6 +311,28 @@ func TestValidateSchemaOverrides(t *testing.T) {
 	}
 }
 
+func TestValidator_ZeroLimitFlooredToMaxRows(t *testing.T) {
+	model := validatorTestModel()
+	validator := NewValidator(500)
+
+	// An omitted/zero limit is floored to maxRows so it cannot compile to an
+	// unbounded full-table scan.
+	lq := LogicalQuery{
+		Select: []SelectItem{{Type: SelectTypeMetric, Name: "revenue"}},
+		Limit:  0,
+	}
+	require.NoError(t, validator.Validate(&lq, model))
+	assert.Equal(t, 500, lq.Limit)
+
+	// An explicit, within-range limit is preserved unchanged.
+	lq2 := LogicalQuery{
+		Select: []SelectItem{{Type: SelectTypeMetric, Name: "revenue"}},
+		Limit:  25,
+	}
+	require.NoError(t, validator.Validate(&lq2, model))
+	assert.Equal(t, 25, lq2.Limit)
+}
+
 func TestValidateWindowSelect_MissingSpec(t *testing.T) {
 	lq := &LogicalQuery{
 		Select: []SelectItem{

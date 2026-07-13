@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/biqly/biqly/internal/metadata"
-	"github.com/bytedance/sonic"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -41,9 +40,8 @@ func (h *AIHandler) CreateConversation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "user required")
 		return
 	}
-	var req aiConversationRequest
-	if err := sonic.ConfigStd.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON")
+	req, ok := decodeJSON[aiConversationRequest](w, r)
+	if !ok {
 		return
 	}
 	if req.DatasourceID == "" {
@@ -80,7 +78,7 @@ func (h *AIHandler) CreateConversation(w http.ResponseWriter, r *http.Request) {
 		idempotencyKey = "auto-" + userID + "-" + conv.ID
 	}
 
-	payloadHash := computeConversationPayloadHash(userID, req)
+	payloadHash := computeConversationPayloadHash(userID, *req)
 
 	result, err := h.deps.MetaRepo.SaveAIConversationSnapshot(r.Context(), userID, metadata.ConversationSnapshotWrite{
 		Conversation:    conv,

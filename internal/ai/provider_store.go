@@ -634,6 +634,9 @@ func (s *ProviderStore) CreateProvider(ctx context.Context, in *CreateProviderIn
 	if baseURL == "" {
 		baseURL = DefaultBaseURLForType(in.ProviderType)
 	}
+	if err := providerpkg.CheckProviderBaseURL(baseURL); err != nil {
+		return "", fmt.Errorf("invalid provider base_url: %w", err)
+	}
 	var id string
 	err = s.db.QueryRowContext(ctx,
 		`INSERT INTO ai_providers (name, provider_type, base_url, api_key_encrypted, is_active, http_timeout_seconds, rate_limit_per_minute)
@@ -658,6 +661,9 @@ func (s *ProviderStore) UpdateProvider(ctx context.Context, id string, in *Updat
 	baseURL := strings.TrimRight(strings.TrimSpace(in.BaseURL), "/")
 	if baseURL == "" {
 		baseURL = DefaultBaseURLForType(in.ProviderType)
+	}
+	if err := providerpkg.CheckProviderBaseURL(baseURL); err != nil {
+		return fmt.Errorf("invalid provider base_url: %w", err)
 	}
 	encryptedAPIKey, err := s.encryptedArg(in.APIKey)
 	if err != nil {

@@ -42,6 +42,10 @@ type Config struct {
 // DeploymentModeAirgapped is the fail-closed, no-external-egress posture.
 const DeploymentModeAirgapped = "airgapped"
 
+// DeploymentModeCloud is the public-cloud posture: admin-configured provider
+// base URLs must be public (private/internal targets are rejected as SSRF).
+const DeploymentModeCloud = "cloud"
+
 // DriftConfig controls the background schema drift check.
 type DriftConfig struct {
 	CheckInterval time.Duration
@@ -507,7 +511,10 @@ func loadConfigFromEnv() *Config {
 			EvalRunsListLimit: getEnvAsInt("BI_EVAL_RUNS_LIST_LIMIT", 50),
 		},
 		Security: SecurityConfig{
-			EncryptionKey:    getEnv("BI_ENCRYPTION_KEY", "change-this-to-a-secure-32-byte-key!!"),
+			// No default: an empty key is rejected by validateLoadedConfig as
+			// "required". Shipping a usable placeholder key in the binary would be
+			// a real key any code path bypassing Load()/validation could run with.
+			EncryptionKey:    getEnv("BI_ENCRYPTION_KEY", ""),
 			AdminAPIKey:      getEnv("BI_ADMIN_API_KEY", ""),
 			InternalAPIToken: getEnv("BI_INTERNAL_API_TOKEN", ""),
 			APIKey:           getEnv("BI_API_KEY", ""),
@@ -652,6 +659,13 @@ func validateLoadedConfig(cfg *Config) error {
 	}
 	if cfg.Metadata.DSN == "" {
 		return errors.New("BI_METADATA_DB_DSN is required")
+	}
+	// The metadata DB carries encrypted datasource secrets and audit data;
+	// running its connection without TLS in production is a real exposure. Warn
+	// rather than fail — some clusters front Postgres with a network policy — but
+	// make the insecure posture visible.
+	if env.IsProduction() && strings.Contains(cfg.Metadata.DSN, "sslmode=disable") {
+		slog.Warn("BI_METADATA_DB_DSN uses sslmode=disable in production; metadata DB traffic is unencrypted")
 	}
 	if cfg.Security.EncryptionKey == "" {
 		return errors.New("BI_ENCRYPTION_KEY is required")

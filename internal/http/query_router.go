@@ -34,7 +34,7 @@ func QueryRouter(deps *app.Dependencies) http.Handler {
 	r.Get("/ready", ReadinessHandler(deps, map[string]string{
 		"catalog": deps.Config.Services.CatalogURL,
 	}))
-	r.Get("/metrics", MetricsHandler)
+	r.With(bimw.APIKeyAuth(deps.Config.Security.MetricsAPIKey)).Get("/metrics", MetricsHandler)
 
 	authMW := buildAPIAuthMiddleware(deps)
 	authClient := NewAuthClient(deps)

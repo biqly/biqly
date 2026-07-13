@@ -249,8 +249,23 @@ func execSQL(ctx context.Context, db *sql.DB, sqlText string) error {
 	if sqlText == "" {
 		return nil
 	}
-	_, err := db.ExecContext(ctx, sqlText)
-	return err
+	// Run the whole file body in one transaction so a migration that fails
+	// partway rolls back atomically instead of leaving the schema half-applied
+	// (and then getting recorded as applied). Postgres DDL is transactional; no
+	// migration in this repo uses a statement that cannot run inside a tx (e.g.
+	// CREATE INDEX CONCURRENTLY) — add a non-transactional path here if one is
+	// ever introduced.
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if _, execErr := tx.ExecContext(ctx, sqlText); execErr != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("%w (rollback failed: %w)", execErr, rbErr)
+		}
+		return execErr
+	}
+	return tx.Commit()
 }
 
 func isAlreadyAppliedError(err error) bool {
@@ -258,8 +273,12 @@ func isAlreadyAppliedError(err error) bool {
 	if !ok {
 		return false
 	}
+	// Only tolerate idempotent-DDL "already exists" codes (duplicate
+	// table/column/schema/object) so re-running a create is a no-op. 23505
+	// (unique_violation) is intentionally NOT here: a unique violation is a real
+	// failure that must not be silently recorded as an applied migration.
 	switch pgErr.Code {
-	case "42P07", "42701", "42P06", "42710", "23505":
+	case "42P07", "42701", "42P06", "42710":
 		return true
 	default:
 		return false

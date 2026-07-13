@@ -36,7 +36,7 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 		"catalog": deps.Config.Services.CatalogURL,
 		"query":   deps.Config.Services.QueryURL,
 	}))
-	r.Get("/metrics", MetricsHandler)
+	r.With(bimw.APIKeyAuth(deps.Config.Security.MetricsAPIKey)).Get("/metrics", MetricsHandler)
 
 	authClient := buildAIAuthClient(deps)
 	deps.WireAIUserResolver(authClient)

@@ -32,7 +32,7 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 		_, _ = w.Write(healthCheckBody)
 	})
 	r.Get("/ready", ReadinessHandler(deps, nil))
-	r.Get("/metrics", MetricsHandler)
+	r.With(bimw.APIKeyAuth(deps.Config.Security.MetricsAPIKey)).Get("/metrics", MetricsHandler)
 
 	// /api is the catalog's user-facing surface, reached directly through the
 	// gateway — it must enforce auth itself (BI_AUTH_ENABLED=true → JWT with

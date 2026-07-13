@@ -22,6 +22,7 @@ import (
 // NewAIDependencies wires the standalone AI Service dependency graph.
 func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, error) {
 	providerpkg.SetAirgapped(cfg.DeploymentMode == config.DeploymentModeAirgapped)
+	providerpkg.SetCloud(cfg.DeploymentMode == config.DeploymentModeCloud)
 
 	db, err := openMetadataDB(ctx, cfg)
 	if err != nil {

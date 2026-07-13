@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"maps"
 	"regexp"
 	"sync"
 	"sync/atomic"
@@ -37,6 +38,16 @@ func toNullUUID(s string) sql.NullString {
 		return sql.NullString{String: s, Valid: true}
 	}
 	return sql.NullString{Valid: false}
+}
+
+// detailsWithActor returns a copy of details with a non-UUID actor recorded
+// under "actor", so audit rows whose user_id is stored as NULL still record who
+// performed the action. It never mutates the caller's map.
+func detailsWithActor(details map[string]any, actor string) map[string]any {
+	out := make(map[string]any, len(details)+1)
+	maps.Copy(out, details)
+	out["actor"] = actor
+	return out
 }
 
 // DBWriter writes audit events asynchronously to the database.
@@ -187,10 +198,20 @@ func (w *DBWriter) writeBatch(ctx context.Context, batch []Event) error {
 	}()
 
 	for _, event := range batch {
+		userIDVal := toNullUUID(event.UserID)
+
+		// A non-UUID actor (e.g. "system"/"internal") is persisted with a NULL
+		// user_id, which would otherwise erase attribution from the DB row.
+		// Preserve who acted in the details JSON so the audit trail stays intact.
+		details := event.Details
+		if event.UserID != "" && !userIDVal.Valid {
+			details = detailsWithActor(details, event.UserID)
+		}
+
 		var detailsJSON []byte
-		if len(event.Details) > 0 {
+		if len(details) > 0 {
 			var err error
-			detailsJSON, err = sonic.ConfigStd.Marshal(event.Details)
+			detailsJSON, err = sonic.ConfigStd.Marshal(details)
 			if err != nil {
 				w.logger.Warn("failed to marshal audit event details", "error", err)
 			}
@@ -208,7 +229,6 @@ func (w *DBWriter) writeBatch(ctx context.Context, batch []Event) error {
 			createdAt = event.Timestamp.UTC()
 		}
 
-		userIDVal := toNullUUID(event.UserID)
 		datasourceIDVal := toNullUUID(event.DatasourceID)
 		modelIDVal := toNullUUID(event.ModelID)
 

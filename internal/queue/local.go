@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 )
 
@@ -50,7 +51,11 @@ func (q *LocalAIJobQueue) Subscribe(ctx context.Context, _ string, handler func(
 				return nil
 			}
 			if err := handler(ctx, jobID); err != nil {
-				return err
+				// Log and continue: one failing job must not tear down the whole
+				// consumer. This is the dev/in-process backend (the NATS backend
+				// owns retry/DLQ); dropping to at-least-once-with-logging here
+				// keeps a transient failure from silently halting all processing.
+				slog.ErrorContext(ctx, "local AI job handler failed; continuing", "job_id", jobID, "error", err)
 			}
 		}
 	}
