@@ -3,10 +3,8 @@ package auth
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -101,8 +99,10 @@ func (r *MagicLinkRepository) Consume(ctx context.Context, plaintext string) (st
 }
 
 func hashMagicLink(plaintext string) string {
-	sum := sha256.Sum256([]byte(plaintext))
-	return hex.EncodeToString(sum[:])
+	// Same one-way SHA-256 hex digest as every other at-rest token hash; kept as
+	// a single implementation so they cannot diverge (e.g. one moving to a keyed
+	// hash without the others).
+	return HashToken(plaintext)
 }
 
 func generateMagicLinkToken() (string, error) {

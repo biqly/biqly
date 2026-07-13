@@ -59,42 +59,10 @@ func CompileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaR
 	return sql, nil
 }
 
+// normalizeExprDialect delegates to dialect.Normalize (kept as a local alias so
+// existing call sites and tests are unchanged).
 func normalizeExprDialect(d dialect.Dialect) dialect.Dialect {
-	switch concrete := d.(type) {
-	case dialect.PostgresDialect:
-		if concrete.QuoteLeft == "" {
-			return dialect.Postgres
-		}
-	case dialect.MySQLDialect:
-		if concrete.QuoteLeft == "" {
-			return dialect.MySQL
-		}
-	case dialect.SQLServerDialect:
-		if concrete.QuoteLeft == "" {
-			return dialect.SQLServer
-		}
-	case dialect.ClickHouseDialect:
-		if concrete.QuoteLeft == "" {
-			return dialect.ClickHouse
-		}
-	case dialect.SQLiteDialect:
-		if concrete.QuoteLeft == "" {
-			return dialect.SQLite
-		}
-	case dialect.SnowflakeDialect:
-		if concrete.QuoteLeft == "" {
-			return dialect.Snowflake
-		}
-	case dialect.DatabricksDialect:
-		if concrete.QuoteLeft == "" {
-			return dialect.Databricks
-		}
-	case dialect.OracleDialect:
-		if concrete.QuoteLeft == "" {
-			return dialect.Oracle
-		}
-	}
-	return d
+	return dialect.Normalize(d)
 }
 
 func compileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {

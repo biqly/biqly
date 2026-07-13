@@ -449,7 +449,16 @@ func (r *UserRepository) GetOAuthAccount(ctx context.Context, provider, provider
 	return userID, nil
 }
 
-func (r *UserRepository) LinkOAuthAccount(ctx context.Context, userID, provider, providerUID string, token *oauth2.Token) error {
+// oauthExecer is the subset of *sql.DB / *sql.Tx that upsertOAuthAccount needs,
+// so the shared upsert works both standalone and inside a transaction.
+type oauthExecer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+// upsertOAuthAccount inserts (or updates on conflict) the oauth_accounts row for
+// (provider, provider_uid), encrypting the tokens at rest. Single source for the
+// query + encryption shared by LinkOAuthAccount and CreateUserWithOAuth.
+func (r *UserRepository) upsertOAuthAccount(ctx context.Context, exec oauthExecer, userID, provider, providerUID string, token *oauth2.Token) error {
 	encAccess, err := r.encryptToken(token.AccessToken)
 	if err != nil {
 		return err
@@ -464,7 +473,7 @@ func (r *UserRepository) LinkOAuthAccount(ctx context.Context, userID, provider,
 		expiresAt = new(token.Expiry)
 	}
 
-	query := `
+	const query = `
 		INSERT INTO oauth_accounts (user_id, provider, provider_uid, access_token, refresh_token, token_expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (provider, provider_uid) DO UPDATE
@@ -473,8 +482,12 @@ func (r *UserRepository) LinkOAuthAccount(ctx context.Context, userID, provider,
 		    token_expires_at = EXCLUDED.token_expires_at,
 		    updated_at = NOW()
 	`
-	_, err = r.db.ExecContext(ctx, query, userID, provider, providerUID, encAccess, encRefresh, expiresAt)
+	_, err = exec.ExecContext(ctx, query, userID, provider, providerUID, encAccess, encRefresh, expiresAt)
 	return err
+}
+
+func (r *UserRepository) LinkOAuthAccount(ctx context.Context, userID, provider, providerUID string, token *oauth2.Token) error {
+	return r.upsertOAuthAccount(ctx, r.db, userID, provider, providerUID, token)
 }
 
 func (r *UserRepository) CreateUserWithOAuth(ctx context.Context, email, displayName, provider, providerUID string, token *oauth2.Token) (*User, error) {
@@ -525,30 +538,7 @@ func (r *UserRepository) CreateUserWithOAuth(ctx context.Context, email, display
 		user.DisplayName = platformdb.StringPtrFromNull(displayNameNull)
 		user.AvatarURL = platformdb.StringPtrFromNull(avatarURLNull)
 
-		encAccess, err := r.encryptToken(token.AccessToken)
-		if err != nil {
-			return err
-		}
-		encRefresh, err := r.encryptToken(token.RefreshToken)
-		if err != nil {
-			return err
-		}
-
-		var expiresAt *time.Time
-		if !token.Expiry.IsZero() {
-			expiresAt = new(token.Expiry)
-		}
-
-		oauthQuery := `
-			INSERT INTO oauth_accounts (user_id, provider, provider_uid, access_token, refresh_token, token_expires_at)
-			VALUES ($1, $2, $3, $4, $5, $6)
-			ON CONFLICT (provider, provider_uid) DO UPDATE
-			SET access_token = EXCLUDED.access_token,
-			    refresh_token = EXCLUDED.refresh_token,
-			    token_expires_at = EXCLUDED.token_expires_at,
-			    updated_at = NOW()
-		`
-		if _, err := tx.ExecContext(ctx, oauthQuery, userID, provider, providerUID, encAccess, encRefresh, expiresAt); err != nil {
+		if err := r.upsertOAuthAccount(ctx, tx, userID, provider, providerUID, token); err != nil {
 			return fmt.Errorf("link oauth account: %w", err)
 		}
 		return nil

@@ -120,7 +120,10 @@ func (c *Compiler) buildNotInOperatorFilter(f Filter, lhsSQL string, model *sema
 	return c.buildNotInFilter(lhsSQL, f.Value, args)
 }
 
-func (c *Compiler) buildContainsFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
+// buildLikeFilter renders a LIKE predicate (case-sensitivity per f) whose bound
+// value is produced by wrap(v). Contains/StartsWith/EndsWith differ only in
+// where the % wildcard sits, so they share this body.
+func (c *Compiler) buildLikeFilter(f Filter, lhsSQL string, args *[]any, wrap func(string) string) (string, []any, error) {
 	vals, isSlice := sliceOfStrings(f.Value)
 	if isSlice {
 		if len(vals) == 0 {
@@ -128,65 +131,29 @@ func (c *Compiler) buildContainsFilter(f Filter, lhsSQL string, _ *semantic.Sema
 		}
 		parts := make([]string, 0, len(vals))
 		for _, valStr := range vals {
-			*args = append(*args, "%"+valStr+"%")
+			*args = append(*args, wrap(valStr))
 			parts = append(parts, c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive))
 		}
 		return "(" + strings.Join(parts, " OR ") + ")", nil, nil
 	}
-	var valStr string
-	if str, ok := f.Value.(string); ok {
-		valStr = str
-	} else {
+	valStr, ok := f.Value.(string)
+	if !ok {
 		valStr = fmt.Sprint(f.Value)
 	}
-	*args = append(*args, "%"+valStr+"%")
+	*args = append(*args, wrap(valStr))
 	return c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive), nil, nil
+}
+
+func (c *Compiler) buildContainsFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
+	return c.buildLikeFilter(f, lhsSQL, args, func(v string) string { return "%" + v + "%" })
 }
 
 func (c *Compiler) buildStartsWithFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
-	vals, isSlice := sliceOfStrings(f.Value)
-	if isSlice {
-		if len(vals) == 0 {
-			return "1=1", nil, nil
-		}
-		parts := make([]string, 0, len(vals))
-		for _, valStr := range vals {
-			*args = append(*args, valStr+"%")
-			parts = append(parts, c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive))
-		}
-		return "(" + strings.Join(parts, " OR ") + ")", nil, nil
-	}
-	var valStr string
-	if str, ok := f.Value.(string); ok {
-		valStr = str
-	} else {
-		valStr = fmt.Sprint(f.Value)
-	}
-	*args = append(*args, valStr+"%")
-	return c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive), nil, nil
+	return c.buildLikeFilter(f, lhsSQL, args, func(v string) string { return v + "%" })
 }
 
 func (c *Compiler) buildEndsWithFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {
-	vals, isSlice := sliceOfStrings(f.Value)
-	if isSlice {
-		if len(vals) == 0 {
-			return "1=1", nil, nil
-		}
-		parts := make([]string, 0, len(vals))
-		for _, valStr := range vals {
-			*args = append(*args, "%"+valStr)
-			parts = append(parts, c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive))
-		}
-		return "(" + strings.Join(parts, " OR ") + ")", nil, nil
-	}
-	var valStr string
-	if str, ok := f.Value.(string); ok {
-		valStr = str
-	} else {
-		valStr = fmt.Sprint(f.Value)
-	}
-	*args = append(*args, "%"+valStr)
-	return c.likeExpression(lhsSQL, c.dialect.Placeholder(len(*args)), f.CaseSensitive), nil, nil
+	return c.buildLikeFilter(f, lhsSQL, args, func(v string) string { return "%" + v })
 }
 
 func (c *Compiler) buildBetweenOperatorFilter(f Filter, lhsSQL string, _ *semantic.SemanticModel, args *[]any) (string, []any, error) {

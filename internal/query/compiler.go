@@ -38,27 +38,10 @@ type Compiler struct {
 	err           error
 }
 
-// NewCompiler creates a new SQL compiler for the given dialect.
+// NewCompiler creates a new SQL compiler for the given dialect. A zero-value
+// dialect (bare struct literal) is normalized to its initialized global.
 func NewCompiler(d dialect.Dialect) *Compiler {
-	switch concrete := d.(type) {
-	case dialect.PostgresDialect:
-		if concrete.QuoteLeft == "" {
-			d = dialect.Postgres
-		}
-	case dialect.MySQLDialect:
-		if concrete.QuoteLeft == "" {
-			d = dialect.MySQL
-		}
-	case dialect.SQLServerDialect:
-		if concrete.QuoteLeft == "" {
-			d = dialect.SQLServer
-		}
-	case dialect.ClickHouseDialect:
-		if concrete.QuoteLeft == "" {
-			d = dialect.ClickHouse
-		}
-	}
-	return &Compiler{dialect: d}
+	return &Compiler{dialect: dialect.Normalize(d)}
 }
 
 // Compile converts a LogicalQuery + semantic model into SQL.
@@ -1604,14 +1587,10 @@ func sliceOfStrings(val any) ([]string, bool) {
 
 func (c *Compiler) likeExpression(lhsSQL, placeholder string, caseSensitive bool) string {
 	if caseSensitive {
-		switch c.dialect.Name() {
-		case "mysql":
-			return fmt.Sprintf("%s LIKE BINARY %s", lhsSQL, placeholder)
-		case "sqlserver":
-			return fmt.Sprintf("%s LIKE %s COLLATE Latin1_General_CS_AS", lhsSQL, placeholder)
-		default:
-			return fmt.Sprintf("%s LIKE %s", lhsSQL, placeholder)
-		}
+		// A case-sensitive LIKE is the same dialect shape as any other
+		// case-sensitive comparison (mysql BINARY / sqlserver COLLATE) with the
+		// operator being "LIKE" — reuse that single renderer.
+		return caseSensitiveComparison(c.dialect.Name(), lhsSQL, "LIKE", placeholder)
 	}
 	return c.dialect.ILike(lhsSQL, placeholder)
 }

@@ -268,8 +268,8 @@ func (r *UserRepository) RecordKnownDevice(ctx context.Context, userID, fingerpr
 }
 
 func hashUnlockToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
+	// Single shared one-way SHA-256 hex digest for at-rest tokens (see HashToken).
+	return HashToken(token)
 }
 
 func (r *UserRepository) CreateUnlockToken(ctx context.Context, userID string, ttl time.Duration) (string, error) {

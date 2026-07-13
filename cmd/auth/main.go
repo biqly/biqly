@@ -333,21 +333,19 @@ func newRouter(state *appState, authHandler *handlers.AuthHandler, rbacHandler *
 	r.Get("/ready", state.handleReady)
 	r.Handle("/metrics", promhttp.Handler())
 
-	r.Route("/api/auth", func(r chi.Router) {
+	// The auth surface is served under both /api/auth (gateway) and /auth
+	// (SPA-relative). One registration closure mounted under both prefixes keeps
+	// them from silently diverging — a security-relevant surface where a change
+	// applied to only one mount would be a real bug.
+	registerAuthSurface := func(r chi.Router) {
 		publicLimit(r)
 		r.Use(biqauth.CSRF(cfg.Port))
 		authHandler.RegisterAuthRoutes(r)
 		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
 		authHandler.RegisterAccountAdminRoutes(r, authHandler.AuthMiddleware())
-	})
-
-	r.Route("/auth", func(r chi.Router) {
-		publicLimit(r)
-		r.Use(biqauth.CSRF(cfg.Port))
-		authHandler.RegisterAuthRoutes(r)
-		rbacHandler.RegisterAuthRoutes(r, authHandler.AuthMiddleware())
-		authHandler.RegisterAccountAdminRoutes(r, authHandler.AuthMiddleware())
-	})
+	}
+	r.Route("/api/auth", registerAuthSurface)
+	r.Route("/auth", registerAuthSurface)
 
 	r.Route("/internal/auth", func(r chi.Router) {
 		authHandler.RegisterInternalRoutes(r)
