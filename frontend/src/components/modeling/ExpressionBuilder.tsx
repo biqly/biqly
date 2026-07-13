@@ -37,6 +37,8 @@ export const ALLOWED_FUNCTIONS: FunctionInfo[] = [
   { name: 'LEFT', arity: 2, desc: 'Extracts characters from left' },
   { name: 'RIGHT', arity: 2, desc: 'Extracts characters from right' },
   { name: 'DATE_TRUNC', arity: 2, desc: 'Truncates date to grain' },
+  { name: 'CAST', arity: 2, desc: 'Casts a value to a type' },
+  { name: 'EXTRACT', arity: 2, desc: 'Extracts a date/time part' },
 ]
 
 export const BINARY_OPS = [

@@ -156,6 +156,7 @@ export default function Modeling() {
                 void s.syncDimensions()
               }}
               onOpenAddMetric={() => s.setAddMetricOpen(true)}
+              onOpenAddDimension={() => s.setAddDimensionOpen(true)}
               onEditMetric={s.setEditingMetric}
               onDeleteMetric={(metricId) => {
                 void s.deleteMetric(metricId)
@@ -275,6 +276,13 @@ export default function Modeling() {
           }}
           postData={s.postData}
           putData={s.putData}
+          addDimensionOpen={s.addDimensionOpen}
+          onCloseAddDimension={() => s.setAddDimensionOpen(false)}
+          onDimensionCreated={async () => {
+            s.setAddDimensionOpen(false)
+            await s.refreshModels(s.model!.id)
+            s.setMessage(s.t('modeling.dimension_added'))
+          }}
           editingDimension={s.editingDimension}
           onCloseEditDimension={() => s.setEditingDimension(null)}
           onDimensionSaved={async () => {

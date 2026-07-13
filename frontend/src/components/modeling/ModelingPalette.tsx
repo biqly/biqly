@@ -88,6 +88,7 @@ interface ModelingPaletteProps {
   onReactivateDimension: (dimension: SemanticDimension) => void
   onSyncDimensions: () => void
   onOpenAddMetric: () => void
+  onOpenAddDimension: () => void
   onEditMetric: (metric: SemanticMetric) => void
   onDeleteMetric: (metricId: string) => void
   onReactivateMetric: (metric: SemanticMetric) => void
@@ -265,6 +266,7 @@ export function ModelingPalette({
   onReactivateDimension,
   onSyncDimensions,
   onOpenAddMetric,
+  onOpenAddDimension,
   onEditMetric,
   onDeleteMetric,
   onReactivateMetric,
@@ -682,7 +684,7 @@ export function ModelingPalette({
               </div>
               <div className="mb-2 grid grid-cols-2 gap-1.5">
                 <button
-                  className={cn(buttonClass('secondary', { size: 'sm' }), 'w-full')}
+                  className={cn(buttonClass('secondary', { size: 'sm' }), 'col-span-2 w-full')}
                   type="button"
                   onClick={onSyncDimensions}
                   disabled={!model}
@@ -697,6 +699,14 @@ export function ModelingPalette({
                   disabled={!model}
                 >
                   {t('modeling.add_metric_btn')}
+                </button>
+                <button
+                  className={cn(buttonClass('primary', { size: 'sm' }), 'w-full')}
+                  type="button"
+                  onClick={onOpenAddDimension}
+                  disabled={!model}
+                >
+                  {t('modeling.add_dimension_btn')}
                 </button>
               </div>
               {tables.length === 0 ? (

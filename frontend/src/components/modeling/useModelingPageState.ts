@@ -264,6 +264,7 @@ export function useModelingPageState() {
   const [baseSwapOpen, setBaseSwapOpen] = useState(false)
   const [savingBaseSwap, setSavingBaseSwap] = useState(false)
   const [addMetricOpen, setAddMetricOpen] = useState(false)
+  const [addDimensionOpen, setAddDimensionOpen] = useState(false)
   const [enumDimension, setEnumDimension] = useState<SemanticDimension | null>(null)
   const [editingMetric, setEditingMetric] = useState<SemanticMetric | null>(null)
   const [editingDimension, setEditingDimension] = useState<SemanticDimension | null>(null)
@@ -890,6 +891,7 @@ export function useModelingPageState() {
     pendingColumnKeys,
     toggleColumnDimension,
     setAddMetricOpen,
+    setAddDimensionOpen,
     setEditingMetric,
     deleteMetric,
     reactivateMetric,
@@ -933,6 +935,7 @@ export function useModelingPageState() {
     savingBaseSwap,
     swapBaseAndRemoveOld,
     addMetricOpen,
+    addDimensionOpen,
     editingMetric,
     editingDimension,
     enumDimension,

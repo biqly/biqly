@@ -11,6 +11,7 @@ import type {
   TableRow,
 } from '../../types/semantic'
 import { Modal } from '../ui/Modal'
+import { AddDimensionModal } from './AddDimensionModal'
 import { AddMetricModal } from './AddMetricModal'
 import { BaseSwapModal } from './BaseSwapModal'
 import { EditDimensionModal } from './EditDimensionModal'
@@ -38,6 +39,9 @@ export function ModelingModals({
   onMetricCreated,
   postData,
   putData,
+  addDimensionOpen,
+  onCloseAddDimension,
+  onDimensionCreated,
   editingDimension,
   onCloseEditDimension,
   onDimensionSaved,
@@ -66,6 +70,9 @@ export function ModelingModals({
   onMetricCreated: (isEdit: boolean) => Promise<void>
   postData: <T = unknown>(url: string, body: unknown) => Promise<T | null>
   putData: <T = unknown>(url: string, body: unknown) => Promise<T | null>
+  addDimensionOpen: boolean
+  onCloseAddDimension: () => void
+  onDimensionCreated: () => Promise<void>
   editingDimension: SemanticDimension | null
   onCloseEditDimension: () => void
   onDimensionSaved: () => Promise<void>
@@ -142,6 +149,17 @@ export function ModelingModals({
           onCreated={() => onMetricCreated(!!editingMetric)}
           postData={postData}
           putData={putData}
+          t={t}
+        />
+      )}
+      {addDimensionOpen && (
+        <AddDimensionModal
+          model={model}
+          includedTables={includedTables}
+          columns={columns}
+          onClose={onCloseAddDimension}
+          onCreated={onDimensionCreated}
+          postData={postData}
           t={t}
         />
       )}
