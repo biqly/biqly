@@ -14,7 +14,7 @@ Severity: **CRITICAL** yok. **HIGH** 2, **MEDIUM** 7, **LOW** 10 (güvenlik) + d
 | 2 | S3, S4, S5, S6 (MEDIUM authz/IDOR/spend) | ✅ tamamlandı (lint 0, testler + helm render yeşil, commit bekliyor) |
 | 3 | S7, S8 (query/SQL) | ✅ tamamlandı (lint 0, testler + go vet yeşil, commit bekliyor) |
 | 4 | S9–S19 (LOW) | ✅ tamamlandı (lint 0, testler + go vet yeşil, commit bekliyor) |
-| 5 | D1–D16 (kod tekrarı) | ⏳ |
+| 5 | D1–D16 (kod tekrarı) | 🔄 D2 (bug fix) + D12 tamam; kalan pure-maintainability refactor'lar bekliyor |
 
 - **S1** ✅ `internal/auth/handlers/handler.go:1239` → `requireSuperAdmin` guard; test: `handler_resend_verification_test.go`.
 - **S2** ✅ `internal/http/handlers/composite.go:76` → `resolveDatasourceScope` + `filterCompositesByScope`; test: `composite_test.go`.

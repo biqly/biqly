@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/biqly/biqly/internal/ai/jsonextract"
 	providerpkg "github.com/biqly/biqly/internal/ai/provider"
@@ -193,5 +194,12 @@ func truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
-	return s[:maxLen] + "...(" + strconv.Itoa(len(s)-maxLen) + " more bytes truncated)"
+	// Cut on a UTF-8 rune boundary at or before maxLen bytes so a multi-byte
+	// character (e.g. Turkish) is never split into invalid UTF-8. Byte-budget
+	// semantics are preserved (the message still reports bytes truncated).
+	cut := maxLen
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + "...(" + strconv.Itoa(len(s)-cut) + " more bytes truncated)"
 }

@@ -169,15 +169,7 @@ func (r *Repository) DeleteKnowledgeFile(ctx context.Context, id string) error {
 // DatasourceForKnowledgeFile resolves a file id to its owning datasource for
 // access-control middleware.
 func (r *Repository) DatasourceForKnowledgeFile(ctx context.Context, id string) (string, error) {
-	var datasourceID string
-	err := r.db.QueryRowContext(ctx, `SELECT datasource_id::text FROM ai_knowledge_files WHERE id = $1::uuid`, id).Scan(&datasourceID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", fmt.Errorf("knowledge file %s: %w", id, ErrKnowledgeFileNotFound)
-		}
-		return "", fmt.Errorf("datasource for knowledge file: %w", err)
-	}
-	return datasourceID, nil
+	return r.datasourceForEntity(ctx, "ai_knowledge_files", "knowledge file", id, ErrKnowledgeFileNotFound)
 }
 
 // DeactivateExtractionsForKnowledgeFile soft-disables every structured record

@@ -255,15 +255,7 @@ func (r *Repository) FindOpenRun(ctx context.Context, conversationID, questionHa
 // DatasourceForAgentRun resolves a run id to its owning datasource for
 // access-control middleware.
 func (r *Repository) DatasourceForAgentRun(ctx context.Context, id string) (string, error) {
-	var datasourceID string
-	err := r.db.QueryRowContext(ctx, `SELECT datasource_id::text FROM agent_runs WHERE id = $1::uuid`, id).Scan(&datasourceID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", fmt.Errorf("agent run %s: %w", id, ErrAgentRunNotFound)
-		}
-		return "", fmt.Errorf("datasource for agent run: %w", err)
-	}
-	return datasourceID, nil
+	return r.datasourceForEntity(ctx, "agent_runs", "agent run", id, ErrAgentRunNotFound)
 }
 
 // CreateAgentRunForJob is CreateAgentRun for a job-driven (NATS) run: it
