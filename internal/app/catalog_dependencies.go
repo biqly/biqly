@@ -29,6 +29,9 @@ func NewCatalogDependencies(ctx context.Context, cfg *config.Config) (*Dependenc
 		WithResolvedCache(provideCompositeCache(ctx, cfg)).
 		WithLimits(provideCompositeLimits(cfg))
 	dashboardRepo := dashboard.NewRepository(db)
+	dashboardShareRepo := dashboard.NewShareRepository(db)
+	publicResolver := dashboard.NewPublicResolver(db)
+	publicShareRedis := providePublicShareRedis(ctx, cfg)
 
 	encryptor := provideEncryptor(ctx, db, true)
 
@@ -38,18 +41,21 @@ func NewCatalogDependencies(ctx context.Context, cfg *config.Config) (*Dependenc
 	driftNotifier := drift.NewNotifier(mailClient, nil)
 
 	return &Dependencies{
-		Config:        cfg,
-		MetadataDB:    db,
-		DriverReg:     reg,
-		MetaRepo:      metaRepo,
-		SemanticRepo:  semanticRepo,
-		CompositeRepo: compositeRepo,
-		Encryptor:     encryptor,
-		EvalRepo:      evalpkg.NewEvalRepository(db),
-		AuditLogger:   audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(ctx, db, slog.Default())),
-		DashboardRepo: dashboardRepo,
-		DriftRepo:     driftRepo,
-		DriftDetector: driftDetector,
-		DriftNotifier: driftNotifier,
+		Config:             cfg,
+		MetadataDB:         db,
+		DriverReg:          reg,
+		MetaRepo:           metaRepo,
+		SemanticRepo:       semanticRepo,
+		CompositeRepo:      compositeRepo,
+		Encryptor:          encryptor,
+		EvalRepo:           evalpkg.NewEvalRepository(db),
+		AuditLogger:        audit.NewLogger(slog.Default()).WithDBWriter(audit.NewDBWriter(ctx, db, slog.Default())),
+		DashboardRepo:      dashboardRepo,
+		DashboardShareRepo: dashboardShareRepo,
+		PublicResolver:     publicResolver,
+		PublicShareRedis:   publicShareRedis,
+		DriftRepo:          driftRepo,
+		DriftDetector:      driftDetector,
+		DriftNotifier:      driftNotifier,
 	}, nil
 }
