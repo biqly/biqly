@@ -53,6 +53,8 @@ This document catalogs the BI_* variables loaded through the shared `internal/co
 | `BI_QUERY_MAX_RUNTIME_SECONDS` | `60` | `60` | No | `internal/query` | No | Maximum runtime for a single query execution. |
 | `BI_QUERY_HISTORY_LIST_LIMIT` | `100` | N/A | No | `internal/query` | No | Maximum query history records shown in the UI. |
 | `BI_EVAL_RUNS_LIST_LIMIT` | `50` | N/A | No | `internal/query` | No | Maximum evaluation run records shown in the list UI. |
+| `BI_PUBLIC_SHARE_CACHE_TTL` | `"60s"` | `"60s"` | No | `internal/config/config.go`, `internal/http/middleware` | No | Cache TTL knob for anonymous public dashboard-share endpoints (the workspace kill-switch check itself is always uncached and live). |
+| `BI_PUBLIC_SHARE_RATE_LIMIT` | `60` | `60` | No | `internal/config/config.go`, `internal/http/middleware/public_embed.go` | No | Requests per minute allowed per share-token+IP on anonymous public dashboard-share routes. |
 | `BI_COMPOSITE_MAX_COMPONENTS` | `8` | N/A | No | `internal/config/config.go`, `internal/semantic/composite_publish.go` | No | Max component tables allowed in a composite database view. |
 | `BI_COMPOSITE_MAX_CROSS_JOINS` | `16` | N/A | No | `internal/config/config.go`, `internal/semantic/composite_publish.go` | No | Max cross joins allowed in composite query resolution. |
 | `BI_COMPOSITE_MAX_MERGED_FIELDS` | `300` | N/A | No | `internal/config/config.go`, `internal/semantic/composite_publish.go` | No | Max columns/fields allowed in a merged composite schema. |

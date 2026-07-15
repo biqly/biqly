@@ -14,23 +14,24 @@ import (
 
 // Config holds all application configuration.
 type Config struct {
-	HTTP      HTTPConfig
-	Logging   LoggingConfig
-	Metadata  MetadataConfig
-	Redis     RedisConfig
-	Query     QueryConfig
-	Security  SecurityConfig
-	Services  ServicesConfig
-	AI        AIConfig
-	NATS      NATSConfig
-	Jobs      JobsConfig
-	Auth      AuthConfig
-	Composite CompositeConfig
-	PII       PIIConfig
-	Drift     DriftConfig
-	Mail      MailConfig
-	Agent     AgentConfig
-	WebAgent  WebAgentConfig
+	HTTP        HTTPConfig
+	Logging     LoggingConfig
+	Metadata    MetadataConfig
+	Redis       RedisConfig
+	Query       QueryConfig
+	Security    SecurityConfig
+	Services    ServicesConfig
+	AI          AIConfig
+	NATS        NATSConfig
+	Jobs        JobsConfig
+	Auth        AuthConfig
+	Composite   CompositeConfig
+	PII         PIIConfig
+	Drift       DriftConfig
+	Mail        MailConfig
+	Agent       AgentConfig
+	WebAgent    WebAgentConfig
+	PublicShare PublicShareConfig
 	// DeploymentMode is the deployment posture: "cloud" (default), "private",
 	// or "airgapped". Airgapped fails closed on external LLM/embedding egress:
 	// provider endpoints must resolve to private, in-cluster hosts.
@@ -208,6 +209,12 @@ type QueryConfig struct {
 	HistoryListLimit int
 	// EvalRunsListLimit caps rows returned by the AI eval runs list admin API.
 	EvalRunsListLimit int
+}
+
+// PublicShareConfig tunes the anonymous dashboard-share endpoints.
+type PublicShareConfig struct {
+	CacheTTL           time.Duration
+	RateLimitPerMinute int
 }
 
 // SecurityConfig holds encryption key settings.
@@ -507,6 +514,10 @@ func loadConfigFromEnv() *Config {
 			MaxRuntimeSeconds: getEnvAsInt("BI_QUERY_MAX_RUNTIME_SECONDS", 60),
 			HistoryListLimit:  getEnvAsInt("BI_QUERY_HISTORY_LIST_LIMIT", 100),
 			EvalRunsListLimit: getEnvAsInt("BI_EVAL_RUNS_LIST_LIMIT", 50),
+		},
+		PublicShare: PublicShareConfig{
+			CacheTTL:           getEnvAsDuration("BI_PUBLIC_SHARE_CACHE_TTL", 60*time.Second),
+			RateLimitPerMinute: getEnvAsInt("BI_PUBLIC_SHARE_RATE_LIMIT", 60),
 		},
 		Security: SecurityConfig{
 			// No default: an empty key is rejected by validateLoadedConfig as

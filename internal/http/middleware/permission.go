@@ -8,6 +8,7 @@ import (
 	"github.com/bytedance/sonic"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -269,6 +270,33 @@ func (c *AuthClient) VerifyPersonalAccessToken(ctx context.Context, token string
 		return nil, err
 	}
 	return &identity, nil
+}
+
+// WorkspacePublicSharingEnabled reads the public-share kill-switch. It is
+// deliberately uncached: turning the switch off must kill existing links
+// immediately.
+func (c *AuthClient) WorkspacePublicSharingEnabled(ctx context.Context, workspaceID string) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		c.baseURL+"/internal/auth/workspaces/"+url.PathEscape(workspaceID)+"/public-sharing", http.NoBody)
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("X-Internal-Token", c.internalToken)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("public-sharing lookup: status %d", resp.StatusCode)
+	}
+	var body struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := sonic.ConfigStd.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return false, err
+	}
+	return body.Enabled, nil
 }
 
 // UserAIAccess mirrors rbac.UserAIAccess for internal auth resolution.
