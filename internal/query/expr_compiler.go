@@ -43,10 +43,28 @@ var dialectFunctions = map[string]map[string]string{
 
 var exprReadOnlyChecker = security.NewReadOnlyChecker()
 
+// ExprCompileOptions configures semantic expression compilation.
+type ExprCompileOptions struct {
+	AllowAggregates bool
+}
+
+// ExprCompileOptsForMetric returns compile options for a metric expression AST.
+// Custom metrics may embed aggregate calls (SUM, COUNT, etc.) in the expression.
+func ExprCompileOptsForMetric(metric *pkgsemantic.Metric) ExprCompileOptions {
+	if metric != nil && strings.EqualFold(strings.TrimSpace(metric.Aggregation), "custom") {
+		return ExprCompileOptions{AllowAggregates: true}
+	}
+	return ExprCompileOptions{}
+}
+
 // CompileExpr emits safe SQL from a canonical semantic expression AST.
-func CompileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
+func CompileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig, opts ...ExprCompileOptions) (string, error) {
+	var opt ExprCompileOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
 	d = normalizeExprDialect(d)
-	sql, err := compileExpr(expr, d, resolver, args, piiConfig)
+	sql, err := compileExpr(expr, d, resolver, args, piiConfig, opt)
 	if err != nil {
 		return "", err
 	}
@@ -65,7 +83,7 @@ func normalizeExprDialect(d dialect.Dialect) dialect.Dialect {
 	return dialect.Normalize(d)
 }
 
-func compileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
+func compileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig, opt ExprCompileOptions) (string, error) {
 	switch e := expr.(type) {
 	case nil:
 		return "", nil
@@ -97,13 +115,13 @@ func compileExpr(expr pkgsemantic.ExprNode, d dialect.Dialect, resolver *SchemaR
 	case *pkgsemantic.DimensionRefExpr:
 		return d.QuoteIdent(e.Name), nil
 	case *pkgsemantic.BinaryExpr:
-		return binaryExprSQL(e, d, resolver, args, piiConfig)
+		return binaryExprSQL(e, d, resolver, args, piiConfig, opt)
 	case *pkgsemantic.UnaryExpr:
-		return unaryExprSQL(e, d, resolver, args, piiConfig)
+		return unaryExprSQL(e, d, resolver, args, piiConfig, opt)
 	case *pkgsemantic.FunctionCallExpr:
-		return functionCallSQL(e, d, resolver, args, piiConfig)
+		return functionCallSQL(e, d, resolver, args, piiConfig, opt)
 	case *pkgsemantic.CaseExpr:
-		return caseExprSQL(e, d, resolver, args, piiConfig)
+		return caseExprSQL(e, d, resolver, args, piiConfig, opt)
 	default:
 		return "", nil
 	}
@@ -131,12 +149,12 @@ func literalSQL(value any, d dialect.Dialect) string {
 	}
 }
 
-func binaryExprSQL(expr *pkgsemantic.BinaryExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
-	left, err := compileExpr(expr.Left, d, resolver, args, piiConfig)
+func binaryExprSQL(expr *pkgsemantic.BinaryExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig, opt ExprCompileOptions) (string, error) {
+	left, err := compileExpr(expr.Left, d, resolver, args, piiConfig, opt)
 	if err != nil {
 		return "", err
 	}
-	right, err := compileExpr(expr.Right, d, resolver, args, piiConfig)
+	right, err := compileExpr(expr.Right, d, resolver, args, piiConfig, opt)
 	if err != nil {
 		return "", err
 	}
@@ -167,8 +185,8 @@ func binaryExprSQL(expr *pkgsemantic.BinaryExpr, d dialect.Dialect, resolver *Sc
 	return "(" + left + " " + opSQL + " " + right + ")", nil
 }
 
-func unaryExprSQL(expr *pkgsemantic.UnaryExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
-	inner, err := compileExpr(expr.Expr, d, resolver, args, piiConfig)
+func unaryExprSQL(expr *pkgsemantic.UnaryExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig, opt ExprCompileOptions) (string, error) {
+	inner, err := compileExpr(expr.Expr, d, resolver, args, piiConfig, opt)
 	if err != nil {
 		return "", err
 	}
@@ -184,7 +202,7 @@ func unaryExprSQL(expr *pkgsemantic.UnaryExpr, d dialect.Dialect, resolver *Sche
 	}
 }
 
-func functionCallSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
+func functionCallSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig, opt ExprCompileOptions) (string, error) {
 	if sql, ok, err := dateTruncSQL(expr, d, resolver, piiConfig); ok || err != nil {
 		if err != nil {
 			return "", err
@@ -192,16 +210,24 @@ func functionCallSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, reso
 		return sql, nil
 	}
 
+	funcName := strings.ToUpper(expr.Name)
+	if pkgsemantic.IsAggregateFunction(funcName) {
+		if !opt.AllowAggregates {
+			return "", fmt.Errorf("disallowed function in expression: %s", expr.Name)
+		}
+		return aggregateFunctionCallSQL(expr, d, resolver, args, piiConfig, opt)
+	}
+
 	// Fail closed on any function not in the shared whitelist. The name is
 	// emitted verbatim into SQL below, so an unchecked name (e.g. from a
 	// request-supplied window expression) is a direct SQL-injection sink.
-	if _, ok := pkgsemantic.AllowedFunctions[strings.ToUpper(expr.Name)]; !ok {
+	if !pkgsemantic.FunctionAllowed(funcName, false) {
 		return "", fmt.Errorf("disallowed function in expression: %s", expr.Name)
 	}
 
 	funcArgs := make([]string, 0, len(expr.Args))
 	for _, arg := range expr.Args {
-		compiled, err := compileExpr(arg, d, resolver, args, piiConfig)
+		compiled, err := compileExpr(arg, d, resolver, args, piiConfig, opt)
 		if err != nil {
 			return "", err
 		}
@@ -209,6 +235,113 @@ func functionCallSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, reso
 	}
 	name := functionNameSQL(expr.Name, d)
 	return name + "(" + strings.Join(funcArgs, ", ") + ")", nil
+}
+
+func aggregateCountStarSQL(d dialect.Dialect) string {
+	if d.Name() == "clickhouse" {
+		return "count()"
+	}
+	return "COUNT(*)"
+}
+
+func isCountStarArg(arg pkgsemantic.ExprNode) bool {
+	lit, ok := arg.(*pkgsemantic.LiteralExpr)
+	if !ok {
+		return false
+	}
+	s, ok := lit.Value.(string)
+	return ok && s == "*"
+}
+
+func compileAggregateCountDistinctSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig, opt ExprCompileOptions) (string, error) {
+	if len(expr.Args) != 1 {
+		return "", fmt.Errorf("function COUNT_DISTINCT requires exactly 1 argument, got %d", len(expr.Args))
+	}
+	inner, err := compileExpr(expr.Args[0], d, resolver, args, piiConfig, opt)
+	if err != nil {
+		return "", err
+	}
+	return dialectAggregateSQL("count_distinct", inner, d), nil
+}
+
+func compileAggregateCountSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig, opt ExprCompileOptions) (string, error) {
+	switch len(expr.Args) {
+	case 0:
+		return aggregateCountStarSQL(d), nil
+	case 1:
+		if isCountStarArg(expr.Args[0]) {
+			return aggregateCountStarSQL(d), nil
+		}
+		inner, err := compileExpr(expr.Args[0], d, resolver, args, piiConfig, opt)
+		if err != nil {
+			return "", err
+		}
+		return dialectAggregateSQL("count", inner, d), nil
+	default:
+		return "", fmt.Errorf("function COUNT requires 0 or 1 arguments, got %d", len(expr.Args))
+	}
+}
+
+func aggregateFunctionCallSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig, opt ExprCompileOptions) (string, error) {
+	funcName := strings.ToUpper(expr.Name)
+	switch funcName {
+	case "COUNT_DISTINCT":
+		return compileAggregateCountDistinctSQL(expr, d, resolver, args, piiConfig, opt)
+	case "COUNT":
+		return compileAggregateCountSQL(expr, d, resolver, args, piiConfig, opt)
+	default:
+		if len(expr.Args) != 1 {
+			return "", fmt.Errorf("function %s requires exactly 1 argument, got %d", expr.Name, len(expr.Args))
+		}
+		inner, err := compileExpr(expr.Args[0], d, resolver, args, piiConfig, opt)
+		if err != nil {
+			return "", err
+		}
+		return dialectAggregateSQL(strings.ToLower(funcName), inner, d), nil
+	}
+}
+
+func dialectAggregateSQL(fn, expr string, d dialect.Dialect) string {
+	switch fn {
+	case "count":
+		if expr == "*" {
+			if d.Name() == "clickhouse" {
+				return "count()"
+			}
+			return "COUNT(*)"
+		}
+		if d.Name() == "clickhouse" {
+			return "count(" + expr + ")"
+		}
+		return "COUNT(" + expr + ")"
+	case "count_distinct":
+		if d.Name() == "clickhouse" {
+			return "uniq(" + expr + ")"
+		}
+		return "COUNT(DISTINCT " + expr + ")"
+	case "sum":
+		if d.Name() == "clickhouse" {
+			return "sum(" + expr + ")"
+		}
+		return "SUM(" + expr + ")"
+	case "avg":
+		if d.Name() == "clickhouse" {
+			return "avg(" + expr + ")"
+		}
+		return "AVG(" + expr + ")"
+	case "min":
+		if d.Name() == "clickhouse" {
+			return "min(" + expr + ")"
+		}
+		return "MIN(" + expr + ")"
+	case "max":
+		if d.Name() == "clickhouse" {
+			return "max(" + expr + ")"
+		}
+		return "MAX(" + expr + ")"
+	default:
+		return d.Aggregate(fn, expr)
+	}
 }
 
 func dateTruncSQL(expr *pkgsemantic.FunctionCallExpr, d dialect.Dialect, resolver *SchemaResolver, piiConfig *PIIMaskingConfig) (string, bool, error) {
@@ -273,22 +406,22 @@ func literalString(expr pkgsemantic.ExprNode) (string, bool) {
 	return value, ok
 }
 
-func caseExprSQL(expr *pkgsemantic.CaseExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig) (string, error) {
+func caseExprSQL(expr *pkgsemantic.CaseExpr, d dialect.Dialect, resolver *SchemaResolver, args *[]any, piiConfig *PIIMaskingConfig, opt ExprCompileOptions) (string, error) {
 	chunks := make([]string, 0, 2+len(expr.Conditions)*4)
 	chunks = append(chunks, "CASE")
 	for _, condition := range expr.Conditions {
-		compiledWhen, err := compileExpr(condition.When, d, resolver, args, piiConfig)
+		compiledWhen, err := compileExpr(condition.When, d, resolver, args, piiConfig, opt)
 		if err != nil {
 			return "", err
 		}
-		compiledThen, err := compileExpr(condition.Then, d, resolver, args, piiConfig)
+		compiledThen, err := compileExpr(condition.Then, d, resolver, args, piiConfig, opt)
 		if err != nil {
 			return "", err
 		}
 		chunks = append(chunks, " WHEN ", compiledWhen, " THEN ", compiledThen)
 	}
 	if expr.ElseExpr != nil {
-		compiledElse, err := compileExpr(expr.ElseExpr, d, resolver, args, piiConfig)
+		compiledElse, err := compileExpr(expr.ElseExpr, d, resolver, args, piiConfig, opt)
 		if err != nil {
 			return "", err
 		}

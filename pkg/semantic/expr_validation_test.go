@@ -166,6 +166,24 @@ func validateExprStrictFunctionCases() []validateExprStrictCase {
 			wantErr:      "function COALESCE requires at least 1 argument, got 0",
 		},
 		{
+			name: "aggregate SUM forbidden in dimension context",
+			expr: &FunctionCallExpr{
+				Name: "SUM",
+				Args: []ExprNode{&ColumnRefExpr{Column: "revenue"}},
+			},
+			allowMetrics: false,
+			wantErr:      "aggregate function not allowed in this context: SUM",
+		},
+		{
+			name: "aggregate SUM allowed in custom metric context",
+			expr: &FunctionCallExpr{
+				Name: "SUM",
+				Args: []ExprNode{&ColumnRefExpr{Column: "revenue"}},
+			},
+			allowMetrics: true,
+			wantErr:      "",
+		},
+		{
 			name:         "nesting depth overflow",
 			expr:         buildDeepExpr(12),
 			allowMetrics: false,

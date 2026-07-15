@@ -52,6 +52,7 @@ global:
     # Every JWT-enforcing service needs the auth service URL to fetch the JWT
     # public key — without it BI_AUTH_ENABLED=true makes /api answer 503.
     BI_AUTH_SERVICE_URL: http://biqly-auth:8889
+    BI_CORS_ALLOWED_ORIGINS: https://abi.il1.nl
     # PII detection & role-based masking (see docs/pii-detection-masking.md)
     BI_PII_ENABLED: "true"
     BI_PII_DETECTION_THRESHOLD: "0.6"
@@ -59,9 +60,6 @@ global:
     BI_PII_AUTO_SCAN_ON_SYNC: "true"
     BI_PII_DEFAULT_MASKING_STRATEGY: partial
   observability:
-    # Disabled until a Prometheus/operator stack is deployed in the cluster.
-    # Without one, ServiceMonitors target a non-existent `monitoring` namespace
-    # and both ServiceMonitors and PrometheusRules have no consumer.
     serviceMonitor:
       enabled: false
     prometheusRules:
@@ -72,51 +70,14 @@ global:
       vectorConfig:
         enabled: false
     infraTelemetry:
-      resources:
-        requests:
-          cpu: 50m
-          memory: 160Mi
-        limits:
-          cpu: 500m
-          memory: 256Mi
-      # Now on the shared prag-postgresql instance (see
-      # docs/superpowers/specs/2026-06-28-prag-shared-postgresql-design.md);
-      # that CNPG instance exposes its own Prometheus metrics
-      # (prag-postgresql-metrics:9187), so this per-app scraper -- which also
-      # pointed at the deleted biqly-postgresql host/secret -- is redundant.
-      # Disabled rather than repointed to avoid handing app-level credentials
-      # to a shared instance's monitoring surface.
-      postgresql:
-        enabled: false
+      enabled: false
     tracing:
-      enabled: true
-      serviceName: biqly
-      # Collector upstream: SigNoz OTLP ingest on kibrit, direct over Tailscale
-      # (encrypted by Tailscale, no public exposure). Apps still export to the
-      # in-cluster collector; only the collector forwards here.
-      otlpEndpoint: http://100.84.49.60:4318
-      # In-cluster collector connectivity from app pods has been unreliable
-      # (e.g. biqly-worker stuck at wait-for-otel-collector init step even
-      # though the collector itself is healthy). Skip the pre-flight wait so
-      # app startup is never blocked by it; the OTel SDK retries exports on
-      # its own once the collector is reachable.
-      skipCollectorWait: true
-      # Export every span while Jaeger / OTLP path is being validated. Revert to
-      # parentbased_traceidratio (e.g. 0.1) once volume is acceptable on the cluster.
-      sampler: parentbased_traceidratio
-      samplerArg: "0.1"
-      otlpHeadersSecret:
-        name: biqly-otel-secrets
-        key: OTEL_EXPORTER_OTLP_HEADERS
+      enabled: false
     dashboards:
-      enabled: true
+      enabled: false
   networkPolicy:
     otelCollectorUpstream:
-      enabled: true
-      cidrs:
-        - 100.84.49.60/32
-      ports:
-        - 4318
+      enabled: false
     sharedPostgresql:
       enabled: true
       namespace: postgresql
@@ -130,6 +91,8 @@ global:
     backoffLimit: 3
 auth:
   enabled: true
+  config:
+    BI_AUTH_CORS_ALLOWED_ORIGINS: https://abi.il1.nl
   replicaCount: 1
   resources:
     requests:
@@ -146,8 +109,9 @@ auth:
       repository: auth
       tag: sha-f69a47d1abf9e8dc03830b7fc883bbfefd000e53
   autoscaling:
+    enabled: false
     minReplicas: 1
-    maxReplicas: 2
+    maxReplicas: 1
 # mail image is now published by CI (ghcr.io/biqly/mail). Prod
 # requires the bi_mail database and the BI_MAIL_DB_DSN / BI_MAIL_INTERNAL_TOKEN
 # secret values to be provisioned, and (optionally) the ArgoCD image-updater
@@ -199,8 +163,9 @@ catalog:
   image:
     tag: sha-f69a47d1abf9e8dc03830b7fc883bbfefd000e53
   autoscaling:
+    enabled: false
     minReplicas: 1
-    maxReplicas: 2
+    maxReplicas: 1
 query:
   replicaCount: 1
   resources:
@@ -213,9 +178,15 @@ query:
   image:
     tag: sha-f69a47d1abf9e8dc03830b7fc883bbfefd000e53
   autoscaling:
+    enabled: false
     minReplicas: 1
-    maxReplicas: 2
+    maxReplicas: 1
 worker:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 1
   image:
     tag: sha-f69a47d1abf9e8dc03830b7fc883bbfefd000e53
 # Re-deployed 2026-07-07: ConnectNATS fixed to merge subjects instead of
@@ -224,6 +195,11 @@ worker:
 # (biqly.agent.jobs) on the shared BIQLY_AI_JOBS stream.
 agent:
   enabled: true
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 1
   image:
     tag: sha-f69a47d1abf9e8dc03830b7fc883bbfefd000e53
 mcp:
@@ -242,8 +218,9 @@ mcp:
     # gateway HTTPRoutes (see global.gateway.hostnames).
     BI_API_SERVICE_URL: https://abi.il1.nl
   autoscaling:
+    enabled: false
     minReplicas: 1
-    maxReplicas: 2
+    maxReplicas: 1
 ai:
   replicaCount: 1
   resources:
@@ -264,8 +241,9 @@ ai:
   rollout:
     enabled: false
   autoscaling:
+    enabled: false
     minReplicas: 1
-    maxReplicas: 2
+    maxReplicas: 1
   config:
     # Provider/model selection (provider type, model ids, base URLs, API keys and
     # per-model tuning) is managed in the database via Administration → AI

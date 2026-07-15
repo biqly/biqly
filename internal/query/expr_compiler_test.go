@@ -284,6 +284,27 @@ func TestCompileExprPIIMasking(t *testing.T) {
 	}
 }
 
+func TestCompileExprAggregateFunctions(t *testing.T) {
+	expr := &pkgsemantic.FunctionCallExpr{
+		Name: "sum",
+		Args: []pkgsemantic.ExprNode{&pkgsemantic.ColumnRefExpr{Column: "revenue"}},
+	}
+	d := dialect.PostgresDialect{}
+
+	got, err := CompileExpr(expr, d, nil, nil, nil, ExprCompileOptions{AllowAggregates: true})
+	if err != nil {
+		t.Fatalf("CompileExpr() error = %v", err)
+	}
+	if got != `SUM("revenue")` {
+		t.Fatalf("CompileExpr() = %q, want SUM(\"revenue\")", got)
+	}
+
+	_, err = CompileExpr(expr, d, nil, nil, nil)
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "sum") {
+		t.Fatalf("CompileExpr() without AllowAggregates error = %v, want sum disallowed", err)
+	}
+}
+
 func TestNormalizeExprDialect_newDrivers(t *testing.T) {
 	cases := []struct {
 		zero dialect.Dialect

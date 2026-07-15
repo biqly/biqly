@@ -41,6 +41,15 @@ export const ALLOWED_FUNCTIONS: FunctionInfo[] = [
   { name: 'EXTRACT', arity: 2, desc: 'Extracts a date/time part' },
 ]
 
+export const AGGREGATE_FUNCTIONS: FunctionInfo[] = [
+  { name: 'SUM', arity: 1, desc: 'Sum of values' },
+  { name: 'AVG', arity: 1, desc: 'Average of values' },
+  { name: 'MIN', arity: 1, desc: 'Minimum value' },
+  { name: 'MAX', arity: 1, desc: 'Maximum value' },
+  { name: 'COUNT', arity: -1, desc: 'Count rows or non-null values' },
+  { name: 'COUNT_DISTINCT', arity: 1, desc: 'Count distinct values' },
+]
+
 export const BINARY_OPS = [
   { value: 'add', label: '+' },
   { value: 'subtract', label: '-' },
@@ -99,6 +108,7 @@ interface ExpressionBuilderProps {
   columns: ColumnRow[]
   initialNode?: SemanticExprNode
   initialText?: string
+  allowAggregates?: boolean
   onChange: (node: SemanticExprNode, textExpression: string) => void
   t: LooseTFunction
 }
@@ -108,6 +118,7 @@ export function ExpressionBuilder({
   columns,
   initialNode,
   initialText = '',
+  allowAggregates = false,
   onChange,
   t,
 }: ExpressionBuilderProps) {
@@ -162,7 +173,7 @@ export function ExpressionBuilder({
         const { data, error } = await request<unknown>(
           'POST',
           `/api/semantic/models/${model.id}/compile-expression`,
-          payload,
+          { ...payload, allow_aggregates: allowAggregates },
         )
         if (data !== null && isRecord(data)) {
           const sql = typeof data.sql === 'string' ? data.sql : ''
@@ -185,7 +196,7 @@ export function ExpressionBuilder({
         setLoading(false)
       }
     },
-    [model.id, onChange, astNode],
+    [model.id, onChange, astNode, allowAggregates],
   )
 
   // Trigger compile when Visual AST changes

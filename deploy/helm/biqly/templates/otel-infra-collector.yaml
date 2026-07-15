@@ -5,7 +5,7 @@
 {{- $it := .Values.global.observability.infraTelemetry -}}
 {{- $tracing := .Values.global.observability.tracing -}}
 {{- $endpoint := $it.otlpEndpoint | default $tracing.otlpEndpoint -}}
-{{- $gateway := $tracing.useInClusterCollector -}}
+{{- $gateway := and $tracing.enabled $tracing.useInClusterCollector -}}
 {{- $k8s := and $it.k8sAttributes $it.k8sAttributes.enabled -}}
 {{- $env := $it.deploymentEnvironment | default "production" -}}
 {{- $recv := list -}}
@@ -151,7 +151,7 @@ service:
 {{- $secretKey := $it.otlpHeadersSecret.key | default $tracing.otlpHeadersSecret.key -}}
 {{- /* Gateway role: receive OTLP from the apps and forward to the remote backend
        so the slow internet round-trip never touches the request path. */ -}}
-{{- $gateway := $tracing.useInClusterCollector -}}
+{{- $gateway := and $tracing.enabled $tracing.useInClusterCollector -}}
 {{- $k8s := and $it.k8sAttributes $it.k8sAttributes.enabled -}}
 {{- $recv := list -}}
 {{- if $it.postgresql.enabled }}{{- $recv = append $recv "postgresql" -}}{{- end }}

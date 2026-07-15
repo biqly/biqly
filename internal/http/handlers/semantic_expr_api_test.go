@@ -421,4 +421,32 @@ func TestCompileExpression(t *testing.T) {
 		rec := postCompileExpression(t, fx, `{"expr": {"type": "unknown"}}`)
 		assertCompileExpressionSQL(t, rec, http.StatusBadRequest, "")
 	})
+
+	t.Run("rejects aggregate without allow_aggregates", func(t *testing.T) {
+		rec := postCompileExpression(t, fx, `{
+			"expr": {
+				"type": "function_call",
+				"name": "sum",
+				"args": [{"type": "column_ref", "column": "revenue"}]
+			}
+		}`)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+		}
+		if !strings.Contains(strings.ToLower(rec.Body.String()), "sum") {
+			t.Fatalf("body = %s, want sum disallowed error", rec.Body.String())
+		}
+	})
+
+	t.Run("compiles aggregate with allow_aggregates", func(t *testing.T) {
+		rec := postCompileExpression(t, fx, `{
+			"allow_aggregates": true,
+			"expr": {
+				"type": "function_call",
+				"name": "sum",
+				"args": [{"type": "column_ref", "column": "revenue"}]
+			}
+		}`)
+		assertCompileExpressionSQL(t, rec, http.StatusOK, `SUM("revenue")`)
+	})
 }

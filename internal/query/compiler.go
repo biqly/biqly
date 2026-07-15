@@ -599,7 +599,7 @@ func (c *Compiler) metricExpressionRef(
 	model *semantic.SemanticModel,
 ) string {
 	if metric != nil && metric.Expr != nil && strings.TrimSpace(expr) == strings.TrimSpace(metric.Expression) {
-		sql, err := CompileExpr(metric.Expr, c.dialect, resolver, nil, c.pii)
+		sql, err := CompileExpr(metric.Expr, c.dialect, resolver, nil, c.pii, ExprCompileOptsForMetric(metric))
 		if err != nil {
 			c.err = err
 			return ""
@@ -752,7 +752,7 @@ func (c *Compiler) qualifyMetricExpression(
 	model *semantic.SemanticModel,
 ) string {
 	if metric != nil && metric.Expr != nil && strings.TrimSpace(expr) == strings.TrimSpace(metric.Expression) {
-		sql, err := CompileExpr(metric.Expr, c.dialect, resolver, nil, c.pii)
+		sql, err := CompileExpr(metric.Expr, c.dialect, resolver, nil, c.pii, ExprCompileOptsForMetric(metric))
 		if err != nil {
 			c.err = err
 			return ""
@@ -1212,7 +1212,7 @@ func (c *Compiler) inheritWindowMetricFields(
 		return agg, expr, exprFromAST, nil
 	}
 	if m.Expr != nil {
-		compiled, err := CompileExpr(m.Expr, c.dialect, resolver, nil, c.pii)
+		compiled, err := CompileExpr(m.Expr, c.dialect, resolver, nil, c.pii, ExprCompileOptsForMetric(m))
 		if err != nil {
 			return "", "", false, err
 		}

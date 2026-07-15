@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/bytedance/sonic"
 )
 
@@ -125,6 +127,34 @@ var AllowedFunctions = map[string]int{
 	"REPLACE":    3,
 	"LEFT":       2,
 	"RIGHT":      2,
+}
+
+// AllowedAggregateFunctions maps SQL aggregate functions to arity. -1 means
+// variadic (COUNT with zero or one argument). These are only permitted in
+// custom metric expressions, not dimension derivations.
+var AllowedAggregateFunctions = map[string]int{
+	"SUM":            1,
+	"AVG":            1,
+	"MIN":            1,
+	"MAX":            1,
+	"COUNT":          -1,
+	"COUNT_DISTINCT": 1,
+}
+
+// IsAggregateFunction reports whether name is a whitelisted aggregate function.
+func IsAggregateFunction(name string) bool {
+	_, ok := AllowedAggregateFunctions[strings.ToUpper(strings.TrimSpace(name))]
+	return ok
+}
+
+// FunctionAllowed reports whether a function name may appear in an expression.
+// Scalar helpers are always allowed; aggregates require allowAggregates.
+func FunctionAllowed(name string, allowAggregates bool) bool {
+	upper := strings.ToUpper(strings.TrimSpace(name))
+	if _, ok := AllowedFunctions[upper]; ok {
+		return true
+	}
+	return allowAggregates && IsAggregateFunction(upper)
 }
 
 func (*LiteralExpr) exprSealed()      {}

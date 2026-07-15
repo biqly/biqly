@@ -155,6 +155,7 @@ export function AddMetricModal({
               columns={columns}
               initialNode={state.astNode}
               initialText={state.expression}
+              allowAggregates
               onChange={(node, textExpr) => {
                 state.setExpression(textExpr)
                 state.setAstNode(node)

@@ -1469,8 +1469,9 @@ func getOrParseExprInHandler(exprStr string, ast pkgsemantic.ExprNode) pkgsemant
 }
 
 type compileExpressionRequest struct {
-	Expression string          `json:"expression"`
-	Expr       json.RawMessage `json:"expr,omitempty"`
+	Expression      string          `json:"expression"`
+	Expr            json.RawMessage `json:"expr,omitempty"`
+	AllowAggregates bool            `json:"allow_aggregates,omitempty"`
 }
 
 type compileExpressionResponse struct {
@@ -1520,9 +1521,10 @@ func (h *SemanticHandler) CompileExpression(w http.ResponseWriter, r *http.Reque
 	}
 
 	resolver := query.NewSchemaResolver(model, nil)
-	compiledSQL, err := query.CompileExpr(expr, driver.Dialect(), resolver, nil, nil)
+	compileOpts := query.ExprCompileOptions{AllowAggregates: req.AllowAggregates}
+	compiledSQL, err := query.CompileExpr(expr, driver.Dialect(), resolver, nil, nil, compileOpts)
 	if err != nil {
-		writeInternalError(ctx, w, http.StatusBadRequest, "failed to compile expression", err)
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 

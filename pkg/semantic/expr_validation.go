@@ -100,9 +100,18 @@ func validateFunctionCallExpr(
 	depth int,
 ) error {
 	funcName := strings.ToUpper(e.Name)
+	if !FunctionAllowed(funcName, allowMetrics) {
+		if IsAggregateFunction(funcName) {
+			return fmt.Errorf("aggregate function not allowed in this context: %s", e.Name)
+		}
+		return fmt.Errorf("disallowed function call: %s", e.Name)
+	}
 	arity, ok := AllowedFunctions[funcName]
 	if !ok {
-		return fmt.Errorf("disallowed function call: %s", e.Name)
+		arity, ok = AllowedAggregateFunctions[funcName]
+		if !ok {
+			return fmt.Errorf("disallowed function call: %s", e.Name)
+		}
 	}
 
 	// Arity check using switch
@@ -110,6 +119,10 @@ func validateFunctionCallExpr(
 	case funcName == "ROUND":
 		if len(e.Args) != 1 && len(e.Args) != 2 {
 			return fmt.Errorf("function %s requires 1 or 2 arguments, got %d", e.Name, len(e.Args))
+		}
+	case funcName == "COUNT":
+		if len(e.Args) > 1 {
+			return fmt.Errorf("function COUNT requires 0 or 1 arguments, got %d", len(e.Args))
 		}
 	case arity == -1:
 		if len(e.Args) < 1 {
