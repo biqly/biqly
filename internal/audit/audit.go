@@ -30,6 +30,9 @@ const (
 
 	EventDriftDetected EventType = "drift.drift_detected"
 	EventDriftResolved EventType = "drift.drift_resolved"
+
+	EventDashboardShareCreated EventType = "dashboard_share_created"
+	EventDashboardShareRevoked EventType = "dashboard_share_revoked"
 )
 
 // Event represents an audit log entry.
@@ -78,7 +81,8 @@ func (l *Logger) Log(ctx context.Context, event Event) {
 		l.logger.ErrorContext(ctx, "audit", attrs...)
 	case EventQueryExecuted, EventQueryCompiled, EventDatasourceSync, EventAIGenerated, EventInternalRequest,
 		EventPIIScanCompleted, EventPIIPolicyUpdated, EventPIIMaskingApplied, EventAIConfigUpdated,
-		EventAIJobCancelled, EventDriftDetected, EventDriftResolved:
+		EventAIJobCancelled, EventDriftDetected, EventDriftResolved,
+		EventDashboardShareCreated, EventDashboardShareRevoked:
 		l.logger.InfoContext(ctx, "audit", attrs...)
 	default:
 		l.logger.InfoContext(ctx, "audit", attrs...)

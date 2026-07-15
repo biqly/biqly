@@ -62,7 +62,7 @@ func registerCatalogAPIRoutes(r chi.Router, deps *app.CatalogDeps, authClient *b
 	registerCatalogCompositeRoutes(r, deps, authClient)
 	registerCatalogMetadataRoutes(r, deps, authClient)
 	registerCatalogPermissionRoutes(r, deps, authClient)
-	registerCatalogDashboardRoutes(r, deps)
+	registerCatalogDashboardRoutes(r, deps, authClient)
 }
 
 func registerCatalogDatasourceRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
@@ -210,14 +210,18 @@ func registerCatalogPermissionRoutes(r chi.Router, deps *app.CatalogDeps, authCl
 	})
 }
 
-func registerCatalogDashboardRoutes(r chi.Router, deps *app.CatalogDeps) {
+func registerCatalogDashboardRoutes(r chi.Router, deps *app.CatalogDeps, authClient *bimw.AuthClient) {
 	dashHandler := handlers.NewDashboardHandler(deps.DashboardRepo)
+	shareHandler := handlers.NewDashboardShareHandler(deps.DashboardShareRepo, deps.DashboardRepo, authClient, deps.AuditLogger)
 	r.Route("/dashboards", func(r chi.Router) {
 		r.Post("/", dashHandler.Create)
 		r.Get("/", dashHandler.List)
 		r.Get("/{id}", dashHandler.Get)
 		r.Put("/{id}", dashHandler.Update)
 		r.Delete("/{id}", dashHandler.Delete)
+		r.Post("/{id}/public-share", shareHandler.Create)
+		r.Get("/{id}/public-share", shareHandler.Status)
+		r.Delete("/{id}/public-share", shareHandler.Revoke)
 	})
 }
 

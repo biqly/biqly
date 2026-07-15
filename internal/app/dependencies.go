@@ -91,51 +91,57 @@ type Dependencies struct {
 	AIJobsHTTP      AIJobsHTTPHandler
 	// PoolCache holds *sql.DB pools for external datasources. Closed during
 	// Dependencies.Close().
-	PoolCache      *datasource.PoolCache
-	DashboardRepo  *dashboard.Repository
-	DriftRepo      *drift.Repository
-	DriftDetector  *drift.Detector
-	DriftNotifier  *drift.Notifier
-	DriftScheduler *drift.Scheduler
-	ABRouter       *abtest.TrafficRouter
+	PoolCache          *datasource.PoolCache
+	DashboardRepo      *dashboard.Repository
+	DashboardShareRepo *dashboard.ShareRepository
+	PublicResolver     *dashboard.PublicResolver
+	DriftRepo          *drift.Repository
+	DriftDetector      *drift.Detector
+	DriftNotifier      *drift.Notifier
+	DriftScheduler     *drift.Scheduler
+	ABRouter           *abtest.TrafficRouter
 }
 
 // CatalogDeps holds the subset of dependencies needed for the Catalog service
 // (datasources, schemas, tables, columns, relations, semantic models).
 type CatalogDeps struct {
-	Config        *config.Config
-	DriverReg     *datasource.Registry
-	MetaRepo      *metadata.Repository
-	SemanticRepo  *semantic.Repository
-	CompositeRepo *semantic.CompositeRepository
-	Encryptor     *security.Encryption
-	PoolCache     *datasource.PoolCache
-	QueryService  *core.QueryService
-	DashboardRepo *dashboard.Repository
-	AuditLogger   *audit.Logger
-	PIIPolicies   *core.PIIPolicyService
-	DriftRepo     *drift.Repository
-	DriftDetector *drift.Detector
-	DriftNotifier *drift.Notifier
+	Config             *config.Config
+	DriverReg          *datasource.Registry
+	MetaRepo           *metadata.Repository
+	SemanticRepo       *semantic.Repository
+	CompositeRepo      *semantic.CompositeRepository
+	Encryptor          *security.Encryption
+	PoolCache          *datasource.PoolCache
+	QueryService       *core.QueryService
+	DashboardRepo      *dashboard.Repository
+	DashboardShareRepo *dashboard.ShareRepository
+	PublicResolver     *dashboard.PublicResolver
+	AuditLogger        *audit.Logger
+	PIIPolicies        *core.PIIPolicyService
+	DriftRepo          *drift.Repository
+	DriftDetector      *drift.Detector
+	DriftNotifier      *drift.Notifier
 }
 
 // CatalogDeps returns a structured copy of dependencies for the Catalog subsystem.
 func (d *Dependencies) CatalogDeps() *CatalogDeps {
 	return &CatalogDeps{
-		Config:        d.Config,
-		DriverReg:     d.DriverReg,
-		MetaRepo:      d.MetaRepo,
-		SemanticRepo:  d.SemanticRepo,
-		CompositeRepo: d.CompositeRepo,
-		Encryptor:     d.Encryptor,
-		PoolCache:     d.PoolCache,
-		QueryService:  d.QueryService,
-		DashboardRepo: d.DashboardRepo,
-		AuditLogger:   d.AuditLogger,
-		PIIPolicies:   d.PIIPolicies,
-		DriftRepo:     d.DriftRepo,
-		DriftDetector: d.DriftDetector,
-		DriftNotifier: d.DriftNotifier,
+		Config:             d.Config,
+		DriverReg:          d.DriverReg,
+		MetaRepo:           d.MetaRepo,
+		SemanticRepo:       d.SemanticRepo,
+		CompositeRepo:      d.CompositeRepo,
+		Encryptor:          d.Encryptor,
+		PoolCache:          d.PoolCache,
+		QueryService:       d.QueryService,
+		DashboardRepo:      d.DashboardRepo,
+		DashboardShareRepo: d.DashboardShareRepo,
+		PublicResolver:     d.PublicResolver,
+		AuditLogger:        d.AuditLogger,
+		PIIPolicies:        d.PIIPolicies,
+		DriftRepo:          d.DriftRepo,
+		DriftDetector:      d.DriftDetector,
+		DriftNotifier:      d.DriftNotifier,
 	}
 }
 
@@ -273,6 +279,8 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		WithResolvedCache(provideCompositeCache(ctx, cfg)).
 		WithLimits(provideCompositeLimits(cfg))
 	dashboardRepo := dashboard.NewRepository(db)
+	dashboardShareRepo := dashboard.NewShareRepository(db)
+	publicResolver := dashboard.NewPublicResolver(db)
 
 	encryptor := provideEncryptor(ctx, db, true)
 
@@ -327,38 +335,40 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	)
 
 	return &Dependencies{
-		Config:          cfg,
-		MetadataDB:      db,
-		DriverReg:       reg,
-		MetaRepo:        metaRepo,
-		SemanticRepo:    semanticRepo,
-		CompositeRepo:   compositeRepo,
-		Validator:       validator,
-		Executor:        executor,
-		QueryService:    queryService,
-		AIClient:        aiBits.client,
-		AIQueryClient:   aiBits.queryClient,
-		AIDescriber:     aiBits.describer,
-		Translator:      aiBits.translator,
-		Encryptor:       encryptor,
-		EvalRepo:        aiBits.evalRepo,
-		AuditLogger:     auditLogger,
-		PIIPolicies:     piiPolicies,
-		Embedder:        aiBits.embedder,
-		AIEmbedMeta:     aiBits.embedMeta,
-		TimeGrains:      aiBits.timeGrains,
-		AIProviderStore: aiBits.providerStore,
-		ResponseCache:   aiBits.responseCache,
-		SpendLimiter:    aiBits.spendLimiter,
-		AIRedis:         aiBits.redis,
-		PoolCache:       poolCache,
-		Jobs:            cfg.Jobs,
-		DashboardRepo:   dashboardRepo,
-		DriftRepo:       driftRepo,
-		DriftDetector:   driftDetector,
-		DriftNotifier:   driftNotifier,
-		DriftScheduler:  driftScheduler,
-		ABRouter:        aiBits.abRouter,
+		Config:             cfg,
+		MetadataDB:         db,
+		DriverReg:          reg,
+		MetaRepo:           metaRepo,
+		SemanticRepo:       semanticRepo,
+		CompositeRepo:      compositeRepo,
+		Validator:          validator,
+		Executor:           executor,
+		QueryService:       queryService,
+		AIClient:           aiBits.client,
+		AIQueryClient:      aiBits.queryClient,
+		AIDescriber:        aiBits.describer,
+		Translator:         aiBits.translator,
+		Encryptor:          encryptor,
+		EvalRepo:           aiBits.evalRepo,
+		AuditLogger:        auditLogger,
+		PIIPolicies:        piiPolicies,
+		Embedder:           aiBits.embedder,
+		AIEmbedMeta:        aiBits.embedMeta,
+		TimeGrains:         aiBits.timeGrains,
+		AIProviderStore:    aiBits.providerStore,
+		ResponseCache:      aiBits.responseCache,
+		SpendLimiter:       aiBits.spendLimiter,
+		AIRedis:            aiBits.redis,
+		PoolCache:          poolCache,
+		Jobs:               cfg.Jobs,
+		DashboardRepo:      dashboardRepo,
+		DashboardShareRepo: dashboardShareRepo,
+		PublicResolver:     publicResolver,
+		DriftRepo:          driftRepo,
+		DriftDetector:      driftDetector,
+		DriftNotifier:      driftNotifier,
+		DriftScheduler:     driftScheduler,
+		ABRouter:           aiBits.abRouter,
 	}, nil
 }
 
