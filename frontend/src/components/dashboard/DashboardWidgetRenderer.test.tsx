@@ -51,18 +51,15 @@ describe('DashboardWidgetRenderer fetchData branching', () => {
   // NOTE on saved_query_id: a *real* sanitized public-dashboard widget has
   // neither logical_query nor saved_query_id (confirmed against
   // internal/dashboard/public.go's SanitizeWidgets, which deletes both
-  // keys). But DashboardWidgetRenderer's own getWidgetDataStateElement has a
-  // separate, pre-existing gate — `if (!savedQueryId) return "Not
-  // configured yet..."` — that fires unconditionally, before it even looks
-  // at loading/data, so a widget missing saved_query_id can never display
-  // fetched data regardless of fetchData. That gate is orthogonal to (and
-  // predates) the fetchData/logical_query guard this suite exists to pin
-  // down, and this task is test-only (DashboardWidgetRenderer.tsx must not
-  // be touched), so these widgets carry a saved_query_id purely to get past
-  // that unrelated gate and observe the fetched value render. The
-  // logical_query-gated regression this suite actually defends against —
-  // fetchData still being called although widget.logical_query is absent —
-  // is unaffected by that choice.
+  // keys). getWidgetDataStateElement's "Not configured yet" gate used to
+  // fire whenever saved_query_id was absent, regardless of fetchData —
+  // which meant a true sanitized widget could never display fetched data.
+  // That has been fixed: the gate now also checks whether fetchData was
+  // provided, so it only fires when BOTH saved_query_id and fetchData are
+  // absent. Most cases below still carry a saved_query_id for historical
+  // reasons, but the "true sanitized-public-widget shape" test further down
+  // omits it entirely and asserts the fetched value renders — that's the
+  // regression this fix closes.
   it('calls fetchData for a kpi widget with no logical_query, and renders its result', async () => {
     const widgetWithNoLogicalQuery: DashboardWidget = {
       id: 'w1',
@@ -106,7 +103,15 @@ describe('DashboardWidgetRenderer fetchData branching', () => {
     expect(mockPostData).not.toHaveBeenCalled()
   })
 
-  it('calls fetchData even when the widget has neither logical_query nor saved_query_id (true sanitized-widget shape), though the result stays gated behind the unrelated "Not configured" message', async () => {
+  it('renders fetched data for a true sanitized-public-widget shape (no logical_query, no saved_query_id) when fetchData is provided', async () => {
+    // Regression guard: getWidgetDataStateElement's "Not configured yet" gate
+    // used to fire unconditionally whenever saved_query_id was absent, even
+    // when fetchData was supplied and had already resolved real data. Public
+    // dashboard widgets NEVER carry saved_query_id (SanitizeWidgets strips
+    // it), so that gate made every kpi/table widget on a shared dashboard
+    // permanently show "Not configured yet" instead of its data. The fix
+    // makes the gate require the absence of BOTH saved_query_id and
+    // fetchData before showing that message.
     const trueSanitizedWidget: DashboardWidget = {
       id: 'w4',
       type: 'kpi',
@@ -121,10 +126,29 @@ describe('DashboardWidgetRenderer fetchData branching', () => {
       await Promise.resolve()
     })
 
-    // The core regression guard: fetchData still fires despite no
-    // logical_query, regardless of what getWidgetDataStateElement then does
-    // with saved_query_id.
     expect(mockFetchData).toHaveBeenCalledWith(trueSanitizedWidget)
+    expect(mockPostData).not.toHaveBeenCalled()
+    // The core regression assertion: the resolved value renders...
+    expect(screen.getByText('42')).toBeTruthy()
+    // ...instead of the "Not configured yet" message.
+    expect(screen.queryByText(/Not configured yet/i)).toBeNull()
+  })
+
+  it('legacy behavior unchanged: a widget with no saved_query_id and no fetchData prop still shows "Not configured yet"', async () => {
+    const unconfiguredWidget: DashboardWidget = {
+      id: 'w5',
+      type: 'kpi',
+      title: 'Revenue',
+      w: 4,
+      h: 'small',
+    }
+
+    render(<DashboardWidgetRenderer widget={unconfiguredWidget} />)
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText(/Not configured yet/i)).toBeTruthy()
     expect(mockPostData).not.toHaveBeenCalled()
   })
 

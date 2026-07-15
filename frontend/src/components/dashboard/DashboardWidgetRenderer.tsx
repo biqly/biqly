@@ -235,8 +235,9 @@ function getWidgetDataStateElement(
   error: string | null,
   data: unknown[] | null,
   savedQueryId?: string,
+  hasFetchData?: boolean,
 ) {
-  if (!savedQueryId) {
+  if (!savedQueryId && !hasFetchData) {
     return (
       <WidgetCenterMessage>⚠️ Not configured yet. Edit settings to link data.</WidgetCenterMessage>
     )
@@ -383,7 +384,13 @@ export function DashboardWidgetRenderer({
     )
   }
 
-  const stateElement = getWidgetDataStateElement(loading, error, data, widget.saved_query_id)
+  const stateElement = getWidgetDataStateElement(
+    loading,
+    error,
+    data,
+    widget.saved_query_id,
+    Boolean(fetchData),
+  )
   if (stateElement) {
     return stateElement
   }
