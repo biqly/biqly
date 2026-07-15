@@ -225,25 +225,29 @@ func (d *Dependencies) AIDeps() *AIDeps {
 // QueryDeps holds the subset of dependencies needed for the Query compiling and execution engine
 // (query run, compile, query history).
 type QueryDeps struct {
-	Config       *config.Config
-	MetaRepo     *metadata.Repository
-	Validator    *query.Validator
-	Executor     *query.Executor
-	QueryService *core.QueryService
-	AuditLogger  *audit.Logger
-	AuditReader  *audit.Reader
+	Config           *config.Config
+	MetaRepo         *metadata.Repository
+	Validator        *query.Validator
+	Executor         *query.Executor
+	QueryService     *core.QueryService
+	AuditLogger      *audit.Logger
+	AuditReader      *audit.Reader
+	PublicResolver   *dashboard.PublicResolver
+	PublicShareRedis *redis.Client
 }
 
 // QueryDeps returns a structured copy of dependencies for the Query subsystem.
 func (d *Dependencies) QueryDeps() *QueryDeps {
 	return &QueryDeps{
-		Config:       d.Config,
-		MetaRepo:     d.MetaRepo,
-		Validator:    d.Validator,
-		Executor:     d.Executor,
-		QueryService: d.QueryService,
-		AuditLogger:  d.AuditLogger,
-		AuditReader:  audit.NewReader(d.MetadataDB),
+		Config:           d.Config,
+		MetaRepo:         d.MetaRepo,
+		Validator:        d.Validator,
+		Executor:         d.Executor,
+		QueryService:     d.QueryService,
+		AuditLogger:      d.AuditLogger,
+		AuditReader:      audit.NewReader(d.MetadataDB),
+		PublicResolver:   d.PublicResolver,
+		PublicShareRedis: d.PublicShareRedis,
 	}
 }
 

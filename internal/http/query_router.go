@@ -39,10 +39,21 @@ func QueryRouter(deps *app.Dependencies) http.Handler {
 	authMW := buildAPIAuthMiddleware(deps)
 	authClient := NewAuthClient(deps)
 	r.Route("/api", func(r chi.Router) {
-		r.Use(authMW)
-		r.Use(bimw.ChannelTag())
-		r.Use(bimw.RequirePermission(authClient, "query:execute"))
-		registerQueryAPIRoutes(r, deps.QueryDeps(), authClient, bimw.RequireDatasourceAccess(authClient, "read"))
+		// Anonymous public embed surface. Mounted as a sibling of the authed
+		// group inside the same /api route and registered BEFORE the authed
+		// group applies authMW/ChannelTag to its own scope — so no route binds
+		// to the bare /api mux and the public group carries NO auth.
+		r.Route("/public", func(r chi.Router) {
+			r.Use(bimw.PublicEmbedHeaders)
+			registerPublicWidgetQueryRoutes(r, deps.QueryDeps(), authClient)
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(authMW)
+			r.Use(bimw.ChannelTag())
+			r.Use(bimw.RequirePermission(authClient, "query:execute"))
+			registerQueryAPIRoutes(r, deps.QueryDeps(), authClient, bimw.RequireDatasourceAccess(authClient, "read"))
+		})
 	})
 
 	r.Route("/internal", func(r chi.Router) {

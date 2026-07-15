@@ -36,6 +36,34 @@ func ChiRouter(deps *app.Dependencies) chi.Router {
 	return setupRouter(deps)
 }
 
+// registerMonolithPublicRoutes mounts the anonymous public embed surface on the
+// already-configured /public mux: dashboard metadata (catalog-owned) and widget
+// execution (query-owned). Each branch proxies to its standalone service when a
+// service URL is configured, otherwise serves in-process.
+func registerMonolithPublicRoutes(r chi.Router, deps *app.Dependencies, authClient *bimw.AuthClient) {
+	if deps.Config.Services.CatalogURL != "" {
+		registerUpstreamProxy(r, upstreamProxySpec{
+			targetURL:    deps.Config.Services.CatalogURL,
+			envVarName:   "BI_CATALOG_SERVICE_URL",
+			serviceLabel: "catalog service",
+			paths:        []string{"/dashboards/{token}"},
+		})
+	} else {
+		registerPublicDashboardRoutes(r, deps.CatalogDeps(), authClient)
+	}
+
+	if deps.Config.Services.QueryURL != "" {
+		registerUpstreamProxy(r, upstreamProxySpec{
+			targetURL:    deps.Config.Services.QueryURL,
+			envVarName:   "BI_QUERY_SERVICE_URL",
+			serviceLabel: "query service",
+			paths:        []string{"/widget-query/{token}/{widgetID}"},
+		})
+	} else {
+		registerPublicWidgetQueryRoutes(r, deps.QueryDeps(), authClient)
+	}
+}
+
 func setupRouter(deps *app.Dependencies) chi.Router {
 	r := chi.NewRouter()
 
@@ -100,16 +128,7 @@ func setupRouter(deps *app.Dependencies) chi.Router {
 		// otherwise it is served in-process, mirroring the catalog conditional.
 		r.Route("/public", func(r chi.Router) {
 			r.Use(bimw.PublicEmbedHeaders)
-			if deps.Config.Services.CatalogURL != "" {
-				registerUpstreamProxy(r, upstreamProxySpec{
-					targetURL:    deps.Config.Services.CatalogURL,
-					envVarName:   "BI_CATALOG_SERVICE_URL",
-					serviceLabel: "catalog service",
-					paths:        []string{"/dashboards/{token}"},
-				})
-			} else {
-				registerPublicDashboardRoutes(r, deps.CatalogDeps(), authClient)
-			}
+			registerMonolithPublicRoutes(r, deps, authClient)
 		})
 
 		r.Group(func(r chi.Router) {

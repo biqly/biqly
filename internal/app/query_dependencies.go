@@ -7,6 +7,7 @@ import (
 	"github.com/biqly/biqly/internal/audit"
 	"github.com/biqly/biqly/internal/config"
 	"github.com/biqly/biqly/internal/core"
+	"github.com/biqly/biqly/internal/dashboard"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/pkg/catalogclient"
 )
@@ -17,6 +18,12 @@ func NewQueryDependencies(ctx context.Context, cfg *config.Config) (*Dependencie
 	if err != nil {
 		return nil, err
 	}
+
+	// The query service holds its own bi_metadata pool, so the anonymous
+	// widget-query endpoint resolves shares directly rather than round-tripping
+	// to the catalog service.
+	publicResolver := dashboard.NewPublicResolver(db)
+	publicShareRedis := providePublicShareRedis(ctx, cfg)
 
 	reg := newDriverRegistry()
 
@@ -59,15 +66,17 @@ func NewQueryDependencies(ctx context.Context, cfg *config.Config) (*Dependencie
 	})
 
 	return &Dependencies{
-		Config:       cfg,
-		MetadataDB:   db,
-		DriverReg:    reg,
-		MetaRepo:     metaRepo,
-		SemanticRepo: semanticRepo,
-		Validator:    validator,
-		Executor:     executor,
-		QueryService: queryService,
-		Encryptor:    encryptor,
-		AuditLogger:  auditLogger,
+		Config:           cfg,
+		MetadataDB:       db,
+		DriverReg:        reg,
+		MetaRepo:         metaRepo,
+		SemanticRepo:     semanticRepo,
+		Validator:        validator,
+		Executor:         executor,
+		QueryService:     queryService,
+		Encryptor:        encryptor,
+		AuditLogger:      auditLogger,
+		PublicResolver:   publicResolver,
+		PublicShareRedis: publicShareRedis,
 	}, nil
 }
