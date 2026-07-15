@@ -41,9 +41,19 @@ func CatalogRouter(deps *app.Dependencies) http.Handler {
 	authMW := buildAPIAuthMiddleware(deps)
 	authClient := NewAuthClient(deps)
 	r.Route("/api", func(r chi.Router) {
-		r.Use(authMW)
-		r.Use(CatalogMetricsMiddleware(GetMetrics()))
-		registerCatalogAPIRoutes(r, deps.CatalogDeps(), authClient)
+		// Anonymous public embed surface — a sibling of the authed group inside
+		// the same /api mount (chi forbids overlapping top-level wildcards).
+		// Registered BEFORE any Use on the /api mux so no route is bound to the
+		// bare mux; the public group carries NO authMW.
+		r.Route("/public", func(r chi.Router) {
+			r.Use(bimw.PublicEmbedHeaders)
+			registerPublicDashboardRoutes(r, deps.CatalogDeps(), authClient)
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(authMW)
+			r.Use(CatalogMetricsMiddleware(GetMetrics()))
+			registerCatalogAPIRoutes(r, deps.CatalogDeps(), authClient)
+		})
 	})
 
 	r.Route("/internal", func(r chi.Router) {

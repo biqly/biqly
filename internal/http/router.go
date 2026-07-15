@@ -92,50 +92,72 @@ func setupRouter(deps *app.Dependencies) chi.Router {
 	deps.WireAIUserResolver(authClient)
 
 	r.Route("/api", func(r chi.Router) {
-		r.Use(authMW)
-		r.Use(bimw.ChannelTag())
-
-		// Default API timeout for CRUD / metadata / history endpoints. AI
-		// sub-routes opt into the longer AIRequestTimeout below; query exec
-		// routes manage their own context timeout in the executor layer.
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.Timeout(shortAPITimeout))
+		// Anonymous public embed surface. Mounted as a sibling of the authed
+		// group inside the same /api route and registered BEFORE the authed
+		// group applies authMW/ChannelTag to its own scope — so no route binds
+		// to the bare /api mux and the public group carries NO auth. When a
+		// catalog service URL is configured the request is proxied there;
+		// otherwise it is served in-process, mirroring the catalog conditional.
+		r.Route("/public", func(r chi.Router) {
+			r.Use(bimw.PublicEmbedHeaders)
 			if deps.Config.Services.CatalogURL != "" {
-				registerCatalogProxyRoutes(r, deps.Config.Services.CatalogURL)
-			} else {
-				r.Group(func(r chi.Router) {
-					r.Use(CatalogMetricsMiddleware(GetMetrics()))
-					registerCatalogAPIRoutes(r, deps.CatalogDeps(), authClient)
+				registerUpstreamProxy(r, upstreamProxySpec{
+					targetURL:    deps.Config.Services.CatalogURL,
+					envVarName:   "BI_CATALOG_SERVICE_URL",
+					serviceLabel: "catalog service",
+					paths:        []string{"/dashboards/{token}"},
 				})
-			}
-
-			if deps.Config.Services.QueryURL != "" {
-				registerQueryProxyRoutes(r, deps.Config.Services.QueryURL)
 			} else {
-				r.With(bimw.RequirePermission(authClient, "query:execute")).Group(func(r chi.Router) {
-					registerQueryAPIRoutes(r, deps.QueryDeps(), authClient, bimw.RequireDatasourceAccess(authClient, "read"))
-				})
+				registerPublicDashboardRoutes(r, deps.CatalogDeps(), authClient)
 			}
 		})
 
-		// AI NL→SQL and catalog embedding can be slow with local models — they
-		// need their own timeout budget. Routes are mounted in a separate
-		// chi.Group so the short timeout above does not apply to them.
-		//
-		// Authorization is enforced here at the monolith edge in BOTH proxy and
-		// in-process modes: ai:query permission, plus a datasource-access check
-		// on the routes that carry a datasource_id (query/preview/run, metadata
-		// describe/embed, job submit). The downstream AI service trusts the
-		// network and does no JWT verification of its own.
 		r.Group(func(r chi.Router) {
-			r.Use(middleware.Timeout(deps.Config.AI.RequestTimeout()))
-			r.Use(bimw.RequirePermission(authClient, "ai:query"))
-			dsAccess := bimw.RequireDatasourceAccess(authClient, "read")
-			if deps.Config.Services.AIURL != "" {
-				registerAIProxyRoutesWithDatasourceGuard(r, deps.Config.Services.AIURL, dsAccess)
-			} else {
-				registerAIAPIRoutes(r, deps.AIDeps(), authClient, true, r)
-			}
+			r.Use(authMW)
+			r.Use(bimw.ChannelTag())
+
+			// Default API timeout for CRUD / metadata / history endpoints. AI
+			// sub-routes opt into the longer AIRequestTimeout below; query exec
+			// routes manage their own context timeout in the executor layer.
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.Timeout(shortAPITimeout))
+				if deps.Config.Services.CatalogURL != "" {
+					registerCatalogProxyRoutes(r, deps.Config.Services.CatalogURL)
+				} else {
+					r.Group(func(r chi.Router) {
+						r.Use(CatalogMetricsMiddleware(GetMetrics()))
+						registerCatalogAPIRoutes(r, deps.CatalogDeps(), authClient)
+					})
+				}
+
+				if deps.Config.Services.QueryURL != "" {
+					registerQueryProxyRoutes(r, deps.Config.Services.QueryURL)
+				} else {
+					r.With(bimw.RequirePermission(authClient, "query:execute")).Group(func(r chi.Router) {
+						registerQueryAPIRoutes(r, deps.QueryDeps(), authClient, bimw.RequireDatasourceAccess(authClient, "read"))
+					})
+				}
+			})
+
+			// AI NL→SQL and catalog embedding can be slow with local models — they
+			// need their own timeout budget. Routes are mounted in a separate
+			// chi.Group so the short timeout above does not apply to them.
+			//
+			// Authorization is enforced here at the monolith edge in BOTH proxy and
+			// in-process modes: ai:query permission, plus a datasource-access check
+			// on the routes that carry a datasource_id (query/preview/run, metadata
+			// describe/embed, job submit). The downstream AI service trusts the
+			// network and does no JWT verification of its own.
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.Timeout(deps.Config.AI.RequestTimeout()))
+				r.Use(bimw.RequirePermission(authClient, "ai:query"))
+				dsAccess := bimw.RequireDatasourceAccess(authClient, "read")
+				if deps.Config.Services.AIURL != "" {
+					registerAIProxyRoutesWithDatasourceGuard(r, deps.Config.Services.AIURL, dsAccess)
+				} else {
+					registerAIAPIRoutes(r, deps.AIDeps(), authClient, true, r)
+				}
+			})
 		})
 	})
 
