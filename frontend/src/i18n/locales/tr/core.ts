@@ -2094,6 +2094,24 @@ export const core: CoreDictionary = {
     not_found_desc: 'Bu pano mevcut değil veya paylaşım devre dışı bırakılmış.',
     powered_by: 'Sağlayan',
   },
+  publicShare: {
+    title: 'Herkese açık bağlantı',
+    description: 'Bu bağlantıya sahip herkes panoyu görüntüleyebilir. Veriler salt okunur kalır.',
+    enable: 'Herkese açık bağlantı oluştur',
+    rotate: 'Bağlantıyı yenile',
+    revoke: 'Herkese açık bağlantıyı devre dışı bırak',
+    copy_link: 'Bağlantıyı kopyala',
+    copy_iframe: 'iframe kodunu kopyala',
+    copied: 'Kopyalandı',
+    disabled_by_admin:
+      'Bu çalışma alanı için herkese açık paylaşım devre dışı. Etkinleştirmesi için bir workspace yöneticisine başvurun.',
+    active_since: '{{date}} tarihinden itibaren herkese açık',
+    token_notice: 'Bağlantı her yenilemede yalnızca bir kez gösterilir — şimdi kopyalayın.',
+    status_active_title: 'Herkese açık bir bağlantı etkin',
+    status_active_no_token:
+      'Yeni bir bağlantı almak için yenileyin veya paylaşımı devre dışı bırakın. Bağlantının kendisi yalnızca oluşturulduğu veya yenilendiği anda bir kez gösterilir.',
+    error_generic: 'Bir şeyler ters gitti. Lütfen tekrar deneyin.',
+  },
   composites: {
     title: 'Composite Modeller',
     subtitle:

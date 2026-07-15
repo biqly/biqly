@@ -273,6 +273,7 @@ export const admin = {
     name: 'Name',
     desc_label: 'Description',
     mfa_required: 'Require 2FA',
+    public_sharing_enabled: 'Allow public dashboard links',
     personal_suffix: '(personal)',
     deleted: 'Workspace deleted.',
     confirm_delete: 'Are you sure you want to delete "{{name}}" workspace?',

@@ -12,6 +12,7 @@ import { legacyLayoutClass } from '../lib/layoutClasses'
 import { modalActionsBorderedClass } from '../lib/modalClasses'
 import type { LogicalQuery, SelectField } from '../types/ai'
 import { DashboardWidgetRenderer } from './dashboard/DashboardWidgetRenderer'
+import { PublicShareModal } from './dashboard/PublicShareModal'
 import {
   heightFromDrag,
   spanFromDrag,
@@ -71,6 +72,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
   const [widgets, setWidgets] = useState<Widget[]>([])
   const [isEditMode, setIsEditMode] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   // Configure widget modal
   const [activeConfigWidget, setActiveConfigWidget] = useState<Widget | null>(null)
@@ -357,6 +359,13 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
               )}
             </div>
             <div className="flex gap-3">
+              <button
+                type="button"
+                className={buttonClass('secondary')}
+                onClick={() => setShareOpen(true)}
+              >
+                {t('publicShare.title')}
+              </button>
               {isEditMode ? (
                 <>
                   <button
@@ -825,6 +834,12 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
             </button>
           </div>
         </Modal>
+
+        <PublicShareModal
+          dashboardId={dashboardId}
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+        />
       </LoadingOverlay>
     </div>
   )

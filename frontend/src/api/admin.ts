@@ -374,6 +374,7 @@ export async function updateWorkspace(
   name: string,
   description?: string,
   mfaRequired?: boolean,
+  publicSharingEnabled?: boolean,
 ): Promise<void> {
   await apiFetch<void>(
     'PUT',
@@ -382,6 +383,7 @@ export async function updateWorkspace(
       name,
       description,
       mfa_required: mfaRequired,
+      public_sharing_enabled: publicSharingEnabled,
     },
     { token },
   )

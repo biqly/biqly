@@ -2088,6 +2088,24 @@ export const core = {
     not_found_desc: 'This dashboard does not exist or sharing has been disabled.',
     powered_by: 'Powered by',
   },
+  publicShare: {
+    title: 'Public link',
+    description: 'Anyone with this link can view the dashboard. Data stays read-only.',
+    enable: 'Create public link',
+    rotate: 'Rotate link',
+    revoke: 'Disable public link',
+    copy_link: 'Copy link',
+    copy_iframe: 'Copy iframe code',
+    copied: 'Copied',
+    disabled_by_admin:
+      'Public sharing is disabled for this workspace. Ask a workspace admin to enable it.',
+    active_since: 'Public since {{date}}',
+    token_notice: 'The link is shown once per rotation — copy it now.',
+    status_active_title: 'A public link is active',
+    status_active_no_token:
+      'Rotate to get a new link, or disable sharing. The link itself is only shown once, right after it is created or rotated.',
+    error_generic: 'Something went wrong. Please try again.',
+  },
   composites: {
     title: 'Composite Models',
     subtitle: 'Combine multiple semantic models to build cross-domain query models.',

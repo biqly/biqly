@@ -276,6 +276,7 @@ export const admin: AdminDictionary = {
     name: 'İsim',
     desc_label: 'Açıklama',
     mfa_required: '2FA zorunlu',
+    public_sharing_enabled: 'Herkese açık pano bağlantılarına izin ver',
     personal_suffix: '(kişisel)',
     deleted: 'Workspace silindi.',
     confirm_delete: '"{{name}}" workspace\'ini silmek istediğinden emin misin?',

@@ -118,6 +118,7 @@ export interface Workspace {
   description?: string
   is_personal: boolean
   mfa_required: boolean
+  public_sharing_enabled: boolean
   created_by: string
   created_at: string
   updated_at: string

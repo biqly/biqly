@@ -58,6 +58,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
   const [editName, setEditName] = useState('')
   const [editDesc, setEditDesc] = useState('')
   const [editMFARequired, setEditMFARequired] = useState(false)
+  const [editPublicSharingEnabled, setEditPublicSharingEnabled] = useState(false)
 
   const [inviteUserID, setInviteUserID] = useState('')
   const [inviteRoleID, setInviteRoleID] = useState('')
@@ -89,6 +90,7 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       setEditName(ws.name)
       setEditDesc(ws.description ?? '')
       setEditMFARequired(ws.mfa_required)
+      setEditPublicSharingEnabled(ws.public_sharing_enabled)
       setError(null)
     } catch (e) {
       setError(errorMessage(e))
@@ -119,7 +121,14 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
       return
     }
     try {
-      await updateWorkspace(token, workspaceID, editName, editDesc || undefined, editMFARequired)
+      await updateWorkspace(
+        token,
+        workspaceID,
+        editName,
+        editDesc || undefined,
+        editMFARequired,
+        editPublicSharingEnabled,
+      )
       setSuccess(t('admin.workspaces.save_success'))
       setTimeout(() => setSuccess(null), 3000)
       void load()
@@ -298,6 +307,15 @@ export function WorkspaceSettingsPage({ token, workspaceID }: Props) {
                   onChange={(e) => setEditMFARequired(e.target.checked)}
                 />
                 <span>{t('admin.workspaces.mfa_required')}</span>
+              </label>
+              <label className="text-foreground text-caption inline-flex min-h-8 items-center gap-2 whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  className="m-0 h-4 w-4"
+                  checked={editPublicSharingEnabled}
+                  onChange={(e) => setEditPublicSharingEnabled(e.target.checked)}
+                />
+                <span>{t('admin.workspaces.public_sharing_enabled')}</span>
               </label>
               <button type="submit" className={cn(buttonClass('primary'), adminBtnAutoWidthClass)}>
                 {t('common.save')}
