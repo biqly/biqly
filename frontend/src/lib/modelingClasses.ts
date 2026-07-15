@@ -25,46 +25,11 @@ export const modelingToolbarActionsClass = cn(
   '[&_button]:inline-flex [&_button]:items-center [&_button]:justify-center [&_button]:leading-none',
 )
 
-export function modelingShellClass(opts: { paletteOpen: boolean; editorOpen: boolean }): string {
-  const { paletteOpen, editorOpen } = opts
-  let cols = 'grid-cols-[minmax(18.5rem,20rem)_minmax(0,1fr)_minmax(21rem,22rem)]'
-  if (!paletteOpen && !editorOpen) {
-    cols = 'grid-cols-[2rem_minmax(0,1fr)_2rem]'
-  } else if (!paletteOpen) {
-    cols = 'grid-cols-[2rem_minmax(0,1fr)_minmax(21rem,22rem)]'
-  } else if (!editorOpen) {
-    cols = 'grid-cols-[minmax(18.5rem,20rem)_minmax(0,1fr)_2rem]'
-  }
-  return cn(
-    'relative grid h-[calc(100vh-22rem)] min-h-[32rem] grid-rows-1 overflow-hidden',
-    'rounded-lg border border-border bg-card shadow-[var(--shadow)]',
-    'ease transition-[grid-template-columns] duration-180',
-    cols,
-    'max-[1180px]:h-[min(72vh,40rem)] max-[1180px]:min-h-[20rem] max-[1180px]:grid-cols-1',
-  )
-}
-
-export const modelingMobileScrimClass = cn(
-  'pointer-events-none fixed inset-0 z-30 opacity-0 transition-opacity duration-200',
-  'max-[1180px]:pointer-events-auto max-[1180px]:bg-[var(--mobile-nav-scrim,rgba(15,23,42,0.58))]',
-  'max-[1180px]:backdrop-blur-[var(--mobile-nav-scrim-blur,8px)]',
+export const modelingShellClass = cn(
+  'relative grid h-[calc(100vh-22rem)] min-h-[32rem] grid-cols-1 grid-rows-1 overflow-hidden',
+  'rounded-lg border border-border bg-card shadow-[var(--shadow)]',
+  'max-[1180px]:h-[min(72vh,40rem)] max-[1180px]:min-h-[20rem]',
 )
-
-export function modelingMobileScrimVisibleClass(visible: boolean): string {
-  return visible ? 'max-[1180px]:opacity-100' : ''
-}
-
-export function modelingMobileFabClass(side: 'left' | 'right', panelOpen: boolean): string {
-  return cn(
-    'fixed z-50 hidden items-center justify-center gap-1.5 max-[1180px]:inline-flex',
-    'h-10 min-w-10 rounded-lg border border-border bg-card px-3 shadow-lg',
-    'cursor-pointer text-sm font-semibold text-foreground',
-    'transition-[transform,background] duration-150 hover:bg-card-raised active:scale-[0.98]',
-    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-    side === 'left' ? 'bottom-4 left-4' : 'right-4 bottom-4',
-    panelOpen && 'max-[1180px]:!hidden',
-  )
-}
 
 const modelingSidePanelMobileBase = cn(
   'max-[1180px]:fixed max-[1180px]:top-0 max-[1180px]:bottom-0 max-[1180px]:z-40',
@@ -114,15 +79,13 @@ export const modelingSideBodyClass = 'flex flex-col gap-4 min-h-0 p-4 overflow-h
 export const modelingSideBodyMarkerClass = 'modeling-side-body'
 
 export const modelingPaletteSideBodyClass = cn(
-  modelingSideBodyClass,
   modelingSideBodyMarkerClass,
-  'flex-1 max-[1180px]:overflow-y-auto',
+  'flex min-h-full flex-col gap-4 p-5',
 )
 
 export const modelingEditorSideBodyClass = cn(
-  modelingSideBodyClass,
   modelingSideBodyMarkerClass,
-  'flex-1 gap-3 overflow-y-auto [&_.form-group]:mb-0',
+  'flex min-h-full flex-col gap-3 p-5 [&_.form-group]:mb-0',
 )
 
 export function modelingSideToggleClass(side: 'left' | 'right'): string {
@@ -209,7 +172,7 @@ export function modelingTabClass(active?: boolean): string {
   )
 }
 
-export const modelingTabContentClass = 'flex flex-col flex-1 min-h-0 overflow-hidden'
+export const modelingTabContentClass = 'flex min-h-0 flex-1 flex-col'
 
 export const modelingEmptyClass = 'text-foreground-muted text-[0.82rem] my-2 mx-0'
 

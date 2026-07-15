@@ -1,20 +1,18 @@
 import { useState } from 'react'
 
-import { cn } from '../lib/cn'
 import { semanticModelSetupStatusClass } from '../lib/feedbackClasses'
-import {
-  modelingMobileFabClass,
-  modelingMobileScrimClass,
-  modelingMobileScrimVisibleClass,
-  modelingPageClass,
-  modelingShellClass,
-} from '../lib/modelingClasses'
+import { modelingPageClass, modelingShellClass } from '../lib/modelingClasses'
 import { DriftPanel } from './admin/DriftPanel'
 import { JoinEditor } from './modeling/JoinEditor'
 import { ModelingCanvas } from './modeling/ModelingCanvas'
 import { ModelingModals } from './modeling/ModelingModals'
 import { ModelingPalette } from './modeling/ModelingPalette'
 import { ModelingToolbar } from './modeling/ModelingToolbar'
+import {
+  ModelingToolLaunchers,
+  ModelingToolsModal,
+  type ModelingToolsTab,
+} from './modeling/ModelingToolsModal'
 import { ModelVersionsModal } from './modeling/ModelVersionsModal'
 import { TableDetailModal } from './modeling/TableDetailModal'
 import { useModelingPageState } from './modeling/useModelingPageState'
@@ -25,6 +23,7 @@ import { LockedState } from './ui/LockedState'
 export default function Modeling() {
   const s = useModelingPageState()
   const [versionsOpen, setVersionsOpen] = useState(false)
+  const [toolsTab, setToolsTab] = useState<ModelingToolsTab | null>(null)
 
   if (s.pageLoading) {
     return <LoadingScreen minHeight="300px" />
@@ -67,106 +66,13 @@ export default function Modeling() {
 
           {s.model && <DriftPanel modelId={s.model.id} />}
 
-          <section
-            className={modelingShellClass({
-              paletteOpen: s.paletteOpen,
-              editorOpen: s.editorOpen,
-            })}
-          >
-            <div
-              className={cn(
-                modelingMobileScrimClass,
-                modelingMobileScrimVisibleClass(s.paletteOpen || s.editorOpen),
-              )}
-              hidden={!(s.paletteOpen || s.editorOpen)}
-              onClick={s.closeMobilePanels}
-              aria-hidden="true"
-            />
-
-            <button
-              type="button"
-              className={modelingMobileFabClass('left', s.paletteOpen)}
-              aria-label={s.t('modeling.open_semantic_panel')}
-              onClick={s.togglePalette}
-            >
-              <span aria-hidden="true">☰</span>
-              <span>{s.t('modeling.tab_short_tables')}</span>
-            </button>
-            <button
-              type="button"
-              className={modelingMobileFabClass('right', s.editorOpen)}
-              aria-label={s.t('modeling.open_join_panel')}
-              onClick={s.toggleEditor}
-            >
-              <span aria-hidden="true">⇄</span>
-              <span>{s.t('modeling.tab_short_rel')}</span>
-            </button>
-
-            <ModelingPalette
-              open={s.paletteOpen}
-              onToggle={s.togglePalette}
-              model={s.model}
-              usedTableCount={s.usedTableCount}
-              joins={s.joins}
-              inactiveJoins={s.inactiveJoins}
-              dims={s.dims}
-              inactiveDims={s.inactiveDims}
-              metrics={s.metrics}
-              inactiveMetrics={s.inactiveMetrics}
-              activeTab={s.activeTab}
-              onTabChange={s.setActiveTab}
-              tables={s.tables}
-              includedTables={s.includedTables}
-              excludedSchemas={s.excludedSchemas}
-              tableCards={s.tableCards}
-              tableImpact={s.getTableImpact}
-              suggestedJoins={s.suggestedJoins}
-              highlightJoinId={s.highlightJoinId}
-              onHighlightJoin={s.handleJoinClick}
-              onSchemaToggle={(schemaName, isExcluded) => {
-                void s.requestSchemaToggle(schemaName, isExcluded)
-              }}
-              onRenameTable={s.renameTable}
-              onMakeBase={(schema, table) => {
-                void s.requestMakeBase(schema, table)
-              }}
-              onRemoveTable={(schema, table) => {
-                void s.requestTableRemoval(schema, table)
-              }}
-              onToggleTableVisibility={s.toggleTableVisibility}
-              onOpenBaseSwap={() => s.setBaseSwapOpen(true)}
-              onDeleteJoin={(joinId) => {
-                void s.deleteJoin(joinId)
-              }}
-              onAddSuggestedJoin={(join) => {
-                void s.addSuggestedJoin(join)
-              }}
-              onReactivateJoin={(join) => {
-                void s.reactivateJoin(join)
-              }}
-              onEditDimension={s.setEditingDimension}
-              onEditDimensionValues={s.setEnumDimension}
-              onDeleteDimension={(dimensionId) => {
-                void s.deleteDimension(dimensionId)
-              }}
-              onReactivateDimension={(dimension) => {
-                void s.reactivateDimension(dimension)
-              }}
-              onSyncDimensions={() => {
-                void s.syncDimensions()
-              }}
-              onOpenAddMetric={() => s.setAddMetricOpen(true)}
-              onOpenAddDimension={() => s.setAddDimensionOpen(true)}
-              onEditMetric={s.setEditingMetric}
-              onDeleteMetric={(metricId) => {
-                void s.deleteMetric(metricId)
-              }}
-              onReactivateMetric={(metric) => {
-                void s.reactivateMetric(metric)
-              }}
+          <section className={modelingShellClass}>
+            <ModelingToolLaunchers
+              tableCount={s.usedTableCount}
+              relationshipCount={s.joins.length}
+              onOpen={setToolsTab}
               t={s.t}
             />
-
             <ModelingCanvas
               canvas={s.canvas}
               tableCards={s.tableCards}
@@ -187,31 +93,102 @@ export default function Modeling() {
               }}
               onOpenTableDetail={s.setDetailTable}
               onAddCalcField={() => s.setAddMetricOpen(true)}
-              onAddRelationship={() => s.setEditorOpen(true)}
-              t={s.t}
-            />
-            <JoinEditor
-              open={s.editorOpen}
-              onToggle={s.toggleEditor}
-              joinForm={s.joinForm}
-              onChange={s.updateJoinForm}
-              tableOptions={s.tableOptions}
-              fromColumns={s.fromColumns}
-              toColumns={s.toColumns}
-              fromColumnOptions={s.fromColumnOptions}
-              toColumnOptions={s.toColumnOptions}
-              fromColumnValue={s.fromColumnValue}
-              toColumnValue={s.toColumnValue}
-              selectedFromColumn={s.selectedFromColumn}
-              canSave={s.canSaveJoin}
-              saving={s.savingJoin}
-              loading={s.loading}
-              onSave={() => {
-                void s.saveJoin()
-              }}
+              onAddRelationship={() => setToolsTab('relationship')}
               t={s.t}
             />
           </section>
+
+          <ModelingToolsModal
+            activeTab={toolsTab}
+            onTabChange={setToolsTab}
+            onClose={() => setToolsTab(null)}
+            t={s.t}
+            semanticContent={
+              <ModelingPalette
+                model={s.model}
+                usedTableCount={s.usedTableCount}
+                joins={s.joins}
+                inactiveJoins={s.inactiveJoins}
+                dims={s.dims}
+                inactiveDims={s.inactiveDims}
+                metrics={s.metrics}
+                inactiveMetrics={s.inactiveMetrics}
+                activeTab={s.activeTab}
+                onTabChange={s.setActiveTab}
+                tables={s.tables}
+                includedTables={s.includedTables}
+                excludedSchemas={s.excludedSchemas}
+                tableCards={s.tableCards}
+                tableImpact={s.getTableImpact}
+                suggestedJoins={s.suggestedJoins}
+                highlightJoinId={s.highlightJoinId}
+                onHighlightJoin={s.handleJoinClick}
+                onSchemaToggle={(schemaName, isExcluded) => {
+                  void s.requestSchemaToggle(schemaName, isExcluded)
+                }}
+                onRenameTable={s.renameTable}
+                onMakeBase={(schema, table) => {
+                  void s.requestMakeBase(schema, table)
+                }}
+                onRemoveTable={(schema, table) => {
+                  void s.requestTableRemoval(schema, table)
+                }}
+                onToggleTableVisibility={s.toggleTableVisibility}
+                onOpenBaseSwap={() => s.setBaseSwapOpen(true)}
+                onDeleteJoin={(joinId) => {
+                  void s.deleteJoin(joinId)
+                }}
+                onAddSuggestedJoin={(join) => {
+                  void s.addSuggestedJoin(join)
+                }}
+                onReactivateJoin={(join) => {
+                  void s.reactivateJoin(join)
+                }}
+                onEditDimension={s.setEditingDimension}
+                onEditDimensionValues={s.setEnumDimension}
+                onDeleteDimension={(dimensionId) => {
+                  void s.deleteDimension(dimensionId)
+                }}
+                onReactivateDimension={(dimension) => {
+                  void s.reactivateDimension(dimension)
+                }}
+                onSyncDimensions={() => {
+                  void s.syncDimensions()
+                }}
+                onOpenAddMetric={() => s.setAddMetricOpen(true)}
+                onOpenAddDimension={() => s.setAddDimensionOpen(true)}
+                onEditMetric={s.setEditingMetric}
+                onDeleteMetric={(metricId) => {
+                  void s.deleteMetric(metricId)
+                }}
+                onReactivateMetric={(metric) => {
+                  void s.reactivateMetric(metric)
+                }}
+                t={s.t}
+              />
+            }
+            relationshipContent={
+              <JoinEditor
+                joinForm={s.joinForm}
+                onChange={s.updateJoinForm}
+                tableOptions={s.tableOptions}
+                fromColumns={s.fromColumns}
+                toColumns={s.toColumns}
+                fromColumnOptions={s.fromColumnOptions}
+                toColumnOptions={s.toColumnOptions}
+                fromColumnValue={s.fromColumnValue}
+                toColumnValue={s.toColumnValue}
+                selectedFromColumn={s.selectedFromColumn}
+                canSave={s.canSaveJoin}
+                saving={s.savingJoin}
+                loading={s.loading}
+                onSave={() => {
+                  void s.saveJoin()
+                }}
+                t={s.t}
+              />
+            }
+          />
         </>
       )}
       {s.model && (

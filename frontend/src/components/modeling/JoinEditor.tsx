@@ -3,11 +3,8 @@ import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { modelingFormGroupClass } from '../../lib/formClasses'
 import {
-  modelingEditorClass,
   modelingEditorSideBodyClass,
   modelingKickerClass,
-  modelingRailLabelClass,
-  modelingSideToggleClass,
   modelingTypeHintClass,
 } from '../../lib/modelingClasses'
 import type { ColumnRow } from '../../types/semantic'
@@ -33,8 +30,6 @@ function shortTableName(qualified: string): string {
 type Translate = (key: TranslationKey, vars?: Record<string, string | number>) => string
 
 interface JoinEditorProps {
-  open: boolean
-  onToggle: () => void
   joinForm: JoinForm
   onChange: (patch: Partial<JoinForm>) => void
   tableOptions: SelectOption[]
@@ -53,8 +48,6 @@ interface JoinEditorProps {
 }
 
 export function JoinEditor({
-  open,
-  onToggle,
   joinForm,
   onChange,
   tableOptions,
@@ -73,23 +66,7 @@ export function JoinEditor({
 }: JoinEditorProps) {
   const previewHintKey = joinTypeHintKey(joinForm.joinType)
   return (
-    <aside
-      className={modelingEditorClass(open)}
-      aria-label={t('modeling.relationship_editor_aria')}
-    >
-      <button
-        type="button"
-        className={modelingSideToggleClass('right')}
-        onClick={onToggle}
-        title={open ? t('modeling.collapse_panel') : t('modeling.expand_panel')}
-      >
-        {open ? '›' : '‹'}
-      </button>
-      {!open && (
-        <button type="button" className={modelingRailLabelClass} onClick={onToggle}>
-          {t('modeling.manual_relationship')}
-        </button>
-      )}
+    <div role="region" aria-label={t('modeling.relationship_editor_aria')}>
       <div className={modelingEditorSideBodyClass}>
         <div>
           <span className={modelingKickerClass}>{t('modeling.manual_relationship')}</span>
@@ -235,6 +212,6 @@ export function JoinEditor({
           {saving ? t('common.saving') : t('modeling.add_relationship')}
         </button>
       </div>
-    </aside>
+    </div>
   )
 }
