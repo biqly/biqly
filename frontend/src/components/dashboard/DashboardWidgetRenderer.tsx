@@ -279,24 +279,25 @@ function getWidgetDataStateElement(
   return null
 }
 
-export function DashboardWidgetRenderer({ widget }: { widget: DashboardWidget }) {
-  const { postData, loading, error, abort } = useApi()
+export function DashboardWidgetRenderer({
+  widget,
+  fetchData,
+}: {
+  widget: DashboardWidget
+  fetchData?: (widget: DashboardWidget) => Promise<QueryResultPayload | null>
+}) {
+  const { postData, loading: apiLoading, error: apiError, abort } = useApi()
+  const [extLoading, setExtLoading] = useState(false)
+  const [extError, setExtError] = useState<string | null>(null)
   const [data, setData] = useResetStateOnDepsChange<ChartRow[] | null>(null, [
+    widget.id,
     widget.logical_query,
     widget.type,
   ])
   const [columns, setColumns] = useState<QueryResultPayload['columns']>([])
 
   useEffect(() => {
-    if (widget.type === 'text' || !widget.logical_query) {
-      return
-    }
-
-    let active = true
-    void postData<QueryResultPayload>('/api/query/run', widget.logical_query).then((res) => {
-      if (!active) {
-        return
-      }
+    const applyResult = (res: QueryResultPayload | null) => {
       if (!res) {
         setData([])
         return
@@ -310,13 +311,60 @@ export function DashboardWidgetRenderer({ widget }: { widget: DashboardWidget })
         return obj
       })
       setData(mapped)
+    }
+
+    if (widget.type === 'text') {
+      return
+    }
+
+    let active = true
+
+    if (fetchData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setExtLoading(true)
+      setExtError(null)
+      fetchData(widget)
+        .then((res) => {
+          if (!active) {
+            return
+          }
+          applyResult(res)
+        })
+        .catch((e: unknown) => {
+          if (active) {
+            setExtError(e instanceof Error ? e.message : String(e))
+            setData([])
+          }
+        })
+        .finally(() => {
+          if (active) {
+            setExtLoading(false)
+          }
+        })
+      return () => {
+        active = false
+        setData(null)
+      }
+    }
+
+    if (!widget.logical_query) {
+      return
+    }
+    void postData<QueryResultPayload>('/api/query/run', widget.logical_query).then((res) => {
+      if (!active) {
+        return
+      }
+      applyResult(res)
     })
     return () => {
       active = false
       abort()
       setData(null)
     }
-  }, [widget.logical_query, widget.type, postData, abort, setData])
+  }, [widget, widget.id, widget.logical_query, widget.type, fetchData, postData, abort, setData])
+
+  const loading = fetchData ? extLoading : apiLoading
+  const error = fetchData ? extError : apiError
 
   if (widget.type === 'text') {
     return (
