@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/biqly/biqly/internal/testutil"
+	"github.com/bytedance/sonic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +23,7 @@ func TestSanitizeWidgets(t *testing.T) {
 	out, err := SanitizeWidgets(json.RawMessage(testWidgetsJSON))
 	require.NoError(t, err)
 	var widgets []map[string]any
-	require.NoError(t, json.Unmarshal(out, &widgets))
+	require.NoError(t, sonic.Unmarshal(out, &widgets))
 	require.Len(t, widgets, 2)
 	for _, w := range widgets {
 		assert.NotContains(t, w, "logical_query")

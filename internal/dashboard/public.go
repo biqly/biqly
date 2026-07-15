@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/biqly/biqly/pkg/logicalquery"
+	"github.com/bytedance/sonic"
 )
 
 // ErrShareNotFound is the single error every anonymous-path failure collapses
@@ -34,14 +35,14 @@ func SanitizeWidgets(raw json.RawMessage) (json.RawMessage, error) {
 		return json.RawMessage(`[]`), nil
 	}
 	var widgets []map[string]any
-	if err := json.Unmarshal(raw, &widgets); err != nil {
+	if err := sonic.Unmarshal(raw, &widgets); err != nil {
 		return nil, fmt.Errorf("parse widgets: %w", err)
 	}
 	for _, w := range widgets {
 		delete(w, "logical_query")
 		delete(w, "saved_query_id")
 	}
-	out, err := json.Marshal(widgets)
+	out, err := sonic.Marshal(widgets)
 	if err != nil {
 		return nil, fmt.Errorf("marshal sanitized widgets: %w", err)
 	}
@@ -103,7 +104,7 @@ func (r *PublicResolver) ResolveWidgetQuery(ctx context.Context, plainToken, wid
 		ID           string                     `json:"id"`
 		LogicalQuery *logicalquery.LogicalQuery `json:"logical_query"`
 	}
-	if err := json.Unmarshal(d.Widgets, &widgets); err != nil {
+	if err := sonic.Unmarshal(d.Widgets, &widgets); err != nil {
 		return nil, fmt.Errorf("parse widgets: %w", err)
 	}
 	for _, w := range widgets {
