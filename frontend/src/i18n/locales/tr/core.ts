@@ -2088,6 +2088,12 @@ export const core: CoreDictionary = {
     builder_configure_widget_title: 'Widget yapılandır',
     builder_text_content_placeholder: 'Metin/markdown buraya yazın…',
   },
+  publicDashboard: {
+    loading: 'Pano yükleniyor…',
+    not_found_title: 'Pano kullanılamıyor',
+    not_found_desc: 'Bu pano mevcut değil veya paylaşım devre dışı bırakılmış.',
+    powered_by: 'Sağlayan',
+  },
   composites: {
     title: 'Composite Modeller',
     subtitle:

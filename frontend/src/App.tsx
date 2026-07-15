@@ -113,6 +113,7 @@ const ResetPasswordPage = lazyWithPreload(() => import('./components/auth/ResetP
 const VerifyEmailPage = lazyWithPreload(() => import('./components/auth/VerifyEmailPage'))
 const OAuthCallback = lazyWithPreload(() => import('./components/auth/OAuthCallback'))
 const ClaimInvitePage = lazyWithPreload(() => import('./components/auth/ClaimInvitePage'))
+const PublicDashboardPage = lazy(() => import('./components/public/PublicDashboardPage'))
 
 import { AuthGuard, GuestGuard } from './components/auth/AuthGuard'
 import { useAuth } from './components/auth/AuthProvider'
@@ -811,6 +812,15 @@ function App() {
           }
         />
       </Route>
+
+      <Route
+        path="/public/dashboard/:token"
+        element={
+          <Suspense fallback={<LoadingScreen />}>
+            <PublicDashboardPage />
+          </Suspense>
+        }
+      />
 
       <Route
         path="*"

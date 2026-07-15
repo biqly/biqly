@@ -2082,6 +2082,12 @@ export const core = {
     builder_configure_widget_title: 'Configure widget',
     builder_text_content_placeholder: 'Write text/markdown here…',
   },
+  publicDashboard: {
+    loading: 'Loading dashboard…',
+    not_found_title: 'Dashboard unavailable',
+    not_found_desc: 'This dashboard does not exist or sharing has been disabled.',
+    powered_by: 'Powered by',
+  },
   composites: {
     title: 'Composite Models',
     subtitle: 'Combine multiple semantic models to build cross-domain query models.',
