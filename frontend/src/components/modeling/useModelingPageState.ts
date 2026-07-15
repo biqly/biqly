@@ -136,10 +136,6 @@ export function useModelingPageState() {
   useEffect(() => {
     highlightJoinIdRef.current = highlightJoinId
   }, [highlightJoinId])
-  const [paletteOpen, setPaletteOpen] = useState(
-    () => typeof window === 'undefined' || !window.matchMedia('(max-width: 1180px)').matches,
-  )
-  const [editorOpen, setEditorOpen] = useState(false)
   const prevDsRef = useRef(datasourceId)
 
   const isLocked = useMemo(() => {
@@ -804,34 +800,6 @@ export function useModelingPageState() {
 
   const pageLoading = dsLoading || modelsLoading || (modelId ? modelDetailLoading : false)
 
-  const togglePalette = useCallback(() => {
-    setPaletteOpen((prev) => {
-      const next = !prev
-      if (next && window.matchMedia('(max-width: 1180px)').matches) {
-        setEditorOpen(false)
-      }
-      return next
-    })
-  }, [])
-
-  const toggleEditor = useCallback(() => {
-    setEditorOpen((prev) => {
-      const next = !prev
-      if (next && window.matchMedia('(max-width: 1180px)').matches) {
-        setPaletteOpen(false)
-      }
-      return next
-    })
-  }, [])
-
-  const closeMobilePanels = useCallback(() => {
-    if (!window.matchMedia('(max-width: 1180px)').matches) {
-      return
-    }
-    setPaletteOpen(false)
-    setEditorOpen(false)
-  }, [])
-
   return {
     t,
     dsParam,
@@ -848,13 +816,6 @@ export function useModelingPageState() {
     pageLoading,
     creatingModel,
     publishing,
-    paletteOpen,
-    setPaletteOpen,
-    togglePalette,
-    editorOpen,
-    setEditorOpen,
-    toggleEditor,
-    closeMobilePanels,
     activeTab,
     setActiveTab,
     joins,

@@ -1487,6 +1487,12 @@ export const core = {
     expand_panel: 'Expand panel',
     open_semantic_panel: 'Open semantic panel',
     open_join_panel: 'Open relationship editor',
+    tools_modal_title: 'Model tools',
+    tools_modal_subtitle:
+      'Shape the semantic model and create join paths without leaving the canvas.',
+    tools_tabs_aria: 'Model tool workflows',
+    tools_tables_count: '{{count}} tables',
+    tools_relationships_count: '{{count}} relationships',
     model_summary_aria: 'Model summary',
     semantic_layer: 'Semantic layer',
     no_model_selected: 'No model selected',

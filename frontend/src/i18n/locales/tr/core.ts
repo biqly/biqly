@@ -1435,6 +1435,12 @@ export const core: CoreDictionary = {
     expand_panel: 'Paneli genişlet',
     open_semantic_panel: 'Semantik paneli aç',
     open_join_panel: 'İlişki düzenleyiciyi aç',
+    tools_modal_title: 'Model araçları',
+    tools_modal_subtitle:
+      'Tuvalden ayrılmadan semantik modeli şekillendirin ve join yolları oluşturun.',
+    tools_tabs_aria: 'Model aracı iş akışları',
+    tools_tables_count: '{{count}} tablo',
+    tools_relationships_count: '{{count}} ilişki',
     model_summary_aria: 'Model özeti',
     semantic_layer: 'Semantik katman',
     no_model_selected: 'Model seçilmedi',

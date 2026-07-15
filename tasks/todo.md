@@ -5388,3 +5388,28 @@ Add logical-only complex golden cases to the nightly AI eval so live LLM runs me
 - Gates: `go build ./...`, `go test ./internal/ai/... -count=1`, `make eval-regression` (also scanned for FAIL), `make lint-go` all passed.
 - Prompt/normalization ambiguity found: prompt rules say `order_by` only when asked, but service post-processing auto-adds ascending `order_by` for grouped time-grain dimensions. Monthly complex goldens include that final normalized shape so stub/live scoring matches the actual service output.
 - Window case skipped: prompt rules mention windows, but `LogicalQuerySchema` currently omits `window` from the select enum/schema; adding a window golden would measure schema/prompt inconsistency rather than live model behavior.
+
+## Modeling tools modal UX (2026-07-15)
+
+Success criteria:
+
+- Semantic Layer and Manual Relationship no longer consume permanent canvas columns.
+- Two clear canvas launchers open one shared modal directly on the intended tab.
+- The table-card relationship action opens the same modal on the relationship tab.
+- Existing semantic-model and relationship form behavior remains unchanged.
+- Modal focus, keyboard, responsive, and translation behavior is accessible.
+
+- [x] Confirm the single-modal/two-launcher interaction and document the design.
+- [x] Map existing panel state, modal primitives, styling, translations, and tests without touching concurrent work.
+- [x] Add focused failing tests for launchers and the shared modal tab contract.
+- [x] Implement the full-width canvas, shared modal, and content-only tools.
+- [x] Remove obsolete sidebar state/styles and add EN/TR modal copy.
+- [~] Run focused tests, `make check-frontend`, visual QA, and diff hygiene checks.
+
+Review:
+
+- DONE: The canvas now uses one full-width column with a two-action tool dock. Both actions and table-card relationship shortcuts open one shared modal on the correct workflow.
+- DONE: Semantic Layer and Manual Relationship retain their existing data/action wiring as modal content; viewport-specific sidebar state and mobile panel controls were removed.
+- DONE: The modal has responsive tab navigation, arrow-key switching, active-tab initial focus, focus trapping/restoration through `ui/Modal`, reduced-motion support, and EN/TR copy.
+- Verification: focused modeling tests passed (3 files / 6 tests); `make check-frontend` passed (82 files / 453 tests, ESLint, Tailwind diagnostics, Prettier, knip, TypeScript, and production build); `git diff --check` passed.
+- Visual QA PARTIAL: layout and responsive behavior were reviewed against the supplied authenticated screenshots and current Web Interface Guidelines. Local frontend/API/auth services were not running, so no authenticated runtime screenshot or browser interaction claim is made.

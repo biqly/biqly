@@ -60,7 +60,9 @@ export function Modal({
     const dialog = dialogRef.current
 
     // Prioritize [autoFocus] or elements in .modal-body over the close button in the header
-    const autoFocusEl = dialog?.querySelector<HTMLElement>('[autofocus], [autoFocus]')
+    const autoFocusEl = dialog?.querySelector<HTMLElement>(
+      '[data-modal-autofocus="true"], [autofocus], [autoFocus]',
+    )
     if (autoFocusEl) {
       autoFocusEl.focus()
     } else {

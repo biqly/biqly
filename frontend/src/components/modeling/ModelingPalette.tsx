@@ -20,17 +20,14 @@ import {
   modelingJoinPillClass,
   modelingJoinPillHeaderClass,
   modelingKickerClass,
-  modelingPaletteClass,
   modelingPaletteSideBodyClass,
   modelingPillActionsClass,
-  modelingRailLabelClass,
   modelingRenameBtnClass,
   modelingSchemaTagClass,
   modelingSchemaTagListClass,
   modelingSchemaTagNameClass,
   modelingSchemaTagToggleClass,
   modelingSectionHeaderClass,
-  modelingSideToggleClass,
   modelingTabClass,
   modelingTabContentClass,
   modelingTabCountClass,
@@ -53,8 +50,6 @@ interface EntityImpact {
 }
 
 interface ModelingPaletteProps {
-  open: boolean
-  onToggle: () => void
   model: SemanticModelDetail | null
   usedTableCount: number
   joins: SemanticJoin[]
@@ -231,8 +226,6 @@ function TreeLeafRow({
 }
 
 export function ModelingPalette({
-  open,
-  onToggle,
   model,
   usedTableCount,
   joins,
@@ -603,20 +596,7 @@ export function ModelingPalette({
   }
 
   return (
-    <aside className={modelingPaletteClass(open)} aria-label={t('modeling.model_summary_aria')}>
-      <button
-        type="button"
-        className={modelingSideToggleClass('left')}
-        onClick={onToggle}
-        title={open ? t('modeling.collapse_panel') : t('modeling.expand_panel')}
-      >
-        {open ? '‹' : '›'}
-      </button>
-      {!open && (
-        <button type="button" className={modelingRailLabelClass} onClick={onToggle}>
-          {t('modeling.semantic_layer')}
-        </button>
-      )}
+    <div role="region" aria-label={t('modeling.model_summary_aria')}>
       <div className={modelingPaletteSideBodyClass}>
         <div>
           <span className={modelingKickerClass}>{t('modeling.semantic_layer')}</span>
@@ -863,6 +843,6 @@ export function ModelingPalette({
           )}
         </div>
       </div>
-    </aside>
+    </div>
   )
 }
