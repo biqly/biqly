@@ -192,7 +192,7 @@ export function ModelingToolsModal({
 
         <section
           id={isSemantic ? 'modeling-tools-panel-semantic' : 'modeling-tools-panel-relationship'}
-          className="bg-card max-h-[min(72vh,48rem)] min-h-[32rem] overflow-y-auto overscroll-contain max-[760px]:min-h-0"
+          className="bg-card max-h-[min(72vh,48rem)] min-h-128 overflow-y-auto overscroll-contain max-[760px]:min-h-0"
           role="tabpanel"
           aria-labelledby={
             isSemantic ? 'modeling-tools-tab-semantic' : 'modeling-tools-tab-relationship'

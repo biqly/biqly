@@ -33,6 +33,21 @@ func TestSanitizeWidgets(t *testing.T) {
 	assert.Equal(t, "hello", widgets[1]["content"])
 }
 
+func TestSanitizeWidgetsEdgeCases(t *testing.T) {
+	// Empty input short-circuits to an empty array.
+	out, err := SanitizeWidgets(nil)
+	require.NoError(t, err)
+	assert.Equal(t, `[]`, string(out))
+
+	out, err = SanitizeWidgets(json.RawMessage(``))
+	require.NoError(t, err)
+	assert.Equal(t, `[]`, string(out))
+
+	// Malformed JSON surfaces a parse error.
+	_, err = SanitizeWidgets(json.RawMessage(`{not json`))
+	assert.Error(t, err)
+}
+
 func TestPublicResolver(t *testing.T) {
 	db := testutil.OpenMetadataDB(t)
 	ctx := context.Background()
