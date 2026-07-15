@@ -47,6 +47,7 @@ route:
     - /api/drift
     - /api/permissions
     - /api/dashboards
+    - /api/public/dashboards
     - /health
     - /ready
     - /metrics

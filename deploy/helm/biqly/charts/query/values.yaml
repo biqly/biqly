@@ -44,6 +44,7 @@ route:
   pathPrefixes:
     - /api/query
     - /api/audit/query
+    - /api/public/widget-query
   # Logical-query compile+execute can exceed Envoy's 15s default route timeout.
   timeouts:
     request: 120s
