@@ -45,7 +45,11 @@ func (h *DashboardShareHandler) shareScope(w http.ResponseWriter, r *http.Reques
 	}
 	d, err := h.dashes.Get(r.Context(), id, wsID)
 	if err != nil {
-		writeEntityNotFound(w, "dashboard")
+		if errors.Is(err, sql.ErrNoRows) {
+			writeEntityNotFound(w, "dashboard")
+			return "", "", false
+		}
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to get dashboard", err)
 		return "", "", false
 	}
 	if d.WorkspaceID == nil || *d.WorkspaceID == "" {

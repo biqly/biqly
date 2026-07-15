@@ -95,11 +95,15 @@ type Dependencies struct {
 	DashboardRepo      *dashboard.Repository
 	DashboardShareRepo *dashboard.ShareRepository
 	PublicResolver     *dashboard.PublicResolver
-	DriftRepo          *drift.Repository
-	DriftDetector      *drift.Detector
-	DriftNotifier      *drift.Notifier
-	DriftScheduler     *drift.Scheduler
-	ABRouter           *abtest.TrafficRouter
+	// PublicShareRedis backs the (future) rate limiter and cache for the
+	// anonymous public dashboard endpoint. nil when Redis is not configured
+	// or unreachable — callers MUST tolerate nil.
+	PublicShareRedis *redis.Client
+	DriftRepo        *drift.Repository
+	DriftDetector    *drift.Detector
+	DriftNotifier    *drift.Notifier
+	DriftScheduler   *drift.Scheduler
+	ABRouter         *abtest.TrafficRouter
 }
 
 // CatalogDeps holds the subset of dependencies needed for the Catalog service
@@ -116,6 +120,7 @@ type CatalogDeps struct {
 	DashboardRepo      *dashboard.Repository
 	DashboardShareRepo *dashboard.ShareRepository
 	PublicResolver     *dashboard.PublicResolver
+	PublicShareRedis   *redis.Client
 	AuditLogger        *audit.Logger
 	PIIPolicies        *core.PIIPolicyService
 	DriftRepo          *drift.Repository
@@ -137,6 +142,7 @@ func (d *Dependencies) CatalogDeps() *CatalogDeps {
 		DashboardRepo:      d.DashboardRepo,
 		DashboardShareRepo: d.DashboardShareRepo,
 		PublicResolver:     d.PublicResolver,
+		PublicShareRedis:   d.PublicShareRedis,
 		AuditLogger:        d.AuditLogger,
 		PIIPolicies:        d.PIIPolicies,
 		DriftRepo:          d.DriftRepo,
@@ -281,6 +287,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 	dashboardRepo := dashboard.NewRepository(db)
 	dashboardShareRepo := dashboard.NewShareRepository(db)
 	publicResolver := dashboard.NewPublicResolver(db)
+	publicShareRedis := providePublicShareRedis(ctx, cfg)
 
 	encryptor := provideEncryptor(ctx, db, true)
 
@@ -364,6 +371,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		DashboardRepo:      dashboardRepo,
 		DashboardShareRepo: dashboardShareRepo,
 		PublicResolver:     publicResolver,
+		PublicShareRedis:   publicShareRedis,
 		DriftRepo:          driftRepo,
 		DriftDetector:      driftDetector,
 		DriftNotifier:      driftNotifier,

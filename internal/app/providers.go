@@ -81,6 +81,31 @@ func provideCompositeCache(ctx context.Context, cfg *config.Config) semantic.Res
 	return semantic.NewRedisCompositeCache(client, time.Hour)
 }
 
+// providePublicShareRedis builds the shared Redis client backing the public
+// dashboard share rate limiter and cache. It returns nil (feature degrades to
+// disabled) when Redis is not configured or unreachable, mirroring
+// provideCompositeCache's fallback behavior.
+func providePublicShareRedis(ctx context.Context, cfg *config.Config) *redis.Client {
+	if cfg.Redis.DSN == "" {
+		return nil
+	}
+	opt, err := redis.ParseURL(cfg.Redis.DSN)
+	if err != nil {
+		slog.Warn("public share Redis DSN parse failed; rate limiter and cache disabled", "error", err)
+		return nil
+	}
+	client := redis.NewClient(opt)
+	if instrErr := observability.InstrumentRedis(client, "biqly-dragonfly"); instrErr != nil {
+		slog.Warn("public share Redis tracing instrumentation failed", "error", instrErr)
+	}
+	if pingErr := client.Ping(ctx).Err(); pingErr != nil {
+		slog.Warn("public share Redis ping failed; rate limiter and cache disabled", "error", pingErr)
+		return nil
+	}
+	slog.Info("Public share Redis initialized")
+	return client
+}
+
 func provideCompositeLimits(cfg *config.Config) semantic.CompositeLimits {
 	return semantic.CompositeLimits{
 		MaxComponents:   cfg.Composite.MaxComponents,
