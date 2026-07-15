@@ -206,6 +206,7 @@ func (h *RBACHandler) RegisterInternalRoutes(r chi.Router, internalMW func(http.
 		r.Post("/check-datasource-access", h.handleInternalCheckDSAccess)
 		r.Get("/user/{id}/workspaces", h.handleInternalUserWorkspaces)
 		r.Get("/workspaces/{id}/datasources", h.handleInternalWorkspaceDatasources)
+		r.Get("/workspaces/{id}/public-sharing", h.handleInternalWorkspacePublicSharing)
 		r.Post("/invalidate-cache", h.handleInternalInvalidateCache)
 		r.Get("/public-key", h.handleInternalPublicKey)
 		r.Get("/user/{id}", h.handleInternalGetUser)
@@ -320,14 +321,15 @@ func (h *RBACHandler) handleUpdateWorkspace(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	req, ok := decodeJSON[struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		MFARequired *bool  `json:"mfa_required"`
+		Name                 string `json:"name"`
+		Description          string `json:"description"`
+		MFARequired          *bool  `json:"mfa_required"`
+		PublicSharingEnabled *bool  `json:"public_sharing_enabled"`
 	}](w, r)
 	if !ok {
 		return
 	}
-	ws, err := h.deps.Ws.Update(r.Context(), chi.URLParam(r, "id"), userID, req.Name, req.Description, req.MFARequired)
+	ws, err := h.deps.Ws.Update(r.Context(), chi.URLParam(r, "id"), userID, req.Name, req.Description, req.MFARequired, req.PublicSharingEnabled)
 	if err != nil {
 		writeError(w, r, http.StatusForbidden, err)
 		return
@@ -996,6 +998,19 @@ func (h *RBACHandler) handleInternalWorkspaceDatasources(w http.ResponseWriter, 
 		ids = append(ids, wd.DatasourceID)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"datasource_ids": ids})
+}
+
+func (h *RBACHandler) handleInternalWorkspacePublicSharing(w http.ResponseWriter, r *http.Request) {
+	enabled, err := h.deps.Ws.IsPublicSharingEnabled(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		if errors.Is(err, workspace.ErrWorkspaceNotFound) {
+			writeError(w, r, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"enabled": enabled})
 }
 
 func (h *RBACHandler) handleInternalInvalidateCache(w http.ResponseWriter, r *http.Request) {

@@ -20,15 +20,16 @@ var (
 )
 
 type Workspace struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Slug        string    `json:"slug"`
-	Description *string   `json:"description,omitempty"`
-	IsPersonal  bool      `json:"is_personal"`
-	MFARequired bool      `json:"mfa_required"`
-	CreatedBy   string    `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID                   string    `json:"id"`
+	Name                 string    `json:"name"`
+	Slug                 string    `json:"slug"`
+	Description          *string   `json:"description,omitempty"`
+	IsPersonal           bool      `json:"is_personal"`
+	MFARequired          bool      `json:"mfa_required"`
+	PublicSharingEnabled bool      `json:"public_sharing_enabled"`
+	CreatedBy            string    `json:"created_by"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
 }
 
 type Member struct {
@@ -75,9 +76,9 @@ func (s *Service) Create(ctx context.Context, name, description, createdBy strin
 		if err := tx.QueryRowContext(ctx, `
 			INSERT INTO workspaces (name, slug, description, is_personal, created_by)
 			VALUES ($1, $2, $3, FALSE, $4)
-			RETURNING id, name, slug, description, is_personal, mfa_required, created_by, created_at, updated_at
+			RETURNING id, name, slug, description, is_personal, mfa_required, public_sharing_enabled, created_by, created_at, updated_at
 		`, name, slug, desc, createdBy).Scan(
-			&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired,
+			&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired, &ws.PublicSharingEnabled,
 			&ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt,
 		); err != nil {
 			return fmt.Errorf("insert workspace: %w", err)
@@ -110,9 +111,9 @@ func (s *Service) Get(ctx context.Context, id string) (*Workspace, error) {
 	var ws Workspace
 	var desc sql.NullString
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, name, slug, description, is_personal, mfa_required, created_by, created_at, updated_at
+		SELECT id, name, slug, description, is_personal, mfa_required, public_sharing_enabled, created_by, created_at, updated_at
 		FROM workspaces WHERE id = $1
-	`, id).Scan(&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired, &ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt)
+	`, id).Scan(&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired, &ws.PublicSharingEnabled, &ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrWorkspaceNotFound
 	}
@@ -127,7 +128,7 @@ func (s *Service) Get(ctx context.Context, id string) (*Workspace, error) {
 
 func (s *Service) ListForUser(ctx context.Context, userID string) ([]Workspace, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT w.id, w.name, w.slug, w.description, w.is_personal, w.mfa_required, w.created_by, w.created_at, w.updated_at
+		SELECT w.id, w.name, w.slug, w.description, w.is_personal, w.mfa_required, w.public_sharing_enabled, w.created_by, w.created_at, w.updated_at
 		FROM workspaces w
 		JOIN workspace_members wm ON w.id = wm.workspace_id
 		WHERE wm.user_id = $1
@@ -142,7 +143,7 @@ func (s *Service) ListForUser(ctx context.Context, userID string) ([]Workspace, 
 	for rows.Next() {
 		var ws Workspace
 		var desc sql.NullString
-		if err := rows.Scan(&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired, &ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt); err != nil {
+		if err := rows.Scan(&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired, &ws.PublicSharingEnabled, &ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if desc.Valid {
@@ -155,7 +156,7 @@ func (s *Service) ListForUser(ctx context.Context, userID string) ([]Workspace, 
 
 func (s *Service) ListAll(ctx context.Context) ([]Workspace, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, slug, description, is_personal, mfa_required, created_by, created_at, updated_at
+		SELECT id, name, slug, description, is_personal, mfa_required, public_sharing_enabled, created_by, created_at, updated_at
 		FROM workspaces
 		ORDER BY is_personal DESC, name
 	`)
@@ -168,7 +169,7 @@ func (s *Service) ListAll(ctx context.Context) ([]Workspace, error) {
 	for rows.Next() {
 		var ws Workspace
 		var desc sql.NullString
-		if err := rows.Scan(&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired, &ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt); err != nil {
+		if err := rows.Scan(&ws.ID, &ws.Name, &ws.Slug, &desc, &ws.IsPersonal, &ws.MFARequired, &ws.PublicSharingEnabled, &ws.CreatedBy, &ws.CreatedAt, &ws.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if desc.Valid {
@@ -182,7 +183,7 @@ func (s *Service) ListAll(ctx context.Context) ([]Workspace, error) {
 	return list, nil
 }
 
-func (s *Service) Update(ctx context.Context, id, callerID, name, description string, mfaRequired *bool) (*Workspace, error) {
+func (s *Service) Update(ctx context.Context, id, callerID, name, description string, mfaRequired, publicSharing *bool) (*Workspace, error) {
 	if err := s.requireOwner(ctx, id, callerID); err != nil {
 		return nil, err
 	}
@@ -201,6 +202,11 @@ func (s *Service) Update(ctx context.Context, id, callerID, name, description st
 	}
 	if mfaRequired != nil {
 		if err := s.SetMFARequired(ctx, id, callerID, *mfaRequired); err != nil {
+			return nil, err
+		}
+	}
+	if publicSharing != nil {
+		if err := s.SetPublicSharingEnabled(ctx, id, callerID, *publicSharing); err != nil {
 			return nil, err
 		}
 	}
@@ -360,6 +366,30 @@ func (s *Service) SetMFARequired(ctx context.Context, workspaceID, callerID stri
 		UPDATE workspaces SET mfa_required = $1, updated_at = NOW()
 		WHERE id = $2
 	`, required, workspaceID)
+	return err
+}
+
+// IsPublicSharingEnabled reports the workspace public-share kill-switch.
+func (s *Service) IsPublicSharingEnabled(ctx context.Context, workspaceID string) (bool, error) {
+	var enabled bool
+	err := s.db.QueryRowContext(ctx,
+		`SELECT public_sharing_enabled FROM workspaces WHERE id = $1`,
+		workspaceID).Scan(&enabled)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, ErrWorkspaceNotFound
+	}
+	return enabled, err
+}
+
+// SetPublicSharingEnabled toggles public dashboard sharing for a workspace.
+func (s *Service) SetPublicSharingEnabled(ctx context.Context, workspaceID, callerID string, enabled bool) error {
+	if err := s.requireOwnerOrAdmin(ctx, workspaceID, callerID); err != nil {
+		return err
+	}
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE workspaces SET public_sharing_enabled = $1, updated_at = NOW()
+		WHERE id = $2
+	`, enabled, workspaceID)
 	return err
 }
 
