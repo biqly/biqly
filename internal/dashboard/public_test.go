@@ -39,13 +39,14 @@ func TestPublicResolver(t *testing.T) {
 	createShareTestTables(ctx, t, db)
 
 	ws := "11111111-1111-1111-1111-111111111111"
+	creator := "33333333-3333-3333-3333-333333333333"
 	d := &Dashboard{WorkspaceID: new(ws), Name: "pub", Widgets: json.RawMessage(testWidgetsJSON)}
 	require.NoError(t, NewRepository(db).Create(ctx, d))
 
 	tok, err := GenerateShareToken()
 	require.NoError(t, err)
 	require.NoError(t, NewShareRepository(db).Rotate(ctx, &PublicShare{
-		DashboardID: d.ID, WorkspaceID: ws, TokenHash: HashShareToken(tok),
+		DashboardID: d.ID, WorkspaceID: ws, TokenHash: HashShareToken(tok), CreatedBy: creator,
 	}))
 
 	res := NewPublicResolver(db)
@@ -68,6 +69,9 @@ func TestPublicResolver(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, ws, q.WorkspaceID)
 		assert.Equal(t, "ds-1", q.LogicalQuery.DatasourceID)
+		// CreatedBy must carry the share creator's identity so the anonymous
+		// execution path can re-apply the creator's PII masking / RLS policy.
+		assert.Equal(t, creator, q.CreatedBy)
 	})
 
 	t.Run("text widget and unknown widget are ErrShareNotFound", func(t *testing.T) {

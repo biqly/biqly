@@ -24,7 +24,12 @@ type PublicDashboardView struct {
 
 // PublicWidgetQuery is the server-side execution input for one widget.
 type PublicWidgetQuery struct {
-	WorkspaceID  string
+	WorkspaceID string
+	// CreatedBy is the share creator's user ID. The anonymous execution path
+	// injects it as the request identity so PII masking / RLS resolve against
+	// the creator's policy — an anonymous viewer never sees more than the
+	// creator (an authenticated user who chose to share) would.
+	CreatedBy    string
 	LogicalQuery *logicalquery.LogicalQuery
 }
 
@@ -109,7 +114,7 @@ func (r *PublicResolver) ResolveWidgetQuery(ctx context.Context, plainToken, wid
 	}
 	for _, w := range widgets {
 		if w.ID == widgetID && w.LogicalQuery != nil {
-			return &PublicWidgetQuery{WorkspaceID: share.WorkspaceID, LogicalQuery: w.LogicalQuery}, nil
+			return &PublicWidgetQuery{WorkspaceID: share.WorkspaceID, CreatedBy: share.CreatedBy, LogicalQuery: w.LogicalQuery}, nil
 		}
 	}
 	return nil, ErrShareNotFound

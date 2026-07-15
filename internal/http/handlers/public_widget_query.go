@@ -9,6 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/biqly/biqly/internal/dashboard"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 )
 
 // PublicWidgetQueryHandler executes the stored logical query of one widget of
@@ -77,6 +78,15 @@ func (h *PublicWidgetQueryHandler) Run(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	// Execute under the share creator's identity. The /api/public/* routes have
+	// no auth middleware, so without this the query would run with an empty
+	// identity — bypassing PII masking and row-level security entirely. Scoping
+	// to the creator (an authenticated user who chose to share the dashboard)
+	// guarantees an anonymous viewer never sees more data than the creator
+	// would in-app. When wq.CreatedBy is empty (legacy share with no creator
+	// recorded) this sets an empty string, identical to prior behavior.
+	ctx = bimw.WithUserID(ctx, wq.CreatedBy)
 
 	result, se := h.runner.RunWithModel(ctx, wq.LogicalQuery, nil)
 	if se != nil {

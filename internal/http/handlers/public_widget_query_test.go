@@ -11,6 +11,7 @@ import (
 
 	"github.com/biqly/biqly/internal/core"
 	"github.com/biqly/biqly/internal/dashboard"
+	bimw "github.com/biqly/biqly/internal/http/middleware"
 	pkgquery "github.com/biqly/biqly/internal/query"
 	"github.com/biqly/biqly/internal/semantic"
 	"github.com/biqly/biqly/internal/testutil"
@@ -26,6 +27,7 @@ import (
 type stubQueryRunner struct {
 	calls  int
 	gotLQ  *pkgquery.LogicalQuery
+	gotCtx context.Context
 	result *core.RunResult
 	svcErr *core.ServiceError
 }
@@ -42,9 +44,10 @@ func (*stubQueryRunner) CompileWithModel(context.Context, *pkgquery.LogicalQuery
 	return nil, nil
 }
 
-func (s *stubQueryRunner) RunWithModel(_ context.Context, lq *pkgquery.LogicalQuery, _ *semantic.SemanticModel) (*core.RunResult, *core.ServiceError) {
+func (s *stubQueryRunner) RunWithModel(ctx context.Context, lq *pkgquery.LogicalQuery, _ *semantic.SemanticModel) (*core.RunResult, *core.ServiceError) {
 	s.calls++
 	s.gotLQ = lq
+	s.gotCtx = ctx
 	return s.result, s.svcErr
 }
 
@@ -132,6 +135,19 @@ func TestPublicWidgetQueryHandler_Run(t *testing.T) {
 		assert.NotEqual(t, "attacker-ds-000", runner.gotLQ.DatasourceID)
 		// Response carries the runner's result payload.
 		assert.Contains(t, rec.Body.String(), "sentinel_col")
+	})
+
+	t.Run("query runs under the share creator's identity so PII masking / RLS re-apply", func(t *testing.T) {
+		runner := &stubQueryRunner{result: cannedResult}
+		rec := post(newRouter(runner, true), token, "w1", "")
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Equal(t, 1, runner.calls)
+		require.NotNil(t, runner.gotCtx)
+		// The anonymous request path has no auth middleware; the handler must
+		// inject the share creator's user ID so PIIPolicyService resolves the
+		// creator's masking config and row filters instead of running unscoped.
+		assert.Equal(t, testUserID, bimw.UserID(runner.gotCtx),
+			"RunWithModel must receive the share creator's identity, not an empty one")
 	})
 
 	t.Run("malicious body is fully ignored even for a valid empty-body request", func(t *testing.T) {
