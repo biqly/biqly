@@ -5413,3 +5413,34 @@ Review:
 - DONE: The modal has responsive tab navigation, arrow-key switching, active-tab initial focus, focus trapping/restoration through `ui/Modal`, reduced-motion support, and EN/TR copy.
 - Verification: focused modeling tests passed (3 files / 6 tests); `make check-frontend` passed (82 files / 453 tests, ESLint, Tailwind diagnostics, Prettier, knip, TypeScript, and production build); `git diff --check` passed.
 - Visual QA PARTIAL: layout and responsive behavior were reviewed against the supplied authenticated screenshots and current Web Interface Guidelines. Local frontend/API/auth services were not running, so no authenticated runtime screenshot or browser interaction claim is made.
+
+## prag routed PostgreSQL connectivity diagnosis (2026-07-15)
+
+Success criteria:
+
+- Reproduce the local `192.168.0.164:5432` timeout with a bounded probe.
+- Identify the first failing hop across local client, Zima/OpenWrt, prag node, Kubernetes Service, endpoint, and PostgreSQL listener.
+- Distinguish route/NAT/firewall, Cilium/NetworkPolicy, Service exposure, and listener causes with live evidence.
+- If a safe persistent fix is in scope, apply the minimum change and prove the original probe succeeds; otherwise document the exact required change.
+
+- [x] Capture local route and TCP baseline.
+- [x] Inspect Zima forwarding, firewall, and return-path state.
+- [x] Inspect prag Kubernetes Service, endpoints, policies, and PostgreSQL listener.
+- [x] Cross-test each hop and identify the root cause.
+- [x] Apply the minimum persistent fix if authorized and verify end to end.
+
+Review:
+
+- Root cause: `prag-postgresql` was a ClusterIP-only Service, so
+  `192.168.0.164` was unowned. OpenWrt/Tailscale carried the SYNs to prag, but
+  no Service/VIP could answer them.
+- Changed `/Users/baris.dogu/src/prag-postgresql/values.yaml` so the Helm-owned
+  Service uses Cilium LoadBalancer VIP `192.168.0.164`, restricted by
+  `loadBalancerSourceRanges` to Zima's observed `100.94.156.3/32` source.
+- Deployed Helm revision 6. Cilium reports IPAM satisfied and holds the
+  `cilium-l2announce-postgresql-prag-postgresql` lease; the ready endpoint is
+  `10.42.0.126:5432` and the PostgreSQL pod remained `2/2 Running` without a
+  rollout.
+- Verification: local `nc -zv -w 5 192.168.0.164 5432` succeeded, the same
+  probe from Zima succeeded, `pg_isready` reported accepting connections,
+  `helm lint` passed, and both worktrees passed `git diff --check`.

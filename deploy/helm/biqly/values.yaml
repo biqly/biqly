@@ -29,6 +29,7 @@ global:
   gateway:
     enabled: true
     # Envoy Gateway (envoy-gateway-system/eg-gw) terminates LAN HTTP/HTTPS.
+    # Public ingress: Cloudflare Tunnel → eg-gw-http (see deploy/infra/cloudflared/).
     # Single parentRef — both listeners are on the same Gateway resource.
     parentRef:
       name: eg-gw
@@ -357,6 +358,7 @@ catalog:
       - /api/drift
       - /api/permissions
       - /api/dashboards
+      - /api/public/dashboards
       - /health
       - /ready
       - /metrics
@@ -390,6 +392,7 @@ query:
     pathPrefixes:
       - /api/query
       - /api/audit/query
+      - /api/public/widget-query
     # Envoy's default route timeout is 15s; logical-query compile+execute can
     # legitimately exceed it (BI_QUERY_TIMEOUT_SECONDS budget + overhead).
     timeouts:

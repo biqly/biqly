@@ -1,0 +1,28 @@
+# Stable in-cluster HTTP entrypoint for Gateway API routes on eg-gw.
+# Envoy Gateway also creates envoy-envoy-gateway-system-eg-gw-<hash> with a
+# changing suffix when the Gateway is recreated; cloudflared and other in-cluster
+# clients should use this Service DNS instead.
+#
+# Apply:
+#   kubectl apply -f deploy/infra/envoy-gateway/eg-gw-http-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: eg-gw-http
+  namespace: envoy-gateway-system
+  labels:
+    app.kubernetes.io/part-of: envoy-gateway
+    gateway.envoyproxy.io/owning-gateway-name: eg-gw
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/component: proxy
+    app.kubernetes.io/managed-by: envoy-gateway
+    app.kubernetes.io/name: envoy
+    gateway.envoyproxy.io/owning-gateway-name: eg-gw
+    gateway.envoyproxy.io/owning-gateway-namespace: envoy-gateway-system
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

@@ -1,0 +1,92 @@
+# Cloudflare Tunnel Configuration
+# This file is used by the cloudflared daemon
+
+# Tunnel ID will be provided via command line argument
+# tunnel: 09bcc621-3d31-433a-b1ad-1f06fc1dafe9
+
+# Credentials file will be mounted
+credentials-file: /etc/cloudflared/credentials.json
+
+# Metrics endpoint (optional - for monitoring)
+metrics: 0.0.0.0:2000
+
+# Log settings
+loglevel: info
+
+# Transport settings - for performance
+protocol: quic
+
+# Ingress rules. Hostname-specific rules must appear before the catch-all.
+ingress:
+  # Hubble UI — internal only, blocked from public tunnel
+  - hostname: "hubble.il1.nl"
+    service: http_status:403
+
+  # abi.il1.nl (biqly) — Envoy Gateway (HTTPRoutes on eg-gw in biqly namespace).
+  # Single upstream; path routing is done by Gateway API, not cloudflared.
+  - hostname: "abi.il1.nl"
+    service: http://eg-gw-http.envoy-gateway-system.svc.cluster.local:80
+
+  # api.traceo.network
+  - hostname: "api.traceo.network"
+    path: "^/api/v1"
+    service: http://traceo-api.traceo.svc.cluster.local:8080
+  - hostname: "api.traceo.network"
+    path: "^/health"
+    service: http://traceo-api.traceo.svc.cluster.local:8080
+
+  # Single-backend hosts
+  - hostname: "argocd.il1.nl"
+    service: http://argocd-server.argocd.svc.cluster.local:80
+  - hostname: "grafana.il1.nl"
+    service: http://grafana.monitoring.svc.cluster.local:3000
+  - hostname: "jf.il1.nl"
+    service: http://jellyfin.jellyfin.svc.cluster.local:8096
+  - hostname: "traceo.network"
+    service: http://traceo-web.traceo.svc.cluster.local:80
+  - hostname: "z.il1.nl"
+    service: http://zlitter-web.zlitter.svc.cluster.local:80
+
+  # zapi.il1.nl (zlitter) — path-based fan-out
+  - hostname: "zapi.il1.nl"
+    path: "^/api/categories"
+    service: http://zlitter-category.zlitter.svc.cluster.local:8086
+  - hostname: "zapi.il1.nl"
+    path: "^/api/analytics"
+    service: http://zlitter-analytics.zlitter.svc.cluster.local:8085
+  - hostname: "zapi.il1.nl"
+    path: "^/api/reports"
+    service: http://zlitter-analytics.zlitter.svc.cluster.local:8085
+  - hostname: "zapi.il1.nl"
+    path: "^/api/account"
+    service: http://zlitter-admin.zlitter.svc.cluster.local:8088
+  - hostname: "zapi.il1.nl"
+    path: "^/api/admin"
+    service: http://zlitter-admin.zlitter.svc.cluster.local:8088
+  - hostname: "zapi.il1.nl"
+    path: "^/api/profile"
+    service: http://zlitter-profile.zlitter.svc.cluster.local:8082
+  - hostname: "zapi.il1.nl"
+    path: "^/api/tracked"
+    service: http://zlitter-profile.zlitter.svc.cluster.local:8082
+  - hostname: "zapi.il1.nl"
+    path: "^/api/search"
+    service: http://zlitter-search.zlitter.svc.cluster.local:8084
+  - hostname: "zapi.il1.nl"
+    path: "^/api/stream"
+    service: http://zlitter-feed.zlitter.svc.cluster.local:8083
+  - hostname: "zapi.il1.nl"
+    path: "^/api/tweet"
+    service: http://zlitter-feed.zlitter.svc.cluster.local:8083
+  - hostname: "zapi.il1.nl"
+    path: "^/api/feed"
+    service: http://zlitter-feed.zlitter.svc.cluster.local:8083
+  - hostname: "zapi.il1.nl"
+    path: "^/api/media"
+    service: http://zlitter-media.zlitter.svc.cluster.local:8087
+  - hostname: "zapi.il1.nl"
+    path: "^/api/auth"
+    service: http://zlitter-auth.zlitter.svc.cluster.local:8081
+
+  # Catch-all rule - must be last
+  - service: http_status:404

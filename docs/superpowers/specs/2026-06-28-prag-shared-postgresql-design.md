@@ -50,8 +50,9 @@ The release creates a dedicated `postgresql` namespace with:
 - one PostgreSQL 18.4-compatible StatefulSet;
 - a version- and digest-pinned image, never `latest`;
 - a headless Service for StatefulSet identity;
-- a ClusterIP client Service at
-  `postgresql.postgresql.svc.cluster.local:5432`;
+- a client Service at `postgresql.postgresql.svc.cluster.local:5432`, retaining
+  its ClusterIP for in-cluster clients while Cilium advertises
+  `192.168.0.164:5432` for routed administration;
 - readiness, liveness, and startup probes;
 - explicit CPU and memory requests and limits;
 - a non-root security context, disabled privilege escalation, dropped
@@ -61,8 +62,9 @@ The release creates a dedicated `postgresql` namespace with:
   monitoring stack;
 - a backup CronJob and a separately mountable backup PVC.
 
-The database is not exposed through a LoadBalancer, NodePort, Gateway, or
-Ingress.
+The database is not exposed through a Gateway or Ingress. Its Cilium
+LoadBalancer permits only the Zima/OpenWrt Tailscale source
+`100.94.156.3/32`; PostgreSQL authentication remains required.
 
 ## Storage
 
