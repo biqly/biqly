@@ -139,15 +139,13 @@ export function computeExpressionSuggestions(
     : ALLOWED_FUNCTIONS
   const items = pool
     .filter((fn) => fn.name.startsWith(query))
-    .map(
-      (fn): ExpressionSuggestion => ({
-        kind: 'function',
-        label: fn.name,
-        insertText: `${fn.name}()`,
-        caretOffset: fn.name.length + 1,
-        descKey: fn.descKey,
-      }),
-    )
+    .map((fn): ExpressionSuggestion => ({
+      kind: 'function',
+      label: fn.name,
+      insertText: `${fn.name}()`,
+      caretOffset: fn.name.length + 1,
+      descKey: fn.descKey,
+    }))
   return items.length > 0 ? { start, items } : null
 }
 

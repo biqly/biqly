@@ -24,12 +24,10 @@ export interface PasskeyCreationOptionsJSON extends PasskeyRequestOptionsJSON {
 }
 
 export type PasskeyRegisterBeginResponse =
-  | PasskeyCreationOptionsJSON
-  | { publicKey: PasskeyCreationOptionsJSON }
+  PasskeyCreationOptionsJSON | { publicKey: PasskeyCreationOptionsJSON }
 
 export type PasskeyLoginBeginResponse =
-  | PasskeyRequestOptionsJSON
-  | { publicKey: PasskeyRequestOptionsJSON }
+  PasskeyRequestOptionsJSON | { publicKey: PasskeyRequestOptionsJSON }
 
 export function resolvePasskeyLoginOptions(
   response: PasskeyLoginBeginResponse,

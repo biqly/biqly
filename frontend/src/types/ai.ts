@@ -104,12 +104,7 @@ export interface AIQueryRequest {
 }
 
 export type AIJobKind =
-  | 'query'
-  | 'preview'
-  | 'run'
-  | 'describe'
-  | 'describe_batch'
-  | 'embed_metadata'
+  'query' | 'preview' | 'run' | 'describe' | 'describe_batch' | 'embed_metadata'
 
 export type AIJobStatus = 'pending' | 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
 
@@ -239,13 +234,7 @@ export interface VisualizationHint {
 }
 
 export type SuggestedFollowUpKind =
-  | 'breakdown'
-  | 'comparison'
-  | 'trend'
-  | 'chart'
-  | 'drilldown'
-  | 'filter'
-  | 'explain'
+  'breakdown' | 'comparison' | 'trend' | 'chart' | 'drilldown' | 'filter' | 'explain'
 
 export interface SuggestedFollowUp {
   id: string
@@ -565,14 +554,7 @@ export interface RunStep {
 export type QueryColumnSemanticType = 'dimension' | 'metric'
 
 export type QueryColumnFormat =
-  | 'number'
-  | 'currency'
-  | 'percent'
-  | 'date'
-  | 'datetime'
-  | 'text'
-  | 'month_of_year'
-  | 'quarter'
+  'number' | 'currency' | 'percent' | 'date' | 'datetime' | 'text' | 'month_of_year' | 'quarter'
 
 export interface QueryColumn {
   name: string

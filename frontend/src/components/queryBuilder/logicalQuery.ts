@@ -123,12 +123,10 @@ export function buildQueryPayload(state: QueryBuilderFormState) {
       mode === 'advanced'
         ? ctes
             .filter((c) => c.name)
-            .map(
-              (c): CTE => ({
-                name: c.name,
-                ...parseCTEBody(c.query),
-              }),
-            )
+            .map((c): CTE => ({
+              name: c.name,
+              ...parseCTEBody(c.query),
+            }))
         : undefined,
   }
 }

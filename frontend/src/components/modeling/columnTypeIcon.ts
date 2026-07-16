@@ -1,14 +1,7 @@
 import { normalizeJoinDataType } from './utils'
 
 export type ColumnTypeKind =
-  | 'number'
-  | 'text'
-  | 'boolean'
-  | 'date'
-  | 'timestamp'
-  | 'json'
-  | 'array'
-  | 'other'
+  'number' | 'text' | 'boolean' | 'date' | 'timestamp' | 'json' | 'array' | 'other'
 
 export interface ColumnTypeIcon {
   kind: ColumnTypeKind
