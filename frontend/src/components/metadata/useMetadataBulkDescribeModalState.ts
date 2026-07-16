@@ -16,6 +16,7 @@ export function useMetadataBulkDescribeModalState({
   datasourceId,
   tables,
   typeOptions,
+  relationCount,
   bulkRunning,
   bulkEntries,
   t,
@@ -26,6 +27,8 @@ export function useMetadataBulkDescribeModalState({
   datasourceId: string
   tables: TableRow[]
   typeOptions: string[]
+  // FK relations available for the datasource; 0 hides the relations scope.
+  relationCount: number
   bulkRunning: boolean
   bulkEntries: BulkEntry[]
   t: (key: TranslationKey, params?: Record<string, string | number>) => string
@@ -33,6 +36,7 @@ export function useMetadataBulkDescribeModalState({
     targets: TableRow[]
     sampleSize: number
     skipExisting: boolean
+    includeRelations: boolean
     onConflict: (message: string) => void
     onFinished: () => void
   }) => void
@@ -43,6 +47,7 @@ export function useMetadataBulkDescribeModalState({
     skip_existing: true,
   })
   const [bulkTypeEnabled, setBulkTypeEnabled] = useState<Record<string, boolean>>({})
+  const [bulkIncludeRelations, setBulkIncludeRelations] = useState(true)
   const [bulkSchemaRestrict, setBulkSchemaRestrict] = useState(false)
   const [bulkSchemasSelected, setBulkSchemasSelected] = useState<string[]>([])
   const [bulkScopeConflict, setBulkScopeConflict] = useState<{
@@ -56,6 +61,7 @@ export function useMetadataBulkDescribeModalState({
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBulkTypeEnabled(Object.fromEntries(typeOptions.map((ty) => [ty, true])))
+    setBulkIncludeRelations(true)
     setBulkSchemaRestrict(false)
     setBulkSchemasSelected([])
   }, [open, typeOptions])
@@ -103,10 +109,13 @@ export function useMetadataBulkDescribeModalState({
     }
   }, [datasourceId, bulkScopeSchemas, t])
 
+  const relationsInScope = bulkIncludeRelations ? relationCount : 0
+  const bulkScopeCount = bulkTargetTables.length + relationsInScope
+
   const bulkCanStart =
-    bulkTargetTables.length > 0 &&
-    bulkHasObjectType &&
-    (!bulkSchemaRestrict || bulkSchemasSelected.length > 0) &&
+    bulkScopeCount > 0 &&
+    (bulkHasObjectType || relationsInScope > 0) &&
+    (!bulkSchemaRestrict || bulkSchemasSelected.length > 0 || bulkTargetTables.length === 0) &&
     !bulkScopeConflict &&
     !bulkRunning
 
@@ -117,7 +126,7 @@ export function useMetadataBulkDescribeModalState({
 
   const runBulkDescribe = () => {
     const targets = bulkTargetTables
-    if (!datasourceId || targets.length === 0 || bulkScopeConflict) {
+    if (!datasourceId || bulkScopeCount === 0 || bulkScopeConflict) {
       return
     }
     setBulkScopeConflict(null)
@@ -125,6 +134,7 @@ export function useMetadataBulkDescribeModalState({
       targets,
       sampleSize: bulkConfig.sample_size,
       skipExisting: bulkConfig.skip_existing,
+      includeRelations: relationsInScope > 0,
       onConflict: (message) => {
         setBulkScopeConflict({ message })
       },
@@ -139,6 +149,8 @@ export function useMetadataBulkDescribeModalState({
     setBulkConfig,
     bulkTypeEnabled,
     setBulkTypeEnabled,
+    bulkIncludeRelations,
+    setBulkIncludeRelations,
     bulkSchemaRestrict,
     setBulkSchemaRestrict,
     bulkSchemasSelected,
@@ -146,6 +158,7 @@ export function useMetadataBulkDescribeModalState({
     bulkScopeConflict,
     bulkTargetTables,
     bulkHasObjectType,
+    bulkScopeCount,
     bulkCanStart,
     bulkEntriesDisplay,
     runBulkDescribe,

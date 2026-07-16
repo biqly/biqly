@@ -347,10 +347,7 @@ export const core: CoreDictionary = {
     col_table_desc: 'Tablo açıklaması',
     relations_title: 'İlişkiler',
     relations_empty: 'Bu veri kaynağı için ilişki bulunamadı.',
-    relations_no_desc:
-      'Henüz açıklama yok — açıklamak için bu ilişkiyi bir semantic modele ekleyin.',
-    relations_no_desc_modeled: 'Henüz açıklama yok — AI ile açıklama üretin.',
-    relations_describe_all: '✨ Join açıklamaları üret (AI)',
+    relations_no_desc: 'Henüz açıklama yok — AI açıkla ile üretebilirsiniz.',
     relations_describe_one: 'AI açıkla',
     relations_describe_one_aria: '{{from}} → {{to}} için AI açıklaması üret',
     relations_describing: 'Açıklanıyor…',
@@ -386,6 +383,7 @@ export const core: CoreDictionary = {
     bulk_modal_subtitle: 'Seçili tablo ve kolonlar için Türkçe öncelikli LLM açıklamaları',
     describe_badge_label: 'Açıklama',
     bulk_close_aria: 'Kapat',
+    bulk_type_relations: 'İlişkiler',
     bulk_lede:
       'Açıklamalar örneklenen satırlardan çıkarılır ve metadata kaydedilir. Varsayılan olarak Türkçe üretilirken yararlı teknik tablo/kolon adları korunur. Büyük seçimler daha fazla token ve zaman kullanır.',
     bulk_legend_types: 'Nesne türleri',

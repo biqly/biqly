@@ -13,6 +13,9 @@ export function MetadataBulkDescribeSetup({
   bulkTypeEnabled,
   onToggleType,
   bulkHasObjectType,
+  relationCount,
+  bulkIncludeRelations,
+  onToggleRelations,
   bulkSchemaRestrict,
   onSchemaRestrictAll,
   onSchemaRestrictPick,
@@ -22,6 +25,7 @@ export function MetadataBulkDescribeSetup({
   bulkConfig,
   onConfigChange,
   bulkTargetTables,
+  bulkScopeCount,
   tablesCount,
   bulkScopeConflict,
   bulkCanStart,
@@ -33,6 +37,9 @@ export function MetadataBulkDescribeSetup({
   bulkTypeEnabled: Record<string, boolean>
   onToggleType: (ty: string) => void
   bulkHasObjectType: boolean
+  relationCount: number
+  bulkIncludeRelations: boolean
+  onToggleRelations: () => void
   bulkSchemaRestrict: boolean
   onSchemaRestrictAll: () => void
   onSchemaRestrictPick: () => void
@@ -42,6 +49,7 @@ export function MetadataBulkDescribeSetup({
   bulkConfig: { sample_size: number; skip_existing: boolean }
   onConfigChange: (patch: Partial<{ sample_size: number; skip_existing: boolean }>) => void
   bulkTargetTables: TableRow[]
+  bulkScopeCount: number
   tablesCount: number
   bulkScopeConflict: { message: string; schemas?: string } | null
   bulkCanStart: boolean
@@ -91,8 +99,33 @@ export function MetadataBulkDescribeSetup({
                 </span>
               </button>
             ))}
+            {relationCount > 0 && (
+              <button
+                type="button"
+                className={cn(
+                  'bg-card text-foreground-muted hover:border-border-strong hover:text-foreground inline-flex cursor-pointer items-baseline gap-[0.35rem] rounded-full border p-[0.28rem_0.55rem] text-[0.75rem] leading-[1.2] transition-[background,border-color,color] duration-120',
+                  bulkIncludeRelations
+                    ? 'border-border-strong bg-card-raised text-foreground shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]'
+                    : 'border-border',
+                )}
+                aria-pressed={bulkIncludeRelations}
+                onClick={onToggleRelations}
+              >
+                <span className="font-semibold whitespace-nowrap">
+                  {t('metadata.bulk_type_relations')}
+                </span>
+                <span
+                  className={cn(
+                    'text-[0.65rem] font-medium tracking-[0.04em] uppercase',
+                    bulkIncludeRelations ? 'text-accent' : 'text-foreground-faint',
+                  )}
+                >
+                  JOIN
+                </span>
+              </button>
+            )}
           </div>
-          {!bulkHasObjectType && (
+          {!bulkHasObjectType && !bulkIncludeRelations && (
             <p className={legacyFeedbackClass('text-error mx-0 mt-[0.4rem] mb-0 text-[0.74rem]')}>
               {t('metadata.bulk_warn_pick_type')}
             </p>
@@ -215,7 +248,7 @@ export function MetadataBulkDescribeSetup({
       <div className="border-border border-t px-0 pt-[0.35rem] pb-0">
         <span className="text-foreground-faint text-[0.76rem]">
           {t('metadata.bulk_scope_objects')}{' '}
-          <strong className="text-foreground font-[650]">{bulkTargetTables.length}</strong>{' '}
+          <strong className="text-foreground font-[650]">{bulkScopeCount}</strong>{' '}
           {t('metadata.bulk_scope_suffix')}
           {bulkTargetTables.length !== tablesCount && (
             <span className="opacity-90">
@@ -245,7 +278,7 @@ export function MetadataBulkDescribeSetup({
           onClick={onStart}
           disabled={!bulkCanStart}
         >
-          {t('metadata.bulk_start', { count: bulkTargetTables.length })}
+          {t('metadata.bulk_start', { count: bulkScopeCount })}
         </button>
       </div>
     </>

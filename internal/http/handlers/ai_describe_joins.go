@@ -118,53 +118,6 @@ func (h *AIHandler) DescribeJoins(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, describeJoinsResponse{Updated: updated})
 }
 
-// DescribeDatasourceJoins generates descriptions for the joins of every
-// semantic model in a datasource. It powers the Metadata Relationships panel's
-// bulk / per-row describe actions, where the user thinks in terms of the
-// datasource's relationships rather than a single model. join_ids and
-// only_missing narrow the set the same way the model-scoped endpoint does.
-func (h *AIHandler) DescribeDatasourceJoins(w http.ResponseWriter, r *http.Request) {
-	id, ok := requireURLParam(w, r, "id")
-	if !ok {
-		return
-	}
-	ctx := r.Context()
-	if h.deps.SemanticRepo == nil || h.deps.AIClient == nil {
-		writeError(w, http.StatusServiceUnavailable, "describe service is not configured")
-		return
-	}
-	req, err := decodeDescribeJoinsRequest(r)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	models, err := h.deps.SemanticRepo.ListModels(ctx, id)
-	if err != nil {
-		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to list models", err, "datasource_id", id)
-		return
-	}
-	var targets []pkgsemantic.Join
-	joinModelID := make(map[string]string)
-	for _, summary := range models {
-		full, err := h.deps.SemanticRepo.GetFullModel(ctx, summary.ID)
-		if err != nil {
-			continue
-		}
-		for _, join := range selectJoins(full.Joins, req) {
-			targets = append(targets, join)
-			joinModelID[join.ID] = summary.ID
-		}
-	}
-
-	updated, status, err := h.describeAndPersistJoins(ctx, targets, joinModelID)
-	if err != nil {
-		writeInternalError(ctx, w, status, "failed to describe joins", err, "datasource_id", id)
-		return
-	}
-	writeJSON(w, http.StatusOK, describeJoinsResponse{Updated: updated})
-}
-
 // describeAndPersistJoins runs the describe LLM over the given joins and stores
 // each returned description on its owning model. Returns the count updated and,
 // on error, the HTTP status to surface. A no-op (no targets) returns (0, 200, nil).

@@ -20,6 +20,7 @@ export interface MetadataBulkDescribeModalProps {
   tables: TableRow[]
   schemaOptions: string[]
   typeOptions: string[]
+  relationCount: number
   aiRuntime: AIRuntimeSettings | null
   describeModel?: string
   bulkRunning: boolean
@@ -30,6 +31,7 @@ export interface MetadataBulkDescribeModalProps {
     targets: TableRow[]
     sampleSize: number
     skipExisting: boolean
+    includeRelations: boolean
     onConflict: (message: string) => void
     onFinished: () => void
   }) => void
@@ -44,6 +46,7 @@ export function MetadataBulkDescribeModal({
   tables,
   schemaOptions,
   typeOptions,
+  relationCount,
   aiRuntime,
   describeModel,
   bulkRunning,
@@ -65,6 +68,8 @@ export function MetadataBulkDescribeModal({
     setBulkConfig,
     bulkTypeEnabled,
     setBulkTypeEnabled,
+    bulkIncludeRelations,
+    setBulkIncludeRelations,
     bulkSchemaRestrict,
     setBulkSchemaRestrict,
     bulkSchemasSelected,
@@ -72,6 +77,7 @@ export function MetadataBulkDescribeModal({
     bulkScopeConflict,
     bulkTargetTables,
     bulkHasObjectType,
+    bulkScopeCount,
     bulkCanStart,
     bulkEntriesDisplay,
     runBulkDescribe,
@@ -80,6 +86,7 @@ export function MetadataBulkDescribeModal({
     datasourceId,
     tables,
     typeOptions,
+    relationCount,
     bulkRunning,
     bulkEntries,
     t,
@@ -126,6 +133,9 @@ export function MetadataBulkDescribeModal({
           bulkTypeEnabled={bulkTypeEnabled}
           onToggleType={(ty) => setBulkTypeEnabled((prev) => ({ ...prev, [ty]: !prev[ty] }))}
           bulkHasObjectType={bulkHasObjectType}
+          relationCount={relationCount}
+          bulkIncludeRelations={bulkIncludeRelations}
+          onToggleRelations={() => setBulkIncludeRelations((prev) => !prev)}
           bulkSchemaRestrict={bulkSchemaRestrict}
           onSchemaRestrictAll={() => {
             setBulkSchemaRestrict(false)
@@ -141,6 +151,7 @@ export function MetadataBulkDescribeModal({
           bulkConfig={bulkConfig}
           onConfigChange={(patch) => setBulkConfig({ ...bulkConfig, ...patch })}
           bulkTargetTables={bulkTargetTables}
+          bulkScopeCount={bulkScopeCount}
           tablesCount={tables.length}
           bulkScopeConflict={bulkScopeConflict}
           bulkCanStart={bulkCanStart}

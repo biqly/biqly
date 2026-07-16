@@ -14,6 +14,7 @@ import (
 const (
 	EntityTypeTable             = "table"
 	EntityTypeColumn            = "column"
+	EntityTypeRelation          = "relation"
 	EntityTypeSemanticModel     = "semantic_model"
 	EntityTypeSemanticDimension = "semantic_dimension"
 	EntityTypeSemanticMetric    = "semantic_metric"
@@ -247,6 +248,16 @@ func (r *Repository) ApplyColumnTranslations(ctx context.Context, cols []Column,
 	return applyDescriptionTranslations(ctx, r, cols, EntityTypeColumn,
 		func(c Column) string { return c.ID },
 		func(i int, description string) { cols[i].Description = new(description) },
+		loc,
+	)
+}
+
+// ApplyRelationTranslations overlays localized description onto a slice of
+// relation details in-place.
+func (r *Repository) ApplyRelationTranslations(ctx context.Context, rels []RelationDetail, loc i18n.Locale) error {
+	return applyDescriptionTranslations(ctx, r, rels, EntityTypeRelation,
+		func(rel RelationDetail) string { return rel.ID },
+		func(i int, description string) { rels[i].Description = description },
 		loc,
 	)
 }

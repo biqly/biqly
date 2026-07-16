@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 
 import type { Locale } from '../../i18n'
 import { LOCALE_OPTIONS, SUPPORTED_LOCALES, type useT } from '../../i18n'
-import { buttonClass, iconBtnClass } from '../../lib/buttonClasses'
+import { iconBtnClass } from '../../lib/buttonClasses'
 import { cardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import {
@@ -44,9 +44,6 @@ export function MetadataTablesPanel({
   openTableId,
   columns,
   editing,
-  onBulkOpen,
-  bulkRunning,
-  activeDescribeBatchJob,
   onToggleTable,
   onStartEditTable,
   onEditTableChange,
@@ -68,9 +65,6 @@ export function MetadataTablesPanel({
   openTableId: string | null
   columns: ColumnRow[]
   editing: MetadataEditingState | null
-  onBulkOpen: () => void
-  bulkRunning: boolean
-  activeDescribeBatchJob: unknown
   onToggleTable: (tab: TableRow) => void
   onStartEditTable: (tab: TableRow) => void
   onEditTableChange: (id: string, value: string) => void
@@ -110,19 +104,6 @@ export function MetadataTablesPanel({
                 ))}
               </div>
             </div>
-            {tables.length > 0 && (
-              <button
-                type="button"
-                className={cn(
-                  buttonClass('secondary', { size: 'sm' }),
-                  'metadata-toolbar-action-btn shrink-0 px-2.5 py-1 text-[0.75rem] whitespace-nowrap',
-                )}
-                onClick={onBulkOpen}
-                disabled={bulkRunning || !!activeDescribeBatchJob}
-              >
-                {t('metadata.bulk_ai_btn')}
-              </button>
-            )}
           </div>
         </div>
       </div>

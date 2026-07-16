@@ -1,9 +1,11 @@
-import type { useT } from '../../i18n'
-import { buttonClass } from '../../lib/buttonClasses'
+import type { Locale } from '../../i18n'
+import { LOCALE_OPTIONS, SUPPORTED_LOCALES, type useT } from '../../i18n'
 import { cardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import {
   metadataEmptyHintClass,
+  metadataLangTabClass,
+  metadataLangTabsClass,
   metadataRowActionClass,
   metadataRowActionLabelClass,
   metadataToolbarActionsClass,
@@ -28,23 +30,19 @@ export function MetadataRelationsPanel({
   t,
   relations,
   loading,
-  describingAll,
-  describingJoinId,
-  onDescribeAll,
+  editLocale,
+  onEditLocaleChange,
+  describingRelationId,
   onDescribeOne,
 }: {
   t: ReturnType<typeof useT>
   relations: RelationDetail[]
   loading: boolean
-  describingAll: boolean
-  describingJoinId: string | null
-  onDescribeAll: () => void
+  editLocale: Locale
+  onEditLocaleChange: (loc: Locale) => void
+  describingRelationId: string | null
   onDescribeOne: (rel: RelationDetail) => void
 }) {
-  // Only relationships that are part of a semantic model can be described; the
-  // bulk button is meaningless without at least one.
-  const describableCount = relations.filter((rel) => rel.semantic_join_id).length
-
   return (
     <div className={cardClass()}>
       <div className={metadataToolbarClass}>
@@ -53,21 +51,24 @@ export function MetadataRelationsPanel({
             {t('metadata.relations_title')} ({relations.length})
           </h2>
           <div className={metadataToolbarActionsClass}>
-            {describableCount > 0 && (
-              <button
-                type="button"
-                className={cn(
-                  buttonClass('secondary', { size: 'sm' }),
-                  'shrink-0 px-2.5 py-1 text-[0.75rem] whitespace-nowrap',
-                )}
-                onClick={onDescribeAll}
-                disabled={describingAll || describingJoinId !== null}
-              >
-                {describingAll
-                  ? t('metadata.relations_describing')
-                  : t('metadata.relations_describe_all')}
-              </button>
-            )}
+            <div
+              className={metadataLangTabsClass}
+              role="tablist"
+              aria-label={t('metadata.lang_tabs_aria')}
+            >
+              {SUPPORTED_LOCALES.map((loc) => (
+                <button
+                  key={loc}
+                  type="button"
+                  role="tab"
+                  aria-selected={editLocale === loc}
+                  className={metadataLangTabClass(editLocale === loc)}
+                  onClick={() => onEditLocaleChange(loc)}
+                >
+                  {LOCALE_OPTIONS[loc].short}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -111,33 +112,29 @@ export function MetadataRelationsPanel({
                       rel.description
                     ) : (
                       <span className="text-foreground-muted italic">
-                        {rel.semantic_join_id
-                          ? t('metadata.relations_no_desc_modeled')
-                          : t('metadata.relations_no_desc')}
+                        {t('metadata.relations_no_desc')}
                       </span>
                     )}
                   </td>
                   <td className="actions">
-                    {rel.semantic_join_id && (
-                      <button
-                        type="button"
-                        className={metadataRowActionClass}
-                        onClick={() => onDescribeOne(rel)}
-                        disabled={describingAll || describingJoinId !== null}
-                        aria-label={t('metadata.relations_describe_one_aria', {
-                          from: `${rel.from_table}.${rel.from_column}`,
-                          to: `${rel.to_table}.${rel.to_column}`,
-                        })}
-                        title={t('metadata.relations_describe_one')}
-                      >
-                        <span aria-hidden="true">✨</span>
-                        <span className={metadataRowActionLabelClass}>
-                          {describingJoinId === rel.semantic_join_id
-                            ? t('metadata.relations_describing')
-                            : t('metadata.relations_describe_one')}
-                        </span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className={metadataRowActionClass}
+                      onClick={() => onDescribeOne(rel)}
+                      disabled={describingRelationId !== null}
+                      aria-label={t('metadata.relations_describe_one_aria', {
+                        from: `${rel.from_table}.${rel.from_column}`,
+                        to: `${rel.to_table}.${rel.to_column}`,
+                      })}
+                      title={t('metadata.relations_describe_one')}
+                    >
+                      <span aria-hidden="true">✨</span>
+                      <span className={metadataRowActionLabelClass}>
+                        {describingRelationId === rel.id
+                          ? t('metadata.relations_describing')
+                          : t('metadata.relations_describe_one')}
+                      </span>
+                    </button>
                   </td>
                 </tr>
               ))}

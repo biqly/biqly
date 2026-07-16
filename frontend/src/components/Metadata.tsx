@@ -8,7 +8,9 @@ import { useApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import type { Locale } from '../i18n'
 import { FALLBACK_LOCALE, useLocale, useT } from '../i18n'
+import { buttonClass } from '../lib/buttonClasses'
 import { cardClass } from '../lib/cardClasses'
+import { cn } from '../lib/cn'
 import { legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
 import type { AIRuntimeSettings } from '../types/ai'
@@ -145,7 +147,7 @@ export default function Metadata() {
       .then((data) => setTables(data ?? []))
       .finally(() => setTablesLoading(false))
     setRelationsLoading(true)
-    void get<RelationDetail[]>(`/api/datasources/${datasourceId}/relations`)
+    void get<RelationDetail[]>(`/api/datasources/${datasourceId}/relations`, descriptionLocaleOpts)
       .then((data) => setRelations(data ?? []))
       .finally(() => setRelationsLoading(false))
     setOpenTableId(null)
@@ -161,34 +163,41 @@ export default function Metadata() {
     if (!datasourceId) {
       return
     }
-    const data = await get<RelationDetail[]>(`/api/datasources/${datasourceId}/relations`)
+    const data = await get<RelationDetail[]>(
+      `/api/datasources/${datasourceId}/relations`,
+      descriptionLocaleOpts,
+    )
     setRelations(data ?? [])
   }
 
-  // Bulk-describe every modeled relationship missing a description, then
-  // refresh so the new descriptions land in the panel.
-  const describeAllJoins = async () => {
+  // AI-describe the datasource's relations (used by the AI metadata
+  // generator's relations scope), then refresh the panel.
+  const describeAllRelations = async (skipExisting = true) => {
     if (!datasourceId || describingAllJoins) {
       return
     }
     setDescribingAllJoins(true)
     try {
-      await postData(`/api/ai/datasources/${datasourceId}/describe-joins`, { only_missing: true })
+      await postData(`/api/ai/datasources/${datasourceId}/describe-relations`, {
+        skip_existing: skipExisting,
+        locale: editLocale,
+      })
       await refreshRelations()
     } finally {
       setDescribingAllJoins(false)
     }
   }
 
-  // Describe a single relationship via its matching semantic join.
-  const describeOneJoin = async (rel: RelationDetail) => {
-    if (!datasourceId || !rel.semantic_join_id || describingJoinId) {
+  // AI-describe a single relation (metadata-level; no semantic model needed).
+  const describeOneRelation = async (rel: RelationDetail) => {
+    if (!datasourceId || describingJoinId) {
       return
     }
-    setDescribingJoinId(rel.semantic_join_id)
+    setDescribingJoinId(rel.id)
     try {
-      await postData(`/api/ai/datasources/${datasourceId}/describe-joins`, {
-        join_ids: [rel.semantic_join_id],
+      await postData(`/api/ai/datasources/${datasourceId}/describe-relations`, {
+        relation_ids: [rel.id],
+        locale: editLocale,
       })
       await refreshRelations()
     } finally {
@@ -463,6 +472,22 @@ export default function Metadata() {
 
       <MetadataAIJobsStrip />
 
+      {/* Page-level AI actions: the generator covers tables, columns, and
+          relations, so it lives above the individual panels. */}
+      {datasourceId && tables.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className={cn(buttonClass('primary', { size: 'sm' }), 'inline-flex w-auto! gap-1.5')}
+            onClick={() => setBulkOpen(true)}
+            disabled={bulkRunning || !!activeDescribeBatchJob || describingAllJoins}
+          >
+            <span aria-hidden="true">✨</span>
+            {t('metadata.bulk_ai_btn')}
+          </button>
+        </div>
+      )}
+
       {datasourceId && (
         <MetadataTablesPanel
           t={t}
@@ -476,9 +501,6 @@ export default function Metadata() {
           openTableId={openTableId}
           columns={columns}
           editing={editing}
-          onBulkOpen={() => setBulkOpen(true)}
-          bulkRunning={bulkRunning}
-          activeDescribeBatchJob={activeDescribeBatchJob}
           onToggleTable={(tab) => void toggleTable(tab)}
           onStartEditTable={(tab) => {
             skipBlurSaveRef.current = false
@@ -522,10 +544,10 @@ export default function Metadata() {
           t={t}
           relations={filteredRelations}
           loading={relationsLoading}
-          describingAll={describingAllJoins}
-          describingJoinId={describingJoinId}
-          onDescribeAll={() => void describeAllJoins()}
-          onDescribeOne={(rel) => void describeOneJoin(rel)}
+          editLocale={editLocale}
+          onEditLocaleChange={setEditLocale}
+          describingRelationId={describingJoinId}
+          onDescribeOne={(rel) => void describeOneRelation(rel)}
         />
       )}
 
@@ -537,13 +559,33 @@ export default function Metadata() {
           tables={tables}
           schemaOptions={schemaOptions}
           typeOptions={typeOptions}
+          relationCount={relations.length}
           aiRuntime={aiRuntime}
           describeModel={effectiveDescribeModel ?? undefined}
           bulkRunning={bulkRunning}
           bulkEntries={bulkEntries}
           bulkSummary={bulkSummary}
           activeDescribeBatchJob={activeDescribeBatchJob}
-          onStartBulk={({ targets, sampleSize, skipExisting, onConflict, onFinished }) => {
+          onStartBulk={({
+            targets,
+            sampleSize,
+            skipExisting,
+            includeRelations,
+            onConflict,
+            onFinished,
+          }) => {
+            // Relations are described in one backend call, independent of the
+            // per-table job pipeline; it respects skip-existing semantics via
+            // the endpoint's own flag.
+            if (includeRelations) {
+              void describeAllRelations(skipExisting)
+            }
+            if (targets.length === 0) {
+              // Relations-only run: nothing for the table job pipeline; the
+              // page-level button reflects progress via describingAllJoins.
+              setBulkOpen(false)
+              return
+            }
             startBulkDescribe({
               datasourceId,
               targets,

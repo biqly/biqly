@@ -529,12 +529,15 @@ func (r *Repository) ListRelationDetails(ctx context.Context, datasourceID strin
 	// id is returned even when the description is still empty, so the UI can
 	// offer per-relationship AI describe for joins that just haven't been
 	// described yet.
-	// The lateral output columns are aliased (jid/jdesc) so the bare column
-	// names in relationSelectColumns (e.g. "id") stay unambiguous — otherwise
-	// an exposed sj.id collides with relations.id.
+	// The relation's own description wins; the matched semantic join's
+	// description remains as a fallback for joins documented before relations
+	// carried their own descriptions. The lateral output columns are aliased
+	// (jid/jdesc) so the bare column names in relationSelectColumns (e.g.
+	// "id") stay unambiguous — otherwise an exposed sj.id collides with
+	// relations.id.
 	query := `
 		SELECT ` + relationSelectColumns + `,
-			COALESCE(j.jdesc, '') AS description,
+			COALESCE(NULLIF(relations.description, ''), j.jdesc, '') AS description,
 			COALESCE(j.jid::text, '') AS semantic_join_id
 		FROM relations
 		LEFT JOIN LATERAL (
@@ -554,6 +557,17 @@ func (r *Repository) ListRelationDetails(ctx context.Context, datasourceID strin
 		ORDER BY from_schema, from_table, from_column
 	`
 	return platformdb.QuerySliceErr(ctx, r.db, "list relation details", query, []any{datasourceID}, scanRelationDetail)
+}
+
+// UpdateRelationDescription sets the English (fallback-locale) description of
+// a relation; localized values overlay via entity_translations.
+func (r *Repository) UpdateRelationDescription(ctx context.Context, relationID, description string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE relations SET description = $2 WHERE id = $1`, relationID, description)
+	if err != nil {
+		return fmt.Errorf("update relation description: %w", err)
+	}
+	return nil
 }
 
 // History operations

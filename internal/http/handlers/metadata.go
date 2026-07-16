@@ -191,6 +191,11 @@ func (h *MetadataHandler) ListRelations(w http.ResponseWriter, r *http.Request) 
 		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list relations", err)
 		return
 	}
+	loc := i18n.FromContext(r.Context())
+	if err := h.deps.MetaRepo.ApplyRelationTranslations(r.Context(), rels, loc); err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to apply relation translations", err)
+		return
+	}
 	writeJSON(w, http.StatusOK, rels)
 }
 
