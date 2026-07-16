@@ -17,8 +17,10 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "mail.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: migrate
+        {{- /* Override component to "migrate" via a merge so the label isn't
+               emitted twice (selectorLabels already sets it). A duplicate key
+               is tolerated by Helm CLI but rejected by Flux's strict parser. */}}
+        {{- toYaml (merge (dict "app.kubernetes.io/component" "migrate") (fromYaml (include "mail.selectorLabels" .))) | nindent 8 }}
     spec:
       restartPolicy: Never
       serviceAccountName: {{ include "mail.serviceAccountName" . }}
