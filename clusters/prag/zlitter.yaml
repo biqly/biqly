@@ -33,9 +33,13 @@ spec:
     createNamespace: false
     remediation:
       retries: 3
+    # Flux cannot wait on Rollout readiness (observedGeneration type mismatch
+    # in argo-rollouts status); pods are healthy — reconcile without helm --wait.
+    disableWait: true
   upgrade:
     remediation:
       retries: 3
+    disableWait: true
     # Adopt the existing manual Helm release (rev 26+) and win SSA conflicts
     # on HTTPRoutes / Cilium policies — same pattern as biqly.
     force: true
