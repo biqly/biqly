@@ -5,8 +5,8 @@
 # promoted by promote-images CI into zlitter/values-images.yaml; Flux picks
 # up each commit automatically (reconcileStrategy: Revision).
 #
-# Prod overrides (VIPs, rollouts, network policy) stay in values-rollouts.yaml
-# and are human-owned — same split as before with Argo CD.
+# Prod overrides (VIPs, deployment strategy, network policy) stay in
+# values-rollouts.yaml and are human-owned.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -33,22 +33,9 @@ spec:
     createNamespace: false
     remediation:
       retries: 3
-    # Flux cannot wait on Rollout readiness (observedGeneration type mismatch
-    # in argo-rollouts status); pods are healthy — reconcile without helm --wait.
     disableWait: true
   upgrade:
     remediation:
       retries: 3
     disableWait: true
-    # Adopt the existing manual Helm release (rev 26+) and win SSA conflicts
-    # on HTTPRoutes / Cilium policies — same pattern as biqly.
     force: true
-  driftDetection:
-    mode: enabled
-    ignore:
-      # HPA scales Rollout replicas; do not revert to chart defaults.
-      - paths:
-          - /spec/replicas
-        target:
-          kind: Rollout
-          group: argoproj.io
