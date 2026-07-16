@@ -266,6 +266,31 @@ export function ModelingCanvas({
   } = canvas
 
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false)
+  const layoutMenuRef = useRef<HTMLDivElement | null>(null)
+
+  // Close the layout preset menu on outside click / Escape, matching the
+  // other canvas menus.
+  useEffect(() => {
+    if (!layoutMenuOpen) {
+      return
+    }
+    const onPointerDown = (event: MouseEvent) => {
+      if (layoutMenuRef.current && !layoutMenuRef.current.contains(event.target as Node)) {
+        setLayoutMenuOpen(false)
+      }
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setLayoutMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [layoutMenuOpen])
 
   const [joinHover, setJoinHover] = useState<JoinHoverState | null>(null)
   // Clicking a join line opens an interactive popover (info + delete) at the
@@ -296,7 +321,7 @@ export function ModelingCanvas({
           </button>
           <span className={modelingZoomReadoutClass}>{Math.round(viewport.scale * 100)}%</span>
           <span className="bg-border mx-0.5 w-px self-stretch" aria-hidden="true" />
-          <div className="relative">
+          <div className="relative" ref={layoutMenuRef}>
             <button
               type="button"
               aria-haspopup="menu"
@@ -310,7 +335,10 @@ export function ModelingCanvas({
               <div
                 role="menu"
                 aria-label={t('modeling.layout_presets_label')}
-                className="border-border bg-card-raised absolute bottom-full left-0 z-30 mb-1 flex min-w-44 flex-col rounded-lg border p-1 shadow-[0_8px_24px_rgba(0,0,0,0.25)]"
+                // Opens downward + right-aligned: the toolbar sits at the
+                // canvas's top-right under overflow-hidden, so an upward/left
+                // menu would be clipped off the top edge.
+                className="border-border bg-card-raised absolute top-full right-0 z-30 mt-1 flex min-w-44 flex-col rounded-lg border p-1 shadow-[0_8px_24px_rgba(0,0,0,0.25)]"
               >
                 {(
                   [
@@ -323,7 +351,9 @@ export function ModelingCanvas({
                     key={preset}
                     type="button"
                     role="menuitem"
-                    className="text-foreground hover:bg-accent/10 rounded px-2.5 py-1.5 text-left text-[0.8rem]"
+                    // h-auto!/w-full! override the toolbar's [&_button] square
+                    // sizing that would otherwise shrink these menu rows.
+                    className="text-foreground hover:bg-accent/10 h-auto! w-full! rounded px-2.5 py-1.5 text-left text-[0.8rem] font-normal!"
                     onClick={() => {
                       applyLayoutPreset(preset)
                       setLayoutMenuOpen(false)
