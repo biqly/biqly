@@ -1449,6 +1449,8 @@ export const core = {
     chart_success_compare: 'Success rate comparison',
     legend_success_pct: 'Success %',
     legend_confidence_pct: 'Confidence %',
+    tbl_up: 'Positive feedback',
+    tbl_down: 'Negative feedback',
   },
   modeling: {
     export_model: 'Export YAML',

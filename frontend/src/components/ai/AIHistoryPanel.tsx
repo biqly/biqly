@@ -136,7 +136,9 @@ export function AIHistoryPanel() {
   return (
     <div className={aiHistoryClass}>
       <div className={aiHistoryHeaderClass}>
-        <h2>{t('admin.ai_history.title')}</h2>
+        {/* Match AdminPanelShell's heading style so this panel's title doesn't
+            render with browser-default h2 sizing unlike its siblings. */}
+        <h2 className="m-0 text-xl font-bold">{t('admin.ai_history.title')}</h2>
         {isAdmin && (
           <label className={aiHistoryToggleClass}>
             <input

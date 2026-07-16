@@ -128,6 +128,8 @@ export const admin = {
     badge: 'PII',
   },
   rls: {
+    description:
+      'Restrict which rows each role can read by defining filters per datasource and model.',
     role: 'Role',
     datasource: 'Datasource',
     semantic_model: 'Semantic Model',
@@ -145,6 +147,7 @@ export const admin = {
     json_policy_output: 'JSON Policy Output',
   },
   field_permissions: {
+    description: 'Control access to individual dimensions and metrics for each role.',
     role: 'Role',
     datasource: 'Datasource',
     semantic_model: 'Semantic Model',
@@ -249,6 +252,7 @@ export const admin = {
   },
   roles: {
     title: 'Roles ({{count}})',
+    description: 'Define roles and control which permissions each role grants.',
     permissions_title: 'Permissions ({{count}})',
     permissions_for: 'Permissions · {{role}}',
     select_role_hint: 'Select a role to view and edit its permissions.',
@@ -613,6 +617,7 @@ export const admin = {
   },
   sharing: {
     title: 'Sharing',
+    description: 'Review and revoke resources shared across users and workspaces.',
     share: 'Share',
     share_resource: 'Share Resource',
     resource_type: 'Resource Type',

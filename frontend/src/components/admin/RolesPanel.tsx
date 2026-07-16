@@ -122,6 +122,7 @@ export function RolesPanel({ token }: { token: string }) {
   return (
     <AdminPanelShell
       title={t('admin.roles.title', { count: roles.length })}
+      description={t('admin.roles.description')}
       readOnly={!canEdit}
       error={error}
       maxWidth="100%"
@@ -129,9 +130,6 @@ export function RolesPanel({ token }: { token: string }) {
       <div className="grid w-full grid-cols-1 items-start gap-6 md:grid-cols-[minmax(220px,280px)_1fr]">
         {/* ROLES SIDEBAR */}
         <section className="flex min-w-0 flex-col gap-3">
-          <h3 className="text-foreground m-0 text-base font-bold">
-            {t('admin.roles.title', { count: roles.length })}
-          </h3>
           <div className="border-border bg-card overflow-hidden rounded-lg border shadow-sm">
             <LoadingOverlay loading={loadingMeta}>
               <ul className="m-0 list-none p-0">

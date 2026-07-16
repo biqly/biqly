@@ -131,6 +131,8 @@ export const admin: AdminDictionary = {
     badge: 'PII',
   },
   rls: {
+    description:
+      'Veri kaynağı ve model başına filtreler tanımlayarak her rolün hangi satırları okuyabileceğini sınırlayın.',
     role: 'Rol',
     datasource: 'Veri kaynağı',
     semantic_model: 'Semantik model',
@@ -148,6 +150,7 @@ export const admin: AdminDictionary = {
     json_policy_output: 'JSON politika çıktısı',
   },
   field_permissions: {
+    description: 'Her rol için tek tek boyutlara ve metriklere erişimi denetleyin.',
     role: 'Rol',
     datasource: 'Veri kaynağı',
     semantic_model: 'Semantik model',
@@ -252,6 +255,7 @@ export const admin: AdminDictionary = {
   },
   roles: {
     title: 'Roller ({{count}})',
+    description: 'Rolleri tanımlayın ve her rolün hangi izinleri verdiğini yönetin.',
     permissions_title: 'İzinler ({{count}})',
     permissions_for: 'İzinler · {{role}}',
     select_role_hint: 'İzinleri görüntülemek ve düzenlemek için bir rol seçin.',
@@ -619,6 +623,8 @@ export const admin: AdminDictionary = {
   },
   sharing: {
     title: 'Paylaşım',
+    description:
+      'Kullanıcılar ve çalışma alanları arasında paylaşılan kaynakları görüntüleyin ve iptal edin.',
     share: 'Paylaş',
     share_resource: 'Kaynak Paylaş',
     resource_type: 'Kaynak Türü',

@@ -303,7 +303,12 @@ export function FieldPermissionPanel({ token }: { token: string }) {
   )
 
   return (
-    <AdminPanelShell title={t('admin.tabs.field_permissions')} readOnly={!canEdit} maxWidth="100%">
+    <AdminPanelShell
+      title={t('admin.tabs.field_permissions')}
+      description={t('admin.field_permissions.description')}
+      readOnly={!canEdit}
+      maxWidth="100%"
+    >
       <div className="bg-card-raised border-border grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 rounded-lg border p-4">
         <label className={adminFormLabelClass}>
           <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">

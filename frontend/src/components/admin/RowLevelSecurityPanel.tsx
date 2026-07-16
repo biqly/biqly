@@ -180,7 +180,12 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
   const isSavingDisabled = fields.length === 0 || loadingPolicy || saving
 
   return (
-    <AdminPanelShell title={t('admin.tabs.row_level_security')} readOnly={!canEdit} maxWidth="100%">
+    <AdminPanelShell
+      title={t('admin.tabs.row_level_security')}
+      description={t('admin.rls.description')}
+      readOnly={!canEdit}
+      maxWidth="100%"
+    >
       <div className="bg-card-raised border-border grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 rounded-lg border p-4">
         <label className={adminFormLabelClass}>
           <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">

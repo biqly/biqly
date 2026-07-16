@@ -1399,6 +1399,8 @@ export const core: CoreDictionary = {
     chart_success_compare: 'Başarı oranı karşılaştırması',
     legend_success_pct: 'Başarı %',
     legend_confidence_pct: 'Güven %',
+    tbl_up: 'Olumlu geri bildirim',
+    tbl_down: 'Olumsuz geri bildirim',
   },
   modeling: {
     export_model: 'YAML dışa aktar',

@@ -1,12 +1,30 @@
 name: CI
 
+# Meta-only changes (deploy config, Flux manifests, docs, agent skills) must
+# not rebuild api/frontend images: with auto-bump + Flux CD every rebuilt image
+# auto-rolls prod, so a docs-only commit would cause a pointless rollout (and
+# its transient 503 window on the single-node cluster). Workflow/script changes
+# (.github/**, scripts/**) intentionally still run CI so pipeline edits keep
+# test coverage.
 on:
   push:
     branches: [main]
     paths-ignore:
       - deploy/**
+      - clusters/**
+      - .claude/**
+      - docs/**
+      - '*.md'
+      - '**/*.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - deploy/**
+      - clusters/**
+      - .claude/**
+      - docs/**
+      - '*.md'
+      - '**/*.md'
 
 permissions:
   contents: read

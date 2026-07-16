@@ -1,12 +1,22 @@
-import { useEffect, useState } from 'react'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  LabelList,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 
 import { useApi } from '../hooks/useApi'
-import { useT } from '../i18n'
+import { localeLanguageTag, useLocale, useT } from '../i18n'
 import { cardClass } from '../lib/cardClasses'
-import { legacyTableClass } from '../lib/tableClasses'
+import { cn } from '../lib/cn'
 import type { ModelStats } from '../types/ai'
-import { chartAxisStroke, chartGridStroke, chartTooltipStyle } from '../utils/chartConfig'
+import { chartAxisStroke, chartGridStroke } from '../utils/chartConfig'
 import { formatDurationMs, getRateColor } from '../utils/formatters'
 import { ChartContainer } from './ui/ChartContainer'
 import { KPICard } from './ui/KPICard'
@@ -198,81 +208,253 @@ function AIUsageSection({ summary, daily }: { summary: AIUsageSummary; daily: Da
   )
 }
 
+// Series colors are the design-system theme tokens (auto-tuned for light/dark).
+// The pair validates for CVD separation and contrast; direct value labels plus
+// the full table provide the secondary encoding identity never rests on hue.
+const SERIES_SUCCESS = 'var(--success)'
+const SERIES_CONFIDENCE = 'var(--accent)'
+
+/** Round a percent to one decimal with a locale-aware separator ("54.1%"). */
+function formatPercent(value: number, localeTag: string, digits = 1): string {
+  if (!Number.isFinite(value)) {
+    return '—'
+  }
+  return `${new Intl.NumberFormat(localeTag, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: digits,
+  }).format(value)}%`
+}
+
+function formatCount(value: number, localeTag: string): string {
+  return new Intl.NumberFormat(localeTag).format(value)
+}
+
+interface ModelChartRow {
+  name: string
+  success_rate: number
+  confidence: number
+}
+
+interface ChartTooltipEntry {
+  name?: string
+  value?: number
+  color?: string
+  dataKey?: string | number
+}
+
+function ModelChartTooltip({
+  active,
+  payload,
+  label,
+  localeTag,
+}: {
+  active?: boolean
+  payload?: ChartTooltipEntry[]
+  label?: string
+  localeTag: string
+}) {
+  if (!active || !payload || payload.length === 0) {
+    return null
+  }
+  return (
+    <div className="border-border-strong bg-card shadow-card min-w-36 rounded-lg border p-2.5">
+      <div className="text-foreground mb-1.5 text-[0.8rem] font-semibold break-all">{label}</div>
+      <div className="flex flex-col gap-1">
+        {payload.map((entry) => (
+          <div key={String(entry.dataKey)} className="flex items-center justify-between gap-3">
+            <span className="text-foreground-muted inline-flex items-center gap-1.5 text-[0.75rem]">
+              <span
+                aria-hidden
+                className="inline-block h-2 w-2 shrink-0 rounded-xs"
+                style={{ backgroundColor: entry.color }}
+              />
+              {entry.name}
+            </span>
+            <span className="text-foreground text-[0.78rem] font-semibold tabular-nums">
+              {formatPercent(entry.value ?? 0, localeTag)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const numCellClass = 'px-3 py-2.5 text-right align-middle tabular-nums whitespace-nowrap'
+const headCellClass =
+  'px-3 py-2.5 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-foreground-muted border-b border-border-strong align-middle whitespace-nowrap'
+
 function ModelSuccessRates({ models }: { models: ModelStats[] }) {
   const t = useT()
+  const [locale] = useLocale()
+  const localeTag = localeLanguageTag(locale)
+
+  // Chart: sort by success rate (best first) so the comparison reads top-down.
+  const chartData: ModelChartRow[] = useMemo(
+    () =>
+      [...models]
+        .map((m) => ({
+          name: m.model_name ?? m.model_id,
+          success_rate: Math.round(m.success_rate * 10) / 10,
+          confidence: Math.round(m.avg_confidence * 100 * 10) / 10,
+        }))
+        .sort((a, b) => b.success_rate - a.success_rate),
+    [models],
+  )
+
   if (models.length === 0) {
     return null
   }
 
+  const chartHeight = Math.max(180, chartData.length * 56 + 56)
+
   return (
     <div>
       <h2 className="mb-4">{t('dashboard.model_rates_heading')}</h2>
-      <div className={legacyTableClass('results-table-scroll')}>
-        <table className={legacyTableClass('results-table')}>
-          <thead>
-            <tr>
-              <th>{t('dashboard.col_model')}</th>
-              <th className="text-right">{t('dashboard.tbl_total')}</th>
-              <th className="text-right">{t('dashboard.tbl_success')}</th>
-              <th className="text-right">{t('dashboard.tbl_fail')}</th>
-              <th className="text-right">{t('dashboard.tbl_success_pct')}</th>
-              <th className="text-right">{t('dashboard.tbl_confidence')}</th>
-              <th className="text-right">{t('dashboard.tbl_latency')}</th>
-              <th className="text-right">👍</th>
-              <th className="text-right">👎</th>
-            </tr>
-          </thead>
-          <tbody>
-            {models.map((m) => (
-              <tr key={m.model_id}>
-                <td>{m.model_name ?? m.model_id}</td>
-                <td className="text-right">{m.total_queries}</td>
-                <td className="text-success text-right">{m.success_count}</td>
-                <td className="text-error text-right">{m.failure_count}</td>
-                <td className="text-right">
-                  <span style={{ color: getRateColor(m.success_rate) }} className="font-bold">
-                    {m.success_rate.toFixed(1)}%
-                  </span>
-                </td>
-                <td className="text-right">{(m.avg_confidence * 100).toFixed(0)}%</td>
-                <td className="text-right">{formatDurationMs(m.avg_latency_ms)}</td>
-                <td className="text-success text-right">{m.positive_count}</td>
-                <td className="text-error text-right">{m.negative_count}</td>
+
+      <div className={cardClass()}>
+        <div
+          className="max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]"
+          role="region"
+          aria-label={t('dashboard.model_rates_heading')}
+        >
+          <table className="w-full min-w-2xl border-collapse text-[0.9rem]">
+            <thead>
+              <tr>
+                <th className={cn(headCellClass, 'text-left')}>{t('dashboard.col_model')}</th>
+                <th className={headCellClass}>{t('dashboard.tbl_total')}</th>
+                <th className={headCellClass}>{t('dashboard.tbl_success')}</th>
+                <th className={headCellClass}>{t('dashboard.tbl_fail')}</th>
+                <th className={headCellClass}>{t('dashboard.tbl_success_pct')}</th>
+                <th className={headCellClass}>{t('dashboard.tbl_confidence')}</th>
+                <th className={headCellClass}>{t('dashboard.tbl_latency')}</th>
+                <th className={cn(headCellClass, 'text-right')} aria-label={t('dashboard.tbl_up')}>
+                  👍
+                </th>
+                <th
+                  className={cn(headCellClass, 'text-right')}
+                  aria-label={t('dashboard.tbl_down')}
+                >
+                  👎
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {models.map((m) => {
+                const rateColor = getRateColor(m.success_rate)
+                return (
+                  <tr
+                    key={m.model_id}
+                    className="border-border border-b transition-colors last:border-b-0 hover:bg-(--table-stripe-hover)"
+                  >
+                    <td className="text-foreground px-3 py-2.5 align-middle font-medium break-all">
+                      {m.model_name ?? m.model_id}
+                    </td>
+                    <td className={cn(numCellClass, 'text-foreground-muted')}>
+                      {formatCount(m.total_queries, localeTag)}
+                    </td>
+                    <td className={cn(numCellClass, 'text-success font-medium')}>
+                      {formatCount(m.success_count, localeTag)}
+                    </td>
+                    <td className={cn(numCellClass, 'text-error font-medium')}>
+                      {formatCount(m.failure_count, localeTag)}
+                    </td>
+                    <td className={numCellClass}>
+                      <span
+                        className="inline-flex items-center rounded-full px-2 py-0.5 text-[0.8rem] font-bold tabular-nums"
+                        style={{
+                          color: rateColor,
+                          backgroundColor: `color-mix(in srgb, ${rateColor} 14%, transparent)`,
+                        }}
+                      >
+                        {formatPercent(m.success_rate, localeTag)}
+                      </span>
+                    </td>
+                    <td className={cn(numCellClass, 'text-foreground-muted')}>
+                      {formatPercent(m.avg_confidence * 100, localeTag, 0)}
+                    </td>
+                    <td className={cn(numCellClass, 'text-foreground-muted')}>
+                      {formatDurationMs(m.avg_latency_ms, localeTag)}
+                    </td>
+                    <td className={cn(numCellClass, 'text-success')}>
+                      {formatCount(m.positive_count, localeTag)}
+                    </td>
+                    <td className={cn(numCellClass, 'text-error')}>
+                      {formatCount(m.negative_count, localeTag)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div className={`${cardClass()} mt-4`}>
+      <div className={cardClass()}>
         <h3>{t('dashboard.chart_success_compare')}</h3>
-        <div className="h-62.5">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <BarChart
-              data={models.map((m) => ({
-                name: m.model_name ?? m.model_id,
-                success_rate: m.success_rate,
-                confidence: m.avg_confidence * 100,
-              }))}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
-              <XAxis dataKey="name" stroke={chartAxisStroke} tick={{ fontSize: 11 }} />
-              <YAxis stroke={chartAxisStroke} domain={[0, 100]} />
-              <Tooltip contentStyle={chartTooltipStyle} />
-              <Bar
-                dataKey="success_rate"
-                fill="#22c55e"
-                radius={[4, 4, 0, 0]}
-                name={t('dashboard.legend_success_pct')}
-              />
-              <Bar
-                dataKey="confidence"
-                fill="#3b82f6"
-                radius={[4, 4, 0, 0]}
-                name={t('dashboard.legend_confidence_pct')}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="mt-3 max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
+          <div style={{ height: chartHeight, minWidth: 360 }}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <BarChart
+                layout="vertical"
+                data={chartData}
+                margin={{ top: 4, right: 44, bottom: 4, left: 8 }}
+                barCategoryGap="28%"
+                barGap={2}
+              >
+                <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke={chartGridStroke} />
+                <XAxis
+                  type="number"
+                  domain={[0, 100]}
+                  unit="%"
+                  stroke={chartAxisStroke}
+                  tick={{ fontSize: 11 }}
+                  tickLine={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={140}
+                  stroke={chartAxisStroke}
+                  tick={{ fontSize: 11 }}
+                  tickLine={false}
+                />
+                <Tooltip
+                  cursor={{ fill: 'color-mix(in srgb, var(--accent) 8%, transparent)' }}
+                  content={<ModelChartTooltip localeTag={localeTag} />}
+                />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                <Bar
+                  dataKey="success_rate"
+                  fill={SERIES_SUCCESS}
+                  radius={[0, 4, 4, 0]}
+                  name={t('dashboard.legend_success_pct')}
+                >
+                  <LabelList
+                    dataKey="success_rate"
+                    position="right"
+                    fill="var(--text-muted)"
+                    fontSize={11}
+                    formatter={(v) => formatPercent(Number(v), localeTag)}
+                  />
+                </Bar>
+                <Bar
+                  dataKey="confidence"
+                  fill={SERIES_CONFIDENCE}
+                  radius={[0, 4, 4, 0]}
+                  name={t('dashboard.legend_confidence_pct')}
+                >
+                  <LabelList
+                    dataKey="confidence"
+                    position="right"
+                    fill="var(--text-muted)"
+                    fontSize={11}
+                    formatter={(v) => formatPercent(Number(v), localeTag)}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
     </div>

@@ -1151,7 +1151,7 @@ func TestAIFeedbackAndUsageRepository(t *testing.T) {
 			Rows:    [][]driver.Value{{false}},
 		},
 		{
-			Pattern: "SELECT COALESCE(h.model_id::text, 'unknown')",
+			Pattern: "SELECT COALESCE(NULLIF(TRIM(h.model_used), ''), 'unknown')",
 			Cols:    []string{"model_id", "total_queries", "success_count", "failure_count", "avg_confidence", "avg_latency_ms", "positive_count", "negative_count"},
 			Rows:    [][]driver.Value{{"gpt-4", int64(10), int64(8), int64(2), 0.9, 150.0, int64(5), int64(1)}},
 		},

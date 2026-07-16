@@ -72,7 +72,9 @@ export function DbtImportPanel() {
       aria-labelledby="dbt-import-heading"
     >
       <div>
-        <h2 id="dbt-import-heading">{t('dbt_import.title')}</h2>
+        <h2 id="dbt-import-heading" className="m-0">
+          {t('dbt_import.title')}
+        </h2>
         <p className="text-foreground-muted mt-1 mb-0 text-sm leading-[1.45]">
           {t('dbt_import.hint')}
         </p>

@@ -147,7 +147,8 @@ func (r *Repository) UpdateLatestAIQueryHistoryRating(ctx context.Context, datas
 	return recallUsed, nil
 }
 
-// ModelSuccessRateRow is aggregated AI query stats per model_id label.
+// ModelSuccessRateRow is aggregated AI query stats per LLM model label
+// (model_used, e.g. "mimo-v2.5"). ModelID carries that display label.
 type ModelSuccessRateRow struct {
 	ModelID       string  `json:"model_id"`
 	TotalQueries  int     `json:"total_queries"`
@@ -160,11 +161,16 @@ type ModelSuccessRateRow struct {
 	NegativeCount int     `json:"negative_count"`
 }
 
-// ListModelSuccessRates returns per-model aggregates for the last N days (days is a decimal string, e.g. "30").
+// ListModelSuccessRates returns per-LLM-model aggregates for the last N days,
+// keyed by the human-readable model_used label (days is a decimal string, e.g. "30").
 func (r *Repository) ListModelSuccessRates(ctx context.Context, days string) ([]ModelSuccessRateRow, error) {
+	// Group by the human-readable LLM label (model_used, e.g. "mimo-v2.5"),
+	// not the semantic-model UUID (model_id). The section reports per-LLM
+	// success rates, so model_used is the correct identity and already carries
+	// a display name — no UUID→name lookup is needed.
 	q := `
 		SELECT
-			COALESCE(h.model_id::text, 'unknown') AS model_id,
+			COALESCE(NULLIF(TRIM(h.model_used), ''), 'unknown') AS model_id,
 			COUNT(*) AS total_queries,
 			COUNT(*) FILTER (WHERE h.confidence_score >= 0.7 AND (h.warnings IS NULL OR cardinality(h.warnings) = 0)) AS success_count,
 			COUNT(*) FILTER (WHERE h.confidence_score < 0.7 OR (h.warnings IS NOT NULL AND cardinality(h.warnings) > 0)) AS failure_count,
@@ -174,7 +180,7 @@ func (r *Repository) ListModelSuccessRates(ctx context.Context, days string) ([]
 			COUNT(*) FILTER (WHERE h.user_rating = 'negative') AS negative_count
 		FROM ai_query_history h
 		WHERE h.created_at >= NOW() - ($1 || ' days')::INTERVAL
-		GROUP BY COALESCE(h.model_id::text, 'unknown')
+		GROUP BY COALESCE(NULLIF(TRIM(h.model_used), ''), 'unknown')
 		ORDER BY total_queries DESC
 	`
 	return platformdb.QuerySliceErr(ctx, r.db, "list model success rates", q, []any{days}, scanModelSuccessRateRow)

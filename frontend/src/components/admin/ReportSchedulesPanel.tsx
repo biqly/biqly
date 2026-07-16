@@ -294,7 +294,6 @@ function ReportSchedulesPanel() {
           title={t('admin.reports.empty_title')}
           description={t('admin.reports.empty')}
           icon={<ReportScheduleEmptyIcon />}
-          action={{ label: t('admin.reports.new_schedule'), onClick: () => setForm(emptyForm) }}
         />
       ) : (
         <div className={adminTableContainerClass}>

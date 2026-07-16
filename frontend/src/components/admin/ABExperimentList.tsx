@@ -88,7 +88,7 @@ export function ABExperimentList({ onSelect, onCreate }: ABExperimentListProps) 
     <div className={legacyLayoutClass('page-stack')}>
       <div className={adminPanelHeaderClass}>
         <div>
-          <h2 style={{ margin: 0 }}>{t('admin.ab_experiments.title')}</h2>
+          <h2 className="m-0 text-xl font-bold">{t('admin.ab_experiments.title')}</h2>
           <p className={formHintClass}>{t('admin.ab_experiments.description')}</p>
         </div>
         {experiments.length > 0 && (

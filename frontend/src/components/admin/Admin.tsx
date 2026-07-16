@@ -14,6 +14,7 @@ import { LoadingScreen } from '../ui/LoadingScreen'
 import { adminContentClass, adminLayoutClass } from './adminClasses'
 import { AdminNav } from './AdminNav'
 import { type AdminTab, isAdminTab } from './adminNavConfig'
+import { AdminPanelShell } from './AdminPanelShell'
 
 type PreloadableComponent<T extends ComponentType> = LazyExoticComponent<T> & {
   preload: () => Promise<{ default: T }>
@@ -107,7 +108,6 @@ const PROPLESS_TAB_PANELS: Partial<Record<AdminTab, ComponentType>> = {
   ai_usage: AIUsageAdminPanel,
   ai_jobs: AIJobsAdminPanel,
   ai_history: AIHistoryPanel,
-  sharing: SharedResourcesList,
   ai_providers: AIProvidersPanel,
   ai_ab_experiments: ABExperimentPanel,
   ai_confirmed: ConfirmedQueriesPanel,
@@ -219,6 +219,14 @@ export default function Admin() {
           {tab === 'pii_detection' && <PIIDetectionPanel token={accessToken} />}
           {tab === 'ldap' && <LDAPSettingsPanel token={accessToken} />}
           {tab === 'platform_settings' && <PlatformSettingsPanel token={accessToken} />}
+          {tab === 'sharing' && (
+            <AdminPanelShell
+              title={t('admin.sharing.title')}
+              description={t('admin.sharing.description')}
+            >
+              <SharedResourcesList />
+            </AdminPanelShell>
+          )}
           {ProplessPanel && <ProplessPanel />}
         </Suspense>
       </div>
