@@ -26,7 +26,7 @@ import { LoadingScreen } from './ui/LoadingScreen'
 import { Select } from './ui/Select'
 
 export default function Metadata() {
-  const { get, patchData, putData, loading, error } = useApi()
+  const { get, postData, patchData, putData, loading, error } = useApi()
   const { runJob, bulkDescribe, jobs } = useAIJobs()
   const t = useT()
   const [locale] = useLocale()
@@ -43,6 +43,8 @@ export default function Metadata() {
   const [tables, setTables] = useState<TableRow[]>([])
   const [relations, setRelations] = useState<RelationDetail[]>([])
   const [relationsLoading, setRelationsLoading] = useState(false)
+  const [describingAllJoins, setDescribingAllJoins] = useState(false)
+  const [describingJoinId, setDescribingJoinId] = useState<string | null>(null)
   const [openTableId, setOpenTableId] = useState<string | null>(null)
   const [columns, setColumns] = useState<ColumnRow[]>([])
   const [editing, setEditing] = useState<MetadataEditingState | null>(null)
@@ -154,6 +156,45 @@ export default function Metadata() {
     }
     prevDsRef.current = datasourceId
   }, [datasourceId, editLocale, descriptionLocaleOpts, get])
+
+  const refreshRelations = async () => {
+    if (!datasourceId) {
+      return
+    }
+    const data = await get<RelationDetail[]>(`/api/datasources/${datasourceId}/relations`)
+    setRelations(data ?? [])
+  }
+
+  // Bulk-describe every modeled relationship missing a description, then
+  // refresh so the new descriptions land in the panel.
+  const describeAllJoins = async () => {
+    if (!datasourceId || describingAllJoins) {
+      return
+    }
+    setDescribingAllJoins(true)
+    try {
+      await postData(`/api/ai/datasources/${datasourceId}/describe-joins`, { only_missing: true })
+      await refreshRelations()
+    } finally {
+      setDescribingAllJoins(false)
+    }
+  }
+
+  // Describe a single relationship via its matching semantic join.
+  const describeOneJoin = async (rel: RelationDetail) => {
+    if (!datasourceId || !rel.semantic_join_id || describingJoinId) {
+      return
+    }
+    setDescribingJoinId(rel.semantic_join_id)
+    try {
+      await postData(`/api/ai/datasources/${datasourceId}/describe-joins`, {
+        join_ids: [rel.semantic_join_id],
+      })
+      await refreshRelations()
+    } finally {
+      setDescribingJoinId(null)
+    }
+  }
 
   const schemaOptions = useMemo(
     () => [...new Set(tables.map((tab) => tab.schema_name))].sort((a, b) => a.localeCompare(b)),
@@ -477,7 +518,15 @@ export default function Metadata() {
       )}
 
       {datasourceId && (
-        <MetadataRelationsPanel t={t} relations={filteredRelations} loading={relationsLoading} />
+        <MetadataRelationsPanel
+          t={t}
+          relations={filteredRelations}
+          loading={relationsLoading}
+          describingAll={describingAllJoins}
+          describingJoinId={describingJoinId}
+          onDescribeAll={() => void describeAllJoins()}
+          onDescribeOne={(rel) => void describeOneJoin(rel)}
+        />
       )}
 
       {bulkOpen && (

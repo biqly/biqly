@@ -285,10 +285,23 @@ export async function runSaveJoin(deps: {
   setSavingJoin(true)
   setMessage(null)
   try {
-    await postData<SemanticJoin>(
+    const created = await postData<SemanticJoin>(
       `/api/semantic/models/${model.id}/joins`,
       buildJoinPayload(joinForm),
     )
+    // Auto-describe the freshly added relationship (best-effort, non-blocking):
+    // mirrors how metadata descriptions are generated on ingest. only_missing
+    // guarantees we never clobber a description the user already curated.
+    if (created?.id) {
+      try {
+        await postData(`/api/ai/semantic/models/${model.id}/describe-joins`, {
+          join_ids: [created.id],
+          only_missing: true,
+        })
+      } catch {
+        // Description is a nicety; a failure here must not fail the join add.
+      }
+    }
     await refreshModels(model.id)
     await loadSuggestedJoins()
     setMessage(t('modeling.relationship_added'))

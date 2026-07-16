@@ -247,6 +247,11 @@ func registerAISemanticModelRoutes(
 	// AI-generated join descriptions for the modeling canvas tooltips; uses the
 	// describe-purpose provider like metadata descriptions.
 	r.With(aiUserMW, modelWrite).Post("/ai/semantic/models/{id}/describe-joins", aiHandler.DescribeJoins)
+	// Datasource-scoped join describe: powers the Metadata Relationships panel's
+	// bulk / per-row describe. {id} is a datasource here, so gate on datasource
+	// write access directly.
+	r.With(aiUserMW, bimw.RequireDatasourceAccess(authClient, "write")).
+		Post("/ai/datasources/{id}/describe-joins", aiHandler.DescribeDatasourceJoins)
 }
 
 // registerAISkillsRoutes wires the skills library: saved parameterized
