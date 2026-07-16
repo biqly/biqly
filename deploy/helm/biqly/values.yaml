@@ -568,22 +568,6 @@ ai:
     # the AI pipeline can run for minutes; Envoy's 15s default would 504 it.
     timeouts:
       request: 1800s
-  rollout:
-    enabled: false
-    analysis:
-      successRateThreshold: "0.95"
-      llmLatencyThresholdSeconds: "30"
-      prometheusAddress: http://kube-prometheus-stack-prometheus.monitoring:9090
-    canary:
-      steps:
-        - setWeight: 20
-        - pause:
-            duration: 5m
-        - setWeight: 50
-        - pause:
-            duration: 10m
-        - setWeight: 100
-
 worker:
   enabled: true
   replicaCount: 2

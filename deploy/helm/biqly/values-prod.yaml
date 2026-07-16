@@ -238,8 +238,6 @@ ai:
       memory: 1Gi
   image:
     tag: sha-b0b1e9a1b82a4c566489f61f5c0b80fbb6a04562
-  rollout:
-    enabled: false
   autoscaling:
     enabled: false
     minReplicas: 1
