@@ -29,9 +29,11 @@ spec:
         kind: GitRepository
         name: flux-system
         namespace: flux-system
+      # Paths are resolved from the GitRepository root (not the chart dir) for
+      # git-sourced charts.
       valuesFiles:
-        - values.yaml
-        - values-prod.yaml
+        - deploy/helm/biqly/values.yaml
+        - deploy/helm/biqly/values-prod.yaml
   install:
     createNamespace: false
     crds: CreateReplace
