@@ -5,10 +5,11 @@ metadata:
   labels:
     {{- include "ai.labels" . | nindent 4 }}
 data:
-  {{- range $key, $value := .Values.global.config }}
-  {{ $key }}: {{ $value | quote }}
-  {{- end }}
-  {{- range $key, $value := .Values.config }}
+  {{- /* Merge global + service config so a key defined in both renders once
+         (service config wins). Two separate ranges emitted the same key twice,
+         which Helm CLI tolerated but Flux's strict YAML parser rejects. */}}
+  {{- $config := merge (deepCopy (.Values.config | default dict)) (.Values.global.config | default dict) }}
+  {{- range $key, $value := $config }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
   {{- with .Values.ambiguity }}
