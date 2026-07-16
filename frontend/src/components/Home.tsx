@@ -5,10 +5,18 @@ import { useApi } from '../hooks/useApi'
 import { useToast } from '../hooks/useToast'
 import { localeLanguageTag, type TranslationKey, useLocale, useT } from '../i18n'
 import { cardClass } from '../lib/cardClasses'
+import type { Datasource } from '../types/metadata'
 import { formatDateTime } from '../utils/formatters'
 import type { SavedQuestion } from './savedQuestions/types'
 import { EmptyState } from './ui/EmptyState'
+import { KPICard } from './ui/KPICard'
 import { Skeleton } from './ui/Skeleton'
+
+interface MyAIUsage {
+  days: number
+  query_count: number
+  total_tokens: number
+}
 
 interface RecentQuery {
   id: string
@@ -98,6 +106,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-7">
+      <StatsRow />
       <section>
         <h2 className="m-0 mb-[0.85rem] text-[1rem] font-semibold tracking-[-0.01em]">
           {t('home.quick_actions')}
@@ -126,11 +135,59 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] items-start gap-5">
+      <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-2">
         <RecentQueries />
         <Favorites />
       </div>
     </div>
+  )
+}
+
+function StatsRow() {
+  const t = useT()
+  const [locale] = useLocale()
+  const { get } = useApi()
+  const [usage, setUsage] = useState<MyAIUsage | null>(null)
+  const [savedCount, setSavedCount] = useState<number | null>(null)
+  const [datasourceCount, setDatasourceCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    void get<MyAIUsage>('/api/ai/usage/me').then((data) => {
+      setUsage(data ?? { days: 30, query_count: 0, total_tokens: 0 })
+    })
+    void get<SavedQuestion[]>('/api/ai/examples').then((data) => {
+      setSavedCount(data?.length ?? 0)
+    })
+    void get<Datasource[]>('/api/datasources').then((data) => {
+      setDatasourceCount(data?.length ?? 0)
+    })
+  }, [get])
+
+  const localeTag = localeLanguageTag(locale)
+  const num = (value: number | null | undefined) =>
+    value === null || value === undefined ? (
+      <Skeleton height="1.6rem" width="3.5rem" />
+    ) : (
+      value.toLocaleString(localeTag)
+    )
+
+  return (
+    <section aria-label={t('home.stats_aria')}>
+      <div className="grid grid-cols-2 gap-[0.85rem] lg:grid-cols-4">
+        <KPICard label={t('home.stats_questions')} value={num(usage?.query_count)} />
+        <KPICard
+          label={t('home.stats_tokens')}
+          value={num(usage?.total_tokens)}
+          color="var(--warning)"
+        />
+        <KPICard label={t('home.stats_saved')} value={num(savedCount)} color="var(--success)" />
+        <KPICard
+          label={t('home.stats_datasources')}
+          value={num(datasourceCount)}
+          color="var(--text-secondary)"
+        />
+      </div>
+    </section>
   )
 }
 

@@ -158,6 +158,131 @@ export function layoutInitialPositions(
   return next
 }
 
+export type LayoutPreset = 'grid' | 'hierarchic' | 'compact'
+
+// Masonry-style packing: each card goes to the currently shortest column, so
+// tall and short cards mix without the fixed row rhythm of the grid preset.
+export function layoutCompact(
+  tableCards: TableRow[],
+  cardLayouts: Map<string, CardLayout>,
+  cols = LAYOUT_COLS,
+): Record<string, Pt> {
+  const next: Record<string, Pt> = {}
+  const colHeights: number[] = Array.from({ length: cols }, () => ORIGIN_Y)
+  for (const tbl of tableCards) {
+    const key = tableKey(tbl.schema_name, tbl.table_name)
+    const h = cardLayouts.get(key)?.height ?? HEADER_HEIGHT + 4 * ROW_HEIGHT
+    let col = 0
+    for (let i = 1; i < cols; i++) {
+      if (colHeights[i]! < colHeights[col]!) {
+        col = i
+      }
+    }
+    next[key] = { x: ORIGIN_X + col * GRID_X, y: colHeights[col]! }
+    colHeights[col] = colHeights[col]! + h + GRID_Y / 2
+  }
+  return next
+}
+
+// Relationship-driven layered layout: BFS over active joins puts the base
+// table in the leftmost column and each join hop one column to the right;
+// tables without any relationship land in a final column on the far right.
+function buildJoinAdjacency(
+  joins: SemanticJoin[],
+  baseSchema: string,
+  keySet: Set<string>,
+): Map<string, string[]> {
+  const adjacency = new Map<string, string[]>()
+  const addEdge = (a: string, b: string) => {
+    if (!adjacency.has(a)) {
+      adjacency.set(a, [])
+    }
+    adjacency.get(a)!.push(b)
+  }
+  for (const join of joins) {
+    if (join.is_active === false) {
+      continue
+    }
+    const a = tableKey(join.from_schema ?? baseSchema, join.from_table)
+    const b = tableKey(join.to_schema ?? baseSchema, join.to_table)
+    if (!keySet.has(a) || !keySet.has(b) || a === b) {
+      continue
+    }
+    addEdge(a, b)
+    addEdge(b, a)
+  }
+  return adjacency
+}
+
+// BFS distance from `baseKey` over the join graph; tables unreachable from it
+// (including when there is no base) get BFS'd from their own component so
+// every connected table still lands next to its neighbors, and anything left
+// fully isolated is parked one column past the deepest connected table.
+function computeJoinDepths(
+  keys: string[],
+  adjacency: Map<string, string[]>,
+  keySet: Set<string>,
+  baseKey?: string,
+): Map<string, number> {
+  const depth = new Map<string, number>()
+  const bfs = (start: string) => {
+    depth.set(start, 0)
+    const queue = [start]
+    while (queue.length > 0) {
+      const cur = queue.shift()!
+      for (const nb of adjacency.get(cur) ?? []) {
+        if (!depth.has(nb)) {
+          depth.set(nb, depth.get(cur)! + 1)
+          queue.push(nb)
+        }
+      }
+    }
+  }
+  if (baseKey && keySet.has(baseKey)) {
+    bfs(baseKey)
+  }
+  for (const key of keys) {
+    if (!depth.has(key) && (adjacency.get(key)?.length ?? 0) > 0) {
+      bfs(key)
+    }
+  }
+  let maxDepth = 0
+  for (const d of depth.values()) {
+    maxDepth = Math.max(maxDepth, d)
+  }
+  const isolatedCol = depth.size > 0 ? maxDepth + 1 : 0
+  for (const key of keys) {
+    if (!depth.has(key)) {
+      depth.set(key, isolatedCol)
+    }
+  }
+  return depth
+}
+
+export function layoutHierarchic(
+  tableCards: TableRow[],
+  cardLayouts: Map<string, CardLayout>,
+  joins: SemanticJoin[],
+  baseSchema: string,
+  baseKey?: string,
+): Record<string, Pt> {
+  const keys = tableCards.map((tbl) => tableKey(tbl.schema_name, tbl.table_name))
+  const keySet = new Set(keys)
+  const adjacency = buildJoinAdjacency(joins, baseSchema, keySet)
+  const depth = computeJoinDepths(keys, adjacency, keySet, baseKey)
+
+  const next: Record<string, Pt> = {}
+  const colCursors = new Map<number, number>()
+  for (const key of keys) {
+    const col = depth.get(key)!
+    const y = colCursors.get(col) ?? ORIGIN_Y
+    const h = cardLayouts.get(key)?.height ?? HEADER_HEIGHT + 4 * ROW_HEIGHT
+    next[key] = { x: ORIGIN_X + col * GRID_X, y }
+    colCursors.set(col, y + h + GRID_Y / 2)
+  }
+  return next
+}
+
 // Pushes overlapping cards downward until no two cards intersect. Card heights
 // change after the initial grid layout (model detail loads, column windows
 // resize), and preserved positions can then collide; this reopens the gaps
@@ -298,6 +423,53 @@ export function buildCardSections(
   return sections
 }
 
+// Y offset (within a card) of a relationship row's center. Prefers the
+// DOM-measured offsets (exact regardless of CSS rounding); the constant-based
+// fallback covers the first paint before measurement lands.
+export function relRowCenterY(layout: CardLayout, relIdx: number, measured?: number[]) {
+  const measuredY = measured?.[relIdx]
+  if (measuredY !== undefined) {
+    return measuredY
+  }
+  return (
+    HEADER_HEIGHT +
+    CARD_PAD_Y * 2 +
+    layout.visibleRowCount * ROW_HEIGHT +
+    CALC_SECTION_HEIGHT +
+    REL_SECTION_LABEL_HEIGHT +
+    relIdx * ROW_HEIGHT +
+    ROW_HEIGHT / 2
+  )
+}
+
+// Maps each active join to the index of the relationship row it occupies on
+// its from- and to-cards. Must mirror buildCardSections' push order exactly:
+// each card's relationship rows are the active joins touching it, in join
+// order; a self-join occupies a single row.
+export function buildJoinRelIndexes(
+  joins: SemanticJoin[],
+  baseSchema: string,
+): Map<string, { from: number; to: number }> {
+  const counts = new Map<string, number>()
+  const out = new Map<string, { from: number; to: number }>()
+  for (const join of joins) {
+    if (join.is_active === false) {
+      continue
+    }
+    const fromKey = tableKey(join.from_schema ?? baseSchema, join.from_table)
+    const toKey = tableKey(join.to_schema ?? baseSchema, join.to_table)
+    const fromIdx = counts.get(fromKey) ?? 0
+    counts.set(fromKey, fromIdx + 1)
+    let toIdx = fromIdx
+    if (toKey !== fromKey) {
+      toIdx = counts.get(toKey) ?? 0
+      counts.set(toKey, toIdx + 1)
+    }
+    out.set(join.id, { from: fromIdx, to: toIdx })
+  }
+  return out
+}
+
 // cardinalityMarkers maps a relationship to the crow's-foot style end labels
 // drawn next to the join line's endpoints: '*' on the many side, '1' on the
 // one side (from → x1/y1, to → x2/y2).
@@ -317,31 +489,44 @@ export function cardinalityMarkers(relationship: SemanticJoin['relationship']): 
   }
 }
 
-export function computeJoinPath(
+// Anchor at the cards' relationship rows (always visible, unaffected by the
+// scrollable column list); fall back to the join-column rows when the join
+// has no relationship-row index. Returns null when the fallback's join
+// column isn't present in the card's column set.
+function computeJoinAnchorY(
   join: SemanticJoin,
-  baseSchema: string,
-  positions: Record<string, Pt>,
-  cardLayouts: Map<string, CardLayout>,
+  fromKey: string,
+  toKey: string,
+  fromPos: Pt,
+  toPos: Pt,
+  fromLayout: CardLayout,
+  toLayout: CardLayout,
   scrollTops?: Map<string, number>,
-): JoinPath | null {
-  const fromKey = tableKey(join.from_schema ?? baseSchema, join.from_table)
-  const toKey = tableKey(join.to_schema ?? baseSchema, join.to_table)
-  const fromPos = positions[fromKey]
-  const toPos = positions[toKey]
-  const fromLayout = cardLayouts.get(fromKey)
-  const toLayout = cardLayouts.get(toKey)
-  if (!fromPos || !toPos || !fromLayout || !toLayout) {
-    return null
+  relIndexes?: Map<string, { from: number; to: number }>,
+  relRowOffsets?: Map<string, number[]>,
+): { fromY: number; toY: number } | null {
+  const relIdx = relIndexes?.get(join.id)
+  if (relIdx) {
+    return {
+      fromY: fromPos.y + relRowCenterY(fromLayout, relIdx.from, relRowOffsets?.get(fromKey)),
+      toY: toPos.y + relRowCenterY(toLayout, relIdx.to, relRowOffsets?.get(toKey)),
+    }
   }
-
   const fromIdx = fromLayout.columnIndex.get(join.from_column)
   const toIdx = toLayout.columnIndex.get(join.to_column)
   if (fromIdx === undefined || toIdx === undefined) {
     return null
   }
-  const fromY = fromPos.y + rowCenterY(fromIdx, fromLayout, scrollTops?.get(fromKey) ?? 0)
-  const toY = toPos.y + rowCenterY(toIdx, toLayout, scrollTops?.get(toKey) ?? 0)
+  return {
+    fromY: fromPos.y + rowCenterY(fromIdx, fromLayout, scrollTops?.get(fromKey) ?? 0),
+    toY: toPos.y + rowCenterY(toIdx, toLayout, scrollTops?.get(toKey) ?? 0),
+  }
+}
 
+// Builds the orthogonal elbow path between two anchor points: a side lane
+// when the cards sit roughly in the same column (both edges route right),
+// otherwise a stubbed elbow with a shared midpoint X between the two cards.
+function elbowJoinPath(fromPos: Pt, toPos: Pt, fromY: number, toY: number): JoinPath {
   const fromCenterX = fromPos.x + CARD_WIDTH / 2
   const toCenterX = toPos.x + CARD_WIDTH / 2
   const sameColumn = Math.abs(fromCenterX - toCenterX) < CARD_WIDTH * 0.65
@@ -363,4 +548,41 @@ export function computeJoinPath(
   const midX = (sx + tx) / 2
   const d = `M ${x1} ${fromY} L ${sx} ${fromY} L ${midX} ${fromY} L ${midX} ${toY} L ${tx} ${toY} L ${x2} ${toY}`
   return { x1, y1: fromY, x2, y2: toY, d }
+}
+
+export function computeJoinPath(
+  join: SemanticJoin,
+  baseSchema: string,
+  positions: Record<string, Pt>,
+  cardLayouts: Map<string, CardLayout>,
+  scrollTops?: Map<string, number>,
+  relIndexes?: Map<string, { from: number; to: number }>,
+  relRowOffsets?: Map<string, number[]>,
+): JoinPath | null {
+  const fromKey = tableKey(join.from_schema ?? baseSchema, join.from_table)
+  const toKey = tableKey(join.to_schema ?? baseSchema, join.to_table)
+  const fromPos = positions[fromKey]
+  const toPos = positions[toKey]
+  const fromLayout = cardLayouts.get(fromKey)
+  const toLayout = cardLayouts.get(toKey)
+  if (!fromPos || !toPos || !fromLayout || !toLayout) {
+    return null
+  }
+
+  const anchors = computeJoinAnchorY(
+    join,
+    fromKey,
+    toKey,
+    fromPos,
+    toPos,
+    fromLayout,
+    toLayout,
+    scrollTops,
+    relIndexes,
+    relRowOffsets,
+  )
+  if (!anchors) {
+    return null
+  }
+  return elbowJoinPath(fromPos, toPos, anchors.fromY, anchors.toY)
 }

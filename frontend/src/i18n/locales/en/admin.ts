@@ -4,11 +4,11 @@ export const admin = {
   read_only_note: 'You have read-only access here — you do not have permission to make changes.',
   nav: {
     label: 'Administration sections',
-    jump_to: 'Section',
     access: 'Access & identity',
-    security: 'Security policies',
-    ai: 'AI & sharing',
-    compliance: 'Audit & compliance',
+    security: 'Security',
+    ai: 'AI',
+    sharing_reports: 'Sharing & reports',
+    compliance: 'Audit & integrations',
   },
   tabs: {
     users: 'Users',

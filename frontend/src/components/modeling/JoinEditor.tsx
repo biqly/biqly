@@ -5,6 +5,7 @@ import { modelingFormGroupClass } from '../../lib/formClasses'
 import {
   modelingEditorSideBodyClass,
   modelingKickerClass,
+  modelingPanelIntroClass,
   modelingTypeHintClass,
 } from '../../lib/modelingClasses'
 import type { ColumnRow } from '../../types/semantic'
@@ -68,7 +69,7 @@ export function JoinEditor({
   return (
     <div role="region" aria-label={t('modeling.relationship_editor_aria')}>
       <div className={modelingEditorSideBodyClass}>
-        <div>
+        <div className={modelingPanelIntroClass}>
           <span className={modelingKickerClass}>{t('modeling.manual_relationship')}</span>
           <h2>{t('modeling.manual_title')}</h2>
           <p>{t('modeling.manual_desc')}</p>
@@ -127,6 +128,13 @@ export function JoinEditor({
           {selectedFromColumn && (
             <small className={modelingTypeHintClass}>
               {t('modeling.compatible_columns_hint', {
+                type: formatDataType(t, selectedFromColumn.data_type),
+              })}
+            </small>
+          )}
+          {joinForm.toTable && selectedFromColumn && toColumns.length === 0 && (
+            <small className="text-warning mt-1 block text-[0.72rem] leading-snug">
+              {t('modeling.no_compatible_columns_help', {
                 type: formatDataType(t, selectedFromColumn.data_type),
               })}
             </small>

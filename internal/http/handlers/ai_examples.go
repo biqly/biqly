@@ -288,6 +288,29 @@ func (h *AIExamplesHandler) GetAIUsage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"summary": summary, "daily": daily})
 }
 
+// GetMyAIUsage returns the current user's own AI usage totals for the trailing
+// 30 days (Home page summary). Anonymous requests get zeros rather than an
+// error, mirroring QueryHistory's behavior for missing identity.
+func (h *AIExamplesHandler) GetMyAIUsage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	const days = 30
+	userID := bimw.UserID(ctx)
+	if userID == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"days": days, "query_count": 0, "total_tokens": 0})
+		return
+	}
+	usage, err := h.deps.MetaRepo.GetAIUsageForUser(ctx, userID, days)
+	if err != nil {
+		writeInternalError(ctx, w, http.StatusInternalServerError, "failed to get user usage", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"days":         days,
+		"query_count":  usage.QueryCount,
+		"total_tokens": usage.TotalTokens,
+	})
+}
+
 // GetAIUsageBreakdown returns per-user, per-LLM-model token aggregates for admins.
 func (h *AIExamplesHandler) GetAIUsageBreakdown(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

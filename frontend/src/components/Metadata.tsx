@@ -12,11 +12,12 @@ import { cardClass } from '../lib/cardClasses'
 import { legacyFormClass } from '../lib/formClasses'
 import { legacyLayoutClass } from '../lib/layoutClasses'
 import type { AIRuntimeSettings } from '../types/ai'
-import type { Datasource } from '../types/metadata'
+import type { Datasource, RelationDetail } from '../types/metadata'
 import type { ColumnRow, TableRow } from '../types/semantic'
 import { MetadataAIJobsStrip } from './metadata/MetadataAIJobsStrip'
 import { MetadataBulkDescribeModal } from './metadata/MetadataBulkDescribeModal'
 import { MetadataDescribeModal } from './metadata/MetadataDescribeModal'
+import { MetadataRelationsPanel } from './metadata/MetadataRelationsPanel'
 import { filterMetadataTables } from './metadata/metadataTableFilters'
 import { MetadataTablesPanel } from './metadata/MetadataTablesPanel'
 import type { MetadataEditingState } from './metadata/utils'
@@ -40,6 +41,8 @@ export default function Metadata() {
   const [typeParam, setTypeParam] = useQueryParam('type')
   const [datasourceId, setDatasourceId] = useState(dsParam)
   const [tables, setTables] = useState<TableRow[]>([])
+  const [relations, setRelations] = useState<RelationDetail[]>([])
+  const [relationsLoading, setRelationsLoading] = useState(false)
   const [openTableId, setOpenTableId] = useState<string | null>(null)
   const [columns, setColumns] = useState<ColumnRow[]>([])
   const [editing, setEditing] = useState<MetadataEditingState | null>(null)
@@ -139,6 +142,10 @@ export default function Metadata() {
     void get<TableRow[]>(`/api/datasources/${datasourceId}/tables`, descriptionLocaleOpts)
       .then((data) => setTables(data ?? []))
       .finally(() => setTablesLoading(false))
+    setRelationsLoading(true)
+    void get<RelationDetail[]>(`/api/datasources/${datasourceId}/relations`)
+      .then((data) => setRelations(data ?? []))
+      .finally(() => setRelationsLoading(false))
     setOpenTableId(null)
     setColumns([])
     if (prevDsRef.current && prevDsRef.current !== datasourceId) {
@@ -191,6 +198,15 @@ export default function Metadata() {
   const filteredTables = useMemo(
     () => filterMetadataTables(tables, tableFilterSchema, tableFilterType),
     [tables, tableFilterSchema, tableFilterType],
+  )
+  const filteredRelations = useMemo(
+    () =>
+      tableFilterSchema
+        ? relations.filter(
+            (rel) => rel.from_schema === tableFilterSchema || rel.to_schema === tableFilterSchema,
+          )
+        : relations,
+    [relations, tableFilterSchema],
   )
 
   useEffect(() => {
@@ -458,6 +474,10 @@ export default function Metadata() {
             return true
           }}
         />
+      )}
+
+      {datasourceId && (
+        <MetadataRelationsPanel t={t} relations={filteredRelations} loading={relationsLoading} />
       )}
 
       {bulkOpen && (

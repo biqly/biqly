@@ -519,6 +519,34 @@ func (r *Repository) ListRelations(ctx context.Context, datasourceID string) ([]
 	return platformdb.QuerySliceErr(ctx, r.db, "list relations", query, []any{datasourceID}, scanRelation)
 }
 
+// ListRelationDetails returns foreign-key relationships for a datasource, each
+// enriched with a description from a matching active semantic-model join
+// (either direction) when one exists. Descriptions live on semantic_joins, so
+// this is the bridge that lets the metadata UI show them.
+func (r *Repository) ListRelationDetails(ctx context.Context, datasourceID string) ([]RelationDetail, error) {
+	query := `
+		SELECT ` + relationSelectColumns + `,
+			COALESCE((
+				SELECT sj.description
+				FROM semantic_joins sj
+				JOIN semantic_models sm ON sm.id = sj.model_id
+				WHERE sm.datasource_id = relations.datasource_id
+				  AND sj.is_active
+				  AND sj.description <> ''
+				  AND ((sj.from_table = relations.from_table AND sj.from_column = relations.from_column
+						AND sj.to_table = relations.to_table AND sj.to_column = relations.to_column)
+					OR (sj.from_table = relations.to_table AND sj.from_column = relations.to_column
+						AND sj.to_table = relations.from_table AND sj.to_column = relations.from_column))
+				ORDER BY sj.created_at DESC
+				LIMIT 1
+			), '') AS description
+		FROM relations
+		WHERE datasource_id = $1
+		ORDER BY from_schema, from_table, from_column
+	`
+	return platformdb.QuerySliceErr(ctx, r.db, "list relation details", query, []any{datasourceID}, scanRelationDetail)
+}
+
 // History operations
 
 // CreateQueryHistory stores a structured query execution history entry.
@@ -851,6 +879,27 @@ func scanRelation(s platformdb.Scanner) (Relation, error) {
 		&rel.CreatedAt,
 	); err != nil {
 		return rel, fmt.Errorf("scan relation: %w", err)
+	}
+	return rel, nil
+}
+
+func scanRelationDetail(s platformdb.Scanner) (RelationDetail, error) {
+	var rel RelationDetail
+	if err := s.Scan(
+		&rel.ID,
+		&rel.DatasourceID,
+		&rel.ConstraintName,
+		&rel.FromSchema,
+		&rel.FromTable,
+		&rel.FromColumn,
+		&rel.ToSchema,
+		&rel.ToTable,
+		&rel.ToColumn,
+		&rel.RelationshipType,
+		&rel.CreatedAt,
+		&rel.Description,
+	); err != nil {
+		return rel, fmt.Errorf("scan relation detail: %w", err)
 	}
 	return rel, nil
 }

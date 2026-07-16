@@ -27,6 +27,7 @@ export function QueryBuilderNotebook({
   tableOptions,
   includedTableOptions,
   columnOptionsByTable,
+  columnTypesByTable,
   metadataJoinsEditable,
   onBaseTableChange,
   onAddMetadataJoin,
@@ -90,6 +91,7 @@ export function QueryBuilderNotebook({
   tableOptions: TableOption[]
   includedTableOptions: TableOption[]
   columnOptionsByTable: Record<string, { value: string; label: string; hint?: string }[]>
+  columnTypesByTable: Record<string, Record<string, string>>
   metadataJoinsEditable: boolean
   onBaseTableChange: (value: string) => void
   onAddMetadataJoin: () => void
@@ -174,6 +176,7 @@ export function QueryBuilderNotebook({
           tableOptions={tableOptions}
           includedTableOptions={includedTableOptions}
           columnOptionsByTable={columnOptionsByTable}
+          columnTypesByTable={columnTypesByTable}
           onAddJoin={onAddMetadataJoin}
           onUpdateJoin={onUpdateMetadataJoin}
           onRemoveJoin={onRemoveMetadataJoin}

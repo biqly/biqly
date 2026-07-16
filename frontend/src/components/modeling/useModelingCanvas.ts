@@ -6,12 +6,16 @@ import {
   applyKeyboardMove,
   buildCardLayouts,
   buildCardSections,
+  buildJoinRelIndexes,
   computeCanvasBounds,
   computeJoinPath,
   continuousZoomScale,
   exceedsDragThreshold,
   keyboardDeltaFromKey,
+  layoutCompact,
+  layoutHierarchic,
   layoutInitialPositions,
+  type LayoutPreset,
   panViewport,
   resolveOverlaps,
   snapScaleNearest,
@@ -33,6 +37,9 @@ export function useModelingCanvas(
   const [viewport, setViewport] = useState<Viewport>({ scale: 1, tx: 0, ty: 0 })
   // Scroll offsets of each card's column list; join-line anchors follow them.
   const [scrollTops, setScrollTops] = useState<Map<string, number>>(new Map())
+  // DOM-measured Y centers of each card's relationship rows (within the card),
+  // so join-line anchors land exactly on the rendered rows.
+  const [relRowOffsets, setRelRowOffsets] = useState<Map<string, number[]>>(new Map())
 
   const viewportRef = useRef(viewport)
   const wrapRef = useRef<HTMLDivElement | null>(null)
@@ -64,6 +71,7 @@ export function useModelingCanvas(
     setPositions({})
     setViewport({ scale: 1, tx: 0, ty: 0 })
     setScrollTops(new Map())
+    setRelRowOffsets(new Map())
   }, [modelId])
 
   useEffect(() => {
@@ -90,6 +98,20 @@ export function useModelingCanvas(
       }
       const next = new Map(prev)
       next.set(key, top)
+      return next
+    })
+  }, [])
+
+  // Guarded against no-op updates: cards re-measure on every render, so the
+  // equality check is what prevents a measure → set-state → render loop.
+  const setCardRelRowOffsets = useCallback((key: string, offsets: number[]) => {
+    setRelRowOffsets((prev) => {
+      const cur = prev.get(key)
+      if (cur?.length === offsets.length && cur.every((v, i) => v === offsets[i])) {
+        return prev
+      }
+      const next = new Map(prev)
+      next.set(key, offsets)
       return next
     })
   }, [])
@@ -268,10 +290,46 @@ export function useModelingCanvas(
     setViewport({ scale, tx: padding, ty: padding })
   }, [canvasBounds.width, canvasBounds.height])
 
+  // Re-distributes every card according to the chosen preset (overriding any
+  // manual positions), then resolves residual overlaps.
+  const applyLayoutPreset = useCallback(
+    (preset: LayoutPreset) => {
+      let fresh: Record<string, Pt>
+      if (preset === 'compact') {
+        fresh = layoutCompact(tableCards, cardLayouts)
+      } else if (preset === 'hierarchic') {
+        fresh = layoutHierarchic(
+          tableCards,
+          cardLayouts,
+          model?.joins ?? [],
+          model?.base_schema ?? '',
+          model ? tableKey(model.base_schema, model.base_table) : undefined,
+        )
+      } else {
+        fresh = layoutInitialPositions(tableCards, cardLayouts)
+      }
+      setPositions(resolveOverlaps(fresh, cardLayouts))
+    },
+    [tableCards, cardLayouts, model],
+  )
+
+  const joinRelIndexes = useMemo(
+    () => buildJoinRelIndexes(model?.joins ?? [], model?.base_schema ?? ''),
+    [model?.joins, model?.base_schema],
+  )
+
   const getJoinPath = useCallback(
     (join: SemanticJoin) =>
-      computeJoinPath(join, model?.base_schema ?? '', positions, cardLayouts, scrollTops),
-    [model?.base_schema, positions, cardLayouts, scrollTops],
+      computeJoinPath(
+        join,
+        model?.base_schema ?? '',
+        positions,
+        cardLayouts,
+        scrollTops,
+        joinRelIndexes,
+        relRowOffsets,
+      ),
+    [model?.base_schema, positions, cardLayouts, scrollTops, joinRelIndexes, relRowOffsets],
   )
 
   const panToKeys = useCallback(
@@ -338,6 +396,8 @@ export function useModelingCanvas(
     panToKeys,
     restoreSavedViewport,
     setCardScrollTop,
+    setCardRelRowOffsets,
+    applyLayoutPreset,
   }
 }
 

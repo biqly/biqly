@@ -21,6 +21,7 @@ import {
   modelingJoinPillHeaderClass,
   modelingKickerClass,
   modelingPaletteSideBodyClass,
+  modelingPanelIntroClass,
   modelingPillActionsClass,
   modelingRenameBtnClass,
   modelingSchemaTagClass,
@@ -598,7 +599,7 @@ export function ModelingPalette({
   return (
     <div role="region" aria-label={t('modeling.model_summary_aria')}>
       <div className={modelingPaletteSideBodyClass}>
-        <div>
+        <div className={modelingPanelIntroClass}>
           <span className={modelingKickerClass}>{t('modeling.semantic_layer')}</span>
           <h2>{model?.label ?? model?.name ?? t('modeling.no_model_selected')}</h2>
           <p>{t('modeling.semantic_description')}</p>

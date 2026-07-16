@@ -1,6 +1,11 @@
 import type { TranslationKey } from '../../i18n'
 import type { ColumnRow, SemanticJoin, SemanticModelDetail, TableRow } from '../../types/semantic'
+import { joinDataTypesCompatible, normalizeJoinDataType } from '../../utils/joinCompatibility'
 import type { JoinForm, JoinPayload } from './types'
+
+// Re-exported so existing modeling call sites (columnTypeIcon) keep importing
+// from './utils' while the canonical implementation lives in the shared util.
+export { normalizeJoinDataType }
 
 export function tableKey(schema: string, table: string) {
   return `${schema}.${table}`
@@ -86,81 +91,6 @@ export function columnSelectOptions(cols: ColumnRow[], t: (key: TranslationKey) 
   }))
 }
 
-export function normalizeJoinDataType(dataType: string) {
-  const type = dataType
-    .toLowerCase()
-    .replace(/\(.+\)/, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-  if (
-    [
-      'smallint',
-      'int2',
-      'integer',
-      'int',
-      'int4',
-      'bigint',
-      'int8',
-      'serial',
-      'serial4',
-      'bigserial',
-      'serial8',
-    ].includes(type)
-  ) {
-    return 'integer'
-  }
-  if (
-    [
-      'text',
-      'character varying',
-      'varchar',
-      'character',
-      'char',
-      'citext',
-      'nvarchar',
-      'nchar',
-      'string',
-    ].includes(type)
-  ) {
-    return 'text'
-  }
-  if (['boolean', 'bool'].includes(type)) {
-    return 'boolean'
-  }
-  if (
-    [
-      'timestamp',
-      'timestamp without time zone',
-      'timestamp with time zone',
-      'timestamptz',
-      'datetime',
-    ].includes(type)
-  ) {
-    return 'timestamp'
-  }
-  if (['date'].includes(type)) {
-    return 'date'
-  }
-  if (
-    [
-      'numeric',
-      'decimal',
-      'double precision',
-      'float',
-      'float4',
-      'float8',
-      'real',
-      'money',
-    ].includes(type)
-  ) {
-    return 'decimal'
-  }
-  if (['json', 'jsonb'].includes(type)) {
-    return 'json'
-  }
-  return type
-}
-
 export function columnsAreJoinCompatible(
   left: ColumnRow | null | undefined,
   right: ColumnRow | null | undefined,
@@ -168,7 +98,7 @@ export function columnsAreJoinCompatible(
   if (!left || !right) {
     return false
   }
-  return normalizeJoinDataType(left.data_type) === normalizeJoinDataType(right.data_type)
+  return joinDataTypesCompatible(left.data_type, right.data_type)
 }
 
 export function findColumn(columns: ColumnRow[], tableRef: string, columnName: string) {

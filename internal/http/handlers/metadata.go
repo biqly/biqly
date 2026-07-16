@@ -179,6 +179,21 @@ func (h *MetadataHandler) ListColumns(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, cols)
 }
 
+// ListRelations returns foreign-key relationships for a datasource, enriched
+// with descriptions from matching semantic-model joins.
+func (h *MetadataHandler) ListRelations(w http.ResponseWriter, r *http.Request) {
+	datasourceID, ok := requireURLParam(w, r, "id")
+	if !ok {
+		return
+	}
+	rels, err := h.deps.MetaRepo.ListRelationDetails(r.Context(), datasourceID)
+	if err != nil {
+		writeInternalError(r.Context(), w, http.StatusInternalServerError, "failed to list relations", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, rels)
+}
+
 func (*MetadataHandler) searchMetadata(w http.ResponseWriter, r *http.Request, search func(context.Context, string, string) (any, error), errMsg string) {
 	datasourceID := r.URL.Query().Get("datasource_id")
 	q := r.URL.Query().Get("q")

@@ -1,5 +1,6 @@
 import type { TranslationKey } from '../../i18n'
 import type { SemanticJoin } from '../../types/semantic'
+import { joinDataTypesCompatible } from '../../utils/joinCompatibility'
 import { joinTypeHintKey } from '../ui/joinType'
 import { JoinTypeIcon } from '../ui/JoinTypeIcon'
 import { Select } from '../ui/Select'
@@ -14,7 +15,32 @@ import {
   qbTagCloseClass,
 } from './queryBuilderClasses'
 
-type ColumnOptionsByTable = Record<string, { value: string; label: string; hint?: string }[]>
+interface ColumnOption {
+  value: string
+  label: string
+  hint?: string
+}
+type ColumnOptionsByTable = Record<string, ColumnOption[]>
+type ColumnTypesByTable = Record<string, Record<string, string>>
+
+// Restricts ON-column options to types SQL-joinable with the column selected
+// on the other side. The current selection always stays listed so a saved
+// (incompatible) pair remains visible instead of silently blanking out.
+function compatibleColumnOptions(
+  options: ColumnOption[],
+  columnTypes: Record<string, string> | undefined,
+  otherSideType: string,
+  selected: string,
+): ColumnOption[] {
+  if (!otherSideType || !columnTypes) {
+    return options
+  }
+  return options.filter(
+    (option) =>
+      option.value === selected ||
+      joinDataTypesCompatible(columnTypes[option.value] ?? '', otherSideType),
+  )
+}
 
 export function QueryBuilderNotebookJoins({
   joins,
@@ -22,6 +48,7 @@ export function QueryBuilderNotebookJoins({
   tableOptions = [],
   includedTableOptions = tableOptions,
   columnOptionsByTable = {},
+  columnTypesByTable = {},
   onAddJoin,
   onUpdateJoin,
   onRemoveJoin,
@@ -32,6 +59,7 @@ export function QueryBuilderNotebookJoins({
   tableOptions?: TableOption[]
   includedTableOptions?: TableOption[]
   columnOptionsByTable?: ColumnOptionsByTable
+  columnTypesByTable?: ColumnTypesByTable
   onAddJoin?: () => void
   onUpdateJoin?: (index: number, join: SemanticJoin) => void
   onRemoveJoin?: (index: number) => void
@@ -101,6 +129,11 @@ export function QueryBuilderNotebookJoins({
               const hintKey = joinTypeHintKey(j.join_type)
               const fromKey = metadataTableKey(j.from_schema ?? '', j.from_table)
               const toKey = metadataTableKey(j.to_schema ?? '', j.to_table)
+              const fromType = columnTypesByTable[fromKey]?.[j.from_column] ?? ''
+              const toType = columnTypesByTable[toKey]?.[j.to_column] ?? ''
+              const incompatible = Boolean(
+                fromType && toType && !joinDataTypesCompatible(fromType, toType),
+              )
               return (
                 <tr
                   key={j.id || index}
@@ -203,7 +236,12 @@ export function QueryBuilderNotebookJoins({
                           value={j.from_column}
                           onChange={(value) => onUpdateJoin?.(index, { ...j, from_column: value })}
                           placeholder={t('query_builder.pick_column')}
-                          options={columnOptionsByTable[fromKey] ?? []}
+                          options={compatibleColumnOptions(
+                            columnOptionsByTable[fromKey] ?? [],
+                            columnTypesByTable[fromKey],
+                            toType,
+                            j.from_column,
+                          )}
                           size="sm"
                           searchable
                         />
@@ -212,10 +250,26 @@ export function QueryBuilderNotebookJoins({
                           value={j.to_column}
                           onChange={(value) => onUpdateJoin?.(index, { ...j, to_column: value })}
                           placeholder={t('query_builder.pick_column')}
-                          options={columnOptionsByTable[toKey] ?? []}
+                          options={compatibleColumnOptions(
+                            columnOptionsByTable[toKey] ?? [],
+                            columnTypesByTable[toKey],
+                            fromType,
+                            j.to_column,
+                          )}
                           size="sm"
                           searchable
                         />
+                        {incompatible && (
+                          <p
+                            className="text-caption col-span-3 m-0 text-amber-600 dark:text-amber-400"
+                            role="alert"
+                          >
+                            {t('query_builder.join_incompatible_types', {
+                              from: fromType,
+                              to: toType,
+                            })}
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <code className="text-foreground-muted text-[0.72rem]">

@@ -454,6 +454,16 @@ export default function Composites() {
         onClose={() => setShowCreate(false)}
       >
         <div className={compositeCreateFormClass}>
+          <div className="border-accent/20 bg-accent/5 rounded-lg border p-3">
+            <p className="text-foreground m-0 text-[0.8rem] leading-snug">
+              {t('composites.guide_intro')}
+            </p>
+            <ol className="text-foreground-muted m-0 mt-2 list-decimal space-y-1 pl-5 text-[0.78rem] leading-snug">
+              <li>{t('composites.guide_step1')}</li>
+              <li>{t('composites.guide_step2')}</li>
+              <li>{t('composites.guide_step3')}</li>
+            </ol>
+          </div>
           <div className={compositeCreateFormRowClass}>
             <div className={compositeCreateFieldGroupClass}>
               <label htmlFor="composite-name">{t('composites.field_name')}</label>

@@ -261,7 +261,11 @@ export function ModelingCanvas({
     resetView,
     getJoinPath,
     setCardScrollTop,
+    setCardRelRowOffsets,
+    applyLayoutPreset,
   } = canvas
+
+  const [layoutMenuOpen, setLayoutMenuOpen] = useState(false)
 
   const [joinHover, setJoinHover] = useState<JoinHoverState | null>(null)
   // Clicking a join line opens an interactive popover (info + delete) at the
@@ -291,6 +295,46 @@ export function ModelingCanvas({
             1:1
           </button>
           <span className={modelingZoomReadoutClass}>{Math.round(viewport.scale * 100)}%</span>
+          <span className="bg-border mx-0.5 w-px self-stretch" aria-hidden="true" />
+          <div className="relative">
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={layoutMenuOpen}
+              title={t('modeling.layout_presets_label')}
+              onClick={() => setLayoutMenuOpen((open) => !open)}
+            >
+              ▦
+            </button>
+            {layoutMenuOpen && (
+              <div
+                role="menu"
+                aria-label={t('modeling.layout_presets_label')}
+                className="border-border bg-card-raised absolute bottom-full left-0 z-30 mb-1 flex min-w-44 flex-col rounded-lg border p-1 shadow-[0_8px_24px_rgba(0,0,0,0.25)]"
+              >
+                {(
+                  [
+                    ['grid', 'modeling.layout_grid'],
+                    ['hierarchic', 'modeling.layout_hierarchic'],
+                    ['compact', 'modeling.layout_compact'],
+                  ] as const
+                ).map(([preset, labelKey]) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    role="menuitem"
+                    className="text-foreground hover:bg-accent/10 rounded px-2.5 py-1.5 text-left text-[0.8rem]"
+                    onClick={() => {
+                      applyLayoutPreset(preset)
+                      setLayoutMenuOpen(false)
+                    }}
+                  >
+                    {t(labelKey)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div
           className={modelingCanvasClass}
@@ -346,9 +390,11 @@ export function ModelingCanvas({
                       setJoinMenu({ join, x: e.clientX, y: e.clientY })
                     }}
                   />
-                  <path d={path.d} markerEnd="url(#modeling-arrow)" />
-                  <circle cx={path.x1} cy={path.y1} r={4} />
-                  <circle cx={path.x2} cy={path.y2} r={4} />
+                  <path
+                    d={path.d}
+                    markerStart="url(#modeling-arrow)"
+                    markerEnd="url(#modeling-arrow)"
+                  />
                   <text x={path.x1} y={path.y1 - 7} textAnchor="middle">
                     {cardinality.from}
                   </text>
@@ -390,6 +436,7 @@ export function ModelingCanvas({
                 onOpenDetail={() => onOpenTableDetail(table)}
                 onOpenColumnsMenu={(anchor) => setColumnsMenu({ key, anchor })}
                 onColumnsScroll={(top) => setCardScrollTop(key, top)}
+                onRelRowsMeasure={(offsets) => setCardRelRowOffsets(key, offsets)}
                 onAddCalcField={() => onAddCalcField(table)}
                 onAddRelationship={() => onAddRelationship(table)}
                 t={t}

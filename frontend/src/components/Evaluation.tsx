@@ -11,7 +11,7 @@ import {
 } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { useAdminApi } from '../hooks/useApi'
+import { request, useAdminApi } from '../hooks/useApi'
 import { useQueryParam } from '../hooks/useQueryParam'
 import { localeLanguageTag, useI18n, useT } from '../i18n'
 import { cn } from '../lib/cn'
@@ -110,23 +110,25 @@ export default function Evaluation() {
     setCurrentParam(currentId)
   }, [currentId, setCurrentParam])
 
-  const loadRunHistory = useCallback(async () => {
-    if (!adminApi.configured || historyLoaded) {
-      return
-    }
-    const data = await adminApi.get<EvalRunSummary[]>('/api/ai/eval/runs')
-    if (data) {
-      setRunHistory(data)
-    }
-    setHistoryLoaded(true)
-  }, [adminApi, historyLoaded])
+  const loadRunHistory = useCallback(
+    async (force = false) => {
+      if (!adminApi.configured || (historyLoaded && !force)) {
+        return
+      }
+      const data = await adminApi.get<EvalRunSummary[]>('/api/ai/eval/runs')
+      if (data) {
+        setRunHistory(data)
+      }
+      setHistoryLoaded(true)
+    },
+    [adminApi, historyLoaded],
+  )
 
+  // Load history on mount so the "History (n)" tab count is real, not 0.
   useEffect(() => {
-    if (activeTab === 'history' || activeTab === 'regression') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      void loadRunHistory()
-    }
-  }, [activeTab, loadRunHistory])
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadRunHistory()
+  }, [loadRunHistory])
 
   useEffect(() => {
     if (selectedRun) {
@@ -193,19 +195,29 @@ export default function Evaluation() {
     setRunning(true)
     setRunError(null)
     setShowDemo(false)
-    try {
-      const res = await adminApi.postData<EvalRunResponse>('/api/ai/eval/run', {})
-      if (res) {
-        setEvalData(res)
-      } else {
-        setEvalData(null)
-      }
-    } catch {
+    // adminApi.postData swallows errors and returns null, so use request()
+    // directly to get the server's error message and surface it — otherwise
+    // a failed run looks like the button did nothing.
+    const { data, error } = await request<EvalRunResponse>(
+      'POST',
+      '/api/ai/eval/run',
+      {},
+      {
+        useAdminKey: true,
+      },
+    )
+    if (data) {
+      setEvalData(data)
+      // The finished run was persisted server-side; refresh the History tab
+      // and its tab count so the user sees the new run immediately.
+      void loadRunHistory(true)
+    } else {
+      setRunError(error ?? t('evaluation.run_failed'))
       setShowDemo(true)
-      void import('./evaluation/demoData').then((m) => setEvalData(m.DEMO_DATA))
-    } finally {
-      setRunning(false)
+      const m = await import('./evaluation/demoData')
+      setEvalData(m.DEMO_DATA)
     }
+    setRunning(false)
   }
 
   const activeData = evalData

@@ -120,6 +120,14 @@ type Relation struct {
 	CreatedAt        time.Time `json:"created_at" db:"created_at"`
 }
 
+// RelationDetail is a Relation enriched with a human-readable description
+// sourced from a matching semantic-model join (empty when no model describes
+// the relationship).
+type RelationDetail struct {
+	Relation
+	Description string `json:"description"`
+}
+
 // FewShotCuratedRow is the API shape for a curated few-shot example.
 type FewShotCuratedRow struct {
 	ID           string          `json:"id"`

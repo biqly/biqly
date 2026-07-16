@@ -430,6 +430,17 @@ export default function QueryBuilder() {
     [columnsByTable],
   )
 
+  const metadataColumnTypesByTable = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(columnsByTable).map(([key, columns]) => [
+          key,
+          Object.fromEntries(columns.map((column) => [column.column_name, column.data_type])),
+        ]),
+      ),
+    [columnsByTable],
+  )
+
   const includedTableOptions = useMemo(
     () => metadataTableOpts.filter((option) => metadataIncludedTableKeys.includes(option.value)),
     [metadataIncludedTableKeys, metadataTableOpts],
@@ -908,6 +919,7 @@ export default function QueryBuilder() {
                 tableOptions={metadataTableOpts}
                 includedTableOptions={includedTableOptions}
                 columnOptionsByTable={metadataColumnOptionsByTable}
+                columnTypesByTable={metadataColumnTypesByTable}
                 metadataJoinsEditable={querySource === 'metadata'}
                 onBaseTableChange={setMetadataBaseTable}
                 onAddMetadataJoin={addMetadataJoin}

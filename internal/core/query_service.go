@@ -48,6 +48,13 @@ type HistoryRecorder interface {
 	CreateQueryHistory(ctx context.Context, entry *query.HistoryEntry) error
 }
 
+// ColumnTypeLoader resolves synced column metadata so inline (ad-hoc) model
+// joins can be checked for SQL type compatibility. Optional: nil disables the
+// check.
+type ColumnTypeLoader interface {
+	ListColumns(ctx context.Context, datasourceID, schemaName, tableName string) ([]metadata.Column, error)
+}
+
 type QueryServiceDeps struct {
 	Models      ModelLoader
 	Composites  CompositeModelLoader
@@ -70,6 +77,9 @@ type QueryServiceDeps struct {
 	Audit *audit.Logger
 	// Identity resolves the calling user for history and audit attribution.
 	Identity IdentityResolver
+	// ColumnTypes resolves synced column data types to validate inline model
+	// join column compatibility. Nil disables the check (fail open).
+	ColumnTypes ColumnTypeLoader
 }
 
 type QueryService struct {
@@ -86,6 +96,7 @@ type QueryService struct {
 	piiPolicies *PIIPolicyService
 	audit       *audit.Logger
 	identity    IdentityResolver
+	columnTypes ColumnTypeLoader
 }
 
 type CompileResult struct {
@@ -116,6 +127,7 @@ func NewQueryService(deps *QueryServiceDeps) *QueryService {
 		piiPolicies: deps.PIIPolicies,
 		audit:       deps.Audit,
 		identity:    deps.Identity,
+		columnTypes: deps.ColumnTypes,
 	}
 }
 
@@ -368,6 +380,11 @@ func (s *QueryService) loadContext(ctx context.Context, lq *query.LogicalQuery, 
 		if se != nil {
 			return nil, se
 		}
+	} else if se := s.validateInlineJoinColumnTypes(ctx, lq.DatasourceID, inline); se != nil {
+		// Catalog-stored models are validated at modeling time; inline (ad-hoc
+		// Query Builder / auto-routing) models arrive unvetted, so their join
+		// ON column types are checked here against synced column metadata.
+		return nil, se
 	}
 	ds, err := s.datasources.GetDatasource(ctx, lq.DatasourceID)
 	if err != nil {
@@ -383,6 +400,43 @@ func (s *QueryService) loadContext(ctx context.Context, lq *query.LogicalQuery, 
 		Datasource:   ds,
 		Driver:       driver,
 	}, nil
+}
+
+// validateInlineJoinColumnTypes rejects inline-model joins whose ON columns
+// have SQL-incompatible types (e.g. date = uuid) using synced column metadata.
+// Missing metadata, lookup errors, or unknown types fail open so exotic
+// dialects and unsynced tables never block a query.
+func (s *QueryService) validateInlineJoinColumnTypes(ctx context.Context, datasourceID string, model *semantic.SemanticModel) *ServiceError {
+	if s.columnTypes == nil || model == nil || len(model.Joins) == 0 {
+		return nil
+	}
+	typesByTable := make(map[string]map[string]string, len(model.Joins)+1)
+	lookup := func(schema, table, column string) (string, bool) {
+		if table == "" || column == "" {
+			return "", false
+		}
+		key := schema + "." + table
+		types, cached := typesByTable[key]
+		if !cached {
+			types = map[string]string{}
+			cols, err := s.columnTypes.ListColumns(ctx, datasourceID, schema, table)
+			if err != nil {
+				slog.DebugContext(ctx, "join type check: column metadata lookup failed (fail open)",
+					"datasource_id", datasourceID, "schema", schema, "table", table, "err", err)
+			} else {
+				for _, c := range cols {
+					types[c.ColumnName] = c.DataType
+				}
+			}
+			typesByTable[key] = types
+		}
+		t, ok := types[column]
+		return t, ok && t != ""
+	}
+	if errs := query.ValidateJoinColumnTypes(model, lookup); len(errs) > 0 {
+		return ToServiceError(errs)
+	}
+	return nil
 }
 
 // recordHistory persists the query history entry and returns it (with the

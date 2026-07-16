@@ -1,14 +1,13 @@
 import { Fragment } from 'react'
 
 import type { Locale } from '../../i18n'
-import { FALLBACK_LOCALE, LOCALE_OPTIONS, SUPPORTED_LOCALES, type useT } from '../../i18n'
+import { LOCALE_OPTIONS, SUPPORTED_LOCALES, type useT } from '../../i18n'
 import { buttonClass, iconBtnClass } from '../../lib/buttonClasses'
 import { cardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import {
   metadataEmptyHintClass,
   metadataFilterEmptyRowClass,
-  metadataHintBtnClass,
   metadataLangTabClass,
   metadataLangTabsClass,
   metadataRowActionClass,
@@ -110,16 +109,6 @@ export function MetadataTablesPanel({
                   </button>
                 ))}
               </div>
-              {editLocale !== FALLBACK_LOCALE && (
-                <button
-                  type="button"
-                  className={metadataHintBtnClass}
-                  aria-label={t('metadata.desc_lang_hint_aria')}
-                  title={t('metadata.desc_lang_tr_hint')}
-                >
-                  i
-                </button>
-              )}
             </div>
             {tables.length > 0 && (
               <button

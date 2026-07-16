@@ -190,7 +190,12 @@ export default function Admin() {
     <div className={adminLayoutClass}>
       <AdminNav activeTab={tab} onTabChange={handleTabChange} onTabHover={handleTabHover} />
 
-      <div className={adminContentClass}>
+      <div
+        className={adminContentClass}
+        role="tabpanel"
+        id="admin-active-tabpanel"
+        aria-labelledby={`admin-tab-${tab}`}
+      >
         <Suspense fallback={<LoadingScreen minHeight="200px" />}>
           {tab === 'users' &&
             (selectedUserID ? (

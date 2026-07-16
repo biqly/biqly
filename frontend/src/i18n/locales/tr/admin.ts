@@ -6,11 +6,11 @@ export const admin: AdminDictionary = {
   auth_pending: 'Yetkilendirme bekleniyor…',
   nav: {
     label: 'Yönetim bölümleri',
-    jump_to: 'Bölüm',
     access: 'Erişim & kimlik',
-    security: 'Güvenlik politikaları',
-    ai: 'AI & paylaşım',
-    compliance: 'Denetim & uyumluluk',
+    security: 'Güvenlik',
+    ai: 'AI',
+    sharing_reports: 'Paylaşım & raporlar',
+    compliance: 'Denetim & entegrasyonlar',
   },
   tabs: {
     users: 'Kullanıcılar',

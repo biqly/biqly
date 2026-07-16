@@ -328,6 +328,7 @@ func NewDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, er
 		PIIPolicies: piiPolicies,
 		Audit:       auditLogger,
 		Identity:    jwtIdentity,
+		ColumnTypes: metaRepo,
 	})
 
 	aiBits, err := setupAI(ctx, cfg, db, metaRepo, reg, encryptor, poolCache)

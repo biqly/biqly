@@ -1,5 +1,14 @@
 /* eslint-disable react-refresh/only-export-components */
-import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import {
+  type KeyboardEvent,
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import { request } from '../../hooks/useApi'
 import type { LooseTFunction } from '../../i18n'
@@ -11,44 +20,143 @@ type SemanticFunctionCallExpr = Extract<SemanticExprNode, { type: 'function_call
 type SemanticCaseExpr = Extract<SemanticExprNode, { type: 'case' }>
 import { errorMessage } from '../../utils/error'
 import { isRecord } from '../../utils/record'
-// Whitelisted SQL functions with arity hints (-1 = variadic)
+// Whitelisted SQL functions with arity hints (-1 = variadic); descKey is a
+// modeling.* i18n key so descriptions localize in the visual builder and the
+// text-mode autocomplete.
 export interface FunctionInfo {
   name: string
   arity: number
-  desc: string
+  descKey: string
 }
 
 export const ALLOWED_FUNCTIONS: FunctionInfo[] = [
-  { name: 'COALESCE', arity: -1, desc: 'Returns first non-null value' },
-  { name: 'CONCAT', arity: -1, desc: 'Concatenates multiple strings' },
-  { name: 'UPPER', arity: 1, desc: 'Converts string to uppercase' },
-  { name: 'LOWER', arity: 1, desc: 'Converts string to lowercase' },
-  { name: 'ROUND', arity: 2, desc: 'Rounds number to decimal places' },
-  { name: 'LENGTH', arity: 1, desc: 'Returns string length' },
-  { name: 'TRIM', arity: 1, desc: 'Removes leading/trailing spaces' },
-  { name: 'ABS', arity: 1, desc: 'Returns absolute value' },
-  { name: 'CEIL', arity: 1, desc: 'Rounds up to nearest integer' },
-  { name: 'FLOOR', arity: 1, desc: 'Rounds down to nearest integer' },
-  { name: 'NULLIF', arity: 2, desc: 'Returns null if values are equal' },
-  { name: 'IFNULL', arity: 2, desc: 'Returns second value if first is null' },
-  { name: 'ISNULL', arity: 1, desc: 'Returns true if value is null' },
-  { name: 'SUBSTRING', arity: 3, desc: 'Extracts substring' },
-  { name: 'REPLACE', arity: 3, desc: 'Replaces substring occurrences' },
-  { name: 'LEFT', arity: 2, desc: 'Extracts characters from left' },
-  { name: 'RIGHT', arity: 2, desc: 'Extracts characters from right' },
-  { name: 'DATE_TRUNC', arity: 2, desc: 'Truncates date to grain' },
-  { name: 'CAST', arity: 2, desc: 'Casts a value to a type' },
-  { name: 'EXTRACT', arity: 2, desc: 'Extracts a date/time part' },
+  { name: 'COALESCE', arity: -1, descKey: 'modeling.expr_fn_coalesce' },
+  { name: 'CONCAT', arity: -1, descKey: 'modeling.expr_fn_concat' },
+  { name: 'UPPER', arity: 1, descKey: 'modeling.expr_fn_upper' },
+  { name: 'LOWER', arity: 1, descKey: 'modeling.expr_fn_lower' },
+  { name: 'ROUND', arity: 2, descKey: 'modeling.expr_fn_round' },
+  { name: 'LENGTH', arity: 1, descKey: 'modeling.expr_fn_length' },
+  { name: 'TRIM', arity: 1, descKey: 'modeling.expr_fn_trim' },
+  { name: 'ABS', arity: 1, descKey: 'modeling.expr_fn_abs' },
+  { name: 'CEIL', arity: 1, descKey: 'modeling.expr_fn_ceil' },
+  { name: 'FLOOR', arity: 1, descKey: 'modeling.expr_fn_floor' },
+  { name: 'NULLIF', arity: 2, descKey: 'modeling.expr_fn_nullif' },
+  { name: 'IFNULL', arity: 2, descKey: 'modeling.expr_fn_ifnull' },
+  { name: 'ISNULL', arity: 1, descKey: 'modeling.expr_fn_isnull' },
+  { name: 'SUBSTRING', arity: 3, descKey: 'modeling.expr_fn_substring' },
+  { name: 'REPLACE', arity: 3, descKey: 'modeling.expr_fn_replace' },
+  { name: 'LEFT', arity: 2, descKey: 'modeling.expr_fn_left' },
+  { name: 'RIGHT', arity: 2, descKey: 'modeling.expr_fn_right' },
+  { name: 'DATE_TRUNC', arity: 2, descKey: 'modeling.expr_fn_date_trunc' },
+  { name: 'CAST', arity: 2, descKey: 'modeling.expr_fn_cast' },
+  { name: 'EXTRACT', arity: 2, descKey: 'modeling.expr_fn_extract' },
 ]
 
 export const AGGREGATE_FUNCTIONS: FunctionInfo[] = [
-  { name: 'SUM', arity: 1, desc: 'Sum of values' },
-  { name: 'AVG', arity: 1, desc: 'Average of values' },
-  { name: 'MIN', arity: 1, desc: 'Minimum value' },
-  { name: 'MAX', arity: 1, desc: 'Maximum value' },
-  { name: 'COUNT', arity: -1, desc: 'Count rows or non-null values' },
-  { name: 'COUNT_DISTINCT', arity: 1, desc: 'Count distinct values' },
+  { name: 'SUM', arity: 1, descKey: 'modeling.expr_fn_sum' },
+  { name: 'AVG', arity: 1, descKey: 'modeling.expr_fn_avg' },
+  { name: 'MIN', arity: 1, descKey: 'modeling.expr_fn_min' },
+  { name: 'MAX', arity: 1, descKey: 'modeling.expr_fn_max' },
+  { name: 'COUNT', arity: -1, descKey: 'modeling.expr_fn_count' },
+  { name: 'COUNT_DISTINCT', arity: 1, descKey: 'modeling.expr_fn_count_distinct' },
 ]
+
+export type SuggestionKind = 'function' | 'column' | 'dimension' | 'metric'
+
+export interface ExpressionSuggestion {
+  kind: SuggestionKind
+  label: string
+  insertText: string
+  // Caret position relative to the insert start after applying; defaults to
+  // insertText.length. Functions place the caret between the parentheses.
+  caretOffset?: number
+  descKey?: string
+  detail?: string
+}
+
+export interface SuggestionContext {
+  allowAggregates: boolean
+  columns: { table: string; column: string; dataType: string }[]
+  dimensions: { name: string; label?: string | null }[]
+  metrics: { name: string; label?: string | null }[]
+}
+
+const MAX_SUGGESTIONS = 30
+
+// Extracts the token being typed at the caret and returns matching
+// suggestions. `[` opens field completion (columns/dimensions/metrics);
+// a bare word completes whitelisted functions.
+export function computeExpressionSuggestions(
+  text: string,
+  caret: number,
+  ctx: SuggestionContext,
+): { start: number; items: ExpressionSuggestion[] } | null {
+  const before = text.slice(0, caret)
+  const match = /(\[[A-Za-z0-9_.]*|[A-Za-z_][A-Za-z0-9_]*)$/.exec(before)
+  if (!match) {
+    return null
+  }
+  const token = match[0]
+  const start = caret - token.length
+
+  if (token.startsWith('[')) {
+    const query = token.slice(1).toLowerCase()
+    const items: ExpressionSuggestion[] = []
+    for (const col of ctx.columns) {
+      const full = `${col.table}.${col.column}`
+      if (full.toLowerCase().includes(query)) {
+        items.push({ kind: 'column', label: full, insertText: `[${full}]`, detail: col.dataType })
+      }
+    }
+    for (const dim of ctx.dimensions) {
+      if (dim.name.toLowerCase().includes(query)) {
+        items.push({
+          kind: 'dimension',
+          label: dim.name,
+          insertText: `[${dim.name}]`,
+          detail: dim.label ?? undefined,
+        })
+      }
+    }
+    if (ctx.allowAggregates) {
+      for (const met of ctx.metrics) {
+        if (met.name.toLowerCase().includes(query)) {
+          items.push({
+            kind: 'metric',
+            label: met.name,
+            insertText: `[${met.name}]`,
+            detail: met.label ?? undefined,
+          })
+        }
+      }
+    }
+    return items.length > 0 ? { start, items: items.slice(0, MAX_SUGGESTIONS) } : null
+  }
+
+  const query = token.toUpperCase()
+  const pool = ctx.allowAggregates
+    ? [...AGGREGATE_FUNCTIONS, ...ALLOWED_FUNCTIONS]
+    : ALLOWED_FUNCTIONS
+  const items = pool
+    .filter((fn) => fn.name.startsWith(query))
+    .map(
+      (fn): ExpressionSuggestion => ({
+        kind: 'function',
+        label: fn.name,
+        insertText: `${fn.name}()`,
+        caretOffset: fn.name.length + 1,
+        descKey: fn.descKey,
+      }),
+    )
+  return items.length > 0 ? { start, items } : null
+}
+
+const SUGGESTION_KIND_LABEL_KEY: Record<SuggestionKind, string> = {
+  function: 'modeling.expr_function',
+  column: 'modeling.expr_column_ref',
+  dimension: 'modeling.expr_dimension_ref',
+  metric: 'modeling.expr_metric_ref',
+}
 
 export const BINARY_OPS = [
   { value: 'add', label: '+' },
@@ -132,6 +240,16 @@ export function ExpressionBuilder({
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // Kept in refs (not deps) so compileExpression's identity stays stable across
+  // compiles — otherwise setAstNode/onChange inside it would change its identity
+  // on every successful compile, re-triggering the debounce effect in a loop.
+  const astNodeRef = useRef(astNode)
+  // eslint-disable-next-line react-hooks/refs
+  astNodeRef.current = astNode
+  const onChangeRef = useRef(onChange)
+  // eslint-disable-next-line react-hooks/refs
+  onChangeRef.current = onChange
+
   // Map active tables in the model for select dropdowns
   const activeTables = useMemo(() => {
     const keys = new Set<string>()
@@ -165,6 +283,81 @@ export function ExpressionBuilder({
     return (model.metrics ?? []).filter((m) => m.is_active !== false)
   }, [model])
 
+  // --- Text-mode autocomplete ---
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const acListId = useId()
+  const [ac, setAc] = useState<{
+    start: number
+    end: number
+    items: ExpressionSuggestion[]
+  } | null>(null)
+  const [acIdx, setAcIdx] = useState(0)
+
+  const suggestionCtx = useMemo<SuggestionContext>(
+    () => ({
+      allowAggregates,
+      columns: modelColumns.map((c) => ({
+        table: c.table_name,
+        column: c.column_name,
+        dataType: c.data_type,
+      })),
+      dimensions: modelDimensions.map((d) => ({ name: d.name, label: d.label })),
+      metrics: modelMetrics.map((m) => ({ name: m.name, label: m.label })),
+    }),
+    [allowAggregates, modelColumns, modelDimensions, modelMetrics],
+  )
+
+  const refreshSuggestions = useCallback(
+    (value: string, caret: number) => {
+      const res = computeExpressionSuggestions(value, caret, suggestionCtx)
+      setAc(res ? { ...res, end: caret } : null)
+      setAcIdx(0)
+    },
+    [suggestionCtx],
+  )
+
+  const applySuggestion = useCallback(
+    (item: ExpressionSuggestion) => {
+      if (!ac) {
+        return
+      }
+      const newText = textInput.slice(0, ac.start) + item.insertText + textInput.slice(ac.end)
+      const newCaret = ac.start + (item.caretOffset ?? item.insertText.length)
+      setTextInput(newText)
+      setAc(null)
+      requestAnimationFrame(() => {
+        const ta = textareaRef.current
+        if (ta) {
+          ta.focus()
+          ta.setSelectionRange(newCaret, newCaret)
+        }
+      })
+    },
+    [ac, textInput],
+  )
+
+  const handleTextKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!ac || ac.items.length === 0) {
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setAcIdx((i) => (i + 1) % ac.items.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setAcIdx((i) => (i - 1 + ac.items.length) % ac.items.length)
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      const item = ac.items[acIdx] ?? ac.items[0]
+      if (item) {
+        applySuggestion(item)
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setAc(null)
+    }
+  }
+
   // Call backend compile endpoint
   const compileExpression = useCallback(
     async (payload: { expression?: string; expr?: SemanticExprNode }) => {
@@ -183,7 +376,7 @@ export function ExpressionBuilder({
           if (expr) {
             setAstNode(expr)
           }
-          onChange(expr ?? astNode, payload.expression ?? sql)
+          onChangeRef.current(expr ?? astNodeRef.current, payload.expression ?? sql)
         } else {
           setErrorMsg(error ?? 'Failed to compile expression')
           setCompiledSQL('')
@@ -196,7 +389,7 @@ export function ExpressionBuilder({
         setLoading(false)
       }
     },
-    [model.id, onChange, astNode, allowAggregates],
+    [model.id, allowAggregates],
   )
 
   // Trigger compile when Visual AST changes
@@ -271,13 +464,59 @@ export function ExpressionBuilder({
           <div className="relative w-full">
             <textarea
               id="raw-text-expression"
+              ref={textareaRef}
               className={`border-border bg-canvas text-foreground caret-foreground relative z-2 w-full resize-y rounded-md border p-2 font-mono text-[0.85rem] leading-[1.4] shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] transition-[border-color,box-shadow] duration-120 ease-in-out focus-visible:border-(--control-focus-border) focus-visible:shadow-[0_0_0_1px_var(--bg-primary),0_0_0_3px_var(--control-focus-ring)] focus-visible:outline-none`}
               value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              placeholder="e.g. sum([orders.total_amount]) - sum([orders.discount])"
+              onChange={(e) => {
+                setTextInput(e.target.value)
+                refreshSuggestions(e.target.value, e.target.selectionStart)
+              }}
+              onKeyDown={handleTextKeyDown}
+              onBlur={() => setAc(null)}
+              placeholder={
+                allowAggregates
+                  ? 'e.g. sum([orders.total_amount]) - sum([orders.discount])'
+                  : "e.g. concat([customers.first_name], ' ', [customers.last_name])"
+              }
               rows={4}
-              disabled={loading}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={!!ac && ac.items.length > 0}
+              aria-controls={acListId}
+              aria-activedescendant={ac ? `${acListId}-${acIdx}` : undefined}
             />
+            {ac && ac.items.length > 0 && (
+              <ul
+                id={acListId}
+                role="listbox"
+                className="border-border-strong bg-card-raised m-0 mt-1 max-h-56 list-none overflow-y-auto rounded-md border p-1 shadow-[0_8px_24px_rgba(0,0,0,0.25)]"
+              >
+                {ac.items.map((item, i) => (
+                  <li
+                    key={`${item.kind}:${item.label}`}
+                    id={`${acListId}-${i}`}
+                    role="option"
+                    aria-selected={i === acIdx}
+                    className={`flex cursor-pointer items-baseline gap-2 rounded px-2 py-1 ${
+                      i === acIdx ? 'bg-accent/15' : 'hover:bg-white/5'
+                    }`}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      applySuggestion(item)
+                    }}
+                    onMouseEnter={() => setAcIdx(i)}
+                  >
+                    <span className="text-foreground font-mono text-[0.8rem]">{item.label}</span>
+                    <span className="text-accent text-[0.65rem] font-bold uppercase">
+                      {t(SUGGESTION_KIND_LABEL_KEY[item.kind])}
+                    </span>
+                    <span className="text-foreground-muted ml-auto truncate text-[0.72rem]">
+                      {item.descKey ? t(item.descKey) : (item.detail ?? '')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
             <div className="text-foreground-muted mt-[0.35rem] text-[0.7rem]">
               {t('modeling.metric_intellisense_hint')}
             </div>
@@ -299,15 +538,16 @@ export function ExpressionBuilder({
         <h4 className="text-foreground-muted m-0 text-[0.75rem] font-bold tracking-wide uppercase">
           {t('modeling.generated_sql')}
         </h4>
-        {loading ? (
-          <div className="text-foreground-muted p-3 text-[0.8rem]">{t('modeling.running')}</div>
-        ) : (
-          <code
-            className={`bg-canvas-subtle text-success border-border block overflow-x-auto rounded-md border px-4 py-3 font-mono text-[0.85rem] wrap-break-word whitespace-pre-wrap`}
-          >
-            {compiledSQL || '-- Type an expression or build one visually to see SQL --'}
-          </code>
-        )}
+        {/* Keep the code block mounted while compiling (dim instead of swap) so
+            the preview doesn't flash between "Compiling…" and SQL on each keystroke. */}
+        <code
+          aria-busy={loading}
+          className={`bg-canvas-subtle text-success border-border block overflow-x-auto rounded-md border px-4 py-3 font-mono text-[0.85rem] wrap-break-word whitespace-pre-wrap transition-opacity duration-150 ${
+            loading ? 'opacity-50' : ''
+          }`}
+        >
+          {compiledSQL || '-- Type an expression or build one visually to see SQL --'}
+        </code>
       </div>
     </div>
   )
@@ -737,7 +977,12 @@ function ExpressionNodeFunctionCall({
           ))}
         </select>
         <span className="text-foreground-muted text-[0.72rem]">
-          {ALLOWED_FUNCTIONS.find((f) => f.name.toUpperCase() === node.name.toUpperCase())?.desc}
+          {(() => {
+            const fn = ALLOWED_FUNCTIONS.find(
+              (f) => f.name.toUpperCase() === node.name.toUpperCase(),
+            )
+            return fn ? t(fn.descKey) : null
+          })()}
         </span>
       </div>
       <div className="border-border-strong flex flex-col gap-3 border-l border-dashed pl-3">

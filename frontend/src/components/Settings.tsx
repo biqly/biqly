@@ -373,13 +373,13 @@ export default function Settings() {
         className="flex w-full flex-col"
       >
         {activeTab === 'profile' && (
-          <div className="mx-auto flex w-full max-w-184 flex-col gap-4">
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
             <AccountProfileSection />
           </div>
         )}
 
         {activeTab === 'security' && (
-          <div className="mx-auto flex w-full max-w-184 flex-col gap-4">
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
             <MFASection
               className="mb-0"
               status={mfaStatus}
@@ -451,7 +451,7 @@ export default function Settings() {
         )}
 
         {activeTab === 'config' && (
-          <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
             <DbtImportPanel />
             <AIModelPreferencesSection />
             <AIMemorySection />

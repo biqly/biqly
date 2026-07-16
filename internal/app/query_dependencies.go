@@ -63,6 +63,7 @@ func NewQueryDependencies(ctx context.Context, cfg *config.Config) (*Dependencie
 		PIIPolicies: providePIIPolicyService(cfg, metaRepo, auditLogger),
 		Audit:       auditLogger,
 		Identity:    jwtIdentity,
+		ColumnTypes: metaRepo,
 	})
 
 	return &Dependencies{

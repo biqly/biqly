@@ -6,6 +6,7 @@ import {
   applyKeyboardMove,
   buildCardLayouts,
   buildCardSections,
+  buildJoinRelIndexes,
   cardHeight,
   cardinalityMarkers,
   computeCanvasBounds,
@@ -13,8 +14,11 @@ import {
   continuousZoomScale,
   exceedsDragThreshold,
   keyboardDeltaFromKey,
+  layoutCompact,
+  layoutHierarchic,
   layoutInitialPositions,
   panViewport,
+  relRowCenterY,
   resolveOverlaps,
   zoomStep,
   zoomViewportAtPoint,
@@ -316,6 +320,183 @@ describe('computeJoinPath with a scrolled column list', () => {
     expect(path!.y1).toBeCloseTo(40 + HEADER_HEIGHT, 5)
     // The unscrolled side is unaffected.
     expect(path!.y2).toBeCloseTo(40 + HEADER_HEIGHT + CARD_PAD_Y + ROW_HEIGHT / 2, 5)
+  })
+})
+
+describe('relationship-row join anchors', () => {
+  const layout = (colName: string, relatedTables: string[]): CardLayout => ({
+    columnsShown: [],
+    columnIndex: new Map([[colName, 0]]),
+    height: 220,
+    visibleRowCount: 3,
+    calcFieldCount: 0,
+    relatedTables,
+  })
+  const join = {
+    id: 'j1',
+    name: 'orders_customer',
+    from_table: 'orders',
+    from_column: 'customer_id',
+    to_table: 'customers',
+    to_column: 'id',
+    join_type: 'LEFT',
+    relationship: 'many_to_one',
+  } as const
+  const layouts = new Map<string, CardLayout>([
+    [tableKey('public', 'orders'), layout('customer_id', ['customers'])],
+    [tableKey('public', 'customers'), layout('id', ['orders'])],
+  ])
+  const positions = {
+    [tableKey('public', 'orders')]: { x: 40, y: 40 },
+    [tableKey('public', 'customers')]: { x: 420, y: 40 },
+  }
+  const relIndexes = buildJoinRelIndexes([join], 'public')
+
+  it('buildJoinRelIndexes mirrors buildCardSections push order', () => {
+    const second = { ...join, id: 'j2', from_table: 'orders', to_table: 'products' }
+    const idx = buildJoinRelIndexes([join, second], 'public')
+    expect(idx.get('j1')).toEqual({ from: 0, to: 0 })
+    // orders' second join occupies its second relationship row; products' first.
+    expect(idx.get('j2')).toEqual({ from: 1, to: 0 })
+  })
+
+  it('anchors at the relationship row using the constant fallback', () => {
+    const path = computeJoinPath(join, 'public', positions, layouts, undefined, relIndexes)
+    const expected =
+      40 +
+      HEADER_HEIGHT +
+      CARD_PAD_Y * 2 +
+      3 * ROW_HEIGHT +
+      CALC_SECTION_HEIGHT +
+      REL_SECTION_LABEL_HEIGHT +
+      ROW_HEIGHT / 2
+    expect(path!.y1).toBeCloseTo(expected, 5)
+    expect(path!.y2).toBeCloseTo(expected, 5)
+  })
+
+  it('prefers DOM-measured relationship row offsets over constants', () => {
+    const measured = new Map([[tableKey('public', 'orders'), [187.5]]])
+    const path = computeJoinPath(
+      join,
+      'public',
+      positions,
+      layouts,
+      undefined,
+      relIndexes,
+      measured,
+    )
+    expect(path!.y1).toBeCloseTo(40 + 187.5, 5)
+    // Unmeasured side falls back to constants.
+    expect(path!.y2).toBeCloseTo(
+      40 + relRowCenterY(layouts.get(tableKey('public', 'customers'))!, 0),
+      5,
+    )
+  })
+
+  it('ignores scroll offsets when anchored to relationship rows', () => {
+    const scrollTops = new Map([[tableKey('public', 'orders'), 100]])
+    const unscrolled = computeJoinPath(join, 'public', positions, layouts, undefined, relIndexes)
+    const scrolled = computeJoinPath(join, 'public', positions, layouts, scrollTops, relIndexes)
+    expect(scrolled!.y1).toBeCloseTo(unscrolled!.y1, 5)
+  })
+})
+
+describe('layout presets', () => {
+  const layoutOf = (height: number): CardLayout => ({
+    columnsShown: [],
+    columnIndex: new Map(),
+    height,
+    visibleRowCount: 1,
+    calcFieldCount: 0,
+    relatedTables: [],
+  })
+
+  it('layoutCompact fills the shortest column first', () => {
+    const tables = [
+      mkTable('public', 'a'),
+      mkTable('public', 'b'),
+      mkTable('public', 'c'),
+      mkTable('public', 'd'),
+      mkTable('public', 'e'),
+    ]
+    const layouts = new Map<string, CardLayout>([
+      [tableKey('public', 'a'), layoutOf(600)],
+      [tableKey('public', 'b'), layoutOf(100)],
+      [tableKey('public', 'c'), layoutOf(100)],
+      [tableKey('public', 'd'), layoutOf(100)],
+      [tableKey('public', 'e'), layoutOf(100)],
+    ])
+    const pos = layoutCompact(tables, layouts, 2)
+    // 'a' (600) goes to column 0; the remaining short cards stack in column 1
+    // until it grows past column 0's height.
+    expect(pos[tableKey('public', 'a')]!.x).not.toBe(pos[tableKey('public', 'b')]!.x)
+    expect(pos[tableKey('public', 'b')]!.x).toBe(pos[tableKey('public', 'c')]!.x)
+    expect(pos[tableKey('public', 'c')]!.y).toBeGreaterThan(pos[tableKey('public', 'b')]!.y)
+  })
+
+  it('layoutHierarchic layers tables by join distance from the base table', () => {
+    const tables = [mkTable('public', 'orders'), mkTable('public', 'customers')]
+    const layouts = new Map<string, CardLayout>([
+      [tableKey('public', 'orders'), layoutOf(200)],
+      [tableKey('public', 'customers'), layoutOf(200)],
+    ])
+    const joins = [
+      {
+        id: 'j1',
+        name: 'j',
+        from_table: 'orders',
+        from_column: 'customer_id',
+        to_table: 'customers',
+        to_column: 'id',
+        join_type: 'LEFT',
+        relationship: 'many_to_one',
+      } as const,
+    ]
+    const pos = layoutHierarchic(
+      tables,
+      layouts,
+      [...joins],
+      'public',
+      tableKey('public', 'orders'),
+    )
+    expect(pos[tableKey('public', 'orders')]!.x).toBeLessThan(
+      pos[tableKey('public', 'customers')]!.x,
+    )
+  })
+
+  it('layoutHierarchic parks unconnected tables in a trailing column', () => {
+    const tables = [
+      mkTable('public', 'orders'),
+      mkTable('public', 'customers'),
+      mkTable('public', 'lonely'),
+    ]
+    const layouts = new Map<string, CardLayout>([
+      [tableKey('public', 'orders'), layoutOf(200)],
+      [tableKey('public', 'customers'), layoutOf(200)],
+      [tableKey('public', 'lonely'), layoutOf(200)],
+    ])
+    const joins = [
+      {
+        id: 'j1',
+        name: 'j',
+        from_table: 'orders',
+        from_column: 'customer_id',
+        to_table: 'customers',
+        to_column: 'id',
+        join_type: 'LEFT',
+        relationship: 'many_to_one',
+      } as const,
+    ]
+    const pos = layoutHierarchic(
+      tables,
+      layouts,
+      [...joins],
+      'public',
+      tableKey('public', 'orders'),
+    )
+    expect(pos[tableKey('public', 'lonely')]!.x).toBeGreaterThan(
+      pos[tableKey('public', 'customers')]!.x,
+    )
   })
 })
 

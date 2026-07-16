@@ -53,6 +53,7 @@ describe('ModelingTableCard', () => {
           onOpenDetail={vi.fn()}
           onOpenColumnsMenu={vi.fn()}
           onColumnsScroll={vi.fn()}
+          onRelRowsMeasure={vi.fn()}
           onAddCalcField={vi.fn()}
           onAddRelationship={vi.fn()}
           t={t}

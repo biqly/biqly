@@ -104,6 +104,14 @@ export function modelingSideToggleClass(side: 'left' | 'right'): string {
 export const modelingKickerClass =
   'block mb-1 text-accent text-[0.72rem] font-extrabold tracking-[0.04em] uppercase'
 
+// Panel intro header (kicker + title + description). Sizes the h2/p explicitly
+// so the palette/editor headings stay compact instead of inheriting oversized
+// browser defaults.
+export const modelingPanelIntroClass = cn(
+  '[&_h2]:m-0 [&_h2]:text-[1rem] [&_h2]:leading-snug [&_h2]:font-bold',
+  '[&_p]:m-0 [&_p]:mt-1 [&_p]:text-[0.78rem] [&_p]:leading-snug [&_p]:text-foreground-muted',
+)
+
 // Vertical label shown on the 2rem collapsed side rail so the hidden panel
 // stays discoverable; clicking it re-opens the panel.
 export const modelingRailLabelClass = cn(
@@ -127,8 +135,13 @@ export function modelingStatusPillClass(published?: boolean): string {
 export const modelingMenuModelNameClass =
   'block overflow-hidden text-ellipsis whitespace-nowrap text-foreground'
 
-export const modelingJoinListClass =
-  'flex min-h-0 flex-1 flex-col gap-3 overflow-auto pr-1 [&_h3]:text-[0.85rem] [&_h3]:mb-1'
+// Section headings (Schemas, Active tables, …) render as small uppercase
+// labels so they read as grouping labels, not body-size text.
+export const modelingJoinListClass = cn(
+  'flex min-h-0 flex-1 flex-col gap-3 overflow-auto pr-1',
+  '[&_h3]:m-0 [&_h3]:mb-1 [&_h3]:text-[0.72rem] [&_h3]:font-bold [&_h3]:tracking-[0.04em]',
+  '[&_h3]:text-foreground-muted [&_h3]:uppercase',
+)
 
 const modelingJoinPillBase = cn(
   'join-pill flex flex-col gap-1 rounded-lg border border-border bg-card-raised p-3',

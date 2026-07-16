@@ -155,6 +155,30 @@ export function EvalRunTab({
           </div>
         </div>
 
+        {/* 3-step explainer so first-time users know what this page does */}
+        <ol className="text-foreground-muted m-0 mb-3 grid list-none gap-2 p-0 text-[0.82rem] sm:grid-cols-3">
+          {(['guide_step1', 'guide_step2', 'guide_step3'] as const).map((key, i) => (
+            <li
+              key={key}
+              className="border-border bg-card-raised flex items-start gap-2 rounded-lg border px-3 py-2"
+            >
+              <span
+                className="text-accent mt-px inline-grid h-5 w-5 shrink-0 place-items-center rounded-full bg-(--accent-glow) text-[0.72rem] font-bold"
+                aria-hidden="true"
+              >
+                {i + 1}
+              </span>
+              <span>{t(`evaluation.${key}`)}</span>
+            </li>
+          ))}
+        </ol>
+
+        {running && (
+          <p className="text-foreground-muted mb-3 text-[0.82rem]" role="status" aria-live="polite">
+            {t('evaluation.running_hint')}
+          </p>
+        )}
+
         {showDemo && (
           <div className="text-warning mb-4 rounded-lg border border-[rgba(251,191,36,0.25)] bg-[rgba(251,191,36,0.08)] px-[0.85rem] py-[0.6rem] text-[0.82rem]">
             {t('evaluation.demo_banner')}
@@ -162,6 +186,12 @@ export function EvalRunTab({
         )}
 
         <ErrorAlert error={runError} />
+
+        {!activeData && !running && (
+          <p className="text-foreground-faint m-0 text-[0.82rem]">
+            {t('evaluation.empty_no_results_hint')}
+          </p>
+        )}
       </div>
 
       {activeData && (

@@ -102,7 +102,8 @@ const TableBrowser = lazyWithPreload(() => import('./components/TableBrowser'))
 const QueryHistory = lazyWithPreload(() => import('./components/QueryHistory'))
 const PromptTemplates = lazyWithPreload(() => import('./components/PromptTemplates'))
 const Evaluation = lazyWithPreload(() => import('./components/Evaluation'))
-const Dashboard = lazyWithPreload(() => import('./components/Dashboard'))
+const Dashboards = lazyWithPreload(() => import('./components/Dashboards'))
+const AIAnalytics = lazyWithPreload(() => import('./components/AIUsageDashboard'))
 const Settings = lazyWithPreload(() => import('./components/Settings'))
 const TimeGrains = lazyWithPreload(() => import('./components/TimeGrains'))
 const Admin = lazyWithPreload(() => import('./components/admin/Admin'))
@@ -341,6 +342,15 @@ const routeDefs: AppRouteDef[] = [
     component: QueryBuilder,
   },
   {
+    path: '/dashboards',
+    sectionKey: 'query',
+    labelKey: 'app.nav.dashboards',
+    eyebrowKey: 'app.nav.dashboards_eyebrow',
+    descriptionKey: 'app.nav.dashboards_desc',
+    icon: IconDashboard,
+    component: Dashboards,
+  },
+  {
     path: '/ai-query',
     sectionKey: 'query',
     labelKey: 'app.nav.ai_query',
@@ -410,8 +420,8 @@ const routeDefs: AppRouteDef[] = [
     labelKey: 'app.nav.dashboard',
     eyebrowKey: 'app.nav.dashboard_eyebrow',
     descriptionKey: 'app.nav.dashboard_desc',
-    icon: IconDashboard,
-    component: Dashboard,
+    icon: IconEvaluation,
+    component: AIAnalytics,
   },
   {
     path: '/settings',
@@ -648,7 +658,9 @@ function App() {
       if (tabParam === 'run') {
         tabLabel = t('evaluation.tab_run')
       } else if (tabParam === 'history') {
-        tabLabel = t('evaluation.tab_history')
+        // Plain variant: the breadcrumb has no run count to interpolate into
+        // evaluation.tab_history, which would render a literal "{{count}}".
+        tabLabel = t('evaluation.tab_history_plain')
       } else if (tabParam === 'regression') {
         tabLabel = t('evaluation.tab_regression')
       }

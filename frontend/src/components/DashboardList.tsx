@@ -121,7 +121,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
         {error && <ErrorAlert error={error} />}
 
         <div className={cardClass()}>
-          <div className={cn(cardHeaderRowClass, cardHeaderRowClass)}>
+          <div className={cardHeaderRowClass}>
             <div>
               <h2>{t('customDashboards.title')}</h2>
               <p className={cardLeadClass} style={{ marginTop: '0.4rem' }}>
@@ -139,18 +139,7 @@ export default function DashboardList({ onSelect }: DashboardListProps) {
             <EmptyState
               title={t('customDashboards.empty_title')}
               description={t('customDashboards.empty_description')}
-            >
-              <button
-                type="button"
-                className={cn(
-                  buttonClass('primary', { className: 'mt-4' }),
-                  adminBtnAutoWidthClass,
-                )}
-                onClick={openCreateModal}
-              >
-                + {t('customDashboards.empty_cta')}
-              </button>
-            </EmptyState>
+            />
           </div>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6">

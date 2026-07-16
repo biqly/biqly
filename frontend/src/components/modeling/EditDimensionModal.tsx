@@ -223,7 +223,7 @@ export function EditDimensionModal({
 
         <div className={modalFormRowClass()}>
           <div className={modelingFormGroupClass}>
-            <label htmlFor="dim-type">{t('modeling.display_name_label')}</label>
+            <label htmlFor="dim-type">{t('modeling.dimension_type_label')}</label>
             <Select
               id="dim-type"
               name="type"
@@ -240,7 +240,7 @@ export function EditDimensionModal({
             />
           </div>
           <div className={modelingFormGroupClass}>
-            <label htmlFor="dim-source-mode">{t('modeling.join_type_label')}</label>
+            <label htmlFor="dim-source-mode">{t('modeling.dimension_source_label')}</label>
             <Select
               id="dim-source-mode"
               name="sourceMode"
@@ -248,8 +248,8 @@ export function EditDimensionModal({
               onChange={(val) => setSourceMode(val)}
               disabled={saving}
               options={[
-                { value: 'column', label: t('modeling.simple_metric') },
-                { value: 'calculated', label: t('modeling.custom_expression') },
+                { value: 'column', label: t('modeling.dimension_source_column') },
+                { value: 'calculated', label: t('modeling.dimension_source_derived') },
               ]}
             />
           </div>

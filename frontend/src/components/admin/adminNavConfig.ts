@@ -47,7 +47,13 @@ export const ADMIN_TAB_LABEL_KEYS = {
   reports: 'admin.tabs.reports',
 } as const satisfies Record<AdminTab, TranslationKey>
 
-export const ADMIN_NAV_GROUPS: { id: string; labelKey: TranslationKey; tabs: AdminTab[] }[] = [
+export interface AdminNavGroup {
+  id: string
+  labelKey: TranslationKey
+  tabs: AdminTab[]
+}
+
+export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     id: 'access',
     labelKey: 'admin.nav.access',
@@ -68,10 +74,13 @@ export const ADMIN_NAV_GROUPS: { id: string; labelKey: TranslationKey; tabs: Adm
       'ai_history',
       'ai_confirmed',
       'ai_lexicon',
-      'sharing',
       'ai_ab_experiments',
-      'reports',
     ],
+  },
+  {
+    id: 'sharing',
+    labelKey: 'admin.nav.sharing_reports',
+    tabs: ['sharing', 'reports'],
   },
   {
     id: 'compliance',
@@ -84,4 +93,9 @@ export const ADMIN_TABS = ADMIN_NAV_GROUPS.flatMap((g) => g.tabs)
 
 export function isAdminTab(value: string): value is AdminTab {
   return ADMIN_TABS.includes(value as AdminTab)
+}
+
+/** Category that owns a tab — drives the primary tab bar for deep links like ?tab=ldap. */
+export function adminGroupForTab(tab: AdminTab): AdminNavGroup {
+  return ADMIN_NAV_GROUPS.find((g) => g.tabs.includes(tab)) ?? ADMIN_NAV_GROUPS[0]!
 }

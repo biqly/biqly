@@ -42,6 +42,21 @@ export interface Relation {
   relation_type: 'one_to_many' | 'many_to_one' | 'one_to_one' | 'many_to_many'
 }
 
+// Matches the GET /api/datasources/{id}/relations response: an introspected
+// FK relationship enriched with a semantic-join description when one exists.
+export interface RelationDetail {
+  id: string
+  constraint_name: string
+  from_schema: string
+  from_table: string
+  from_column: string
+  to_schema: string
+  to_table: string
+  to_column: string
+  relationship_type: string
+  description: string
+}
+
 export interface DescribeResult {
   schema: string
   table: string

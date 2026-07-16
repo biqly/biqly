@@ -3,12 +3,15 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"github.com/bytedance/sonic"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/biqly/biqly/internal/core"
+	"github.com/biqly/biqly/internal/metadata"
+	"github.com/biqly/biqly/internal/query"
+	"github.com/bytedance/sonic"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -109,5 +112,62 @@ func TestQueryHandlerIntegration_CompileInlineModelPayload(t *testing.T) {
 	}
 	if !strings.Contains(compiled.SQL, `"public"."orders"`) {
 		t.Fatalf("compile sql missing inline model base table: %s", compiled.SQL)
+	}
+}
+
+// fakeColumnTypeLoader serves synced column metadata keyed by schema.table.
+type fakeColumnTypeLoader struct {
+	columns map[string][]metadata.Column
+}
+
+func (f fakeColumnTypeLoader) ListColumns(_ context.Context, _, schemaName, tableName string) ([]metadata.Column, error) {
+	return f.columns[schemaName+"."+tableName], nil
+}
+
+func TestQueryHandlerIntegration_CompileInlineModelIncompatibleJoinRejected(t *testing.T) {
+	t.Parallel()
+
+	service := core.NewQueryService(&core.QueryServiceDeps{
+		Models:      fakeModelLoader{model: integrationSemanticModel()},
+		Datasources: fakeDatasourceLoader{datasource: metadata.Datasource{ID: integrationDSID, Type: "postgres"}},
+		Drivers:     integrationDriverRegistry(),
+		Validator:   query.NewValidator(1000),
+		Executor:    query.NewExecutor(1000, 0),
+		ColumnTypes: fakeColumnTypeLoader{columns: map[string][]metadata.Column{
+			"public.orders": {
+				{ColumnName: "customer_id", DataType: "timestamp with time zone"},
+				{ColumnName: "created_at", DataType: "timestamp with time zone"},
+			},
+			"public.customers": {
+				{ColumnName: "id", DataType: "uuid"},
+				{ColumnName: "country", DataType: "text"},
+			},
+		}},
+	})
+	handler := &QueryHandler{query: service}
+	router := chi.NewRouter()
+	router.Post("/api/query/compile", handler.Compile)
+
+	model := integrationSemanticModel()
+	model.ID = "auto:metadata"
+	lq := integrationLogicalQuery()
+	lq.ModelID = model.ID
+	body, err := sonic.ConfigStd.Marshal(queryPayload{
+		LogicalQuery: lq,
+		Model:        model,
+	})
+	if err != nil {
+		t.Fatalf("marshal inline query payload: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/query/compile", bytes.NewReader(body))
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("compile status: got %d, want 400, body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "INCOMPATIBLE_JOIN_COLUMN_TYPES") &&
+		!strings.Contains(rec.Body.String(), "not compatible") {
+		t.Fatalf("expected incompatible join error, got: %s", rec.Body.String())
 	}
 }

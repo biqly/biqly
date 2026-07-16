@@ -1,39 +1,24 @@
 import { buttonClass } from '../../lib/buttonClasses'
 
-export const adminLayoutClass =
-  'grid min-w-0 gap-5 min-[900px]:grid-cols-[minmax(12rem,14.5rem)_minmax(0,1fr)] min-[900px]:items-start min-[900px]:gap-x-8 min-[900px]:gap-y-6'
+export const adminLayoutClass = 'flex min-w-0 flex-col gap-5'
 
 export const adminContentClass = 'min-w-0'
 
-export const adminNavClass = 'min-w-0'
+export const adminNavClass = 'flex min-w-0 flex-col gap-3'
 
-export const adminNavMobileClass = 'flex flex-col gap-[0.4rem] min-[900px]:hidden'
+// Primary category tab bar (horizontal, accent underline).
+export const adminCategoryTabsClass = 'flex flex-wrap gap-1 border-b border-border'
 
-export const adminNavMobileLabelClass =
-  'm-0 text-[0.72rem] font-semibold tracking-[0.06em] text-foreground-muted uppercase'
+// Secondary in-page panel tabs (pill row) under the active category.
+export const adminPanelPillListClass = 'flex flex-wrap items-center gap-1.5'
 
-export const adminNavSelectClass =
-  'w-full cursor-pointer rounded-[0.55rem] border border-border bg-card px-[0.85rem] py-[0.65rem] text-[0.9rem] font-medium text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+const adminPanelPillBaseClass =
+  'cursor-pointer rounded-full border px-3.5 py-1.5 text-[0.8rem] font-medium transition-[background,color,border-color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
-export const adminNavDesktopClass =
-  'hidden min-[900px]:sticky min-[900px]:top-4 min-[900px]:flex min-[900px]:flex-col min-[900px]:gap-[1.15rem] min-[900px]:rounded-xl min-[900px]:border min-[900px]:border-border min-[900px]:bg-card min-[900px]:p-[0.85rem] min-[900px]:shadow-sm'
-
-export const adminNavGroupClass =
-  'flex flex-col gap-1 border-t border-border pt-3 mt-3 first:border-t-0 first:pt-0 first:mt-0'
-
-export const adminNavGroupTitleClass =
-  'm-0 mb-[0.2rem] px-[0.65rem] font-[family-name:var(--font-display,"Plus_Jakarta_Sans",sans-serif)] text-[0.62rem] font-bold tracking-[0.11em] text-foreground-muted uppercase select-none'
-
-export const adminNavListClass = 'm-0 flex list-none flex-col gap-[0.1rem] py-0 pl-0'
-
-export const adminNavLinkBaseClass =
-  'block w-full cursor-pointer rounded-lg border-l-2 border-transparent bg-transparent px-[0.7rem] py-[0.52rem] text-left text-[0.875rem] font-medium leading-[1.35] text-foreground-muted transition-[background,color,border-color] duration-150 hover:bg-card-raised hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
-
-export const adminNavLinkActiveClass =
-  'border-l-accent bg-(--nav-link-active-bg) font-semibold text-foreground shadow-none'
-
-export function adminNavLinkClass(active: boolean): string {
-  return active ? `${adminNavLinkBaseClass} ${adminNavLinkActiveClass}` : adminNavLinkBaseClass
+export function adminPanelPillClass(active: boolean): string {
+  return active
+    ? `${adminPanelPillBaseClass} border-accent bg-[var(--accent-glow)] font-semibold text-accent`
+    : `${adminPanelPillBaseClass} border-border bg-card text-foreground-muted hover:bg-card-raised hover:text-foreground`
 }
 
 export const adminPanelClass = 'flex flex-col gap-4'
@@ -228,15 +213,19 @@ export function adminMessageBoxClass(type: 'success' | 'error'): string {
 
 export const adminTabContainerClass = 'mb-2 flex gap-4 border-b border-border'
 
+// State-specific color classes are kept exclusive per branch: mixing
+// `border-transparent` with `border-accent` (or muted vs. plain text color)
+// on the same element lets stylesheet order — not the active flag — decide
+// which wins, which made the selected tab visually indistinguishable.
 export const adminTabButtonBaseClass =
-  'cursor-pointer border-0 border-b-2 border-transparent bg-transparent px-4 pt-2 pb-3 text-sm font-medium text-foreground-muted outline-none transition-all duration-200'
+  'cursor-pointer border-0 border-b-2 bg-transparent px-4 pt-2 pb-3 text-sm font-medium outline-none transition-all duration-200'
 
-export const adminTabButtonActiveClass = 'border-b-2 border-accent font-semibold text-foreground'
+export const adminTabButtonActiveClass = 'border-b-accent font-semibold text-foreground'
 
 export function adminTabButtonClass(active: boolean): string {
   return active
     ? `${adminTabButtonBaseClass} ${adminTabButtonActiveClass}`
-    : adminTabButtonBaseClass
+    : `${adminTabButtonBaseClass} border-b-transparent text-foreground-muted hover:text-foreground`
 }
 
 export const adminLevelReadClass = 'bg-emerald-500/12! font-semibold text-success!'

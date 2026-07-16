@@ -1,4 +1,4 @@
-import type { KeyboardEvent, MouseEvent, UIEvent } from 'react'
+import { type KeyboardEvent, type MouseEvent, type UIEvent, useLayoutEffect, useRef } from 'react'
 
 import type { TranslationKey } from '../../i18n'
 import {
@@ -33,6 +33,7 @@ interface ModelingTableCardProps {
   onOpenDetail: () => void
   onOpenColumnsMenu: (anchor: DOMRect) => void
   onColumnsScroll: (scrollTop: number) => void
+  onRelRowsMeasure: (offsets: number[]) => void
   onAddCalcField: () => void
   onAddRelationship: () => void
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string
@@ -52,6 +53,7 @@ export function ModelingTableCard({
   onOpenDetail,
   onOpenColumnsMenu,
   onColumnsScroll,
+  onRelRowsMeasure,
   onAddCalcField,
   onAddRelationship,
   t,
@@ -59,8 +61,22 @@ export function ModelingTableCard({
   const key = `${table.schema_name}.${table.table_name}`
   const columnListHeight = CARD_PAD_Y * 2 + layout.visibleRowCount * ROW_HEIGHT
 
+  // Report the rendered relationship rows' vertical centers (relative to the
+  // card) so join lines anchor exactly where the rows are drawn, instead of
+  // relying on layout constants matching the CSS.
+  const articleRef = useRef<HTMLElement>(null)
+  useLayoutEffect(() => {
+    const article = articleRef.current
+    if (!article) {
+      return
+    }
+    const rows = article.querySelectorAll<HTMLElement>('[data-rel-row]')
+    onRelRowsMeasure(Array.from(rows, (el) => el.offsetTop + el.offsetHeight / 2))
+  })
+
   return (
     <article
+      ref={articleRef}
       className={modelingTableCardClass({ base: isBase, hi: isHi })}
       style={{ left: pos.x, top: pos.y, width: CARD_WIDTH, height: layout.height }}
     >
@@ -179,8 +195,8 @@ export function ModelingTableCard({
           ＋
         </button>
       </div>
-      {layout.relatedTables.map((relatedTable) => (
-        <div key={relatedTable} className={modelingRelRowClass}>
+      {layout.relatedTables.map((relatedTable, idx) => (
+        <div key={`${relatedTable}-${idx}`} data-rel-row className={modelingRelRowClass}>
           <span aria-hidden="true">⇄</span>
           <span className="overflow-hidden text-ellipsis whitespace-nowrap">{relatedTable}</span>
         </div>

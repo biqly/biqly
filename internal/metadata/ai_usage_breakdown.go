@@ -82,6 +82,33 @@ func scanAIUsageByUserModelRow(s platformdb.Scanner) (AIUsageByUserModelRow, err
 	return row, nil
 }
 
+// AIUserUsage aggregates one user's own AI query usage for a trailing window.
+type AIUserUsage struct {
+	QueryCount  int `json:"query_count"`
+	TotalTokens int `json:"total_tokens"`
+}
+
+// GetAIUsageForUser returns query and token totals for a single user in the
+// trailing window (personal stats, e.g. the Home page summary).
+func (r *Repository) GetAIUsageForUser(ctx context.Context, userID string, days int) (AIUserUsage, error) {
+	if days <= 0 {
+		days = 30
+	}
+	var usage AIUserUsage
+	err := r.db.QueryRowContext(ctx, `
+		SELECT
+			COUNT(*)::int,
+			COALESCE(SUM(token_count), 0)::int
+		FROM ai_query_history
+		WHERE user_id = $1
+		  AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
+	`, userID, days).Scan(&usage.QueryCount, &usage.TotalTokens)
+	if err != nil {
+		return usage, fmt.Errorf("AI usage for user: %w", err)
+	}
+	return usage, nil
+}
+
 // AIUsageTotals is a rollup for admin dashboards.
 type AIUsageTotals struct {
 	QueryCount       int     `json:"query_count"`

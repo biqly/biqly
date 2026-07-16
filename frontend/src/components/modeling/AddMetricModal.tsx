@@ -90,6 +90,11 @@ export function AddMetricModal({
               disabled={state.saving || !!metric}
               autoComplete="off"
             />
+            {metric && (
+              <div className="text-foreground-muted mt-[0.35rem] text-[0.7rem]">
+                {t('modeling.metric_name_locked_hint')}
+              </div>
+            )}
           </div>
           <div className={modelingFormGroupClass}>
             <label htmlFor="metric-label">{t('modeling.metric_label_label')}</label>
@@ -176,6 +181,9 @@ export function AddMetricModal({
               placeholder="$#,##0.00"
               autoComplete="off"
             />
+            <div className="text-foreground-muted mt-[0.35rem] text-[0.7rem]">
+              {t('modeling.metric_format_help')}
+            </div>
           </div>
           <div className={modelingFormGroupClass}>
             <label htmlFor="metric-rate-behavior">{t('modeling.metric_rate_behavior_label')}</label>

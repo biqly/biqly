@@ -50,6 +50,7 @@ func NewAIDependencies(ctx context.Context, cfg *config.Config) (*Dependencies, 
 		PIIPolicies: piiPolicies,
 		Audit:       auditLogger,
 		Identity:    jwtIdentity,
+		ColumnTypes: metaRepo,
 	})
 
 	providerStore := provideProviderStore(ctx, cfg, db, encryptor)
