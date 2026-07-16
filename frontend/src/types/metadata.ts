@@ -55,6 +55,10 @@ export interface RelationDetail {
   to_column: string
   relationship_type: string
   description: string
+  // Id of the matching semantic-model join, when the relationship is part of a
+  // model. Empty for relationships not yet added to any model (those cannot be
+  // AI-described until modeled).
+  semantic_join_id: string
 }
 
 export interface DescribeResult {

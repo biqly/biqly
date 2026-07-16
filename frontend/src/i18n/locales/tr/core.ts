@@ -348,7 +348,12 @@ export const core: CoreDictionary = {
     relations_title: 'İlişkiler',
     relations_empty: 'Bu veri kaynağı için ilişki bulunamadı.',
     relations_no_desc:
-      'Henüz açıklama yok — Modeling → Join açıklamaları üret (AI) ile oluşturabilirsiniz.',
+      'Henüz açıklama yok — açıklamak için bu ilişkiyi bir semantic modele ekleyin.',
+    relations_no_desc_modeled: 'Henüz açıklama yok — AI ile açıklama üretin.',
+    relations_describe_all: '✨ Join açıklamaları üret (AI)',
+    relations_describe_one: 'AI açıkla',
+    relations_describe_one_aria: '{{from}} → {{to}} için AI açıklaması üret',
+    relations_describing: 'Açıklanıyor…',
     col_relation_from: 'Kaynak',
     col_relation_to: 'Hedef',
     col_relation_type: 'Tür',

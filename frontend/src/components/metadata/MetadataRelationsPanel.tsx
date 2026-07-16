@@ -1,8 +1,12 @@
 import type { useT } from '../../i18n'
+import { buttonClass } from '../../lib/buttonClasses'
 import { cardClass } from '../../lib/cardClasses'
 import { cn } from '../../lib/cn'
 import {
   metadataEmptyHintClass,
+  metadataRowActionClass,
+  metadataRowActionLabelClass,
+  metadataToolbarActionsClass,
   metadataToolbarClass,
   metadataToolbarTitleClass,
   metadataToolbarTopRowClass,
@@ -24,11 +28,23 @@ export function MetadataRelationsPanel({
   t,
   relations,
   loading,
+  describingAll,
+  describingJoinId,
+  onDescribeAll,
+  onDescribeOne,
 }: {
   t: ReturnType<typeof useT>
   relations: RelationDetail[]
   loading: boolean
+  describingAll: boolean
+  describingJoinId: string | null
+  onDescribeAll: () => void
+  onDescribeOne: (rel: RelationDetail) => void
 }) {
+  // Only relationships that are part of a semantic model can be described; the
+  // bulk button is meaningless without at least one.
+  const describableCount = relations.filter((rel) => rel.semantic_join_id).length
+
   return (
     <div className={cardClass()}>
       <div className={metadataToolbarClass}>
@@ -36,6 +52,23 @@ export function MetadataRelationsPanel({
           <h2 className={metadataToolbarTitleClass}>
             {t('metadata.relations_title')} ({relations.length})
           </h2>
+          <div className={metadataToolbarActionsClass}>
+            {describableCount > 0 && (
+              <button
+                type="button"
+                className={cn(
+                  buttonClass('secondary', { size: 'sm' }),
+                  'shrink-0 px-2.5 py-1 text-[0.75rem] whitespace-nowrap',
+                )}
+                onClick={onDescribeAll}
+                disabled={describingAll || describingJoinId !== null}
+              >
+                {describingAll
+                  ? t('metadata.relations_describing')
+                  : t('metadata.relations_describe_all')}
+              </button>
+            )}
+          </div>
         </div>
       </div>
       {loading && relations.length === 0 ? (
@@ -51,6 +84,9 @@ export function MetadataRelationsPanel({
                 <th scope="col">{t('metadata.col_relation_type')}</th>
                 <th scope="col">{t('metadata.col_relation_to')}</th>
                 <th scope="col">{t('metadata.col_table_desc')}</th>
+                <th scope="col" className="actions">
+                  {t('metadata.col_actions')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -75,8 +111,32 @@ export function MetadataRelationsPanel({
                       rel.description
                     ) : (
                       <span className="text-foreground-muted italic">
-                        {t('metadata.relations_no_desc')}
+                        {rel.semantic_join_id
+                          ? t('metadata.relations_no_desc_modeled')
+                          : t('metadata.relations_no_desc')}
                       </span>
+                    )}
+                  </td>
+                  <td className="actions">
+                    {rel.semantic_join_id && (
+                      <button
+                        type="button"
+                        className={metadataRowActionClass}
+                        onClick={() => onDescribeOne(rel)}
+                        disabled={describingAll || describingJoinId !== null}
+                        aria-label={t('metadata.relations_describe_one_aria', {
+                          from: `${rel.from_table}.${rel.from_column}`,
+                          to: `${rel.to_table}.${rel.to_column}`,
+                        })}
+                        title={t('metadata.relations_describe_one')}
+                      >
+                        <span aria-hidden="true">✨</span>
+                        <span className={metadataRowActionLabelClass}>
+                          {describingJoinId === rel.semantic_join_id
+                            ? t('metadata.relations_describing')
+                            : t('metadata.relations_describe_one')}
+                        </span>
+                      </button>
                     )}
                   </td>
                 </tr>

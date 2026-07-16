@@ -524,23 +524,29 @@ func (r *Repository) ListRelations(ctx context.Context, datasourceID string) ([]
 // (either direction) when one exists. Descriptions live on semantic_joins, so
 // this is the bridge that lets the metadata UI show them.
 func (r *Repository) ListRelationDetails(ctx context.Context, datasourceID string) ([]RelationDetail, error) {
+	// LATERAL-match each relation to its best active semantic join (either
+	// direction) so the row carries both the description and the join id. The
+	// id is returned even when the description is still empty, so the UI can
+	// offer per-relationship AI describe for joins that just haven't been
+	// described yet.
 	query := `
 		SELECT ` + relationSelectColumns + `,
-			COALESCE((
-				SELECT sj.description
-				FROM semantic_joins sj
-				JOIN semantic_models sm ON sm.id = sj.model_id
-				WHERE sm.datasource_id = relations.datasource_id
-				  AND sj.is_active
-				  AND sj.description <> ''
-				  AND ((sj.from_table = relations.from_table AND sj.from_column = relations.from_column
-						AND sj.to_table = relations.to_table AND sj.to_column = relations.to_column)
-					OR (sj.from_table = relations.to_table AND sj.from_column = relations.to_column
-						AND sj.to_table = relations.from_table AND sj.to_column = relations.from_column))
-				ORDER BY sj.created_at DESC
-				LIMIT 1
-			), '') AS description
+			COALESCE(sj.description, '') AS description,
+			COALESCE(sj.id::text, '') AS semantic_join_id
 		FROM relations
+		LEFT JOIN LATERAL (
+			SELECT sj.id, sj.description
+			FROM semantic_joins sj
+			JOIN semantic_models sm ON sm.id = sj.model_id
+			WHERE sm.datasource_id = relations.datasource_id
+			  AND sj.is_active
+			  AND ((sj.from_table = relations.from_table AND sj.from_column = relations.from_column
+					AND sj.to_table = relations.to_table AND sj.to_column = relations.to_column)
+				OR (sj.from_table = relations.to_table AND sj.from_column = relations.to_column
+					AND sj.to_table = relations.from_table AND sj.to_column = relations.from_column))
+			ORDER BY (sj.description <> '') DESC, sj.created_at DESC
+			LIMIT 1
+		) sj ON true
 		WHERE datasource_id = $1
 		ORDER BY from_schema, from_table, from_column
 	`
@@ -898,6 +904,7 @@ func scanRelationDetail(s platformdb.Scanner) (RelationDetail, error) {
 		&rel.RelationshipType,
 		&rel.CreatedAt,
 		&rel.Description,
+		&rel.SemanticJoinID,
 	); err != nil {
 		return rel, fmt.Errorf("scan relation detail: %w", err)
 	}

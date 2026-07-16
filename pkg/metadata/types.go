@@ -122,10 +122,13 @@ type Relation struct {
 
 // RelationDetail is a Relation enriched with a human-readable description
 // sourced from a matching semantic-model join (empty when no model describes
-// the relationship).
+// the relationship). SemanticJoinID is the id of that matching join when one
+// exists — the Metadata UI uses it to offer per-relationship AI describe only
+// for relationships that are part of a semantic model.
 type RelationDetail struct {
 	Relation
-	Description string `json:"description"`
+	Description    string `json:"description"`
+	SemanticJoinID string `json:"semantic_join_id"`
 }
 
 // FewShotCuratedRow is the API shape for a curated few-shot example.
