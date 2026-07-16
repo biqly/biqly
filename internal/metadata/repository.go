@@ -529,13 +529,16 @@ func (r *Repository) ListRelationDetails(ctx context.Context, datasourceID strin
 	// id is returned even when the description is still empty, so the UI can
 	// offer per-relationship AI describe for joins that just haven't been
 	// described yet.
+	// The lateral output columns are aliased (jid/jdesc) so the bare column
+	// names in relationSelectColumns (e.g. "id") stay unambiguous — otherwise
+	// an exposed sj.id collides with relations.id.
 	query := `
 		SELECT ` + relationSelectColumns + `,
-			COALESCE(sj.description, '') AS description,
-			COALESCE(sj.id::text, '') AS semantic_join_id
+			COALESCE(j.jdesc, '') AS description,
+			COALESCE(j.jid::text, '') AS semantic_join_id
 		FROM relations
 		LEFT JOIN LATERAL (
-			SELECT sj.id, sj.description
+			SELECT sj.id AS jid, sj.description AS jdesc
 			FROM semantic_joins sj
 			JOIN semantic_models sm ON sm.id = sj.model_id
 			WHERE sm.datasource_id = relations.datasource_id
@@ -546,7 +549,7 @@ func (r *Repository) ListRelationDetails(ctx context.Context, datasourceID strin
 					AND sj.to_table = relations.from_table AND sj.to_column = relations.from_column))
 			ORDER BY (sj.description <> '') DESC, sj.created_at DESC
 			LIMIT 1
-		) sj ON true
+		) j ON true
 		WHERE datasource_id = $1
 		ORDER BY from_schema, from_table, from_column
 	`
