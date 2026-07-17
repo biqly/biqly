@@ -84,6 +84,8 @@ global:
       instanceName: prag-postgresql
     aiExternal:
       allowWorldHTTPS: true
+      gateway:
+        enabled: true
       cidrs:
         - 100.118.9.4/32
   migrate:
@@ -214,9 +216,12 @@ mcp:
   image:
     tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
   config:
-    # MCP proxies tool calls to the API gateway; the hostname must match the
-    # gateway HTTPRoutes (see global.gateway.hostnames).
-    BI_API_SERVICE_URL: https://abi.il1.nl
+    # MCP proxies tool calls to the API gateway. Target the in-cluster gateway
+    # service (same upstream cloudflared uses) with the public hostname as the
+    # Host header — dispatches must not round-trip through Cloudflare, whose
+    # hiccups surfaced as tool 502s.
+    BI_API_SERVICE_URL: http://eg-gw-http.envoy-gateway-system.svc.cluster.local:80
+    BI_API_SERVICE_HOST: abi.il1.nl
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -264,12 +269,13 @@ ai:
     BI_AI_JOBS_ENABLED: "true"
     BI_NATS_URL: nats://biqly-nats:4222
     BI_WEB_AGENT_ENABLED: "true"
-    # Web agent tools loop back through the API gateway, same pattern and same
-    # hostname as MCP's BI_API_SERVICE_URL below — must match the gateway
-    # HTTPRoutes (see global.gateway.hostnames). Without this, webAgentDispatcher
+    # Web agent tools loop back through the API gateway, same pattern as MCP:
+    # in-cluster gateway service target + public hostname as the Host header
+    # (HTTPRoutes match on it). Without BI_API_SERVICE_URL, webAgentDispatcher
     # is never wired and /api/agent/chat fails with "web agent runtime is not
     # configured" (BI_WEB_AGENT_ENABLED=true alone is not sufficient).
-    BI_API_SERVICE_URL: https://abi.il1.nl
+    BI_API_SERVICE_URL: http://eg-gw-http.envoy-gateway-system.svc.cluster.local:80
+    BI_API_SERVICE_HOST: abi.il1.nl
     # Soft heap ceiling ~90% of the 1Gi cgroup limit: Go's GC collects
     # aggressively as the heap approaches this instead of letting the kernel
     # OOM-kill the pod mid-SSE-stream (the failure mode that motivated the

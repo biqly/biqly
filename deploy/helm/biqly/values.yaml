@@ -115,6 +115,16 @@ global:
       authService:
         enabled: true
         port: 8889
+      # In-cluster egress to the Envoy gateway data plane, so the web agent's
+      # tool dispatches (BI_API_SERVICE_URL) can target the gateway service
+      # directly instead of leaving the cluster via Cloudflare.
+      gateway:
+        enabled: false
+        name: eg-gw
+        namespace: envoy-gateway-system
+        ports:
+          - 80
+          - 10080
   migrate:
     enabled: true
     image:

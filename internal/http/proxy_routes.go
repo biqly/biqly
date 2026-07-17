@@ -20,7 +20,7 @@ type upstreamProxySpec struct {
 // When the upstream URL is empty or invalid, registration is skipped (see
 // newUpstreamProxy) so the monolith can serve those routes directly.
 func registerUpstreamProxy(r chi.Router, spec upstreamProxySpec) {
-	proxy, ok := newUpstreamProxy(spec.targetURL, spec.envVarName, spec.serviceLabel)
+	proxy, ok := newUpstreamProxy(spec.targetURL, "", spec.envVarName, spec.serviceLabel)
 	if !ok {
 		return
 	}
@@ -86,7 +86,7 @@ var aiProxyDatasourceGuardedPaths = []string{
 // wraps the datasource-consuming POST endpoints with dsAccess first. Remaining
 // /ai/* paths fall through to the wildcard proxy without the extra check.
 func registerAIProxyRoutesWithDatasourceGuard(r chi.Router, aiURL string, dsAccess func(http.Handler) http.Handler) {
-	proxy, ok := newUpstreamProxy(aiURL, "BI_AI_SERVICE_URL", "AI service")
+	proxy, ok := newUpstreamProxy(aiURL, "", "BI_AI_SERVICE_URL", "AI service")
 	if !ok {
 		return
 	}
