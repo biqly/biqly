@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -122,23 +123,62 @@ func (h *AIHandler) DescribeRelations(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	gen, err := h.deps.AIClient.Generate(ctx, buildDescribeRelationsPrompt(targets, locale))
-	if err != nil {
-		writeInternalError(ctx, w, http.StatusBadGateway, "failed to describe relations", err, "datasource_id", id)
-		return
-	}
-	if h.deps.SpendLimiter != nil && gen.Usage != nil {
-		h.deps.SpendLimiter.Record(ctx, workspaceID, gen.Usage.Total)
-	}
+	// Describe in small chunks and persist after each one: a single prompt for
+	// dozens of relations takes minutes on slow models, and a client abort or
+	// timeout mid-way would otherwise lose everything (context canceled with 0
+	// rows written). With chunking, completed chunks survive an interruption.
+	updated := 0
+	for start := 0; start < len(targets); start += describeRelationsChunkSize {
+		if err := ctx.Err(); err != nil {
+			// Client gone; already-persisted chunks are kept.
+			return
+		}
+		chunk := targets[start:min(start+describeRelationsChunkSize, len(targets))]
 
-	descriptions, err := parseDescribeRelationsResponse(gen.Content)
-	if err != nil {
-		writeInternalError(ctx, w, http.StatusBadGateway, "failed to parse relation descriptions", err, "datasource_id", id)
-		return
-	}
+		gen, err := h.deps.AIClient.Generate(ctx, buildDescribeRelationsPrompt(chunk, locale))
+		if err != nil {
+			writeInternalError(ctx, w, http.StatusBadGateway, "failed to describe relations", err,
+				"datasource_id", id, "updated_before_failure", updated)
+			return
+		}
+		if h.deps.SpendLimiter != nil && gen.Usage != nil {
+			h.deps.SpendLimiter.Record(ctx, workspaceID, gen.Usage.Total)
+		}
 
-	valid := make(map[string]struct{}, len(targets))
-	for _, rel := range targets {
+		descriptions, err := parseDescribeRelationsResponse(gen.Content)
+		if err != nil {
+			writeInternalError(ctx, w, http.StatusBadGateway, "failed to parse relation descriptions", err,
+				"datasource_id", id, "updated_before_failure", updated)
+			return
+		}
+
+		n, err := h.persistRelationDescriptions(ctx, chunk, descriptions, locale)
+		updated += n
+		if err != nil {
+			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to store relation description", err,
+				"datasource_id", id)
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, describeRelationsResponse{Updated: updated})
+}
+
+// describeRelationsChunkSize bounds how many relations go into one LLM prompt;
+// small enough that a chunk completes well inside client/gateway timeouts even
+// on slow models.
+const describeRelationsChunkSize = 8
+
+// persistRelationDescriptions stores the parsed descriptions for the chunk's
+// relations (English on the row, localized as a translation) and returns how
+// many were written.
+func (h *AIHandler) persistRelationDescriptions(
+	ctx context.Context,
+	chunk []pkgmetadata.RelationDetail,
+	descriptions []relationDescription,
+	locale i18n.Locale,
+) (int, error) {
+	valid := make(map[string]struct{}, len(chunk))
+	for _, rel := range chunk {
 		valid[rel.ID] = struct{}{}
 	}
 	updated := 0
@@ -151,8 +191,7 @@ func (h *AIHandler) DescribeRelations(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if err := h.deps.MetaRepo.UpdateRelationDescription(ctx, d.ID, desc); err != nil {
-			writeInternalError(ctx, w, http.StatusInternalServerError, "failed to store relation description", err, "relation_id", d.ID)
-			return
+			return updated, err
 		}
 		if localized := strings.TrimSpace(d.Localized); localized != "" && locale != i18n.DefaultLocale {
 			if err := h.deps.MetaRepo.UpsertTranslation(ctx, metadata.Translation{
@@ -162,13 +201,12 @@ func (h *AIHandler) DescribeRelations(w http.ResponseWriter, r *http.Request) {
 				Field:      metadata.TranslationFieldDescription,
 				Value:      localized,
 			}); err != nil {
-				writeInternalError(ctx, w, http.StatusInternalServerError, "failed to store relation translation", err, "relation_id", d.ID)
-				return
+				return updated, err
 			}
 		}
 		updated++
 	}
-	writeJSON(w, http.StatusOK, describeRelationsResponse{Updated: updated})
+	return updated, nil
 }
 
 func buildDescribeRelationsPrompt(rels []pkgmetadata.RelationDetail, locale i18n.Locale) string {

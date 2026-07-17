@@ -178,10 +178,14 @@ export default function Metadata() {
     }
     setDescribingAllJoins(true)
     try {
-      await postData(`/api/ai/datasources/${datasourceId}/describe-relations`, {
-        skip_existing: skipExisting,
-        locale: editLocale,
-      })
+      // Bulk runs describe in chunks server-side but a slow LLM can still take
+      // minutes for dozens of relations — the 30s default timeout aborted the
+      // request mid-run (context canceled) with nothing visible to the user.
+      await postData(
+        `/api/ai/datasources/${datasourceId}/describe-relations`,
+        { skip_existing: skipExisting, locale: editLocale },
+        { timeout: 600_000 },
+      )
       await refreshRelations()
     } finally {
       setDescribingAllJoins(false)
@@ -195,10 +199,11 @@ export default function Metadata() {
     }
     setDescribingJoinId(rel.id)
     try {
-      await postData(`/api/ai/datasources/${datasourceId}/describe-relations`, {
-        relation_ids: [rel.id],
-        locale: editLocale,
-      })
+      await postData(
+        `/api/ai/datasources/${datasourceId}/describe-relations`,
+        { relation_ids: [rel.id], locale: editLocale },
+        { timeout: 120_000 },
+      )
       await refreshRelations()
     } finally {
       setDescribingJoinId(null)
