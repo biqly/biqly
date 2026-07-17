@@ -137,11 +137,11 @@ mail:
     BI_MAIL_SMTP_SENDER_NAME: "ABI"
   image:
     repository: mail
-    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
+    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
   migrate:
     image:
       repository: mail
-      tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
+      tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
 frontend:
   replicaCount: 1
   resources:
@@ -178,7 +178,7 @@ query:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
+    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -203,7 +203,7 @@ agent:
     minReplicas: 1
     maxReplicas: 1
   image:
-    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
+    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
 mcp:
   replicaCount: 1
   resources:
@@ -214,7 +214,7 @@ mcp:
       cpu: 300m
       memory: 192Mi
   image:
-    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
+    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
   config:
     # MCP proxies tool calls to the API gateway. Target the in-cluster gateway
     # service (same upstream cloudflared uses) with the public hostname as the
