@@ -1,5 +1,57 @@
-import type { TFunction } from '../../i18n'
+import type { TFunction, TranslationKey } from '../../i18n'
 import type { AIQueryResponse, SuggestedFollowUp } from '../../types/ai'
+
+// DETERMINISTIC_FOLLOWUP_I18N maps the backend's deterministic follow-up
+// suggestion ids (internal/http/handlers/ai_followups.go
+// BuildDeterministicFollowUps) to the i18n keys for their label and question.
+// The backend emits these chips with hardcoded English text; localizeFollowUps
+// swaps in the active locale's copy so a Turkish (or any non-English) UI does
+// not show English chips. Ids not in this map — e.g. AI-rewritten,
+// context-specific suggestions — are left exactly as the server sent them.
+const DETERMINISTIC_FOLLOWUP_I18N: Record<
+  string,
+  { label: TranslationKey; question: TranslationKey }
+> = {
+  'trend-over-time': {
+    label: 'ai_query.followups_show_trend_label',
+    question: 'ai_query.followups_show_trend_question',
+  },
+  'visualize-as-chart': {
+    label: 'ai_query.followups_chart_label',
+    question: 'ai_query.followups_chart_question',
+  },
+  'compare-top-values': {
+    label: 'ai_query.followups_compare_label',
+    question: 'ai_query.followups_compare_question',
+  },
+  'drilldown-detail': {
+    label: 'ai_query.followups_more_detail_label',
+    question: 'ai_query.followups_more_detail_question',
+  },
+  'breakdown-by-dimension': {
+    label: 'ai_query.followups_breakdown_category_label',
+    question: 'ai_query.followups_breakdown_category_question',
+  },
+}
+
+/**
+ * Localizes the backend's deterministic follow-up chips by id, leaving any
+ * suggestion whose id is not a known deterministic one (e.g. AI-rewritten)
+ * untouched. Both label (shown) and question (sent as the next query) are
+ * translated so a non-English user drives the follow-up in their own language.
+ */
+export function localizeFollowUps(
+  suggestions: SuggestedFollowUp[],
+  t: TFunction,
+): SuggestedFollowUp[] {
+  return suggestions.map((suggestion) => {
+    const keys = DETERMINISTIC_FOLLOWUP_I18N[suggestion.id]
+    if (!keys) {
+      return suggestion
+    }
+    return { ...suggestion, label: t(keys.label), question: t(keys.question) }
+  })
+}
 
 /** Locale-aware, punctuation-insensitive normalization used for follow-up dedup matching. */
 export function normalizeFollowUpText(value: string): string {

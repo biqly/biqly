@@ -725,6 +725,15 @@ export const core = {
     followups_compare_question: 'Compare this result by the highest values.',
     followups_chart_label: 'Show as a chart',
     followups_chart_question: 'Show this result as a suitable chart.',
+    // Localized labels for the backend's deterministic follow-up chips
+    // (internal/http/handlers/ai_followups.go BuildDeterministicFollowUps),
+    // mapped by suggestion id in followUpSuggestions.ts localizeFollowUps.
+    followups_show_trend_label: 'Show trend over time',
+    followups_show_trend_question: 'Show this as a trend over time',
+    followups_more_detail_label: 'See more detail',
+    followups_more_detail_question: 'Break this result down into more detail',
+    followups_breakdown_category_label: 'Break down by category',
+    followups_breakdown_category_question: 'Break this result down by a category',
     time_grain_hour: 'hour',
     time_grain_day: 'day',
     time_grain_month: 'month',

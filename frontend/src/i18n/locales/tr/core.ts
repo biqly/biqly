@@ -726,6 +726,15 @@ export const core: CoreDictionary = {
     followups_compare_question: 'Bu sonucu en yüksek değerlere göre karşılaştır.',
     followups_chart_label: 'Grafikte göster',
     followups_chart_question: 'Bu sonucu uygun bir grafikle göster.',
+    // Backend'in belirleyici öneri çiplerinin yerelleştirilmiş etiketleri
+    // (internal/http/handlers/ai_followups.go BuildDeterministicFollowUps);
+    // followUpSuggestions.ts localizeFollowUps içinde id'ye göre eşlenir.
+    followups_show_trend_label: 'Zaman içindeki eğilimi göster',
+    followups_show_trend_question: 'Bunu zaman içindeki eğilim olarak göster',
+    followups_more_detail_label: 'Daha fazla ayrıntı gör',
+    followups_more_detail_question: 'Bu sonucu daha ayrıntılı incele',
+    followups_breakdown_category_label: 'Kategoriye göre ayır',
+    followups_breakdown_category_question: 'Bu sonucu bir kategoriye göre ayır',
     time_grain_hour: 'saat',
     time_grain_day: 'gün',
     time_grain_month: 'ay',

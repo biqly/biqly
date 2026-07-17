@@ -23,7 +23,11 @@ import {
   AssistantMessageSummary,
 } from './assistantMessageCardSections'
 import { FeedbackSection } from './FeedbackSection'
-import { buildFallbackFollowUps, filterFollowUpSuggestions } from './followUpSuggestions'
+import {
+  buildFallbackFollowUps,
+  filterFollowUpSuggestions,
+  localizeFollowUps,
+} from './followUpSuggestions'
 import { FollowUpSuggestions } from './FollowUpSuggestionsSection'
 import { buildResultInsight } from './resultInsight'
 import { RunTracePanel } from './RunTrace'
@@ -233,7 +237,10 @@ export function AssistantMessageCard({
     if (!result) {
       return []
     }
-    const backend = filterFollowUpSuggestions(result.suggested_followups ?? [], priorQuestions)
+    // Localize the backend's deterministic English chips to the active locale
+    // before filtering, so a non-English UI never shows English suggestions.
+    const localized = localizeFollowUps(result.suggested_followups ?? [], t)
+    const backend = filterFollowUpSuggestions(localized, priorQuestions)
     if (backend.length > 0) {
       return backend
     }

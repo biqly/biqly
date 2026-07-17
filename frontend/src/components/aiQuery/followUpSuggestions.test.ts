@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import type { AIQueryResponse, SuggestedFollowUp } from '../../types/ai'
-import { buildFallbackFollowUps, filterFollowUpSuggestions } from './followUpSuggestions'
+import {
+  buildFallbackFollowUps,
+  filterFollowUpSuggestions,
+  localizeFollowUps,
+} from './followUpSuggestions'
 
 const t = (k: string) => k
 
@@ -145,5 +149,48 @@ describe('buildFallbackFollowUps', () => {
     const result = buildFallbackFollowUps({ response, priorQuestions: [], t })
 
     expect(result).toEqual([])
+  })
+})
+
+describe('localizeFollowUps', () => {
+  it('replaces label and question of known deterministic ids with i18n copy', () => {
+    const suggestions: SuggestedFollowUp[] = [
+      {
+        id: 'drilldown-detail',
+        kind: 'drilldown',
+        label: 'See more detail',
+        question: 'Break this result down into more detail',
+      },
+      {
+        id: 'breakdown-by-dimension',
+        kind: 'breakdown',
+        label: 'Break down by category',
+        question: 'Break this result down by a category',
+      },
+    ]
+
+    // Identity t returns the key, proving the i18n key was used (not the
+    // server's English text).
+    const result = localizeFollowUps(suggestions, t)
+
+    expect(result[0]?.label).toBe('ai_query.followups_more_detail_label')
+    expect(result[0]?.question).toBe('ai_query.followups_more_detail_question')
+    expect(result[1]?.label).toBe('ai_query.followups_breakdown_category_label')
+    expect(result[1]?.question).toBe('ai_query.followups_breakdown_category_question')
+  })
+
+  it('leaves unknown (e.g. AI-rewritten) suggestions untouched', () => {
+    const suggestions: SuggestedFollowUp[] = [
+      {
+        id: 'ai-rewrite-42',
+        kind: 'breakdown',
+        label: 'Break tweets down by author',
+        question: 'Break yesterday tweet count down by author',
+      },
+    ]
+
+    const result = localizeFollowUps(suggestions, t)
+
+    expect(result[0]).toEqual(suggestions[0])
   })
 })
