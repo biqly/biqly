@@ -69,4 +69,21 @@ spec:
             - port: {{ $aiExt.authService.port | quote }}
               protocol: TCP
     {{- end }}
+    {{- if and $aiExt.gateway $aiExt.gateway.enabled }}
+    # In-cluster egress to the Envoy gateway: the web agent's tool dispatches
+    # (list_skills, run_question, ...) proxy to BI_API_SERVICE_URL, which
+    # points at the gateway service so calls stay inside the cluster instead
+    # of round-tripping through Cloudflare (whose hiccups surfaced as 502s).
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: envoy
+            gateway.envoyproxy.io/owning-gateway-name: {{ $aiExt.gateway.name | quote }}
+            k8s:io.kubernetes.pod.namespace: {{ $aiExt.gateway.namespace | quote }}
+      toPorts:
+        - ports:
+            {{- range $aiExt.gateway.ports }}
+            - port: {{ . | quote }}
+              protocol: TCP
+            {{- end }}
+    {{- end }}
 {{- end }}

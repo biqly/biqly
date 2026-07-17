@@ -50,7 +50,7 @@ func MCPRouter(cfg *config.Config) http.Handler {
 	// Dispatch target: the internal API gateway/monolith. The MCP tools synthesize
 	// /api/* requests and this proxy forwards them upstream with the caller's
 	// Authorization/X-API-Key, where the real policy is enforced.
-	if proxy, ok := newUpstreamProxy(cfg.Services.APIURL, "BI_API_SERVICE_URL", "api"); ok {
+	if proxy, ok := newUpstreamProxy(cfg.Services.APIURL, cfg.Services.APIHost, "BI_API_SERVICE_URL", "api"); ok {
 		handler := mcpHandler(proxy)
 		r.Handle("/mcp", handler)
 		r.Handle("/mcp/*", handler)

@@ -29,7 +29,11 @@ const maxUpstreamProxyBodyBytes = 1 << 20 // 1 MiB
 //
 // Returns ok=false (no proxy, no logs) when the URL is empty. Returns
 // ok=false with an error log when the URL is non-empty but unparseable.
-func newUpstreamProxy(targetURL, envVarName, serviceLabel string) (http.Handler, bool) {
+// newUpstreamProxy reverse-proxies to targetURL. hostOverride, when set,
+// becomes the outgoing Host header instead of the target's host — required
+// when the target is an in-cluster gateway whose routes match on a public
+// hostname.
+func newUpstreamProxy(targetURL, hostOverride, envVarName, serviceLabel string) (http.Handler, bool) {
 	targetURL = strings.TrimSpace(targetURL)
 	if targetURL == "" {
 		return nil, false
@@ -50,7 +54,11 @@ func newUpstreamProxy(targetURL, envVarName, serviceLabel string) (http.Handler,
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			originalHost := pr.In.Host
 			pr.SetURL(target)
-			pr.Out.Host = target.Host
+			if hostOverride != "" {
+				pr.Out.Host = hostOverride
+			} else {
+				pr.Out.Host = target.Host
+			}
 			pr.SetXForwarded()
 			pr.Out.Header.Set("X-Forwarded-Host", originalHost)
 			pr.Out.Header.Set("X-Forwarded-Proto", target.Scheme)

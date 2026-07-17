@@ -45,7 +45,7 @@ func AIRouter(deps *app.Dependencies) http.Handler {
 	r.Route("/api", func(r chi.Router) {
 		r.Use(authMW)
 		var dispatch http.Handler
-		if proxy, ok := newUpstreamProxy(deps.Config.Services.APIURL, "BI_API_SERVICE_URL", "api"); ok {
+		if proxy, ok := newUpstreamProxy(deps.Config.Services.APIURL, deps.Config.Services.APIHost, "BI_API_SERVICE_URL", "api"); ok {
 			dispatch = proxy
 		}
 		registerAIAPIRoutes(r, deps.AIDeps(), authClient, false, dispatch)

@@ -243,6 +243,12 @@ type ServicesConfig struct {
 	// standalone MCP service forwards governed tool calls to. Empty in the
 	// monolith (MCP dispatches to its own in-process router instead).
 	APIURL string
+	// APIHost overrides the Host header sent to APIURL. Set it when APIURL
+	// points at an in-cluster gateway whose HTTPRoutes match on the public
+	// hostname (e.g. APIURL=http://eg-gw-http.envoy-gateway-system... with
+	// APIHost=abi.il1.nl) so tool dispatches stay inside the cluster instead
+	// of round-tripping through Cloudflare.
+	APIHost string
 }
 
 // QueryLLMConfig overrides the connection used by the NL-to-LogicalQuery path
@@ -534,6 +540,7 @@ func loadConfigFromEnv() *Config {
 			QueryURL:   strings.TrimRight(getEnv("BI_QUERY_SERVICE_URL", ""), "/"),
 			AIURL:      strings.TrimRight(getEnv("BI_AI_SERVICE_URL", ""), "/"),
 			APIURL:     strings.TrimRight(getEnv("BI_API_SERVICE_URL", ""), "/"),
+			APIHost:    strings.TrimSpace(getEnv("BI_API_SERVICE_HOST", "")),
 		},
 		AI: loadAIConfigFromEnv(),
 		NATS: NATSConfig{
