@@ -614,6 +614,7 @@ export const core: CoreDictionary = {
     run_trace_step_tool: 'Araç çağrısı',
     run_trace_step_observation: 'Gözlem',
     run_trace_step_clarification: 'Netleştirme',
+    run_trace_clarification_detail: 'sorulan: {{question}} — yanıtlanan: {{answer}}',
     run_trace_step_final_response: 'Nihai yanıt',
     run_trace_step_shadow_comparison: 'Gölge karşılaştırma',
     run_trace_step_list_datasources: 'Veri kaynaklarını listele',

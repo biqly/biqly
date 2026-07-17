@@ -27,7 +27,7 @@ import { buildResultSummary } from '../utils/priorTurnSummary'
 import { queuePositionLine } from './ai/jobProgressUtils'
 import { loadAgentModeEnabled, saveAgentModeEnabled } from './aiQuery/agentModeStorage'
 import { runAgentModeTurn } from './aiQuery/agentModeTurn'
-import { mergeAgentStepEvent } from './aiQuery/agentTraceSteps'
+import { appendAgentClarificationStep, mergeAgentStepEvent } from './aiQuery/agentTraceSteps'
 import {
   aiQueryLayoutClass,
   aiQueryMainClass,
@@ -877,10 +877,13 @@ export default function AIQuery() {
   // agentClarification.runId — used by AgentTraceCard's choice buttons and
   // its Skip button (NOT by the normal composer send path, which instead
   // routes free-text answers through sendQuery below so typing in the
-  // composer while a clarification is pending "just works"). displayLabel is
-  // what appears as the new user-turn bubble, distinct from `answer` (the
-  // literal clarification_answer sent to the server) so a skip can show a
-  // short label ("Skip — show best effort") while sending a fuller
+  // composer while a clarification is pending "just works"). The answer is
+  // recorded as a `clarification` row in the SAME run trace (right where the
+  // clarify round-trip happened), NOT as a standalone user message — a
+  // clarification reply is not a new question. displayLabel is the
+  // human-readable answer shown in that trace row, distinct from `answer`
+  // (the literal clarification_answer sent to the server) so a skip can show
+  // a short label ("Skip — show best effort") while sending a fuller
   // instruction the planner can actually act on.
   const answerAgentClarification = useCallback(
     async (answer: string, displayLabel: string) => {
@@ -891,7 +894,18 @@ export default function AIQuery() {
       }
       setConversationPending(convId, 'execute')
       setJobError(null)
-      addMessage({ role: 'user', content: displayLabel }, convId)
+      // Append the clarify round-trip to the live trace and drop the pending
+      // prompt in one update, so the ClarificationCard disappears immediately
+      // and the resumed run streams in below the new clarification row.
+      const detail = t('ai_query.run_trace_clarification_detail', {
+        question: pending.question,
+        answer: displayLabel,
+      })
+      updateAgentTurn(convId, (prev) => ({
+        ...prev,
+        clarification: null,
+        steps: appendAgentClarificationStep(prev.steps, detail),
+      }))
       await runAgentTurn(
         {
           resume_run_id: pending.runId,
@@ -908,7 +922,8 @@ export default function AIQuery() {
     [
       agentTurnsByConversation,
       activeConversation,
-      addMessage,
+      t,
+      updateAgentTurn,
       setConversationPending,
       runAgentTurn,
       datasourceId,
@@ -954,10 +969,20 @@ export default function AIQuery() {
       // while a clarification is showing carries clarification_round context
       // rather than starting fresh). Numbered-choice/skip answers go through
       // answerAgentClarification instead (AgentTraceCard's own buttons), not
-      // through this composer path.
+      // through this composer path. Like that path, the answer is recorded as
+      // a `clarification` trace row (not a standalone user message) and the
+      // pending prompt is cleared in the same update.
       const pendingClarification = agentTurnsByConversation[convId]?.clarification
       if (pendingClarification) {
-        addMessage({ role: 'user', content: q }, convId)
+        const detail = t('ai_query.run_trace_clarification_detail', {
+          question: pendingClarification.question,
+          answer: q,
+        })
+        updateAgentTurn(convId, (prev) => ({
+          ...prev,
+          clarification: null,
+          steps: appendAgentClarificationStep(prev.steps, detail),
+        }))
         setQuestion('')
         await runAgentTurn(
           {

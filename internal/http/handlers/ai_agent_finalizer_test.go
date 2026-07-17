@@ -294,36 +294,56 @@ func TestWebAgentRunSteps(t *testing.T) {
 	assert.Equal(t, ai.RunStep{Seq: 3, Kind: "run_question", Status: ai.RunStepStatusFailed, Detail: "upstream timeout", DurationMs: 8069}, got[2])
 }
 
-// TestWebAgentRunStepsAppendsClarificationRows proves each answered
-// clarification round becomes a `clarification`-kind RunStep appended after
-// the tool steps (ClarificationHistory records no step position — see
-// webAgentRunSteps), with seqs continuing past the highest recorded step seq
-// so the persisted agent_steps rows stay unique per (run, seq).
-func TestWebAgentRunStepsAppendsClarificationRows(t *testing.T) {
+// TestWebAgentRunStepsInterleavesClarificationRows proves each answered
+// clarification round becomes a `clarification`-kind RunStep placed at its
+// true position — right after the step recorded by AfterSeq — so the trace
+// reads run -> clarify -> run instead of stranding the clarification at the
+// end. Output seqs are renumbered contiguously so a clarification slotted
+// between two adjacent tool-step seqs stays unique per (run, seq).
+func TestWebAgentRunStepsInterleavesClarificationRows(t *testing.T) {
 	steps := []agent.RuntimeStep{
 		{Seq: 1, Proposal: agent.Proposal{Tool: agent.ToolWebListDatasources}, Observation: &agent.Observation{}, DurationMs: 12},
 		{Seq: 2, Proposal: agent.Proposal{Tool: agent.ToolWebRunQuestion}, Observation: &agent.Observation{}, DurationMs: 90},
 	}
 	history := []agent.ClarificationExchange{
-		{Question: "Which datasource?", Answer: "zlitter"},
-		{Question: "Which quarter?", Answer: "Q2"},
+		{Question: "Which datasource?", Answer: "zlitter", AfterSeq: 1},
+		{Question: "Which quarter?", Answer: "Q2", AfterSeq: 2},
 	}
 
 	got := webAgentRunSteps(steps, history)
 
 	require.Len(t, got, 4)
+	assert.Equal(t, "list_datasources", got[0].Kind)
 	assert.Equal(t, ai.RunStep{
-		Seq:    3,
+		Seq:    2,
 		Kind:   "clarification",
 		Status: ai.RunStepStatusOK,
 		Detail: "asked: Which datasource? — answered: zlitter",
-	}, got[2])
+	}, got[1])
+	assert.Equal(t, "run_question", got[2].Kind)
 	assert.Equal(t, ai.RunStep{
 		Seq:    4,
 		Kind:   "clarification",
 		Status: ai.RunStepStatusOK,
 		Detail: "asked: Which quarter? — answered: Q2",
 	}, got[3])
+}
+
+// TestWebAgentRunStepsTrailingClarification proves a clarification asked after
+// the last recorded step (AfterSeq == len(steps)) still trails at the end.
+func TestWebAgentRunStepsTrailingClarification(t *testing.T) {
+	steps := []agent.RuntimeStep{
+		{Seq: 1, Proposal: agent.Proposal{Tool: agent.ToolWebListDatasources}, Observation: &agent.Observation{}, DurationMs: 12},
+	}
+	history := []agent.ClarificationExchange{
+		{Question: "Which datasource?", Answer: "zlitter", AfterSeq: 1},
+	}
+
+	got := webAgentRunSteps(steps, history)
+
+	require.Len(t, got, 2)
+	assert.Equal(t, "list_datasources", got[0].Kind)
+	assert.Equal(t, "clarification", got[1].Kind)
 }
 
 // TestComposeWebAgentFinalResultIncludesClarificationSteps proves the
@@ -341,7 +361,7 @@ func TestComposeWebAgentFinalResultIncludesClarificationSteps(t *testing.T) {
 			Observation: &agent.Observation{Tool: agent.ToolWebListModels, Payload: []byte(`{"models":[]}`)},
 		}},
 		ClarificationHistory: []agent.ClarificationExchange{
-			{Question: "Which datasource?", Answer: "zlitter"},
+			{Question: "Which datasource?", Answer: "zlitter", AfterSeq: 1},
 		},
 		Terminal: &agent.TerminalResult{
 			Kind:  agent.DecisionFinal,

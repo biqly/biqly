@@ -292,6 +292,9 @@ func (h *AIHandler) resumeWebAgentRun(ctx context.Context, req webAgentRequest) 
 		history = append(history, agent.ClarificationExchange{
 			Question: state.PendingClarification.Question,
 			Answer:   req.ClarificationAnswer,
+			// The run paused right after these steps completed, so the
+			// clarification belongs at this position in the trace.
+			AfterSeq: len(state.Steps),
 		})
 	}
 	return run.ID, webAgentResumeInfo{OriginalQuestion: run.Question, ClarificationHistory: history}, nil

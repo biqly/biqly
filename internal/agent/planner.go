@@ -33,6 +33,14 @@ type Clarification struct {
 type ClarificationExchange struct {
 	Question string
 	Answer   string
+	// AfterSeq records how many tool steps had completed when this
+	// clarification was asked (the runtime pauses BETWEEN steps, so the
+	// question always sits right after step AfterSeq — 0 means it was asked
+	// before any tool ran). The resume handler stamps it (len(state.Steps)),
+	// and webAgentRunSteps uses it to place the clarification row at its true
+	// position in the run trace instead of appending it at the end. Optional:
+	// legacy persisted history predating this field unmarshals to 0.
+	AfterSeq int `json:",omitempty"`
 }
 
 // FinalResponse is a run's successful terminal outcome.

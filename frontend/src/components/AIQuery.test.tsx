@@ -361,9 +361,11 @@ describe('AIQuery Agent Mode stream cleanup', () => {
       resume_run_id: 'run-9',
       clarification_answer: 'emea',
     })
-    // The resume is itself a real user-visible turn: a bubble for the chosen
-    // answer, in addition to the original question.
-    expect(mockAddMessage).toHaveBeenCalledTimes(2)
+    // A clarification reply is not a new question: the chosen answer is
+    // recorded as a `clarification` row in the run trace, NOT as a standalone
+    // user-message bubble — so only the ORIGINAL question was ever added as a
+    // message.
+    expect(mockAddMessage).toHaveBeenCalledTimes(1)
   })
 })
 
