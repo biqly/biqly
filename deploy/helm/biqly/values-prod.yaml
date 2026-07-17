@@ -105,11 +105,11 @@ auth:
       memory: 128Mi
   image:
     repository: auth
-    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
+    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
   migrate:
     image:
       repository: auth
-      tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
+      tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -190,7 +190,7 @@ worker:
     minReplicas: 1
     maxReplicas: 1
   image:
-    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
+    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
 # Re-deployed 2026-07-07: ConnectNATS fixed to merge subjects instead of
 # replacing them (b98ace38). Agent runs in shadow mode observing/comparing
 # results alongside the legacy pipeline, with its own job subject
@@ -242,7 +242,7 @@ ai:
       # execution concurrently. 1Gi matches the base chart's default.
       memory: 1Gi
   image:
-    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
+    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
   autoscaling:
     enabled: false
     minReplicas: 1
