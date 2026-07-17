@@ -135,11 +135,11 @@ mail:
     BI_MAIL_SMTP_SENDER_NAME: "ABI"
   image:
     repository: mail
-    tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
+    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
   migrate:
     image:
       repository: mail
-      tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
+      tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
 frontend:
   replicaCount: 1
   resources:
@@ -188,7 +188,7 @@ worker:
     minReplicas: 1
     maxReplicas: 1
   image:
-    tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
+    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
 # Re-deployed 2026-07-07: ConnectNATS fixed to merge subjects instead of
 # replacing them (b98ace38). Agent runs in shadow mode observing/comparing
 # results alongside the legacy pipeline, with its own job subject
@@ -201,7 +201,7 @@ agent:
     minReplicas: 1
     maxReplicas: 1
   image:
-    tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
+    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
 mcp:
   replicaCount: 1
   resources:
