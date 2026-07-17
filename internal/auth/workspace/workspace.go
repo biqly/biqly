@@ -193,22 +193,39 @@ func (s *Service) Update(ctx context.Context, id, callerID, name, description st
 		desc = sql.NullString{String: description, Valid: true}
 	}
 
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE workspaces SET name = $1, description = $2, updated_at = NOW()
-		WHERE id = $3
-	`, name, desc, id)
+	// All writes share one transaction so a failure can't leave the workspace
+	// partially updated (e.g. renamed but flags unchanged). The flag updates
+	// are inlined rather than delegated to SetMFARequired /
+	// SetPublicSharingEnabled: those exist for standalone callers and only add
+	// a requireOwnerOrAdmin check, which the stricter requireOwner above
+	// already covers.
+	err := platformdb.RunInTx(ctx, s.db, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE workspaces SET name = $1, description = $2, updated_at = NOW()
+			WHERE id = $3
+		`, name, desc, id); err != nil {
+			return fmt.Errorf("update workspace: %w", err)
+		}
+		if mfaRequired != nil {
+			if _, err := tx.ExecContext(ctx, `
+				UPDATE workspaces SET mfa_required = $1, updated_at = NOW()
+				WHERE id = $2
+			`, *mfaRequired, id); err != nil {
+				return fmt.Errorf("update workspace mfa_required: %w", err)
+			}
+		}
+		if publicSharing != nil {
+			if _, err := tx.ExecContext(ctx, `
+				UPDATE workspaces SET public_sharing_enabled = $1, updated_at = NOW()
+				WHERE id = $2
+			`, *publicSharing, id); err != nil {
+				return fmt.Errorf("update workspace public_sharing_enabled: %w", err)
+			}
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("update workspace: %w", err)
-	}
-	if mfaRequired != nil {
-		if err := s.SetMFARequired(ctx, id, callerID, *mfaRequired); err != nil {
-			return nil, err
-		}
-	}
-	if publicSharing != nil {
-		if err := s.SetPublicSharingEnabled(ctx, id, callerID, *publicSharing); err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 	return s.Get(ctx, id)
 }
