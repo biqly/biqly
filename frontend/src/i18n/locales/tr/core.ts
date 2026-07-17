@@ -1327,6 +1327,11 @@ export const core: CoreDictionary = {
   table_browser: {
     title: 'Tablo Tarayıcı',
     open_row_details: 'Satır ayrıntılarını aç',
+    reveal: 'Göster',
+    hide: 'Gizle',
+    copy: 'Kopyala',
+    copied: 'Kopyalandı',
+    hidden_value: 'Gizli değer',
     filter: 'Filtre',
     add_filter: 'Filtre ekle',
     update_filter: 'Filtreyi güncelle',

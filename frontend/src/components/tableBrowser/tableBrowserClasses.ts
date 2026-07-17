@@ -101,12 +101,12 @@ export const tableBrowserThGripClass =
 export const tableBrowserTablePlaceholderClass =
   'flex flex-col items-center justify-center gap-[0.65rem] min-h-[min(28rem,55vh)] border border-border rounded-lg bg-card text-foreground-muted text-[0.85rem] font-semibold'
 
-export const tableBrowserTableOverlayClass = 'min-h-[min(28rem,55vh)] rounded-lg flex flex-col'
+export const tableBrowserTableOverlayClass = 'min-h-[8rem] rounded-lg flex flex-col'
 
 export const tableBrowserTableWrapClass =
-  'overflow-x-auto max-h-[min(28rem,55vh)] overflow-y-auto border border-border rounded-lg transition-[filter,opacity] duration-200 flex-1 min-h-[min(28rem,55vh)]'
+  'overflow-x-auto max-h-[min(32rem,62vh)] overflow-y-auto border border-border rounded-lg transition-[filter,opacity] duration-200 flex-1 min-h-[8rem]'
 
-export const tableBrowserTableShellClass = 'flex flex-col min-h-[min(28rem,55vh)]'
+export const tableBrowserTableShellClass = 'flex flex-col min-h-[8rem]'
 
 export const tableBrowserDataRowClass = 'cursor-pointer h-[2.15rem] hover:[&>td]:bg-canvas-subtle'
 
@@ -130,15 +130,16 @@ export const tableBrowserIndexTdClass = 'sticky left-0 z-[1] w-12 max-w-12 bg-ca
 export const tableBrowserDetailModalBodyClass = 'min-h-0 max-h-none overflow-y-auto'
 
 export const tableBrowserDetailGridClass =
-  'grid grid-cols-3 max-[860px]:grid-cols-2 max-[560px]:grid-cols-1 overflow-visible border border-border rounded-lg bg-card-raised/72'
+  'grid grid-cols-2 max-[560px]:grid-cols-1 gap-2.5 content-start'
 
 export const tableBrowserDetailItemClass =
-  'flex flex-col gap-1 min-w-0 p-[0.65rem_0.75rem] border-r border-b border-border [&:nth-child(3n)]:border-r-0 max-[860px]:[&:nth-child(3n)]:border-r max-[860px]:[&:nth-child(2n)]:border-r-0 max-[560px]:border-r-0'
+  'flex flex-col gap-1.5 min-w-0 rounded-lg border border-border/55 bg-card-raised/45 p-3.5 transition-colors duration-150 hover:border-border'
 
 export const tableBrowserDetailLabelClass =
-  'text-[0.68rem] font-bold uppercase tracking-wider text-foreground-muted'
+  'text-[0.64rem] font-bold uppercase tracking-[0.09em] text-foreground-faint'
 
-export const tableBrowserDetailValueClass = 'text-[0.82rem] text-foreground'
+export const tableBrowserDetailValueClass =
+  'text-[0.85rem] text-foreground leading-relaxed [overflow-wrap:anywhere]'
 
 export const tableBrowserPaginationClass =
   'flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mt-[0.85rem] pt-3 min-h-[2.75rem] border-t border-border transition-opacity duration-200'
@@ -159,10 +160,37 @@ export const tableBrowserThSortClass = 'shrink-0 text-accent font-bold text-[0.6
 export const tableBrowserThSortHintClass =
   'shrink-0 text-foreground-faint text-[0.62rem] leading-none opacity-0 group-hover:opacity-70 transition-opacity duration-150'
 
-export const tableBrowserEmptyCellClass = 'text-foreground-faint select-none'
+// Type-aware value rendering (TableBrowserFieldValue): booleans read as colored
+// status pills, secret/encrypted columns are masked with reveal + copy, and
+// id/uuid/hash values are set in a monospace face so they align and scan.
+export const tableBrowserBoolPillClass =
+  'inline-flex items-center gap-1.5 rounded-full px-2 py-[0.15rem] text-[0.72rem] font-medium leading-none align-middle'
+
+export const tableBrowserBoolTrueClass = 'bg-success/12 text-success'
+
+export const tableBrowserBoolFalseClass = 'bg-foreground-faint/12 text-foreground-muted'
+
+export const tableBrowserBoolDotTrueClass = 'h-1.5 w-1.5 rounded-full bg-success'
+
+export const tableBrowserBoolDotFalseClass = 'h-1.5 w-1.5 rounded-full bg-foreground-faint'
+
+export const tableBrowserSecretWrapClass =
+  'inline-flex min-w-0 max-w-full flex-wrap items-center gap-2'
+
+export const tableBrowserSecretMaskClass =
+  'font-mono text-foreground-faint tracking-[0.25em] select-none'
+
+export const tableBrowserSecretActionsClass = 'inline-flex shrink-0 items-center gap-1'
+
+export const tableBrowserSecretBtnClass =
+  'shrink-0 inline-flex items-center rounded-[0.3rem] border border-border bg-transparent px-[0.4rem] py-[0.12rem] text-[0.64rem] font-semibold uppercase tracking-wide text-foreground-muted cursor-pointer transition-colors duration-150 hover:border-[color-mix(in_srgb,var(--accent)_50%,var(--border))] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30'
+
+export const tableBrowserMonoValueClass = 'font-mono text-[0.8rem] tracking-tight'
+
+export const tableBrowserDetailEmptyClass = 'text-foreground-faint select-none'
 
 export const tableBrowserThFilterClass =
-  'shrink-0 inline-flex items-center justify-center w-[1.15rem] h-[1.15rem] border-0 bg-transparent text-foreground-muted rounded-[0.25rem] cursor-pointer opacity-60 hover:text-accent hover:bg-accent/10 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 transition-[opacity,color,background-color] duration-150'
+  'shrink-0 inline-flex items-center justify-center w-[1.15rem] h-[1.15rem] border-0 bg-transparent text-foreground-faint rounded-[0.25rem] cursor-pointer opacity-0 hover:text-accent hover:bg-accent/10 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 transition-[opacity,color,background-color] duration-150'
 
 export const tableBrowserThFilterIconClass = 'w-[0.7rem] h-[0.7rem]'
 
@@ -190,15 +218,15 @@ export const rowModalRelatedTitleClass =
   'm-0 text-[0.78rem] font-bold uppercase tracking-wider text-foreground-muted'
 
 export const rowModalRelatedCardClass =
-  'grid gap-[0.35rem] border border-border rounded-[0.55rem] bg-card-raised p-[0.6rem_0.7rem]'
+  'group grid gap-[0.4rem] border border-border/70 rounded-xl bg-card-raised/60 p-[0.65rem_0.75rem] transition-colors duration-150 hover:border-[color-mix(in_srgb,var(--accent)_38%,var(--border))]'
 
 export const rowModalRelatedCardHeadClass = 'flex items-center justify-between gap-2'
 
 export const rowModalRelatedCardTableClass =
-  'font-mono text-[0.76rem] text-foreground overflow-hidden text-ellipsis whitespace-nowrap'
+  'font-mono text-[0.76rem] font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap'
 
 export const rowModalRelatedCardBadgeClass =
-  'shrink-0 text-[0.62rem] font-bold p-[0.1rem_0.4rem] rounded-full bg-accent/12 text-accent'
+  'shrink-0 text-[0.58rem] font-bold uppercase tracking-wide p-[0.12rem_0.45rem] rounded-full bg-accent/12 text-accent'
 
 export const rowModalRelatedCardOnClass =
   'font-mono text-[0.68rem] text-foreground-muted [overflow-wrap:anywhere]'

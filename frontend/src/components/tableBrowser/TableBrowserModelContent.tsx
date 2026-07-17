@@ -5,17 +5,14 @@ import { buttonClass } from '../../lib/buttonClasses'
 import { cn } from '../../lib/cn'
 import { legacyFeedbackClass } from '../../lib/feedbackClasses'
 import { legacyTableClass } from '../../lib/tableClasses'
-import { formatResultCell } from '../../utils/resultCellFormat'
 import { LoadingOverlay } from '../ui/LoadingOverlay'
 import { PaginationControls } from '../ui/PaginationControls'
 import { Select } from '../ui/Select'
-import { TableBrowserCellValue } from './TableBrowserCellValue'
 import {
   rowIndexNumberClass,
   tableBrowserAddFilterBtnClass,
   tableBrowserDataRowClass,
   tableBrowserDataRowTdClass,
-  tableBrowserEmptyCellClass,
   tableBrowserFilterBarClass,
   tableBrowserFilterTagClass,
   tableBrowserFilterTagCloseClass,
@@ -40,6 +37,7 @@ import {
   validationErrorBannerRowClass,
   validationErrorBannerTitleClass,
 } from './tableBrowserClasses'
+import { TableBrowserFieldValue } from './TableBrowserFieldValue'
 import type { TableBrowserFilter } from './tableBrowserFilterHandlers'
 import { TableBrowserFilterPopover } from './TableBrowserFilterPopover'
 import { formatTableBrowserFilterValue, tableBrowserOperatorLabel } from './tableBrowserFilterUtils'
@@ -411,16 +409,14 @@ export function TableBrowserModelContent({
                       {displayColumnNames.map((colName) => {
                         const j = columnIndexByName.get(colName)
                         const cell = j != null ? row[j] : null
-                        const display = formatResultCell(cell, colName, {})
                         return (
                           <td key={colName} className={tableBrowserDataRowTdClass}>
-                            {display ? (
-                              <TableBrowserCellValue value={display} />
-                            ) : (
-                              <span className={tableBrowserEmptyCellClass} aria-hidden="true">
-                                —
-                              </span>
-                            )}
+                            <TableBrowserFieldValue
+                              colName={colName}
+                              raw={cell}
+                              variant="cell"
+                              t={t}
+                            />
                           </td>
                         )
                       })}

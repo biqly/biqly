@@ -3,11 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { useT } from '../../i18n'
 import { legacyTableClass } from '../../lib/tableClasses'
 import type { SemanticJoin } from '../../types/semantic'
-import { formatResultCell } from '../../utils/resultCellFormat'
 import { tableKey } from '../modeling/utils'
 import { Modal } from '../ui/Modal'
 import { rowTitleFor } from './rowTitle'
-import { TableBrowserCellValue } from './TableBrowserCellValue'
 import {
   modalCardXlClass,
   rowModalBackClass,
@@ -34,6 +32,7 @@ import {
   tableBrowserDetailModalBodyClass,
   tableBrowserDetailValueClass,
 } from './tableBrowserClasses'
+import { TableBrowserFieldValue } from './TableBrowserFieldValue'
 import { buildTableRowsUrl, type TableRowsResult } from './useTableBrowserQueryState'
 const RELATED_PAGE_SIZE = 25
 
@@ -395,17 +394,14 @@ function RelatedListView({
                   }
                 }}
               >
-                {columns.map((c, j) => {
-                  const display = formatResultCell(row[j], c, {})
-                  return (
-                    <td
-                      key={c}
-                      className="max-w-48 overflow-visible px-3 py-[0.3rem] align-middle leading-snug whitespace-nowrap"
-                    >
-                      <TableBrowserCellValue value={display} />
-                    </td>
-                  )
-                })}
+                {columns.map((c, j) => (
+                  <td
+                    key={c}
+                    className="max-w-48 overflow-visible px-3 py-[0.3rem] align-middle leading-snug whitespace-nowrap"
+                  >
+                    <TableBrowserFieldValue colName={c} raw={row[j]} variant="cell" t={t} />
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
@@ -538,14 +534,15 @@ export function TableBrowserRowModal({
           >
             {frame.columns.map((colName) => {
               const j = colIndex.get(colName)
-              const display = formatResultCell(j != null ? frame.row[j] : null, colName, {})
               return (
                 <div key={colName} className={tableBrowserDetailItemClass}>
                   <span className={tableBrowserDetailLabelClass}>{colName}</span>
-                  <TableBrowserCellValue
-                    value={display}
+                  <TableBrowserFieldValue
+                    colName={colName}
+                    raw={j != null ? frame.row[j] : null}
+                    variant="detail"
+                    t={t}
                     className={tableBrowserDetailValueClass}
-                    multiline
                   />
                 </div>
               )

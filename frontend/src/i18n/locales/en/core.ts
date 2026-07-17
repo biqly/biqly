@@ -1377,6 +1377,11 @@ export const core = {
   table_browser: {
     title: 'Table Browser',
     open_row_details: 'Open row details',
+    reveal: 'Show',
+    hide: 'Hide',
+    copy: 'Copy',
+    copied: 'Copied',
+    hidden_value: 'Hidden value',
     filter: 'Filter',
     add_filter: 'Add filter',
     update_filter: 'Update filter',
