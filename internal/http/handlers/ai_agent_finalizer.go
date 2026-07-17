@@ -89,35 +89,57 @@ func webAgentFinalQuestion(req webAgentRequest, resume webAgentResumeInfo) strin
 // and the tool-aware human summary for completed ones — matching what the
 // live SSE trace showed while the run streamed.
 //
-// Each answered clarification round (clarifications, oldest first) is
-// appended after the tool steps as a `clarification`-kind RunStep.
-// ClarificationHistory records no step position (the runtime pauses BETWEEN
-// steps), so appending in exchange order — with seqs continuing past the
-// highest recorded step seq — is the documented placement choice; the live
-// trace interleaves the same rows at their true position client-side.
+// Each answered clarification round is interleaved at its true position —
+// right after the tool step it followed (ClarificationExchange.AfterSeq) —
+// so the trace reads in real temporal order (e.g. run_query -> clarify ->
+// run_query) instead of stranding every clarification at the end where a
+// re-query after a clarification looks like a pointless duplicate run. This
+// mirrors the live client-side trace (appendAgentClarificationStep). The
+// clarifications slice is oldest-first with non-decreasing AfterSeq (each
+// round pauses after at least as many steps as the previous), and steps are
+// already in seq order, so a single forward merge suffices. Output seqs are
+// renumbered contiguously in render order to keep the persisted agent_steps
+// rows unique per (run, seq) even though a clarification slots between two
+// adjacent tool-step seqs.
 func webAgentRunSteps(steps []agent.RuntimeStep, clarifications []agent.ClarificationExchange) []ai.RunStep {
 	out := make([]ai.RunStep, 0, len(steps)+len(clarifications))
-	maxSeq := 0
+	ci := 0
+	emitClarificationsThrough := func(afterSeq int) {
+		for ci < len(clarifications) && clarifications[ci].AfterSeq <= afterSeq {
+			out = append(out, ai.RunStep{
+				Seq:    len(out) + 1,
+				Kind:   "clarification",
+				Status: ai.RunStepStatusOK,
+				Detail: webAgentClarificationDetail(clarifications[ci]),
+			})
+			ci++
+		}
+	}
 	for _, step := range steps {
+		// Clarifications asked before this step (AfterSeq < step.Seq) render
+		// ahead of it; AfterSeq == step.Seq means asked right after it, so it
+		// waits for the next iteration (or the trailing flush below).
+		emitClarificationsThrough(step.Seq - 1)
 		status := ai.RunStepStatusOK
 		if step.DeniedReason != "" || step.Error != "" {
 			status = ai.RunStepStatusFailed
 		}
-		maxSeq = max(maxSeq, step.Seq)
 		out = append(out, ai.RunStep{
-			Seq:        step.Seq,
+			Seq:        len(out) + 1,
 			Kind:       string(step.Proposal.Tool),
 			Status:     status,
 			DurationMs: step.DurationMs,
 			Detail:     webAgentStepSummary(step),
 		})
 	}
-	for i, exchange := range clarifications {
+	// Clarifications asked after the last recorded step (and any whose
+	// AfterSeq is out of range) trail at the end.
+	for ; ci < len(clarifications); ci++ {
 		out = append(out, ai.RunStep{
-			Seq:    maxSeq + i + 1,
+			Seq:    len(out) + 1,
 			Kind:   "clarification",
 			Status: ai.RunStepStatusOK,
-			Detail: webAgentClarificationDetail(exchange),
+			Detail: webAgentClarificationDetail(clarifications[ci]),
 		})
 	}
 	return out

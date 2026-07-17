@@ -606,6 +606,7 @@ export const core = {
     run_trace_step_tool: 'Tool call',
     run_trace_step_observation: 'Observation',
     run_trace_step_clarification: 'Clarification',
+    run_trace_clarification_detail: 'asked: {{question}} — answered: {{answer}}',
     run_trace_step_final_response: 'Final response',
     run_trace_step_shadow_comparison: 'Shadow comparison',
     run_trace_step_list_datasources: 'List datasources',

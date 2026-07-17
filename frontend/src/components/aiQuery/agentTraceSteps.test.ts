@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import type { AgentStepEvent } from '../../types/agent'
-import { mergeAgentStepEvent } from './agentTraceSteps'
+import type { RunStep } from '../../types/ai'
+import { appendAgentClarificationStep, mergeAgentStepEvent } from './agentTraceSteps'
 
 describe('mergeAgentStepEvent', () => {
   it('appends a new step as "running" for a started event with no prior entry', () => {
@@ -89,5 +90,37 @@ describe('mergeAgentStepEvent', () => {
     const event: AgentStepEvent = { type: 'step', seq: 1, kind: 'run_started_marker' }
     const result = mergeAgentStepEvent([], event)
     expect(result[0]?.kind).toBe('run_started_marker')
+  })
+})
+
+describe('appendAgentClarificationStep', () => {
+  it('appends a clarification row after the existing steps, keeping array order', () => {
+    const steps: RunStep[] = [
+      { seq: 1, kind: 'list_skills', status: 'ok', duration_ms: 36 },
+      { seq: 2, kind: 'run_question', status: 'ok', duration_ms: 22900 },
+    ]
+    const result = appendAgentClarificationStep(steps, 'asked: which date? — answered: 2026-07-16')
+    expect(result.map((s) => s.kind)).toEqual(['list_skills', 'run_question', 'clarification'])
+    expect(result[2]).toMatchObject({
+      kind: 'clarification',
+      status: 'ok',
+      detail: 'asked: which date? — answered: 2026-07-16',
+    })
+  })
+
+  it('uses a negative seq so a later real step event never collides with it', () => {
+    const withOne = appendAgentClarificationStep([], 'a')
+    expect(withOne[0]?.seq).toBe(-1)
+    // A subsequent real (positive-seq) step appends without replacing the row.
+    const withStep = mergeAgentStepEvent(withOne, {
+      type: 'step',
+      seq: 3,
+      kind: 'tool_call_started',
+      tool: 'run_question',
+    })
+    expect(withStep.map((s) => s.kind)).toEqual(['clarification', 'run_question'])
+    // A second clarification decrements to -2, staying unique.
+    const withTwo = appendAgentClarificationStep(withStep, 'b')
+    expect(withTwo[withTwo.length - 1]?.seq).toBe(-2)
   })
 })
