@@ -190,7 +190,7 @@ worker:
     minReplicas: 1
     maxReplicas: 1
   image:
-    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
+    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
 # Re-deployed 2026-07-07: ConnectNATS fixed to merge subjects instead of
 # replacing them (b98ace38). Agent runs in shadow mode observing/comparing
 # results alongside the legacy pipeline, with its own job subject
