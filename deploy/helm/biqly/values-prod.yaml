@@ -105,11 +105,11 @@ auth:
       memory: 128Mi
   image:
     repository: auth
-    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
+    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
   migrate:
     image:
       repository: auth
-      tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
+      tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -137,11 +137,11 @@ mail:
     BI_MAIL_SMTP_SENDER_NAME: "ABI"
   image:
     repository: mail
-    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
+    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
   migrate:
     image:
       repository: mail
-      tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
+      tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
 frontend:
   replicaCount: 1
   resources:
@@ -163,7 +163,7 @@ catalog:
       cpu: 500m
       memory: 256Mi
   image:
-    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
+    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -178,7 +178,7 @@ query:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
+    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -203,7 +203,7 @@ agent:
     minReplicas: 1
     maxReplicas: 1
   image:
-    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
+    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
 mcp:
   replicaCount: 1
   resources:
@@ -214,7 +214,7 @@ mcp:
       cpu: 300m
       memory: 192Mi
   image:
-    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
+    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
   config:
     # MCP proxies tool calls to the API gateway. Target the in-cluster gateway
     # service (same upstream cloudflared uses) with the public hostname as the
@@ -242,7 +242,7 @@ ai:
       # execution concurrently. 1Gi matches the base chart's default.
       memory: 1Gi
   image:
-    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
+    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
   autoscaling:
     enabled: false
     minReplicas: 1
