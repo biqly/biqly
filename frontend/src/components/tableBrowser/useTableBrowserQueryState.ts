@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { request } from '../../hooks/useApi'
+
 const DEFAULT_PAGE_SIZE = 50
 
 export interface TableRowsResult {
@@ -71,7 +73,6 @@ export function useTableBrowserQueryState({
   table,
   filterPayload,
   columnOrder,
-  postData,
   onPageReset,
   filtersKey,
 }: {
@@ -80,7 +81,6 @@ export function useTableBrowserQueryState({
   table: string
   filterPayload: FilterPayloadItem[]
   columnOrder: string[]
-  postData: <T>(url: string, body: unknown) => Promise<T | null>
   onPageReset: () => void
   filtersKey: string
 }) {
@@ -98,6 +98,16 @@ export function useTableBrowserQueryState({
     result: TableRowsResult | null
   }>({ key: '', result: null })
   const result = resultState.key === queryScopeKey ? resultState.result : null
+  // Error is scoped to the query the same way `result` is: a superseded rows
+  // request (e.g. the model's base table, requested before the user picked
+  // another table) can resolve late with "table not found", but its error is
+  // tagged with that older scope and therefore never shows over the current
+  // selection's freshly-loaded rows.
+  const [errorState, setErrorState] = useState<{ key: string; error: string | null }>({
+    key: '',
+    error: null,
+  })
+  const error = errorState.key === queryScopeKey ? errorState.error : null
   const totalRows = result?.total ?? null
   const [pageState, setPageState] = useState({ key: queryScopeKey, page: 0 })
   const page = pageState.key === queryScopeKey ? pageState.page : 0
@@ -129,16 +139,22 @@ export function useTableBrowserQueryState({
     if (!datasourceId || !schema || !table) {
       return
     }
+    // Capture the scope at request time so a late-resolving, superseded
+    // response updates only its own scope's result/error, never the current
+    // selection's.
+    const scopeAtStart = queryScopeKey
     void Promise.resolve().then(() => setFetching(true))
-    const dataRes = await postData<TableRowsResult>(
+    const { data, error: err } = await request<TableRowsResult>(
+      'POST',
       buildTableRowsUrl(datasourceId, schema, table),
       tableRowsBody(filterPayload, sort, pageSize, page * pageSize),
     )
-    if (dataRes) {
-      setResultState({ key: queryScopeKey, result: dataRes })
+    if (data) {
+      setResultState({ key: scopeAtStart, result: data })
     }
+    setErrorState({ key: scopeAtStart, error: data ? null : err })
     setFetching(false)
-  }, [datasourceId, schema, table, filterPayload, sort, page, pageSize, postData, queryScopeKey])
+  }, [datasourceId, schema, table, filterPayload, sort, page, pageSize, queryScopeKey])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -194,11 +210,13 @@ export function useTableBrowserQueryState({
 
   const resetQueryState = useCallback(() => {
     setResultState({ key: queryScopeKey, result: null })
+    setErrorState({ key: queryScopeKey, error: null })
     setPageState({ key: queryScopeKey, page: 0 })
   }, [queryScopeKey])
 
   return {
     result,
+    error,
     totalRows,
     page,
     pageSize,
