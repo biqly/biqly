@@ -103,11 +103,11 @@ auth:
       memory: 128Mi
   image:
     repository: auth
-    tag: sha-b0b1e9a1b82a4c566489f61f5c0b80fbb6a04562
+    tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
   migrate:
     image:
       repository: auth
-      tag: sha-b0b1e9a1b82a4c566489f61f5c0b80fbb6a04562
+      tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -161,7 +161,7 @@ catalog:
       cpu: 500m
       memory: 256Mi
   image:
-    tag: sha-b0b1e9a1b82a4c566489f61f5c0b80fbb6a04562
+    tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
   autoscaling:
     enabled: false
     minReplicas: 1
