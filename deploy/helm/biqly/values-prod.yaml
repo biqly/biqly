@@ -135,11 +135,11 @@ mail:
     BI_MAIL_SMTP_SENDER_NAME: "ABI"
   image:
     repository: mail
-    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
+    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
   migrate:
     image:
       repository: mail
-      tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
+      tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
 frontend:
   replicaCount: 1
   resources:
@@ -188,7 +188,7 @@ worker:
     minReplicas: 1
     maxReplicas: 1
   image:
-    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
+    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
 # Re-deployed 2026-07-07: ConnectNATS fixed to merge subjects instead of
 # replacing them (b98ace38). Agent runs in shadow mode observing/comparing
 # results alongside the legacy pipeline, with its own job subject
@@ -201,7 +201,7 @@ agent:
     minReplicas: 1
     maxReplicas: 1
   image:
-    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
+    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
 mcp:
   replicaCount: 1
   resources:
@@ -212,7 +212,7 @@ mcp:
       cpu: 300m
       memory: 192Mi
   image:
-    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
+    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
   config:
     # MCP proxies tool calls to the API gateway; the hostname must match the
     # gateway HTTPRoutes (see global.gateway.hostnames).
@@ -237,7 +237,7 @@ ai:
       # execution concurrently. 1Gi matches the base chart's default.
       memory: 1Gi
   image:
-    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
+    tag: sha-df9137d7d7f738ce642fc780a9d5441e581c1034
   autoscaling:
     enabled: false
     minReplicas: 1
