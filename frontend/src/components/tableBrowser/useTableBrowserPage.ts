@@ -71,7 +71,7 @@ export function useTableBrowserPage() {
   const [locale] = useLocale()
   const localeTag = localeNumberTag(locale)
   const formatInt = useCallback((n: number) => n.toLocaleString(localeTag), [localeTag])
-  const { get, postData, error } = useApi()
+  const { get, postData } = useApi()
 
   const { datasources, loading: dsLoading } = useDatasources()
   const [selectedDatasourceId, setSelectedDatasourceId] = useState('')
@@ -204,7 +204,6 @@ export function useTableBrowserPage() {
     table: selectedTable,
     filterPayload: filterState.filterPayload,
     columnOrder: filterState.columnOrder,
-    postData,
     onPageReset: () => setDetailRow(null),
     filtersKey: filterState.filtersKey,
   })
@@ -249,7 +248,9 @@ export function useTableBrowserPage() {
     tableOptions,
     browserFields,
     displayExpressionByTable,
-    error,
+    // error comes from queryState (...queryState below): the rows request's
+    // selection-scoped error, so a stale/superseded "table not found" never
+    // shows over freshly-loaded rows.
     detailRow,
     setDetailRow,
     openModeling,
