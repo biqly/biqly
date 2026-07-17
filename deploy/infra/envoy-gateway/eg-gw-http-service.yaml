@@ -24,5 +24,8 @@ spec:
   ports:
     - name: http
       port: 80
-      targetPort: 80
+      # Envoy Gateway runs the proxy unprivileged: Gateway listener port 80 is
+      # bound as container port 10080 (see the generated LoadBalancer Service).
+      # targetPort 80 would be refused — nothing listens there.
+      targetPort: 10080
       protocol: TCP
