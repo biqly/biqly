@@ -103,11 +103,11 @@ auth:
       memory: 128Mi
   image:
     repository: auth
-    tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
+    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
   migrate:
     image:
       repository: auth
-      tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
+      tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -161,7 +161,7 @@ catalog:
       cpu: 500m
       memory: 256Mi
   image:
-    tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
+    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -176,7 +176,7 @@ query:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
+    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -212,7 +212,7 @@ mcp:
       cpu: 300m
       memory: 192Mi
   image:
-    tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
+    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
   config:
     # MCP proxies tool calls to the API gateway; the hostname must match the
     # gateway HTTPRoutes (see global.gateway.hostnames).
@@ -237,7 +237,7 @@ ai:
       # execution concurrently. 1Gi matches the base chart's default.
       memory: 1Gi
   image:
-    tag: sha-a329f2c4c12b3d6db4c6dc3a8e72909c813d5ea3
+    tag: sha-1e8839936c0289ae5eb3b89f7b41adbcc097b3d8
   autoscaling:
     enabled: false
     minReplicas: 1
