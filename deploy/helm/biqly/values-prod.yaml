@@ -152,7 +152,7 @@ frontend:
       cpu: 200m
       memory: 64Mi
   image:
-    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
+    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
 catalog:
   replicaCount: 1
   resources:
@@ -163,7 +163,7 @@ catalog:
       cpu: 500m
       memory: 256Mi
   image:
-    tag: sha-5b26cfc42399d37d888a790220c6c60172f24e87
+    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
   autoscaling:
     enabled: false
     minReplicas: 1
