@@ -104,7 +104,13 @@ export interface AIQueryRequest {
 }
 
 export type AIJobKind =
-  'query' | 'preview' | 'run' | 'describe' | 'describe_batch' | 'embed_metadata'
+  | 'query'
+  | 'preview'
+  | 'run'
+  | 'describe'
+  | 'describe_batch'
+  | 'describe_relations'
+  | 'embed_metadata'
 
 export type AIJobStatus = 'pending' | 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
 

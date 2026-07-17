@@ -171,21 +171,21 @@ export default function Metadata() {
   }
 
   // AI-describe the datasource's relations (used by the AI metadata
-  // generator's relations scope), then refresh the panel.
+  // generator's relations scope), then refresh the panel. Runs as an async AI
+  // job — the direct HTTP call died with "context canceled" whenever the user
+  // refreshed or navigated while waiting (no visible progress made that the
+  // natural move); the job survives the browser and shows in the AI jobs strip.
   const describeAllRelations = async (skipExisting = true) => {
     if (!datasourceId || describingAllJoins) {
       return
     }
     setDescribingAllJoins(true)
     try {
-      // Bulk runs describe in chunks server-side but a slow LLM can still take
-      // minutes for dozens of relations — the 30s default timeout aborted the
-      // request mid-run (context canceled) with nothing visible to the user.
-      await postData(
-        `/api/ai/datasources/${datasourceId}/describe-relations`,
-        { skip_existing: skipExisting, locale: editLocale },
-        { timeout: 600_000 },
-      )
+      await runJob('describe_relations', {
+        datasource_id: datasourceId,
+        skip_existing: skipExisting,
+        locale: editLocale,
+      })
       await refreshRelations()
     } finally {
       setDescribingAllJoins(false)

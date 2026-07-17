@@ -193,7 +193,11 @@ export function MetadataAIJobsStrip() {
   const [cancellingId, setCancellingId] = useState<string | null>(null)
 
   const metadataJobs = useMemo(
-    () => jobs.filter((j) => j.kind === 'describe' || j.kind === 'describe_batch'),
+    () =>
+      jobs.filter(
+        (j) =>
+          j.kind === 'describe' || j.kind === 'describe_batch' || j.kind === 'describe_relations',
+      ),
     [jobs],
   )
   const activeCount = useMemo(() => metadataJobs.filter(jobIsActive).length, [metadataJobs])

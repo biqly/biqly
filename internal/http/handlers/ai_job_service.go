@@ -97,6 +97,11 @@ func aiJobLocaleFromRequest(kind string, raw json.RawMessage, fallback string) s
 		if err := sonic.ConfigStd.Unmarshal(raw, &req); err == nil && strings.TrimSpace(req.Locale) != "" {
 			locale = strings.TrimSpace(req.Locale)
 		}
+	case "describe_relations":
+		var req describeRelationsJobRequest
+		if err := sonic.ConfigStd.Unmarshal(raw, &req); err == nil && strings.TrimSpace(req.Locale) != "" {
+			locale = strings.TrimSpace(req.Locale)
+		}
 	}
 	return string(i18n.ParseLocale(locale))
 }
@@ -105,6 +110,16 @@ func (s *AIJobService) enqueueJobScope(ctx context.Context, kind string, req jso
 	switch kind {
 	case "describe_batch":
 		return s.describeBatchEnqueueScope(ctx, req)
+	case "describe_relations":
+		var relReq describeRelationsJobRequest
+		if err := sonic.ConfigStd.Unmarshal(req, &relReq); err != nil {
+			return nil, nil, errors.New("invalid request payload")
+		}
+		ds := strings.TrimSpace(relReq.DatasourceID)
+		if ds == "" {
+			return nil, nil, errors.New("datasource_id is required")
+		}
+		return new(ds), []string{}, nil
 	case "embed_metadata":
 		return s.embedMetadataEnqueueScope(ctx, req)
 	default:
@@ -194,6 +209,14 @@ func validateAIJobRequest(kind string, raw json.RawMessage) error {
 		}
 		if len(req.Tables) > 200 {
 			return errors.New("at most 200 tables per batch")
+		}
+	case "describe_relations":
+		var req describeRelationsJobRequest
+		if err := sonic.ConfigStd.Unmarshal(raw, &req); err != nil {
+			return errors.New("invalid request payload")
+		}
+		if req.DatasourceID == "" {
+			return errors.New(core.MsgDatasourceIDRequired)
 		}
 	case "embed_metadata":
 		var req embedMetadataRequest
@@ -391,6 +414,16 @@ func (s *AIJobService) processJob(ctx context.Context, job *metadata.AIJob, repo
 			return nil, err
 		}
 		return encodeDescribeBatchJobResult(result)
+	case "describe_relations":
+		var req describeRelationsJobRequest
+		if err := sonic.ConfigStd.Unmarshal(job.RequestJSON, &req); err != nil {
+			return nil, errors.New("invalid request payload")
+		}
+		result, err := s.ai.executeDescribeRelationsJob(ctx, req, report)
+		if err != nil {
+			return nil, err
+		}
+		return sonic.ConfigStd.Marshal(result)
 	case "embed_metadata":
 		var req embedMetadataRequest
 		if err := sonic.ConfigStd.Unmarshal(job.RequestJSON, &req); err != nil {

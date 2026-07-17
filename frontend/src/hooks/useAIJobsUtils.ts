@@ -65,6 +65,10 @@ export function jobQuestionPreview(kind: AIJobKind, req: unknown): string {
       return `${tables.length} tables`
     }
   }
+  if (kind === 'describe_relations') {
+    const ids = record.relation_ids
+    return Array.isArray(ids) && ids.length > 0 ? `${ids.length} relations` : 'relations'
+  }
   if (kind === 'embed_metadata') {
     return 'Embedding refresh'
   }
