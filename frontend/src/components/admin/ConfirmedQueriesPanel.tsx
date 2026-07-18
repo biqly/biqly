@@ -218,6 +218,7 @@ export function ConfirmedQueriesPanel() {
           value={selectedDS}
           onChange={handleDatasourceChange}
           options={dsOptions}
+          searchable
           ariaLabel={t('admin.confirmed_queries.datasource')}
         />
       </label>

@@ -441,6 +441,7 @@ export default function Metadata() {
               placeholder={t('query_builder.placeholder_pick_datasource')}
               header={t('query_builder.header_datasources')}
               options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+              searchable
             />
           </div>
           <div className={legacyFormClass('form-group mb-0')}>

@@ -205,3 +205,47 @@ func TestMetricsFromNumericColumnLeavesNonCountColumnsUnaffected(t *testing.T) {
 func containsSynonym(synonyms []string, want string) bool {
 	return slices.Contains(synonyms, want)
 }
+
+// TestGenerateModelLabelTracksDedupedName proves a second model generated for
+// the same datasource gets a label that matches its deduped name ("Zlitter 2"),
+// not a duplicate of the first model's label while the name silently becomes
+// "zlitter_2".
+func TestGenerateModelLabelTracksDedupedName(t *testing.T) {
+	tables := []metadata.Table{
+		{DatasourceID: "ds1", SchemaName: "public", TableName: "tweets", TableType: "BASE TABLE"},
+	}
+	columns := []metadata.Column{
+		{DatasourceID: "ds1", SchemaName: "public", TableName: "tweets", ColumnName: "id", DataType: "integer", IsPrimaryKey: true},
+		{DatasourceID: "ds1", SchemaName: "public", TableName: "tweets", ColumnName: "body", DataType: "varchar"},
+	}
+
+	opts := GenerateModelOptions{
+		DatasourceID:   "ds1",
+		DatasourceName: "zlitter",
+		BaseSchema:     "public",
+		BaseTable:      "tweets",
+	}
+
+	first, err := GenerateModelFromMetadata(tables, columns, nil, opts)
+	if err != nil {
+		t.Fatalf("GenerateModelFromMetadata() error = %v", err)
+	}
+	if first.Model.Name != "zlitter" {
+		t.Fatalf("first model name = %q, want zlitter", first.Model.Name)
+	}
+	if first.Model.Label == nil || *first.Model.Label != "Zlitter" {
+		t.Fatalf("first model label = %v, want \"Zlitter\"", first.Model.Label)
+	}
+
+	opts.ExistingNames = []string{"zlitter"}
+	second, err := GenerateModelFromMetadata(tables, columns, nil, opts)
+	if err != nil {
+		t.Fatalf("GenerateModelFromMetadata() error = %v", err)
+	}
+	if second.Model.Name != "zlitter_2" {
+		t.Fatalf("second model name = %q, want zlitter_2", second.Model.Name)
+	}
+	if second.Model.Label == nil || *second.Model.Label != "Zlitter 2" {
+		t.Fatalf("second model label = %v, want \"Zlitter 2\"", second.Model.Label)
+	}
+}

@@ -358,6 +358,7 @@ export default function Skills() {
               value={datasourceId}
               onChange={setDatasourceId}
               options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+              searchable
             />
           </div>
           <div className={legacyFormClass('form-field')} style={{ flexGrow: 1, minWidth: '16rem' }}>

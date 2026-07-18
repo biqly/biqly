@@ -160,6 +160,7 @@ export function PIIDetectionPanel({ token }: { token: string }) {
             options={dsOptions}
             onChange={setSelectedDS}
             disabled={loadingDS || dsOptions.every((o) => o.disabled)}
+            searchable
           />
         </label>
         <button

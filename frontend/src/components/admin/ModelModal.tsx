@@ -76,6 +76,7 @@ function RemoteModelIdPicker({
               value={modelID}
               onChange={onModelIDChange}
               options={remoteModelOptions}
+              searchable
               placeholder={t('admin.ai_providers.fields.model_id')}
             />
           </div>

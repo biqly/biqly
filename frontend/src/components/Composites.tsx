@@ -360,6 +360,7 @@ export default function Composites() {
             value={datasourceId}
             onChange={setSelectedDatasourceId}
             options={datasources.map((d) => ({ value: d.id, label: d.name }))}
+            searchable
             placeholder={t('composites.datasource_placeholder')}
             ariaLabel={t('composites.datasource_placeholder')}
           />

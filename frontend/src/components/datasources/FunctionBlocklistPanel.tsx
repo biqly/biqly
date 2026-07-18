@@ -142,6 +142,7 @@ export function FunctionBlocklistPanel({ datasources }: FunctionBlocklistPanelPr
           value={datasourceId}
           onChange={selectDatasource}
           options={datasourceOptions}
+          searchable
           placeholder={t('datasources.function_blocklist.datasource_placeholder')}
           disabled={datasources.length === 0}
           ariaLabel={t('datasources.function_blocklist.datasource_label')}

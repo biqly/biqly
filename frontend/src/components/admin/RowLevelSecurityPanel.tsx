@@ -207,6 +207,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
               setPolicy(null)
               setFilters([])
             }}
+            searchable
             disabled={loadingDS || dsOptions.every((o) => o.disabled)}
           />
         </label>
@@ -220,6 +221,7 @@ export function RowLevelSecurityPanel({ token }: { token: string }) {
             options={modelOptions}
             onChange={setSelectedModel}
             disabled={!effectiveSelectedDS || loadingModels}
+            searchable
           />
         </label>
       </div>

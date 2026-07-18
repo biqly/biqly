@@ -48,6 +48,16 @@ describe('resolveSelectPopoverCoords', () => {
     expect(coords.top).toBeUndefined()
     expect(coords.bottom).toBe(viewportHeight - trigger.top + 6)
   })
+
+  it('never renders the menu narrower than a wide trigger (edges stay aligned)', () => {
+    // A wide trigger (600px) with short options must not be capped below its
+    // own width — otherwise the open menu reads as misaligned under it.
+    const wide = rect({ left: 100, right: 700, width: 600, top: 200, bottom: 230 })
+    const coords = resolveSelectPopoverCoords(wide, pageSizeOptions, 12.5, 288, 900)
+
+    expect(coords.left).toBe(100)
+    expect(coords.width).toBeGreaterThanOrEqual(600)
+  })
 })
 
 describe('selectPopoverFixedStyle', () => {

@@ -98,6 +98,7 @@ export function SkillFormModal({
             value={form.datasourceId}
             onChange={(val) => onChange({ datasourceId: val })}
             options={datasources.map((d) => ({ value: d.id, label: d.name }))}
+            searchable
           />
         </div>
 
@@ -111,6 +112,7 @@ export function SkillFormModal({
               { value: '', label: t('skills.label_all_models') },
               ...semanticModels.map((m) => ({ value: m.id, label: m.label ?? m.name })),
             ]}
+            searchable
           />
         </div>
 

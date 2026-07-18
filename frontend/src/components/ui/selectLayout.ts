@@ -43,9 +43,14 @@ export function resolveSelectPopoverLayout(
   fontSizePx: number,
 ): { left: number; width: number } {
   const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1200
-  const maxW = Math.min(MAX_POPOVER_WIDTH_PX, viewportW - 16)
+  const viewportCap = viewportW - 16
   const contentW = measureSelectOptionsWidth(options, fontSizePx)
-  const width = Math.min(maxW, Math.max(triggerRect.width, contentW, MIN_POPOVER_WIDTH_PX))
+  // Never narrower than the trigger, so the open menu lines up with the
+  // control that spawned it (a menu capped below a wide trigger reads as
+  // misaligned). Otherwise size to content up to MAX_POPOVER_WIDTH_PX, and
+  // never exceed the viewport.
+  const contentWidth = Math.min(MAX_POPOVER_WIDTH_PX, Math.max(contentW, MIN_POPOVER_WIDTH_PX))
+  const width = Math.min(viewportCap, Math.max(triggerRect.width, contentWidth))
   let left = triggerRect.left
   if (left + width > viewportW - 8) {
     left = Math.max(8, viewportW - 8 - width)

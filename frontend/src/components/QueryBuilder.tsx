@@ -743,6 +743,7 @@ export default function QueryBuilder() {
                 onChange={setDatasourceId}
                 placeholder={t('query_builder.placeholder_pick_datasource')}
                 options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+                searchable
                 size="sm"
               />
             </div>
@@ -761,6 +762,7 @@ export default function QueryBuilder() {
                     label: modelListLabel(m),
                     hint: modelListHint(m),
                   }))}
+                  searchable
                   size="sm"
                 />
               </div>

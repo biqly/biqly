@@ -48,6 +48,7 @@ export default function TableBrowser() {
             value={page.datasourceId}
             onChange={page.setDatasourceId}
             options={page.datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+            searchable
           />
         </div>
         <div className={tableBrowserToolbarFieldClass}>
@@ -65,6 +66,7 @@ export default function TableBrowser() {
               label: modelListLabel(m),
               hint: modelListHint(m),
             }))}
+            searchable
           />
         </div>
         {page.modelDetail && page.tableOptions.length > 0 && (
@@ -77,6 +79,7 @@ export default function TableBrowser() {
               value={page.selectedTableKey}
               onChange={page.setSelectedTableKey}
               options={page.tableOptions}
+              searchable
             />
           </div>
         )}

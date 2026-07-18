@@ -100,6 +100,7 @@ export function RoutingPanel({
             placeholder={t('ai_query.select_placeholder')}
             header={t('ai_query.header_datasources')}
             options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+            searchable
           />
         </div>
         <div className={legacyFormClass('form-group')}>
@@ -123,6 +124,7 @@ export function RoutingPanel({
                 hint: c.status,
               })),
             ]}
+            searchable
           />
         </div>
       </div>

@@ -208,6 +208,7 @@ export function CompositeDetailPanel({
               value: m.id,
               label: m.label ?? m.name,
             }))}
+            searchable
             placeholder={t('composites.model_select')}
           />
           <input

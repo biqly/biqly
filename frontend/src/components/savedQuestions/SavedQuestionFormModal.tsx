@@ -56,6 +56,7 @@ export function SavedQuestionFormModal({
             value={form.datasourceId}
             onChange={(val) => onChange({ datasourceId: val })}
             options={datasources.map((d) => ({ value: d.id, label: d.name }))}
+            searchable
           />
         </div>
 
@@ -69,6 +70,7 @@ export function SavedQuestionFormModal({
               { value: '', label: t('saved_questions.label_all_models') },
               ...semanticModels.map((m) => ({ value: m.id, label: m.label ?? m.name })),
             ]}
+            searchable
           />
         </div>
 

@@ -326,6 +326,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
             options={dsOptions}
             onChange={setSelectedDS}
             disabled={loadingDS || dsOptions.every((o) => o.disabled)}
+            searchable
           />
         </label>
 
@@ -338,6 +339,7 @@ export function FieldPermissionPanel({ token }: { token: string }) {
             options={modelOptions}
             onChange={setSelectedModel}
             disabled={!selectedDS || loadingModels}
+            searchable
           />
         </label>
       </div>

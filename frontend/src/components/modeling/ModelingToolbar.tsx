@@ -78,6 +78,7 @@ export function ModelingToolbar({
           placeholder={t('modeling.datasource_placeholder')}
           header={t('modeling.datasource_header')}
           options={datasources.map((d) => ({ value: d.id, label: d.name, hint: d.type }))}
+          searchable
         />
       </div>
       <div className={cn(modelingFormGroupClass, modelingToolbarGroupModelClass)}>
@@ -93,6 +94,7 @@ export function ModelingToolbar({
             }
             header={t('modeling.model_header')}
             options={models.map((m) => ({ value: m.id, label: m.label ?? m.name, hint: m.status }))}
+            searchable
           />
           {model && (
             <span className={modelingStatusPillClass(isPublished)}>

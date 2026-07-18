@@ -231,6 +231,7 @@ export function KnowledgeBasePage() {
             value={datasourceId}
             onChange={setDsParam}
             options={datasourceSelectOptions}
+            searchable
             size="sm"
             ariaLabel={t('knowledge_base.kb_datasource')}
           />

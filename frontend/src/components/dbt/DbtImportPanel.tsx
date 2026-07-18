@@ -90,6 +90,7 @@ export function DbtImportPanel() {
             value={datasourceId}
             onChange={setDatasourceId}
             options={datasourceOptions}
+            searchable
             placeholder={t('dbt_import.datasource_placeholder')}
             disabled={datasourcesLoading}
             ariaLabel={t('dbt_import.datasource_label')}

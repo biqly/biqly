@@ -92,7 +92,12 @@ func newGeneratedSemanticModel(base metadata.Table, opts GenerateModelOptions) (
 		baseNameForModel = base.TableName
 	}
 	modelName := uniqueModelName(normalizeName(baseNameForModel), opts.ExistingNames)
-	label := humanLabel(baseNameForModel)
+	// Derive the label from the final (deduped) name, not the raw base name, so
+	// a second model generated for the same datasource reads "Zlitter 2"
+	// consistently — instead of the name being "zlitter_2" while the label
+	// stayed "Zlitter" (a duplicate of the first model's label, and mismatched
+	// with the "_2" name that leaks into any name-based view).
+	label := humanLabel(modelName)
 	return &semantic.SemanticModel{
 		ID:           modelID,
 		DatasourceID: opts.DatasourceID,

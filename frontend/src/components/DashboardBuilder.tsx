@@ -659,6 +659,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                         setSelQuestionId('')
                       }}
                       options={datasources.map((d) => ({ value: d.id, label: d.name }))}
+                      searchable
                     />
                   </div>
                   <div className={cn(legacyFormClass('form-field'), 'flex-1')}>
@@ -676,6 +677,7 @@ export default function DashboardBuilder({ dashboardId, onBack }: DashboardBuild
                         { value: '', label: 'All Models' },
                         ...models.map((m) => ({ value: m.id, label: m.label ?? m.name })),
                       ]}
+                      searchable
                     />
                   </div>
                 </div>
