@@ -137,11 +137,11 @@ mail:
     BI_MAIL_SMTP_SENDER_NAME: "ABI"
   image:
     repository: mail
-    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
+    tag: sha-19848513294f2251947818cde91d0f3ecc5500ac
   migrate:
     image:
       repository: mail
-      tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
+      tag: sha-19848513294f2251947818cde91d0f3ecc5500ac
 frontend:
   replicaCount: 1
   resources:
@@ -178,7 +178,7 @@ query:
       cpu: 1000m
       memory: 512Mi
   image:
-    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
+    tag: sha-19848513294f2251947818cde91d0f3ecc5500ac
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -190,7 +190,7 @@ worker:
     minReplicas: 1
     maxReplicas: 1
   image:
-    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
+    tag: sha-19848513294f2251947818cde91d0f3ecc5500ac
 # Re-deployed 2026-07-07: ConnectNATS fixed to merge subjects instead of
 # replacing them (b98ace38). Agent runs in shadow mode observing/comparing
 # results alongside the legacy pipeline, with its own job subject
@@ -203,7 +203,7 @@ agent:
     minReplicas: 1
     maxReplicas: 1
   image:
-    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
+    tag: sha-19848513294f2251947818cde91d0f3ecc5500ac
 mcp:
   replicaCount: 1
   resources:
@@ -214,7 +214,7 @@ mcp:
       cpu: 300m
       memory: 192Mi
   image:
-    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
+    tag: sha-19848513294f2251947818cde91d0f3ecc5500ac
   config:
     # MCP proxies tool calls to the API gateway. Target the in-cluster gateway
     # service (same upstream cloudflared uses) with the public hostname as the
@@ -242,7 +242,7 @@ ai:
       # execution concurrently. 1Gi matches the base chart's default.
       memory: 1Gi
   image:
-    tag: sha-3576a30e8fceda2cb28d9640782e96e3091a9f86
+    tag: sha-19848513294f2251947818cde91d0f3ecc5500ac
   autoscaling:
     enabled: false
     minReplicas: 1
