@@ -294,23 +294,40 @@ the app runs in the **`biqly` kubernetes namespace** in the default kubeconfig c
 
 ```text
 deploy/
-├── helm/biqly/            # main helm chart (umbrella)
-│   ├── Chart.yaml
-│   ├── values.yaml        # base values (namespace: biqly, image registry, gateway)
-│   ├── values-dev.yaml    # dev overrides
-│   ├── values-prod.yaml   # prod overrides (canonical copy now lives in biqly-gitops; Flux reconciles it)
-│   ├── templates/         # namespace, postgresql (cnp), nats, dragonfly, otel, alertmanager, etc.
-│   └── charts/            # sub-charts: catalog, query, mcp, ai, worker, agent, auth, mail, frontend
-└── infra/                 # cluster infra (envoy-gateway, etc.), applied with kubectl/helm
+├── infra/                 # cluster infra (envoy-gateway, cloudflared), applied with kubectl/helm
+└── monitoring/            # kube-prometheus-stack values, grafana datasources
 ```
+
+The **Helm chart, values, and Flux/cluster config live in the separate private
+repo `biqly/biqly-gitops`** (chart at `deploy/helm/biqly/`, Flux entrypoint at
+`clusters/prag/`). This monorepo is app code only — it no longer contains the
+chart or `clusters/`.
 
 key points:
 
-- namespace is declared in `values.yaml` (`global.namespace.name: biqly`) and created by the chart.
-- **prod is GitOps via Flux.** The canonical chart + `values-prod.yaml` now live in a separate private repo `biqly/biqly-gitops` (chart at `deploy/helm/biqly/`, Flux entrypoint at `clusters/prag/`). Flux (`flux-system` namespace) watches ONLY `biqly-gitops` (branch `main`, path `clusters/prag`) and reconciles the `biqly` HelmRelease onto the prag cluster. The copy under this monorepo's `deploy/helm/biqly` is being retired — treat biqly-gitops as the source of truth for prod. There is no ArgoCD in the `prag` cluster.
-- image promotion is fully Flux-native (no CI bump workflow, no `scripts/helm-bump-tags.sh`). CI here tags each image `<YYYYMMDDHHmmss>-<sha>` (sortable; legacy `sha-<sha>`/`latest` still published during transition but ignored by automation). In biqly-gitops, one `ImageRepository` per service scans `ghcr.io/biqly/<svc>`, an `ImagePolicy` picks the newest tag by timestamp, and `ImageUpdateAutomation` (`biqly`) writes the selected tags into biqly-gitops's `values-prod.yaml` via `# {"$imagepolicy": ...}` setter markers and commits+pushes to biqly-gitops `main` (author `fluxcdbot`). Flux then reconciles the rollout. So a push to this repo's `main` just needs green image builds; promotion + apply are entirely Flux's job.
-- to apply changes locally (dev): `helm upgrade --install biqly deploy/helm/biqly -n biqly -f deploy/helm/biqly/values-dev.yaml`
-- **after editing any subchart under `deploy/helm/biqly/charts/*/`, run `helm dependency build deploy/helm/biqly` before upgrading** — the `file://` dependencies are packaged as `charts/*.tgz`, and a stale tgz silently deploys old templates while `helm template` renders the edited directory.
+- **prod is GitOps via Flux.** Flux (`flux-system` namespace) watches ONLY
+  `biqly-gitops` (branch `main`, path `clusters/prag`) and reconciles the
+  `biqly` HelmRelease onto the prag cluster. biqly-gitops is the single source
+  of truth for the chart and prod values; chart edits + lint/template/assert +
+  prod deploy all happen there (its `helm-validate` workflow is the chart gate).
+  There is no ArgoCD in the `prag` cluster.
+- image promotion is fully Flux-native (no CI bump workflow, no
+  `scripts/helm-bump-tags.sh`). CI here tags each image `<YYYYMMDDHHmmss>-<sha>`
+  (sortable; legacy `sha-<sha>`/`latest` still published during transition but
+  ignored by automation). In biqly-gitops, one `ImageRepository` per service
+  scans `ghcr.io/biqly/<svc>`, an `ImagePolicy` picks the newest tag by
+  timestamp (API group `image.toolkit.fluxcd.io/v1`), and `ImageUpdateAutomation`
+  (`biqly`) writes the selected tags into biqly-gitops's `values-prod.yaml` via
+  `# {"$imagepolicy": ...}` setter markers and commits+pushes to biqly-gitops
+  `main` (author `fluxcdbot`). Flux then reconciles the rollout. So a push to
+  this repo's `main` just needs green image builds; promotion + apply are
+  entirely Flux's job.
+- local dev is code-only (`make dev-up` + `make watch`, no helm) — see
+  `docs/agents/local-dev.md`. To apply the chart to a cluster by hand, run helm
+  against the sibling gitops clone, e.g. `helm upgrade --install biqly
+  ../biqly-gitops/deploy/helm/biqly -n biqly -f
+  ../biqly-gitops/deploy/helm/biqly/values-dev.yaml` (after `helm dependency
+  build` there when subcharts changed).
 - the HelmRelease sets `upgrade.force: true`, so Flux takes over stale field managers server-side (an old `argocd-controller` manager may still linger on the `biqly-ai` HTTPRoute until it is recreated). For any manual `helm upgrade` escape-hatch, `--force-conflicts` plays the same role.
 - gateway HTTPRoute timeouts are set in values (`route.timeouts.request`: mcp/ai `1800s`, query `120s`) because Envoy's 15s default 504s long AI/MCP calls; new long-running routes need the same treatment.
 - to inspect the cluster: `kubectl -n biqly get pods`

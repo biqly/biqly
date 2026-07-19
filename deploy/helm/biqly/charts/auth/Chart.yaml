@@ -1,6 +1,0 @@
-apiVersion: v2
-name: auth
-description: Biqly Auth Service — authentication, authorization, RBAC, OAuth2, WebAuthn
-type: application
-version: 0.1.0
-appVersion: "0.1.0"

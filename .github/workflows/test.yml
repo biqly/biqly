@@ -98,21 +98,3 @@ jobs:
           version: v2.12.2
           install-mode: goinstall
           args: --timeout=5m
-
-  helm:
-    name: Helm lint
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          token: ${{ github.token }}
-
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-
-      - name: Lint chart
-        run: make helm-lint
-
-      - name: Render chart
-        run: make helm-template

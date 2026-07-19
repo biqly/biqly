@@ -8,7 +8,7 @@ for the design; this doc is the day-2 reference once it's deployed.
 
 ## Service ownership
 
-`cmd/agent` is a standalone deployable (`deploy/helm/biqly/charts/agent`,
+`cmd/agent` is a standalone deployable (chart `deploy/helm/biqly/charts/agent` in the biqly-gitops repo,
 `agent.enabled: false` by default in every values file). It owns exactly one
 thing: the bounded planner/tool loop in `internal/agent/runtime.go`. It has
 no public HTTPRoute and no direct customer-database egress — only
@@ -69,7 +69,7 @@ set (unknown values fall back to a documented bucket like `"other"` or
 
 ## Alerts
 
-`deploy/helm/biqly/templates/prometheus-rules.yaml`'s `biqly.agent` group:
+biqly-gitops `deploy/helm/biqly/templates/prometheus-rules.yaml`'s `biqly.agent` group:
 `BiqlyAgentTerminalFailureRateHigh` (>10% failed runs over 10m, warning),
 `BiqlyAgentSecurityPolicyDenialSpike` (any `prompt_injection_suspected` or
 `identity_mismatch` denial in 5m, critical), `BiqlyAgentShadowDivergenceHigh`

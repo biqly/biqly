@@ -1,6 +1,0 @@
-apiVersion: v2
-name: mail
-description: Biqly Mail Worker — transactional email dispatch (SMTP queue, block list)
-type: application
-version: 0.1.0
-appVersion: "0.1.0"

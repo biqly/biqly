@@ -1,6 +1,0 @@
-apiVersion: v2
-name: mcp
-description: Biqly MCP service — governed query access over the Model Context Protocol
-type: application
-version: 0.1.0
-appVersion: "0.1.0"

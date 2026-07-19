@@ -3,7 +3,7 @@ ifndef .FEATURES
 $(error This Makefile requires GNU Make. On macOS: brew install make && gmake <target>)
 endif
 
-.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai watch debug-watch dev-frontend test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit setup-githooks semgrep-scan vet govulncheck verify-main helm-deps helm-lint helm-template helm-assert-agent helm-assert-web-agent-route helm-upgrade-prod helm-upgrade-prag helm-status helm-history clean migrate-up migrate-test-up migrate-down docker-up docker-down dev-up dev-down seed-adventureworks
+.PHONY: build build-catalog build-query build-ai build-mail build-mail-migrate run run-catalog run-query run-ai debug debug-catalog debug-query debug-ai watch debug-watch dev-frontend test test-go test-frontend coverage-gate eval eval-regression eval-live lint lint-go lint-frontend lint-locale-literals lint-locale-literals-strict format-frontend check-frontend precommit setup-githooks semgrep-scan vet govulncheck verify-main clean migrate-up migrate-test-up migrate-down docker-up docker-down dev-up dev-down seed-adventureworks
 
 # air provides Go live-reload (rebuild + restart on .go save). Pinned via
 # `go run` so no global install is required (first run downloads it).
@@ -46,7 +46,6 @@ RUN_WITH_TEST_ENV = env \
 	BI_MAIL_DB_DSN='$(TEST_MAIL_DB_DSN)' \
 	BI_AUTH_REDIS_DSN='$(TEST_REDIS_DSN)' \
 	BI_REDIS_DSN='$(TEST_REDIS_DSN)'
-HELM_CHART=deploy/helm/biqly
 KUBE_CONTEXT ?= prag
 KUBECONFIG_FILE := $(if $(KUBECONFIG),$(if $(wildcard $(KUBECONFIG)),$(KUBECONFIG),$(HOME)/.kube/config),$(HOME)/.kube/config)
 SEMGREP_SARIF?=semgrep.sarif
@@ -57,24 +56,6 @@ SEMGREP_CONFIGS=\
 	p/typescript \
 	p/javascript \
 	p/owasp-top-ten
-HELM_TEST_METADATA_DSN?=postgres://biqly:biqly@postgres:5432/bi_metadata?sslmode=disable
-HELM_TEST_ENCRYPTION_KEY?=0123456789abcdef0123456789abcdef
-# base64(32-byte test key) — satisfies auth chart required() and AES-256 decode
-HELM_TEST_AUTH_ENCRYPTION_KEY?=MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
-HELM_TEST_AUTH_INTERNAL_TOKEN?=helm-test-internal-token
-HELM_TEST_AUTH_JWT_PRIVATE_KEY?=helm-test-jwt-private-key
-HELM_TEST_AUTH_DB_DSN?=postgres://biqly:biqly@postgres:5432/bi_auth?sslmode=disable
-HELM_AUTH_SECRET_SET=\
-	--set global.secrets.BI_AUTH_ENCRYPTION_KEY='$(HELM_TEST_AUTH_ENCRYPTION_KEY)' \
-	--set global.secrets.BI_AUTH_INTERNAL_TOKEN='$(HELM_TEST_AUTH_INTERNAL_TOKEN)' \
-	--set global.secrets.BI_AUTH_JWT_PRIVATE_KEY='$(HELM_TEST_AUTH_JWT_PRIVATE_KEY)' \
-	--set global.secrets.BI_AUTH_DB_DSN='$(HELM_TEST_AUTH_DB_DSN)'
-HELM_TEST_MAIL_INTERNAL_TOKEN?=helm-test-internal-token
-HELM_TEST_MAIL_DB_DSN?=postgres://biqly:biqly@postgres:5432/bi_mail?sslmode=disable
-HELM_MAIL_SECRET_SET=\
-	--set global.secrets.BI_MAIL_INTERNAL_TOKEN='$(HELM_TEST_MAIL_INTERNAL_TOKEN)' \
-	--set global.secrets.BI_MAIL_DB_DSN='$(HELM_TEST_MAIL_DB_DSN)'
-
 build:
 	@go build -o bin/$(BINARY_NAME) ./cmd/api/
 
@@ -188,50 +169,12 @@ govulncheck:
 # including the security scan. CodeQL is GitHub-hosted and cannot run here;
 # semgrep-scan + govulncheck cover local SAST + dependency vuln checks.
 # Ordered cheapest-first so it fails fast.
-verify-main: vet lint-go lint-locale-literals test-go coverage-gate eval-regression govulncheck check-frontend helm-lint helm-template semgrep-scan
+verify-main: vet lint-go lint-locale-literals test-go coverage-gate eval-regression govulncheck check-frontend semgrep-scan
 	@echo "verify-main: all main CI gates passed locally."
 
-helm-deps:
-	@helm repo add bitnami https://charts.bitnami.com/bitnami --force-update >/dev/null
-	@helm dependency build $(HELM_CHART)
-
-helm-lint: helm-deps
-	@helm lint $(HELM_CHART) \
-		--set global.secrets.BI_METADATA_DB_DSN='$(HELM_TEST_METADATA_DSN)' \
-		--set global.secrets.BI_ENCRYPTION_KEY='$(HELM_TEST_ENCRYPTION_KEY)' \
-		$(HELM_AUTH_SECRET_SET) $(HELM_MAIL_SECRET_SET)
-
-helm-template: helm-deps
-	@helm template biqly $(HELM_CHART) \
-		--set global.secrets.BI_METADATA_DB_DSN='$(HELM_TEST_METADATA_DSN)' \
-		--set global.secrets.BI_ENCRYPTION_KEY='$(HELM_TEST_ENCRYPTION_KEY)' \
-		$(HELM_AUTH_SECRET_SET) $(HELM_MAIL_SECRET_SET) >/tmp/biqly-helm-template.yaml
-
-helm-assert-agent: helm-template
-	@./scripts/assert-agent-helm.sh /tmp/biqly-helm-template.yaml
-
-helm-assert-web-agent-route: helm-template
-	@./scripts/assert-web-agent-route-helm.sh /tmp/biqly-helm-template.yaml
-
-helm-upgrade-prod: helm-deps
-	@helm upgrade --install biqly $(HELM_CHART) \
-		--namespace biqly \
-		--create-namespace \
-		--kubeconfig $(KUBECONFIG_FILE) \
-		--kube-context $(KUBE_CONTEXT) \
-		-f $(HELM_CHART)/values-prod.yaml \
-		--force-conflicts
-
-# Intentionally kept as an alias: prag currently uses the same Helm
-# release/values as prod, and existing docs/scripts invoke this target name.
-# Add prag-specific flags/values here if the environments diverge.
-helm-upgrade-prag: helm-upgrade-prod
-
-helm-status:
-	helm status biqly -n biqly --kubeconfig $(KUBECONFIG_FILE) --kube-context $(KUBE_CONTEXT)
-
-helm-history:
-	helm history biqly -n biqly --kubeconfig $(KUBECONFIG_FILE) --kube-context $(KUBE_CONTEXT)
+# The Helm chart lives in the biqly/biqly-gitops repo now (prod is Flux GitOps).
+# Chart lint/template/assert + prod deploy run there; there are no chart targets
+# in this repo. See docs/agents/local-dev.md for the code-only local dev flow.
 
 clean:
 	@rm -rf bin/ coverage.out
@@ -320,9 +263,6 @@ dev-frontend:
 
 grafana-enable:
 	kubectl scale deployment/grafana -n monitoring --replicas=1
-
-grafana-dashboards-sync:
-	helm template biqly deploy/helm/biqly -f deploy/helm/biqly/values-prod.yaml -s templates/grafana-dashboards.yaml | kubectl apply -n biqly -f -
 
 monitoring-operator-install:
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true

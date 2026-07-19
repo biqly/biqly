@@ -67,7 +67,7 @@ else
   echo ""
   echo "Where to put these values:"
   echo "  1) Local: ./scripts/generate-auth-secrets.sh $ROOT/.env"
-  echo "  2) Helm (dev only): deploy/helm/biqly/values.yaml -> global.secrets.*"
+  echo "  2) Helm (dev only): biqly-gitops deploy/helm/biqly/values.yaml -> global.secrets.*"
   echo "  3) Prod K8s: ./scripts/sync-env-to-k8s.sh $ROOT/.env"
   echo ""
   echo "Also required (not generated here): BI_AUTH_JWT_PRIVATE_KEY (PEM), BI_AUTH_DB_DSN"

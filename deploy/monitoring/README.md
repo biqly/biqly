@@ -47,11 +47,15 @@ Dashboards appear under the **biqly** folder (ConfigMap annotation
 `grafana_folder: biqly`). Prometheus datasource UID is `prometheus` (see
 `deploy/monitoring/grafana-datasources.yaml`).
 
-After changing dashboard JSON in `deploy/helm/biqly/templates/grafana-dashboards.yaml`,
-commit and let Argo CD sync, or apply immediately:
+The dashboards are chart templates in the **biqly-gitops** repo
+(`deploy/helm/biqly/templates/grafana-dashboards.yaml`). Change them there and
+Flux reconciles the ConfigMap on the next sync. To apply one immediately by hand
+(from a sibling gitops clone):
 
 ```bash
-make grafana-dashboards-sync
+helm template biqly ../biqly-gitops/deploy/helm/biqly \
+  -f ../biqly-gitops/deploy/helm/biqly/values-prod.yaml \
+  -s templates/grafana-dashboards.yaml | kubectl apply -n biqly -f -
 ```
 
 With kube-prometheus-stack, metrics are scraped via `ServiceMonitor` resources

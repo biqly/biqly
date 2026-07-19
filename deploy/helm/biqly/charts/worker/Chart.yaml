@@ -1,6 +1,0 @@
-apiVersion: v2
-name: worker
-description: Biqly AI job worker
-type: application
-version: 0.1.0
-appVersion: "0.1.0"
