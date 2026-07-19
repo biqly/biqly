@@ -105,7 +105,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-// Access tokens live 15 minutes (BI_AUTH_JWT_ACCESS_TTL); refresh slightly
+// Access tokens live 15 minutes (BI_AUTH_ACCESS_TTL); refresh slightly
 // earlier so in-flight requests never carry an expired token.
 const TOKEN_REFRESH_MS = 14 * 60 * 1000
 
