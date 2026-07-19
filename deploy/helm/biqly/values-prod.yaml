@@ -116,8 +116,8 @@ auth:
     maxReplicas: 1
 # mail image is now published by CI (ghcr.io/biqly/mail). Prod
 # requires the bi_mail database and the BI_MAIL_DB_DSN / BI_MAIL_INTERNAL_TOKEN
-# secret values to be provisioned, and (optionally) the ArgoCD image-updater
-# list extended to track mail for sha-pinned tags instead of latest.
+# secret values to be provisioned. Its tag is promoted by Flux image automation
+# like every other service (ImagePolicy flux-system:biqly-mail).
 mail:
   enabled: true
   replicaCount: 1

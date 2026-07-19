@@ -14,12 +14,8 @@ name: "CodeQL Advanced"
 on:
   push:
     branches: [ "main" ]
-    paths-ignore:
-      - 'deploy/helm/biqly/.argocd-source-*.yaml'
   pull_request:
     branches: [ "main" ]
-    paths-ignore:
-      - 'deploy/helm/biqly/.argocd-source-*.yaml'
   schedule:
     - cron: '38 3 * * 0'
 

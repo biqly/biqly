@@ -1,8 +1,8 @@
 name: CI
 
 # Meta-only changes (deploy config, Flux manifests, docs, agent skills) must
-# not rebuild api/frontend images: with auto-bump + Flux CD every rebuilt image
-# auto-rolls prod, so a docs-only commit would cause a pointless rollout (and
+# not rebuild api/frontend images: with Flux image automation every rebuilt
+# image auto-rolls prod, so a docs-only commit would cause a pointless rollout (and
 # its transient 503 window on the single-node cluster). Workflow/script changes
 # (.github/**, scripts/**) intentionally still run CI so pipeline edits keep
 # test coverage.
@@ -135,54 +135,6 @@ jobs:
           path: frontend/dist
           retention-days: 7
 
-  docker-api:
-    name: Docker build & push (api)
-    runs-on: [ubuntu-24.04-arm]
-    needs: [backend]
-    permissions:
-      contents: read
-      packages: write
-    env:
-      REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository_owner }}/api
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          token: ${{ github.token }}
-
-      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
-
-      - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Compute image metadata
-        id: meta
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,format=long
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build & push api image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          platforms: linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            SERVICE=api
-          provenance: false
-
   docker-frontend:
     name: Docker build & push (frontend)
     runs-on: [ubuntu-24.04-arm]
@@ -214,6 +166,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=raw,value={{date 'YYYYMMDDHHmmss'}}-{{sha}},enable={{is_default_branch}}
             type=ref,event=branch
             type=ref,event=pr
             type=sha,format=long

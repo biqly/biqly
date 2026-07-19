@@ -6,8 +6,6 @@ on:
   # matching migrate image must exist for every commit any service builds at.
   push:
     branches: [main]
-    paths-ignore:
-      - 'deploy/helm/biqly/.argocd-source-*.yaml'
   pull_request:
     branches: [main]
     paths:
@@ -55,6 +53,7 @@ jobs:
         with:
           images: ghcr.io/biqly/migrate
           tags: |
+            type=raw,value={{date 'YYYYMMDDHHmmss'}}-{{sha}},enable={{is_default_branch}}
             type=sha,format=long,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
 

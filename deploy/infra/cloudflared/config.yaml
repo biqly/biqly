@@ -36,8 +36,6 @@ ingress:
     service: http://traceo-api.traceo.svc.cluster.local:8080
 
   # Single-backend hosts
-  - hostname: "argocd.il1.nl"
-    service: http://argocd-server.argocd.svc.cluster.local:80
   - hostname: "grafana.il1.nl"
     service: http://grafana.monitoring.svc.cluster.local:3000
   - hostname: "jf.il1.nl"

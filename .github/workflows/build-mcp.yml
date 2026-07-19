@@ -56,6 +56,7 @@ jobs:
         with:
           images: ghcr.io/biqly/mcp
           tags: |
+            type=raw,value={{date 'YYYYMMDDHHmmss'}}-{{sha}},enable={{is_default_branch}}
             type=sha,format=long,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
 

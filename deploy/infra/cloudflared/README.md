@@ -46,5 +46,5 @@ kubectl -n biqly exec deploy/biqly-frontend -- \
 
 ## Other hostnames
 
-`config.yaml` also lists argocd, grafana, zlitter, traceo, etc. Those remain
+`config.yaml` also lists grafana, zlitter, traceo, etc. Those remain
 direct-to-Service rules until migrated to a gateway the same way.
