@@ -298,7 +298,7 @@ deploy/
 │   ├── Chart.yaml
 │   ├── values.yaml        # base values (namespace: biqly, image registry, gateway)
 │   ├── values-dev.yaml    # dev overrides
-│   ├── values-prod.yaml   # prod overrides (applied manually with helm upgrade)
+│   ├── values-prod.yaml   # prod overrides (canonical copy now lives in biqly-gitops; Flux reconciles it)
 │   ├── templates/         # namespace, postgresql (cnp), nats, dragonfly, otel, alertmanager, etc.
 │   └── charts/            # sub-charts: catalog, query, mcp, ai, worker, agent, auth, mail, frontend
 └── infra/                 # cluster infra (envoy-gateway, etc.), applied with kubectl/helm
@@ -307,11 +307,11 @@ deploy/
 key points:
 
 - namespace is declared in `values.yaml` (`global.namespace.name: biqly`) and created by the chart.
-- there is no ArgoCD (or other GitOps controller) in the `prag` cluster; deploys are manual/CI-triggered `helm upgrade`, not auto-synced from git.
-- image tags for `main`-pushed commits are bumped in `values-prod.yaml` with `scripts/helm-bump-tags.sh` (checks `ghcr.io/biqly/<svc>:sha-<commit>` exists per service, then rewrites the pinned tag paths), followed by a manual `helm upgrade --install biqly deploy/helm/biqly -n biqly -f deploy/helm/biqly/values-prod.yaml`.
+- **prod is GitOps via Flux.** The canonical chart + `values-prod.yaml` now live in a separate private repo `biqly/biqly-gitops` (chart at `deploy/helm/biqly/`, Flux entrypoint at `clusters/prag/`). Flux (`flux-system` namespace) watches ONLY `biqly-gitops` (branch `main`, path `clusters/prag`) and reconciles the `biqly` HelmRelease onto the prag cluster. The copy under this monorepo's `deploy/helm/biqly` is being retired — treat biqly-gitops as the source of truth for prod. There is no ArgoCD in the `prag` cluster.
+- image promotion is fully Flux-native (no CI bump workflow, no `scripts/helm-bump-tags.sh`). CI here tags each image `<YYYYMMDDHHmmss>-<sha>` (sortable; legacy `sha-<sha>`/`latest` still published during transition but ignored by automation). In biqly-gitops, one `ImageRepository` per service scans `ghcr.io/biqly/<svc>`, an `ImagePolicy` picks the newest tag by timestamp, and `ImageUpdateAutomation` (`biqly`) writes the selected tags into biqly-gitops's `values-prod.yaml` via `# {"$imagepolicy": ...}` setter markers and commits+pushes to biqly-gitops `main` (author `fluxcdbot`). Flux then reconciles the rollout. So a push to this repo's `main` just needs green image builds; promotion + apply are entirely Flux's job.
 - to apply changes locally (dev): `helm upgrade --install biqly deploy/helm/biqly -n biqly -f deploy/helm/biqly/values-dev.yaml`
 - **after editing any subchart under `deploy/helm/biqly/charts/*/`, run `helm dependency build deploy/helm/biqly` before upgrading** — the `file://` dependencies are packaged as `charts/*.tgz`, and a stale tgz silently deploys old templates while `helm template` renders the edited directory.
-- `helm upgrade` may need `--force-conflicts`: the `biqly-ai` HTTPRoute carries a stale `argocd-controller` field manager (old argo-rollouts canary experiment) that owns `.spec.rules`.
+- the HelmRelease sets `upgrade.force: true`, so Flux takes over stale field managers server-side (an old `argocd-controller` manager may still linger on the `biqly-ai` HTTPRoute until it is recreated). For any manual `helm upgrade` escape-hatch, `--force-conflicts` plays the same role.
 - gateway HTTPRoute timeouts are set in values (`route.timeouts.request`: mcp/ai `1800s`, query `120s`) because Envoy's 15s default 504s long AI/MCP calls; new long-running routes need the same treatment.
 - to inspect the cluster: `kubectl -n biqly get pods`
 
@@ -330,7 +330,7 @@ key points:
 notes:
 
 - `ci.yml` skips when only `deploy/**` changes.
-- docker images are pushed to `ghcr.io/biqly/*` and tagged with the git sha.
+- docker images are pushed to `ghcr.io/biqly/*`, tagged with a sortable `<YYYYMMDDHHmmss>-<sha>` timestamp tag (consumed by Flux image automation) plus legacy `sha-<sha>`/`latest` during the transition.
 - golangci-lint version is pinned in `ci.yml` (`v2.12.2`) — match locally with `make lint-go`.
 
 ## Agent skills

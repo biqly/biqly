@@ -2,38 +2,50 @@
 name: deploy-prod
 description: >
   Full dev→prod landing pipeline for the biqly repo: merge dev into main and
-  push — then CI builds images, the auto-bump-prod workflow rewrites
-  values-prod.yaml tags, and FluxCD reconciles the prag cluster. Fully hands-off
+  push — then CI builds images, Flux image automation promotes the new tags into
+  the biqly-gitops repo, and FluxCD reconciles the prag cluster. Fully hands-off
   after the push: no local tag bump, no local helm. Your job is to land the
-  merge and verify the deploy, then re-sync dev with main. Trigger when the user
-  says "prod'a çıkar", "proda çıkar", "prod'a al", "deploy to prod", "land and
-  deploy prod", or invokes /deploy-prod. Do NOT trigger for dev-only work or
-  when the user just asks to commit/push.
+  merge and verify the deploy. Trigger when the user says "prod'a çıkar", "proda
+  çıkar", "prod'a al", "deploy to prod", "land and deploy prod", or invokes
+  /deploy-prod. Do NOT trigger for dev-only work or when the user just asks to
+  commit/push.
 ---
 
 # Deploy to prod (biqly → prag cluster, GitOps via FluxCD)
 
-The user saying the trigger phrase IS the explicit prod go-ahead — do not ask
-again for permission to touch prod. DO stop and report (without proceeding) if
-any step below fails or finds a surprise; never improvise around a failed gate.
+The trigger phrase is the user's intent to deploy — proceed through the
+read-only preflight (Phase 0) without re-asking. But before the one
+irreversible step — pushing the `dev`→`main` merge, which starts the CD —
+confirm with the user, showing the exact commits/diff that will land on `main`.
+DO stop and report (without proceeding) if any step below fails or finds a
+surprise; never improvise around a failed gate.
 
-**How prod deploys now (fully automated).** FluxCD is bootstrapped on the prag
-cluster (`flux-system` namespace, manifests under `clusters/prag/`). A
-`GitRepository` watches `main` (~1 min interval) and a `HelmRelease` named
-`biqly` renders `deploy/helm/biqly` with `values.yaml` + `values-prod.yaml` into
-the `biqly` namespace. The loop after a push to `main`:
+**How prod deploys now (fully automated, Flux-native).** The cluster's desired
+state lives in a SEPARATE private repo `biqly/biqly-gitops` — the Flux entrypoint
+(`clusters/prag/`), the Helm chart (`deploy/helm/biqly/`), and `values-prod.yaml`.
+FluxCD is bootstrapped on the prag cluster (`flux-system` namespace) and watches
+ONLY `biqly-gitops` (branch `main`, path `clusters/prag`, ~1 min interval); a
+`HelmRelease` named `biqly` renders the chart with `values.yaml` + `values-prod.yaml`
+into the `biqly` namespace. The app repo `biqly/biqly` holds only application code.
+The loop after a push to `biqly/biqly` `main`:
 
-1. CI + the `build-*` workflows build and push each service image tagged
-   `sha-<commit>` to `ghcr.io/biqly/*`.
-2. The **`auto-bump-prod`** workflow (`.github/workflows/auto-bump-prod.yml`)
-   fires on those builds' completion, pins each service in `values-prod.yaml` to
-   its newest published image (`scripts/helm-bump-tags.sh`,
-   `LATEST_PER_SERVICE=1`), and pushes the bump commit to `main`.
-3. Flux picks up the bump within ~1 min and reconciles the HelmRelease → rollout.
+1. CI + the `build-*` workflows build and push each service image to
+   `ghcr.io/biqly/*`, now tagged with a sortable `<YYYYMMDDHHmmss>-<sha>`
+   timestamp (legacy `sha-<sha>`/`latest` still published during the transition
+   but ignored by automation).
+2. Flux image-automation (running against biqly-gitops) advances the deploy: an
+   `ImageRepository` per service scans GHCR, an `ImagePolicy` selects the newest
+   tag by timestamp, and `ImageUpdateAutomation` (`biqly`) writes the selected
+   tags into biqly-gitops's `values-prod.yaml` (via `# {"$imagepolicy": ...}`
+   setter markers) and commits+pushes to biqly-gitops `main` as `fluxcdbot`.
+3. Flux source-controller + helm-controller pick up that commit within ~1 min
+   and reconcile the HelmRelease → rollout.
 
-So **all you do is land the merge on `main`.** Do NOT run the bump script, `git`
-bump, `helm upgrade`, or `helm dependency build` from local — the bump is a CI
-job and the apply is Flux. Local `helm`/`docker`/`yq` are not needed.
+So **all you do is land the merge on `biqly/biqly` `main`.** There is no bump
+script, no `auto-bump-prod` workflow, no local `helm upgrade`/`helm dependency
+build`. Promotion happens in the biqly-gitops repo, and the apply is Flux. Local
+`helm`/`docker`/`yq` are not needed. Note: the promotion commit lands on
+**biqly-gitops**, NOT on `biqly/biqly` — nothing comes back to the monorepo.
 
 Announce each phase in one line as you go. At the end, report: merge commit,
 image tag, Flux HelmRelease revision, pod status, and confirmation that
@@ -47,7 +59,7 @@ dev == main.
    behind `origin/dev`, stop and report (a concurrent session may be active).
 3. `kubectl config current-context` must be `prag` (needed for read-only
    verification in Phase 5). Anything else: stop. (No local docker/helm/yq
-   needed — the bump runs in CI.)
+   needed — promotion runs in Flux.)
 4. Flux must be healthy: `flux check` and `flux get helmrelease biqly -n
    flux-system` (READY=True). If Flux is unhealthy or suspended, stop and
    report — nothing will deploy until it is fixed.
@@ -63,9 +75,9 @@ dev == main.
 
 ## Phase 2 — Watch GitHub Actions image builds
 
-If the diff touches ONLY `deploy/**`, `clusters/**`, `.claude/**` and docs, no
-service images rebuild (CI skips deploy-only changes) and auto-bump has nothing
-to advance; Flux still reconciles any chart/config change on its own, so skip to
+If the diff touches ONLY `deploy/**`, `.claude/**` and docs, no service images
+rebuild (CI skips deploy-only changes) and Flux image automation has nothing to
+advance; Flux still reconciles any chart/config change on its own, so skip to
 Phase 4.
 
 1. `SHA=$(git rev-parse HEAD)` (the merge commit on main).
@@ -73,40 +85,45 @@ Phase 4.
    until every `build-*` workflow (and `CI`) for that commit reports
    `completed`. Poll every ~60–90s; builds typically take a few minutes.
 3. Any build concludes `failure` → stop, fetch the failing job's log tail via
-   `gh run view <id> --log-failed`, and report. Auto-bump won't advance a
-   service whose build failed, so the deploy stalls until it's fixed.
+   `gh run view <id> --log-failed`, and report. Flux won't promote a service
+   whose build failed, so the deploy stalls until it's fixed.
 
-## Phase 3 — Auto-bump (automatic — do NOT bump locally)
+## Phase 3 — Watch Flux image automation promote into biqly-gitops
 
-There is nothing to run here. When the builds finish, the `auto-bump-prod`
-workflow pins each service in `values-prod.yaml` to its newest published image
-and pushes a `chore(deploy): auto-bump prod image tags to sha-<short8>` commit
-to `main` as `biqly-ci[bot]`. Just confirm it fired:
+There is nothing to run here — promotion is Flux-native, not a CI job. When the
+builds finish and the timestamp tags land in GHCR, Flux selects them and pushes
+the bump to `biqly-gitops` `main` as `fluxcdbot`. Confirm it fired:
 
-1. `gh run list --workflow=auto-bump-prod.yml -L 3` — the run for this release
-   should be `completed`/`success` (it may run several times as builds finish;
-   the last one carries the bump).
-2. `git fetch origin && git log origin/main --oneline -3` — expect the bot's
-   auto-bump commit at the tip.
-3. If no bump appears after all builds are green, check the workflow logs
-   (`gh run view <id> --log`) — likely a registry-auth or push issue — and
-   report. Do NOT hand-bump locally to work around it; fix the workflow.
+1. `flux get images all -n flux-system` — the `ImageRepository`/`ImagePolicy`
+   for each service should show the new timestamp tag as latest, and
+   `ImageUpdateAutomation/biqly` should report a recent successful run.
+2. Confirm the promotion commit landed in biqly-gitops (NOT in this repo):
+   `gh api repos/biqly/biqly-gitops/commits --jq '.[0:3].[] | .commit.author.name + " " + .commit.message'`
+   — expect a recent `fluxcdbot` commit updating the image tags. If a local
+   clone exists at `/Users/baris.dogu/src/biqly/biqly-gitops`, `git -C
+   /Users/baris.dogu/src/biqly/biqly-gitops fetch && git -C
+   /Users/baris.dogu/src/biqly/biqly-gitops log origin/main --oneline -3` works too.
+3. If no promotion appears after all builds are green, inspect the automation:
+   `flux get images all -n flux-system` for policy errors, then
+   `kubectl -n flux-system logs deploy/image-automation-controller` — likely a
+   registry-auth (GHCR pull secret) or deploy-key/push issue. Do NOT hand-bump
+   locally to work around it; fix the automation.
 
 ## Phase 4 — Let Flux reconcile (no local helm)
 
-Do NOT run `helm upgrade` or `helm dependency build`. Flux builds the chart
-(vendored bitnami postgresql keeps it hermetic; local `file://` subcharts are
-rebuilt fresh by source-controller) and applies it with `upgrade.force: true`,
-which takes over the stale `argocd-controller`/`kubectl-patch` field managers
-on the biqly-ai Deployment/HTTPRoute — so the old `--force-conflicts` dance is
-handled server-side.
+Do NOT run `helm upgrade` or `helm dependency build`. Flux builds the chart from
+biqly-gitops (vendored bitnami postgresql keeps it hermetic; local `file://`
+subcharts are rebuilt fresh by source-controller) and applies it with
+`upgrade.force: true`, which takes over stale field managers server-side (e.g. an
+old `argocd-controller` manager that may still linger on the biqly-ai HTTPRoute
+until it is recreated) — so the old `--force-conflicts` dance is handled for you.
 
 1. Optionally speed things up instead of waiting for the ~1 min git poll:
    `flux reconcile helmrelease biqly -n flux-system --with-source`. This is
    still Flux doing the deploy, not a local apply.
-2. Watch `flux get helmrelease biqly -n flux-system` until READY=True with the
-   new chart revision `0.1.0+<sha8>.<n>` (sha8 = the tag-bump commit). The
-   MESSAGE should read `Helm upgrade succeeded for release biqly/biqly.vN`.
+2. Watch `flux get helmrelease biqly -n flux-system` until READY=True with a new
+   chart revision. The MESSAGE should read `Helm upgrade succeeded for release
+   biqly/biqly.vN`.
 3. If it reports a failure (e.g. a template/strict-YAML error — Flux's parser
    is stricter than the Helm CLI and rejects duplicate keys the CLI tolerated),
    stop and report the message; the running release is untouched because the
@@ -128,14 +145,17 @@ handled server-side.
 ### Rollback (only if asked / on a bad deploy)
 
 Because Flux owns the release, do NOT `helm rollback` — Flux would revert it on
-the next reconcile. To roll back, revert the offending commit on `main` (e.g.
-`git revert` the tag bump) and push; Flux reconciles back to the previous state.
-For an emergency freeze, `flux suspend helmrelease biqly -n flux-system` first,
-then act. ASK the user before rolling back.
+the next reconcile. To roll back, revert the offending promotion commit on
+`biqly-gitops` `main` and push; Flux reconciles back to the previous state. For
+an emergency freeze, `flux suspend helmrelease biqly -n flux-system` first, then
+act. ASK the user before rolling back.
 
 ## Phase 6 — Re-sync dev with main
 
-1. `git checkout dev && git merge main` (brings the bump commit back; should
-   be fast-forward or a trivial merge).
-2. `git push origin dev`.
+Promotion commits now land on `biqly-gitops`, not this repo, so nothing comes
+back to the monorepo — dev and main simply stay equal after the merge. Confirm
+the resting state:
+
+1. `git checkout dev && git merge main` (should be a no-op / fast-forward).
+2. `git push origin dev` if anything moved.
 3. Confirm `git rev-parse dev main` are equal — that's the resting state.

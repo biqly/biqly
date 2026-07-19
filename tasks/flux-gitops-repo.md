@@ -62,12 +62,18 @@ etkin degil. Ideal siralama: Faz 2 merge ile Faz 3 (cluster) birlikte yapilmali,
 yoksa main'de auto-bump yok + Flux henuz yeni repoyu izlemiyor -> yeni push'lar
 deploy olmaz (mevcut pinned tag'ler calismaya devam eder, kesinti yok).
 
-### Faz 3 - Cluster (kullanici uygular / dogrularariz)
-- [ ] image-reflector + image-automation controller'larini kur (flux install --components-extra=... ya da bootstrap).
-- [ ] gitops repoya read-write deploy key ekle; flux-system secret'ini guncelle.
-- [ ] GHCR read pull-secret'i (ghcr-pull) flux-system'de olustur.
-- [ ] flux-system GitRepository url'ini gitops repoya re-point et (ya da yeniden bootstrap).
-- [ ] Reconcile + bir image automation commit'i dogrula.
+### Faz 3 - Cluster cutover  [TAMAM - 2026-07-19]
+- [x] flux bootstrap github (biqly-gitops, path clusters/prag, --read-write-key, --components-extra=image-reflector,image-automation). image controller'lar kuruldu.
+- [x] Deploy key: bootstrap mevcut key'i reuse etti; key biqly/biqly'de tekildi -> oradan silinip biqly-gitops'a write-access ile eklendi.
+- [x] ghcr-auth (dockerconfigjson) flux-system'de olusturuldu; 10 ImageRepository GHCR'i basariyla tariyor.
+- [x] apiVersion fix: flux image API'leri v1 serve ediyor (v1beta2 degil) -> manifest'ler v1'e cevrildi (commit ac0746f).
+- [x] Cutover DOGRULANDI: GitRepository->biqly-gitops READY, Kustomization READY (ac0746f), HelmRelease biqly v173 upgrade succeeded, tum pod'lar Running (restart YOK = no-op), gateway HTTP 200.
+- NOT: ImagePolicy'ler su an NotReady (LATEST=<none>): henuz <timestamp>-<sha> tag'li image yok. dev->main merge + CI sonrasi cozulur; ilk otomatik promotion o zaman.
+
+### Faz 4 - Kalan (KARAR/ADIM bekliyor)
+- [ ] biqly/biqly dev->main merge -> CI timestamp'li image yayinlar -> ImagePolicy cozulur -> ilk Flux otomatik promotion.
+- [ ] Monorepo temizligi (clusters/ + deploy/helm/biqly): ARTIK GUVENLI (Flux biqly/biqly izlemiyor). AMA local dev (make helm-upgrade-prod/values-dev) chart'a bagimli -> silmeden once local-dev stratejisine karar ver.
+- [ ] deploy-prod SKILL.md "trigger phrase = go-ahead" ifadesi (guvenlik taramasi isaretledi) -> onay kapisi eklensin mi?
 
 ### Faz 2b - ArgoCD kalintilarinin temizligi  [TAMAM]
 - [x] deploy/helm/biqly/.argocd-source-biqly.yaml silindi (monorepo + gitops).
