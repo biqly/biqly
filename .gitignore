@@ -49,3 +49,6 @@ testdata/adventureworks/
 .gograph/
 .gstack/
 .worktrees/
+
+# Browser automation debug artifacts (Playwright MCP)
+.playwright-mcp/

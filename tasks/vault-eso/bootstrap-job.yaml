@@ -1,0 +1,102 @@
+# Tek seferlik mirror: biqly ns'deki mevcut secret'ları JWT-auth ile Vault biqly/ KV v2'ye kopyalar.
+# Secret'lar kümeden çıkmaz (yalnızca hedef Vault'a). Job JWT ile login olur → auth path'i uçtan uca test eder.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-bootstrap
+  namespace: biqly
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-bootstrap-read-secrets
+  namespace: biqly
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-bootstrap-read-secrets
+  namespace: biqly
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-bootstrap-read-secrets
+subjects:
+  - kind: ServiceAccount
+    name: vault-bootstrap
+    namespace: biqly
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-bootstrap-script
+  namespace: biqly
+data:
+  mirror.sh: |
+    #!/bin/sh
+    set -eu
+    VAULT="https://vault.95-70-188-40.nip.io"
+    JWT="$(cat /var/run/secrets/vault/token)"
+    LOGIN=$(curl -sk "$VAULT/v1/auth/k8s-prag/login" -d "{\"role\":\"biqly-bootstrap\",\"jwt\":\"$JWT\"}")
+    CT=$(echo "$LOGIN" | jq -r '.auth.client_token // empty')
+    if [ -z "$CT" ]; then echo "LOGIN_FAIL: $(echo "$LOGIN" | jq -c '.errors // .')"; exit 1; fi
+    echo "JWT login OK (policies: $(echo "$LOGIN" | jq -c '.auth.token_policies'))"
+    for pair in biqly-db:db biqly-security:security biqly-auth-secrets:auth biqly-auth-db:auth-db \
+                biqly-ai-secrets:ai biqly-embedding-secrets:embedding biqly-mail-secrets:mail \
+                biqly-mail-db:mail-db biqly-otel-secrets:otel; do
+      s=${pair%%:*}; p=${pair##*:}
+      data=$(kubectl get secret "$s" -n biqly -o json | jq -c '.data|map_values(@base64d)')
+      keys=$(echo "$data" | jq -r 'keys|join(",")')
+      code=$(curl -sk -o /dev/null -w '%{http_code}' -H "X-Vault-Token: $CT" -X POST \
+             -d "{\"data\":$data}" "$VAULT/v1/biqly/data/$p")
+      echo "PUT biqly/$p  <= $s  [$keys]  http=$code"
+    done
+    echo MIRROR_DONE
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-bootstrap-mirror
+  namespace: biqly
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      serviceAccountName: vault-bootstrap
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: mirror
+          image: alpine/k8s:1.30.13
+          command: ["sh", "/script/mirror.sh"]
+          env:
+            - { name: HOME, value: /tmp }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: vault-token, mountPath: /var/run/secrets/vault, readOnly: true }
+            - { name: script, mountPath: /script, readOnly: true }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: vault-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  audience: vault
+                  expirationSeconds: 600
+        - name: script
+          configMap:
+            name: vault-bootstrap-script

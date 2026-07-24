@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: biqly-eso
+  namespace: biqly
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: vault-biqly
+spec:
+  provider:
+    vault:
+      server: "https://vault.95-70-188-40.nip.io"
+      path: "biqly"
+      version: "v2"
+      auth:
+        jwt:
+          path: "k8s-prag"
+          role: "biqly-eso"
+          kubernetesServiceAccountToken:
+            serviceAccountRef:
+              name: biqly-eso
+              namespace: biqly
+            audiences: ["vault"]
+            expirationSeconds: 600
