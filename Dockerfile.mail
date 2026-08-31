@@ -1,5 +1,5 @@
 # Mail service image: ships the runtime binary plus the mail migration binary.
-FROM --platform=$BUILDPLATFORM golang:1.26.5-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.0-alpine AS builder
 
 RUN apk --no-cache add ca-certificates
 
