@@ -58,7 +58,7 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.64.0",
     "vite": "^8.1.5",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "//overrides": "immer is pinned to 11.1.8 because recharts pulls immer 10 transitively while the app requires 11; vite.config dedupe keeps a single copy. Bump this in lockstep with recharts and re-verify that charts render.",
   "overrides": {
