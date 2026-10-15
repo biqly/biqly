@@ -6,7 +6,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.47.0
 	github.com/XSAM/otelsql v0.42.0
 	github.com/bytedance/sonic v1.15.2
-	github.com/databricks/databricks-sql-go v1.13.0
+	github.com/databricks/databricks-sql-go v1.14.0
 	github.com/fxamacker/cbor/v2 v2.9.2
 	github.com/go-chi/chi/v5 v5.3.1
 	github.com/go-chi/cors v1.2.2
